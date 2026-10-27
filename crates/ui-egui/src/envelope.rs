@@ -2,6 +2,9 @@
 //! envelope"): summary, pass/fail, coverage, limitations (never hidden), evidence.
 //! Tolerant of missing members: what the envelope does not say is shown as unknown.
 
+use std::mem::size_of;
+use std::ops::Range;
+
 use serde_json::Value;
 
 /// One evidence range.
@@ -179,6 +182,96 @@ pub const RAW_LINES: usize = 500_000;
 /// Characters kept per raw JSON line (a long string value is cut).
 pub const RAW_LINE_CHARS: usize = 2_000;
 
+/// The kept raw JSON lines in one buffer (M6.P5a): a single `String` holding every
+/// kept line (already cut at [`RAW_LINE_CHARS`]), each followed by `\n`, and a
+/// `Vec<usize>` of the byte start of each line, so a line is a `&str` slice of the
+/// buffer. One buffer and one offset list instead of one heap string per line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RawLines {
+    /// Every kept line, each followed by `\n`.
+    buffer: String,
+    /// The byte start of each kept line in `buffer`.
+    starts: Vec<usize>,
+}
+
+impl RawLines {
+    /// The kept lines of the pretty-printed JSON `text`: up to [`RAW_LINES`] lines,
+    /// each cut at [`RAW_LINE_CHARS`] characters (a cut line ends with `...`). The
+    /// second result is true when a line was cut or lines were left out.
+    fn from_pretty(text: &str) -> (Self, bool) {
+        let mut buffer = String::new();
+        let mut starts = Vec::new();
+        let mut truncated = false;
+        for (i, line) in text.lines().enumerate() {
+            if i >= RAW_LINES {
+                truncated = true;
+                break;
+            }
+            starts.push(buffer.len());
+            if line.len() > RAW_LINE_CHARS && line.chars().count() > RAW_LINE_CHARS {
+                truncated = true;
+                // Cut on a character boundary: the first RAW_LINE_CHARS chars, then `...`.
+                let mut cut = String::with_capacity(RAW_LINE_CHARS + 3);
+                cut.extend(line.chars().take(RAW_LINE_CHARS));
+                cut.push_str("...");
+                buffer.push_str(&cut);
+            } else {
+                buffer.push_str(line);
+            }
+            buffer.push('\n');
+        }
+        // No slack in what is kept: the buffer and the offsets fit their lines exactly.
+        buffer.shrink_to_fit();
+        starts.shrink_to_fit();
+        (Self { buffer, starts }, truncated)
+    }
+
+    /// The number of kept lines.
+    pub fn len(&self) -> usize {
+        self.starts.len()
+    }
+
+    /// No kept lines.
+    pub fn is_empty(&self) -> bool {
+        self.starts.is_empty()
+    }
+
+    /// The lines the range covers, in order, as slices of the buffer. `None` when the
+    /// range is out of bounds, as `Vec::get`.
+    pub fn get(&self, range: Range<usize>) -> Option<Vec<&str>> {
+        let n = self.starts.len();
+        if range.start > range.end || range.start > n || range.end > n {
+            return None;
+        }
+        Some((range.start..range.end).map(|i| self.line(i)).collect())
+    }
+
+    /// Every kept line, in order.
+    pub fn iter(&self) -> impl Iterator<Item = &str> + '_ {
+        (0..self.starts.len()).map(|i| self.line(i))
+    }
+
+    /// The heap held, in bytes: the buffer's and the offsets' capacities.
+    pub fn heap_bytes(&self) -> usize {
+        self.buffer.capacity() + self.starts.capacity() * size_of::<usize>()
+    }
+
+    /// Line `i` as a slice of the buffer, or empty when `i` is out of bounds.
+    fn line(&self, i: usize) -> &str {
+        let s = match self.starts.get(i) {
+            Some(&s) => s,
+            None => return "",
+        };
+        // Every kept line is followed by a `\n`, so its content ends one byte before
+        // the next line's start (or the buffer's end).
+        let e = match i.checked_add(1).and_then(|j| self.starts.get(j).copied()) {
+            Some(e) => e,
+            None => self.buffer.len(),
+        };
+        self.buffer.get(s..e.saturating_sub(1)).unwrap_or("")
+    }
+}
+
 /// What the window shows for one finished request, built once when the reply arrives so
 /// a big envelope (a 1000-row `query`, a `load` of a whole profile) costs nothing per
 /// frame: the [`EnvelopeView`] and the pretty-printed raw JSON as lines, which the window
@@ -187,8 +280,9 @@ pub const RAW_LINE_CHARS: usize = 2_000;
 pub struct Prepared {
     /// The envelope's common members; `None` when the request failed.
     pub view: Option<EnvelopeView>,
-    /// `data` (or, for a failure, the `{"error": ...}` JSON), pretty-printed, by line.
-    pub raw: Vec<String>,
+    /// `data` (or, for a failure, the `{"error": ...}` JSON), pretty-printed, in one
+    /// buffer of lines.
+    pub raw: RawLines,
     /// Lines left out after [`RAW_LINES`], or lines cut at [`RAW_LINE_CHARS`].
     pub raw_truncated: bool,
 }
@@ -204,21 +298,7 @@ impl Prepared {
         let text = raw_value
             .and_then(|v| serde_json::to_string_pretty(v).ok())
             .unwrap_or_default();
-        let mut raw_truncated = false;
-        let mut raw = Vec::new();
-        for (i, line) in text.lines().enumerate() {
-            if i >= RAW_LINES {
-                raw_truncated = true;
-                break;
-            }
-            if line.len() > RAW_LINE_CHARS && line.chars().count() > RAW_LINE_CHARS {
-                raw_truncated = true;
-                let cut: String = line.chars().take(RAW_LINE_CHARS).collect();
-                raw.push(format!("{cut}..."));
-            } else {
-                raw.push(line.to_string());
-            }
-        }
+        let (raw, raw_truncated) = RawLines::from_pretty(&text);
         Self {
             view,
             raw,
@@ -259,6 +339,46 @@ mod tests {
         assert!(failed.view.is_none());
         assert!(failed.raw.iter().any(|l| l.contains("not_found")));
         assert!(!failed.raw_truncated);
+    }
+
+    #[test]
+    fn raw_lines_share_one_buffer() {
+        // A few hundred short rows plus one multi-byte line over RAW_LINE_CHARS.
+        let rows: Vec<Value> = (0..500)
+            .map(|i| json!({"form": format!("A.esm:{i:06X}"), "edid": "x".repeat(20)}))
+            .collect();
+        let long = "é".repeat(RAW_LINE_CHARS + 10);
+        let env = json!({"command": "query", "data": {"rows": rows, "long": long},
+            "coverage": {"status": "complete"}, "limitations": [], "evidence": []});
+        let p = Prepared::new(Some(&env), None);
+        // The lines live in one buffer: less than the bytes the same lines would take
+        // as separate Strings (each line's String capacity, the 24-byte String header
+        // per line, and the Vec's own capacity).
+        let separate: usize = p
+            .raw
+            .iter()
+            .map(|l| l.to_string().capacity() + size_of::<String>())
+            .sum::<usize>()
+            + p.raw.len() * size_of::<String>();
+        assert!(
+            p.raw.heap_bytes() < separate,
+            "one buffer: {} !< {}",
+            p.raw.heap_bytes(),
+            separate
+        );
+        // The first two lines, as &str slices of the buffer; out of bounds is None.
+        let two = p.raw.get(0..2).unwrap_or_default();
+        assert_eq!(two.get(0).copied(), Some("{"));
+        assert!(p.raw.get(p.raw.len()..p.raw.len() + 1).is_none());
+        assert!(p.raw.get(999_999..1_000_000).is_none());
+        // The long line is cut at a character boundary, on its first RAW_LINE_CHARS
+        // characters, and ends with `...`.
+        let cut_line = p.raw.iter().find(|l| l.ends_with("...")).unwrap_or("");
+        let prefix = "  \"long\": \"";
+        assert_eq!(
+            cut_line,
+            format!("{prefix}{}...", "é".repeat(RAW_LINE_CHARS - prefix.len()))
+        );
     }
 
     #[test]
@@ -348,14 +468,8 @@ mod tests {
             return;
         };
         let lines = p.raw.len();
-        // The lines' heap before the one-buffer change: each line's String capacity,
-        // the 24-byte String header per line, and the Vec's own capacity.
-        let heap_bytes: usize = p
-            .raw
-            .iter()
-            .map(|l| l.capacity() + std::mem::size_of::<String>())
-            .sum::<usize>()
-            + p.raw.capacity() * std::mem::size_of::<String>();
+        // The lines' heap: the one buffer and the offsets (M6.P5a).
+        let heap_bytes = p.raw.heap_bytes();
         println!(
             "raw-bench: lines={lines} heap_bytes={heap_bytes} median_ms={}",
             median as f64 / 1.0e6
