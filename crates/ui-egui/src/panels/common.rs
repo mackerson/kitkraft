@@ -160,6 +160,7 @@ pub(crate) struct TableState {
 pub(crate) struct TableRow<'a> {
     ui: &'a mut egui::Ui,
     state: &'a mut TableState,
+    id: egui::Id,
     x: f32,
     top: f32,
     height: f32,
@@ -223,7 +224,8 @@ impl TableRow<'_> {
     /// right sets the column's width, never below `sizes.column_min`; the width then
     /// sticks until a double-click on the handle gives the column back to automatic
     /// sizing. `Sense::click_and_drag` (not `drag`) because the double-click needs the
-    /// click sense; the handle is otherwise the Records split's drag line, in model.
+    /// click sense; the handle is otherwise the Records split's drag line, in model. Its
+    /// id comes from the table's own id, so two tables sharing a parent never share one.
     fn handle(&mut self, col: usize) {
         let min_w = theme::active(self.ui.ctx()).sizes.column_min;
         let left = self.x - self.gap;
@@ -235,7 +237,7 @@ impl TableRow<'_> {
             .ui
             .interact(
                 rect,
-                self.ui.id().with(("col-resize", col)),
+                self.id.with(("col-resize", col)),
                 egui::Sense::click_and_drag(),
             )
             .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
@@ -289,6 +291,7 @@ fn table_metrics(ui: &egui::Ui) -> (f32, f32) {
 /// Draws one row of a [`virtual_table`] at the next place in `ui`.
 fn table_row(
     ui: &mut egui::Ui,
+    id: egui::Id,
     state: &mut TableState,
     zebra: bool,
     add: impl FnOnce(&mut TableRow<'_>),
@@ -306,6 +309,7 @@ fn table_row(
     let mut row = TableRow {
         ui,
         state,
+        id,
         x: rect.min.x,
         top: rect.min.y,
         height,
@@ -317,8 +321,8 @@ fn table_row(
 
 /// The header row of a [`virtual_table`]: the header cells and, in the gap after every
 /// column but the last, the drag handle that resizes it.
-fn table_header(ui: &mut egui::Ui, state: &mut TableState, header: &[&str]) {
-    table_row(ui, state, false, |r| {
+fn table_header(ui: &mut egui::Ui, id: egui::Id, state: &mut TableState, header: &[&str]) {
+    table_row(ui, id, state, false, |r| {
         for (i, h) in header.iter().enumerate() {
             r.cell(|ui| ui.strong(*h));
             if i.saturating_add(1) < header.len() {
@@ -380,7 +384,7 @@ pub(crate) fn virtual_table_for(
     }
     let rect = across
         .show(ui, |ui| {
-            table_header(ui, &mut state, header);
+            table_header(ui, id, &mut state, header);
             let mut down = ScrollArea::vertical()
                 .id_salt((id, "v"))
                 .max_height(max_height)
@@ -391,7 +395,7 @@ pub(crate) fn virtual_table_for(
             down.show_rows(ui, height, rows, |ui, range| {
                 for i in range {
                     let stripe = zebra && i & 1 == 1;
-                    table_row(ui, &mut state, stripe, |r| row(r, i));
+                    table_row(ui, id, &mut state, stripe, |r| row(r, i));
                 }
             })
             .inner_rect
