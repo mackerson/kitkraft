@@ -301,8 +301,7 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     let matrix = kit(root, &["coverage", "--matrix"])?;
     let block = gap_matrix_block(&matrix)?;
     let path = root.join(GAP_MATRIX);
-    let gap = fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let gap = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let disagreements = family_table_disagreements(&gap, &matrix)?;
 
     let out = root.join(OUT);
@@ -487,7 +486,9 @@ fn row_records(row: &Value) -> Result<u64> {
 
 /// `row.type`, an error when missing.
 fn row_type(row: &Value) -> Result<&str> {
-    row.get("type").and_then(Value::as_str).context("matrix row has no `type`")
+    row.get("type")
+        .and_then(Value::as_str)
+        .context("matrix row has no `type`")
 }
 
 /// `row.<key>.status`, an error when missing.
@@ -521,9 +522,7 @@ fn gap_matrix_block(matrix: &Value) -> Result<String> {
         .map(Value::as_str)
         .collect::<Option<Vec<_>>>()
         .context("matrix statuses are not strings")?;
-    let counts = data
-        .get("counts")
-        .context("matrix result has no counts")?;
+    let counts = data.get("counts").context("matrix result has no counts")?;
     let mut records = 0u64;
     for r in rows {
         records = records.saturating_add(row_records(r)?);
@@ -573,7 +572,14 @@ fn gap_matrix_block(matrix: &Value) -> Result<String> {
         ]);
     }
     let table = table(
-        &["Status", "pass", "fail", "inconclusive", "not-run", "Which pass"],
+        &[
+            "Status",
+            "pass",
+            "fail",
+            "inconclusive",
+            "not-run",
+            "Which pass",
+        ],
         &rows_md,
         &[false, true, true, true, true, false],
     );
@@ -592,7 +598,10 @@ fn extract_marked_block(text: &str) -> Result<String> {
     let start = text
         .find(&begin)
         .with_context(|| format!("missing the `{HEADLINE_BEGIN}` marker line"))?;
-    let rest = &text[start + begin.len()..];
+    let after = start
+        .checked_add(begin.len())
+        .with_context(|| format!("the `{HEADLINE_BEGIN}` marker line is not whole"))?;
+    let rest = &text[after..];
     let at = rest
         .find(&end)
         .with_context(|| format!("missing the `{HEADLINE_END}` marker line"))?;
@@ -607,17 +616,23 @@ fn replace_marked_block(text: &str, block: &str) -> Result<String> {
     let start = text
         .find(&begin)
         .with_context(|| format!("missing the `{HEADLINE_BEGIN}` marker line"))?;
-    let rest = &text[start + begin.len()..];
+    let after = start
+        .checked_add(begin.len())
+        .with_context(|| format!("the `{HEADLINE_BEGIN}` marker line is not whole"))?;
+    let rest = &text[after..];
     let at = rest
         .find(&end)
         .with_context(|| format!("missing the `{HEADLINE_END}` marker line"))?;
+    let tail = at
+        .checked_add(end.len())
+        .with_context(|| format!("the `{HEADLINE_END}` marker line is not whole"))?;
     Ok(format!(
         "{}{}{}{}{}",
         &text[..start],
         begin,
         block,
         end,
-        &rest[at + end.len()..]
+        &rest[tail..]
     ))
 }
 
@@ -647,7 +662,8 @@ fn family_table_disagreements(markdown: &str, matrix: &Value) -> Result<Vec<Stri
     let at = markdown
         .find("\n## Record families\n")
         .with_context(|| format!("{GAP_MATRIX}: no `## Record families` heading"))?
-        + 1;
+        .checked_add(1)
+        .with_context(|| format!("{GAP_MATRIX}: the `## Record families` heading is not whole"))?;
     let section = &markdown[at..];
     let end = section.find("\n## ").unwrap_or(section.len());
     // Every row's type, up front: a row without one is an error, not a skip.
@@ -663,26 +679,40 @@ fn family_table_disagreements(markdown: &str, matrix: &Value) -> Result<Vec<Stri
         if cells.len() < 7 {
             continue;
         }
-        let Some(t) = solo_type(&cells[1]) else {
+        let Some(t) = cells.get(1).copied().and_then(solo_type) else {
             continue;
         };
         let Some(i) = types.iter().position(|&x| x == t) else {
             continue;
         };
-        let m = &rows[i];
+        let m = rows
+            .get(i)
+            .with_context(|| format!("matrix row for `{t}` vanished"))?;
+        let parsed = cells
+            .get(2)
+            .copied()
+            .with_context(|| "family table row has no Parsed cell")?;
+        let writable = cells
+            .get(4)
+            .copied()
+            .with_context(|| "family table row has no Typed-writable cell")?;
+        let game = cells
+            .get(6)
+            .copied()
+            .with_context(|| "family table row has no Game cell")?;
         for (column, cell, mx, table_passes) in [
-            ("Parsed", cells[2], row_status(m, "parsed")?, cells[2] == "yes"),
+            ("Parsed", parsed, row_status(m, "parsed")?, parsed == "yes"),
             (
                 "Typed-writable",
-                cells[4],
+                writable,
                 row_status(m, "typed_writable")?,
-                cells[4] == "yes",
+                writable == "yes",
             ),
             (
                 "Game",
-                cells[6],
+                game,
                 row_status(m, "game_runtime_tested")?,
-                cells[6] == "pass",
+                game == "pass",
             ),
         ] {
             if table_passes != (mx == "pass") {
@@ -1180,9 +1210,9 @@ fn render(
 #[cfg(test)]
 mod tests {
     use super::{
-        confidence_table, decoded_table, family_of, family_table, family_table_disagreements,
-        gap_matrix_block, n, occurrence_check, replace_marked_block, table, extract_marked_block,
-        TypeAgg, CONFIDENCE, FAMILIES, INVENTORY,
+        confidence_table, decoded_table, extract_marked_block, family_of, family_table,
+        family_table_disagreements, gap_matrix_block, n, occurrence_check, replace_marked_block,
+        table, TypeAgg, CONFIDENCE, FAMILIES, INVENTORY,
     };
     use serde_json::json;
     use std::collections::BTreeMap;
@@ -1437,18 +1467,19 @@ mod tests {
     /// order, counts beside the backticked passing types.
     #[test]
     fn gap_matrix_headline_renders_from_the_matrix() {
-        let row = |ty: &str, records: u64, parsed: &str, readable: &str, writable: &str, game: &str| {
-            json!({
-                "type": ty,
-                "records": records,
-                "parsed": {"status": parsed},
-                "typed_readable": {"status": readable},
-                "typed_writable": {"status": writable},
-                "ck_differential_tested": {"status": "not-run"},
-                "game_runtime_tested": {"status": game},
-                "save_reload_verified": {"status": "not-run"},
-            })
-        };
+        let row =
+            |ty: &str, records: u64, parsed: &str, readable: &str, writable: &str, game: &str| {
+                json!({
+                    "type": ty,
+                    "records": records,
+                    "parsed": {"status": parsed},
+                    "typed_readable": {"status": readable},
+                    "typed_writable": {"status": writable},
+                    "ck_differential_tested": {"status": "not-run"},
+                    "game_runtime_tested": {"status": game},
+                    "save_reload_verified": {"status": "not-run"},
+                })
+            };
         let matrix = json!({
             "data": {
                 "rows": [
@@ -1564,7 +1595,10 @@ mod tests {
             ["gap-matrix: ACTI Typed-writable: the table says partial, MX says pass"]
         );
         // The other way: the table says pass, MX says not-run.
-        let md = md.replace("not-run | not-run | not-run | Z |", "not-run | pass | not-run | Z |");
+        let md = md.replace(
+            "not-run | not-run | not-run | Z |",
+            "not-run | pass | not-run | Z |",
+        );
         assert_eq!(
             family_table_disagreements(&md, &matrix).unwrap(),
             [
@@ -1583,10 +1617,7 @@ mod tests {
         let old = format!("alpha\n{begin}\nold block\n{end}\nomega\n");
         let new_block = "new block\n";
         let out = replace_marked_block(&old, new_block).unwrap();
-        assert_eq!(
-            out,
-            format!("alpha\n{begin}\n{new_block}{end}\nomega\n")
-        );
+        assert_eq!(out, format!("alpha\n{begin}\n{new_block}{end}\nomega\n"));
         assert_eq!(extract_marked_block(&out).unwrap(), new_block);
         let e = replace_marked_block(&format!("alpha\n{end}\nomega\n"), new_block)
             .unwrap_err()
