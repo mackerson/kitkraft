@@ -83,6 +83,9 @@ pub struct CellViewState {
     pub refs_pending: bool,
     /// The cursor the in-flight references request was asked with.
     refs_page_cursor: Option<String>,
+    /// The inspected record the shared selection last had, so the references
+    /// list scrolls to it once when the selection changes (or none yet).
+    scrolled_for: Option<String>,
     /// Why there is nothing shown (the engine's error).
     pub error: Option<String>,
     /// The limitations of the last filed reply.
@@ -161,6 +164,13 @@ impl CellViewState {
         } else {
             None
         }
+    }
+
+    /// The index of the reference whose `form` is `inspected` (the shared
+    /// selection), for the drawing: it marks the row and scrolls to it.
+    pub fn selected_row(&self, inspected: Option<&str>) -> Option<usize> {
+        let form = inspected?;
+        self.refs.iter().position(|r| r.form == form)
     }
 
     /// The window was reopened: if an error is shown, clear it and the list's
@@ -342,6 +352,10 @@ impl CellViewState {
         let append = self.refs_page_cursor.is_some();
         self.refs_pending = false;
         self.refs_page_cursor = None;
+        if !append {
+            // A new cell's first page: the old cell's scroll is gone.
+            self.scrolled_for = None;
+        }
         let rows: Vec<RefRow> = items(data).into_iter().filter_map(ref_row).collect();
         if append {
             self.refs.extend(rows);
@@ -456,6 +470,8 @@ pub enum CellViewAsk {
     World(String),
     /// Show `form`'s references (the right list).
     Cell(String),
+    /// Load `form`'s cell in the Render Window ("Show in Render Window").
+    ShowCell(String),
     /// The next page of the list or references that `cursor` names.
     Page(Option<String>),
     /// A reference clicked: the shared selection.
@@ -477,8 +493,16 @@ fn message_of(e: &str) -> &str {
 
 impl CellViewState {
     /// Draws the window's content: the list on the left, the selected cell's
-    /// references on the right.
-    pub fn ui(&self, ui: &mut egui::Ui, busy: bool) -> Option<CellViewAsk> {
+    /// references on the right. `inspected` is the shared selection (the
+    /// Records inspector's record) and `shown` the cell the Render Window
+    /// shows, when any.
+    pub fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        busy: bool,
+        inspected: Option<&str>,
+        shown: Option<&str>,
+    ) -> Option<CellViewAsk> {
         let mut ask = None;
         if let Some(e) = &self.error {
             theme::status_line(ui, Status::Fail, message_of(e));
@@ -506,7 +530,7 @@ impl CellViewState {
         ui.horizontal(|ui| {
             self.left_list(ui, busy, &mut ask);
             ui.separator();
-            self.right_refs(ui, busy, &mut ask);
+            self.right_refs(ui, busy, &mut ask, inspected, shown);
         });
         ask
     }
@@ -587,8 +611,17 @@ impl CellViewState {
         }
     }
 
-    /// The references on the right: the selected cell's, paged.
-    fn right_refs(&self, ui: &mut egui::Ui, busy: bool, ask: &mut Option<CellViewAsk>) {
+    /// The references on the right: the selected cell's, paged. The shared
+    /// selection's row is drawn selected, the list scrolls to it once when the
+    /// selection changes, and the cell can be loaded in the Render Window.
+    fn right_refs(
+        &mut self,
+        ui: &mut egui::Ui,
+        busy: bool,
+        ask: &mut Option<CellViewAsk>,
+        inspected: Option<&str>,
+        shown: Option<&str>,
+    ) {
         let Some(c) = &self.cell else {
             theme::status_line(ui, Status::NotRun, "click a cell in the list");
             return;
@@ -602,7 +635,34 @@ impl CellViewState {
                 ui.weak(w);
             }
             ui.weak(format!("{} reference(s)", self.refs_total));
+            if ui
+                .add_enabled(!busy, egui::Button::new("Show in Render Window"))
+                .clicked()
+            {
+                *ask = Some(CellViewAsk::ShowCell(c.clone()));
+            }
+            // The Render Window shows another cell: offer to follow it.
+            if let Some(s) = shown.filter(|s| s != c) {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Show this cell"))
+                    .clicked()
+                {
+                    *ask = Some(CellViewAsk::Cell(s.to_string()));
+                }
+            }
         });
+        let sel = self.selected_row(inspected);
+        let mut scroll_to = self.scroll_row_once(inspected, sel);
+        // The table's row height (the theme's density, never less than a
+        // control's) and its selected row's fill.
+        let active = theme::active(ui.ctx());
+        let control = ui.spacing().interact_size.y;
+        let row_height = if active.restyle {
+            active.density.row_height.max(control)
+        } else {
+            control
+        };
+        let radius = active.radii.control as f32;
         virtual_table(
             ui,
             "cell-view-refs",
@@ -613,7 +673,33 @@ impl CellViewState {
                 let Some(r) = self.refs.get(i) else {
                     return;
                 };
+                let marked = Some(i) == sel;
+                let fill = |ui: &mut egui::Ui| {
+                    if marked {
+                        ui.painter().rect_filled(
+                            ui.max_rect(),
+                            radius,
+                            theme::color(theme::palette(ui).surface.selection),
+                        );
+                    }
+                };
                 let id = row.cell(|ui| {
+                    // The first row drawn aims the table's vertical scroll at the
+                    // selected row: this row's top, one row pitch per row between
+                    // the two. The table's ScrollArea picks the target up when it
+                    // ends, even when the row is off screen.
+                    if let Some(target) = scroll_to.take() {
+                        let pitch = row_height + ui.spacing().item_spacing.y;
+                        let top = ui.max_rect().min.y + (target as f32 - i as f32) * pitch;
+                        // A row-sized rect: only its y-range aims the scroll, so
+                        // the width is the row height, which is a theme size.
+                        let rect = egui::Rect::from_min_size(
+                            egui::pos2(ui.max_rect().min.x, top),
+                            egui::vec2(row_height, row_height),
+                        );
+                        ui.scroll_to_rect(rect, Some(egui::Align::Center));
+                    }
+                    fill(ui);
                     ui.add(
                         egui::Label::new(
                             egui::RichText::new(r.editor_id.as_deref().unwrap_or(&r.form))
@@ -622,10 +708,22 @@ impl CellViewState {
                         .sense(egui::Sense::click()),
                     )
                 });
-                row.cell(|ui| ui.label(r.base.as_deref().unwrap_or("—")));
-                row.cell(|ui| ui.label(r.signature.as_deref().unwrap_or("—")));
-                row.cell(|ui| ui.label(r.position.as_deref().unwrap_or("—")));
-                row.cell(|ui| ui.label(if r.persistent { "persistent" } else { "" }));
+                row.cell(|ui| {
+                    fill(ui);
+                    ui.label(r.base.as_deref().unwrap_or("—"));
+                });
+                row.cell(|ui| {
+                    fill(ui);
+                    ui.label(r.signature.as_deref().unwrap_or("—"));
+                });
+                row.cell(|ui| {
+                    fill(ui);
+                    ui.label(r.position.as_deref().unwrap_or("—"));
+                });
+                row.cell(|ui| {
+                    fill(ui);
+                    ui.label(if r.persistent { "persistent" } else { "" });
+                });
                 if id.double_clicked() {
                     *ask = Some(CellViewAsk::Inspect(r.form.clone()));
                 } else if id.clicked() {
@@ -641,6 +739,20 @@ impl CellViewState {
                 *ask = Some(CellViewAsk::Page(Some(next.clone())));
             }
         }
+    }
+
+    /// The row the references list should scroll to, once, when the shared
+    /// selection changed (so a pick in the viewport shows in the list). The
+    /// drawing does the scroll in the first row it draws, which works even for
+    /// a row not yet in view. `None`: the selection did not change (or has no
+    /// row), the list keeps its place.
+    fn scroll_row_once(&mut self, inspected: Option<&str>, row: Option<usize>) -> Option<usize> {
+        let key = inspected.map(str::to_string);
+        if self.scrolled_for == key {
+            return None;
+        }
+        self.scrolled_for = key;
+        row
     }
 }
 
@@ -858,5 +970,36 @@ mod tests {
             message_of("failed: something else"),
             "failed: something else"
         );
+    }
+
+    /// The row the shared selection marks: the reference whose `form` is the
+    /// inspected record (the drawing uses it to mark the row and scroll to it).
+    #[test]
+    fn the_cell_view_marks_the_selected_reference() {
+        let mut s = CellViewState::default();
+        let env = env(json!({"mode": "cell", "total": 3,
+            "items": [
+                {"form": "Starfield.esm:0A6F06", "signature": "REFR",
+                 "editor_id": "WorkshopLight01", "base": null,
+                 "position": [4, 0, 5], "persistent": false, "versions": 1},
+                {"form": "Starfield.esm:0A6F07", "signature": "ACHR",
+                 "editor_id": "ResidentNPC", "base": null,
+                 "position": [1, 2, 3], "persistent": true, "versions": 1},
+                {"form": "Starfield.esm:0A6F08", "signature": "MISC",
+                 "editor_id": "Crate01", "base": null,
+                 "position": null, "persistent": false, "versions": 1}],
+            "cell": "Starfield.esm:21966F",
+            "cell_editor_id": "CityNewAtlantisApartmentTEMPLATE", "world": null,
+            "next_cursor": null, "summary": "3 references",
+            "elapsed_ms": 1, "index_ms": 1}));
+        let req = s.cell("Starfield.esm:21966F").unwrap();
+        assert!(check(&req).is_ok(), "the gate runs it");
+        s.receive(Ok(&env));
+        assert_eq!(s.refs.len(), 3);
+        // The inspected record (the second reference) is the row marked.
+        assert_eq!(s.selected_row(Some("Starfield.esm:0A6F07")), Some(1));
+        // A form not in the list, and no selection, mark nothing.
+        assert_eq!(s.selected_row(Some("Starfield.esm:0A6F09")), None);
+        assert_eq!(s.selected_row(None), None);
     }
 }

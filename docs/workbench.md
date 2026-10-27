@@ -451,7 +451,12 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
   grid; the right list shows the selected cell's references (EditorID, base, type,
   position, persistent); both paged. Opening it asks for the worldspaces once and
   says "load a profile first" while nothing is loaded; a click on a reference
-  selects it (the shared selection), a double-click inspects it.
+  selects it (the shared selection), a double-click inspects it. The row of the
+  inspected record is drawn selected, and the list scrolls to it once when the
+  selection changes (a pick in the Render Window shows in the list). "Show in
+  Render Window" loads the cell in the Render Window tab, which the shell brings
+  to the front; when the Render Window shows a different cell, a "Show this cell"
+  button follows it (KK-037).
 - **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
   LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout

@@ -11,7 +11,8 @@
 //! shows its EditorID, FormID and base, and the Records inspector shows it too (the
 //! shared selection, [`Action::Select`]); a record inspected there that is a reference of
 //! the cell is selected here. The camera frames the cell when it loads. The Cell View
-//! window (M7.W2) will drive the same picker later.
+//! window (M7.W2) drives the same picker: its "Show in Render Window" asks the tab to
+//! [`RenderTab::show_cell`] a listed cell.
 //!
 //! The controls ([`crate::viewport::BINDINGS`]) are not yet observed against the CK's
 //! Render Window (`docs/ck-parity.md`, "Interface parity").
@@ -311,6 +312,19 @@ impl RenderTab {
         self.loading = true;
         self.error = None;
         req
+    }
+
+    /// Loads `cell` (the Cell View's "Show in Render Window"): the picker's text is set
+    /// to the cell and the first page is requested; later pages arrive through
+    /// [`RenderTab::receive_page`].
+    pub(crate) fn show_cell(&mut self, cell: &str) -> Request {
+        self.pick_text = cell.to_string();
+        self.start(CellPick::Cell(cell.to_string()))
+    }
+
+    /// The cell the viewport shows (or none), for the Cell View's "Show this cell".
+    pub(crate) fn shown_cell(&self) -> Option<&str> {
+        self.page.as_ref().map(|p| p.cell.as_str())
     }
 
     /// A page arrived: keep its references; the next page's request while the cell has
@@ -927,6 +941,44 @@ mod tests {
         tab.inspected = Some("Other.esm:000001".into());
         run(&ctx, &mut tab, Vec::new());
         assert_eq!(tab.viewport.selected(), Some(1));
+    }
+
+    #[test]
+    fn show_cell_loads_it_in_the_render_window() {
+        let ctx = egui::Context::default();
+        let mut tab = RenderTab::default();
+        // The Cell View's "Show in Render Window" asks the tab to load a cell.
+        let req = tab.show_cell("Test.esm:000900");
+        assert_eq!(req.id, "cell");
+        assert_eq!(req.args["cell"], "Test.esm:000900");
+        assert_eq!(req.args["with_bounds"], json!(true));
+        assert_eq!(req.args["limit"], json!(PAGE));
+        assert_eq!(tab.pick_text, "Test.esm:000900");
+        assert!(tab.loading);
+        assert!(crate::gate::check(&req).is_ok(), "the gate runs it");
+        // The pages arrive as the Render Window's own requests' do.
+        let next = tab
+            .receive_page(cell::parse_page(&page_env(
+                &[
+                    item("Test.esm:000901", [0.0, 0.0, 0.0], "STAT"),
+                    item("Test.esm:000902", [40.0, 0.0, 0.0], "CONT"),
+                ],
+                Some("cur"),
+            )))
+            .expect("a second page");
+        assert_eq!(next.args["cell"], "Test.esm:000900");
+        assert_eq!(next.args["cursor"], "cur");
+        assert!(tab
+            .receive_page(cell::parse_page(&page_env(
+                &[item("Test.esm:000903", [80.0, 0.0, 0.0], "LIGH")],
+                None
+            )))
+            .is_none());
+        assert!(!tab.loading);
+        // The frame builds the markers: the cell's references are in the viewport.
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.markers().len(), 3);
+        assert_eq!(tab.shown_cell(), Some("Test.esm:000900"));
     }
 
     #[test]
