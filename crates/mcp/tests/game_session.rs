@@ -144,10 +144,7 @@ fn game_session_started_over_mcp_is_followed_and_stopped() {
     let rows = idle["data"]["rows"].as_array().unwrap();
     assert_eq!(rows.len(), 3, "{rows:?}");
     let verdict = |row: &str| {
-        rows.iter()
-            .find(|x| x["row"] == json!(row))
-            .unwrap()["verdict"]["status"]
-            .clone()
+        rows.iter().find(|x| x["row"] == json!(row)).unwrap()["verdict"]["status"].clone()
     };
     assert_eq!(verdict("T-01"), json!("pass"), "{idle}");
     assert_eq!(verdict("T-02"), json!("pass"), "{idle}");
@@ -160,7 +157,11 @@ fn game_session_started_over_mcp_is_followed_and_stopped() {
               "args": {"id": id, "row": "T-01"}}}),
     );
     let probe = envelope(&reply);
-    assert_eq!(probe["data"]["row"]["verdict"]["status"], json!("pass"), "{probe}");
+    assert_eq!(
+        probe["data"]["row"]["verdict"]["status"],
+        json!("pass"),
+        "{probe}"
+    );
 
     // End it; the report names the ledger entry.
     let reply = client.request(
@@ -183,7 +184,10 @@ fn game_session_started_over_mcp_is_followed_and_stopped() {
     assert_eq!(reply["result"]["isError"], true, "{reply}");
     let err = &reply["result"]["structuredContent"]["error"];
     assert_eq!(err["kind"], "failed", "{reply}");
-    assert!(err["message"].as_str().unwrap().contains("no session"), "{reply}");
+    assert!(
+        err["message"].as_str().unwrap().contains("no session"),
+        "{reply}"
+    );
 
     client.finish();
 }
