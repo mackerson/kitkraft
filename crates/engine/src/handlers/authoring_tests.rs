@@ -551,6 +551,15 @@ fn misc_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+#[test]
+fn flst_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FLST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 // KYWD has no base form component block of its own, so the layout and component name are
 // inert here; every other typed member of the definition is written and read back.
 #[test]
