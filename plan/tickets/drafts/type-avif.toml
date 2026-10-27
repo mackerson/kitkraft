@@ -1,0 +1,80 @@
+# after the inventory draft too, once it has an ID: both regenerate crates/esm/src/generated/
+id = "DRAFT"
+title = "Type AVIF (actor value information) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+budget_h = 1.5
+after = ["KK-023"]
+owns = [
+  "crates/schema/defs/AVIF.toml",
+  "crates/schema/tests/",
+  "crates/esm/src/generated/",
+  "crates/esm/tests/avif_types.rs",
+  "docs/schema/actor-family.md",
+  "docs/record-parity.md",
+  "docs/gaps.md",
+]
+brief = """
+`AVIF` (actor value information, 1,267 official records) has only an lstring-only
+definition: `EDID` and the lstrings `ANAM` and `FULL` are typed, and 6 of the 9 signatures
+the corpus shows are unknown (`docs/record-parity.md`). Type it, the way KK-023 types
+`FLOR`.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then
+`crates/schema/defs/AVIF.toml` (the lstring-only definition; it already cites the pinned
+xEdit file at L9877-L9953) and `crates/schema/defs/FLOR.toml` (KK-023's typed version, for
+the citation style) with `crates/esm/tests/flora_types.rs` (KK-023's corpus test, the model
+for the one you write). The shared blocks are in `crates/schema/defs/common/`: use them by
+`group_ref` or `ref:` if the record shows them; do not copy their members.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas`
+(revision 9fb016884bec138ea6c7b872cec831537d464c3e). `AVIF` is at L9877-L9953; follow the
+helpers it names. Cite line ranges in `source`/`evidence` as FLOR.toml does. Clean-room
+rule (AGENTS.md): read it for facts (member order, types, sizes, names) and write the TOML
+in your own words; never copy its code or comments. Names are ours, UpperCamelCase, CK
+wording where it exists. The corpus wins over xEdit: a subrecord xEdit lacks, or a
+different size, is added from the corpus with a `corpus:` evidence line; anything you
+cannot type stays `opaque` with a note. Write a `corpus:` evidence line only after a test
+of yours has printed the fact it cites; until then cite xEdit with `confidence =
+"reference"`.
+
+Keep the lstring members exactly as typed today: `ANAM` and `FULL` stay lstring members,
+and the corpus lstring table in `crates/engine/src/edit/lstrings.rs` must still match (it
+is checked by `crates/engine/tests/lstring_table.rs`). In `crates/schema/tests/defs.rs`,
+remove `AVIF` from the `LSTRING_ONLY` list: the definition is no longer lstring-only.
+
+Then check it against the corpus: a new `crates/esm/tests/avif_types.rs`, modelled on
+`crates/esm/tests/flora_types.rs` (same lint allowances and checks: every subrecord placed
+in a member, every placed subrecord decodes, re-encoding reproduces each record). One test,
+`avif_types_full`, with `#[ignore = "reads all 14 official ESMs; run in release"]`, printing
+exactly `avif AVIF: <n> records, <m> identical` and, per signature, how many records have
+it. Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests
+describe (`crates/schema/tests/codegen.rs`); never hand-edit generated files. Fix whatever
+`cargo test -p kitkraft-schema` reports. Regenerate `docs/record-parity.md` with `cargo
+xtask parity`: the AVIF row must show 0 unknown. Add a short "Actor value information"
+section to `docs/schema/actor-family.md` (members, sources, corpus counts, what stays
+opaque): `AVIF` is not in the actor family list of `xtask/src/parity.rs`, so the parity
+tool counts it under container/other, but it defines the actor values the actor record
+types reference, so the section goes in the actor family doc; `xtask/src/parity.rs` stays
+unchanged. If anything stays opaque, note it in `docs/gaps.md`. Do not change any other
+definition.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release:
+`cargo test --release -p kitkraft-esm --test avif_types -- --ignored --nocapture`. Then
+`cargo xtask ci`. Commit after the definition first loads, and after the corpus test passes.
+"""
+
+[[accept]]
+name = "avif-full"
+cmd = "cargo test --release -p kitkraft-esm --test avif_types -- --ignored --exact avif_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^avif AVIF: 1267 records, 1267 identical' /tmp/o"
+
+[[accept]]
+name = "schema-all"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-row"
+cmd = "grep -Eq '^\\| `AVIF` +\\| ActorValueInformation +\\| +1,267 +\\| +[0-9,]+ +\\| +9 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md"

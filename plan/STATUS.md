@@ -2935,3 +2935,4 @@ Landed: KK-038 drag-resize for virtual_table columns (crates/ui-egui/src/panels/
   world has no cells yet and is not game-tested. Both drafts lint clean
   (`plan/tickets/lint.py --min 2`), and each one's unit-test acceptance fails on
   main today.
+Landed 2026-10-26: KK-052 - two ticket drafts in `plan/tickets/drafts/` for the morning merge: inventory definitions for MRPH, CNDF, VTYP, MTPT and ASPC, and typing AVIF (actor value information) from the pinned xEdit file; both `after = ["KK-023"]`, both lint clean (0 errors, 0 warnings), covers check passes, `cargo test -p kitkraft-schema` green.
