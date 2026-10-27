@@ -70,6 +70,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("DIAL.toml", include_str!("../defs/DIAL.toml")),
     ("DMGT.toml", include_str!("../defs/DMGT.toml")),
     ("DOOR.toml", include_str!("../defs/DOOR.toml")),
+    ("EFSQ.toml", include_str!("../defs/EFSQ.toml")),
     ("ENCH.toml", include_str!("../defs/ENCH.toml")),
     ("EXPL.toml", include_str!("../defs/EXPL.toml")),
     ("FACT.toml", include_str!("../defs/FACT.toml")),
