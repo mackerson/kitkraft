@@ -464,9 +464,11 @@ pub enum CellViewAsk {
     Inspect(String),
 }
 
-/// The error to show: the engine's "no load order" says "load a profile first".
+/// The error to show: the engine's "no load order" error says "load a profile
+/// first" (the app's error text is "{kind}: {message}", so the phrase is
+/// searched for, not anchored).
 fn message_of(e: &str) -> &str {
-    if e.starts_with("no load order") {
+    if e.contains("no load order") {
         "load a profile first"
     } else {
         e
@@ -839,5 +841,22 @@ mod tests {
         assert!(s.list_mode.is_none());
         // ...and the window asks for the worldspaces again.
         assert!(s.worlds().is_some());
+    }
+
+    #[test]
+    fn the_no_load_order_error_says_load_a_profile_first() {
+        // The app receives the engine's error as "{kind}: {message}" (gate.rs).
+        assert_eq!(
+            message_of(
+                "failed: no load order: pass --profile <MO2 profile dir> \
+                       or --plugins <file>..."
+            ),
+            "load a profile first"
+        );
+        // Any other engine error is shown as it came.
+        assert_eq!(
+            message_of("failed: something else"),
+            "failed: something else"
+        );
     }
 }
