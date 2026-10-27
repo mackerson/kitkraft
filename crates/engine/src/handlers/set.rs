@@ -586,8 +586,11 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("fields")
         .and_then(Value::as_object)
         .ok_or_else(|| failed(ID, "argument `fields` is missing"))?;
-    // With scripts to attach, `fields` may be empty.
-    let edits = if fields.is_empty() && args.get("scripts").is_some_and(|s| !s.is_null()) {
+    // With scripts to attach, or a material swap, `fields` may be empty.
+    let swaps = args.get("swap_overrides").filter(|s| !s.is_null());
+    let edits = if fields.is_empty()
+        && (args.get("scripts").is_some_and(|s| !s.is_null()) || swaps.is_some())
+    {
         Vec::new()
     } else {
         edits(ID, "/fields", fields)?
@@ -605,10 +608,21 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let unrelated = safe_source(ID, loaded, g)?;
     // Scripts to attach (M4.E9): refused here when a script or property is unknown.
     let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
-    if edits.is_empty() && scripts.scripts.is_empty() {
-        return Err(failed(ID, "nothing to set: give fields or scripts"));
+    if edits.is_empty() && scripts.scripts.is_empty() && swaps.is_none() {
+        return Err(failed(
+            ID,
+            "nothing to set: give fields, scripts or swap_overrides",
+        ));
     }
     let (mut copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
+    // The material swap, as a whole-REFL edit of the LMSW's current REFL (KK-019).
+    let swap_report = if let Some(swaps) = swaps {
+        let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)?;
+        copy.edits.push(edit);
+        Some(report)
+    } else {
+        None
+    };
     copy.scripts = scripts.scripts;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, unrelated);
@@ -651,6 +665,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             if !scripts.reports.is_empty() {
                 obj.insert("scripts".into(), Value::Array(scripts.reports));
             }
+            if let Some(report) = swap_report {
+                obj.insert("swap_overrides".into(), Value::Array(report));
+            }
         }
         return Ok(result);
     }
@@ -679,6 +696,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         obj.insert("validate".into(), validate_json(&checked));
         if !scripts.reports.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts.reports));
+        }
+        if let Some(report) = swap_report {
+            obj.insert("swap_overrides".into(), Value::Array(report));
         }
     }
     Ok(result)

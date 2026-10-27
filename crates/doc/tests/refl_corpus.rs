@@ -1,6 +1,9 @@
 //! Every `REFL` of the official files decodes through `kitkraft_doc::refl` and re-encodes
 //! byte-identically, and every `LMSW` one yields its entries (swaps, material references
-//! and named property values). `#[ignore]`: reads 2.5 GB. Run
+//! and named property values). The `LMSW` `REFL`s also self-rewrite (KK-019): each swap
+//! entry's override is replaced with itself through `refl::swap_overrides` and the bytes
+//! must come back identical, so an override edit that does not touch an entry changes
+//! nothing. `#[ignore]`: reads 2.5 GB. Run
 //! `cargo test -p kitkraft-doc --release --test refl_corpus -- --include-ignored --nocapture`
 //! with `KITKRAFT_DATA_DIR` set.
 //!
@@ -13,6 +16,13 @@
 //! the test too: all 29,897 official `REFL`s decode and re-encode, so one that does not is
 //! a regression. The `LMSW` shape (swaps, references, properties, and the payloads
 //! without swaps) is pinned to the counts the `refl` module docs give.
+//!
+//! The self-rewrite line is `refl-edit LMSW: <n> rewritten, <m> identical`. The official
+//! payloads are not key-unique: 124 of the 17,410 (2026-10-27) list a key — sometimes the
+//! empty string — in several swap entries, and `swap_overrides` refuses such a key by
+//! name rather than guessing which entry it means. Those payloads self-rewrite only the
+//! keys that name exactly one entry and are reported in the line after; every payload
+//! still counts toward `rewritten`.
 
 #![allow(
     clippy::panic,
@@ -161,6 +171,141 @@ fn walk(entry: &Entry<'_>, file: &str, stats: &mut Stats) {
         }
         Entry::Record(r) => visit(r, file, stats),
     }
+}
+
+/// The self-rewrite walk of every `LMSW` `REFL` (KK-019).
+#[derive(Default)]
+struct EditStats {
+    /// The `LMSW` `REFL`s walked.
+    lmsw: u64,
+    /// The ones that rewrite to themselves byte for byte.
+    identical: u64,
+    /// Payloads in which some key names more than one swap entry, so that key is
+    /// left untouched: 124 of the 17,410 official payloads (2026-10-27).
+    ambiguous: u64,
+    /// Failures, with the FormID.
+    failures: Vec<String>,
+}
+
+fn visit_edit(record: &Record<'_>, file: &str, stats: &mut EditStats) {
+    if record.header.signature != Signature(*b"LMSW") {
+        return;
+    }
+    let decoded = record.decode(&DecodeLimits::default()).unwrap();
+    let subs = match (&decoded, record.subrecords()) {
+        (Some(d), _) => d.as_slice(),
+        (None, Some(s)) => s,
+        (None, None) => return,
+    };
+    for s in subs.iter().filter(|s| s.signature() == Signature(*b"REFL")) {
+        let at = format!("{file} LMSW:{:08X}", record.header.form_id);
+        let r = match refl::decode(s.data()) {
+            Ok(r) => r,
+            Err(e) => {
+                stats.failures.push(format!("{at}: {e}"));
+                continue;
+            }
+        };
+        let entries = match refl::lmsw_entries(&r) {
+            Ok(v) => v,
+            Err(e) => {
+                stats.failures.push(format!("{at}: lmsw_entries: {e}"));
+                continue;
+            }
+        };
+        // The official payloads are not key-unique: a key (including the empty string)
+        // may name several swap entries, and `swap_overrides` refuses such a key by
+        // name. Self-rewrite only the keys that name exactly one entry, and count the
+        // payloads that hold an ambiguous key; the ambiguous keys themselves are left
+        // untouched, and so is everything else.
+        let mut counts: BTreeMap<&str, u64> = BTreeMap::new();
+        for e in &entries {
+            if let refl::SwapEntry::Swap { key, .. } = e {
+                *counts.entry(key.as_str()).or_insert(0) += 1;
+            }
+        }
+        if counts.values().any(|n| *n > 1) {
+            stats.ambiguous += 1;
+        }
+        let swaps: Vec<(String, String)> = entries
+            .iter()
+            .filter_map(|e| match e {
+                refl::SwapEntry::Swap {
+                    key, r#override, ..
+                } if counts.get(key.as_str()) == Some(&1) => {
+                    Some((key.clone(), r#override.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+        let r2 = match refl::swap_overrides(&r, &swaps) {
+            Ok(r) => r,
+            Err(e) => {
+                stats.failures.push(format!("{at}: swap_overrides: {e}"));
+                continue;
+            }
+        };
+        stats.lmsw += 1;
+        if refl::encode(&r2) == s.data() {
+            stats.identical += 1;
+        } else {
+            stats.failures.push(format!("{at}: rewrites differently"));
+        }
+    }
+}
+
+fn walk_edit(entry: &Entry<'_>, file: &str, stats: &mut EditStats) {
+    match entry {
+        Entry::Group(g) => {
+            for child in g.children() {
+                walk_edit(child, file, stats);
+            }
+        }
+        Entry::Record(r) => visit_edit(r, file, stats),
+    }
+}
+
+#[test]
+#[ignore = "reads 2.5 GB of plugins; run in release"]
+fn every_official_lmsw_override_rewrites_to_itself() {
+    let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+        .map(PathBuf::from)
+        .filter(|d| d.is_dir())
+    else {
+        println!("skipped: KITKRAFT_DATA_DIR is unset or not a directory");
+        return;
+    };
+    let mut stats = EditStats::default();
+    for name in CORPUS {
+        let path = dir.join(name);
+        visit_file(&path, &ParseOptions::default(), |entry| {
+            walk_edit(entry, name, &mut stats);
+            Ok(())
+        })
+        .unwrap();
+    }
+    for f in stats.failures.iter().take(20) {
+        println!("  {f}");
+    }
+    assert!(
+        stats.failures.is_empty(),
+        "{} LMSW REFLs fail to rewrite to themselves",
+        stats.failures.len()
+    );
+    assert_eq!(
+        stats.lmsw, LMSW_TOTAL,
+        "expected the {LMSW_TOTAL} official LMSW records to hold a REFL"
+    );
+    println!(
+        "refl-edit LMSW: {} rewritten, {} identical",
+        stats.lmsw, stats.identical
+    );
+    println!(
+        "  ({} payloads hold a key naming more than one swap entry; those keys are \
+         left untouched)",
+        stats.ambiguous
+    );
 }
 
 #[test]

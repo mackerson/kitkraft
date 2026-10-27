@@ -3,6 +3,8 @@
 //! - [`fields`]: field paths (`FULL`, `DNAM.Speed`, `FULL[2]`) and typed values.
 //! - [`apply_field`]: one edit on one record, through the `kitkraft-esm` edit API (only the
 //!   edited subrecord changes; a compressed record is recompressed only if it changed).
+//! - [`swaps`]: the `swap_overrides` argument of `set` and `clone`, as a whole-`REFL`
+//!   edit of an `LMSW`'s material swap.
 
 pub mod fields;
 pub mod lstrings;
@@ -12,6 +14,7 @@ pub(crate) mod patch_tests;
 pub(crate) mod scaffold;
 pub mod source;
 pub mod strings;
+pub(crate) mod swaps;
 pub mod vmad;
 
 use kitkraft_esm::{DecodeLimits, Record, Signature};

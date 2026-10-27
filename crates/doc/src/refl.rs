@@ -7,8 +7,8 @@
 //! reproduces the input byte for byte whatever the record type is; `lmsw_entries` reads
 //! the entries of the `LMSW` payloads on top of that. [`Refl::strings`] and
 //! [`Refl::classes`] are read off the chunks and `encode` writes only [`Refl::chunks`]:
-//! changing the parsed views changes nothing in the encoding (writing `LMSW` is a later
-//! ticket).
+//! changing the parsed views changes nothing in the encoding. `swap_overrides` edits the
+//! raw chunks of an `LMSW` payload's swap entries (KK-019).
 //!
 //! Layout, verified on every official file (29,897 `REFL`s, 17,410 of them `LMSW`;
 //! `refl_corpus` pins the counts below):
@@ -286,6 +286,154 @@ pub fn lmsw_entries(r: &Refl) -> Result<Vec<SwapEntry>, String> {
         });
     }
     Ok(out)
+}
+
+/// One replacement of a swap entry: the index of the chunk it is in, the range within
+/// that chunk of the entry's override (its u16 length prefix and path with NUL), and the
+/// replacement bytes.
+type SwapRep = (usize, usize, usize, Vec<u8>);
+
+/// A decoded payload with chosen swap entries' override material paths replaced: a new
+/// `Refl`, or its `Err` naming the key.
+///
+/// `swaps` pairs each entry's key material path with the override to store in its place.
+/// Every size the change affects is recomputed — each replaced string's u16 length
+/// prefix, and the enclosing `LIST` chunk's size, which [`encode`] derives from the
+/// payload — and everything else, in this chunk and in the rest of the payload, is left
+/// byte for byte. An empty `swaps` returns the payload unchanged. A key that matches no
+/// entry, or more than one entry, is an `Err` naming it; when one key is named twice,
+/// the last override wins.
+pub fn swap_overrides(r: &Refl, swaps: &[(String, String)]) -> Result<Refl, String> {
+    let Some(entry_kind) = r
+        .classes
+        .iter()
+        .find(|c| c.name == "BGSLayeredMaterialSwap::Entry")
+        .map(|c| c.name_offset)
+    else {
+        return match swaps.first() {
+            Some((key, _)) => Err(format!(
+                "key {key} names no entry: the payload holds no swap entries"
+            )),
+            None => Ok(r.clone()),
+        };
+    };
+    // Every swap entry: its chunk index, its key, and the bytes of its override within
+    // the chunk payload (the u16 length prefix and the path with its NUL).
+    let mut items: Vec<(usize, String, usize, usize)> = Vec::new();
+    let kind_bytes = entry_kind.to_le_bytes();
+    for (ci, k) in r.chunks.iter().enumerate() {
+        if k.tag != *b"LIST" || k.payload.get(0..4) != Some(&kind_bytes) {
+            continue;
+        }
+        let mut c = Cursor {
+            data: &k.payload,
+            pos: 0,
+        };
+        let _kind = c.u32()?;
+        let n = c.count(1)?;
+        for _ in 0..n {
+            let key_bytes = c.text()?;
+            let Some((&nul, key_bytes)) = key_bytes.split_last() else {
+                return Err("entry key is empty".into());
+            };
+            if nul != 0 {
+                return Err("entry key is not NUL-terminated".into());
+            }
+            let key = std::str::from_utf8(key_bytes).map_err(|_| "entry key is not UTF-8")?;
+            let tag = c.u32()?;
+            if tag != 0xFFFFFF0D {
+                return Err(format!(
+                    "entry KeyMaterialPathForm tag is 0x{tag:08X}, not 0xFFFFFF0D"
+                ));
+            }
+            let _key_material_path_form = c.u32()?;
+            let start = c.pos;
+            let len = c.u16()?;
+            c.take(usize::from(len))?;
+            items.push((ci, key.to_string(), start, c.pos));
+        }
+        if c.remaining() != 0 {
+            return Err("LIST has trailing bytes after its items".into());
+        }
+    }
+    // Each key must name exactly one entry; the replacement bytes are the u16 length
+    // prefix, the path and the NUL.
+    let mut reps: Vec<SwapRep> = Vec::new();
+    for (key, override_) in swaps {
+        let matches = items.iter().filter(|(_, k, _, _)| k == key).count();
+        match matches {
+            0 => return Err(format!("key {key} names no entry")),
+            n if n > 1 => return Err(format!("key {key} names {n} entries")),
+            _ => {}
+        }
+        let Some(&(ci, _, start, end)) = items.iter().find(|(_, k, _, _)| k == key) else {
+            return Err(format!("key {key} names no entry"));
+        };
+        let Some(len) = override_
+            .len()
+            .checked_add(1)
+            .and_then(|n| u16::try_from(n).ok())
+        else {
+            return Err(format!(
+                "the override for key {key} does not fit its u16 length"
+            ));
+        };
+        let mut bytes = Vec::with_capacity(usize::from(len));
+        bytes.extend_from_slice(&len.to_le_bytes());
+        bytes.extend_from_slice(override_.as_bytes());
+        bytes.push(0);
+        reps.push((ci, start, end, bytes));
+    }
+    // One key named twice names the same entry: the last override wins.
+    reps.sort_by_key(|r| (r.0, r.1));
+    let mut deduped: Vec<SwapRep> = Vec::new();
+    for rep in reps {
+        let is_dup = deduped.last().is_some_and(|d| d.0 == rep.0 && d.1 == rep.1);
+        if is_dup {
+            if let Some(d) = deduped.last_mut() {
+                d.3 = rep.3;
+            }
+        } else {
+            deduped.push(rep);
+        }
+    }
+    // One group of replacements per chunk, in ascending offset order.
+    let mut groups: Vec<(usize, Vec<SwapRep>)> = Vec::new();
+    for rep in deduped {
+        match groups.last_mut() {
+            Some(g) if g.0 == rep.0 => g.1.push(rep),
+            _ => groups.push((rep.0, vec![rep])),
+        }
+    }
+    // Splice each affected chunk; the entry ranges are disjoint and ascending, and the
+    // chunk's new size is what `encode` writes from the payload.
+    let mut out = r.chunks.clone();
+    for (ci, here) in &groups {
+        let Some(chunk) = out.get_mut(*ci) else {
+            return Err("replacement names no chunk".into());
+        };
+        let payload = chunk.payload.clone();
+        let mut next = Vec::new();
+        let mut at = 0usize;
+        for (_, start, end, bytes) in here {
+            let Some(head) = payload.get(at..*start) else {
+                return Err("replacement runs past the chunk".into());
+            };
+            next.extend_from_slice(head);
+            next.extend_from_slice(bytes);
+            at = *end;
+        }
+        let Some(tail) = payload.get(at..) else {
+            return Err("replacement runs past the chunk".into());
+        };
+        next.extend_from_slice(tail);
+        chunk.payload = next;
+    }
+    Ok(Refl {
+        chunks: out,
+        strings: r.strings.clone(),
+        classes: r.classes.clone(),
+    })
 }
 
 fn parse_strings(payload: &[u8]) -> Result<Vec<(u32, String)>, String> {
@@ -811,5 +959,98 @@ mod tests {
             .retain(|k| !(k.tag == *b"CLAS" && k.payload.get(0..4) == Some(&[56, 0, 0, 0])));
         let r = decode(&encode(&r)).unwrap();
         assert!(lmsw_entries(&r).is_err());
+    }
+
+    /// KK-019: a longer and a shorter override each encode, decode again, and
+    /// `lmsw_entries` shows the new override with the same key; chunks the edit does
+    /// not touch are identical.
+    #[test]
+    fn an_override_change_reencodes_and_reads_back() {
+        let p = lmsw_payload();
+        let r = decode(&p).unwrap();
+        // The chunk holding the swaps: the LIST chunk named by the Entry class.
+        let entry_off = o_at(&r, "BGSLayeredMaterialSwap::Entry").to_le_bytes();
+        let swaps_at = r
+            .chunks
+            .iter()
+            .position(|k| k.tag == *b"LIST" && k.payload.get(0..4) == Some(&entry_off))
+            .unwrap();
+        let long = "Clothes\\Outfit_Sanctum_Priest\\Outfit_Sanctum_Priest_Hat_Ajun.mat";
+        for (swaps, want) in [
+            (
+                vec![("A\\B.mat".to_string(), long.to_string())],
+                vec![
+                    SwapEntry::Swap {
+                        key: "A\\B.mat".into(),
+                        key_material_path_form: 0,
+                        r#override: long.to_string(),
+                    },
+                    SwapEntry::Swap {
+                        key: "E\\F.mat".into(),
+                        key_material_path_form: 0,
+                        r#override: "G\\H.mat".into(),
+                    },
+                    SwapEntry::Ref(0x1234_5678),
+                ],
+            ),
+            (
+                vec![("E\\F.mat".to_string(), "X.mat".to_string())],
+                vec![
+                    SwapEntry::Swap {
+                        key: "A\\B.mat".into(),
+                        key_material_path_form: 0,
+                        r#override: "C\\D.mat".into(),
+                    },
+                    SwapEntry::Swap {
+                        key: "E\\F.mat".into(),
+                        key_material_path_form: 0,
+                        r#override: "X.mat".into(),
+                    },
+                    SwapEntry::Ref(0x1234_5678),
+                ],
+            ),
+        ] {
+            let r2 = swap_overrides(&r, &swaps).unwrap();
+            let p2 = encode(&r2);
+            let r3 = decode(&p2).unwrap();
+            assert_eq!(lmsw_entries(&r3).unwrap(), want);
+            // Chunks the edit does not touch are identical.
+            for (i, (a, b)) in r2.chunks.iter().zip(&r.chunks).enumerate() {
+                if i == swaps_at {
+                    continue;
+                }
+                assert_eq!(a.tag, b.tag);
+                assert_eq!(a.payload, b.payload);
+            }
+        }
+        // Replacing an override with itself changes no bytes.
+        let same = swap_overrides(&r, &[("A\\B.mat".to_string(), "C\\D.mat".to_string())]).unwrap();
+        assert_eq!(encode(&same), p);
+        // A key matching no entry is an `Err` naming it.
+        let err = swap_overrides(&r, &[("nope.mat".to_string(), "X.mat".to_string())]).unwrap_err();
+        assert!(
+            err.contains("nope.mat") && err.contains("no entry"),
+            "{err}"
+        );
+        // A key matching two entries is an `Err` naming it.
+        let mut r_dup = r.clone();
+        let key = b"A\\B.mat\0".to_vec();
+        let mut swaps = u32(o_at(&r, "BGSLayeredMaterialSwap::Entry"));
+        swaps.extend(u32(2));
+        for v in [b"C\\D.mat\0".as_slice(), b"G\\H.mat\0".as_slice()] {
+            swaps.extend(u16(key.len() as u16));
+            swaps.extend(&key);
+            swaps.extend(u32(0xFFFFFF0D));
+            swaps.extend(u32(0));
+            swaps.extend(u16(v.len() as u16));
+            swaps.extend(v);
+        }
+        r_dup.chunks.get_mut(swaps_at).unwrap().payload = swaps;
+        let err =
+            swap_overrides(&r_dup, &[("A\\B.mat".to_string(), "X.mat".to_string())]).unwrap_err();
+        assert!(
+            err.contains("A\\B.mat") && err.contains("2 entries"),
+            "{err}"
+        );
     }
 }
