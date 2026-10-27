@@ -5,7 +5,7 @@
 //! `override` must end in `.mat` (ASCII, case-insensitive); forward slashes in both paths
 //! are stored as backslashes, as the corpus stores them. A key that names no entry, or
 //! more than one, is refused by `refl::swap_overrides` naming it; naming the same key
-//! twice in one argument lets the last override win.
+//! twice in one argument lets the last override win. An empty array is refused.
 //!
 //! [`convert`] reads the source record's current `REFL`, rewrites the named entries'
 //! overrides through `kitkraft_doc::refl::swap_overrides`, and returns an ordinary
@@ -64,6 +64,12 @@ pub(crate) fn convert(
     let items = swaps
         .as_array()
         .ok_or_else(|| failed(command, "swap_overrides: the argument is not an array"))?;
+    if items.is_empty() {
+        return Err(failed(
+            command,
+            "swap_overrides: the array is empty; name at least one entry",
+        ));
+    }
     let mut pairs: Vec<(String, String)> = Vec::with_capacity(items.len());
     let mut report: Vec<Value> = Vec::with_capacity(items.len());
     for (i, item) in items.iter().enumerate() {
