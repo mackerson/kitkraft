@@ -1,0 +1,87 @@
+# shares crates/engine/src/validate/ with lmsw-mat-exists: the reviewer orders them
+id = "DRAFT"
+title = "validate checks the ARMO and ARMA world and biped model files, not just the shared Model group"
+timeout_min = 60
+budget_h = 1.5
+after = ["KK-018"]
+owns = [
+  "crates/engine/src/validate/",
+  "crates/engine/tests/validate_corpus.rs",
+  "docs/validate.md",
+]
+brief = """
+KK-018 landed the `validate` rule `asset.missing-model` in `crates/engine/src/validate/models.rs`:
+it warns when a record of the validated plugin names a model file, the shared `Model` group's
+`FileName` (`MODL`), that is found in no loose folder and no archive. Its brief said the
+world-model members of ARMO and ARMA are a later ticket. This is it: the same rule, the same
+lookup, now also checks those members.
+
+The members to add, by record type and subrecord (read `crates/schema/defs/ARMO.toml` and
+`crates/schema/defs/ARMA.toml` for the exact groups):
+- ARMO `MaleWorldModel`'s `FileName` (subrecord `MOD2`)
+- ARMO `FemaleWorldModel`'s `FileName` (subrecord `MOD4`)
+- ARMA `MaleBipedModel`'s `FileName` (`MOD2`)
+- ARMA `FemaleBipedModel`'s `FileName` (`MOD3`)
+- ARMA `MaleFirstPerson`'s `FileName` (`MOD4`)
+- ARMA `FemaleFirstPerson`'s `FileName` (`MOD5`)
+
+Note the signatures collide across the two record types (`MOD2` is ARMO's MaleWorldModel but
+ARMA's MaleBipedModel; `MOD4` is ARMO's FemaleWorldModel but ARMA's MaleFirstPerson), so the
+member is identified by record type plus subrecord, and the finding must name the member path
+(e.g. `FemaleBipedModel.FileName`), not just the subrecord. An empty `FileName` (no zstring) is
+not a finding, as it is for `MODL`. ARMA's `MOD6`/`MOD7` (the alt-skeleton zstrings) and ARMO's
+`MODL` (a 4-byte armor-addon FormID, not a path) are out of scope.
+
+How it is collected today: in `crates/engine/src/validate/mod.rs` the per-record walk calls
+`models::uses_model_group(sig, &mut pass.model_groups)` and, when true, pushes a
+`models::ModelRef { record, offset, path }` for each `MODL` whose zstring is non-empty; after
+the walk, `models::check` searches each in the loose `meshes` folders and the load-order
+archives (`attached::Sources`) and reports the misses. Generalise that collection to also gather
+these six members (resolve which member a signature holds from the record's schema definition,
+the way `uses_model_group` reads `leaf_subrecords()`), and have the finding name the member path.
+Do not change the existing `MODL` behaviour, the lookup, or the severity.
+
+Read `crates/engine/src/validate/models.rs` and `models_tests.rs` first: the tests build a
+synthetic plugin with a `STAT` and a `MODL` using the helpers in `crates/engine/src/validate/
+tests.rs` (`record`, `sub`, `patch`, `dir`, `check`, `found`). Add the two tests to
+`crates/engine/src/validate/models_tests.rs`, in the same style, with these exact names:
+- `an_arma_with_a_missing_female_biped_model_is_a_warning`: a synthetic ARMA whose
+  `FemaleBipedModel` `FileName` names a file found nowhere: exactly one `asset.missing-model`
+  warning naming that member path.
+- `an_armo_with_a_world_model_found_loose_is_clean`: a synthetic ARMO whose `MaleWorldModel`
+  `FileName` names a file placed under `meshes/` beside the plugin: no finding from the rule.
+
+Then the official files: `validate_corpus_official_files` in `crates/engine/tests/validate_corpus.rs`
+validates all 14 official files and already pins each file's `asset.missing-model` count (555,
+4, 5, 14 on Starfield.esm, SFBGS00D, SFBGS050, ShatteredSpace; 0 elsewhere). Once the rule also
+checks the six members, update those pinned counts to the new per-file totals. Every official
+armor model should be found in the official archives; if some are not, list a few paths in
+`docs/validate.md` and explain them if you can. Do not remove or loosen any existing assertion;
+its `asset.missing-model` assertion (KK-018)
+names the rule per file, and the acceptance greps the test file for it. That test reads 2.5 GB through `KITKRAFT_DATA_DIR`, is `#[ignore]`d and
+runs in release; run it only after your unit tests pass: `cargo test --release -p kitkraft-engine
+--test validate_corpus -- --ignored --exact validate_corpus_official_files --nocapture`. Keep its
+`#[ignore]`.
+
+Also add the members to the rule's row in `docs/validate.md` (it currently says only the shared
+`Model` group is checked and the world-model members are a later ticket): name the six members
+and give the new official counts. Never panic (AGENTS.md): an archive that does not open is a
+limitation line, not a crash. Run `cargo test -p kitkraft-engine --lib validate`, then
+`cargo xtask ci`. Commit when the two unit tests pass.
+"""
+
+[[accept]]
+name = "biped-missing-warns"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::models_tests::an_arma_with_a_missing_female_biped_model_is_a_warning 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "world-loose-clean"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::models_tests::an_armo_with_a_world_model_found_loose_is_clean 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "official-files"
+cmd = "cargo test --release -p kitkraft-engine --test validate_corpus -- --ignored --exact validate_corpus_official_files --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'skipped: KITKRAFT_DATA_DIR' /tmp/o && grep -q 'asset.missing-model' crates/engine/tests/validate_corpus.rs"
+
+[[accept]]
+name = "documented"
+cmd = "grep -q 'MaleWorldModel' docs/validate.md"
