@@ -109,7 +109,7 @@ note = "payload not decoded (M4.BX2 inventory): 4 bytes"
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 71 official BMMO records (13 occurrences), 4 bytes"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 71 official BMMO records (13 occurrences), 8..12 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10276-L10276",
 ]

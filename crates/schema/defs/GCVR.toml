@@ -52,7 +52,7 @@ note = "base form components; the component data stays raw"
 [[member]]
 group = "Grasses"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (377 occurrences, up to 7 per record), 4 bytes"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (377 occurrences, up to 7 per record), 6 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12310-L12310",
 ]
