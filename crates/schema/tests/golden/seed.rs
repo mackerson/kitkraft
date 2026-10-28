@@ -50,6 +50,8 @@
 // - AMDL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9387-L9409; corpus)
 // - AMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470; corpus)
 // - ANIO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9519-L9528; corpus)
+// - AOPF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPF record (20) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AOPS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPS record (21) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ARMA (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9619-L9704; reference)
 // - ARMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9707-L9775; corpus)
 // - ARTO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official ARTO record (212) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -12838,6 +12840,262 @@ impl AnioRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("ANIO", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AopfRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `OBND`, required.
+    pub obnd: Option<Sub<Bytes>>,
+    /// `ODTY`, required.
+    pub odty: Option<Sub<Bytes>>,
+    /// `OBSV`, required.
+    pub obsv: Option<Sub<Bytes>>,
+    /// `OCCV`, required.
+    pub occv: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl AopfRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBSV",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OCCV",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "AOPF.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.obnd, subs, *index, "AOPF.OBND", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.odty, subs, *index, "AOPF.ODTY", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.obsv, subs, *index, "AOPF.OBSV", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.occv, subs, *index, "AOPF.OCCV", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"OBND", self.obnd.as_ref());
+        emit(out, *b"ODTY", self.odty.as_ref());
+        emit(out, *b"OBSV", self.obsv.as_ref());
+        emit(out, *b"OCCV", self.occv.as_ref());
+    }
+}
+
+impl Visit for AopfRecord {}
+
+impl AopfRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"AOPF";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("AOPF", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("AOPF", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("AOPF", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("AOPF", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AopsRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `ANAM`, required.
+    pub anam: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl AopsRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "AOPS.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.anam, subs, *index, "AOPS.ANAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"ANAM", self.anam.as_ref());
+    }
+}
+
+impl Visit for AopsRecord {}
+
+impl AopsRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"AOPS";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("AOPS", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("AOPS", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("AOPS", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("AOPS", &mut out);
         out
     }
 }
@@ -79093,6 +79351,8 @@ pub enum Record {
     Amdl(Box<AmdlRecord>),
     Ammo(Box<AmmoRecord>),
     Anio(Box<AnioRecord>),
+    Aopf(Box<AopfRecord>),
+    Aops(Box<AopsRecord>),
     Arma(Box<ArmaRecord>),
     Armo(Box<ArmoRecord>),
     Arto(Box<ArtoRecord>),
@@ -79232,6 +79492,8 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"AMDL", AmdlRecord::MEMBERS),
     (*b"AMMO", AmmoRecord::MEMBERS),
     (*b"ANIO", AnioRecord::MEMBERS),
+    (*b"AOPF", AopfRecord::MEMBERS),
+    (*b"AOPS", AopsRecord::MEMBERS),
     (*b"ARMA", ArmaRecord::MEMBERS),
     (*b"ARMO", ArmoRecord::MEMBERS),
     (*b"ARTO", ArtoRecord::MEMBERS),
@@ -79394,6 +79656,8 @@ impl Record {
             b"AMDL" => Self::Amdl(Box::new(AmdlRecord::decode(subs, ctx))),
             b"AMMO" => Self::Ammo(Box::new(AmmoRecord::decode(subs, ctx))),
             b"ANIO" => Self::Anio(Box::new(AnioRecord::decode(subs, ctx))),
+            b"AOPF" => Self::Aopf(Box::new(AopfRecord::decode(subs, ctx))),
+            b"AOPS" => Self::Aops(Box::new(AopsRecord::decode(subs, ctx))),
             b"ARMA" => Self::Arma(Box::new(ArmaRecord::decode(subs, ctx))),
             b"ARMO" => Self::Armo(Box::new(ArmoRecord::decode(subs, ctx))),
             b"ARTO" => Self::Arto(Box::new(ArtoRecord::decode(subs, ctx))),
@@ -79536,6 +79800,8 @@ impl Record {
             Self::Amdl(record) => record.encode(),
             Self::Ammo(record) => record.encode(),
             Self::Anio(record) => record.encode(),
+            Self::Aopf(record) => record.encode(),
+            Self::Aops(record) => record.encode(),
             Self::Arma(record) => record.encode(),
             Self::Armo(record) => record.encode(),
             Self::Arto(record) => record.encode(),
@@ -79677,6 +79943,8 @@ impl Record {
             Self::Amdl(_) => AmdlRecord::SIGNATURE,
             Self::Ammo(_) => AmmoRecord::SIGNATURE,
             Self::Anio(_) => AnioRecord::SIGNATURE,
+            Self::Aopf(_) => AopfRecord::SIGNATURE,
+            Self::Aops(_) => AopsRecord::SIGNATURE,
             Self::Arma(_) => ArmaRecord::SIGNATURE,
             Self::Armo(_) => ArmoRecord::SIGNATURE,
             Self::Arto(_) => ArtoRecord::SIGNATURE,
@@ -79818,6 +80086,8 @@ impl Record {
             Self::Amdl(record) => record.form_ids(),
             Self::Ammo(record) => record.form_ids(),
             Self::Anio(record) => record.form_ids(),
+            Self::Aopf(record) => record.form_ids(),
+            Self::Aops(record) => record.form_ids(),
             Self::Arma(record) => record.form_ids(),
             Self::Armo(record) => record.form_ids(),
             Self::Arto(record) => record.form_ids(),
@@ -79959,6 +80229,8 @@ impl Record {
             Self::Amdl(record) => record.form_ids_mut(),
             Self::Ammo(record) => record.form_ids_mut(),
             Self::Anio(record) => record.form_ids_mut(),
+            Self::Aopf(record) => record.form_ids_mut(),
+            Self::Aops(record) => record.form_ids_mut(),
             Self::Arma(record) => record.form_ids_mut(),
             Self::Armo(record) => record.form_ids_mut(),
             Self::Arto(record) => record.form_ids_mut(),
@@ -80100,6 +80372,8 @@ impl Record {
             Self::Amdl(record) => record.lstrings(),
             Self::Ammo(record) => record.lstrings(),
             Self::Anio(record) => record.lstrings(),
+            Self::Aopf(record) => record.lstrings(),
+            Self::Aops(record) => record.lstrings(),
             Self::Arma(record) => record.lstrings(),
             Self::Armo(record) => record.lstrings(),
             Self::Arto(record) => record.lstrings(),
@@ -80241,6 +80515,8 @@ impl Record {
             Self::Amdl(record) => record.lstrings_mut(),
             Self::Ammo(record) => record.lstrings_mut(),
             Self::Anio(record) => record.lstrings_mut(),
+            Self::Aopf(record) => record.lstrings_mut(),
+            Self::Aops(record) => record.lstrings_mut(),
             Self::Arma(record) => record.lstrings_mut(),
             Self::Armo(record) => record.lstrings_mut(),
             Self::Arto(record) => record.lstrings_mut(),
@@ -80383,6 +80659,8 @@ impl Record {
             Self::Amdl(record) => &record.extra,
             Self::Ammo(record) => &record.extra,
             Self::Anio(record) => &record.extra,
+            Self::Aopf(record) => &record.extra,
+            Self::Aops(record) => &record.extra,
             Self::Arma(record) => &record.extra,
             Self::Armo(record) => &record.extra,
             Self::Arto(record) => &record.extra,
