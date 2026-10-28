@@ -409,6 +409,7 @@ def inventory_ticket(tid, batch, n_undefined, n_xedit_missing):
                      + " must show the definition's name and may keep as unknown only the signatures "
                      "the inventory run lists as `inside BFCB..BFCE`"
                      + ("; every other row must show 0 unknown." if len(comp) < len(batch) else "."))
+    spaced, commas = " ".join(sigs), ",".join(sigs)
     brief = f"""
 {n_undefined} record types of the official files have no schema definition at all
 (`docs/record-parity.md`, rows whose definition is `-`): KitKraft parses and re-writes them
@@ -420,37 +421,36 @@ names are xEdit's record names in our UpperCamelCase):
 
 {chr(10).join(items)}{comp_note}
 
-Start from `crates/schema/defs/LAYR.toml` (an inventory definition: header comment,
-`source = "corpus: ..."`, every member the corpus shows, in corpus order) and
-`crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
+Use the inventory tools (`crates/schema/defs/README.md`, "Inventory definitions",
+"Workflow"; `crates/schema/defs/LAYR.toml` is an example of their output). They take every
+count from one scan of the corpus, the one the inventory test prints. Then:
 
-1. Add the {len(batch)} signatures to `TYPES` in the existing test file
-`crates/esm/tests/inventory_types.rs`, in its order (and its doc comment's list and the array
-length, if the file still keeps them). Run `cargo test -p kitkraft-esm
---release --test inventory_types -- --include-ignored --exact inventory_types_full
---nocapture` before writing a definition: it prints, per type, every signature, how often it
-occurs, its sizes and the subrecord orders. Those printed facts are your only source for the
-members.
-2. Write the files `crates/schema/defs/<SIG>.toml` with the names above. `EDID` is the shared
-EditorID zstring (copy LAYR's EDID member and its evidence, if the type has one). Every other
-payload is `type = "opaque"`, named after its signature, with a `note` giving the observed
-sizes. If a type shows base form component blocks (`BFCB` .. `BFCE`), use `group_ref =
-"BfcbBlock"` as LAYR does. None of these types is in the corpus lstring table
-(`crates/engine/src/edit/lstrings.rs`), so no member is an lstring. Cite the inventory run in
-`source` with the date and the record count, and the record's xEdit definition once in the
-record's `evidence` with the line range above (`xedit:
-wbDefinitionsSF1.pas@{XEDIT_REV}#L<a>-L<b>`, as LAYR.toml does). The pinned file is
-read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas`; per the README's "Inventory definitions"
-you may also cite the line where it lists a member, and follow its order where two members
-never occur together. Never type a member from it (that is a later ticket), and never copy its
-code or comments (clean room, AGENTS.md).
-3. Register the files: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
-whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (it prints
-the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed as the
-schema tests describe (`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never
-edit `crates/esm/src/generated/records.rs` by hand.
-4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
-Each of the {len(batch)} rows must show its definition's name and 0 unknown{' (component blocks aside, above)' if comp else ''}.
+1. For each type, `cargo xtask inventory-def <SIG> --name <Name> --ticket {tid} --evidence
+'xedit: wbDefinitionsSF1.pas@{XEDIT_REV}#L<a>-L<b>'`, with the name and the xEdit line range
+listed above. It scans the 14 official ESMs and writes `crates/schema/defs/<SIG>.toml` in
+LAYR.toml's style: every member the corpus shows, in corpus order and cardinality, EDID,
+`BfcbBlock` and `Keywords` typed, every other payload `opaque`, every `source` citing the
+scan's counts and sizes with today's date.
+2. Read each file and settle every `# TODO(review): ...` comment and every warning the
+command printed (the README's "Workflow" says what each one means), then delete the comment.
+Change structure only; keep the generated `source` counts, never type a count by hand. The
+pinned xEdit file is read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas`; you may cite the line
+where it lists a member and follow its order where a member's `note` says the corpus does not
+show the order. Never type a member from it (that is a later ticket), and never copy its code
+or comments (clean room, AGENTS.md).
+3. `cargo xtask add-def {spaced}` registers all {len(batch)} at once (`BUILTIN_DEFINITIONS`,
+`TYPES`, the inventory list in `tests/defs.rs`, `WITHOUT_EDID` in `crates/esm/src/bridge.rs`
+for a type with no EDID) and regenerates `records.rs`, the golden seed,
+`docs/record-parity.md` and the gap matrix. Rerun it after any change to a definition; never
+edit the generated files by hand.
+4. `KK_INVENTORY_ONLY={commas} cargo test -p kitkraft-esm --release --test inventory_types --
+--include-ignored --exact inventory_types_full --nocapture` must print `defined: true` for
+each with no unplaced, failed or re-encode lines; fix a definition from the orders it prints
+and rerun step 3 until it does.
+5. `cargo xtask inventory-check {spaced}` must pass: it fails on any cited count, size,
+per-record maximum or top-level `card` the corpus scan does not show. Each of the
+{len(batch)} rows of `docs/record-parity.md` must show its definition's name and 0
+unknown{' (component blocks aside, above)' if comp else ''}.
 
 Done: the inventory run prints `defined: true` for each of the {len(batch)} with no unplaced, failed
 or re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do
@@ -472,6 +472,8 @@ the generated files rather than editing them.
         "crates/schema/tests/golden/seed.rs",
         "crates/esm/src/generated/records.rs",
         "crates/esm/tests/inventory_types.rs",
+        # cargo xtask add-def lists a type with no EDID in its WITHOUT_EDID.
+        "crates/esm/src/bridge.rs",
         "docs/record-parity.md",
         # cargo xtask parity rewrites the gap matrix headline too (KK-101, KK-102 scope).
         "docs/foothold/gap-matrix.md",
@@ -481,7 +483,8 @@ the generated files rather than editing them.
                 accept=[dict(name="inventory", cmd=inv),
                         dict(name="schema-defs", cmd="cargo test -p kitkraft-schema"),
                         dict(name="codegen-fresh", cmd="cargo xtask codegen --check"),
-                        dict(name="parity-rows", cmd=" && ".join(rows))])
+                        dict(name="parity-rows", cmd=" && ".join(rows)),
+                        dict(name="inventory-counts", cmd=f"cargo xtask inventory-check {' '.join(sigs)}")])
 
 
 def feasible(c):

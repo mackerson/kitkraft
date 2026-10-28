@@ -14,7 +14,9 @@ owns = [
   "crates/schema/tests/golden/seed.rs",
   "crates/esm/src/generated/records.rs",
   "crates/esm/tests/inventory_types.rs",
+  "crates/esm/src/bridge.rs",
   "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
 ]
 brief = """
 About 90 record types of the official files have no schema definition at all
@@ -27,32 +29,40 @@ KK-008 did one for `LMSW`, M4.BX2 did fourteen, and KK-022 did five more (`CURV`
 and `ASPC` (814, `AcousticSpace`). The five rows in `docs/record-parity.md` today show the
 definition `-`.
 
-Start from `crates/schema/defs/LAYR.toml` and `LMSW.toml` (inventory definitions: header
-comment, `source = "corpus: ..."`, every member the corpus shows, in corpus order) and
-`crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
+Use the inventory tools (`crates/schema/defs/README.md`, "Inventory definitions",
+"Workflow"; `crates/schema/defs/LAYR.toml` is an example of their output). They take every
+count from one scan of the corpus, the one the inventory test prints. Then:
 
-1. Add the five signatures to `TYPES` in `crates/esm/tests/inventory_types.rs` (a slice,
-   one `b"SIG",` per line, alphabetical, under `#[rustfmt::skip]`; the doc comment needs no
-   edit). Run
-   `cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact
-   inventory_types_full --nocapture` before writing a definition: it prints, per type,
-   every signature, how often it occurs, its sizes and the subrecord orders. Those printed
-   facts are your only source.
-2. Write the five files in `crates/schema/defs/`, named after their signatures. `EDID` is
-   the shared EditorID zstring (copy LAYR's EDID member and its evidence, if the type has
-   one). Every other payload is `type = "opaque"`, named after its signature, with a `note`
-   giving the observed sizes. If a type shows base form component blocks (`BFCB` .. `BFCE`),
-   use `group_ref = "BfcbBlock"` as LAYR does; if it shows lstrings (`FULL` in a localized
-   file), check the corpus lstring table in `crates/engine/src/edit/lstrings.rs` and type
-   them as LAYR types its own. Cite the inventory run in `source` with the date and the
-   record count. Use only `corpus:` citations; do not read any xEdit file for this ticket.
-3. Register the files: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
-   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (its
-   record list is derived from the directory since KK-090, so likely nothing; the lists
-   there are one entry per line). Regenerate code with `cargo xtask codegen` and the golden seed
-   as the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
-4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
-   Each of the five rows must show its definition's name and 0 unknown.
+1. For each type, `cargo xtask inventory-def <SIG> --name <Name> --ticket KK-224` with the
+   name above (for `MRPH`: `cargo xtask inventory-def MRPH --name MorphableObject --ticket
+   KK-224`). It scans the 14 official ESMs and writes `crates/schema/defs/<SIG>.toml` in
+   LAYR.toml's style: every member the corpus shows, in corpus order and cardinality, EDID,
+   `BfcbBlock`, `Keywords` and the corpus table's lstrings typed, every other payload
+   `opaque`, every `source` citing the scan's counts and sizes with today's date. Pass no
+   `--evidence`: this ticket cites the corpus only, and reads no xEdit file.
+
+2. Read each file and settle every `# TODO(review): ...` comment and every warning the
+   command printed (the README's "Workflow" says what each one means: an inferred group to
+   check and name, a repeat it could not group, two members seen in both orders), then
+   delete the comment. Change structure only; keep the generated `source` counts, never type
+   a count by hand.
+
+3. `cargo xtask add-def MRPH CNDF VTYP MTPT ASPC` registers all 5 at once:
+   `BUILTIN_DEFINITIONS` in `crates/schema/src/lib.rs`, `TYPES` in
+   `crates/esm/tests/inventory_types.rs`, the inventory list in
+   `crates/schema/tests/defs.rs` and, for a type with no EDID, `WITHOUT_EDID` in
+   `crates/esm/src/bridge.rs`; then it regenerates `crates/esm/src/generated/records.rs`,
+   the golden seed and `docs/record-parity.md` (and the gap matrix). Rerun it after any
+   change to a definition; never edit the generated files by hand.
+
+4. `KK_INVENTORY_ONLY=MRPH,CNDF,VTYP,MTPT,ASPC cargo test -p kitkraft-esm --release --test
+   inventory_types -- --include-ignored --exact inventory_types_full --nocapture` runs the
+   inventory test on these types alone: each must print `defined: true` with no unplaced,
+   failed or re-encode lines. If one does not, fix its definition from the orders it prints
+   and rerun step 3.
+
+5. `cargo xtask inventory-check MRPH CNDF VTYP MTPT ASPC` must pass: it fails on any cited
+   count, size, per-record maximum or top-level `card` the corpus scan does not show.
 
 Scheduling: the schema tickets `KK-006`, `KK-008`, `KK-022` and `KK-023` all regenerate
 `crates/esm/src/generated/` and the golden seed, so none of them may run on the same night
@@ -79,3 +89,7 @@ cmd = "cargo xtask codegen --check"
 [[accept]]
 name = "parity-rows"
 cmd = "grep -Eq '^\\| `MRPH` +\\| MorphableObject +\\| +1,145 +\\| +[0-9,]+ +\\| +4 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md && grep -Eq '^\\| `CNDF` +\\| ConditionForm +\\| +1,055 +\\| +[0-9,]+ +\\| +6 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md && grep -Eq '^\\| `VTYP` +\\| VoiceType +\\| +915 +\\| +[0-9,]+ +\\| +4 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md && grep -Eq '^\\| `MTPT` +\\| MaterialPath +\\| +906 +\\| +[0-9,]+ +\\| +2 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md && grep -Eq '^\\| `ASPC` +\\| AcousticSpace +\\| +814 +\\| +[0-9,]+ +\\| +16 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md"
+
+[[accept]]
+name = "inventory-counts"
+cmd = "cargo xtask inventory-check MRPH CNDF VTYP MTPT ASPC"
