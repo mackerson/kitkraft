@@ -639,6 +639,16 @@ fn swap_overrides_in_a_spec_are_checked_by_entry_kind() {
         e.contains("swap_overrides edits only the material swap of an LMSW"),
         "{e}"
     );
+    // Two `[[set]]` entries with `swap_overrides` naming one form is a spec error naming
+    // both keys.
+    let e = fails(
+        "d.toml",
+        &format!(
+            "[[set]]\nform = \"KC_Crate\"\n{swaps}\n\n[[set]]\nform = \"KC_Crate\"\n{swaps}\n"
+        ),
+    );
+    assert!(e.contains("spec: set[1].swap_overrides"), "{e}");
+    assert!(e.contains("set[0]"), "{e}");
     assert!(!d.join("E.esm").exists());
     let _ = std::fs::remove_dir_all(&d);
 }

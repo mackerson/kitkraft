@@ -812,6 +812,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let g = find_form(ID, loaded, &set.form, set.plugin.as_deref())
             .map_err(|e| spec_error(&format!("{}.form", set.key), e))?;
         if let Some(swaps) = set.swap_overrides.as_ref() {
+            if let Some((_, first)) = set_swaps.get(&g.key()) {
+                return Err(spec_error(
+                    &format!("{}.swap_overrides", set.key),
+                    format!(
+                        "{} is also named by {first}; one form takes one set of swap overrides",
+                        loaded.lo.form_label(g),
+                    ),
+                ));
+            }
             set_swaps.insert(g.key(), (swaps.clone(), set.key.clone()));
         }
     }
