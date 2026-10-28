@@ -356,11 +356,16 @@ pub(crate) fn rows_ui(
 
 /// One screenshot of the selected row: the image at the path the reply listed
 /// (opened only because `game.status` returned it), or, when it cannot be
-/// opened or decoded, its `inconclusive` status with the reason.
+/// opened or decoded, its `inconclusive` status with the reason. A shot the view
+/// model already marked (not listed, or missing on disk at the last poll) shows that
+/// reason and is not opened, so no read error is cached for a file that lands later.
 fn screenshot_ui(ui: &mut egui::Ui, shot: &ProbeShot, probe: &mut ProbeUi) {
-    let Some(path) = &shot.path else {
-        theme::status_line(ui, shot.status, &shot.reason);
-        return;
+    let path = match &shot.path {
+        Some(path) if shot.status == Status::Pass => path,
+        _ => {
+            theme::status_line(ui, shot.status, &shot.reason);
+            return;
+        }
     };
     match shot_image(ui, path, &mut probe.shots) {
         Ok(()) => ui.weak(&shot.file),
