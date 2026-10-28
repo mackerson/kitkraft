@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          40 |   252,710 |    133,927 |   490,908 |   455,004 |
-| **Total**       |          186 |         103 | 7,490,102 | 46,689,448 | 2,568,401 | 1,161,712 |
+| container/other |          123 |          45 |   252,710 |    135,607 |   528,674 |   415,558 |
+| **Total**       |          186 |         108 | 7,490,102 | 46,691,128 | 2,606,167 | 1,122,266 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 103 record definitions, defs hash `fnv1a64:8a840a11c569da28` (the hash named in
+- Schema: 108 record definitions, defs hash `fnv1a64:3a89f2593466771d` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -133,18 +133,18 @@ Columns:
 | `LSCR`        | LoadScreen              |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode |       379 |          0 |    23 |    22 |      1 |       0 |
 | `DOOR`        | Door                    |       376 |          0 |    32 |    12 |     18 |       2 |
-| `LVLB`        | -                       |       373 |          0 |    12 |     0 |      0 |      12 |
-| `AMBS`        | -                       |       369 |          0 |     5 |     0 |      0 |       5 |
+| `LVLB`        | LeveledBaseForm         |       373 |          0 |    12 |     1 |     11 |       0 |
+| `AMBS`        | AmbienceSetForm         |       369 |          0 |     5 |     1 |      4 |       0 |
 | `ALCH`        | Ingestible              |       365 |          0 |    32 |     4 |      0 |      28 |
 | `EXPL`        | Explosion               |       359 |          0 |    19 |     2 |      0 |      17 |
-| `IPDS`        | -                       |       356 |          0 |     3 |     0 |      0 |       3 |
+| `IPDS`        | ImpactDataSet           |       356 |          0 |     3 |     1 |      2 |       0 |
 | `KEYM`        | Key                     |       343 |          0 |    15 |     2 |      0 |      13 |
 | `IRES`        | Resource                |       333 |          0 |    14 |     5 |      9 |       0 |
-| `IMGS`        | -                       |       303 |          0 |     4 |     0 |      0 |       4 |
+| `IMGS`        | ImageSpaceForm          |       303 |          0 |     4 |     1 |      3 |       0 |
 | `FLOR`        | Flora                   |       302 |          0 |    39 |     3 |      0 |      36 |
 | `PROJ`        | Projectile              |       299 |          0 |    24 |    22 |      2 |       0 |
 | `LVLN`        | LeveledNpc              |       298 |          0 |    15 |    14 |      1 |       0 |
-| `MUST`        | -                       |       279 |          0 |    10 |     0 |      0 |      10 |
+| `MUST`        | MusicTrack              |       279 |          0 |    10 |     1 |      9 |       0 |
 | `CAMS`        | -                       |       276 |          0 |     9 |     0 |      0 |       9 |
 | `SFPT`        | SurfacePattern          |       264 |          0 |     9 |     7 |      0 |       2 |
 | `MATT`        | -                       |       255 |          0 |     9 |     0 |      0 |       9 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 103 defined             | 7,490,102 |    136,741 | 2,797 | 1,685 |    207 |     905 |
+| **186 types** | 108 defined             | 7,490,102 |    136,741 | 2,797 | 1,690 |    236 |     871 |
 
-Subrecord occurrences: 50,419,561 in total; 46,689,448 typed (0 of them failed to decode), 2,568,401 opaque, 1,161,712 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,691,128 typed (0 of them failed to decode), 2,606,167 opaque, 1,122,266 unknown.
 
 ## Decoded through the definitions
 
@@ -322,13 +322,18 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
 | `DOOR`    | Door                    |           376 |      3,778 |      0 |         0 |         0 |                   0 |      3,778 |       0 |        0 |
+| `LVLB`    | LeveledBaseForm         |           373 |        373 |      0 |         0 |         0 |                   0 |        373 |       0 |        0 |
+| `AMBS`    | AmbienceSetForm         |           369 |        369 |      0 |         0 |         0 |                   0 |        369 |       0 |        0 |
 | `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |                   0 |      1,459 |       0 |        0 |
 | `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |                   0 |        406 |       0 |        0 |
+| `IPDS`    | ImpactDataSet           |           356 |        356 |      0 |         0 |         0 |                   0 |        356 |       0 |        0 |
 | `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
 | `IRES`    | Resource                |           333 |      1,149 |      0 |         0 |         0 |                   0 |      1,149 |       0 |        0 |
+| `IMGS`    | ImageSpaceForm          |           303 |        303 |      0 |         0 |         0 |                   0 |        303 |       0 |        0 |
 | `FLOR`    | Flora                   |           302 |        902 |      0 |         0 |         0 |                   0 |        902 |       0 |        0 |
 | `PROJ`    | Projectile              |           299 |      4,421 |      0 |         0 |         0 |                   0 |      4,421 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |           298 |      5,323 |      0 |         0 |         0 |                   0 |      5,323 |       0 |        0 |
+| `MUST`    | MusicTrack              |           279 |        279 |      0 |         0 |         0 |                   0 |        279 |       0 |        0 |
 | `SFPT`    | SurfacePattern          |           264 |      1,753 |      0 |         0 |         0 |                   0 |      1,753 |       0 |        0 |
 | `HDPT`    | HeadPart                |           236 |        472 |      0 |         0 |         0 |                   0 |        472 |       0 |        0 |
 | `ARTO`    | ArtObject               |           212 |      1,125 |      0 |         0 |         0 |                   0 |      1,125 |       0 |        0 |
@@ -361,7 +366,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,466,158 | 46,689,448 |      0 |         0 |    18,685 |                   0 | 46,670,763 |       0 |        0 |
+| **Total** |                         |     7,467,838 | 46,691,128 |      0 |         0 |    18,685 |                   0 | 46,672,443 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -380,6 +385,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ACTI`    | Activator               |             78 |    73 |      5 |         9 |                   0 |     69 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
 | `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| `AMBS`    | AmbienceSetForm         |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `AMDL`    | AimModel                |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `AMMO`    | Ammunition              |             67 |    63 |      4 |        12 |                   0 |     55 |       0 |        0 |
 | `ANIO`    | AnimatedObject          |             41 |    37 |      4 |         2 |                   0 |     39 |       0 |        0 |
@@ -416,8 +422,10 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
+| `IMGS`    | ImageSpaceForm          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `INFO`    | DialogResponse          |             90 |    84 |      6 |         7 |                   0 |     83 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             42 |    38 |      4 |         1 |                   0 |     41 |       0 |        0 |
+| `IPDS`    | ImpactDataSet           |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `IRES`    | Resource                |             14 |     5 |      9 |         0 |                   0 |     14 |       0 |        0 |
 | `KEYM`    | Key                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `KSSM`    | SoundKeywordMapping     |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
@@ -429,6 +437,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LMSW`    | LayeredMaterialSwap     |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `LTEX`    | LandscapeTexture        |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
+| `LVLB`    | LeveledBaseForm         |             13 |     1 |     12 |         0 |                   0 |     13 |       0 |        0 |
 | `LVLI`    | LeveledItem             |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
 | `LVLP`    | LeveledPackIn           |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
@@ -436,6 +445,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MGEF`    | MagicEffect             |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
 | `MISC`    | MiscItem                |             68 |    64 |      4 |        10 |                   0 |     58 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |             65 |    61 |      4 |         8 |                   0 |     57 |       0 |        0 |
+| `MUST`    | MusicTrack              |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `NAVM`    | Navmesh                 |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
 | `NPC_`    | Npc                     |            147 |   142 |      5 |        16 |                   0 |    131 |       0 |        0 |
 | `OMOD`    | ObjectModification      |             51 |    46 |      5 |         6 |                   0 |     45 |       0 |        0 |
@@ -479,7 +489,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,208 | 3,804 |    404 |       290 |                   2 |  3,916 |       0 |        0 |
+| **Total** |                         |          4,243 | 3,809 |    434 |       290 |                   2 |  3,951 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

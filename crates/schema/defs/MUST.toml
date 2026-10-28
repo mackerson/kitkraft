@@ -1,0 +1,145 @@
+# MUST: MusicTrack, inventory definition (KK-102).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-102 scan of every official MUST record (279 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the MUST definition of wbDefinitionsSF1.pas at the pinned revision (L14725-L14744),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
+# that has one keeps it raw. The palette subrecords (FLTV, DNAM) and the single-track
+# subrecords (MTSH, FNAM) never occur together, so they stand in the xEdit order.
+signature = "MUST"
+name = "MusicTrack"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUST record (279) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744",
+]
+confidence = "corpus"
+note = "inventory definition (KK-102): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 279 of 279 official MUST records (279 occurrences), 11..57 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14726-L14726",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 279 of 279 official MUST records (279 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14729-L14729",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "FLTV"
+name = "Fltv"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 66 of 279 official MUST records (66 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14734-L14734",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 61 of 279 official MUST records (61 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14735-L14735",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "MTSH"
+name = "Mtsh"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 212 of 279 official MUST records (212 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14736-L14736",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 41 of 279 official MUST records (41 occurrences), 32..112 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14737-L14737",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "MSTF"
+name = "Mstf"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 213 of 279 official MUST records (213 occurrences), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14738-L14738",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "CITC"
+name = "Citc"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 51 of 279 official MUST records (51 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14740-L14740",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 51 of 279 official MUST records (66 occurrences, up to 2 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14741-L14741",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "SNAM"
+name = "Snam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 61 of 279 official MUST records (61 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14743-L14743",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"

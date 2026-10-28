@@ -43,11 +43,14 @@ use kitkraft_esm::DecodeLimits;
 
 #[rustfmt::skip]
 const TYPES: &[&[u8; 4]] = &[
+    b"AMBS",
     b"ARTO",
     b"ATMO",
     b"BMOD",
     b"DOOR",
     b"FFKW",
+    b"IMGS",
+    b"IPDS",
     b"IRES",
     b"KSSM",
     b"LAYR",
@@ -55,7 +58,9 @@ const TYPES: &[&[u8; 4]] = &[
     b"LMSW",
     b"LSCR",
     b"LTEX",
+    b"LVLB",
     b"MESG",
+    b"MUST",
     b"PGRE",
     b"PHZD",
     b"RFGP",
