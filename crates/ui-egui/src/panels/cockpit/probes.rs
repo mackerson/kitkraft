@@ -477,7 +477,7 @@ mod tests {
         assert!(rows.rows.iter().take(3).all(|r| !r.rerun));
         assert!(rows.rows.get(3).unwrap().rerun);
         // Verdicts and reasons, mapped to the status component's statuses.
-        let t1 = rows.rows.get(0).unwrap();
+        let t1 = rows.rows.first().unwrap();
         assert_eq!(
             (t1.verdict.as_str(), t1.reason.as_str(), t1.status),
             ("pass", "", Status::Pass)
