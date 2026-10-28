@@ -1,0 +1,215 @@
+# SECH: SoundEchoMarker, inventory definition (KK-108).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-108 scan of every official SECH record (32 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the SECH definition of wbDefinitionsSF1.pas at the pinned revision (L17467-L17523),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
+# has one keeps it raw.
+signature = "SECH"
+name = "SoundEchoMarker"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SECH record (32) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523",
+]
+confidence = "corpus"
+note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 23..47 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17487-L17487",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17489-L17489",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17490-L17490",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 32 official SECH records (1 occurrence), 8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17496-L17496",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 8 bytes"
+
+[[member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 32 official SECH records (2 occurrences), 37..128 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17498-L17498",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 37..128 bytes"
+
+[[member]]
+group = "Echos"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17500",
+]
+confidence = "corpus"
+note = "one echo: its start marker (ECHO, or ECHD for the last echo of every record), its optional ECTE and ECSH, then ANAM, BNAM, CNAM, DNAM, ENAM and ECHE"
+
+[[member.member]]
+sig = "ECHO"
+name = "Echo"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (68 occurrences, up to 15 per record), 0 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17503-L17503",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 0 bytes"
+
+[[member.member]]
+sig = "ECHD"
+name = "Echd"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences, up to 1 per record), 0 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17504-L17504",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 0 bytes"
+
+[[member.member]]
+sig = "ECTE"
+name = "Ecte"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 31 of 32 official SECH records (67 occurrences, up to 15 per record), 16 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17506-L17506",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 16 bytes"
+
+[[member.member]]
+sig = "ECSH"
+name = "Ecsh"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 31 of 32 official SECH records (67 occurrences, up to 15 per record), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17507-L17507",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 40 bytes"
+
+[[member.member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17508-L17508",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member.member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17509-L17509",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member.member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17510-L17510",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 1 byte"
+
+[[member.member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17514-L17514",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 1 byte"
+
+[[member.member]]
+sig = "ENAM"
+name = "Enam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17518-L17518",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 1 byte"
+
+[[member.member]]
+sig = "ECHE"
+name = "Eche"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 0 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17521-L17521",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 0 bytes"

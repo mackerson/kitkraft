@@ -1,0 +1,155 @@
+# LENS: LensFlare, inventory definition (KK-108).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-108 scan of every official LENS record (26 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the LENS definition of wbDefinitionsSF1.pas at the pinned revision (L13590-L13636),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
+# has one keeps it raw.
+signature = "LENS"
+name = "LensFlare"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LENS record (26) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636",
+]
+confidence = "corpus"
+note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 14..42 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13607-L13607",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13610-L13610",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences, up to 1 per record), 4..16 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13611-L13611",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4..16 bytes (this position and the Flares group combined)"
+
+[[member]]
+sig = "ENAM"
+name = "Enam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13612-L13612",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13613-L13613",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "XNAM"
+name = "Xnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13614-L13614",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "LFSP"
+name = "Lfsp"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13615-L13615",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+group = "Flares"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13616-L13616",
+]
+confidence = "corpus"
+note = "one flare: DNAM then FNAM then LFSD"
+
+[[member.member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 4..16 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13618-L13618",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 4..16 bytes (this position and the top-level DNAM combined)"
+
+[[member.member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 40..63 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13619-L13619",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 40..63 bytes"
+
+[[member.member]]
+sig = "LFSD"
+name = "Lfsd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 36 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13620-L13620",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-108 inventory); observed 36 bytes"
