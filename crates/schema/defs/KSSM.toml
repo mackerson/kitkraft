@@ -1,0 +1,108 @@
+# KSSM: SoundKeywordMapping, inventory definition (KK-101).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-101 scan of every official KSSM record (591 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the KSSM definition of wbDefinitionsSF1.pas at the pinned revision (L13275-L13294),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md).
+# RSMC serves two roles in the corpus: the leading RSMC counts the reverb sound entries, and
+# every entry opens with its own RSMC (the class). Each entry is one repeated group.
+signature = "KSSM"
+name = "SoundKeywordMapping"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13275-L13294",
+]
+confidence = "corpus"
+note = "inventory definition (KK-101): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 17..55 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13276-L13276",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "WED0"
+name = "Wed0"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13277-L13277",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 40 bytes"
+
+[[member]]
+sig = "KNAM"
+name = "Knam"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (1317 occurrences, up to 5 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13278-L13278",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+
+[[member]]
+sig = "RSMC"
+name = "Rsmc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13281-L13281",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+
+[[member]]
+group = "ReverbSounds"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), each an RSMC (4 bytes) followed by its RSMH (40 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13283-L13283",
+]
+confidence = "corpus"
+note = "one reverb sound entry: the RSMC class then the RSMH sound reference; the leading RSMC stores their number (kept as read)"
+
+[[member.member]]
+sig = "RSMC"
+name = "Rsmc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13284-L13284",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+
+[[member.member]]
+sig = "RSMH"
+name = "Rsmh"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13292-L13292",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 40 bytes"
