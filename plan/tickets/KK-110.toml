@@ -17,6 +17,7 @@ owns = [
   "crates/esm/src/generated/records.rs",
   "crates/esm/tests/inventory_types.rs",
   "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
 ]
 brief = """
 89 record types of the official files have no schema definition at all

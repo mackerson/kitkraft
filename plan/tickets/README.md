@@ -143,21 +143,21 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-017](KK-017.toml) | Typed-write tests for CONT, MISC, FLST and LVLI | gap matrix "untested" rows | merged `14800e4`, review `c921095` (the gap-matrix family table's CONT, MISC, FLST cells follow MX). LVLI read-back ignored with its reason: `new` writes the entries' conditions one slot early (BFCB block condition slot), an engine fix |
 | [KK-018](KK-018.toml) | validate warns when a model file a record names is nowhere to be found | apparel requests 4 and 8 (asset checks) | merged `a1d1af6` (review: model fixtures planted in two handler tests outside `owns`, which the new warning broke) |
 | [KK-019](KK-019.toml) | Write LMSW material swaps: `swap_overrides` on `set` and `clone` | apparel request 7 (write half) | merged `9682af7` (review: an empty `swap_overrides` array is refused; the corpus self-rewrite skips keys named by two entries of one payload, 124 payloads, since a duplicate key is refused by design) |
-| [KK-020](KK-020.toml) | Recipe: a clothing colourway (build spec `swap_overrides`) | apparel request 7 | queued (KK-019 merged) |
+| [KK-020](KK-020.toml) | Recipe: a clothing colourway (build spec `swap_overrides`) | apparel request 7 | merged `494efe1` |
 | [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | merged `496587e` |
 | [KK-022](KK-022.toml) | Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB | record parity (types with no definition) | requeued from `kk/KK-022-wip`: the definitions decode the corpus, but every `source` count was invented, not taken from an inventory run (AVMD claims 46,000 LNAM in 25,938 subrecords); the QA said CHANGES three times. Brief now says to merge main, rewrite each source from the run, and what parity counts as unknown |
 | [KK-023](KK-023.toml) | Type FLOR (flora) from the pinned xEdit file | record parity (lstring-only FLOR) | after KK-022 |
 | [KK-030](KK-030.toml) | Engine test support: game-session fakes that front ends can drive | M6.G4 to G6 against M4.T3's fakes (next-sprint item 3) | merged `5bdb830` |
 | [KK-031](KK-031.toml) | The workbench gate permits `game.session` (start) and `game.stop`; `game.status` allowed | M6.G4, first half | merged `b28ea17` (note: the source scan's `Session` needle is now whole-word so `SessionForm` passes) |
 | [KK-032](KK-032.toml) | The Cockpit launches a game session and follows it by polling `game.status` | M6.G4, second half | merged `9b81fd7` (QA: CHANGES, fixed in review: the start spends its dry run, so Launch and its confirm stay closed while a session is followed and a refused second start no longer ends the following; harness WIP folded in) |
-| [KK-033](KK-033.toml) | The Cockpit shows a session's probe rows and screenshots | M6.G5, first half | queued (KK-032 merged) |
-| [KK-034](KK-034.toml) | `game.probe` from the Cockpit: re-run, screenshot, send a row to the Ledger | M6.G5 second half, M6.G6 wiring | after KK-033 and KK-035 |
+| [KK-033](KK-033.toml) | The Cockpit shows a session's probe rows and screenshots | M6.G5, first half | merged `5ef2df9` (review `37b1e61`: a screenshot marked not listed or missing on disk shows that reason and is not opened, so no stale read error is cached) |
+| [KK-034](KK-034.toml) | `game.probe` from the Cockpit: re-run, screenshot, send a row to the Ledger | M6.G5 second half, M6.G6 wiring | queued (KK-033 and KK-035 merged) |
 | [KK-035](KK-035.toml) | The Ledger form is prefilled from a probe row left inconclusive or manual | M6.G6 | merged `bfddeb9` |
 | [KK-036](KK-036.toml) | The Cell View window over `cell` | M7.W2 (next-sprint item 5) | merged `1f0eee0` |
 | [KK-037](KK-037.toml) | Cell View and Render Window in step: open a cell in the viewport, one selection | M7.R2 selection sync | merged `4275765` |
 | [KK-038](KK-038.toml) | Table columns resize by dragging the header's edge | M6.V5 rest | merged `a4aaf48` |
 | [KK-039](KK-039.toml) | Raw JSON held in one buffer and sliced by the visible range | M6.P5a rest | merged `fe7aea5` |
-| [KK-040](KK-040.toml) | The workbench loads the last profile at start, from the index cache | M6.P3a rest | queued |
+| [KK-040](KK-040.toml) | The workbench loads the last profile at start, from the index cache | M6.P3a rest | merged `875c070` |
 | [KK-041](KK-041.toml) | Measure whether opt-level 2 for dependencies makes debug runs usable | M6.P6a rest | merged `89b13e2` (review: the doc says one clean build each; result: do not adopt, +77% fresh build) |
 | [KK-042](KK-042.toml) | `game.session` reports progress: preflight, each phase, each probe row | M6.G4 ("progress events for its own steps") | merged `13ce441` |
 | [KK-043](KK-043.toml) | MCP: a game session started over MCP is followed and stopped across calls | CLI/MCP/UI parity for M4.T3's commands | merged `db3afb9` (review: em dashes out of the new docs/mcp.md lines) |
@@ -166,9 +166,9 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-052](KK-052.toml) | Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, MTPT, ASPC; type AVIF | "next in engine and data" (below) | merged `368342b` (review: committed the run's uncommitted parity-row fix); promoted as KK-224 (inventory) and KK-225 (AVIF) |
 | [KK-090](KK-090.toml) | Schema tickets merge cleanly: the defs test derives its record list, shared lists one entry per line | the generated-file overlap (above, "Generated tickets") | merged `66108e2` |
 | [KK-100](KK-100.toml) | Inventory definitions for SFTR, TRNS, PDCL, EFSQ and STMP | generated by plan/tickets/generate.py inventory | requeued from `kk/KK-100-wip`: out of time with EFSQ written and registered, PDCL and TRNS written but unregistered, SFTR and STMP not started, golden seed stale (1/6 at the end, 3/6 at minute 30). Brief now opens with where the run stopped |
-| [KK-101](KK-101.toml) | Inventory definitions for ATMO, KSSM, BMOD, FFKW and LTEX | generated by plan/tickets/generate.py inventory | queued |
-| [KK-102](KK-102.toml) | Inventory definitions for LVLB, AMBS, IPDS, IMGS and MUST | generated by plan/tickets/generate.py inventory | queued |
-| [KK-103](KK-103.toml) | Inventory definitions for CAMS, MATT, IMAD, AACT and SPCH | generated by plan/tickets/generate.py inventory | queued |
+| [KK-101](KK-101.toml) | Inventory definitions for ATMO, KSSM, BMOD, FFKW and LTEX | generated by plan/tickets/generate.py inventory | merged `60fd7f0` (review `d39e576`: the run left the golden seed stale, 3/6; regenerated, STATUS line added; the gap-matrix headline outside `owns` is `cargo xtask parity` output, kept) |
+| [KK-102](KK-102.toml) | Inventory definitions for LVLB, AMBS, IPDS, IMGS and MUST | generated by plan/tickets/generate.py inventory | merged `326cd04` (review `80f721e`: its five types added to `BX2_INVENTORY`; scope failed only on the gap-matrix headline `cargo xtask parity` rewrites, kept; generated files rebuilt in the merge) |
+| [KK-103](KK-103.toml) | Inventory definitions for CAMS, MATT, IMAD, AACT and SPCH | generated by plan/tickets/generate.py inventory | merged `243836f` (QA: CHANGES, then ACCEPT; generated files rebuilt in the merge) |
 | [KK-104](KK-104.toml) | Inventory definitions for GRAS, WTHS, STND and CSTY | generated by plan/tickets/generate.py inventory | queued |
 | [KK-105](KK-105.toml) | Inventory definitions for LGDI, DLBR, FSTP, MUSC and STBH | generated by plan/tickets/generate.py inventory | queued |
 | [KK-106](KK-106.toml) | Inventory definitions for GCVR, FOGV, ADDN, EFSH and BMMO | generated by plan/tickets/generate.py inventory | queued |

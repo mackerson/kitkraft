@@ -473,6 +473,8 @@ the generated files rather than editing them.
         "crates/esm/src/generated/records.rs",
         "crates/esm/tests/inventory_types.rs",
         "docs/record-parity.md",
+        # cargo xtask parity rewrites the gap matrix headline too (KK-101, KK-102 scope).
+        "docs/foothold/gap-matrix.md",
     ]
     return dict(mode="inventory", id=tid, title=f"Inventory definitions for {listing}", timeout_min=45,
                 owns=owns, brief=wrap(brief), sigs=sigs,
