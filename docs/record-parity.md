@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          59 |   252,710 |    142,095 |   542,615 |   395,129 |
-| **Total**       |          186 |         122 | 7,490,102 | 46,697,616 | 2,620,108 | 1,101,837 |
+| container/other |          123 |          64 |   252,710 |    143,488 |   544,283 |   392,068 |
+| **Total**       |          186 |         127 | 7,490,102 | 46,699,009 | 2,621,776 | 1,098,776 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 122 record definitions, defs hash `fnv1a64:03f86d7dbb8a6f07` (the hash named in
+- Schema: 127 record definitions, defs hash `fnv1a64:11733a90fb6d397f` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -169,15 +169,15 @@ Columns:
 | `STDT`        | Star                    |       124 |          0 |    16 |    10 |      0 |       6 |
 | `MUSC`        | MusicTypeForm           |       117 |          0 |     7 |     1 |      6 |       0 |
 | `STBH`        | SnapTemplateBehavior    |       103 |          0 |    11 |     8 |      1 |       2 |
-| `GCVR`        | -                       |        98 |          0 |     9 |     0 |      0 |       9 |
+| `GCVR`        | GroundCover             |        98 |          0 |     9 |     5 |      2 |       2 |
 | `HAZD`        | Hazard                  |        87 |          0 |    16 |     2 |      0 |      14 |
 | `RSPJ`        | ResearchProject         |        82 |          0 |    12 |    12 |      0 |       0 |
 | `WKMF`        | WwiseKeywordMapping     |        81 |          0 |     6 |     1 |      5 |       0 |
-| `FOGV`        | -                       |        80 |          0 |     2 |     0 |      0 |       2 |
-| `ADDN`        | -                       |        77 |          0 |    12 |     0 |      0 |      12 |
-| `EFSH`        | -                       |        77 |          0 |    11 |     0 |      0 |      11 |
+| `FOGV`        | FogVolume               |        80 |          0 |     2 |     1 |      1 |       0 |
+| `ADDN`        | AddonNode               |        77 |          0 |    12 |     4 |      8 |       0 |
+| `EFSH`        | EffectShader            |        77 |          0 |    11 |     7 |      4 |       0 |
 | `PMFT`        | PhotoModeFeature        |        75 |          0 |     5 |     2 |      0 |       3 |
-| `BMMO`        | -                       |        71 |          0 |    15 |     0 |      0 |      15 |
+| `BMMO`        | BiomeMarker             |        71 |          0 |    15 |     6 |      9 |       0 |
 | `ANIO`        | AnimatedObject          |        66 |          0 |     9 |     8 |      1 |       0 |
 | `COLL`        | -                       |        62 |          0 |     7 |     0 |      0 |       7 |
 | `SFPC`        | -                       |        62 |          0 |     5 |     0 |      0 |       5 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 122 defined             | 7,490,102 |    136,741 | 2,797 | 1,724 |    326 |     747 |
+| **186 types** | 127 defined             | 7,490,102 |    136,741 | 2,797 | 1,747 |    350 |     700 |
 
-Subrecord occurrences: 50,419,561 in total; 46,697,616 typed (0 of them failed to decode), 2,620,108 opaque, 1,101,837 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,699,009 typed (0 of them failed to decode), 2,621,776 opaque, 1,098,776 unknown.
 
 ## Decoded through the definitions
 
@@ -358,10 +358,15 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `STDT`    | Star                    |           124 |      2,455 |      0 |         0 |         0 |                   0 |      2,455 |       0 |        0 |
 | `MUSC`    | MusicTypeForm           |           117 |        117 |      0 |         0 |         0 |                   0 |        117 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior    |           103 |      2,781 |      0 |         0 |         0 |                   0 |      2,781 |       0 |        0 |
+| `GCVR`    | GroundCover             |            98 |        601 |      0 |         0 |         0 |                   0 |        601 |       0 |        0 |
 | `HAZD`    | Hazard                  |            87 |        170 |      0 |         0 |         0 |                   0 |        170 |       0 |        0 |
 | `RSPJ`    | ResearchProject         |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping     |            81 |         81 |      0 |         0 |         0 |                   0 |         81 |       0 |        0 |
+| `FOGV`    | FogVolume               |            80 |         80 |      0 |         0 |         0 |                   0 |         80 |       0 |        0 |
+| `ADDN`    | AddonNode               |            77 |        156 |      0 |         0 |         0 |                   0 |        156 |       0 |        0 |
+| `EFSH`    | EffectShader            |            77 |        263 |      0 |         0 |         0 |                   0 |        263 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature        |            75 |        150 |      0 |         0 |         0 |                   0 |        150 |       0 |        0 |
+| `BMMO`    | BiomeMarker             |            71 |        293 |      0 |         0 |         0 |                   0 |        293 |       0 |        0 |
 | `ANIO`    | AnimatedObject          |            66 |        239 |      0 |         0 |         0 |                   0 |        239 |       0 |        0 |
 | `SUNP`    | SunPreset               |            53 |         99 |      0 |         0 |         0 |                   0 |         99 |       0 |        0 |
 | `LVLP`    | LeveledPackIn           |            52 |      1,072 |      0 |         0 |         0 |                   0 |      1,072 |       0 |        0 |
@@ -380,7 +385,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,470,388 | 46,697,616 |      0 |         0 |    18,685 |                   0 | 46,678,931 |       0 |        0 |
+| **Total** |                         |     7,470,791 | 46,699,009 |      0 |         0 |    18,685 |                   0 | 46,680,324 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -398,6 +403,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `AACT`    | ActionForm              |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `ACHR`    | PlacedNpc               |             76 |    70 |      6 |        11 |                   0 |     65 |       0 |        0 |
 | `ACTI`    | Activator               |             78 |    73 |      5 |         9 |                   0 |     69 |       0 |        0 |
+| `ADDN`    | AddonNode               |             42 |    31 |     11 |         0 |                   0 |     42 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
 | `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm         |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
@@ -410,6 +416,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ATMO`    | Atmosphere              |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `BIOM`    | Biome                   |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
+| `BMMO`    | BiomeMarker             |             45 |    33 |     12 |         0 |                   0 |     45 |       0 |        0 |
 | `BMOD`    | BoneModifier            |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `BOOK`    | Book                    |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `BPTD`    | BodyPartData            |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -425,16 +432,19 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DLBR`    | DialogBranch            |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                    |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
+| `EFSH`    | EffectShader            |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `FACT`    | Faction                 |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
 | `FFKW`    | FormFolderKeywordList   |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `FLST`    | FormIdList              |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
+| `FOGV`    | FogVolume               |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FSTP`    | Footstep                |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FURN`    | Furniture               |             82 |    77 |      5 |        11 |                   0 |     71 |       0 |        0 |
 | `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |             48 |    43 |      5 |         0 |                   0 |     48 |       0 |        0 |
+| `GCVR`    | GroundCover             |             38 |    31 |      7 |         0 |                   0 |     38 |       0 |        0 |
 | `GLOB`    | Global                  |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `GMST`    | GameSetting             |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
@@ -517,7 +527,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings         |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,460 | 3,919 |    541 |       290 |                   2 |  4,168 |       0 |        0 |
+| **Total** |                         |          4,626 | 4,046 |    580 |       290 |                   2 |  4,334 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -563,6 +573,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `ENCH`: `BFCB` (1), `BFCE` (1), `CTDA` (140), `EFID` (286), `EFIF` (286), `EFIT` (286), `ENIT` (135), `MNAM` (12), `MUID` (286), `OBND` (135), `ODTY` (135), `PTCL` (1)
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
 - `STBH`: `FLTR` (30), `INTV` (30)
+- `GCVR`: `KSIZ` (14), `KWDA` (14)
 - `HAZD`: `ANAM` (4), `BFCB` (46), `BFCE` (46), `BNAM` (4), `CTDA` (27), `DNAM` (87), `FLLD` (87), `MNAM` (4), `MODL` (87), `OBND` (87), `ODTY` (87), `PTCL` (26), `REFL` (7), `XALG` (8)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `FXPD`: `MNAM` (871), `MWGT` (871)

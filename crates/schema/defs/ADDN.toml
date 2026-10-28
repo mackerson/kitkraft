@@ -1,0 +1,142 @@
+# ADDN: AddonNode, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official ADDN record (77 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the ADDN definition of wbDefinitionsSF1.pas at the pinned revision (L9277-L9296),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     and BfcbBlock groups keep their own provenance.
+#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#
+# An inventory: EDID, the lstrings, the keyword list and the component block frame are
+# typed; every other payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
+# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Inside component blocks (kept raw by BfcbBlock): REFL.
+signature = "ADDN"
+name = "AddonNode"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official ADDN record (77) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 10..40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9278-L9278",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9280-L9280",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9281-L9281",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 77 official ADDN records (1 occurrences), 29 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9282-L9282",
+]
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 55 of 77 official ADDN records (55 occurrences), 24..33 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9283-L9283",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 24..33 bytes"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9284-L9284",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 77 official ADDN records (18 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9285-L9285",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "PSDF"
+name = "Psdf"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 1247..1284 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9286-L9286",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 1247..1284 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official ADDN records (77 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9287-L9287",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
