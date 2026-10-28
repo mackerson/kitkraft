@@ -493,6 +493,39 @@ that has one keeps it raw in `extra`. The scan fails when an official record has
 subrecord the inventory does not place, one that does not decode, or a re-encode
 difference. A type leaves the inventory when a family lane transcribes it.
 
+Workflow (KK-1xx tickets; every count comes from one scan, `kitkraft_esm::inventory`, which
+the inventory test prints and the tools read; set `KITKRAFT_DATA_DIR`):
+
+1. `cargo xtask inventory-def <SIG> --name <TypeName> --ticket KK-NNN` writes `<SIG>.toml`
+   from the 14 official ESMs: members in corpus order and cardinality, EDID, `BfcbBlock`,
+   `Keywords` and the corpus table's lstrings typed, everything else opaque, each `source`
+   with the scan's counts, sizes and today's date. `--evidence '<citation>'` (repeatable)
+   adds a record-level citation such as the ticket's `xedit:` range; the tool reads no
+   xEdit file. It refuses to overwrite a file without `--force`.
+2. Review every `# TODO(review): ...` it wrote (and the warnings it printed), then delete
+   the comment. The generator marks what the corpus leaves open instead of guessing: a
+   repeated group it inferred (check its members, rename it if the ticket names it), a
+   signature in separate runs it could not group (make it a group, see `SFPC.toml`), two
+   members seen in both orders (`unordered = true`, or settle the order). Members that never
+   share a record get a `note` saying their relative order is unknown.
+3. `cargo xtask add-def <SIG>...` registers the files: `BUILTIN_DEFINITIONS` in
+   `src/lib.rs` (its marked region, rewritten from this directory), `TYPES` in
+   `crates/esm/tests/inventory_types.rs`, `BX2_INVENTORY` (the file cites xEdit) or
+   `INVENTORY_CORPUS_ONLY` (corpus only) in `tests/defs.rs`, and `WITHOUT_EDID` in
+   `crates/esm/src/bridge.rs` for a type whose records have no EDID; then it runs
+   `cargo xtask codegen`, the golden seed (`KITKRAFT_UPDATE_GOLDEN=1`) and `cargo xtask
+   parity` (`--no-parity` skips it). It is idempotent, and it keeps both sides' entries
+   when git conflict markers sit inside those lists: after two schema branches conflict
+   on the shared files, take either side of the generated files and run `cargo xtask
+   add-def` with every type of both.
+4. `KK_INVENTORY_ONLY=<SIG>,<SIG> cargo test -p kitkraft-esm --release --test
+   inventory_types -- --include-ignored --exact inventory_types_full --nocapture` runs the
+   inventory test on those types alone (each must be in `TYPES`): `defined: true`, nothing
+   unplaced, failed or re-encoded differently.
+5. `cargo xtask inventory-check <SIG>...` fails when a `source` cites a count, a size or a
+   per-record maximum the scan does not show, or a top-level `card` disagrees with it.
+   Edit a definition by hand afterwards and run it again.
+
 ## Example
 
 ```toml
