@@ -1,7 +1,8 @@
 //! What a session's probes found (M6.G5): the probe rows and the screenshots
-//! `game.status` lists. The view model above the `// ---- drawing` line is
-//! toolkit-free — it turns the reply into rows, each with its verdict and its
-//! screenshots resolved against the paths the reply listed — so it is tested
+//! `game.status` lists. Above the `// ---- drawing` line the view model turns
+//! the reply into rows, each with its verdict and its screenshots resolved
+//! against the paths the reply listed, and `decode_screenshot` turns a
+//! screenshot's bytes into an image the window can draw; both are tested
 //! without a window. Below that line the rows go into a table and the selected
 //! row's screenshots are drawn as images.
 
@@ -216,21 +217,28 @@ fn shot_of(
 }
 
 /// Decode a screenshot's bytes into an image the window can draw: PNG only (the
-/// format the session writes), into an `egui::ColorImage`. The error is the
-/// decoder's reason, so a file that does not decode is shown `inconclusive`
-/// with the reason, never hidden.
+/// format the session writes), into an `egui::ColorImage` with its pixels
+/// premultiplied, as egui stores colors. The error is the decoder's reason, so
+/// a file that does not decode is shown `inconclusive` with the reason, never
+/// hidden.
 pub fn decode_screenshot(bytes: &[u8]) -> Result<egui::ColorImage, String> {
     let img = image::load_from_memory_with_format(bytes, image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
-    let (w, h) = (img.width(), img.height());
     let rgba = img.to_rgba8();
-    Ok(egui::ColorImage::from_rgba_unmultiplied(
-        [
-            usize::try_from(w).unwrap_or_default(),
-            usize::try_from(h).unwrap_or_default(),
-        ],
-        rgba.as_raw(),
-    ))
+    let pixels = rgba
+        .pixels()
+        .map(|c| {
+            let [r, g, b, a] = c.0;
+            egui::Rgba::from_srgba_unmultiplied(r, g, b, a).into()
+        })
+        .collect::<Vec<egui::Color32>>();
+    let sw = usize::try_from(img.width()).unwrap_or_default();
+    let sh = usize::try_from(img.height()).unwrap_or_default();
+    Ok(egui::ColorImage {
+        size: [sw, sh],
+        source_size: egui::vec2(sw as f32, sh as f32),
+        pixels,
+    })
 }
 
 // ---- drawing ---------------------------------------------------------------------------
