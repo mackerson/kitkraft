@@ -5,6 +5,8 @@
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask inventory-check`: the KK-111 inventory counts against the corpus
+//!   ([`inventory`]).
 //! - `cargo xtask dist [--out DIR] [--sync-bin]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
@@ -37,6 +39,7 @@ mod codegen;
 mod dist;
 mod evidence;
 mod graph;
+mod inventory;
 mod observe;
 mod oracle;
 mod papyrus;
@@ -143,6 +146,7 @@ fn run() -> Result<()> {
         Some("layers") => layers(&workspace_root()?),
         Some("codegen") => codegen::run(&workspace_root()?, check_flag("codegen")?),
         Some("parity") => parity::run(&workspace_root()?, check_flag("parity")?),
+        Some("inventory-check") => inventory::run(&workspace_root()?),
         Some("observe") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             observe::run(&workspace_root()?, &rest)
@@ -177,6 +181,8 @@ fn print_help() {
     );
     println!("  parity   run `kit coverage` over the corpus (KITKRAFT_DATA_DIR) and write");
     println!("           docs/record-parity.md; --check fails when it is stale");
+    println!("  inventory-check  run the release inventory scan; each KK-111 type must");
+    println!("           print its ticketed corpus count with `defined: true`");
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
     println!(
