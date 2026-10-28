@@ -504,13 +504,14 @@ mod tests {
 
     #[test]
     fn a_missing_screenshot_is_inconclusive_never_hidden() {
-        // `T-02-1.png` is listed but not on disk, and `T-03` names a file the
-        // reply's `screenshots` does not list: both are still shown, as
+        // The same reply, with `T-03`'s screenshot no longer listed (`T-02`'s
+        // listed file is missing on disk): both are still shown, as
         // `inconclusive` with their reasons, never left out.
-        let env = status_env();
-        let rows = ProbeRows::from_status(&env, &|p: &std::path::Path| {
-            p == std::path::Path::new("observe/s/T-03-1.png")
-        });
+        let mut env = status_env();
+        env["data"]["screenshots"] = json!([
+            { "file": "T-02-1.png", "path": "observe/s/T-02-1.png" }
+        ]);
+        let rows = ProbeRows::from_status(&env, &|_: &std::path::Path| false);
         let t2 = rows.rows.get(1).unwrap();
         let missing = t2.shots.first().unwrap();
         assert_eq!(missing.file, "T-02-1.png");
