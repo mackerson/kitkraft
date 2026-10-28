@@ -1,0 +1,191 @@
+# LVLB: LeveledBaseForm, inventory definition (KK-102).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-102 scan of every official LVLB record (373 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the LVLB definition of wbDefinitionsSF1.pas at the pinned revision (L13952-L14010),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
+# that has one keeps it raw. The level entries (LVLO, each with its own CTDA conditions)
+# repeat as one group, because the corpus interleaves their two runs in orders a flat
+# member list cannot express.
+signature = "LVLB"
+name = "LeveledBaseForm"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVLB record (373) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13952-L14010",
+]
+confidence = "corpus"
+note = "inventory definition (KK-102): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 11..70 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13972-L13972",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Vmad"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 373 official LVLB records (1 occurrence), 36 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13973-L13973",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13974-L13974",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13975-L13975",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "LVLD"
+name = "Lvld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13983-L13983",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "LVLM"
+name = "Lvlm"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13984-L13984",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "LVLF"
+name = "Lvlf"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 2 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13985-L13985",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 373 official LVLB records (39 occurrences, up to 12 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13997-L13997",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "LLCT"
+name = "Llct"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (350 occurrences), 1 byte"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13999-L13999",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+group = "LeveledListEntry"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (350 occurrences), up to 17 LVLO per record, each entry 12 bytes with 0..12 of the record's 32-byte CTDA after it"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14000-L14007",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "LVLO"
+name = "Lvlo"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (1329 occurrences, up to 17 per record), 12 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14002-L14002",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member.member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 373 official LVLB records (39 occurrences, up to 12 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14004-L14004",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 373 official LVLB records (1 occurrence), 39 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14009-L14009",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14008-L14008",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-102 inventory)"
