@@ -1,0 +1,175 @@
+# STND: SnapTemplateNode, inventory definition (KK-104).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-104 scan of every official STND record (183 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the STND definition of wbDefinitionsSF1.pas at the pinned revision (L18008-L18062),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     and BfcbBlock groups keep their own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID, the keyword list and the component block frame are typed; every other
+# payload is opaque (named after its signature, a placeholder) until a family lane
+# transcribes the record from the pinned xEdit file (docs/gaps.md). Members xEdit lists
+# that no official record has are left out; a plugin that has one keeps it raw.
+# Inside component blocks (kept raw by BfcbBlock): FLTR INTV.
+signature = "STND"
+name = "SnapTemplateNode"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STND record (183) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062",
+]
+confidence = "corpus"
+note = "inventory definition (KK-104): corpus order and cardinality; EDID, keywords and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 18..69 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18026-L18026",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18028-L18028",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18029-L18029",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 21 of 183 official STND records (21 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18036-L18036",
+]
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 181 of 183 official STND records (181 occurrences), 32..98 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18037-L18037",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 32..98 bytes"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 57 of 183 official STND records (57 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18038-L18038",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18039-L18039",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18040-L18040",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "SNST"
+name = "Snst"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18048-L18048",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 96 of 183 official STND records (343 occurrences, up to 10 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18055-L18055",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FLTV"
+name = "Fltv"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (549 occurrences, up to 3 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18057-L18059",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 60 of 183 official STND records (60 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18061-L18061",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"

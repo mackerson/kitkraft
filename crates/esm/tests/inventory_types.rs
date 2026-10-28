@@ -49,8 +49,10 @@ const TYPES: &[&[u8; 4]] = &[
     b"ATMO",
     b"BMOD",
     b"CAMS",
+    b"CSTY",
     b"DOOR",
     b"FFKW",
+    b"GRAS",
     b"IMAD",
     b"IMGS",
     b"IPDS",
@@ -70,8 +72,10 @@ const TYPES: &[&[u8; 4]] = &[
     b"RFGP",
     b"SOUN",
     b"SPCH",
+    b"STND",
     b"TXST",
     b"WKMF",
+    b"WTHS",
     b"WWED",
 ];
 

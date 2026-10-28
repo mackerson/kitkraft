@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          50 |   252,710 |    137,395 |   533,358 |   409,086 |
-| **Total**       |          186 |         113 | 7,490,102 | 46,692,916 | 2,610,851 | 1,115,794 |
+| container/other |          123 |          54 |   252,710 |    138,781 |   539,421 |   401,637 |
+| **Total**       |          186 |         117 | 7,490,102 | 46,694,302 | 2,616,914 | 1,108,345 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 113 record definitions, defs hash `fnv1a64:673dacbcd2b36cef` (the hash named in
+- Schema: 117 record definitions, defs hash `fnv1a64:c7d82e4a1aead392` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -153,10 +153,10 @@ Columns:
 | `AACT`        | ActionForm              |       222 |          0 |     5 |     1 |      4 |       0 |
 | `ARTO`        | ArtObject               |       212 |          0 |    21 |     9 |     11 |       1 |
 | `SPCH`        | SpeechChallengeForm     |       197 |          0 |    10 |     3 |      7 |       0 |
-| `GRAS`        | -                       |       193 |          0 |    10 |     0 |      0 |      10 |
-| `WTHS`        | -                       |       187 |          0 |     4 |     0 |      0 |       4 |
-| `STND`        | -                       |       183 |          0 |    17 |     0 |      0 |      17 |
-| `CSTY`        | -                       |       177 |          0 |    18 |     0 |      0 |      18 |
+| `GRAS`        | Grass                   |       193 |          0 |    10 |     4 |      4 |       2 |
+| `WTHS`        | WeatherSettings         |       187 |          0 |     4 |     1 |      3 |       0 |
+| `STND`        | SnapTemplateNode        |       183 |          0 |    17 |     7 |      8 |       2 |
+| `CSTY`        | CombatStyleForm         |       177 |          0 |    18 |     1 |     17 |       0 |
 | `SMBN`        | StoryManagerBranchNode  |       173 |          0 |     7 |     7 |      0 |       0 |
 | `AMMO`        | Ammunition              |       154 |          0 |    16 |    16 |      0 |       0 |
 | `CPTH`        | CameraPath              |       152 |          0 |     5 |     5 |      0 |       0 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 113 defined             | 7,490,102 |    136,741 | 2,797 | 1,699 |    262 |     836 |
+| **186 types** | 117 defined             | 7,490,102 |    136,741 | 2,797 | 1,712 |    294 |     791 |
 
-Subrecord occurrences: 50,419,561 in total; 46,692,916 typed (0 of them failed to decode), 2,610,851 opaque, 1,115,794 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,694,302 typed (0 of them failed to decode), 2,616,914 opaque, 1,108,345 unknown.
 
 ## Decoded through the definitions
 
@@ -342,6 +342,10 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AACT`    | ActionForm              |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject               |           212 |      1,125 |      0 |         0 |         0 |                   0 |      1,125 |       0 |        0 |
 | `SPCH`    | SpeechChallengeForm     |           197 |        589 |      0 |         0 |         0 |                   0 |        589 |       0 |        0 |
+| `GRAS`    | Grass                   |           193 |        440 |      0 |         0 |         0 |                   0 |        440 |       0 |        0 |
+| `WTHS`    | WeatherSettings         |           187 |        187 |      0 |         0 |         0 |                   0 |        187 |       0 |        0 |
+| `STND`    | SnapTemplateNode        |           183 |        582 |      0 |         0 |         0 |                   0 |        582 |       0 |        0 |
+| `CSTY`    | CombatStyleForm         |           177 |        177 |      0 |         0 |         0 |                   0 |        177 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |      0 |         0 |         0 |                   0 |      1,243 |       0 |        0 |
 | `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |         0 |                   0 |      2,298 |       0 |        0 |
 | `CPTH`    | CameraPath              |           152 |        793 |      0 |         0 |         0 |                   0 |        793 |       0 |        0 |
@@ -371,7 +375,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,469,012 | 46,692,916 |      0 |         0 |    18,685 |                   0 | 46,674,231 |       0 |        0 |
+| **Total** |                         |     7,469,752 | 46,694,302 |      0 |         0 |    18,685 |                   0 | 46,675,617 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -411,6 +415,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `COBJ`    | ConstructibleObject     |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
 | `CONT`    | Container               |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
+| `CSTY`    | CombatStyleForm         |             18 |     1 |     17 |         0 |                   0 |     18 |       0 |        0 |
 | `DIAL`    | DialogTopic             |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                    |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
@@ -426,6 +431,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GLOB`    | Global                  |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `GMST`    | GameSetting             |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
+| `GRAS`    | Grass                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
@@ -487,6 +493,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SPEL`    | Spell                   |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
 | `STAT`    | Static                  |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
 | `STDT`    | Star                    |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
+| `STND`    | SnapTemplateNode        |             46 |    33 |     13 |         0 |                   0 |     46 |       0 |        0 |
 | `SUNP`    | SunPreset               |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `TERM`    | Terminal                |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
 | `TES4`    | PluginHeader            |             11 |     8 |      3 |         0 |                   2 |      9 |       0 |        0 |
@@ -497,9 +504,10 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WEAP`    | Weapon                  |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping     |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
+| `WTHS`    | WeatherSettings         |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,278 | 3,818 |    460 |       290 |                   2 |  3,986 |       0 |        0 |
+| **Total** |                         |          4,385 | 3,884 |    501 |       290 |                   2 |  4,093 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -540,6 +548,8 @@ Signatures seen in records of a defined type that its definition does not name
 - `SFPT`: `DAT2` (255), `DATA` (76)
 - `HDPT`: `BFCB` (2), `BFCE` (2), `DATA` (236), `FLLD` (236), `HNAM` (30), `MNAM` (202), `MODL` (231), `NAM2` (147), `NAM3` (140), `PNAM` (236), `RNAM` (236), `TNAM` (1)
 - `ARTO`: `MNAM` (1)
+- `GRAS`: `KSIZ` (23), `KWDA` (23)
+- `STND`: `FLTR` (21), `INTV` (21)
 - `ENCH`: `BFCB` (1), `BFCE` (1), `CTDA` (140), `EFID` (286), `EFIF` (286), `EFIT` (286), `ENIT` (135), `MNAM` (12), `MUID` (286), `OBND` (135), `ODTY` (135), `PTCL` (1)
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
 - `HAZD`: `ANAM` (4), `BFCB` (46), `BFCE` (46), `BNAM` (4), `CTDA` (27), `DNAM` (87), `FLLD` (87), `MNAM` (4), `MODL` (87), `OBND` (87), `ODTY` (87), `PTCL` (26), `REFL` (7), `XALG` (8)
