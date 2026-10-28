@@ -1,0 +1,75 @@
+# ATMO: Atmosphere, inventory definition (KK-101).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-101 scan of every official ATMO record (599 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the ATMO definition of wbDefinitionsSF1.pas at the pinned revision (L9852-L9874),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out (the base
+# form components); a plugin that has one keeps it raw.
+# Order: REFL never occurs with RFDP or RDIF in an official ATMO record, so its position
+# follows the pinned xEdit file.
+signature = "ATMO"
+name = "Atmosphere"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9852-L9874",
+]
+confidence = "corpus"
+note = "inventory definition (KK-101): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 599 of 599 official ATMO records (599 occurrences), 9..28 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9869-L9869",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "REFL"
+name = "RefL"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 2 of 599 official ATMO records (2 occurrences), 1971 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9871-L9871",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 1971 bytes"
+
+[[member]]
+sig = "RFDP"
+name = "RfDp"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 597 of 599 official ATMO records (597 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9872-L9872",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+
+[[member]]
+sig = "RDIF"
+name = "RdIf"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 597 of 599 official ATMO records (597 occurrences), 1787..1973 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9873-L9873",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-101 inventory); observed 1787..1973 bytes"

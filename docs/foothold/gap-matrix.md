@@ -48,8 +48,8 @@ MX's result in its evidence cell and keeps its own column.
 | Status                 | pass | fail | inconclusive | not-run | Which pass                             |
 | ---------------------- | ---: | ---: | -----------: | ------: | -------------------------------------- |
 | parsed                 |  185 |    0 |            0 |       0 | 185 types                              |
-| typed-readable         |   54 |  131 |            0 |       0 | 54 types                               |
-| typed-writable         |   19 |    0 |            0 |     166 | 19 types                               |
+| typed-readable         |   58 |  127 |            0 |       0 | 58 types                               |
+| typed-writable         |   22 |    0 |            0 |     163 | 22 types                               |
 | ck-differential-tested |    0 |    0 |            0 |     185 |                                        |
 | game-runtime-tested    |    5 |    0 |            0 |     180 | `AMDL`, `CELL`, `OMOD`, `REFR`, `WEAP` |
 | save-reload-verified   |    0 |    0 |            0 |     185 |                                        |
