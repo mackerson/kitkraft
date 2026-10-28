@@ -1,6 +1,7 @@
 id = "KK-034"
 title = "game.probe from the Cockpit: re-run a row, take a screenshot, send a row to the Ledger"
 timeout_min = 60
+base = "kk/KK-034-wip"
 after = ["KK-033", "KK-035"]
 owns = [
   "crates/ui-egui/src/gate.rs",
@@ -12,6 +13,14 @@ owns = [
   "docs/workbench.md",
 ]
 brief = """
+Continuing from `kk/KK-034-wip` (2026-10-28 run, 3/5 at the end): step 1 is done and
+committed (`Preview::None`, `game.probe` in `PERMITTED_WRITES` with panel
+`panels/cockpit/probes.rs`, the menu and cockpit tests updated) and the two gate tests
+pass. Still to do: run `cargo fmt --all` (the gate failed on `cargo fmt --check` in
+`gate.rs`), then steps 2 and 3 (the Re-run and Screenshot buttons with their confirm box in
+`panels/cockpit/probes.rs`, `Action::LedgerPrefill` and the "Record in Ledger" button with
+`record_in_ledger_is_offered_only_for_undecided_rows`), and `docs/workbench.md`.
+
 M6.G5, second half, and the wiring of M6.G6. The Cockpit follows a started game session
 (`crates/ui-egui/src/panels/cockpit/session.rs`) and shows its probe rows and screenshots
 (`panels/cockpit/probes.rs`). The gate (`crates/ui-egui/src/gate.rs`, read its module docs
