@@ -580,7 +580,7 @@ mod tests {
             if *sig == *b"TES4" {
                 continue;
             }
-            // NAVI, PGRE and RFGP (M4.BX2 inventories) have no EDID in any official record, so
+            // PGRE and RFGP (M4.BX2 inventories) have no EDID in any official record, so
             // their definitions have no EDID member: the bad EDID stays unplaced, not failed.
             let has_edid = members
                 .iter()
@@ -616,7 +616,7 @@ mod tests {
             })
             .map(|(s, _)| s)
             .collect();
-        assert_eq!(without, [b"NAVI", b"PGRE", b"RFGP", b"TES4"]);
+        assert_eq!(without, [b"PGRE", b"RFGP", b"TES4"]);
     }
 
     #[test]
