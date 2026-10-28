@@ -57,10 +57,16 @@ tokens are in `docs/design/workbench-style.md`. The Start tab's About line names
 
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
-arguments are the same as for `kit mcp`. When they are given, the window opens with a
-`load`. With none (`kit ui` alone, or a double click on `kit-ui.exe`), it opens on the
-**Start** tab: the MO2 instance, a Data-dir line, and one load button per profile (see
-"Panels").
+arguments are the same as for `kit mcp`. With `--profile` or plugins, the window opens on
+the **Load** tab with that `load` running, as before. With none (`kit ui` alone, or a
+double click on `kit-ui.exe`), it loads the profile last loaded from the Start tab
+(`"profile"` in `%LOCALAPPDATA%\kitkraft\ui.json`), from the index cache, and opens on the
+**Load** tab with the Load form filled in (M6.P3a: a warm start costs about the warm load,
+L2 of `docs/design/workbench-performance.md`). The owner's live game is never loaded on
+its own: when the remembered folder's last name is `Default` (in any case), or the folder
+is gone, the window opens on the **Start** tab instead — the MO2 instance, a Data-dir
+line, and one load button per profile (see "Panels") — and the notice line under the tabs
+says why once; the Start tab can still load `Default`, read-only.
 
 `kit-ui.exe` is a console program, so started from Explorer or a shortcut it opens a
 console window next to the workbench. That window shows the debug-build warning and any
