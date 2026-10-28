@@ -589,6 +589,12 @@ fn plan(scan: &Scan) -> (Vec<Item>, Vec<String>) {
             } else {
                 continue;
             };
+            // A repeat that could not be grouped shows every pair around it both ways;
+            // its own TODO covers them.
+            let repeated = |s: &String| flat_repeats.iter().any(|(r, _)| r == s);
+            if repeated(a) || repeated(b) {
+                continue;
+            }
             if keys.iter().position(|x| x == other) < Some(i) {
                 todos.push(format!(
                     "the corpus shows {} both before and after {}; if records of this type \
@@ -625,6 +631,31 @@ fn plan(scan: &Scan) -> (Vec<Item>, Vec<String>) {
 
 // ---------------------------------------------------------------------------------------
 // Writing the definition.
+
+/// Width of the comment lines the generator writes.
+const WIDTH: usize = 92;
+
+/// Appends `text` as comment lines of at most [`WIDTH`] columns (a longer word stands
+/// alone): `first` opens the first line, `rest` the others.
+fn comment(out: &mut String, first: &str, rest: &str, text: &str) {
+    let mut line = first.to_string();
+    let mut empty = true;
+    for word in text.split_whitespace() {
+        if !empty && line.len().saturating_add(1).saturating_add(word.len()) > WIDTH {
+            out.push_str(&line);
+            out.push('\n');
+            line = rest.to_string();
+            empty = true;
+        }
+        if !empty {
+            line.push(' ');
+        }
+        line.push_str(word);
+        empty = false;
+    }
+    out.push_str(&line);
+    out.push('\n');
+}
 
 /// A TOML basic string.
 fn q(s: &str) -> String {
@@ -714,16 +745,21 @@ fn render(
         ticket.map_or(String::new(), |t| format!(" ({t})"))
     );
     out.push_str("#\n# Sources (ADR 0004, ADR 0005):\n");
-    let _ = writeln!(
-        out,
-        "#   corpus: the inventory scan of every official {sig} record ({total} in the 14 ESMs,\n\
-         #     crates/esm/tests/inventory_types.rs, inventory_types_full, {date}): which\n\
-         #     subrecords occur, in which order and how often, written out by `cargo xtask\n\
-         #     inventory-def`. Every member is listed because the corpus has it, and every\n\
-         #     official record decodes with nothing left unplaced and re-encodes byte for byte."
+    comment(
+        &mut out,
+        "#   ",
+        "#     ",
+        &format!(
+            "corpus: the inventory scan of every official {sig} record ({total} in the 14 ESMs, \
+             crates/esm/tests/inventory_types.rs, inventory_types_full, {date}): which \
+             subrecords occur, in which order and how often, written out by `cargo xtask \
+             inventory-def`. Every member is listed because the corpus has it, and every \
+             official record decodes with nothing left unplaced and re-encodes byte for byte."
+        ),
     );
     for e in evidence {
-        let _ = writeln!(out, "#   {e}: cited for the record as a whole.");
+        let _ = writeln!(out, "#   {e}");
+        out.push_str("#     (cited for the record as a whole).\n");
     }
     let mut shared = Vec::new();
     if has_keywords {
@@ -733,20 +769,24 @@ fn render(
         shared.push("BfcbBlock");
     }
     if has_edid || !shared.is_empty() {
-        let _ = write!(
-            out,
-            "#   uesp-skyrim / universal scan: the EDID string convention (M2.B2)"
-        );
+        let mut line =
+            "uesp-skyrim / universal scan: the EDID string convention (M2.B2)".to_string();
         if shared.is_empty() {
-            out.push_str(".\n");
+            line.push('.');
+        } else if shared.len() == 1 {
+            let _ = write!(
+                line,
+                "; the shared {} keeps its own provenance.",
+                shared.join("")
+            );
         } else {
-            let _ = writeln!(
-                out,
-                "; the shared {} keep{} their own provenance.",
-                shared.join(" and "),
-                if shared.len() == 1 { "s" } else { "" }
+            let _ = write!(
+                line,
+                "; the shared {} keep their own provenance.",
+                shared.join(" and ")
             );
         }
+        comment(&mut out, "#   ", "#     ", &line);
     }
     if typed_lstrings.is_empty() {
         out.push_str(
@@ -754,10 +794,14 @@ fn render(
         );
     } else {
         let list: Vec<&str> = typed_lstrings.iter().map(|s| s.as_str()).collect();
-        let _ = writeln!(
-            out,
-            "#   lane E's corpus lstring table: {} (M3.B8).",
-            list.join(", ")
+        comment(
+            &mut out,
+            "#   ",
+            "#     ",
+            &format!(
+                "lane E's corpus lstring table: {} (M3.B8).",
+                list.join(", ")
+            ),
         );
     }
     let mut typed = Vec::new();
@@ -774,21 +818,32 @@ fn render(
         typed.push("the component block frame");
     }
     let typed_text = match typed.split_last() {
-        None => "nothing is typed".to_string(),
-        Some((last, [])) => format!("{last} is typed"),
-        Some((last, rest)) => format!("{} and {last} are typed", rest.join(", ")),
+        None => "every payload is opaque".to_string(),
+        Some((last, [])) => format!("{last} is typed; every other payload is opaque"),
+        Some((last, rest)) => format!(
+            "{} and {last} are typed; every other payload is opaque",
+            rest.join(", ")
+        ),
     };
     out.push_str("#\n");
-    let _ = writeln!(
-        out,
-        "# An inventory: {typed_text}; every other payload is opaque (named after its\n\
-         # signature, a placeholder) until a family lane decodes the record (docs/gaps.md)."
+    comment(
+        &mut out,
+        "# ",
+        "# ",
+        &format!(
+            "An inventory: {typed_text} (named after its signature, a placeholder) until a \
+             family lane decodes the record (docs/gaps.md)."
+        ),
     );
     if !scan.in_blocks.is_empty() {
-        let _ = writeln!(
-            out,
-            "# Inside component blocks (kept raw by BfcbBlock): {}.",
-            scan.in_blocks.join(" ")
+        comment(
+            &mut out,
+            "# ",
+            "# ",
+            &format!(
+                "Inside component blocks (kept raw by BfcbBlock): {}.",
+                scan.in_blocks.join(" ")
+            ),
         );
     }
     let _ = writeln!(out, "signature = {}", q(sig));
@@ -845,7 +900,7 @@ fn render(
     for item in items {
         out.push('\n');
         for t in &item.todos {
-            let _ = writeln!(out, "# TODO(review): {t}");
+            comment(&mut out, "# TODO(review): ", "#   ", t);
             todos = todos.saturating_add(1);
         }
         let order_note = if item.unordered_with.is_empty() {

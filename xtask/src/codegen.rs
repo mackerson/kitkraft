@@ -225,6 +225,11 @@ pub(crate) fn run_with(root: &Path, check: bool, set: &DefSet) -> Result<()> {
     fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
     for (name, text) in &files {
         let path = dir.join(name);
+        // An unchanged file keeps its timestamp, so cargo does not rebuild the container.
+        if fs::read_to_string(&path).is_ok_and(|on_disk| lf(&on_disk) == *text) {
+            println!("codegen: {OUT_DIR}/{name} unchanged");
+            continue;
+        }
         fs::write(&path, text).with_context(|| format!("writing {}", path.display()))?;
         println!("codegen: wrote {OUT_DIR}/{name} ({} bytes)", text.len());
     }
