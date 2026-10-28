@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 
-use super::{probes, dev_target, session_confirm_gate, CockpitEnv, DevTarget};
+use super::{dev_target, probes, session_confirm_gate, CockpitEnv, DevTarget};
 use crate::gate::Request;
 
 /// The interval between two `game.status` polls: one per second (M6.G4).

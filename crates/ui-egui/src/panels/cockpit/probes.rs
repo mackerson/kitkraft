@@ -88,7 +88,8 @@ fn push_rows(
     listed: &HashMap<String, PathBuf>,
     exists: &dyn Fn(&Path) -> bool,
 ) {
-    let Some(list) = data.and_then(|d| d.get(if rerun { "reruns" } else { "rows" }))
+    let Some(list) = data
+        .and_then(|d| d.get(if rerun { "reruns" } else { "rows" }))
         .and_then(Value::as_array)
     else {
         return;
@@ -104,7 +105,10 @@ fn push_rows(
 /// object's `file` to its `path`.
 fn listed_shots(data: Option<&Value>) -> HashMap<String, PathBuf> {
     let mut out = HashMap::new();
-    let Some(shots) = data.and_then(|d| d.get("screenshots")).and_then(Value::as_array) else {
+    let Some(shots) = data
+        .and_then(|d| d.get("screenshots"))
+        .and_then(Value::as_array)
+    else {
         return out;
     };
     for s in shots {
@@ -181,7 +185,11 @@ fn row_of(
 
 /// One screenshot a row named, resolved: the path the reply listed it under,
 /// and the status it is shown with.
-fn shot_of(file: &str, listed: &HashMap<String, PathBuf>, exists: &dyn Fn(&Path) -> bool) -> ProbeShot {
+fn shot_of(
+    file: &str,
+    listed: &HashMap<String, PathBuf>,
+    exists: &dyn Fn(&Path) -> bool,
+) -> ProbeShot {
     let Some(path) = listed.get(file) else {
         return ProbeShot {
             file: file.to_string(),
@@ -217,7 +225,10 @@ pub fn decode_screenshot(bytes: &[u8]) -> Result<egui::ColorImage, String> {
     let (w, h) = (img.width(), img.height());
     let rgba = img.to_rgba8();
     Ok(egui::ColorImage::from_rgba_unmultiplied(
-        [usize::try_from(w).unwrap_or_default(), usize::try_from(h).unwrap_or_default()],
+        [
+            usize::try_from(w).unwrap_or_default(),
+            usize::try_from(h).unwrap_or_default(),
+        ],
         rgba.as_raw(),
     ))
 }
@@ -238,8 +249,8 @@ pub struct ProbeUi {
     session: Option<String>,
     /// The selected row (by index into [`ProbeRows`]); `None` before a selection.
     selected: Option<usize>,
-    /// The textures loaded per screenshot path.
-    shots: HashMap<PathBuf, egui::TextureHandle>,
+    /// Each screenshot path loaded once: the texture, or why it does not draw.
+    shots: HashMap<PathBuf, Result<egui::TextureHandle, String>>,
 }
 
 impl ProbeUi {
@@ -275,7 +286,9 @@ pub(crate) fn rows_ui(
     common::virtual_table(
         ui,
         "cockpit-session-probes",
-        &["row", "title", "forms", "expected", "seen", "verdict", "reason"],
+        &[
+            "row", "title", "forms", "expected", "seen", "verdict", "reason",
+        ],
         rows.rows.len(),
         View::Medium,
         |row, i| {
@@ -342,34 +355,34 @@ fn screenshot_ui(ui: &mut egui::Ui, shot: &ProbeShot, probe: &mut ProbeUi) {
         return;
     };
     match shot_image(ui, path, &mut probe.shots) {
-        Ok(()) => {
-            ui.weak(&shot.file);
-        }
-        Err(why) => {
-            theme::status_line(ui, Status::Inconclusive, &why);
-        }
-    }
+        Ok(()) => ui.weak(&shot.file),
+        Err(why) => theme::status_line(ui, Status::Inconclusive, &why),
+    };
 }
 
 /// The image at `path`: opened, decoded as PNG, and loaded into a texture
-/// (cached per path, so each file is read and decoded once), scaled to the
-/// panel width. The error is why it does not draw.
+/// (the result cached per path, so each file is read and decoded once),
+/// scaled to the panel width. The error is why it does not draw.
 fn shot_image(
     ui: &mut egui::Ui,
     path: &Path,
-    cache: &mut HashMap<PathBuf, egui::TextureHandle>,
+    cache: &mut HashMap<PathBuf, Result<egui::TextureHandle, String>>,
 ) -> Result<(), String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("cannot open {}: {e}", path.display()))?;
-    let img = decode_screenshot(&bytes)?;
-    let handle = cache.get(path).cloned().unwrap_or_else(|| {
-        let h = ui.ctx().load_texture(
-            format!("cockpit-probe-shot {}", path.display()),
-            img,
-            Default::default(),
-        );
-        cache.insert(path.to_path_buf(), h.clone());
-        h
+    let loaded = cache.get(path).cloned().unwrap_or_else(|| {
+        let read = std::fs::read(path).map_err(|e| format!("cannot open {}: {e}", path.display()));
+        let result = read.and_then(|bytes| {
+            decode_screenshot(&bytes).map(|img| {
+                ui.ctx().load_texture(
+                    format!("cockpit-probe-shot {}", path.display()),
+                    img,
+                    Default::default(),
+                )
+            })
+        });
+        cache.insert(path.to_path_buf(), result.clone());
+        result
     });
+    let handle = loaded?;
     ui.add(egui::Image::new(&handle).max_width(ui.available_width()));
     Ok(())
 }
@@ -465,39 +478,61 @@ mod tests {
         assert!(rows.rows.get(3).unwrap().rerun);
         // Verdicts and reasons, mapped to the status component's statuses.
         let t1 = rows.rows.get(0).unwrap();
-        assert_eq!((t1.verdict.as_str(), t1.reason.as_str(), t1.status), ("pass", "", Status::Pass));
+        assert_eq!(
+            (t1.verdict.as_str(), t1.reason.as_str(), t1.status),
+            ("pass", "", Status::Pass)
+        );
         let t2 = rows.rows.get(1).unwrap();
         assert_eq!(
             (t2.verdict.as_str(), t2.reason.as_str(), t2.status),
             ("fail", "expected 001000, saw 000000", Status::Fail)
         );
         assert_eq!(t2.forms, vec!["X.esm:001000"]);
-        assert_eq!((t2.expected.as_str(), t2.seen.as_str()), ("001000", "000000"));
+        assert_eq!(
+            (t2.expected.as_str(), t2.seen.as_str()),
+            ("001000", "000000")
+        );
         let t3 = rows.rows.get(2).unwrap();
         assert_eq!(
             (t3.verdict.as_str(), t3.reason.as_str(), t3.status),
-            ("inconclusive", "manual: the owner confirms", Status::Inconclusive)
+            (
+                "inconclusive",
+                "manual: the owner confirms",
+                Status::Inconclusive
+            )
         );
         let rr = rows.rows.get(3).unwrap();
-        assert_eq!((rr.verdict.as_str(), rr.reason.as_str(), rr.status), ("pass", "", Status::Pass));
+        assert_eq!(
+            (rr.verdict.as_str(), rr.reason.as_str(), rr.status),
+            ("pass", "", Status::Pass)
+        );
         // Each screenshot the rows name resolves to the path the reply listed it under.
         let s2 = t2.shots.first().unwrap();
         assert_eq!(s2.file, "T-02-1.png");
-        assert_eq!(s2.path.as_deref(), Some(std::path::Path::new("observe/s/T-02-1.png")));
+        assert_eq!(
+            s2.path.as_deref(),
+            Some(std::path::Path::new("observe/s/T-02-1.png"))
+        );
         assert_eq!(s2.status, Status::Pass);
         assert_eq!(s2.reason, "");
         let s3 = t3.shots.first().unwrap();
         assert_eq!(s3.file, "T-03-1.png");
-        assert_eq!(s3.path.as_deref(), Some(std::path::Path::new("observe/s/T-03-1.png")));
+        assert_eq!(
+            s3.path.as_deref(),
+            Some(std::path::Path::new("observe/s/T-03-1.png"))
+        );
         assert_eq!(s3.status, Status::Pass);
         assert!(t1.shots.is_empty() && rr.shots.is_empty());
         for r in &rows.rows {
             for s in &r.shots {
-                assert_eq!(s.path.as_deref(), Some(match s.file.as_str() {
-                    "T-02-1.png" => std::path::Path::new("observe/s/T-02-1.png"),
-                    "T-03-1.png" => std::path::Path::new("observe/s/T-03-1.png"),
-                    other => panic!("unlisted screenshot {other}"),
-                }));
+                assert_eq!(
+                    s.path.as_deref(),
+                    Some(match s.file.as_str() {
+                        "T-02-1.png" => std::path::Path::new("observe/s/T-02-1.png"),
+                        "T-03-1.png" => std::path::Path::new("observe/s/T-03-1.png"),
+                        other => panic!("unlisted screenshot {other}"),
+                    })
+                );
             }
         }
     }
@@ -515,7 +550,10 @@ mod tests {
         let t2 = rows.rows.get(1).unwrap();
         let missing = t2.shots.first().unwrap();
         assert_eq!(missing.file, "T-02-1.png");
-        assert_eq!(missing.path.as_deref(), Some(std::path::Path::new("observe/s/T-02-1.png")));
+        assert_eq!(
+            missing.path.as_deref(),
+            Some(std::path::Path::new("observe/s/T-02-1.png"))
+        );
         assert_eq!(missing.status, Status::Inconclusive);
         assert_eq!(missing.reason, "listed by game.status but missing on disk");
         let t3 = rows.rows.get(2).unwrap();
@@ -526,14 +564,21 @@ mod tests {
         assert_eq!(unlisted.reason, "not listed");
         // A row that names no screenshot shows none; none are hidden anywhere.
         assert!(rows.rows.iter().all(|r| {
-            r.shots.iter().all(|s| s.path.is_some() || s.reason == "not listed")
+            r.shots
+                .iter()
+                .all(|s| s.path.is_some() || s.reason == "not listed")
         }));
     }
 
     #[test]
     fn screenshots_decode_or_say_why() {
         // A 2 x 2 PNG, encoded in the test with the `image` crate.
-        let px = [[1, 2, 3, 255], [4, 5, 6, 255], [7, 8, 9, 255], [10, 11, 12, 255]];
+        let px = [
+            [1, 2, 3, 255],
+            [4, 5, 6, 255],
+            [7, 8, 9, 255],
+            [10, 11, 12, 255],
+        ];
         let png = crate::shots::png(2, 2, &px).expect("the 2 x 2 png encodes");
         let img = decode_screenshot(&png).expect("the test's png decodes");
         assert_eq!((img.width(), img.height()), (2, 2));
