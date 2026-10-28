@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          50 |   252,710 |    137,395 |   533,358 |   409,086 |
-| **Total**       |          186 |         113 | 7,490,102 | 46,692,916 | 2,610,851 | 1,115,794 |
+| container/other |          123 |          58 |   252,710 |    137,778 |   535,016 |   407,045 |
+| **Total**       |          186 |         121 | 7,490,102 | 46,693,299 | 2,612,509 | 1,113,753 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 113 record definitions, defs hash `fnv1a64:673dacbcd2b36cef` (the hash named in
+- Schema: 121 record definitions, defs hash `fnv1a64:44a899184db7d780` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -179,17 +179,17 @@ Columns:
 | `PMFT`        | PhotoModeFeature        |        75 |          0 |     5 |     2 |      0 |       3 |
 | `BMMO`        | -                       |        71 |          0 |    15 |     0 |      0 |      15 |
 | `ANIO`        | AnimatedObject          |        66 |          0 |     9 |     8 |      1 |       0 |
-| `COLL`        | -                       |        62 |          0 |     7 |     0 |      0 |       7 |
-| `SFPC`        | -                       |        62 |          0 |     5 |     0 |      0 |       5 |
+| `COLL`        | CollisionLayerForm      |        62 |          0 |     7 |     1 |      6 |       0 |
+| `SFPC`        | SurfacePatternConfig    |        62 |          0 |     5 |     1 |      4 |       0 |
 | `SUNP`        | SunPreset               |        53 |          0 |     4 |     2 |      2 |       0 |
 | `LVLP`        | LeveledPackIn           |        52 |          0 |    32 |    31 |      1 |       0 |
-| `CLMT`        | -                       |        48 |          0 |     4 |     0 |      0 |       4 |
-| `PTST`        | -                       |        47 |          0 |     1 |     0 |      0 |       1 |
+| `CLMT`        | ClimateForm             |        48 |          0 |     4 |     1 |      3 |       0 |
+| `PTST`        | SurfacePatternStyle     |        47 |          0 |     1 |     1 |      0 |       0 |
 | `RACE`        | Race                    |        47 |          0 |    82 |    80 |      2 |       0 |
-| `VOLI`        | -                       |        44 |          0 |     2 |     0 |      0 |       2 |
-| `MOVT`        | -                       |        43 |          0 |     7 |     0 |      0 |       7 |
-| `REVB`        | -                       |        41 |          0 |     3 |     0 |      0 |       3 |
-| `CUR3`        | -                       |        36 |          0 |     2 |     0 |      0 |       2 |
+| `VOLI`        | VolumetricLighting      |        44 |          0 |     2 |     1 |      1 |       0 |
+| `MOVT`        | MovementTypeForm        |        43 |          0 |     7 |     1 |      6 |       0 |
+| `REVB`        | ReverbParameters        |        41 |          0 |     3 |     1 |      2 |       0 |
+| `CUR3`        | Curve3D                 |        36 |          0 |     2 |     1 |      1 |       0 |
 | `RSGD`        | ResourceGenerationData  |        32 |          0 |     3 |     3 |      0 |       0 |
 | `SECH`        | -                       |        32 |          0 |    15 |     0 |      0 |      15 |
 | `FXPD`        | FacialExpression        |        31 |          0 |     4 |     2 |      0 |       2 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 113 defined             | 7,490,102 |    136,741 | 2,797 | 1,699 |    262 |     836 |
+| **186 types** | 121 defined             | 7,490,102 |    136,741 | 2,797 | 1,707 |    285 |     805 |
 
-Subrecord occurrences: 50,419,561 in total; 46,692,916 typed (0 of them failed to decode), 2,610,851 opaque, 1,115,794 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,693,299 typed (0 of them failed to decode), 2,612,509 opaque, 1,113,753 unknown.
 
 ## Decoded through the definitions
 
@@ -354,9 +354,17 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WKMF`    | WwiseKeywordMapping     |            81 |         81 |      0 |         0 |         0 |                   0 |         81 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature        |            75 |        150 |      0 |         0 |         0 |                   0 |        150 |       0 |        0 |
 | `ANIO`    | AnimatedObject          |            66 |        239 |      0 |         0 |         0 |                   0 |        239 |       0 |        0 |
+| `COLL`    | CollisionLayerForm      |            62 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
+| `SFPC`    | SurfacePatternConfig    |            62 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `SUNP`    | SunPreset               |            53 |         99 |      0 |         0 |         0 |                   0 |         99 |       0 |        0 |
 | `LVLP`    | LeveledPackIn           |            52 |      1,072 |      0 |         0 |         0 |                   0 |      1,072 |       0 |        0 |
+| `CLMT`    | ClimateForm             |            48 |         48 |      0 |         0 |         0 |                   0 |         48 |       0 |        0 |
+| `PTST`    | SurfacePatternStyle     |            47 |         47 |      0 |         0 |         0 |                   0 |         47 |       0 |        0 |
 | `RACE`    | Race                    |            47 |     12,980 |      0 |         0 |         0 |                   0 |     12,980 |       0 |        0 |
+| `VOLI`    | VolumetricLighting      |            44 |         44 |      0 |         0 |         0 |                   0 |         44 |       0 |        0 |
+| `MOVT`    | MovementTypeForm        |            43 |         43 |      0 |         0 |         0 |                   0 |         43 |       0 |        0 |
+| `REVB`    | ReverbParameters        |            41 |         41 |      0 |         0 |         0 |                   0 |         41 |       0 |        0 |
+| `CUR3`    | Curve3D                 |            36 |         36 |      0 |         0 |         0 |                   0 |         36 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData  |            32 |        168 |      0 |         0 |         0 |                   0 |        168 |       0 |        0 |
 | `FXPD`    | FacialExpression        |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `GPOF`    | GameplayOption          |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
@@ -371,7 +379,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,469,012 | 46,692,916 |      0 |         0 |    18,685 |                   0 | 46,674,231 |       0 |        0 |
+| **Total** |                         |     7,469,395 | 46,693,299 |      0 |         0 |    18,685 |                   0 | 46,674,614 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -408,9 +416,12 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CELL`    | Cell                    |             66 |    61 |      5 |         4 |                   0 |     62 |       0 |        0 |
 | `CHAL`    | Challenge               |             34 |    31 |      3 |         0 |                   0 |     34 |       0 |        0 |
 | `CLAS`    | Class                   |             40 |    35 |      5 |         2 |                   0 |     38 |       0 |        0 |
+| `CLMT`    | ClimateForm             |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `COBJ`    | ConstructibleObject     |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
+| `COLL`    | CollisionLayerForm      |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `CONT`    | Container               |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
+| `CUR3`    | Curve3D                 |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DIAL`    | DialogTopic             |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                    |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
@@ -453,6 +464,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MESG`    | Message                 |             13 |     5 |      8 |         0 |                   0 |     13 |       0 |        0 |
 | `MGEF`    | MagicEffect             |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
 | `MISC`    | MiscItem                |             68 |    64 |      4 |        10 |                   0 |     58 |       0 |        0 |
+| `MOVT`    | MovementTypeForm        |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |             65 |    61 |      4 |         8 |                   0 |     57 |       0 |        0 |
 | `MUST`    | MusicTrack              |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `NAVM`    | Navmesh                 |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
@@ -470,14 +482,17 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `PMFT`    | PhotoModeFeature        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `PNDT`    | Planet                  |             56 |    53 |      3 |         1 |                   0 |     55 |       0 |        0 |
 | `PROJ`    | Projectile              |             67 |    63 |      4 |        13 |                   0 |     54 |       0 |        0 |
+| `PTST`    | SurfacePatternStyle     |              1 |     1 |      0 |         0 |                   0 |      1 |       0 |        0 |
 | `QUST`    | Quest                   |            215 |   206 |      9 |         3 |                   0 |    212 |       0 |        0 |
 | `RACE`    | Race                    |            156 |   147 |      9 |         7 |                   0 |    149 |       0 |        0 |
 | `REFR`    | PlacedObject            |            131 |   121 |     10 |         5 |                   0 |    126 |       0 |        0 |
+| `REVB`    | ReverbParameters        |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `RFGP`    | ReferenceGroup          |             38 |    30 |      8 |         0 |                   0 |     38 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData  |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
 | `RSPJ`    | ResearchProject         |             48 |    45 |      3 |         0 |                   0 |     48 |       0 |        0 |
 | `SCEN`    | Scene                   |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
 | `SFBK`    | SurfaceBlock            |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
+| `SFPC`    | SurfacePatternConfig    |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SFPT`    | SurfacePattern          |             41 |    38 |      3 |         3 |                   0 |     38 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode  |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode   |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
@@ -493,13 +508,14 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `TMLM`    | TerminalMenu            |             25 |    24 |      1 |         0 |                   0 |     25 |       0 |        0 |
 | `TRAV`    | Traversal               |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
 | `TXST`    | TextureSet              |             12 |     1 |     11 |         0 |                   0 |     12 |       0 |        0 |
+| `VOLI`    | VolumetricLighting      |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WATR`    | Water                   |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `WEAP`    | Weapon                  |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping     |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,278 | 3,818 |    460 |       290 |                   2 |  3,986 |       0 |        0 |
+| **Total** |                         |          4,309 | 3,826 |    483 |       290 |                   2 |  4,017 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
