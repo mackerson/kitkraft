@@ -1,0 +1,43 @@
+# KitKraft colourway recipe (KK-020): the game's own Navy Tan colourway as two new forms
+# with Starfield.esm the only master. A [[clone]] of the outfit's material swap (1F1DCA)
+# whose every override points at a file under KitKraft/Colourway/, and a [[clone]] of the
+# outfit (1F1DC9) whose object-template property 14 names our swap instead of the vanilla
+# one. The mod ships the .mat files themselves (docs/research/materials-lmsw-2026-10-23.md);
+# this spec only writes the forms that name them.
+# Build:
+#   kit build docs/recipes/colourway.toml out/recipes/KitKraftColourway.esm
+# Evidence for every choice: docs/recipes/colourway.md.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# LMS_Clothes_Mei_Devine_NavyTan (1F1DCA), the Navy Tan dress's material swap: four REFL
+# entries. The keys stay the vanilla ones (the paths the game asks for); every override
+# moves to KitKraft/Colourway/ under the vanilla override's file name.
+name = "swap"
+form = "Starfield.esm:1F1DCA"
+edid = "KitKraftRecipeColourwaySwap"
+swap_overrides = [
+  # The upper-body mesh's material.
+  { key = "Clothes/Outfit_Mei_Devine/Outfit_Mei_Devine_UpperBody.mat", override = "KitKraft/Colourway/Outfit_Mei_Devine_NavyTan_UpperBody.mat" },
+  # The lower-body mesh's material.
+  { key = "Clothes/Outfit_Mei_Devine/Outfit_Mei_Devine_LowerBody.mat", override = "KitKraft/Colourway/Outfit_Mei_Devine_NavyTan_LowerBody.mat" },
+  # The tights' material.
+  { key = "Clothes/Outfit_Mei_Devine/Outfit_Mei_Devine_Tights.mat", override = "KitKraft/Colourway/Outfit_Mei_Devine_NavyTan_Tights.mat" },
+  # The M-size tights' material.
+  { key = "Clothes/Outfit_Mei_Devine/Outfit_Mei_Devine_Tights_M.mat", override = "KitKraft/Colourway/Outfit_Mei_Devine_NavyTan_Tights_M.mat" },
+]
+brief = "KK-020"
+
+[[clone]]
+# Clothes_Mei_Devine_NavyTan (1F1DC9), the Navy Tan dress: its one object-template
+# combination (OBTS) has one property, 14, the outfit's material swap, a FormId (the
+# ValueType 4 variant of the property's Value1 union) that names the vanilla swap. Ours
+# gets our FULL and points at our swap instead; the path names that union variant.
+name = "outfit"
+form = "Starfield.esm:1F1DC9"
+edid = "KitKraftRecipeColourwayOutfit"
+fields = { FULL = "KitKraft Recipe Colourway", "OBTS[0].Properties[0].Value1.FormId" = "new:swap" }
+brief = "KK-020"
