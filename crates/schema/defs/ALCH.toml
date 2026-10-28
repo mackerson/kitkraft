@@ -14,8 +14,9 @@
 #     indices (L2269), the effect data (L9356-L9381) and the effect list
 #     (L6994-L6995).
 #   corpus: the 365 ALCH records of the 14 official ESMs, checked by the
-#     alch_types scan in crates/esm/tests/alch_types.rs (every subrecord placed,
-#     every placed subrecord decoded, every record re-encoded identically).
+#     alch_types scan in crates/esm/tests/alch_types.rs on 2026-10-28 (every
+#     subrecord placed, every placed subrecord decoded, every record re-encoded
+#     identically).
 #
 # The lstring subrecords (FULL, DESC, DNAM) keep their lane E typing: the corpus
 # lstring table (crates/engine/src/edit/lstrings.rs, checked by
@@ -23,7 +24,10 @@
 signature = "ALCH"
 name = "Ingestible"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384"
-confidence = "reference"
+evidence = [
+  "corpus: the 365 ALCH records of the 14 official ESMs, 2026-10-28 scan; every record decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "corpus"
 flags = [
   ["Medicine", 0x20000000],
 ]
@@ -46,7 +50,8 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, kept raw"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official ALCH records"
 
 [[member]]
 sig = "OBND"
@@ -58,7 +63,11 @@ evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d46
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry an ODTY and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
@@ -113,6 +122,7 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 group_ref = "Destructible"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
 note = "not present in the official ALCH records"
 
 [[member]]
@@ -136,6 +146,7 @@ type = "formid"
 targets = ["EQUP"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252"]
+confidence = "reference"
 note = "not present in the official ALCH records"
 
 [[member]]
@@ -164,7 +175,11 @@ type = "array"
 element = "ref:Component"
 count = "rest"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2258-L2267"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2258-L2267",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 96 of the 365 official ALCH records carry a CVPA and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "xEdit leaves the entry's last four bytes unused in ALCH, though the same struct normally carries a curve table there"
 
 [[member]]
@@ -180,14 +195,22 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 sig = "DATA"
 name = "Weight"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9355-L9355"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9355-L9355",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry a DATA and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ENIT"
 name = "EffectData"
 type = "struct"
 size = 56
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9356-L9381"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9356-L9381",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry an ENIT and every record re-encodes identically",
+]
+confidence = "corpus"
 field = [
   { name = "Value", type = "i32" },
   { name = "Flags", type = "flags", base = "u32", bits = [["NoAutoCalc", 0x1], ["FoodItem", 0x2], ["Medicine", 0x10000], ["Poison", 0x20000]] },

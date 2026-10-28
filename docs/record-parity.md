@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          72 |   252,710 |    143,871 |   545,941 |   390,027 |
-| **Total**       |          186 |         135 | 7,490,102 | 46,699,392 | 2,623,434 | 1,096,735 |
+| container/other |          123 |          72 |   252,710 |    156,715 |   545,948 |   377,176 |
+| **Total**       |          186 |         135 | 7,490,102 | 46,712,236 | 2,623,441 | 1,083,884 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 135 record definitions, defs hash `fnv1a64:a519431709e26ff6` (the hash named in
+- Schema: 135 record definitions, defs hash `fnv1a64:2e27101073755bfb` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -135,7 +135,7 @@ Columns:
 | `DOOR`        | Door                    |       376 |          0 |    32 |    12 |     18 |       2 |
 | `LVLB`        | LeveledBaseForm         |       373 |          0 |    12 |     1 |     11 |       0 |
 | `AMBS`        | AmbienceSetForm         |       369 |          0 |     5 |     1 |      4 |       0 |
-| `ALCH`        | Ingestible              |       365 |          0 |    32 |     4 |      0 |      28 |
+| `ALCH`        | Ingestible              |       365 |          0 |    32 |    31 |      1 |       0 |
 | `EXPL`        | Explosion               |       359 |          0 |    19 |     2 |      0 |      17 |
 | `IPDS`        | ImpactDataSet           |       356 |          0 |     3 |     1 |      2 |       0 |
 | `KEYM`        | Key                     |       343 |          0 |    15 |     2 |      0 |      13 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 135 defined             | 7,490,102 |    136,741 | 2,797 | 1,755 |    373 |     669 |
+| **186 types** | 135 defined             | 7,490,102 |    136,741 | 2,797 | 1,782 |    374 |     641 |
 
-Subrecord occurrences: 50,419,561 in total; 46,699,392 typed (0 of them failed to decode), 2,623,434 opaque, 1,096,735 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,712,236 typed (0 of them failed to decode), 2,623,441 opaque, 1,083,884 unknown.
 
 ## Decoded through the definitions
 
@@ -324,7 +324,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `DOOR`    | Door                    |           376 |      3,778 |      0 |         0 |         0 |                   0 |      3,778 |       0 |        0 |
 | `LVLB`    | LeveledBaseForm         |           373 |        373 |      0 |         0 |         0 |                   0 |        373 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm         |           369 |        369 |      0 |         0 |         0 |                   0 |        369 |       0 |        0 |
-| `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |                   0 |      1,459 |       0 |        0 |
+| `ALCH`    | Ingestible              |           365 |     14,303 |      0 |         0 |         0 |                   0 |     14,303 |       0 |        0 |
 | `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |                   0 |        406 |       0 |        0 |
 | `IPDS`    | ImpactDataSet           |           356 |        356 |      0 |         0 |         0 |                   0 |        356 |       0 |        0 |
 | `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
@@ -393,7 +393,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,471,174 | 46,699,392 |      0 |         0 |    18,685 |                   0 | 46,680,707 |       0 |        0 |
+| **Total** |                         |     7,471,174 | 46,712,236 |      0 |         0 |    18,685 |                   0 | 46,693,551 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -413,7 +413,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ACTI`    | Activator               |             78 |    73 |      5 |         9 |                   0 |     69 |       0 |        0 |
 | `ADDN`    | AddonNode               |             42 |    31 |     11 |         0 |                   0 |     42 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
-| `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| `ALCH`    | Ingestible              |             77 |    73 |      4 |         9 |                   0 |     68 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm         |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `AMDL`    | AimModel                |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `AMMO`    | Ammunition              |             67 |    63 |      4 |        12 |                   0 |     55 |       0 |        0 |
@@ -543,7 +543,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings         |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,657 | 4,054 |    603 |       290 |                   2 |  4,365 |       0 |        0 |
+| **Total** |                         |          4,730 | 4,123 |    607 |       299 |                   2 |  4,429 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -577,7 +577,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `WRLD`: `SNAM` (580)
 - `BMOD`: `FLLD` (2), `FLTR` (24), `INTV` (24), `MODL` (2)
 - `DOOR`: `FLTR` (1), `INTV` (1)
-- `ALCH`: `BFCB` (7), `BFCE` (7), `CDIX` (17), `CTDA` (380), `CUSH` (317), `CVPA` (96), `DATA` (365), `EFID` (1,491), `EFIF` (1,491), `EFIT` (1,491), `ENIT` (365), `FLLD` (365), `KSIZ` (364), `KWDA` (364), `MNAM` (951), `MODL` (356), `MOLM` (6), `MUID` (1,491), `OBND` (365), `ODTY` (365), `OPDS` (1), `PDSH` (356), `PTT2` (356), `PUSH` (356), `REFL` (7), `XALG` (2), `XFLG` (8), `ZNAM` (1,111)
 - `EXPL`: `ANAM` (1), `BFCB` (443), `BFCE` (443), `BNAM` (1), `DAMA` (130), `DEFL` (1), `EITM` (36), `ENAM` (359), `FLLD` (359), `MNAM` (188), `MODL` (356), `OBND` (359), `ODTY` (359), `OPDS` (27), `PTCL` (169), `REFL` (207), `XALG` (155)
 - `KEYM`: `DATA` (343), `FLAG` (277), `FLLD` (343), `KSIZ` (336), `KWDA` (336), `MODL` (338), `MOLM` (1), `OBND` (343), `ODTY` (343), `PTT2` (337), `VMAD` (12), `XALG` (317), `XFLG` (1)
 - `FLOR`: `ANAM` (40), `APPR` (261), `BFCB` (98), `BFCE` (98), `BNAM` (302), `DEST` (2), `DSTD` (1), `DSTF` (1), `FHLS` (125), `FLLD` (302), `FLXP` (92), `FMAG` (220), `FMAH` (302), `FMIG` (299), `FMIH` (302), `FNAM` (302), `JNAM` (302), `KSIZ` (297), `KWDA` (297), `MODL` (302), `MOLM` (40), `OBND` (302), `OBTE` (263), `OBTF` (173), `OBTS` (263), `ODTY` (302), `OPDS` (302), `PFHS` (259), `PFIG` (299), `PFPC` (302), `PNAM` (302), `PRPS` (296), `PTCL` (6), `STOP` (302), `VMAD` (4), `XFLG` (80)
