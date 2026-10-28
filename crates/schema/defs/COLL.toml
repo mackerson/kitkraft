@@ -1,0 +1,109 @@
+# COLL: CollisionLayerForm, inventory definition (KK-107).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-107 scan of every official COLL record (62 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the COLL definition of wbDefinitionsSF1.pas at the pinned revision (L10953-L10969),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has — VMAD and the base form
+# component block — are left out; a plugin that has one keeps it raw.
+signature = "COLL"
+name = "CollisionLayerForm"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official COLL record (62) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969",
+]
+confidence = "corpus"
+note = "inventory definition (KK-107): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 6..25 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10954-L10954",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "NLDT"
+name = "Nldt"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 55 of 62 official COLL records (55 occurrences), 6..124 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10958-L10958",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 6..124 bytes"
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10959-L10959",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10960-L10960",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10961-L10961",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 6..25 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10966-L10966",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 6..25 bytes"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 59 of 62 official COLL records (59 occurrences), 4..160 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4..160 bytes"

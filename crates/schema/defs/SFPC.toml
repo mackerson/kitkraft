@@ -1,0 +1,94 @@
+# SFPC: SurfacePatternConfig, inventory definition (KK-107).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-107 scan of every official SFPC record (62 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the SFPC definition of wbDefinitionsSF1.pas at the pinned revision (L17593-L17605),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md).
+signature = "SFPC"
+name = "SurfacePatternConfig"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SFPC record (62) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17593-L17605",
+]
+confidence = "corpus"
+note = "inventory definition (KK-107): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official SFPC records (62 occurrences), 14..47 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17594-L17594",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "ENAM"
+name = "Enam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official SFPC records (62 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17595-L17595",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+
+[[member]]
+group = "StyleEntries"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 60 of 62 official SFPC records (335 occurrences, up to 10 per record), each a BNAM (13..32 bytes) followed by its CNAM (4 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17596-L17596",
+]
+confidence = "corpus"
+note = "one style entry: its BNAM then its CNAM; two official records have no entries"
+
+[[member.member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 60 of 62 official SFPC records (335 occurrences, up to 10 per record), 13..32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17597-L17597",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 13..32 bytes"
+
+[[member.member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 60 of 62 official SFPC records (335 occurrences, up to 10 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17598-L17598",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official SFPC records (62 occurrences), 12 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17600-L17600",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-107 inventory); observed 12 bytes"
