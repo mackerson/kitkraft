@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          35 |   252,710 |    131,226 |   482,316 |   466,297 |
-| **Total**       |          186 |          98 | 7,490,102 | 46,686,747 | 2,559,809 | 1,173,005 |
+| container/other |          123 |          40 |   252,710 |    133,927 |   490,908 |   455,004 |
+| **Total**       |          186 |         103 | 7,490,102 | 46,689,448 | 2,568,401 | 1,161,712 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 98 record definitions, defs hash `fnv1a64:495bbaffe26acdf8` (the hash named in
+- Schema: 103 record definitions, defs hash `fnv1a64:8a840a11c569da28` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -119,17 +119,17 @@ Columns:
 | `WWED`        | WwiseEventData          |       681 |          0 |     4 |     1 |      3 |       0 |
 | `SPEL`        | Spell                   |       662 |          0 |    19 |    19 |      0 |       0 |
 | `PERK`        | Perk                    |       608 |          0 |    29 |    26 |      3 |       0 |
-| `ATMO`        | -                       |       599 |          0 |     4 |     0 |      0 |       4 |
-| `KSSM`        | -                       |       591 |          0 |     5 |     0 |      0 |       5 |
+| `ATMO`        | Atmosphere              |       599 |          0 |     4 |     1 |      3 |       0 |
+| `KSSM`        | SoundKeywordMapping     |       591 |          0 |     5 |     1 |      4 |       0 |
 | `WRLD`        | Worldspace              |       583 |          0 |    44 |    42 |      1 |       1 |
-| `BMOD`        | -                       |       529 |          0 |     8 |     0 |      0 |       8 |
+| `BMOD`        | BoneModifier            |       529 |          0 |     8 |     3 |      1 |       4 |
 | `TERM`        | Terminal                |       501 |          0 |    34 |    31 |      3 |       0 |
-| `FFKW`        | -                       |       493 |          0 |     2 |     0 |      0 |       2 |
+| `FFKW`        | FormFolderKeywordList   |       493 |          0 |     2 |     1 |      1 |       0 |
 | `SMQN`        | StoryManagerQuestNode   |       471 |          0 |    12 |    12 |      0 |       0 |
 | `WEAP`        | Weapon                  |       452 |          0 |    54 |    52 |      2 |       0 |
 | `PHZD`        | PlacedHazard            |       450 |          0 |    11 |     1 |     10 |       0 |
 | `BIOM`        | Biome                   |       434 |          0 |    45 |    44 |      1 |       0 |
-| `LTEX`        | -                       |       429 |          0 |     5 |     0 |      0 |       5 |
+| `LTEX`        | LandscapeTexture        |       429 |          0 |     5 |     1 |      4 |       0 |
 | `LSCR`        | LoadScreen              |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode |       379 |          0 |    23 |    22 |      1 |       0 |
 | `DOOR`        | Door                    |       376 |          0 |    32 |    12 |     18 |       2 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 98 defined              | 7,490,102 |    136,741 | 2,797 | 1,678 |    194 |     925 |
+| **186 types** | 103 defined             | 7,490,102 |    136,741 | 2,797 | 1,685 |    207 |     905 |
 
-Subrecord occurrences: 50,419,561 in total; 46,686,747 typed (0 of them failed to decode), 2,559,809 opaque, 1,173,005 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,689,448 typed (0 of them failed to decode), 2,568,401 opaque, 1,161,712 unknown.
 
 ## Decoded through the definitions
 
@@ -308,12 +308,17 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WWED`    | WwiseEventData          |           681 |        681 |      0 |         0 |         0 |                   0 |        681 |       0 |        0 |
 | `SPEL`    | Spell                   |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
 | `PERK`    | Perk                    |           608 |     27,868 |      0 |         0 |         0 |                   0 |     27,868 |       0 |        0 |
+| `ATMO`    | Atmosphere              |           599 |        599 |      0 |         0 |         0 |                   0 |        599 |       0 |        0 |
+| `KSSM`    | SoundKeywordMapping     |           591 |        591 |      0 |         0 |         0 |                   0 |        591 |       0 |        0 |
 | `WRLD`    | Worldspace              |           583 |     25,644 |      0 |         0 |         0 |                   0 |     25,644 |       0 |        0 |
+| `BMOD`    | BoneModifier            |           529 |        589 |      0 |         0 |         0 |                   0 |        589 |       0 |        0 |
 | `TERM`    | Terminal                |           501 |     13,106 |      0 |         0 |         0 |                   0 |     13,106 |       0 |        0 |
+| `FFKW`    | FormFolderKeywordList   |           493 |        493 |      0 |         0 |         0 |                   0 |        493 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
 | `WEAP`    | Weapon                  |           452 |     18,432 |      0 |         0 |         0 |                   0 |     18,432 |       0 |        0 |
 | `PHZD`    | PlacedHazard            |           450 |         24 |      0 |         0 |         0 |                   0 |         24 |       0 |        0 |
 | `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
+| `LTEX`    | LandscapeTexture        |           429 |        429 |      0 |         0 |         0 |                   0 |        429 |       0 |        0 |
 | `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
 | `DOOR`    | Door                    |           376 |      3,778 |      0 |         0 |         0 |                   0 |      3,778 |       0 |        0 |
@@ -356,7 +361,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,463,517 | 46,686,747 |      0 |         0 |    18,685 |                   0 | 46,668,062 |       0 |        0 |
+| **Total** |                         |     7,466,158 | 46,689,448 |      0 |         0 |    18,685 |                   0 | 46,670,763 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -381,8 +386,10 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ARMA`    | ArmorAddon              |             83 |    79 |      4 |        40 |                   0 |     43 |       0 |        0 |
 | `ARMO`    | Armor                   |             85 |    81 |      4 |        11 |                   0 |     74 |       0 |        0 |
 | `ARTO`    | ArtObject               |             47 |    33 |     14 |         0 |                   0 |     47 |       0 |        0 |
+| `ATMO`    | Atmosphere              |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `BIOM`    | Biome                   |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
+| `BMOD`    | BoneModifier            |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `BOOK`    | Book                    |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `BPTD`    | BodyPartData            |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `CELL`    | Cell                    |             66 |    61 |      5 |         4 |                   0 |     62 |       0 |        0 |
@@ -397,6 +404,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `FACT`    | Faction                 |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
+| `FFKW`    | FormFolderKeywordList   |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `FLST`    | FormIdList              |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
 | `FURN`    | Furniture               |             82 |    77 |      5 |        11 |                   0 |     71 |       0 |        0 |
@@ -412,6 +420,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `INNR`    | InstanceNamingRules     |             42 |    38 |      4 |         1 |                   0 |     41 |       0 |        0 |
 | `IRES`    | Resource                |             14 |     5 |      9 |         0 |                   0 |     14 |       0 |        0 |
 | `KEYM`    | Key                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `KSSM`    | SoundKeywordMapping     |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `KYWD`    | Keyword                 |             42 |    37 |      5 |         1 |                   0 |     41 |       0 |        0 |
 | `LAYR`    | Layer                   |             37 |    31 |      6 |         0 |                   0 |     37 |       0 |        0 |
 | `LCRT`    | LocationRefType         |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
@@ -419,6 +428,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LIGH`    | Light                   |             49 |    34 |     15 |         0 |                   0 |     49 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap     |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
+| `LTEX`    | LandscapeTexture        |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `LVLI`    | LeveledItem             |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
 | `LVLP`    | LeveledPackIn           |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
@@ -469,7 +479,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,156 | 3,769 |    387 |       290 |                   2 |  3,864 |       0 |        0 |
+| **Total** |                         |          4,208 | 3,804 |    404 |       290 |                   2 |  3,916 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -501,6 +511,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `ARMA`: `KSIZ` (1), `KWDA` (1)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `WRLD`: `SNAM` (580)
+- `BMOD`: `FLLD` (2), `FLTR` (24), `INTV` (24), `MODL` (2)
 - `DOOR`: `FLTR` (1), `INTV` (1)
 - `ALCH`: `BFCB` (7), `BFCE` (7), `CDIX` (17), `CTDA` (380), `CUSH` (317), `CVPA` (96), `DATA` (365), `EFID` (1,491), `EFIF` (1,491), `EFIT` (1,491), `ENIT` (365), `FLLD` (365), `KSIZ` (364), `KWDA` (364), `MNAM` (951), `MODL` (356), `MOLM` (6), `MUID` (1,491), `OBND` (365), `ODTY` (365), `OPDS` (1), `PDSH` (356), `PTT2` (356), `PUSH` (356), `REFL` (7), `XALG` (2), `XFLG` (8), `ZNAM` (1,111)
 - `EXPL`: `ANAM` (1), `BFCB` (443), `BFCE` (443), `BNAM` (1), `DAMA` (130), `DEFL` (1), `EITM` (36), `ENAM` (359), `FLLD` (359), `MNAM` (188), `MODL` (356), `OBND` (359), `ODTY` (359), `OPDS` (27), `PTCL` (169), `REFL` (207), `XALG` (155)
