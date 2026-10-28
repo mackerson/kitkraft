@@ -40,7 +40,7 @@ confidence = "corpus"
 [[member]]
 group = "Models"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (52 occurrences, up to 11 per record), each a DATA (40..95 bytes) followed by its MODT (20 bytes)"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (26 occurrences, up to 11 per record), each a DATA (40..95 bytes) followed by its MODT (20 bytes)"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11285-L11285",
 ]

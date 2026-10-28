@@ -52,7 +52,7 @@ note = "payload not decoded (KK-111 inventory); observed 4 bytes"
 [[member]]
 group = "SecondaryDamages"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (18 occurrences, up to 7 per record), each a DAMA (4 bytes) followed by its ACTV (4 bytes)"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (9 occurrences, up to 7 per record), each a DAMA (4 bytes) followed by its ACTV (4 bytes)"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17458-L17458",
 ]
