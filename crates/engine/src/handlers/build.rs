@@ -842,9 +842,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let (mut copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
         copy.scripts = set_scripts.remove(&form.key()).unwrap_or_default();
         if let Some((swaps, key)) = set_swaps.remove(&form.key()) {
-            let (edit, report) =
-                crate::edit::swaps::convert(ID, &copy.record, &swaps, &copy.edits)
-                    .map_err(|e| spec_error(&format!("{}.swap_overrides", key), e.to_string()))?;
+            let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, &swaps, &copy.edits)
+                .map_err(|e| spec_error(&format!("{}.swap_overrides", key), e.to_string()))?;
             copy.edits.push(edit);
             swap_reports.push(Value::Array(report));
         }
@@ -864,9 +863,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let (mut copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
         copy.scripts = entry_scripts.get(&c.key, c.scripts.as_ref(), loaded)?;
         if let Some(swaps) = &c.swap_overrides {
-            let (edit, report) =
-                crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)
-                    .map_err(|e| spec_error(&format!("{}.swap_overrides", c.key), e.to_string()))?;
+            let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)
+                .map_err(|e| spec_error(&format!("{}.swap_overrides", c.key), e.to_string()))?;
             copy.edits.push(edit);
             swap_reports.push(Value::Array(report));
         }
@@ -1133,10 +1131,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 obj.insert("scripts".into(), Value::Array(scripts_json.clone()));
             }
             if !swap_reports.is_empty() {
-                obj.insert(
-                    "swap_overrides".into(),
-                    Value::Array(swap_reports.clone()),
-                );
+                obj.insert("swap_overrides".into(), Value::Array(swap_reports.clone()));
             }
             let counts = v3
                 .as_ref()

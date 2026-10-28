@@ -587,7 +587,14 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
             t,
             &at,
             &[
-                "name", "form", "plugin", "edid", "fields", "brief", "note", "scripts",
+                "name",
+                "form",
+                "plugin",
+                "edid",
+                "fields",
+                "brief",
+                "note",
+                "scripts",
                 "swap_overrides",
             ],
         )?;
@@ -1005,9 +1012,7 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
             form: string(t, "form", &at)?.to_string(),
             plugin: optional_string(t, "plugin", &at)?,
             // A version 3 entry may attach scripts or swap overrides and set no field.
-            edits: if (scripts.is_some() || swap_overrides.is_some())
-                && !t.contains_key("fields")
-            {
+            edits: if (scripts.is_some() || swap_overrides.is_some()) && !t.contains_key("fields") {
                 Vec::new()
             } else {
                 fields(t, &at)?
