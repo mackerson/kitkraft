@@ -15,6 +15,7 @@ owns = [
   "crates/schema/tests/golden/seed.rs",
   "crates/esm/src/generated/records.rs",
   "crates/esm/tests/inventory_types.rs",
+  "crates/esm/src/bridge.rs",
   "docs/record-parity.md",
   "docs/foothold/gap-matrix.md",
 ]
@@ -87,6 +88,18 @@ Start from `crates/schema/defs/LAYR.toml` (an inventory definition: header comme
    Each of the 5 rows must show its definition's name and 0 unknown (component blocks aside,
    above).
 
+Continuing from `kk/KK-100-wip` (the 2026-10-27 run ran out of time: EFSQ written and
+registered, PDCL and TRNS written but not registered, SFTR and STMP not started). Since then
+main has inventory tools (`crates/schema/defs/README.md`, "Inventory definitions",
+"Workflow"); use them instead of steps 1 to 4 by hand. First merge `main` into the branch:
+take either side of every conflicted shared file, then run `cargo xtask add-def` for the
+types the branch registers. Then `cargo xtask inventory-def <SIG> --name <Name> --ticket
+KK-100` for each missing type (and `--force` for any written definition whose counts
+`cargo xtask inventory-check` rejects), review its `TODO(review)` comments, run `cargo xtask
+add-def SFTR TRNS PDCL EFSQ STMP`, then `cargo xtask inventory-check SFTR TRNS PDCL EFSQ
+STMP`. Run the inventory test with `KK_INVENTORY_ONLY=SFTR,TRNS,PDCL,EFSQ,STMP` while you
+work.
+
 Done: the inventory run prints `defined: true` for each of the 5 with no unplaced, failed or
 re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do not
 change the output of any command for any other record type. Other schema tickets may run the
@@ -110,3 +123,7 @@ cmd = "cargo xtask codegen --check"
 [[accept]]
 name = "parity-rows"
 cmd = '''grep -Eq '^\| `SFTR` +\| SurfaceTreeForm +\| +1,514 \|' docs/record-parity.md && grep -Eq '^\| `TRNS` +\| Transform +\| +733 \|' docs/record-parity.md && grep -Eq '^\| `PDCL` +\| ProjectedDecal +\| +732 \|' docs/record-parity.md && grep -Eq '^\| `EFSQ` +\| EffectSequence +\| +728 \|' docs/record-parity.md && grep -Eq '^\| `STMP` +\| SnapTemplateForm +\| +696 \|' docs/record-parity.md'''
+
+[[accept]]
+name = "inventory-counts"
+cmd = "cargo xtask inventory-check SFTR TRNS PDCL EFSQ STMP"
