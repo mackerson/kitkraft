@@ -92,10 +92,16 @@ fn panel_of(id: &str) -> Option<Target> {
         "coverage" => Target::Tab("Coverage"),
         "schema" => Target::Tab("Schema"),
         "ledger" => Target::Tab("Ledger"),
-        "deploy" | "deploy.rollback" | "deploy.status" | "game.session" | "game.stop"
-        | "game.status" => Target::Tab("Cockpit"),
+        "deploy" | "deploy.rollback" | "deploy.status" | "game.session" | "game.probe"
+        | "game.stop" | "game.status" => Target::Tab("Cockpit"),
         _ => return None,
     })
+}
+
+/// The text a scope write gets while the gate does not permit it in the window yet.
+fn scope_not_yet_permitted() -> String {
+    "writes: in ADR 0007 Amendment 3's scope, not yet permitted in the window (M6.G4, M6.G5)"
+        .to_string()
 }
 
 /// Where `spec`'s item goes, or why it is disabled.
@@ -109,10 +115,7 @@ pub fn target(spec: &CommandSpec) -> Result<Target, String> {
         if gate::permitted(id).is_some() || gate::GUARDED.iter().any(|g| g.id == id) {
             true
         } else if gate::COCKPIT_SCOPE.contains(&id) {
-            return Err(
-                "writes: in ADR 0007 Amendment 3's scope, not yet permitted in the window (M6.G4, M6.G5)"
-                    .to_string(),
-            );
+            return Err(scope_not_yet_permitted());
         } else {
             return Err(
                 "writes: not in the window's write scope (ADR 0007 Amendment 3); editing waits on Amendment 4 (M7.O4)"
@@ -525,10 +528,20 @@ mod tests {
         let ba2 = target(gate::find_command("ba2.list").unwrap()).unwrap_err();
         assert!(ba2.contains("read-only list"), "{ba2}");
         assert!(ba2.contains("kit ba2 list"), "{ba2}");
-        let probe = target(gate::find_command("game.probe").unwrap()).unwrap_err();
-        assert!(probe.contains("not yet permitted"), "{probe}");
+        // M6.G5: `game.probe` is permitted now, so it runs in the Cockpit like the other
+        // game commands.
+        assert_eq!(
+            target(gate::find_command("game.probe").unwrap()),
+            Ok(Target::Tab("Cockpit"))
+        );
+        // All six scope ids being permitted, no catalog spec reaches the
+        // not-yet-permitted branch; a scope write the gate did not permit would get
+        // this text (the message's function, called directly).
+        let message = scope_not_yet_permitted();
+        assert!(message.contains("not yet permitted"), "{message}");
+        assert!(message.contains("Amendment 3"), "{message}");
         // M6.G4: the permitted game commands and the status read all live in the Cockpit.
-        for id in ["game.session", "game.stop", "game.status"] {
+        for id in ["game.session", "game.probe", "game.stop", "game.status"] {
             assert_eq!(panel_of(id), Some(Target::Tab("Cockpit")), "{id}");
         }
     }
