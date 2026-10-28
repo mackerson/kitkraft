@@ -593,7 +593,6 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// ([`BX2_INVENTORY`]).
 #[rustfmt::skip]
 const LSTRING_ONLY: &[&str] = &[
-    "ALCH",
     "AVIF",
     "BOOK",
     "BPTD",
