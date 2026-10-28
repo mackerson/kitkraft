@@ -59,6 +59,7 @@
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
 // - BMMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BMOD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official BMOD record (529) decodes with every subrecord placed and re-encodes identically; corpus)
+// - BNDS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BNDS record (14) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BOOK (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - BPTD (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - CAMS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CAMS record (276) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -86,6 +87,7 @@
 // - FLST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12024-L12053; corpus)
 // - FOGV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FOGV record (80) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FSTP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTP record (134) decodes with every subrecord placed and re-encodes identically; corpus)
+// - FSTS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTS record (19) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FURN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12126-L12218; corpus)
 // - FXPD (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - GBFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12247-L12264; corpus)
@@ -18604,6 +18606,149 @@ impl BmodRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct BndsRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `OBND`, required.
+    pub obnd: Option<Sub<Bytes>>,
+    /// `ODTY`, required.
+    pub odty: Option<Sub<Bytes>>,
+    /// `DNAM`, required.
+    pub dnam: Option<Sub<Bytes>>,
+    /// `MNAM`, required.
+    pub mnam: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl BndsRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "BNDS.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.obnd, subs, *index, "BNDS.OBND", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.odty, subs, *index, "BNDS.ODTY", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.dnam, subs, *index, "BNDS.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.mnam, subs, *index, "BNDS.MNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"OBND", self.obnd.as_ref());
+        emit(out, *b"ODTY", self.odty.as_ref());
+        emit(out, *b"DNAM", self.dnam.as_ref());
+        emit(out, *b"MNAM", self.mnam.as_ref());
+    }
+}
+
+impl Visit for BndsRecord {}
+
+impl BndsRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"BNDS";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("BNDS", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("BNDS", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("BNDS", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("BNDS", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct BookLocalizedStrings {
     /// `DESC`, optional.
     pub description: Option<Sub<LString>>,
@@ -26761,6 +26906,129 @@ impl FstpRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("FSTP", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct FstsRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `XCNT`, required.
+    pub xcnt: Option<Sub<Bytes>>,
+    /// `DATA`, required.
+    pub data: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl FstsRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCNT",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "FSTS.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.xcnt, subs, *index, "FSTS.XCNT", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data, subs, *index, "FSTS.DATA", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"XCNT", self.xcnt.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+    }
+}
+
+impl Visit for FstsRecord {}
+
+impl FstsRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"FSTS";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("FSTS", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("FSTS", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("FSTS", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("FSTS", &mut out);
         out
     }
 }
@@ -79340,6 +79608,7 @@ pub enum Record {
     Biom(Box<BiomRecord>),
     Bmmo(Box<BmmoRecord>),
     Bmod(Box<BmodRecord>),
+    Bnds(Box<BndsRecord>),
     Book(Box<BookRecord>),
     Bptd(Box<BptdRecord>),
     Cams(Box<CamsRecord>),
@@ -79367,6 +79636,7 @@ pub enum Record {
     Flst(Box<FlstRecord>),
     Fogv(Box<FogvRecord>),
     Fstp(Box<FstpRecord>),
+    Fsts(Box<FstsRecord>),
     Furn(Box<FurnRecord>),
     Fxpd(Box<FxpdRecord>),
     Gbfm(Box<GbfmRecord>),
@@ -79481,6 +79751,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"BIOM", BiomRecord::MEMBERS),
     (*b"BMMO", BmmoRecord::MEMBERS),
     (*b"BMOD", BmodRecord::MEMBERS),
+    (*b"BNDS", BndsRecord::MEMBERS),
     (*b"BOOK", BookRecord::MEMBERS),
     (*b"BPTD", BptdRecord::MEMBERS),
     (*b"CAMS", CamsRecord::MEMBERS),
@@ -79508,6 +79779,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"FLST", FlstRecord::MEMBERS),
     (*b"FOGV", FogvRecord::MEMBERS),
     (*b"FSTP", FstpRecord::MEMBERS),
+    (*b"FSTS", FstsRecord::MEMBERS),
     (*b"FURN", FurnRecord::MEMBERS),
     (*b"FXPD", FxpdRecord::MEMBERS),
     (*b"GBFM", GbfmRecord::MEMBERS),
@@ -79645,6 +79917,7 @@ impl Record {
             b"BIOM" => Self::Biom(Box::new(BiomRecord::decode(subs, ctx))),
             b"BMMO" => Self::Bmmo(Box::new(BmmoRecord::decode(subs, ctx))),
             b"BMOD" => Self::Bmod(Box::new(BmodRecord::decode(subs, ctx))),
+            b"BNDS" => Self::Bnds(Box::new(BndsRecord::decode(subs, ctx))),
             b"BOOK" => Self::Book(Box::new(BookRecord::decode(subs, ctx))),
             b"BPTD" => Self::Bptd(Box::new(BptdRecord::decode(subs, ctx))),
             b"CAMS" => Self::Cams(Box::new(CamsRecord::decode(subs, ctx))),
@@ -79672,6 +79945,7 @@ impl Record {
             b"FLST" => Self::Flst(Box::new(FlstRecord::decode(subs, ctx))),
             b"FOGV" => Self::Fogv(Box::new(FogvRecord::decode(subs, ctx))),
             b"FSTP" => Self::Fstp(Box::new(FstpRecord::decode(subs, ctx))),
+            b"FSTS" => Self::Fsts(Box::new(FstsRecord::decode(subs, ctx))),
             b"FURN" => Self::Furn(Box::new(FurnRecord::decode(subs, ctx))),
             b"FXPD" => Self::Fxpd(Box::new(FxpdRecord::decode(subs, ctx))),
             b"GBFM" => Self::Gbfm(Box::new(GbfmRecord::decode(subs, ctx))),
@@ -79789,6 +80063,7 @@ impl Record {
             Self::Biom(record) => record.encode(),
             Self::Bmmo(record) => record.encode(),
             Self::Bmod(record) => record.encode(),
+            Self::Bnds(record) => record.encode(),
             Self::Book(record) => record.encode(),
             Self::Bptd(record) => record.encode(),
             Self::Cams(record) => record.encode(),
@@ -79816,6 +80091,7 @@ impl Record {
             Self::Flst(record) => record.encode(),
             Self::Fogv(record) => record.encode(),
             Self::Fstp(record) => record.encode(),
+            Self::Fsts(record) => record.encode(),
             Self::Furn(record) => record.encode(),
             Self::Fxpd(record) => record.encode(),
             Self::Gbfm(record) => record.encode(),
@@ -79932,6 +80208,7 @@ impl Record {
             Self::Biom(_) => BiomRecord::SIGNATURE,
             Self::Bmmo(_) => BmmoRecord::SIGNATURE,
             Self::Bmod(_) => BmodRecord::SIGNATURE,
+            Self::Bnds(_) => BndsRecord::SIGNATURE,
             Self::Book(_) => BookRecord::SIGNATURE,
             Self::Bptd(_) => BptdRecord::SIGNATURE,
             Self::Cams(_) => CamsRecord::SIGNATURE,
@@ -79959,6 +80236,7 @@ impl Record {
             Self::Flst(_) => FlstRecord::SIGNATURE,
             Self::Fogv(_) => FogvRecord::SIGNATURE,
             Self::Fstp(_) => FstpRecord::SIGNATURE,
+            Self::Fsts(_) => FstsRecord::SIGNATURE,
             Self::Furn(_) => FurnRecord::SIGNATURE,
             Self::Fxpd(_) => FxpdRecord::SIGNATURE,
             Self::Gbfm(_) => GbfmRecord::SIGNATURE,
@@ -80075,6 +80353,7 @@ impl Record {
             Self::Biom(record) => record.form_ids(),
             Self::Bmmo(record) => record.form_ids(),
             Self::Bmod(record) => record.form_ids(),
+            Self::Bnds(record) => record.form_ids(),
             Self::Book(record) => record.form_ids(),
             Self::Bptd(record) => record.form_ids(),
             Self::Cams(record) => record.form_ids(),
@@ -80102,6 +80381,7 @@ impl Record {
             Self::Flst(record) => record.form_ids(),
             Self::Fogv(record) => record.form_ids(),
             Self::Fstp(record) => record.form_ids(),
+            Self::Fsts(record) => record.form_ids(),
             Self::Furn(record) => record.form_ids(),
             Self::Fxpd(record) => record.form_ids(),
             Self::Gbfm(record) => record.form_ids(),
@@ -80218,6 +80498,7 @@ impl Record {
             Self::Biom(record) => record.form_ids_mut(),
             Self::Bmmo(record) => record.form_ids_mut(),
             Self::Bmod(record) => record.form_ids_mut(),
+            Self::Bnds(record) => record.form_ids_mut(),
             Self::Book(record) => record.form_ids_mut(),
             Self::Bptd(record) => record.form_ids_mut(),
             Self::Cams(record) => record.form_ids_mut(),
@@ -80245,6 +80526,7 @@ impl Record {
             Self::Flst(record) => record.form_ids_mut(),
             Self::Fogv(record) => record.form_ids_mut(),
             Self::Fstp(record) => record.form_ids_mut(),
+            Self::Fsts(record) => record.form_ids_mut(),
             Self::Furn(record) => record.form_ids_mut(),
             Self::Fxpd(record) => record.form_ids_mut(),
             Self::Gbfm(record) => record.form_ids_mut(),
@@ -80361,6 +80643,7 @@ impl Record {
             Self::Biom(record) => record.lstrings(),
             Self::Bmmo(record) => record.lstrings(),
             Self::Bmod(record) => record.lstrings(),
+            Self::Bnds(record) => record.lstrings(),
             Self::Book(record) => record.lstrings(),
             Self::Bptd(record) => record.lstrings(),
             Self::Cams(record) => record.lstrings(),
@@ -80388,6 +80671,7 @@ impl Record {
             Self::Flst(record) => record.lstrings(),
             Self::Fogv(record) => record.lstrings(),
             Self::Fstp(record) => record.lstrings(),
+            Self::Fsts(record) => record.lstrings(),
             Self::Furn(record) => record.lstrings(),
             Self::Fxpd(record) => record.lstrings(),
             Self::Gbfm(record) => record.lstrings(),
@@ -80504,6 +80788,7 @@ impl Record {
             Self::Biom(record) => record.lstrings_mut(),
             Self::Bmmo(record) => record.lstrings_mut(),
             Self::Bmod(record) => record.lstrings_mut(),
+            Self::Bnds(record) => record.lstrings_mut(),
             Self::Book(record) => record.lstrings_mut(),
             Self::Bptd(record) => record.lstrings_mut(),
             Self::Cams(record) => record.lstrings_mut(),
@@ -80531,6 +80816,7 @@ impl Record {
             Self::Flst(record) => record.lstrings_mut(),
             Self::Fogv(record) => record.lstrings_mut(),
             Self::Fstp(record) => record.lstrings_mut(),
+            Self::Fsts(record) => record.lstrings_mut(),
             Self::Furn(record) => record.lstrings_mut(),
             Self::Fxpd(record) => record.lstrings_mut(),
             Self::Gbfm(record) => record.lstrings_mut(),
@@ -80648,6 +80934,7 @@ impl Record {
             Self::Biom(record) => &record.extra,
             Self::Bmmo(record) => &record.extra,
             Self::Bmod(record) => &record.extra,
+            Self::Bnds(record) => &record.extra,
             Self::Book(record) => &record.extra,
             Self::Bptd(record) => &record.extra,
             Self::Cams(record) => &record.extra,
@@ -80675,6 +80962,7 @@ impl Record {
             Self::Flst(record) => &record.extra,
             Self::Fogv(record) => &record.extra,
             Self::Fstp(record) => &record.extra,
+            Self::Fsts(record) => &record.extra,
             Self::Furn(record) => &record.extra,
             Self::Fxpd(record) => &record.extra,
             Self::Gbfm(record) => &record.extra,
