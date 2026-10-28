@@ -614,17 +614,22 @@ const LSTRING_ONLY: &[&str] = &[
 /// family lane owns.
 #[rustfmt::skip]
 const BX2_INVENTORY: &[&str] = &[
+    "AACT",
     "ARTO",
+    "CAMS",
     "DOOR",
+    "IMAD",
     "IRES",
     "LAYR",
     "LIGH",
     "LSCR",
+    "MATT",
     "MESG",
     "PGRE",
     "PHZD",
     "RFGP",
     "SOUN",
+    "SPCH",
     "TXST",
     "WKMF",
     "WWED",
