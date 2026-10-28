@@ -615,13 +615,18 @@ const LSTRING_ONLY: &[&str] = &[
 #[rustfmt::skip]
 const BX2_INVENTORY: &[&str] = &[
     "AACT",
+    "ADDN",
     "AMBS",
     "ARTO",
     "ATMO",
+    "BMMO",
     "BMOD",
     "CAMS",
     "DOOR",
+    "EFSH",
     "FFKW",
+    "FOGV",
+    "GCVR",
     "IMAD",
     "IMGS",
     "IPDS",

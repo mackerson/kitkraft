@@ -1,0 +1,164 @@
+# BMMO: BiomeMarker, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official BMMO record (71 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the BMMO definition of wbDefinitionsSF1.pas at the pinned revision (L10244-L10281),
+#     cited per member for its position where it lists the subrecord (wbConditions reads the
+#     CTDA array, wbKeywords the KSIZ/KWDA pair).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     and BfcbBlock groups keep their own provenance.
+#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#
+# An inventory: EDID, the lstrings, the keyword list and the component block frame are
+# typed; every other payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
+# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Inside component blocks (kept raw by BfcbBlock): REFL.
+signature = "BMMO"
+name = "BiomeMarker"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 17..57 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10264-L10264",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10266-L10266",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10267-L10267",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "Opds"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 57 of 71 official BMMO records (57 occurrences), 80 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10268-L10268",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 80 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 71 official BMMO records (1 occurrences), 22 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10274-L10274",
+]
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 28..78 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10275-L10275",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 28..78 bytes"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 71 official BMMO records (13 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10276-L10276",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 50 of 71 official BMMO records (194 occurrences, up to 6 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10277-L10277",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 32 bytes"
+
+[[member]]
+sig = "KNAM"
+name = "Knam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10278-L10278",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10279-L10279",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+
+[[member]]
+sig = "LNA2"
+name = "Lna2"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 71 of 71 official BMMO records (71 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10280-L10280",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory): 4 bytes"
