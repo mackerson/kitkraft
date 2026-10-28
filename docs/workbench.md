@@ -169,7 +169,7 @@ What the workbench writes, all of it:
 
 `load` still fills the engine's own index cache, as it does for the CLI and MCP.
 
-### Cockpit and Coverage (M6.G2, M6.G3, M6.G4, M6.G7, M6.G8)
+### Cockpit and Coverage (M6.G2, M6.G3, M6.G4, M6.G5, M6.G7, M6.G8)
 
 - **Cockpit**: pick the plugin under review from the checkout's `out\` (or type a path).
   **Review** runs `validate`, `roundtrip --verify`, then the plugin against its masters
@@ -190,9 +190,17 @@ What the workbench writes, all of it:
   `game.stop --dry-run` (its `would` lines) and confirms the same way. While a session
   is started, the window follows it with a `game.status` poll every second over the one
   engine worker, and shows the phase, the current row, the rows done, the elapsed
-  seconds and the last events — no probe rows and no screenshots (M6.G5). Polling stops
-  when the phase is `finished`, when a status fails, or on the confirmed stop (whose
-  report is kept). Re-run probe and Screenshot stay disabled with M6.G5.
+  seconds and the last events, and, from M6.G5 (first half), the probe rows: one row
+  per probe, re-runs marked, each with its verdict (the status component) and reason,
+  and each form a link that inspects it. Selecting a row shows its screenshots below
+  the table, scaled to the panel width: the window opens only the files at the paths
+  `game.status` returned, decodes them as PNG and caches the texture per path. A
+  screenshot the reply does not list, or whose listed path is not on disk, is shown
+  `inconclusive` with its reason ("listed by game.status but missing on disk" or
+  "not listed"), and one that cannot be opened or decoded is shown `inconclusive` with
+  the decoder's reason — never hidden. Polling stops when the phase is `finished`,
+  when a status fails, or on the confirmed stop (whose report is kept). Re-run probe
+  and Screenshot stay disabled until M6.G5's second half.
 - **Coverage**: `coverage --matrix` with optional record types, plugin and evidence file;
   one row per type with the six statuses as status components, a filter by type, and a
   click on a type lists each cell's evidence pointers and whether they resolve.
