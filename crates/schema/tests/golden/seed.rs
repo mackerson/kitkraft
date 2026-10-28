@@ -125,9 +125,11 @@
 // - MUSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUSC record (117) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MUST (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUST record (279) decodes with every subrecord placed and re-encodes identically; corpus)
 // - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
+// - NOCM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - NPC_ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14993-L15426; corpus)
 // - OMOD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15429-L15476; corpus)
 // - OTFT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15506-L15511; corpus)
+// - OVIS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official OVIS record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - PACK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15540-L15761; corpus)
 // - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
@@ -147,6 +149,7 @@
 // - RFGP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official RFGP record (169006) decodes with every subrecord placed and re-encodes identically; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
+// - SCCO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
 // - SFPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SFPC record (62) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -157,6 +160,7 @@
 // - SOUN (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official SOUN record (1133) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SPCH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
+// - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STAT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894; corpus)
 // - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
@@ -41328,6 +41332,257 @@ impl NavmRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NocmObstacleGroupObstacle {
+    /// `INDX`, required.
+    pub indx: Option<Sub<Bytes>>,
+    /// `DATA`, repeated.
+    pub data: Vec<Sub<Bytes>>,
+    /// `INTV`, required.
+    pub intv: Option<Sub<Bytes>>,
+}
+
+impl NocmObstacleGroupObstacle {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"INDX",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"INTV",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.indx,
+                    subs,
+                    *index,
+                    "NOCM.ObstacleGroup.Obstacle.INDX",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => push(
+                    &mut self.data,
+                    subs,
+                    *index,
+                    "NOCM.ObstacleGroup.Obstacle.DATA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.intv,
+                    subs,
+                    *index,
+                    "NOCM.ObstacleGroup.Obstacle.INTV",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"INDX", self.indx.as_ref());
+        for value in &self.data {
+            emit(out, *b"DATA", Some(value));
+        }
+        emit(out, *b"INTV", self.intv.as_ref());
+    }
+}
+
+impl Visit for NocmObstacleGroupObstacle {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NocmObstacleGroup {
+    /// Group `Obstacle`, repeated.
+    pub obstacle: Vec<NocmObstacleGroupObstacle>,
+    /// `NAM1`, optional.
+    pub nam1: Option<Sub<Bytes>>,
+}
+
+impl NocmObstacleGroup {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: NocmObstacleGroupObstacle::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Group { member: 0, hits } => {
+                    let mut group = NocmObstacleGroupObstacle::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.obstacle.push(group);
+                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.nam1,
+                    subs,
+                    *index,
+                    "NOCM.ObstacleGroup.NAM1",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        for group in &self.obstacle {
+            group.emit(out);
+        }
+        emit(out, *b"NAM1", self.nam1.as_ref());
+    }
+}
+
+impl Visit for NocmObstacleGroup {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NocmRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `ObstacleGroup`, repeated.
+    pub obstacle_group: Vec<NocmObstacleGroup>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl NocmRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: NocmObstacleGroup::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "NOCM.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = NocmObstacleGroup::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.obstacle_group.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.obstacle_group {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for NocmRecord {}
+
+impl NocmRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"NOCM";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("NOCM", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("NOCM", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("NOCM", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("NOCM", &mut out);
+        out
+    }
+}
+
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct NpcConfigurationFlags(pub u32);
@@ -45212,6 +45467,182 @@ impl OtftRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("OTFT", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OvisVisibility {
+    /// `INDX`, required.
+    pub indx: Option<Sub<Bytes>>,
+    /// `DATA`, required.
+    pub data: Option<Sub<Bytes>>,
+}
+
+impl OvisVisibility {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"INDX",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.indx,
+                    subs,
+                    *index,
+                    "OVIS.Visibility.INDX",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.data,
+                    subs,
+                    *index,
+                    "OVIS.Visibility.DATA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"INDX", self.indx.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+    }
+}
+
+impl Visit for OvisVisibility {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct OvisRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `Visibility`, repeated.
+    pub visibility: Vec<OvisVisibility>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl OvisRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: OvisVisibility::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "OVIS.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = OvisVisibility::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.visibility.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.visibility {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for OvisRecord {}
+
+impl OvisRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"OVIS";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("OVIS", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("OVIS", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("OVIS", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("OVIS", &mut out);
         out
     }
 }
@@ -65384,6 +65815,192 @@ impl RspjRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SccoScene {
+    /// `SNAM`, required.
+    pub snam: Option<Sub<Bytes>>,
+    /// `XNAM`, required.
+    pub xnam: Option<Sub<Bytes>>,
+}
+
+impl SccoScene {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"SNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.snam, subs, *index, "SCCO.Scene.SNAM", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.xnam, subs, *index, "SCCO.Scene.XNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"SNAM", self.snam.as_ref());
+        emit(out, *b"XNAM", self.xnam.as_ref());
+    }
+}
+
+impl Visit for SccoScene {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SccoRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `QNAM`, required.
+    pub qnam: Option<Sub<Bytes>>,
+    /// Group `Scene`, repeated.
+    pub scene: Vec<SccoScene>,
+    /// `VNAM`, required.
+    pub vnam: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SccoRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"QNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: SccoScene::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SCCO.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.qnam, subs, *index, "SCCO.QNAM", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = SccoScene::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.scene.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.vnam, subs, *index, "SCCO.VNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"QNAM", self.qnam.as_ref());
+        for group in &self.scene {
+            group.emit(out);
+        }
+        emit(out, *b"VNAM", self.vnam.as_ref());
+    }
+}
+
+impl Visit for SccoRecord {}
+
+impl SccoRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SCCO";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SCCO", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SCCO", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SCCO", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SCCO", &mut out);
+        out
+    }
+}
+
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ScenFlags(pub u32);
@@ -69820,6 +70437,151 @@ impl SpelRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("SPEL", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SpgdRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, optional.
+    pub bfcb_block: Option<BfcbBlock>,
+    /// `DATA`, required.
+    pub data: Option<Sub<Bytes>>,
+    /// `MNAM`, required.
+    pub mnam: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SpgdRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SPGD.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } if self.bfcb_block.is_none() => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block = Some(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data, subs, *index, "SPGD.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.mnam, subs, *index, "SPGD.MNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        if let Some(group) = &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"MNAM", self.mnam.as_ref());
+    }
+}
+
+impl Visit for SpgdRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "SPGD.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "SPGD.BfcbBlock", out);
+    }
+}
+
+impl SpgdRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SPGD";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SPGD", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SPGD", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SPGD", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SPGD", &mut out);
         out
     }
 }
@@ -79168,9 +79930,11 @@ pub enum Record {
     Musc(Box<MuscRecord>),
     Must(Box<MustRecord>),
     Navm(Box<NavmRecord>),
+    Nocm(Box<NocmRecord>),
     Npc(Box<NpcRecord>),
     Omod(Box<OmodRecord>),
     Otft(Box<OtftRecord>),
+    Ovis(Box<OvisRecord>),
     Pack(Box<PackRecord>),
     Pcbn(Box<PcbnRecord>),
     Pccn(Box<PccnRecord>),
@@ -79190,6 +79954,7 @@ pub enum Record {
     Rfgp(Box<RfgpRecord>),
     Rsgd(Box<RsgdRecord>),
     Rspj(Box<RspjRecord>),
+    Scco(Box<SccoRecord>),
     Scen(Box<ScenRecord>),
     Sfbk(Box<SfbkRecord>),
     Sfpc(Box<SfpcRecord>),
@@ -79200,6 +79965,7 @@ pub enum Record {
     Soun(Box<SounRecord>),
     Spch(Box<SpchRecord>),
     Spel(Box<SpelRecord>),
+    Spgd(Box<SpgdRecord>),
     Stat(Box<StatRecord>),
     Stbh(Box<StbhRecord>),
     Stdt(Box<StdtRecord>),
@@ -79307,9 +80073,11 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"MUSC", MuscRecord::MEMBERS),
     (*b"MUST", MustRecord::MEMBERS),
     (*b"NAVM", NavmRecord::MEMBERS),
+    (*b"NOCM", NocmRecord::MEMBERS),
     (*b"NPC_", NpcRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"OTFT", OtftRecord::MEMBERS),
+    (*b"OVIS", OvisRecord::MEMBERS),
     (*b"PACK", PackRecord::MEMBERS),
     (*b"PCBN", PcbnRecord::MEMBERS),
     (*b"PCCN", PccnRecord::MEMBERS),
@@ -79329,6 +80097,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"RFGP", RfgpRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"RSPJ", RspjRecord::MEMBERS),
+    (*b"SCCO", SccoRecord::MEMBERS),
     (*b"SCEN", ScenRecord::MEMBERS),
     (*b"SFBK", SfbkRecord::MEMBERS),
     (*b"SFPC", SfpcRecord::MEMBERS),
@@ -79339,6 +80108,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"SOUN", SounRecord::MEMBERS),
     (*b"SPCH", SpchRecord::MEMBERS),
     (*b"SPEL", SpelRecord::MEMBERS),
+    (*b"SPGD", SpgdRecord::MEMBERS),
     (*b"STAT", StatRecord::MEMBERS),
     (*b"STBH", StbhRecord::MEMBERS),
     (*b"STDT", StdtRecord::MEMBERS),
@@ -79469,9 +80239,11 @@ impl Record {
             b"MUSC" => Self::Musc(Box::new(MuscRecord::decode(subs, ctx))),
             b"MUST" => Self::Must(Box::new(MustRecord::decode(subs, ctx))),
             b"NAVM" => Self::Navm(Box::new(NavmRecord::decode(subs, ctx))),
+            b"NOCM" => Self::Nocm(Box::new(NocmRecord::decode(subs, ctx))),
             b"NPC_" => Self::Npc(Box::new(NpcRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"OTFT" => Self::Otft(Box::new(OtftRecord::decode(subs, ctx))),
+            b"OVIS" => Self::Ovis(Box::new(OvisRecord::decode(subs, ctx))),
             b"PACK" => Self::Pack(Box::new(PackRecord::decode(subs, ctx))),
             b"PCBN" => Self::Pcbn(Box::new(PcbnRecord::decode(subs, ctx))),
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
@@ -79491,6 +80263,7 @@ impl Record {
             b"RFGP" => Self::Rfgp(Box::new(RfgpRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
+            b"SCCO" => Self::Scco(Box::new(SccoRecord::decode(subs, ctx))),
             b"SCEN" => Self::Scen(Box::new(ScenRecord::decode(subs, ctx))),
             b"SFBK" => Self::Sfbk(Box::new(SfbkRecord::decode(subs, ctx))),
             b"SFPC" => Self::Sfpc(Box::new(SfpcRecord::decode(subs, ctx))),
@@ -79501,6 +80274,7 @@ impl Record {
             b"SOUN" => Self::Soun(Box::new(SounRecord::decode(subs, ctx))),
             b"SPCH" => Self::Spch(Box::new(SpchRecord::decode(subs, ctx))),
             b"SPEL" => Self::Spel(Box::new(SpelRecord::decode(subs, ctx))),
+            b"SPGD" => Self::Spgd(Box::new(SpgdRecord::decode(subs, ctx))),
             b"STAT" => Self::Stat(Box::new(StatRecord::decode(subs, ctx))),
             b"STBH" => Self::Stbh(Box::new(StbhRecord::decode(subs, ctx))),
             b"STDT" => Self::Stdt(Box::new(StdtRecord::decode(subs, ctx))),
@@ -79611,9 +80385,11 @@ impl Record {
             Self::Musc(record) => record.encode(),
             Self::Must(record) => record.encode(),
             Self::Navm(record) => record.encode(),
+            Self::Nocm(record) => record.encode(),
             Self::Npc(record) => record.encode(),
             Self::Omod(record) => record.encode(),
             Self::Otft(record) => record.encode(),
+            Self::Ovis(record) => record.encode(),
             Self::Pack(record) => record.encode(),
             Self::Pcbn(record) => record.encode(),
             Self::Pccn(record) => record.encode(),
@@ -79633,6 +80409,7 @@ impl Record {
             Self::Rfgp(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
             Self::Rspj(record) => record.encode(),
+            Self::Scco(record) => record.encode(),
             Self::Scen(record) => record.encode(),
             Self::Sfbk(record) => record.encode(),
             Self::Sfpc(record) => record.encode(),
@@ -79643,6 +80420,7 @@ impl Record {
             Self::Soun(record) => record.encode(),
             Self::Spch(record) => record.encode(),
             Self::Spel(record) => record.encode(),
+            Self::Spgd(record) => record.encode(),
             Self::Stat(record) => record.encode(),
             Self::Stbh(record) => record.encode(),
             Self::Stdt(record) => record.encode(),
@@ -79752,9 +80530,11 @@ impl Record {
             Self::Musc(_) => MuscRecord::SIGNATURE,
             Self::Must(_) => MustRecord::SIGNATURE,
             Self::Navm(_) => NavmRecord::SIGNATURE,
+            Self::Nocm(_) => NocmRecord::SIGNATURE,
             Self::Npc(_) => NpcRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Otft(_) => OtftRecord::SIGNATURE,
+            Self::Ovis(_) => OvisRecord::SIGNATURE,
             Self::Pack(_) => PackRecord::SIGNATURE,
             Self::Pcbn(_) => PcbnRecord::SIGNATURE,
             Self::Pccn(_) => PccnRecord::SIGNATURE,
@@ -79774,6 +80554,7 @@ impl Record {
             Self::Rfgp(_) => RfgpRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Rspj(_) => RspjRecord::SIGNATURE,
+            Self::Scco(_) => SccoRecord::SIGNATURE,
             Self::Scen(_) => ScenRecord::SIGNATURE,
             Self::Sfbk(_) => SfbkRecord::SIGNATURE,
             Self::Sfpc(_) => SfpcRecord::SIGNATURE,
@@ -79784,6 +80565,7 @@ impl Record {
             Self::Soun(_) => SounRecord::SIGNATURE,
             Self::Spch(_) => SpchRecord::SIGNATURE,
             Self::Spel(_) => SpelRecord::SIGNATURE,
+            Self::Spgd(_) => SpgdRecord::SIGNATURE,
             Self::Stat(_) => StatRecord::SIGNATURE,
             Self::Stbh(_) => StbhRecord::SIGNATURE,
             Self::Stdt(_) => StdtRecord::SIGNATURE,
@@ -79893,9 +80675,11 @@ impl Record {
             Self::Musc(record) => record.form_ids(),
             Self::Must(record) => record.form_ids(),
             Self::Navm(record) => record.form_ids(),
+            Self::Nocm(record) => record.form_ids(),
             Self::Npc(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
             Self::Otft(record) => record.form_ids(),
+            Self::Ovis(record) => record.form_ids(),
             Self::Pack(record) => record.form_ids(),
             Self::Pcbn(record) => record.form_ids(),
             Self::Pccn(record) => record.form_ids(),
@@ -79915,6 +80699,7 @@ impl Record {
             Self::Rfgp(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
             Self::Rspj(record) => record.form_ids(),
+            Self::Scco(record) => record.form_ids(),
             Self::Scen(record) => record.form_ids(),
             Self::Sfbk(record) => record.form_ids(),
             Self::Sfpc(record) => record.form_ids(),
@@ -79925,6 +80710,7 @@ impl Record {
             Self::Soun(record) => record.form_ids(),
             Self::Spch(record) => record.form_ids(),
             Self::Spel(record) => record.form_ids(),
+            Self::Spgd(record) => record.form_ids(),
             Self::Stat(record) => record.form_ids(),
             Self::Stbh(record) => record.form_ids(),
             Self::Stdt(record) => record.form_ids(),
@@ -80034,9 +80820,11 @@ impl Record {
             Self::Musc(record) => record.form_ids_mut(),
             Self::Must(record) => record.form_ids_mut(),
             Self::Navm(record) => record.form_ids_mut(),
+            Self::Nocm(record) => record.form_ids_mut(),
             Self::Npc(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
             Self::Otft(record) => record.form_ids_mut(),
+            Self::Ovis(record) => record.form_ids_mut(),
             Self::Pack(record) => record.form_ids_mut(),
             Self::Pcbn(record) => record.form_ids_mut(),
             Self::Pccn(record) => record.form_ids_mut(),
@@ -80056,6 +80844,7 @@ impl Record {
             Self::Rfgp(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
             Self::Rspj(record) => record.form_ids_mut(),
+            Self::Scco(record) => record.form_ids_mut(),
             Self::Scen(record) => record.form_ids_mut(),
             Self::Sfbk(record) => record.form_ids_mut(),
             Self::Sfpc(record) => record.form_ids_mut(),
@@ -80066,6 +80855,7 @@ impl Record {
             Self::Soun(record) => record.form_ids_mut(),
             Self::Spch(record) => record.form_ids_mut(),
             Self::Spel(record) => record.form_ids_mut(),
+            Self::Spgd(record) => record.form_ids_mut(),
             Self::Stat(record) => record.form_ids_mut(),
             Self::Stbh(record) => record.form_ids_mut(),
             Self::Stdt(record) => record.form_ids_mut(),
@@ -80175,9 +80965,11 @@ impl Record {
             Self::Musc(record) => record.lstrings(),
             Self::Must(record) => record.lstrings(),
             Self::Navm(record) => record.lstrings(),
+            Self::Nocm(record) => record.lstrings(),
             Self::Npc(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
             Self::Otft(record) => record.lstrings(),
+            Self::Ovis(record) => record.lstrings(),
             Self::Pack(record) => record.lstrings(),
             Self::Pcbn(record) => record.lstrings(),
             Self::Pccn(record) => record.lstrings(),
@@ -80197,6 +80989,7 @@ impl Record {
             Self::Rfgp(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
             Self::Rspj(record) => record.lstrings(),
+            Self::Scco(record) => record.lstrings(),
             Self::Scen(record) => record.lstrings(),
             Self::Sfbk(record) => record.lstrings(),
             Self::Sfpc(record) => record.lstrings(),
@@ -80207,6 +81000,7 @@ impl Record {
             Self::Soun(record) => record.lstrings(),
             Self::Spch(record) => record.lstrings(),
             Self::Spel(record) => record.lstrings(),
+            Self::Spgd(record) => record.lstrings(),
             Self::Stat(record) => record.lstrings(),
             Self::Stbh(record) => record.lstrings(),
             Self::Stdt(record) => record.lstrings(),
@@ -80316,9 +81110,11 @@ impl Record {
             Self::Musc(record) => record.lstrings_mut(),
             Self::Must(record) => record.lstrings_mut(),
             Self::Navm(record) => record.lstrings_mut(),
+            Self::Nocm(record) => record.lstrings_mut(),
             Self::Npc(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
             Self::Otft(record) => record.lstrings_mut(),
+            Self::Ovis(record) => record.lstrings_mut(),
             Self::Pack(record) => record.lstrings_mut(),
             Self::Pcbn(record) => record.lstrings_mut(),
             Self::Pccn(record) => record.lstrings_mut(),
@@ -80338,6 +81134,7 @@ impl Record {
             Self::Rfgp(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
             Self::Rspj(record) => record.lstrings_mut(),
+            Self::Scco(record) => record.lstrings_mut(),
             Self::Scen(record) => record.lstrings_mut(),
             Self::Sfbk(record) => record.lstrings_mut(),
             Self::Sfpc(record) => record.lstrings_mut(),
@@ -80348,6 +81145,7 @@ impl Record {
             Self::Soun(record) => record.lstrings_mut(),
             Self::Spch(record) => record.lstrings_mut(),
             Self::Spel(record) => record.lstrings_mut(),
+            Self::Spgd(record) => record.lstrings_mut(),
             Self::Stat(record) => record.lstrings_mut(),
             Self::Stbh(record) => record.lstrings_mut(),
             Self::Stdt(record) => record.lstrings_mut(),
@@ -80458,9 +81256,11 @@ impl Record {
             Self::Musc(record) => &record.extra,
             Self::Must(record) => &record.extra,
             Self::Navm(record) => &record.extra,
+            Self::Nocm(record) => &record.extra,
             Self::Npc(record) => &record.extra,
             Self::Omod(record) => &record.extra,
             Self::Otft(record) => &record.extra,
+            Self::Ovis(record) => &record.extra,
             Self::Pack(record) => &record.extra,
             Self::Pcbn(record) => &record.extra,
             Self::Pccn(record) => &record.extra,
@@ -80480,6 +81280,7 @@ impl Record {
             Self::Rfgp(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,
             Self::Rspj(record) => &record.extra,
+            Self::Scco(record) => &record.extra,
             Self::Scen(record) => &record.extra,
             Self::Sfbk(record) => &record.extra,
             Self::Sfpc(record) => &record.extra,
@@ -80490,6 +81291,7 @@ impl Record {
             Self::Soun(record) => &record.extra,
             Self::Spch(record) => &record.extra,
             Self::Spel(record) => &record.extra,
+            Self::Spgd(record) => &record.extra,
             Self::Stat(record) => &record.extra,
             Self::Stbh(record) => &record.extra,
             Self::Stdt(record) => &record.extra,
