@@ -1,0 +1,46 @@
+# PERS: UnknownPers, inventory definition (KK-111).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-111 scan of every official PERS record (2 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the PERS definition of wbDefinitionsSF1.pas at the pinned revision (L15925-L15932),
+#     cited per member for its position where it lists the subrecord.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: every payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). xEdit's
+# definition has no EDID, and neither does the corpus.
+signature = "PERS"
+name = "UnknownPers"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15925-L15932",
+]
+confidence = "corpus"
+note = "inventory definition (KK-111): corpus order and cardinality; every payload opaque"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official PERS records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15926-L15926",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "DAT2"
+name = "Dat2"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official PERS records (18 occurrences, up to 17 per record), 938076..1048572 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15927-L15927",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 938076..1048572 bytes"
