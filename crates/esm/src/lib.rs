@@ -56,6 +56,9 @@
 //! - Header: [`tes4::Tes4`] (flags, `HEDR`, masters, `ONAM`), the flag constants, and
 //!   [`Plugin::hedr_count_on_write`].
 //! - Typed records: [`bridge`] connects records to the generated types in [`generated`].
+//! - Corpus inventory (M4.BX2): [`inventory::scan_file`] and [`inventory::TypeStats`], the
+//!   per-type subrecord statistics the inventory definitions cite (`cargo xtask
+//!   inventory-def`, `inventory-check`).
 //!
 //! LAYER: L0
 
@@ -70,6 +73,7 @@ pub mod forms;
 /// Typed records generated from `crates/schema/defs/` by `cargo xtask codegen` (do not edit).
 pub mod generated;
 pub mod index;
+pub mod inventory;
 mod model;
 pub mod navmesh;
 mod parse;
