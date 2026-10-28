@@ -2,6 +2,7 @@
 id = "KK-111"
 title = "Inventory definitions for DEBR, OSWP, WTHR, PERS, SDLT, DOBJ, GWED and MAAM"
 timeout_min = 45
+budget_h = 2.5
 owns = [
   "crates/schema/defs/DEBR.toml",
   "crates/schema/defs/OSWP.toml",

@@ -2,6 +2,7 @@
 id = "KK-110"
 title = "Inventory definitions for PSDC, GBFT, NAVI, AAMD, LGTM, WBAR, FORC and GPOG"
 timeout_min = 45
+budget_h = 2.5
 owns = [
   "crates/schema/defs/PSDC.toml",
   "crates/schema/defs/GBFT.toml",

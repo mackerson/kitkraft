@@ -2,6 +2,7 @@
 id = "KK-112"
 title = "Inventory definitions for NOCM, OVIS, SCCO and SPGD"
 timeout_min = 45
+budget_h = 2.5
 owns = [
   "crates/schema/defs/NOCM.toml",
   "crates/schema/defs/OVIS.toml",

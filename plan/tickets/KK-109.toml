@@ -2,6 +2,7 @@
 id = "KK-109"
 title = "Inventory definitions for LVSC, FSTS, IDLM, SCOL, BNDS, TODD, CLFM and AORU"
 timeout_min = 45
+budget_h = 2.5
 owns = [
   "crates/schema/defs/LVSC.toml",
   "crates/schema/defs/FSTS.toml",
