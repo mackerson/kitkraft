@@ -21758,7 +21758,7 @@ pub struct CstyRecord {
     /// `CSSG`, required.
     pub cssg: Option<Sub<Bytes>>,
     /// `CSSM`, required.
-    pub casm: Option<Sub<Bytes>>,
+    pub cssm: Option<Sub<Bytes>>,
     /// `CSSR`, required.
     pub cssr: Option<Sub<Bytes>>,
     /// `CSSA`, required.
@@ -21897,7 +21897,7 @@ impl CstyRecord {
                     put(&mut self.cssg, subs, *index, "CSTY.CSSG", ctx, extra)
                 }
                 Hit::Sub { member: 10, index } => {
-                    put(&mut self.casm, subs, *index, "CSTY.CSSM", ctx, extra)
+                    put(&mut self.cssm, subs, *index, "CSTY.CSSM", ctx, extra)
                 }
                 Hit::Sub { member: 11, index } => {
                     put(&mut self.cssr, subs, *index, "CSTY.CSSR", ctx, extra)
@@ -21936,7 +21936,7 @@ impl CstyRecord {
         emit(out, *b"CSFL", self.csfl.as_ref());
         emit(out, *b"CSTN", self.cstn.as_ref());
         emit(out, *b"CSSG", self.cssg.as_ref());
-        emit(out, *b"CSSM", self.casm.as_ref());
+        emit(out, *b"CSSM", self.cssm.as_ref());
         emit(out, *b"CSSR", self.cssr.as_ref());
         emit(out, *b"CSSA", self.cssa.as_ref());
         emit(out, *b"CSSD", self.cssd.as_ref());

@@ -146,7 +146,7 @@ note = "payload not decoded (KK-104 inventory); observed 120 bytes"
 
 [[member]]
 sig = "CSSM"
-name = "Casm"
+name = "Cssm"
 type = "opaque"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 64 bytes"
