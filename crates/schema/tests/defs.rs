@@ -667,6 +667,15 @@ const BX2_INVENTORY: &[&str] = &[
     "WWED",
 ];
 
+/// Inventory definitions cited to the corpus alone (no xEdit citation; KK-008 and the
+/// tickets whose brief says "only `corpus:` citations"). They follow the same rules as
+/// [`BX2_INVENTORY`] otherwise. `cargo xtask add-def` puts a new inventory in one list or
+/// the other by whether the file cites xEdit.
+#[rustfmt::skip]
+const INVENTORY_CORPUS_ONLY: &[&str] = &[
+    "LMSW",
+];
+
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
 /// request: the Render Window draws their references as bounds boxes).
 const BX2_TYPED_BOUNDS: &[&str] = &["DOOR", "LIGH"];
@@ -675,10 +684,12 @@ const BX2_TYPED_BOUNDS: &[&str] = &["DOOR", "LIGH"];
 /// list, the base form component frame and, for [`BX2_TYPED_BOUNDS`], `OBND`; every other
 /// member is opaque, cited to the
 /// corpus scan at `corpus` confidence (with the pinned xEdit line where upstream lists it).
+/// The [`INVENTORY_CORPUS_ONLY`] ones cite no xEdit line at all.
 #[test]
 fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
     let schema = builtin().unwrap();
-    for record in BX2_INVENTORY {
+    let all = BX2_INVENTORY.iter().chain(INVENTORY_CORPUS_ONLY);
+    for record in all {
         let rec = schema.record(sig(record)).unwrap();
         assert!(
             rec.provenance
@@ -686,12 +697,22 @@ fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
                 .starts_with("corpus: inventory_types_full"),
             "{record}"
         );
-        assert!(
-            rec.provenance
-                .citations()
-                .any(|c| c.starts_with("xedit: wbDefinitionsSF1.pas@")),
-            "{record} cites its xEdit definition"
+        // The record's own citations (shared groups keep theirs, xEdit or not).
+        let cites_xedit = rec.provenance.citations().any(|c| c.starts_with("xedit: "));
+        assert_eq!(
+            cites_xedit,
+            BX2_INVENTORY.contains(record),
+            "{record}: an inventory citing xEdit belongs in BX2_INVENTORY, one citing the corpus \
+             alone in INVENTORY_CORPUS_ONLY (cargo xtask add-def)"
         );
+        if BX2_INVENTORY.contains(record) {
+            assert!(
+                rec.provenance
+                    .citations()
+                    .any(|c| c.starts_with("xedit: wbDefinitionsSF1.pas@")),
+                "{record} cites its xEdit definition"
+            );
+        }
         let lstrings: BTreeSet<String> = CORPUS_LSTRINGS
             .iter()
             .filter(|(r, _)| r == record)

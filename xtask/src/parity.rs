@@ -17,7 +17,7 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 
-use crate::codegen::{defs_hash, fnv1a64, lf};
+use crate::codegen::{fnv1a64, lf, DefSet};
 
 /// The generated document, relative to the workspace root.
 const OUT: &str = "docs/record-parity.md";
@@ -31,12 +31,12 @@ const HEADLINE_BEGIN: &str = "<!-- parity:headline:begin -->";
 const HEADLINE_END: &str = "<!-- parity:headline:end -->";
 
 /// One corpus file as the manifest lists it.
-struct CorpusFile {
+pub(crate) struct CorpusFile {
     name: String,
     size: u64,
 }
 
-struct Manifest {
+pub(crate) struct Manifest {
     recorded: String,
     hash: String,
     files: Vec<CorpusFile>,
@@ -76,6 +76,42 @@ fn read_manifest(root: &Path) -> Result<Manifest> {
         hash,
         files,
     })
+}
+
+/// The corpus manifest and the data directory (`KITKRAFT_DATA_DIR`), every manifest
+/// file present there with the size the manifest pins.
+pub(crate) fn checked_corpus(root: &Path) -> Result<(Manifest, PathBuf)> {
+    let data_dir = crate::env_var_os(DATA_DIR_VAR)
+        .map(PathBuf::from)
+        .with_context(|| format!("set {DATA_DIR_VAR} to the Starfield Data directory"))?;
+    if !data_dir.is_dir() {
+        bail!("{DATA_DIR_VAR} ({}) is not a directory", data_dir.display());
+    }
+    let manifest = read_manifest(root)?;
+    for file in &manifest.files {
+        let path = data_dir.join(&file.name);
+        let size = fs::metadata(&path)
+            .with_context(|| format!("{}", path.display()))?
+            .len();
+        if size != file.size {
+            bail!(
+                "{}: {size} bytes, the manifest says {}; update {MANIFEST} first",
+                file.name,
+                file.size
+            );
+        }
+    }
+    Ok((manifest, data_dir))
+}
+
+/// The corpus files' paths, in manifest order (see [`checked_corpus`]).
+pub(crate) fn corpus_paths(root: &Path) -> Result<Vec<PathBuf>> {
+    let (manifest, data_dir) = checked_corpus(root)?;
+    Ok(manifest
+        .files
+        .iter()
+        .map(|f| data_dir.join(&f.name))
+        .collect())
 }
 
 /// Runs `kit <words> --json` (release build) and returns the envelope. Exit 1 (a failed
@@ -140,26 +176,12 @@ fn s<'v>(value: &'v Value, key: &str) -> &'v str {
 /// `cargo xtask parity [--check]`: with `check`, regenerate in memory and fail when the
 /// committed document differs (line endings normalized) instead of writing it.
 pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
-    let data_dir = crate::env_var_os(DATA_DIR_VAR)
-        .map(PathBuf::from)
-        .with_context(|| format!("set {DATA_DIR_VAR} to the Starfield Data directory"))?;
-    if !data_dir.is_dir() {
-        bail!("{DATA_DIR_VAR} ({}) is not a directory", data_dir.display());
-    }
-    let manifest = read_manifest(root)?;
-    for file in &manifest.files {
-        let path = data_dir.join(&file.name);
-        let size = fs::metadata(&path)
-            .with_context(|| format!("{}", path.display()))?
-            .len();
-        if size != file.size {
-            bail!(
-                "{}: {size} bytes, the manifest says {}; update {MANIFEST} first",
-                file.name,
-                file.size
-            );
-        }
-    }
+    run_with(root, check, &DefSet::builtin()?)
+}
+
+/// [`run`] for the definition set `set` (`cargo xtask add-def` passes the on-disk set).
+pub(crate) fn run_with(root: &Path, check: bool, set: &DefSet) -> Result<()> {
+    let (manifest, data_dir) = checked_corpus(root)?;
 
     let mut types: BTreeMap<String, TypeAgg> = BTreeMap::new();
     let mut files = Vec::new();
@@ -257,8 +279,7 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
         });
     }
 
-    let builtin = kitkraft_schema::builtin()
-        .map_err(|e| anyhow::anyhow!("loading the builtin schema definitions: {e}"))?;
+    let builtin = &set.schema;
     let defined = builtin.records.len();
     let found = occurrence_check(builtin, &types);
     if !found.unobserved.is_empty() {
@@ -287,6 +308,7 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     let families = family_table(&signatures, &types);
     let doc = render(
         &manifest,
+        &set.hash(),
         defined,
         &types,
         &files,
@@ -960,8 +982,10 @@ fn family_table(defined: &[String], types: &BTreeMap<String, TypeAgg>) -> String
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn render(
     manifest: &Manifest,
+    defs_hash: &str,
     defined: usize,
     types: &BTreeMap<String, TypeAgg>,
     files: &[FileRow],
@@ -1070,7 +1094,7 @@ fn render(
         out,
         "- Schema: {defined} record definitions, defs hash `{}` (the hash named in\n  \
          `crates/esm/src/generated/records.rs`).",
-        defs_hash()
+        defs_hash
     );
     let _ = writeln!(
         out,

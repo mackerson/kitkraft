@@ -5,6 +5,9 @@
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask inventory-def`, `inventory-check`: write an inventory definition from the
+//!   corpus, check the counts one cites ([`inventory`]); `cargo xtask add-def`: register
+//!   definitions in the shared lists and regenerate ([`adddef`]).
 //! - `cargo xtask dist [--out DIR] [--sync-bin]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
@@ -32,11 +35,13 @@
 //!
 //! LAYER: TOOL
 
+mod adddef;
 mod ckoracle;
 mod codegen;
 mod dist;
 mod evidence;
 mod graph;
+mod inventory;
 mod observe;
 mod oracle;
 mod papyrus;
@@ -143,6 +148,18 @@ fn run() -> Result<()> {
         Some("layers") => layers(&workspace_root()?),
         Some("codegen") => codegen::run(&workspace_root()?, check_flag("codegen")?),
         Some("parity") => parity::run(&workspace_root()?, check_flag("parity")?),
+        Some("inventory-def") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            inventory::run_def(&workspace_root()?, &rest)
+        }
+        Some("inventory-check") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            inventory::run_check(&workspace_root()?, &rest)
+        }
+        Some("add-def") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            adddef::run(&workspace_root()?, &rest)
+        }
         Some("observe") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             observe::run(&workspace_root()?, &rest)
@@ -177,6 +194,18 @@ fn print_help() {
     );
     println!("  parity   run `kit coverage` over the corpus (KITKRAFT_DATA_DIR) and write");
     println!("           docs/record-parity.md; --check fails when it is stale");
+    println!(
+        "  inventory-def <SIG> --name <TypeName> [--ticket KK-NNN] [--evidence C]... [--force]"
+    );
+    println!(
+        "           write crates/schema/defs/<SIG>.toml from a corpus scan (KITKRAFT_DATA_DIR):"
+    );
+    println!("           corpus order and cardinality, cited counts; TODO(review) where unsure");
+    println!("  add-def <SIG>... [--no-parity]");
+    println!("           register definitions (BUILTIN_DEFINITIONS, TYPES, the defs test lists,");
+    println!("           WITHOUT_EDID), then codegen, the golden seed and parity; idempotent");
+    println!("  inventory-check <SIG>...");
+    println!("           fail when a definition cites a count the corpus scan does not show");
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
     println!(

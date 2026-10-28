@@ -570,6 +570,16 @@ mod tests {
         );
     }
 
+    /// Record types whose definition has no `EDID` member: TES4 (the file header) and the
+    /// inventories of types no official record gives an EDID (PGRE and RFGP, M4.BX2).
+    /// `cargo xtask add-def` adds a new EDID-less inventory here (sorted, one per line).
+    #[rustfmt::skip]
+    const WITHOUT_EDID: &[&[u8; 4]] = &[
+        b"PGRE",
+        b"RFGP",
+        b"TES4",
+    ];
+
     /// Lane F's M3.F2 request: `extra_of` matched five record types, so a payload that
     /// did not decode in any other type (AMMO here) went unreported.
     #[test]
@@ -616,7 +626,7 @@ mod tests {
             })
             .map(|(s, _)| s)
             .collect();
-        assert_eq!(without, [b"PGRE", b"RFGP", b"TES4"]);
+        assert_eq!(without, WITHOUT_EDID);
     }
 
     #[test]

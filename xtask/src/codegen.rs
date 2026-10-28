@@ -49,31 +49,94 @@ pub(crate) fn lf(text: &str) -> String {
     text.replace("\r\n", "\n")
 }
 
-/// Fingerprint of the embedded definition set: every file name and its contents, in list
-/// order.
-pub(crate) fn defs_hash() -> String {
-    let mut owned: Vec<Vec<u8>> = Vec::new();
-    for (name, text) in kitkraft_schema::BUILTIN_DEFINITIONS {
-        owned.push(name.as_bytes().to_vec());
-        owned.push(vec![0]);
-        owned.push(lf(text).into_bytes());
-        owned.push(vec![0]);
+/// A definition set: every file as [`kitkraft_schema::BUILTIN_DEFINITIONS`] names it
+/// (`WEAP.toml`, `common/Model.toml`), with its contents, in that list's order, and the
+/// schema loaded from them.
+pub(crate) struct DefSet {
+    pub(crate) files: Vec<(String, String)>,
+    pub(crate) schema: kitkraft_schema::Schema,
+}
+
+impl DefSet {
+    fn load(files: Vec<(String, String)>, what: &str) -> Result<DefSet> {
+        let schema =
+            kitkraft_schema::load_sources(files.iter().map(|(n, t)| (n.as_str(), t.as_str())))
+                .map_err(|e| anyhow!("loading the {what} schema definitions: {e}"))?;
+        Ok(DefSet { files, schema })
     }
-    let parts: Vec<&[u8]> = owned.iter().map(Vec::as_slice).collect();
-    format!("fnv1a64:{:016x}", fnv1a64(&parts))
+
+    /// The set embedded in this xtask binary (`BUILTIN_DEFINITIONS`, as compiled).
+    pub(crate) fn builtin() -> Result<DefSet> {
+        let files = kitkraft_schema::BUILTIN_DEFINITIONS
+            .iter()
+            .map(|(n, t)| ((*n).to_string(), (*t).to_string()))
+            .collect();
+        DefSet::load(files, "builtin")
+    }
+
+    /// The set in `crates/schema/defs/` on disk, in the order `BUILTIN_DEFINITIONS` keeps
+    /// (file names, top-level files then `common/`). `cargo xtask add-def` uses it: it
+    /// changes that list, which this binary embedded before the change.
+    pub(crate) fn on_disk(root: &Path) -> Result<DefSet> {
+        let mut files = Vec::new();
+        for name in definition_names(root)? {
+            let path = root.join(DEFS_DIR).join(&name);
+            let text =
+                fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+            files.push((name, text));
+        }
+        DefSet::load(files, "on-disk")
+    }
+
+    /// Fingerprint of the set: every file name and its contents, in list order.
+    pub(crate) fn hash(&self) -> String {
+        let mut owned: Vec<Vec<u8>> = Vec::new();
+        for (name, text) in &self.files {
+            owned.push(name.as_bytes().to_vec());
+            owned.push(vec![0]);
+            owned.push(lf(text).into_bytes());
+            owned.push(vec![0]);
+        }
+        let parts: Vec<&[u8]> = owned.iter().map(Vec::as_slice).collect();
+        format!("fnv1a64:{:016x}", fnv1a64(&parts))
+    }
+}
+
+/// The definition directory, relative to the workspace root.
+pub(crate) const DEFS_DIR: &str = "crates/schema/defs";
+
+/// The `*.toml` files of [`DEFS_DIR`] as `BUILTIN_DEFINITIONS` lists them: top-level names
+/// sorted, then `common/<name>` sorted.
+pub(crate) fn definition_names(root: &Path) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for (sub, prefix) in [("", ""), ("common", "common/")] {
+        let dir = root.join(DEFS_DIR).join(sub);
+        let mut names = Vec::new();
+        for entry in fs::read_dir(&dir).with_context(|| format!("reading {}", dir.display()))? {
+            let path = entry
+                .with_context(|| format!("reading {}", dir.display()))?
+                .path();
+            if path.is_file() && path.extension().is_some_and(|e| e == "toml") {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    names.push(format!("{prefix}{name}"));
+                }
+            }
+        }
+        names.sort();
+        out.extend(names);
+    }
+    Ok(out)
 }
 
 /// The files `codegen` writes: (file name in [`OUT_DIR`], contents).
-fn render(root: &Path) -> Result<Vec<(&'static str, String)>> {
-    let schema = kitkraft_schema::builtin()
-        .map_err(|e| anyhow!("loading the builtin schema definitions: {e}"))?;
-    let code = kitkraft_schema::generate(schema).context("generating typed records")?;
-    let defs = kitkraft_schema::BUILTIN_DEFINITIONS.len();
+fn render(root: &Path, set: &DefSet) -> Result<Vec<(&'static str, String)>> {
+    let code = kitkraft_schema::generate(&set.schema).context("generating typed records")?;
+    let defs = set.files.len();
     let header = format!(
         "// DO NOT EDIT. Written by `cargo xtask codegen` from crates/schema/defs/ ({defs} files,\n\
          // kitkraft_schema::BUILTIN_DEFINITIONS); rerun it after changing a definition.\n\
          // Schema defs hash: {}\n\n",
-        defs_hash()
+        set.hash()
     );
     // Every written file goes through rustfmt, unconditionally: the generator leaves line
     // breaking to it.
@@ -84,7 +147,7 @@ fn render(root: &Path) -> Result<Vec<(&'static str, String)>> {
 }
 
 /// Formats `source` with the workspace `rustfmt.toml`.
-fn rustfmt(root: &Path, source: &str) -> Result<String> {
+pub(crate) fn rustfmt(root: &Path, source: &str) -> Result<String> {
     let rustfmt = std::env::var("RUSTFMT").unwrap_or_else(|_| "rustfmt".to_string());
     let config = root.join("rustfmt.toml");
     let mut child = Command::new(&rustfmt)
@@ -121,8 +184,13 @@ fn rustfmt(root: &Path, source: &str) -> Result<String> {
 
 /// `cargo xtask codegen [--check]`.
 pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
+    run_with(root, check, &DefSet::builtin()?)
+}
+
+/// [`run`] for the definition set `set`.
+pub(crate) fn run_with(root: &Path, check: bool, set: &DefSet) -> Result<()> {
     let dir = root.join(OUT_DIR);
-    let files = render(root)?;
+    let files = render(root, set)?;
     if check {
         let mut stale = Vec::new();
         for (name, text) in &files {
