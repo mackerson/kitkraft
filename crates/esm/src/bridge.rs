@@ -580,8 +580,9 @@ mod tests {
             if *sig == *b"TES4" {
                 continue;
             }
-            // PGRE and RFGP (M4.BX2 inventories) have no EDID in any official record, so
-            // their definitions have no EDID member: the bad EDID stays unplaced, not failed.
+            // PERS (KK-111) and PGRE and RFGP (M4.BX2 inventories) have no EDID in any
+            // official record, so their definitions have no EDID member: the bad EDID
+            // stays unplaced, not failed.
             let has_edid = members
                 .iter()
                 .any(|m| matches!(m, MemberDesc::Sub { sig, .. } if sig == b"EDID"));
@@ -616,7 +617,7 @@ mod tests {
             })
             .map(|(s, _)| s)
             .collect();
-        assert_eq!(without, [b"PGRE", b"RFGP", b"TES4"]);
+        assert_eq!(without, [b"PERS", b"PGRE", b"RFGP", b"TES4"]);
     }
 
     #[test]
