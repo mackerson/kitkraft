@@ -13,7 +13,7 @@ use eframe::egui::{self, FontData, FontDefinitions, FontFamily, ScrollArea};
 use serde_json::{Map, Value};
 
 use crate::cmdline::{mcp_call, result_line, session_args};
-use crate::gate::Request;
+use crate::gate::{Request, LIVE_PROFILE};
 use crate::panels::common::{Action, Shown, Slot, SlotKey, TabCtx};
 use crate::panels::diag::{self, DiagTab};
 use crate::panels::diff::{DiffMode, DiffTab};
@@ -224,6 +224,88 @@ fn load_label(request: &Request) -> String {
     format!("{n} plugin(s)")
 }
 
+/// The load form built from the launch arguments (`--profile`, plugins, Data dir),
+/// as the window's Load tab shows it.
+fn load_form_from_opts(opts: &LaunchOptions) -> LoadForm {
+    LoadForm {
+        profile: opts.profile.clone().unwrap_or_default(),
+        plugins: opts.plugins.join("\n"),
+        data_dir: opts.data_dir.clone().unwrap_or_default(),
+        no_cache: false,
+    }
+}
+
+/// The profile `ui.json` remembers, trimmed (a blank entry is no profile at all).
+fn remembered_profile(prefs: &Prefs) -> Option<String> {
+    prefs
+        .profile
+        .as_deref()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .map(str::to_string)
+}
+
+/// The last path component of `profile` is the owner's live profile (`Default`, in any
+/// case)? Read with `Path::file_name` (trailing separators trimmed), never by splitting
+/// on `\` or `/`: the gate runs on Linux, the merge gate on Windows (KK-001).
+fn live_profile_name(profile: &Path) -> bool {
+    profile
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(LIVE_PROFILE))
+}
+
+/// M6.P3a: the `load` the window starts with, or `None` (the Start tab, as before).
+/// The launch arguments win: with `--profile` or plugins, the load form's request, as
+/// now. Otherwise, the last profile loaded from the Start tab (`prefs.profile`), from
+/// the index cache (no `no_cache`), only when its folder still exists and its last path
+/// component is not the owner's live profile (never loaded on its own; the Start tab
+/// can still pick it, read-only). Never in a seeded window: the screenshot tour
+/// (`crate::shots::SHOTS_ENV`) and the perf bench (`crate::perf::bench_requested()`)
+/// seed their own loads, so they come in as `seeded` and keep this pure.
+fn startup_load(
+    opts: &LaunchOptions,
+    prefs: &Prefs,
+    seeded: bool,
+    exists: &dyn Fn(&Path) -> bool,
+) -> Option<Request> {
+    if opts.profile.is_some() || !opts.plugins.is_empty() {
+        return load_form_from_opts(opts).request().ok();
+    }
+    if seeded {
+        return None;
+    }
+    let profile = remembered_profile(prefs)?;
+    let path = Path::new(profile.as_str());
+    if live_profile_name(path) || !exists(path) {
+        return None;
+    }
+    LoadForm {
+        profile,
+        ..LoadForm::default()
+    }
+    .request()
+    .ok()
+}
+
+/// Why a start-up load was skipped, for the notice line under the tabs (only with no
+/// launch arguments and a not-seeded window): the remembered profile is the owner's
+/// live game, never loaded on its own, or its folder is gone.
+fn start_up_skip_notice(prefs: &Prefs, exists: &dyn Fn(&Path) -> bool) -> Option<String> {
+    let profile = remembered_profile(prefs)?;
+    let path = Path::new(profile.as_str());
+    if live_profile_name(path) {
+        Some(format!(
+            "the last profile {profile} is the owner's live game: it is never loaded on its own (the Start tab can load it, read-only)"
+        ))
+    } else if !exists(path) {
+        Some(format!(
+            "the last profile {profile} has no folder anymore: pick one from the Start tab"
+        ))
+    } else {
+        None
+    }
+}
+
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
 /// save one image per tab and close.
 struct Tour {
@@ -384,22 +466,30 @@ fn fonts() -> Result<FontDefinitions, UiError> {
 
 impl App {
     fn new(worker: Worker<Built>, opts: LaunchOptions) -> Self {
-        let load_form = LoadForm {
-            profile: opts.profile.clone().unwrap_or_default(),
-            plugins: opts.plugins.join("\n"),
-            data_dir: opts.data_dir.clone().unwrap_or_default(),
-            no_cache: false,
-        };
+        let mut load_form = load_form_from_opts(&opts);
         let profiles_dir = opts
             .profile
             .as_deref()
             .and_then(|p| Path::new(p).parent())
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        // First run: no load-order arguments, so the start screen opens.
-        let first_run = opts.profile.is_none() && opts.plugins.is_empty();
         let prefs_path = prefs::default_path();
         let prefs = prefs_path.as_deref().map(Prefs::load).unwrap_or_default();
+        // M6.P3a: with no load-order arguments and a not-seeded window (the tour and
+        // the bench seed their own loads), the last profile loads at start, from the
+        // index cache; the owner's live profile never does.
+        let seeded = std::env::var_os(crate::shots::SHOTS_ENV).is_some() || perf::bench_requested();
+        let start_up = startup_load(&opts, &prefs, seeded, &|p| p.is_dir());
+        // A skipped start-up load leaves the Start tab; when the folder is the live
+        // profile or is gone, the notice line says why once.
+        let start_up_notice =
+            (start_up.is_none() && opts.profile.is_none() && opts.plugins.is_empty() && !seeded)
+                .then(|| start_up_skip_notice(&prefs, &|p| p.is_dir()))
+                .flatten();
+        if start_up.is_some() && opts.profile.is_none() && opts.plugins.is_empty() {
+            // The Load tab opens with the remembered profile in the form (as --profile).
+            load_form.profile = remembered_profile(&prefs).unwrap_or_default();
+        }
         // The launcher's profile names its instance; else the last one used, else the
         // engine looks.
         let start_instance = opts
@@ -432,7 +522,13 @@ impl App {
             titled: false,
             theme_changed: false,
             worker,
-            tab: if first_run { Tab::Start } else { Tab::Load },
+            // With launch arguments the Load tab opens as now; a start-up load opens it
+            // too; otherwise the Start tab, as before.
+            tab: if opts.profile.is_some() || !opts.plugins.is_empty() || start_up.is_some() {
+                Tab::Load
+            } else {
+                Tab::Start
+            },
             slots: BTreeMap::new(),
             notice: None,
             loading: None,
@@ -445,8 +541,7 @@ impl App {
                 last: None,
                 changed_at: None,
                 ppp: None,
-                remember: std::env::var_os(crate::shots::SHOTS_ENV).is_none()
-                    && !perf::bench_requested(),
+                remember: !seeded,
             },
             results: BTreeMap::new(),
             session: None,
@@ -506,16 +601,16 @@ impl App {
         );
         let req = profiles_request(Some(&app.start.instance));
         app.submit(Slot::Profiles, req);
-        if opts.profile.is_some() || !opts.plugins.is_empty() {
-            if let Ok(req) = app.load.form.request() {
-                app.submit(Slot::Load, req);
-            }
+        if let Some(req) = start_up {
+            app.submit(Slot::Load, req);
         }
         app.reload_help();
         if shots_refused.is_some() {
             app.notice = shots_refused;
         } else if theme_notice.is_some() {
             app.notice = theme_notice;
+        } else if start_up_notice.is_some() {
+            app.notice = start_up_notice;
         }
         app
     }
@@ -1674,5 +1769,70 @@ mod tests {
             Some(&plugins)
         ));
         assert_eq!(load_label(&other), r"C:\MO2\profiles\Other");
+    }
+
+    /// M6.P3a: without launch arguments, the profile `ui.json` remembers (an existing
+    /// folder) loads at start, from the index cache (no `no_cache`).
+    #[test]
+    fn the_last_profile_loads_at_start() {
+        let base = std::env::temp_dir().join(format!("kitkraft-ui-startup-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let profile = base.join("profiles").join("KitKraft Dev");
+        std::fs::create_dir_all(&profile).unwrap();
+        let prefs = Prefs {
+            profile: Some(profile.display().to_string()),
+            ..Prefs::default()
+        };
+        let req = startup_load(&LaunchOptions::default(), &prefs, false, &|p| p.is_dir())
+            .expect("the remembered folder exists and is not the live profile");
+        assert_eq!(req.id, "load");
+        assert_eq!(req.args, json!({"profile": profile.display().to_string()}));
+        assert!(req.args.get("no_cache").is_none());
+        crate::gate::check(&req).unwrap();
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// M6.P3a: no start-up load for the owner's live profile (in any case), a gone
+    /// folder, a seeded window (the tour or the bench seed their own loads), or no
+    /// remembered profile; launch arguments win over the remembered profile.
+    #[test]
+    fn no_start_up_load_for_default_a_missing_profile_or_launch_arguments() {
+        let base =
+            std::env::temp_dir().join(format!("kitkraft-ui-startup-skip-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        for name in ["Default", "default", "KitKraft Dev"] {
+            std::fs::create_dir_all(base.join("profiles").join(name)).unwrap();
+        }
+        let exists = |p: &Path| p.is_dir();
+        for name in ["Default", "default"] {
+            let prefs = Prefs {
+                profile: Some(base.join("profiles").join(name).display().to_string()),
+                ..Prefs::default()
+            };
+            assert!(startup_load(&LaunchOptions::default(), &prefs, false, &exists).is_none());
+        }
+        let gone = Prefs {
+            profile: Some(base.join("profiles").join("Gone").display().to_string()),
+            ..Prefs::default()
+        };
+        assert!(startup_load(&LaunchOptions::default(), &gone, false, &exists).is_none());
+        let dev = base.join("profiles").join("KitKraft Dev");
+        let dev_prefs = Prefs {
+            profile: Some(dev.display().to_string()),
+            ..Prefs::default()
+        };
+        assert!(startup_load(&LaunchOptions::default(), &dev_prefs, true, &exists).is_none());
+        let x = base.join("profiles").join("X").display().to_string();
+        let with_args = LaunchOptions {
+            profile: Some(x.clone()),
+            ..LaunchOptions::default()
+        };
+        let req = startup_load(&with_args, &dev_prefs, false, &exists)
+            .expect("launch arguments name a profile");
+        assert_eq!(req.args, json!({"profile": x}));
+        assert!(
+            startup_load(&LaunchOptions::default(), &Prefs::default(), false, &exists).is_none()
+        );
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
