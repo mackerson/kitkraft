@@ -1,0 +1,121 @@
+# CAMS: Camera Shot, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official CAMS record (276 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the CAMS definition of wbDefinitionsSF1.pas at the pinned revision (L10530-L10586),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     and BfcbBlock groups keep their own provenance.
+#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#
+# An inventory: EDID, the lstrings, the keyword list and the component block frame are
+# typed; every other payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
+# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Order: NLDT and CTDA never occur together in one official CAMS record; their order follows
+# the pinned xEdit file.
+signature = "CAMS"
+name = "CameraShot"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CAMS record (276) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10530-L10586",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 8..41 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10531-L10531",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10534-L10534",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 111 of 276 official CAMS records (111 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10535-L10535",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "NLDT"
+name = "Nldt"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 74 of 276 official CAMS records (74 occurrences), 28..181 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10536-L10536",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 58 of 276 official CAMS records (252 occurrences, up to 8 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10537-L10537",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 64 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10538-L10538",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 114 of 276 official CAMS records (114 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10584-L10584",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 148 of 276 official CAMS records (148 occurrences), 42..83 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10585-L10585",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
