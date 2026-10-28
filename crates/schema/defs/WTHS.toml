@@ -1,0 +1,75 @@
+# WTHS: WeatherSettings, inventory definition (KK-104).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-104 scan of every official WTHS record (187 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the WTHS definition of wbDefinitionsSF1.pas at the pinned revision (L18931-L18938),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out (the base
+# form components and the conditions); a plugin that has one keeps it raw.
+# Order: REFL never occurs with RFDP or RDIF in an official WTHS record, so its position
+# follows the pinned xEdit file.
+signature = "WTHS"
+name = "WeatherSettings"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WTHS record (187) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18931-L18938",
+]
+confidence = "corpus"
+note = "inventory definition (KK-104): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 187 of 187 official WTHS records (187 occurrences), 12..46 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18932-L18932",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "REFL"
+name = "Refl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 187 official WTHS records (18 occurrences), 3259..4334 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18934-L18934",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 3259..4334 bytes"
+
+[[member]]
+sig = "RFDP"
+name = "Rfdp"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 169 of 187 official WTHS records (169 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18935-L18935",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "RDIF"
+name = "Rdif"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 169 of 187 official WTHS records (169 occurrences), 2468..3754 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18936-L18936",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 2468..3754 bytes"

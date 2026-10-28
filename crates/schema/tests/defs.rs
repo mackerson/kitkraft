@@ -620,8 +620,10 @@ const BX2_INVENTORY: &[&str] = &[
     "ATMO",
     "BMOD",
     "CAMS",
+    "CSTY",
     "DOOR",
     "FFKW",
+    "GRAS",
     "IMAD",
     "IMGS",
     "IPDS",
@@ -640,8 +642,10 @@ const BX2_INVENTORY: &[&str] = &[
     "RFGP",
     "SOUN",
     "SPCH",
+    "STND",
     "TXST",
     "WKMF",
+    "WTHS",
     "WWED",
 ];
 

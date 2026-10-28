@@ -1,0 +1,241 @@
+# CSTY: CombatStyleForm, inventory definition (KK-104).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-104 scan of every official CSTY record (177 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the CSTY definition of wbDefinitionsSF1.pas at the pinned revision (L11052-L11233),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
+# that has one keeps it raw.
+signature = "CSTY"
+name = "CombatStyleForm"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11052-L11233",
+]
+confidence = "corpus"
+note = "inventory definition (KK-104): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 9..46 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11056-L11056",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CSGD"
+name = "Csgd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 60 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11057-L11057",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 60 bytes"
+
+[[member]]
+sig = "CSME"
+name = "Csme"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11074-L11074",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 40 bytes"
+
+[[member]]
+sig = "CSRA"
+name = "Csra"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11087-L11087",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 24 bytes"
+
+[[member]]
+sig = "CSCR"
+name = "Cscr"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 52 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11095-L11095",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 52 bytes"
+
+[[member]]
+sig = "CSLR"
+name = "Cslr"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 36 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11110-L11110",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 36 bytes"
+
+[[member]]
+sig = "CSCV"
+name = "Cscv"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11122-L11122",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 8 bytes"
+
+[[member]]
+sig = "CSFL"
+name = "Csfl"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11126-L11126",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 32 bytes"
+
+[[member]]
+sig = "CSTN"
+name = "Cstn"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11136-L11136",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 32 bytes"
+
+[[member]]
+sig = "CSSG"
+name = "Cssg"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 120 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11146-L11146",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 120 bytes"
+
+[[member]]
+sig = "CSSM"
+name = "Casm"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 64 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11178-L11178",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 64 bytes"
+
+[[member]]
+sig = "CSSR"
+name = "Cssr"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 84 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11182-L11182",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 84 bytes"
+
+[[member]]
+sig = "CSSA"
+name = "Cssa"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11193-L11193",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 40 bytes"
+
+[[member]]
+sig = "CSSD"
+name = "Cssd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 12 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11197-L11197",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 12 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11202-L11202",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11212-L11212",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 115 of 177 official CSTY records (115 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11213-L11213",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "UNAM"
+name = "Unam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 68 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11214-L11214",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-104 inventory); observed 68 bytes"
