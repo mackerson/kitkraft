@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          50 |   252,710 |    137,395 |   533,358 |   409,086 |
-| **Total**       |          186 |         113 | 7,490,102 | 46,692,916 | 2,610,851 | 1,115,794 |
+| container/other |          123 |          55 |   252,710 |    140,709 |   536,552 |   402,578 |
+| **Total**       |          186 |         118 | 7,490,102 | 46,696,230 | 2,614,045 | 1,109,286 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 113 record definitions, defs hash `fnv1a64:673dacbcd2b36cef` (the hash named in
+- Schema: 118 record definitions, defs hash `fnv1a64:9de542529622732a` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -160,15 +160,15 @@ Columns:
 | `SMBN`        | StoryManagerBranchNode  |       173 |          0 |     7 |     7 |      0 |       0 |
 | `AMMO`        | Ammunition              |       154 |          0 |    16 |    16 |      0 |       0 |
 | `CPTH`        | CameraPath              |       152 |          0 |     5 |     5 |      0 |       0 |
-| `LGDI`        | -                       |       147 |          0 |    20 |     0 |      0 |      20 |
+| `LGDI`        | LegendaryItem           |       147 |          0 |    20 |     1 |     19 |       0 |
 | `ZOOM`        | Zoom                    |       141 |          0 |     2 |     2 |      0 |       0 |
-| `DLBR`        | -                       |       135 |          0 |     5 |     0 |      0 |       5 |
+| `DLBR`        | DialogBranch            |       135 |          0 |     5 |     1 |      4 |       0 |
 | `ENCH`        | Enchantment             |       135 |          0 |    14 |     2 |      0 |      12 |
-| `FSTP`        | -                       |       134 |          0 |     3 |     0 |      0 |       3 |
+| `FSTP`        | Footstep                |       134 |          0 |     3 |     1 |      2 |       0 |
 | `AMDL`        | AimModel                |       126 |          0 |     2 |     2 |      0 |       0 |
 | `STDT`        | Star                    |       124 |          0 |    16 |    10 |      0 |       6 |
-| `MUSC`        | -                       |       117 |          0 |     7 |     0 |      0 |       7 |
-| `STBH`        | -                       |       103 |          0 |    11 |     0 |      0 |      11 |
+| `MUSC`        | MusicTypeForm           |       117 |          0 |     7 |     1 |      6 |       0 |
+| `STBH`        | SnapTemplateBehavior    |       103 |          0 |    11 |     8 |      1 |       2 |
 | `GCVR`        | -                       |        98 |          0 |     9 |     0 |      0 |       9 |
 | `HAZD`        | Hazard                  |        87 |          0 |    16 |     2 |      0 |      14 |
 | `RSPJ`        | ResearchProject         |        82 |          0 |    12 |    12 |      0 |       0 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 113 defined             | 7,490,102 |    136,741 | 2,797 | 1,699 |    262 |     836 |
+| **186 types** | 118 defined             | 7,490,102 |    136,741 | 2,797 | 1,711 |    294 |     792 |
 
-Subrecord occurrences: 50,419,561 in total; 46,692,916 typed (0 of them failed to decode), 2,610,851 opaque, 1,115,794 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,696,230 typed (0 of them failed to decode), 2,614,045 opaque, 1,109,286 unknown.
 
 ## Decoded through the definitions
 
@@ -345,10 +345,15 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |      0 |         0 |         0 |                   0 |      1,243 |       0 |        0 |
 | `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |         0 |                   0 |      2,298 |       0 |        0 |
 | `CPTH`    | CameraPath              |           152 |        793 |      0 |         0 |         0 |                   0 |        793 |       0 |        0 |
+| `LGDI`    | LegendaryItem           |           147 |        147 |      0 |         0 |         0 |                   0 |        147 |       0 |        0 |
 | `ZOOM`    | Zoom                    |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
+| `DLBR`    | DialogBranch            |           135 |        135 |      0 |         0 |         0 |                   0 |        135 |       0 |        0 |
 | `ENCH`    | Enchantment             |           135 |        264 |      0 |         0 |         0 |                   0 |        264 |       0 |        0 |
+| `FSTP`    | Footstep                |           134 |        134 |      0 |         0 |         0 |                   0 |        134 |       0 |        0 |
 | `AMDL`    | AimModel                |           126 |        252 |      0 |         0 |         0 |                   0 |        252 |       0 |        0 |
 | `STDT`    | Star                    |           124 |      2,455 |      0 |         0 |         0 |                   0 |      2,455 |       0 |        0 |
+| `MUSC`    | MusicTypeForm           |           117 |        117 |      0 |         0 |         0 |                   0 |        117 |       0 |        0 |
+| `STBH`    | SnapTemplateBehavior    |           103 |      2,781 |      0 |         0 |         0 |                   0 |      2,781 |       0 |        0 |
 | `HAZD`    | Hazard                  |            87 |        170 |      0 |         0 |         0 |                   0 |        170 |       0 |        0 |
 | `RSPJ`    | ResearchProject         |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping     |            81 |         81 |      0 |         0 |         0 |                   0 |         81 |       0 |        0 |
@@ -371,7 +376,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,469,012 | 46,692,916 |      0 |         0 |    18,685 |                   0 | 46,674,231 |       0 |        0 |
+| **Total** |                         |     7,469,648 | 46,696,230 |      0 |         0 |    18,685 |                   0 | 46,677,545 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -412,6 +417,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CONT`    | Container               |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `DIAL`    | DialogTopic             |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
+| `DLBR`    | DialogBranch            |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                    |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -420,6 +426,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `FFKW`    | FormFolderKeywordList   |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `FLST`    | FormIdList              |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
+| `FSTP`    | Footstep                |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FURN`    | Furniture               |             82 |    77 |      5 |        11 |                   0 |     71 |       0 |        0 |
 | `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |             48 |    43 |      5 |         0 |                   0 |     48 |       0 |        0 |
@@ -441,6 +448,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LAYR`    | Layer                   |             37 |    31 |      6 |         0 |                   0 |     37 |       0 |        0 |
 | `LCRT`    | LocationRefType         |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
 | `LCTN`    | Location                |             71 |    66 |      5 |         8 |                   0 |     63 |       0 |        0 |
+| `LGDI`    | LegendaryItem           |             20 |     1 |     19 |         0 |                   0 |     20 |       0 |        0 |
 | `LIGH`    | Light                   |             49 |    34 |     15 |         0 |                   0 |     49 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap     |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
@@ -454,6 +462,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MGEF`    | MagicEffect             |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
 | `MISC`    | MiscItem                |             68 |    64 |      4 |        10 |                   0 |     58 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |             65 |    61 |      4 |         8 |                   0 |     57 |       0 |        0 |
+| `MUSC`    | MusicTypeForm           |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `MUST`    | MusicTrack              |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `NAVM`    | Navmesh                 |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
 | `NPC_`    | Npc                     |            147 |   142 |      5 |        16 |                   0 |    131 |       0 |        0 |
@@ -486,6 +495,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SPCH`    | SpeechChallengeForm     |             10 |     3 |      7 |         0 |                   0 |     10 |       0 |        0 |
 | `SPEL`    | Spell                   |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
 | `STAT`    | Static                  |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
+| `STBH`    | SnapTemplateBehavior    |             40 |    31 |      9 |         0 |                   0 |     40 |       0 |        0 |
 | `STDT`    | Star                    |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
 | `SUNP`    | SunPreset               |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `TERM`    | Terminal                |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
@@ -499,7 +509,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,278 | 3,818 |    460 |       290 |                   2 |  3,986 |       0 |        0 |
+| **Total** |                         |          4,353 | 3,853 |    500 |       290 |                   2 |  4,061 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -542,6 +552,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `ARTO`: `MNAM` (1)
 - `ENCH`: `BFCB` (1), `BFCE` (1), `CTDA` (140), `EFID` (286), `EFIF` (286), `EFIT` (286), `ENIT` (135), `MNAM` (12), `MUID` (286), `OBND` (135), `ODTY` (135), `PTCL` (1)
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
+- `STBH`: `FLTR` (30), `INTV` (30)
 - `HAZD`: `ANAM` (4), `BFCB` (46), `BFCE` (46), `BNAM` (4), `CTDA` (27), `DNAM` (87), `FLLD` (87), `MNAM` (4), `MODL` (87), `OBND` (87), `ODTY` (87), `PTCL` (26), `REFL` (7), `XALG` (8)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `FXPD`: `MNAM` (871), `MWGT` (871)

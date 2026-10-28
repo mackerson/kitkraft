@@ -1,0 +1,269 @@
+# LGDI: LegendaryItem, inventory definition (KK-105).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-105 scan of every official LGDI record (147 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the LGDI definition of wbDefinitionsSF1.pas at the pinned revision (L13639-L13754),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out (VMAD, OPDS,
+# PTT2, SNTP, SNBH, DEFL, XALG, the base form components and INAM); a plugin that has one
+# keeps it raw.
+# Order: official LGDI records put the condition subrecords (CITC and the CTDA conditions)
+# in both orders, so the record matches unordered; members are listed in the order the
+# records use, which is also the order xEdit lists them.
+signature = "LGDI"
+name = "LegendaryItem"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LGDI record (147) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13639-L13754",
+]
+confidence = "corpus"
+note = "inventory definition (KK-105): corpus order and cardinality; EDID typed, every other payload opaque"
+unordered = true
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 22..51 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13657-L13657",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13659-L13659",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13660-L13660",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13668-L13668",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "FULL"
+name = "Full"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 147 official LGDI records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13669-L13669",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 0 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13670-L13670",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 142 of 147 official LGDI records (142 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13671-L13671",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "ENAM"
+name = "Enam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 147 official LGDI records (117 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13672-L13672",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13673-L13673",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 142 of 147 official LGDI records (142 occurrences), 8..256 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13674-L13674",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (3 occurrences), 88..96 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13685-L13685",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "CITC"
+name = "Citc"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (35 occurrences, up to 12 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13698-L13698",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (70 occurrences, up to 24 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13699-L13699",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 39 of 147 official LGDI records (39 occurrences), 72..204 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13703-L13703",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 36 of 147 official LGDI records (36 occurrences), 60..636 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13704-L13704",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 72 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13705-L13705",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "KNAM"
+name = "Knam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 72 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13717-L13717",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 147 official LGDI records (13 occurrences), 40..2032 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13729-L13729",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "HNAM"
+name = "Hnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 147 official LGDI records (13 occurrences), 60..3048 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13740-L13740",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
+
+[[member]]
+sig = "JNAM"
+name = "Jnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 60..84 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13742-L13742",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-105 inventory)"
