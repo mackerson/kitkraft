@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 
-use super::{dev_target, session_confirm_gate, CockpitEnv, DevTarget};
+use super::{dev_target, probes, session_confirm_gate, CockpitEnv, DevTarget};
 use crate::gate::Request;
 
 /// The interval between two `game.status` polls: one per second (M6.G4).
@@ -314,6 +314,8 @@ pub struct SessionState {
     pub report: Option<Value>,
     /// The session was stopped by its confirmed `game.stop` (its report may be absent).
     pub stopped: bool,
+    /// The probe rows the last status reported (M6.G5); `None` until the first.
+    pub probes: Option<probes::ProbeRows>,
     /// A `game.status` is on the worker now; while it is, no other one is queued.
     pub poll_pending: bool,
     /// When the last poll went out; `None` before the first.
@@ -402,6 +404,7 @@ impl SessionState {
         self.events.clear();
         self.report = None;
         self.stopped = false;
+        self.probes = None;
         self.pending = None;
         self.poll_error = None;
         self.poll_pending = false;
@@ -443,6 +446,9 @@ impl SessionState {
                 self.report = Some(report.clone());
             }
         }
+        // The probe rows and their screenshots, resolved against the files on disk
+        // (M6.G5): this runs on the UI thread, with the reply in hand.
+        self.probes = Some(probes::ProbeRows::from_status(env, &|p| p.exists()));
     }
 
     /// The reply to a `game.stop` request: the dry run or the confirmed stop, by
@@ -494,16 +500,17 @@ use eframe::egui::{self, RichText, ScrollArea, TextEdit};
 use crate::panels::common::{Action, Slot, TabCtx};
 use crate::theme::{self, Field, Status, View};
 
-/// The session's drawing (M6.G4): the form, the previews with their confirm boxes,
-/// and the session being followed — its phase, the row running, the rows done, the
-/// elapsed time and the last events. No probe rows and no screenshots: those land
-/// with M6.G5.
+/// The session's drawing (M6.G4, M6.G5): the form, the previews with their confirm
+/// boxes, and the session being followed — its phase, the row running, the rows
+/// done, the elapsed time, the last events, and, from M6.G5, the probe rows and
+/// the screenshots `game.status` lists.
 pub(crate) fn session_ui(
     ui: &mut egui::Ui,
     ctx: &mut TabCtx<'_>,
     env: &CockpitEnv<'_>,
     form: &mut SessionForm,
     state: &mut SessionState,
+    probe: &mut probes::ProbeUi,
 ) {
     let busy = ctx.busy;
     ui.label(theme::subheading(ui, "Game session (M6.G4)"));
@@ -739,7 +746,8 @@ pub(crate) fn session_ui(
     }
 
     // The session being followed: phase, the row running, the rows done, the elapsed
-    // time, the last events and the end report. No probe rows, no screenshots (M6.G5).
+    // time, the last events and the end report, and, from M6.G5, the probe rows and
+    // the selected row's screenshots.
     if state.id.is_some() {
         theme::table(ui, "cockpit-session").show(ui, |ui| {
             ui.label("session");
@@ -780,6 +788,13 @@ pub(crate) fn session_ui(
                 ui.end_row();
             }
         });
+        match &state.probes {
+            Some(rows) => probes::rows_ui(ui, ctx, state.id.as_deref(), rows, probe),
+            None => {
+                theme::gap(ui);
+                ui.weak("no probe rows yet");
+            }
+        }
         if let Some(err) = &state.poll_error {
             theme::status_line(ui, Status::Warn, err);
         }

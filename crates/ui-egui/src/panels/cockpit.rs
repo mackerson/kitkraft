@@ -38,6 +38,9 @@ use crate::panels::validate::{RoundtripView, ValidateView};
 /// The game session's form and request builders (M6.G4, first half); no drawing yet.
 pub mod session;
 
+/// The session's probe rows and screenshots, from `game.status` (M6.G5).
+pub mod probes;
+
 /// Where agents and builds put plugins, under the checkout.
 pub const OUT_DIR: &str = "out";
 /// Folder depth searched under [`OUT_DIR`].
@@ -902,6 +905,9 @@ pub(crate) struct CockpitTab {
     pub session_form: session::SessionForm,
     /// What the window knows about the session it started (M6.G4).
     pub session: session::SessionState,
+    /// The probes' drawing state: the selected row and the screenshot textures
+    /// (M6.G5).
+    pub probe_ui: probes::ProbeUi,
 }
 
 impl CockpitTab {
@@ -1465,7 +1471,14 @@ impl CockpitTab {
 
     /// The game session (M6.G4, second half): the drawing lives in [`session`].
     fn session_ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
-        session::session_ui(ui, ctx, env, &mut self.session_form, &mut self.session);
+        session::session_ui(
+            ui,
+            ctx,
+            env,
+            &mut self.session_form,
+            &mut self.session,
+            &mut self.probe_ui,
+        );
     }
 
     fn deploy_ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
