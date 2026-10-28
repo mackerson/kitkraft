@@ -54,7 +54,14 @@ fn key(sig: [u8; 4]) -> String {
     String::from_utf8_lossy(&sig).into_owned()
 }
 
-fn check_record(name: &str, sig: [u8; 4], form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut TypeStats) {
+fn check_record(
+    name: &str,
+    sig: [u8; 4],
+    form_id: u32,
+    subs: &[RawSub<'_>],
+    ctx: Ctx,
+    t: &mut TypeStats,
+) {
     let Some(typed) = Typed::decode(sig, subs, ctx) else {
         panic!("{name} {form_id:08X}: no definition for {}", key(sig));
     };
@@ -75,7 +82,9 @@ fn check_record(name: &str, sig: [u8; 4], form_id: u32, subs: &[RawSub<'_>], ctx
         let k = key(subs[*i].signature);
         *t.unplaced.entry(k.clone()).or_insert(0) += 1;
         if t.failures.len() < 20 {
-            t.failures.push(format!("{name} {form_id:08X}: {k} at {i} matches no member"));
+            t.failures.push(format!(
+                "{name} {form_id:08X}: {k} at {i} matches no member"
+            ));
         }
     }
     for (i, sub) in typed.extra() {
@@ -128,7 +137,10 @@ fn check_file(path: &Path, t: &mut TypeStats) {
 }
 
 fn report(t: &TypeStats) {
-    println!("alch ALCH: {} records, {} identical", t.records, t.identical);
+    println!(
+        "alch ALCH: {} records, {} identical",
+        t.records, t.identical
+    );
     if !t.unplaced.is_empty() || !t.failed.is_empty() {
         println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
     }
