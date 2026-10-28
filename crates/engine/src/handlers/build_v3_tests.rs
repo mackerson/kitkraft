@@ -601,3 +601,54 @@ persistent = true\nedid = \"KC_Beacon\"\nfields = { \"XLKR.Keyword\" = \"0000000
     assert!(!d.join("Slot.esp").exists());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// KK-020: `swap_overrides` is a `[[clone]]` and `[[set]]` key. A `[[new]]` or `[[place]]`
+/// with it is a spec error naming the key, and a `[[clone]]` of a non-`LMSW` is refused
+/// by the same conversion the `clone` command uses, naming the source's type.
+#[test]
+fn swap_overrides_in_a_spec_are_checked_by_entry_kind() {
+    let d = dir("build-v3-swaps");
+    let data = world_master(&d);
+    let fails = |name: &str, body: &str| -> String {
+        let spec = spec_v3(&d, name, &data, body);
+        build(&spec, &d.join("E.esm"), json!({}))
+            .unwrap_err()
+            .to_string()
+    };
+    let swaps = "swap_overrides = [{ key = \"a.mat\", override = \"b.mat\" }]";
+    // `[[new]]` and `[[place]]` do not take the key.
+    assert!(fails(
+        "n.toml",
+        &format!("[[new]]\ntype = \"STAT\"\nedid = \"KC_S\"\n{swaps}\n"),
+    )
+    .contains("spec: new[0].swap_overrides"));
+    assert!(fails(
+        "p.toml",
+        &format!(
+            "[[place]]\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n{swaps}\n"
+        ),
+    )
+    .contains("spec: place[0].swap_overrides"));
+    // A `[[clone]]` of a non-`LMSW` is refused by the conversion, naming the reason.
+    let e = fails(
+        "c.toml",
+        &format!("[[clone]]\nform = \"KC_Crate\"\nedid = \"KC_CrateClone\"\n{swaps}\n"),
+    );
+    assert!(e.contains("spec: clone[0].swap_overrides"), "{e}");
+    assert!(
+        e.contains("swap_overrides edits only the material swap of an LMSW"),
+        "{e}"
+    );
+    // Two `[[set]]` entries with `swap_overrides` naming one form is a spec error naming
+    // both keys.
+    let e = fails(
+        "d.toml",
+        &format!(
+            "[[set]]\nform = \"KC_Crate\"\n{swaps}\n\n[[set]]\nform = \"KC_Crate\"\n{swaps}\n"
+        ),
+    );
+    assert!(e.contains("spec: set[1].swap_overrides"), "{e}");
+    assert!(e.contains("set[0]"), "{e}");
+    assert!(!d.join("E.esm").exists());
+    let _ = std::fs::remove_dir_all(&d);
+}

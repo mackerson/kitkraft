@@ -805,12 +805,32 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let list = entry_scripts.get(&set.key, set.scripts.as_ref(), loaded)?;
         set_scripts.entry(g.key()).or_default().extend(list);
     }
+    // The `swap_overrides` of the `[[set]]` entries (KK-019), converted against each
+    // winning copy's record, as the `set` command converts its argument.
+    let mut set_swaps: HashMap<u64, (Value, String)> = HashMap::new();
+    for set in spec.sets.iter().filter(|s| s.swap_overrides.is_some()) {
+        let g = find_form(ID, loaded, &set.form, set.plugin.as_deref())
+            .map_err(|e| spec_error(&format!("{}.form", set.key), e))?;
+        if let Some(swaps) = set.swap_overrides.as_ref() {
+            if let Some((_, first)) = set_swaps.get(&g.key()) {
+                return Err(spec_error(
+                    &format!("{}.swap_overrides", set.key),
+                    format!(
+                        "{} is also named by {first}; one form takes one set of swap overrides",
+                        loaded.lo.form_label(g),
+                    ),
+                ));
+            }
+            set_swaps.insert(g.key(), (swaps.clone(), set.key.clone()));
+        }
+    }
 
     // Write fresh into a staging directory (OS temp dir), validate, then move it to `out`
     // (or, for a plan, report and stop).
     let limits = DecodeLimits::default();
     let mut copies = Vec::new();
     let mut origins: Vec<Origin> = Vec::new();
+    let mut swap_reports: Vec<Value> = Vec::new();
     for form in &writes.order {
         let unrelated = super::set::safe_source(ID, loaded, *form)?;
         super::set::extend_once(&mut limitations, unrelated);
@@ -821,6 +841,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .unwrap_or_default();
         let (mut copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
         copy.scripts = set_scripts.remove(&form.key()).unwrap_or_default();
+        if let Some((swaps, key)) = set_swaps.remove(&form.key()) {
+            let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, &swaps, &copy.edits)
+                .map_err(|e| spec_error(&format!("{}.swap_overrides", key), e.to_string()))?;
+            copy.edits.push(edit);
+            swap_reports.push(Value::Array(report));
+        }
         copies.push(copy);
         origins.push(origin);
     }
@@ -836,6 +862,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         };
         let (mut copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
         copy.scripts = entry_scripts.get(&c.key, c.scripts.as_ref(), loaded)?;
+        if let Some(swaps) = &c.swap_overrides {
+            let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)
+                .map_err(|e| spec_error(&format!("{}.swap_overrides", c.key), e.to_string()))?;
+            copy.edits.push(edit);
+            swap_reports.push(Value::Array(report));
+        }
         super::set::extend_once(&mut limitations, unrelated);
         clone_sigs.push((c.edid.clone(), copy.record.header.signature.0));
         copies.push(copy);
@@ -1098,6 +1130,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             if !scripts_json.is_empty() {
                 obj.insert("scripts".into(), Value::Array(scripts_json.clone()));
             }
+            if !swap_reports.is_empty() {
+                obj.insert("swap_overrides".into(), Value::Array(swap_reports.clone()));
+            }
             let counts = v3
                 .as_ref()
                 .map(|v| {
@@ -1180,6 +1215,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         obj.insert("passed".into(), json!(true));
         if !scripts_json.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts_json));
+        }
+        if !swap_reports.is_empty() {
+            obj.insert("swap_overrides".into(), Value::Array(swap_reports));
         }
     }
     Ok(result)
