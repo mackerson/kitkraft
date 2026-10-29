@@ -1,27 +1,25 @@
-# WATR: Water, lstring-only definition (lane B round 3, M3.B8).
+# WATR: Water.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official WATR record.
 #   xedit: the WATR definition of wbDefinitionsSF1.pas at the pinned revision (L18509-L18592)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#     and the helpers it uses: EDID (L3182), script data (L3407-L3411, kept opaque), the
+#     base form component block (L5984-L6832), FULL (L3184), the sound reference
+#     (L2197-L2227) and the 3-component vector (wbDefinitionsCommon.pas L6725-L6740); the
+#     FormID check is cited at each member's own line.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): FULL is an
+#     lstring in every official WATR record.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Every member xEdit gives a layout is typed here; the two xEdit leaves without a layout
+# (DATA, GNAM) stay raw. EDID and FULL keep the lstring evidence they carried when the
+# type was lstring-only.
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "WATR"
 name = "Water"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: FULL is an lstring in every official WATR record",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -36,16 +34,28 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official WATR records are lstrings (lane E's table, edit::lstrings)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18511-L18511"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
 ]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw"
 
-[[member.member]]
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18512-L18512"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
+note = "base form components"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -56,3 +66,223 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official WATR records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "ANAM"
+name = "Opacity"
+type = "u8"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18514-L18514"]
+confidence = "reference"
+note = "upstream marks the value unused"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [
+  ["Dangerous", 0x1],
+  ["DirectionalSound", 0x4],
+  ["EnableFlowmap", 0x8],
+  ["BlendNormals", 0x10],
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18515-L18524"]
+confidence = "reference"
+note = "bit 1 is unnamed upstream; unknown bits stay set"
+
+[[member]]
+sig = "WASH"
+name = "Sound"
+type = "ref:SoundReference"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18525-L18525"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
+]
+confidence = "reference"
+
+[[member]]
+sig = "XNAM"
+name = "ConsumeSpell"
+type = "formid"
+targets = ["SPEL"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18526-L18526"]
+confidence = "reference"
+
+[[member]]
+sig = "YNAM"
+name = "ContactSpell"
+type = "formid"
+targets = ["SPEL"]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18527-L18527"]
+confidence = "reference"
+
+[[member]]
+sig = "INAM"
+name = "ImageSpace"
+type = "formid"
+targets = ["IMGS"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18528-L18528"]
+confidence = "reference"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18529-L18529"]
+confidence = "reference"
+note = "upstream marks the payload unused without a size, kept raw"
+
+[[member]]
+sig = "DNAM"
+name = "VisualData"
+type = "struct"
+size = 152
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18530-L18581"]
+confidence = "reference"
+field = [
+  { name = "DepthAmount", type = "f32" },
+  { name = "ColorAbsorptionRanges", type = "struct", field = [
+    { name = "Red", type = "f32" },
+    { name = "Green", type = "f32" },
+    { name = "Blue", type = "f32" },
+  ] },
+  { name = "ConcentrationProperties", type = "struct", field = [
+    { name = "Phytoplankton", type = "f32" },
+    { name = "Sediment", type = "f32" },
+    { name = "YellowMatter", type = "f32" },
+    { name = "Oceanness", type = "f32" },
+  ] },
+  { name = "UnderwaterProperties", type = "struct", field = [
+    { name = "Color", type = "ref:ColorBgra" },
+    { name = "FogAmount", type = "f32" },
+    { name = "NearFog", type = "f32" },
+    { name = "FarFog", type = "f32" },
+  ] },
+  { name = "SurfaceEffects", type = "struct", field = [
+    { name = "NormalMagnitude", type = "f32" },
+    { name = "ShallowNormalFalloff", type = "f32" },
+    { name = "DeepNormalFalloff", type = "f32" },
+    { name = "SurfaceEffectFalloff", type = "f32" },
+  ] },
+  { name = "DisplacementSimulator", type = "struct", field = [
+    { name = "Force", type = "f32" },
+    { name = "Velocity", type = "f32" },
+    { name = "Falloff", type = "f32" },
+    { name = "Dampener", type = "f32" },
+    { name = "StartingSize", type = "f32" },
+  ] },
+  { name = "NoiseProperties", type = "struct", field = [
+    { name = "Layer1WindDirection", type = "f32" },
+    { name = "Layer2WindDirection", type = "f32" },
+    { name = "Layer3WindDirection", type = "f32" },
+    { name = "Layer1WindSpeed", type = "f32" },
+    { name = "Layer2WindSpeed", type = "f32" },
+    { name = "Layer3WindSpeed", type = "f32" },
+    { name = "Layer1AmplitudeScale", type = "f32" },
+    { name = "Layer2AmplitudeScale", type = "f32" },
+    { name = "Layer3AmplitudeScale", type = "f32" },
+    { name = "Layer1UVScale", type = "f32" },
+    { name = "Layer2UVScale", type = "f32" },
+    { name = "Layer3UVScale", type = "f32" },
+    { name = "Layer1NoiseFalloff", type = "f32" },
+    { name = "Layer2NoiseFalloff", type = "f32" },
+    { name = "Layer3NoiseFalloff", type = "f32" },
+  ] },
+  { name = "FlowmapScale", type = "f32" },
+  { name = "Roughness", type = "f32" },
+]
+
+[[member]]
+sig = "GNAM"
+name = "Unknown"
+type = "opaque"
+size = 12
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18582-L18582"]
+confidence = "reference"
+note = "upstream gives a size but no layout, kept raw"
+
+[[member]]
+sig = "NAM0"
+name = "LinearVelocity"
+type = "ref:Vec3"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18583-L18583"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+]
+confidence = "reference"
+
+[[member]]
+sig = "NAM1"
+name = "AngularVelocity"
+type = "ref:Vec3"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18584-L18584"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+]
+confidence = "reference"
+
+[[member]]
+sig = "ENAM"
+name = "RiverAbsorptionCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18585-L18585"]
+confidence = "reference"
+
+[[member]]
+sig = "HNAM"
+name = "OceanAbsorptionCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18586-L18586"]
+confidence = "reference"
+
+[[member]]
+sig = "JNAM"
+name = "RiverScatteringCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18587-L18587"]
+confidence = "reference"
+
+[[member]]
+sig = "LNAM"
+name = "OceanScatteringCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18588-L18588"]
+confidence = "reference"
+
+[[member]]
+sig = "MNAM"
+name = "PhytoplanktonCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18589-L18589"]
+confidence = "reference"
+
+[[member]]
+sig = "QNAM"
+name = "SedimentCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18590-L18590"]
+confidence = "reference"
+
+[[member]]
+sig = "UNAM"
+name = "YellowMatterCurve"
+type = "formid"
+targets = ["CUR3"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18591-L18591"]
+confidence = "reference"
