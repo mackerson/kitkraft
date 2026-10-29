@@ -3,6 +3,7 @@ id = "KK-109"
 title = "Inventory definitions for LVSC, FSTS, IDLM, SCOL, BNDS, TODD, CLFM and AORU"
 timeout_min = 45
 budget_h = 2.5
+base = "kk/KK-109-wip"
 owns = [
   "crates/schema/defs/LVSC.toml",
   "crates/schema/defs/FSTS.toml",
@@ -97,6 +98,15 @@ count from one scan of the corpus, the one the inventory test prints. Then:
 5. `cargo xtask inventory-check LVSC FSTS IDLM SCOL BNDS TODD CLFM AORU` must pass: it fails
    on any cited count, size, per-record maximum or top-level `card` the corpus scan does not
    show.
+
+Continuing from `kk/KK-109-wip` (the 2026-10-28 run worked from the older brief, by hand,
+and ran out of time: AORU, CLFM, BNDS, FSTS, IDLM and LVSC written and registered, SCOL and
+TODD not started; their counts were typed by hand and are unchecked). The branch predates
+the inventory tools. First merge `main` into the branch: take either side of every
+conflicted shared file, then run `cargo xtask add-def AORU CLFM BNDS FSTS IDLM LVSC`. Then
+`cargo xtask inventory-check AORU CLFM BNDS FSTS IDLM LVSC` and, for every definition it
+rejects, `cargo xtask inventory-def <SIG> ... --force` (step 1) to rewrite it from the scan;
+write SCOL and TODD with step 1, and carry on from step 2 for all 8.
 
 Done: the inventory run prints `defined: true` for each of the 8 with no unplaced, failed or
 re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do not
