@@ -94,9 +94,11 @@ impl ProbeRows {
     }
 
     /// The one row of a `game.probe` reply as a re-run of its id (M6.G5): appended
-    /// to the rows, its screenshots resolved against the paths this reply listed
-    /// (the next `game.status` poll lists them under `reruns` too). `false` when the
-    /// reply has no such row, so the caller can say the re-run did not run.
+    /// to the rows, its screenshots resolved against the paths this reply listed,
+    /// and the reply's `data.screenshots` merged into the listed ones — so a
+    /// just-added row's "Record in Ledger" finds its screenshot at once, without
+    /// waiting for the next `game.status` poll. `false` when the reply has no such
+    /// row, so the caller can say the re-run did not run.
     pub fn push_rerun(&mut self, env: &Value, exists: &dyn Fn(&Path) -> bool) -> bool {
         let Some(data) = env.get("data") else {
             return false;
@@ -106,7 +108,39 @@ impl ProbeRows {
         };
         let listed = listed_shots(Some(data));
         self.rows.push(row_of(v, true, &listed, exists));
+        self.merge_shots(data);
         true
+    }
+
+    /// The re-run reply's `data.screenshots` merged into the listed ones (M6.G5):
+    /// an already-listed file takes the reply's entry for it, an unlisted one is
+    /// appended, the old entries the reply did not list are kept, and an entry
+    /// without a `file` or a `path` is ignored.
+    fn merge_shots(&mut self, data: &Value) {
+        let Some(incoming) = data.get("screenshots").and_then(Value::as_array) else {
+            return;
+        };
+        if !matches!(self.shots, Value::Array(_)) {
+            self.shots = Value::Array(Vec::new());
+        }
+        let Some(mine) = self.shots.as_array_mut() else {
+            return;
+        };
+        for s in incoming {
+            let Some(file) = s.get("file").and_then(Value::as_str) else {
+                continue;
+            };
+            if s.get("path").and_then(Value::as_str).is_none() {
+                continue;
+            }
+            match mine
+                .iter_mut()
+                .find(|e| e.get("file").and_then(Value::as_str) == Some(file))
+            {
+                Some(e) => *e = s.clone(),
+                None => mine.push(s.clone()),
+            }
+        }
     }
 }
 
@@ -831,6 +865,75 @@ mod tests {
                 .iter()
                 .all(|s| s.path.is_some() || s.reason == "not listed")
         }));
+    }
+
+    /// M6.G5: a re-run reply's screenshots join the listed ones at once — the old
+    /// entries the reply did not list are kept, the just-added row's "Record in
+    /// Ledger" finds its screenshot by its listed path, and a re-listed file is
+    /// replaced, not doubled.
+    #[test]
+    fn a_rerun_reply_lists_its_screenshots_at_once() {
+        let mut rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
+        let file = "observe/s/T-04-1.png";
+        let rerun = json!({
+            "command": "game.probe",
+            "data": {
+                "row": {
+                    "row": "T-04",
+                    "title": "the owner reads the console",
+                    "verdict": { "status": "inconclusive", "reason": "manual: the owner reads it" },
+                    "screenshots": ["T-04-1.png"]
+                },
+                "screenshots": [{ "file": "T-04-1.png", "path": file }]
+            }
+        });
+        assert!(rows.push_rerun(&rerun, &|p| p == std::path::Path::new(file)));
+        // The new entry joins the old ones, which the reply did not list.
+        let files = |r: &ProbeRows| {
+            r.shots
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|e| e.get("file").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(files(&rows), ["T-02-1.png", "T-03-1.png", "T-04-1.png"]);
+        // The just-added row's "Record in Ledger" names the screenshot by its listed
+        // path, not "not listed". Both T-04s are undecided: the original `not-run`
+        // row and the re-run; the re-run's form is the last one.
+        let prefills = ledger_prefills(&rows, "2026-10-27-t01", "docs/game-observations.md");
+        assert_eq!(prefills.len(), 3, "{prefills:#?}");
+        let form = prefills
+            .iter()
+            .rev()
+            .find(|(id, _)| id == "T-04")
+            .unwrap()
+            .1
+            .clone();
+        assert!(
+            form.note.contains("T-04-1.png: observe/s/T-04-1.png"),
+            "{form:?}"
+        );
+        // A re-listed file is replaced, not doubled.
+        let again = json!({
+            "command": "game.probe",
+            "data": {
+                "row": { "row": "T-04", "verdict": { "status": "pass" } },
+                "screenshots": [{ "file": "T-04-1.png", "path": "observe/s/T-04-2.png" }]
+            }
+        });
+        assert!(rows.push_rerun(&again, &|_: &std::path::Path| false));
+        assert_eq!(files(&rows), ["T-02-1.png", "T-03-1.png", "T-04-1.png"]);
+        assert_eq!(
+            rows.shots
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e.get("file").and_then(Value::as_str) == Some("T-04-1.png"))
+                .and_then(|e| e.get("path").and_then(Value::as_str)),
+            Some("observe/s/T-04-2.png")
+        );
     }
 
     /// The rows that offer "Record in Ledger" are exactly the undecided ones — the
