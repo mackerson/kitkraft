@@ -1,0 +1,127 @@
+# AVMD: AvmsData, inventory definition (KK-022).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official AVMD record (6530 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-29): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
+#     keeps its own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID and the component block frame are typed; every other payload is opaque
+# (named after its signature, a placeholder) until a family lane decodes the record
+# (docs/gaps.md).
+# Inside component blocks (kept raw by BfcbBlock): FLLD GNAM MODL.
+signature = "AVMD"
+name = "AvmsData"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (KK-022): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 18..103 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1 of 6530 official AVMD records (3 occurrences, up to 3 per record), 19..26 bytes"
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"
+
+[[member]]
+sig = "YNAM"
+name = "Ynam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 6..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 6..91 bytes"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 6..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 6..91 bytes"
+
+[[member]]
+sig = "ITMC"
+name = "Itmc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"
+
+[[member]]
+group = "LnamEntries"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6490 of 6530 official AVMD records (46000 occurrences, up to 84 per record), each entry LNAM (4..91 bytes), VNAM (19..127 bytes, optional), NNAM (4 bytes)"
+confidence = "corpus"
+note = "one entry per LNAM, its members in this order, the entries consecutive; 40 official records have no entries"
+
+[[member.member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6490 of 6530 official AVMD records (46000 occurrences, up to 84 per record), 4..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4..91 bytes"
+
+[[member.member]]
+sig = "VNAM"
+name = "Vnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 2682 of 6530 official AVMD records (12872 occurrences, up to 84 per record), 19..127 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 19..127 bytes"
+
+[[member.member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6490 of 6530 official AVMD records (46000 occurrences, up to 84 per record), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"
+
+[[member]]
+sig = "MODT"
+name = "Modt"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"
+
+[[member]]
+sig = "AVMP"
+name = "Avmp"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 3 of 6530 official AVMD records (3 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"
