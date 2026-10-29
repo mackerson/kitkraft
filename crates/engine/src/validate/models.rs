@@ -45,39 +45,37 @@ pub fn model_file_members(
     sig: [u8; 4],
     cache: &mut HashMap<[u8; 4], Vec<([u8; 4], String)>>,
 ) -> &Vec<([u8; 4], String)> {
-    cache
-        .entry(sig)
-        .or_insert_with(|| {
-            const MEMBERS: [&str; 7] = [
-                "Model.FileName",
-                "MaleWorldModel.FileName",
-                "FemaleWorldModel.FileName",
-                "MaleBipedModel.FileName",
-                "FemaleBipedModel.FileName",
-                "MaleFirstPerson.FileName",
-                "FemaleFirstPerson.FileName",
-            ];
-            let Some(record_sig) = kitkraft_schema::Signature::from_bytes(sig) else {
-                return Vec::new();
-            };
-            let Some(modl) = kitkraft_schema::Signature::from_bytes(*b"MODL") else {
-                return Vec::new();
-            };
-            kitkraft_schema::builtin()
-                .ok()
-                .and_then(|schema| schema.record(record_sig))
-                .map(|def| {
-                    def.leaf_subrecords()
-                        .into_iter()
-                        .filter(|(path, sub)| {
-                            MEMBERS.contains(&path.as_str())
-                                && (path != "Model.FileName" || sub.signature == modl)
-                        })
-                        .map(|(path, sub)| (sub.signature.as_bytes(), path))
-                        .collect()
-                })
-                .unwrap_or_default()
-        })
+    cache.entry(sig).or_insert_with(|| {
+        const MEMBERS: [&str; 7] = [
+            "Model.FileName",
+            "MaleWorldModel.FileName",
+            "FemaleWorldModel.FileName",
+            "MaleBipedModel.FileName",
+            "FemaleBipedModel.FileName",
+            "MaleFirstPerson.FileName",
+            "FemaleFirstPerson.FileName",
+        ];
+        let Some(record_sig) = kitkraft_schema::Signature::from_bytes(sig) else {
+            return Vec::new();
+        };
+        let Some(modl) = kitkraft_schema::Signature::from_bytes(*b"MODL") else {
+            return Vec::new();
+        };
+        kitkraft_schema::builtin()
+            .ok()
+            .and_then(|schema| schema.record(record_sig))
+            .map(|def| {
+                def.leaf_subrecords()
+                    .into_iter()
+                    .filter(|(path, sub)| {
+                        MEMBERS.contains(&path.as_str())
+                            && (path != "Model.FileName" || sub.signature == modl)
+                    })
+                    .map(|(path, sub)| (sub.signature.as_bytes(), path))
+                    .collect()
+            })
+            .unwrap_or_default()
+    })
 }
 
 /// The zstring `FileName` value (the bytes before the first NUL), `None` when empty.

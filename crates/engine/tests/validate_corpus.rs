@@ -210,6 +210,8 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         "330,33D,387,3A2,3AC",
     ),
     ("Starfield.esm", "CPTH Condition.CTDA.Reference", 2, "14"),
+    // Typed since KK-202: one DOOR's DATA ActorValue names a reserved ID.
+    ("Starfield.esm", "DOOR PropertyValue.ActorValue", 1, "2D0"),
     ("Starfield.esm", "FLST Condition.CTDA.Reference", 28, "14"),
     (
         "Starfield.esm",
@@ -727,10 +729,10 @@ fn validate_corpus_official_files() {
             .filter(|f| f["rule"] == "asset.missing-model")
             .count();
         let missing_models_expected = match name {
-            "Starfield.esm" => 555,
+            "Starfield.esm" => 603,
             "SFBGS00D.esm" => 4,
             "SFBGS050.esm" => 5,
-            "ShatteredSpace.esm" => 14,
+            "ShatteredSpace.esm" => 16,
             _ => 0,
         };
         if missing_models != missing_models_expected {
