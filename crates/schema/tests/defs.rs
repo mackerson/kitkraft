@@ -600,7 +600,6 @@ const LSTRING_ONLY: &[&str] = &[
     "EXPL",
     "FXPD",
     "GPOF",
-    "HAZD",
     "HDPT",
     "KEYM",
     "PMFT",

@@ -107,7 +107,7 @@
 // - GPOG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GPOG record (4) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GRAS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GRAS record (193) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GWED (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GWED record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - HAZD (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - HAZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591; reference)
 // - HDPT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - IDLE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685; corpus)
 // - IMAD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMAD record (224) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -32390,53 +32390,141 @@ impl GwedRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct HazdLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct HazdDataTaperEffectiveness {
+    pub full_effect_radius: f32,
+    pub taper_weight: f32,
+    pub taper_curve: f32,
 }
 
-impl HazdLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "HAZD.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
-        }
+impl Field for HazdDataTaperEffectiveness {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "HAZD.DNAM.TaperEffectiveness.FullEffectRadius", ctx)?;
+        let f1 = f32::read(r, "HAZD.DNAM.TaperEffectiveness.TaperWeight", ctx)?;
+        let f2 = f32::read(r, "HAZD.DNAM.TaperEffectiveness.TaperCurve", ctx)?;
+        Ok(Self {
+            full_effect_radius: f0,
+            taper_weight: f1,
+            taper_curve: f2,
+        })
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    fn write(&self, out: &mut Vec<u8>) {
+        self.full_effect_radius.write(out);
+        self.taper_weight.write(out);
+        self.taper_curve.write(out);
     }
 }
 
-impl Visit for HazdLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "HAZD.LocalizedStrings.FULL", out);
+impl Visit for HazdDataTaperEffectiveness {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HazdDataFlags(pub u32);
+
+impl HazdDataFlags {
+    pub const AFFECTS_PLAYER_ONLY: u32 = 0x1;
+    pub const INHERIT_DURATION_FROM_SPAWN_SPELL: u32 = 0x2;
+    pub const ALIGN_TO_IMPACT_NORMAL: u32 = 0x4;
+    pub const INHERIT_RADIUS_FROM_SPAWN_SPELL: u32 = 0x8;
+    pub const DROP_TO_GROUND: u32 = 0x10;
+    pub const TAPER_EFFECTIVENESS_BY_PROXIMITY: u32 = 0x20;
+    pub const GRAVITY_POINT_SOURCE: u32 = 0x40;
+    pub const GRAVITY_OVERRIDE: u32 = 0x80;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for HazdDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "HAZD.LocalizedStrings.FULL", out);
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for HazdDataFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HazdData {
+    pub sound: SoundReference,
+    pub effect: FormId,
+    pub light: FormId,
+    pub impact: FormId,
+    pub radius: f32,
+    pub lifetime: f32,
+    pub image_space_radius: f32,
+    pub target_interval: f32,
+    pub taper_effectiveness: HazdDataTaperEffectiveness,
+    pub gravity: f32,
+    pub limit: u32,
+    pub flags: HazdDataFlags,
+}
+
+impl Field for HazdData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "HAZD.DNAM.Sound", ctx)?;
+        let f1 = Field::read(r, "HAZD.DNAM.Effect", ctx)?;
+        let f2 = Field::read(r, "HAZD.DNAM.Light", ctx)?;
+        let f3 = Field::read(r, "HAZD.DNAM.Impact", ctx)?;
+        let f4 = f32::read(r, "HAZD.DNAM.Radius", ctx)?;
+        let f5 = f32::read(r, "HAZD.DNAM.Lifetime", ctx)?;
+        let f6 = f32::read(r, "HAZD.DNAM.ImageSpaceRadius", ctx)?;
+        let f7 = f32::read(r, "HAZD.DNAM.TargetInterval", ctx)?;
+        let f8 = Field::read(r, "HAZD.DNAM.TaperEffectiveness", ctx)?;
+        let f9 = f32::read(r, "HAZD.DNAM.Gravity", ctx)?;
+        let f10 = u32::read(r, "HAZD.DNAM.Limit", ctx)?;
+        let f11 = Field::read(r, "HAZD.DNAM.Flags", ctx)?;
+        Ok(Self {
+            sound: f0,
+            effect: f1,
+            light: f2,
+            impact: f3,
+            radius: f4,
+            lifetime: f5,
+            image_space_radius: f6,
+            target_interval: f7,
+            taper_effectiveness: f8,
+            gravity: f9,
+            limit: f10,
+            flags: f11,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.sound.write(out);
+        self.effect.write(out);
+        self.light.write(out);
+        self.impact.write(out);
+        self.radius.write(out);
+        self.lifetime.write(out);
+        self.image_space_radius.write(out);
+        self.target_interval.write(out);
+        self.taper_effectiveness.write(out);
+        self.gravity.write(out);
+        self.limit.write(out);
+        self.flags.write(out);
+    }
+}
+
+impl Visit for HazdData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sound, "HAZD.DNAM.Sound", out);
+        visit_form_ids(&self.effect, "HAZD.DNAM.Effect", out);
+        visit_form_ids(&self.light, "HAZD.DNAM.Light", out);
+        visit_form_ids(&self.impact, "HAZD.DNAM.Impact", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sound, "HAZD.DNAM.Sound", out);
+        visit_form_ids_mut(&mut self.effect, "HAZD.DNAM.Effect", out);
+        visit_form_ids_mut(&mut self.light, "HAZD.DNAM.Light", out);
+        visit_form_ids_mut(&mut self.impact, "HAZD.DNAM.Impact", out);
     }
 }
 
@@ -32444,8 +32532,38 @@ impl Visit for HazdLocalizedStrings {
 pub struct HazdRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<HazdLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
+    /// `SNBH`, optional.
+    pub snap_behavior: Option<Sub<FormId>>,
+    /// `DEFL`, optional.
+    pub default_layer: Option<Sub<FormId>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// `MNAM`, optional.
+    pub image_space_modifier: Option<Sub<FormId>>,
+    /// `DNAM`, required.
+    pub data: Option<Sub<HazdData>>,
+    /// `CITC`, optional.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -32460,9 +32578,69 @@ impl HazdRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNBH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DEFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: HazdLocalizedStrings::MEMBERS,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: Model::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
         },
     ];
 
@@ -32478,10 +32656,99 @@ impl HazdRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "HAZD.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = HazdLocalizedStrings::default();
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "HAZD.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "HAZD.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "HAZD.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "HAZD.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "HAZD.PTT2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "HAZD.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.snap_behavior,
+                    subs,
+                    *index,
+                    "HAZD.SNBH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.default_layer,
+                    subs,
+                    *index,
+                    "HAZD.DEFL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "HAZD.XALG", ctx, extra)
+                }
+                Hit::Group { member: 10, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.name, subs, *index, "HAZD.FULL", ctx, extra)
+                }
+                Hit::Group { member: 12, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
+                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.image_space_modifier,
+                    subs,
+                    *index,
+                    "HAZD.MNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => {
+                    put(&mut self.data, subs, *index, "HAZD.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "HAZD.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 16, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -32490,25 +32757,88 @@ impl HazdRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"SNBH", self.snap_behavior.as_ref());
+        emit(out, *b"DEFL", self.default_layer.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"MNAM", self.image_space_modifier.as_ref());
+        emit(out, *b"DNAM", self.data.as_ref());
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
             group.emit(out);
         }
     }
 }
 
 impl Visit for HazdRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "HAZD.PTT2", out);
+        visit_form_ids(&self.snap_template, "HAZD.SNTP", out);
+        visit_form_ids(&self.snap_behavior, "HAZD.SNBH", out);
+        visit_form_ids(&self.default_layer, "HAZD.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "HAZD.BfcbBlock", out);
+        visit_form_ids(&self.model, "HAZD.Model", out);
+        visit_form_ids(&self.image_space_modifier, "HAZD.MNAM", out);
+        visit_form_ids(&self.data, "HAZD.DNAM", out);
+        visit_form_ids(&self.conditions, "HAZD.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "HAZD.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "HAZD.SNTP", out);
+        visit_form_ids_mut(&mut self.snap_behavior, "HAZD.SNBH", out);
+        visit_form_ids_mut(&mut self.default_layer, "HAZD.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "HAZD.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "HAZD.Model", out);
+        visit_form_ids_mut(&mut self.image_space_modifier, "HAZD.MNAM", out);
+        visit_form_ids_mut(&mut self.data, "HAZD.DNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "HAZD.Conditions", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "HAZD.LocalizedStrings", out);
+        visit_lstrings(&self.name, "HAZD.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "HAZD.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "HAZD.FULL", out);
     }
 }
 
 impl HazdRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"HAZD";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
