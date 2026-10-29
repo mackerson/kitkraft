@@ -85,9 +85,9 @@ confidence = "corpus"
 note = "payload not decoded (KK-108 inventory); observed 37..128 bytes"
 
 [[member]]
-group = "Echos"
+group = "Echoes"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record)"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (68 occurrences, up to 15 per record) opened by ECHO; with the 32 opened by ECHD, 100 echoes, up to 16 per record"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17500",
 ]

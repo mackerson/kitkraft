@@ -67879,7 +67879,7 @@ impl ScenRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct SechEchos {
+pub struct SechEchoes {
     /// `ECHO`, optional.
     pub echo: Option<Sub<Bytes>>,
     /// `ECHD`, optional.
@@ -67902,7 +67902,7 @@ pub struct SechEchos {
     pub eche: Option<Sub<Bytes>>,
 }
 
-impl SechEchos {
+impl SechEchoes {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
@@ -67957,34 +67957,34 @@ impl SechEchos {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => {
-                    put(&mut self.echo, subs, *index, "SECH.Echos.ECHO", ctx, extra)
+                    put(&mut self.echo, subs, *index, "SECH.Echoes.ECHO", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.echd, subs, *index, "SECH.Echos.ECHD", ctx, extra)
+                    put(&mut self.echd, subs, *index, "SECH.Echoes.ECHD", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.ecte, subs, *index, "SECH.Echos.ECTE", ctx, extra)
+                    put(&mut self.ecte, subs, *index, "SECH.Echoes.ECTE", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.ecsh, subs, *index, "SECH.Echos.ECSH", ctx, extra)
+                    put(&mut self.ecsh, subs, *index, "SECH.Echoes.ECSH", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.anam, subs, *index, "SECH.Echos.ANAM", ctx, extra)
+                    put(&mut self.anam, subs, *index, "SECH.Echoes.ANAM", ctx, extra)
                 }
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.bnam, subs, *index, "SECH.Echos.BNAM", ctx, extra)
+                    put(&mut self.bnam, subs, *index, "SECH.Echoes.BNAM", ctx, extra)
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.cnam, subs, *index, "SECH.Echos.CNAM", ctx, extra)
+                    put(&mut self.cnam, subs, *index, "SECH.Echoes.CNAM", ctx, extra)
                 }
                 Hit::Sub { member: 7, index } => {
-                    put(&mut self.dnam, subs, *index, "SECH.Echos.DNAM", ctx, extra)
+                    put(&mut self.dnam, subs, *index, "SECH.Echoes.DNAM", ctx, extra)
                 }
                 Hit::Sub { member: 8, index } => {
-                    put(&mut self.enam, subs, *index, "SECH.Echos.ENAM", ctx, extra)
+                    put(&mut self.enam, subs, *index, "SECH.Echoes.ENAM", ctx, extra)
                 }
                 Hit::Sub { member: 9, index } => {
-                    put(&mut self.eche, subs, *index, "SECH.Echos.ECHE", ctx, extra)
+                    put(&mut self.eche, subs, *index, "SECH.Echoes.ECHE", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -68005,7 +68005,7 @@ impl SechEchos {
     }
 }
 
-impl Visit for SechEchos {}
+impl Visit for SechEchoes {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SechRecord {
@@ -68019,8 +68019,8 @@ pub struct SechRecord {
     pub xalg: Option<Sub<Bytes>>,
     /// `NNAM`, optional.
     pub nnam: Option<Sub<Bytes>>,
-    /// Group `Echos`, repeated.
-    pub echos: Vec<SechEchos>,
+    /// Group `Echoes`, repeated.
+    pub echoes: Vec<SechEchoes>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -68053,7 +68053,7 @@ impl SechRecord {
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: SechEchos::MEMBERS,
+            members: SechEchoes::MEMBERS,
         },
     ];
 
@@ -68082,9 +68082,9 @@ impl SechRecord {
                     put(&mut self.nnam, subs, *index, "SECH.NNAM", ctx, extra)
                 }
                 Hit::Group { member: 5, hits } => {
-                    let mut group = SechEchos::default();
+                    let mut group = SechEchoes::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.echos.push(group);
+                    self.echoes.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -68097,7 +68097,7 @@ impl SechRecord {
         emit(out, *b"ODTY", self.odty.as_ref());
         emit(out, *b"XALG", self.xalg.as_ref());
         emit(out, *b"NNAM", self.nnam.as_ref());
-        for group in &self.echos {
+        for group in &self.echoes {
             group.emit(out);
         }
     }
