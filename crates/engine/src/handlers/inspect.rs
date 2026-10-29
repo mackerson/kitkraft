@@ -34,7 +34,9 @@ use kitkraft_doc::flags::RECORD_FLAG_DELETED;
 use kitkraft_doc::lstring::is_lstring;
 use kitkraft_doc::strings::StringTables;
 use kitkraft_doc::typed::{self, Decoded};
-use kitkraft_doc::{FormRef, GlobalForm, LoadOrder, LoadedRecord, MasterMap, RecordReader, Version};
+use kitkraft_doc::{
+    FormRef, GlobalForm, LoadOrder, LoadedRecord, MasterMap, RecordReader, Version,
+};
 
 use super::load::{acquire, has_runtime_note, lstring_json, runtime_note, schema_of, Loaded};
 use super::{failed, file_name, str_arg};
@@ -1121,7 +1123,10 @@ fn run_load_order(
         });
         if full && h.signature.0 == *b"ARMO" {
             if let Some(obj) = version.as_object_mut() {
-                obj.insert("addons".into(), armo_addons_json(lo, &mut reader, v.plugin, rec));
+                obj.insert(
+                    "addons".into(),
+                    armo_addons_json(lo, &mut reader, v.plugin, rec),
+                );
             }
         }
         list.push(version);
