@@ -21,7 +21,8 @@
 #     re-encoded identically).
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs,
 #     checked by lstring_table_matches_the_corpus): DESC, ENAM, FNAM and FULL
-#     are lstrings in every official BOOK record; CNAM is not.
+#     are lstrings in every official BOOK record; the corpus cannot tell
+#     whether CNAM is one.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 signature = "BOOK"
 name = "Book"
@@ -244,11 +245,11 @@ name = "Cnam"
 type = "opaque"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10442-L10442",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: the corpus lstring table classifies BOOK's CNAM as not an lstring (lane E's table, edit::lstrings)",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: the corpus lstring table cannot tell whether BOOK's CNAM is an lstring (lane E's table, edit::lstrings)",
   "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry a CNAM and every record re-encodes it raw",
 ]
 confidence = "corpus"
-note = "kept raw: xEdit types the description as a localized string, but the corpus lstring table does not classify BOOK's CNAM as an lstring, so the payload is kept as raw bytes"
+note = "kept raw: xEdit lays it out as a localized string, but the corpus lstring table cannot tell whether it is one, so the payload is kept as raw bytes"
 
 [[member]]
 group = "DataSlateHeaders"
