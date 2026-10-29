@@ -88,7 +88,7 @@
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
-// - EXPL (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - EXPL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839; reference)
 // - FACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958; corpus)
 // - FFKW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official FFKW record (493) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FLOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11984-L12021; corpus)
@@ -27078,12 +27078,386 @@ impl Visit for ExplLocalizedStrings {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ExplDataFlags(pub u32);
+
+impl ExplDataFlags {
+    pub const TAPER_EFFECTIVENESS: u32 = 0x1;
+    pub const ALWAYS_USES_WORLD_ORIENTATION: u32 = 0x2;
+    pub const KNOCK_DOWN_ALWAYS: u32 = 0x4;
+    pub const KNOCK_DOWN_BY_FORMULA: u32 = 0x8;
+    pub const IGNORE_LOS_CHECK: u32 = 0x10;
+    pub const PUSH_EXPLOSION_SOURCE_REF_ONLY: u32 = 0x20;
+    pub const IGNORE_IMAGE_SPACE_SWAP: u32 = 0x40;
+    pub const CHAIN: u32 = 0x80;
+    pub const NO_CONTROLLER_VIBRATION: u32 = 0x100;
+    pub const PLACED_OBJECT_PERSISTS: u32 = 0x200;
+    pub const SKIP_UNDERWATER_TESTS: u32 = 0x400;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for ExplDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ExplDataFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplDataSoundLevel {
+    None,
+    Silent,
+    Quiet,
+    Normal,
+    Loud,
+    VeryLoud,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl ExplDataSoundLevel {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Silent,
+            2 => Self::Quiet,
+            3 => Self::Normal,
+            4 => Self::Loud,
+            5 => Self::VeryLoud,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Silent => 1,
+            Self::Quiet => 2,
+            Self::Normal => 3,
+            Self::Loud => 4,
+            Self::VeryLoud => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ExplDataSoundLevel {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ExplDataSoundLevel {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplDataStagger {
+    None,
+    Small,
+    Medium,
+    Large,
+    ExtraLarge,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl ExplDataStagger {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Small,
+            2 => Self::Medium,
+            3 => Self::Large,
+            4 => Self::ExtraLarge,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Small => 1,
+            Self::Medium => 2,
+            Self::Large => 3,
+            Self::ExtraLarge => 4,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ExplDataStagger {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ExplDataStagger {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExplDataSpawn {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub spread_degrees: f32,
+    pub count: u32,
+}
+
+impl Field for ExplDataSpawn {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "EXPL.ENAM.Spawn.X", ctx)?;
+        let f1 = f32::read(r, "EXPL.ENAM.Spawn.Y", ctx)?;
+        let f2 = f32::read(r, "EXPL.ENAM.Spawn.Z", ctx)?;
+        let f3 = f32::read(r, "EXPL.ENAM.Spawn.SpreadDegrees", ctx)?;
+        let f4 = u32::read(r, "EXPL.ENAM.Spawn.Count", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+            spread_degrees: f3,
+            count: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+        self.spread_degrees.write(out);
+        self.count.write(out);
+    }
+}
+
+impl Visit for ExplDataSpawn {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExplData {
+    pub light: FormId,
+    pub sound: SoundReference,
+    pub unused_sound: SoundReference,
+    pub impact_data_set: FormId,
+    pub placed_object: FormId,
+    pub spawn_projectile: FormId,
+    pub condition_form: FormId,
+    pub force: f32,
+    pub damage: f32,
+    pub inner_radius: f32,
+    pub outer_radius: f32,
+    pub is_radius: f32,
+    pub vertical_offset_mult: f32,
+    pub flags: ExplDataFlags,
+    pub sound_level: ExplDataSoundLevel,
+    pub placed_object_auto_fade_delay: f32,
+    pub stagger: ExplDataStagger,
+    pub spawn: ExplDataSpawn,
+    pub duration: f32,
+}
+
+impl Field for ExplData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "EXPL.ENAM.Light", ctx)?;
+        let f1 = Field::read(r, "EXPL.ENAM.Sound", ctx)?;
+        let f2 = Field::read(r, "EXPL.ENAM.UnusedSound", ctx)?;
+        let f3 = Field::read(r, "EXPL.ENAM.ImpactDataSet", ctx)?;
+        let f4 = Field::read(r, "EXPL.ENAM.PlacedObject", ctx)?;
+        let f5 = Field::read(r, "EXPL.ENAM.SpawnProjectile", ctx)?;
+        let f6 = Field::read(r, "EXPL.ENAM.ConditionForm", ctx)?;
+        let f7 = f32::read(r, "EXPL.ENAM.Force", ctx)?;
+        let f8 = f32::read(r, "EXPL.ENAM.Damage", ctx)?;
+        let f9 = f32::read(r, "EXPL.ENAM.InnerRadius", ctx)?;
+        let f10 = f32::read(r, "EXPL.ENAM.OuterRadius", ctx)?;
+        let f11 = f32::read(r, "EXPL.ENAM.ISRadius", ctx)?;
+        let f12 = f32::read(r, "EXPL.ENAM.VerticalOffsetMult", ctx)?;
+        let f13 = Field::read(r, "EXPL.ENAM.Flags", ctx)?;
+        let f14 = Field::read(r, "EXPL.ENAM.SoundLevel", ctx)?;
+        let f15 = f32::read(r, "EXPL.ENAM.PlacedObjectAutoFadeDelay", ctx)?;
+        let f16 = Field::read(r, "EXPL.ENAM.Stagger", ctx)?;
+        let f17 = Field::read(r, "EXPL.ENAM.Spawn", ctx)?;
+        let f18 = f32::read(r, "EXPL.ENAM.Duration", ctx)?;
+        Ok(Self {
+            light: f0,
+            sound: f1,
+            unused_sound: f2,
+            impact_data_set: f3,
+            placed_object: f4,
+            spawn_projectile: f5,
+            condition_form: f6,
+            force: f7,
+            damage: f8,
+            inner_radius: f9,
+            outer_radius: f10,
+            is_radius: f11,
+            vertical_offset_mult: f12,
+            flags: f13,
+            sound_level: f14,
+            placed_object_auto_fade_delay: f15,
+            stagger: f16,
+            spawn: f17,
+            duration: f18,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.light.write(out);
+        self.sound.write(out);
+        self.unused_sound.write(out);
+        self.impact_data_set.write(out);
+        self.placed_object.write(out);
+        self.spawn_projectile.write(out);
+        self.condition_form.write(out);
+        self.force.write(out);
+        self.damage.write(out);
+        self.inner_radius.write(out);
+        self.outer_radius.write(out);
+        self.is_radius.write(out);
+        self.vertical_offset_mult.write(out);
+        self.flags.write(out);
+        self.sound_level.write(out);
+        self.placed_object_auto_fade_delay.write(out);
+        self.stagger.write(out);
+        self.spawn.write(out);
+        self.duration.write(out);
+    }
+}
+
+impl Visit for ExplData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.light, "EXPL.ENAM.Light", out);
+        visit_form_ids(&self.sound, "EXPL.ENAM.Sound", out);
+        visit_form_ids(&self.unused_sound, "EXPL.ENAM.UnusedSound", out);
+        visit_form_ids(&self.impact_data_set, "EXPL.ENAM.ImpactDataSet", out);
+        visit_form_ids(&self.placed_object, "EXPL.ENAM.PlacedObject", out);
+        visit_form_ids(&self.spawn_projectile, "EXPL.ENAM.SpawnProjectile", out);
+        visit_form_ids(&self.condition_form, "EXPL.ENAM.ConditionForm", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.light, "EXPL.ENAM.Light", out);
+        visit_form_ids_mut(&mut self.sound, "EXPL.ENAM.Sound", out);
+        visit_form_ids_mut(&mut self.unused_sound, "EXPL.ENAM.UnusedSound", out);
+        visit_form_ids_mut(&mut self.impact_data_set, "EXPL.ENAM.ImpactDataSet", out);
+        visit_form_ids_mut(&mut self.placed_object, "EXPL.ENAM.PlacedObject", out);
+        visit_form_ids_mut(&mut self.spawn_projectile, "EXPL.ENAM.SpawnProjectile", out);
+        visit_form_ids_mut(&mut self.condition_form, "EXPL.ENAM.ConditionForm", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExplDamageTypesItem {
+    pub type_: FormId,
+    pub amount: u32,
+    /// Present for form versions 152 and later.
+    pub curve_table: Option<FormId>,
+}
+
+impl Field for ExplDamageTypesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "EXPL.DAMA.Type", ctx)?;
+        let f1 = u32::read(r, "EXPL.DAMA.Amount", ctx)?;
+        let f2 = if ctx.has(Some(152), None) {
+            Some(Field::read(r, "EXPL.DAMA.CurveTable", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            type_: f0,
+            amount: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.type_.write(out);
+        self.amount.write(out);
+        if let Some(value) = &self.curve_table {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for ExplDamageTypesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.type_, "EXPL.DAMA.Type", out);
+        visit_form_ids(&self.curve_table, "EXPL.DAMA.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.type_, "EXPL.DAMA.Type", out);
+        visit_form_ids_mut(&mut self.curve_table, "EXPL.DAMA.CurveTable", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExplDamageTypes(pub Vec<ExplDamageTypesItem>);
+
+impl Field for ExplDamageTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ExplDamageTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ExplRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `DEFL`, optional.
+    pub default_layer: Option<Sub<FormId>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// Group `LocalizedStrings`, repeated.
     pub localized_strings: Vec<ExplLocalizedStrings>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// `EITM`, optional.
+    pub enchantment: Option<Sub<FormId>>,
+    /// `MNAM`, optional.
+    pub image_space_modifier: Option<Sub<FormId>>,
+    /// `ENAM`, required.
+    pub data: Option<Sub<ExplData>>,
+    /// `DAMA`, optional.
+    pub damage_types: Option<Sub<ExplDamageTypes>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -27098,9 +27472,53 @@ impl ExplRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DEFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
             members: ExplLocalizedStrings::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: Model::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"EITM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DAMA",
+            card: Card::Optional,
         },
     ];
 
@@ -27116,11 +27534,78 @@ impl ExplRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "EXPL.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "EXPL.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "EXPL.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "EXPL.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.default_layer,
+                    subs,
+                    *index,
+                    "EXPL.DEFL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "EXPL.XALG", ctx, extra)
+                }
+                Hit::Group { member: 6, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Group { member: 7, hits } => {
                     let mut group = ExplLocalizedStrings::default();
                     group.fill(hits, subs, ctx, extra);
                     self.localized_strings.push(group);
                 }
+                Hit::Group { member: 8, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.enchantment, subs, *index, "EXPL.EITM", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.image_space_modifier,
+                    subs,
+                    *index,
+                    "EXPL.MNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.data, subs, *index, "EXPL.ENAM", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.damage_types,
+                    subs,
+                    *index,
+                    "EXPL.DAMA",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -27128,13 +27613,48 @@ impl ExplRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"DEFL", self.default_layer.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
         for group in &self.localized_strings {
             group.emit(out);
         }
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"EITM", self.enchantment.as_ref());
+        emit(out, *b"MNAM", self.image_space_modifier.as_ref());
+        emit(out, *b"ENAM", self.data.as_ref());
+        emit(out, *b"DAMA", self.damage_types.as_ref());
     }
 }
 
 impl Visit for ExplRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.default_layer, "EXPL.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "EXPL.BfcbBlock", out);
+        visit_form_ids(&self.model, "EXPL.Model", out);
+        visit_form_ids(&self.enchantment, "EXPL.EITM", out);
+        visit_form_ids(&self.image_space_modifier, "EXPL.MNAM", out);
+        visit_form_ids(&self.data, "EXPL.ENAM", out);
+        visit_form_ids(&self.damage_types, "EXPL.DAMA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.default_layer, "EXPL.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "EXPL.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "EXPL.Model", out);
+        visit_form_ids_mut(&mut self.enchantment, "EXPL.EITM", out);
+        visit_form_ids_mut(&mut self.image_space_modifier, "EXPL.MNAM", out);
+        visit_form_ids_mut(&mut self.data, "EXPL.ENAM", out);
+        visit_form_ids_mut(&mut self.damage_types, "EXPL.DAMA", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.localized_strings, "EXPL.LocalizedStrings", out);
     }

@@ -1,27 +1,47 @@
-# EXPL: Explosion, lstring-only definition (lane B round 3, M3.B8).
+# EXPL: Explosion. An explosion in Starfield is a base object (its Placed Object) that a
+# projectile, a script or a reference can make detonate. The data block carries the light,
+# the two sounds, the impact data set, the placed object and the projectile it spawns, the
+# condition that gates it, the force and the damage and image-space radii, the stagger, the
+# spawn point and the duration; the record also carries the image space modifier and the
+# damage types it applies.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official EXPL record.
-#   xedit: the EXPL definition of wbDefinitionsSF1.pas at the pinned revision (L11781-L11839)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Source (ADR 0004): the record definition at L11781-L11839 of wbDefinitionsSF1.pas at the
+# pin, in member order, and the helpers it names: the editor ID (L3182), the object bounds
+# (wbDefinitionsCommon.pas L9348-L9365), the dirtiness scale (L3921-L3923), the object
+# palette defaults (L3925-L3962), the default layer (L3963), the XALG flags (L3230; the bit
+# list at L3195-L3228 is marked by upstream as copied from FO76 and probably wrong), the
+# base form components (L5984-L6832, the shared BfcbBlock), the name (L3184), the generic
+# model (L7008-L7029, the shared Model), the enchantment (wbDefinitionsCommon.pas
+# L8760-L8774), the image space modifier (L11792), the data block (L11793-L11837, with the
+# sound reference L2197-L2211, the base object signatures L43-L54, the sound level
+# L2574-L2581 and the stagger L11822-L11828), and the damage type array
+# (wbDefinitionsCommon.pas L8728-L8738).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# The 14 official ESMs hold 359 EXPL records; the expl_types scan in
+# crates/esm/tests/expl_types.rs checks this definition against them: every subrecord is
+# placed, every placed subrecord decodes, and the re-encoding reproduces every record.
 signature = "EXPL"
 name = "Explosion"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11793-L11837",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -36,6 +56,60 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+confidence = "reference"
+note = "the min/max bounding box (two Vec3s, 24 bytes); upstream marks it required"
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+confidence = "reference"
+note = "upstream marks it required"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "the palette defaults block (80 bytes); the named flags live in defs/common/ObjectPaletteDefaults.toml"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "a flag set whose bit list upstream marks as copied from FO76 and probably wrong; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
 group = "LocalizedStrings"
 card = "repeated"
 source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official EXPL records are lstrings (lane E's table, edit::lstrings)"
@@ -43,7 +117,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839",
 ]
 confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+note = "the lstring subrecords of this record type wherever they occur; FULL sits between the base form components and the model"
 
 [[member.member]]
 sig = "FULL"
@@ -56,3 +130,101 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official EXPL records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "the generic model block; upstream marks it required"
+
+[[member]]
+sig = "EITM"
+name = "Enchantment"
+type = "formid"
+targets = ["ENCH"]
+card = "optional"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774"]
+confidence = "reference"
+note = "the enchantment helper's default capacity is False, so this is a plain enchantment reference, not an enchantment block"
+
+[[member]]
+sig = "MNAM"
+name = "ImageSpaceModifier"
+type = "formid"
+targets = ["IMAD"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792"]
+confidence = "reference"
+
+[[member]]
+sig = "ENAM"
+name = "Data"
+type = "struct"
+size = 164
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11793-L11837"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+]
+confidence = "reference"
+note = "the explosion data block (164 bytes)"
+field = [
+  { name = "Light", type = "formid", targets = ["LIGH"] },
+  { name = "Sound", type = "ref:SoundReference" },
+  { name = "UnusedSound", type = "ref:SoundReference" },
+  { name = "ImpactDataSet", type = "formid", targets = ["IPDS"] },
+  { name = "PlacedObject", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
+  { name = "SpawnProjectile", type = "formid", targets = ["PROJ"] },
+  { name = "ConditionForm", type = "formid", targets = ["CNDF"] },
+  { name = "Force", type = "f32" },
+  { name = "Damage", type = "f32" },
+  { name = "InnerRadius", type = "f32" },
+  { name = "OuterRadius", type = "f32" },
+  { name = "ISRadius", type = "f32" },
+  { name = "VerticalOffsetMult", type = "f32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["TaperEffectiveness", 0x1],
+    ["AlwaysUsesWorldOrientation", 0x2],
+    ["KnockDownAlways", 0x4],
+    ["KnockDownByFormula", 0x8],
+    ["IgnoreLosCheck", 0x10],
+    ["PushExplosionSourceRefOnly", 0x20],
+    ["IgnoreImageSpaceSwap", 0x40],
+    ["Chain", 0x80],
+    ["NoControllerVibration", 0x100],
+    ["PlacedObjectPersists", 0x200],
+    ["SkipUnderwaterTests", 0x400],
+  ] },
+  { name = "SoundLevel", type = "enum", base = "u32", values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]] },
+  { name = "PlacedObjectAutoFadeDelay", type = "f32" },
+  { name = "Stagger", type = "enum", base = "u32", values = [["None", 0], ["Small", 1], ["Medium", 2], ["Large", 3], ["ExtraLarge", 4]] },
+  { name = "Spawn", type = "struct", field = [
+    { name = "X", type = "f32" },
+    { name = "Y", type = "f32" },
+    { name = "Z", type = "f32" },
+    { name = "SpreadDegrees", type = "f32" },
+    { name = "Count", type = "u32" },
+  ] },
+  { name = "Duration", type = "f32" },
+]
+
+[[member]]
+sig = "DAMA"
+name = "DamageTypes"
+type = "array"
+card = "optional"
+element = "struct"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11838-L11838"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
+]
+confidence = "reference"
+note = "one 12-byte entry per damage type"
+field = [
+  { name = "Type", type = "formid", targets = ["DMGT"] },
+  { name = "Amount", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"], since = 152 },
+]
