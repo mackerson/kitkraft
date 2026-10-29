@@ -588,7 +588,7 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// lane's full definition replaces one (M4.BX1: BIOM, GBFM, PKIN, PNDT, RSPJ and STDT from
 /// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
-/// actor family; ACTI, CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
+/// actor family; ACTI, CONT, FLOR, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
 /// items/workshop family). IRES, LSCR and MESG became M4.BX2 inventories
 /// ([`BX2_INVENTORY`]).
 #[rustfmt::skip]
@@ -598,7 +598,6 @@ const LSTRING_ONLY: &[&str] = &[
     "DMGT",
     "ENCH",
     "EXPL",
-    "FLOR",
     "FXPD",
     "GPOF",
     "HAZD",
