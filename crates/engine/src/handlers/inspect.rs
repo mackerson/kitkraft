@@ -603,26 +603,29 @@ fn lmsw_json(data: &[u8]) -> Value {
 /// pair names the `ARMA` addon, with the `ARMA`'s four model `FileName`s by slot. An
 /// `INDX` with no `MODL` after it, and a `MODL` shorter than 4 bytes, are skipped; an
 /// `ARMA` that does not resolve anywhere in the load order is `"missing"` with empty
-/// `models`.
+/// `models`; an `ARMA` that resolves but cannot be read is reported in `notes`.
 fn armo_addons_json(
     lo: &LoadOrder,
     reader: &mut RecordReader,
     armo_plugin: u16,
     rec: &LoadedRecord,
+    notes: &mut Vec<String>,
 ) -> Value {
     let subs = &rec.subs;
     let mut addons = Vec::new();
-    for (i, sub) in subs.iter().enumerate() {
+    // Pair each subrecord with the one immediately after it: an `INDX` names an addon
+    // only with a `MODL` right after it.
+    for (sub, nxt) in subs.iter().zip(subs.iter().skip(1)) {
         if sub.signature().0 != *b"INDX" {
             continue;
         }
-        // An `INDX` with no `MODL` after it is skipped explicitly.
-        let Some(modl) = subs.get(i + 1) else {
-            continue;
-        };
-        if modl.signature().0 != *b"MODL" {
+        // An `INDX` with no `MODL` after it is skipped explicitly: an `INDX` that is the
+        // last subrecord has no successor at all, and one followed by anything but a
+        // `MODL` has a successor that is not a `MODL`.
+        if nxt.signature().0 != *b"MODL" {
             continue;
         }
+        let modl = nxt;
         let Some(bytes) = sub.data().get(..2) else {
             continue;
         };
@@ -646,10 +649,12 @@ fn armo_addons_json(
                 Some(w) => match lo.record(w.plugin, w.record) {
                     None => armo_addon_missing(index),
                     Some(loc) => {
+                        // No runtime ID (the form is not mapped into the game's runtime
+                        // space): fall back to the FormID it was resolved as, never "".
                         let formid = lo
                             .runtime_id(g)
                             .map(|id| format!("0x{id:08X}"))
-                            .unwrap_or_default();
+                            .unwrap_or_else(|| format!("0x{:08X}", g.object_id));
                         let editor_id = lo.edid(w.plugin, loc).unwrap_or("");
                         let plugin = lo
                             .plugin(w.plugin)
@@ -661,7 +666,7 @@ fn armo_addons_json(
                                 "editor_id": editor_id,
                                 "plugin": plugin,
                             },
-                            "models": armo_models_json(lo, reader, w.plugin, loc),
+                            "models": armo_models_json(lo, reader, w.plugin, loc, &plugin, notes),
                         })
                     }
                 },
@@ -678,15 +683,30 @@ fn armo_addon_missing(index: u16) -> Value {
 }
 
 /// The four model `FileName`s of an `ARMA` by slot (`MOD2` male, `MOD3` female, `MOD4`
-/// male first person, `MOD5` female first person); an absent subrecord is `""`.
+/// male first person, `MOD5` female first person); an absent subrecord is `""`. An `ARMA`
+/// that resolves but cannot be read shows all four slots `""` and the read error goes
+/// into `notes`.
 fn armo_models_json(
     lo: &LoadOrder,
     reader: &mut RecordReader,
     plugin: u16,
     loc: &kitkraft_doc::RecordLoc,
+    plugin_name: &str,
+    notes: &mut Vec<String>,
 ) -> Value {
-    let Ok(rec) = reader.read(lo, plugin, loc) else {
-        return json!({});
+    let rec = match reader.read(lo, plugin, loc) {
+        Ok(rec) => rec,
+        Err(err) => {
+            notes.push(format!(
+                "addons: could not read the ARMA from {plugin_name}: {err}"
+            ));
+            return json!({
+                "male": "",
+                "female": "",
+                "male_first_person": "",
+                "female_first_person": "",
+            });
+        }
     };
     let mut male = String::new();
     let mut female = String::new();
@@ -1125,7 +1145,7 @@ fn run_load_order(
             if let Some(obj) = version.as_object_mut() {
                 obj.insert(
                     "addons".into(),
-                    armo_addons_json(lo, &mut reader, v.plugin, rec),
+                    armo_addons_json(lo, &mut reader, v.plugin, rec, &mut notes),
                 );
             }
         }

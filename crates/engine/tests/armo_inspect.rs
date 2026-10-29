@@ -22,7 +22,6 @@ use serde_json::json;
 #[ignore = "loads Starfield.esm; run in release"]
 fn inspect_full_shows_armo_addons_and_models() {
     let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
-        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
         .map(PathBuf::from)
         .filter(|d| d.join("Starfield.esm").is_file())
     else {
