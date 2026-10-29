@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |          96 |   252,710 |    144,133 |   643,029 | 292,677 |
-| **Total**       |          186 |         159 | 7,490,102 | 46,699,654 | 2,720,522 | 999,385 |
+| container/other |          123 |         100 |   252,710 |    144,137 |   660,727 | 274,975 |
+| **Total**       |          186 |         163 | 7,490,102 | 46,699,658 | 2,738,220 | 981,683 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 159 record definitions, defs hash `fnv1a64:3fa08335e5610fda` (the hash named in
+- Schema: 163 record definitions, defs hash `fnv1a64:0bdd67697a704237` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -238,13 +238,13 @@ Columns:
 | `DOBJ`        | DefaultObjectManager           |         1 |          0 |     2 |     1 |      1 |       0 |
 | `GWED`        | GravityWielderEffectData       |         1 |          0 |     2 |     1 |      1 |       0 |
 | `MAAM`        | MeleeAimAssistModel            |         1 |          0 |     2 |     1 |      1 |       0 |
-| `NOCM`        | -                              |         1 |          0 |     5 |     0 |      0 |       5 |
-| `OVIS`        | -                              |         1 |          0 |     3 |     0 |      0 |       3 |
-| `SCCO`        | -                              |         1 |          0 |     5 |     0 |      0 |       5 |
-| `SPGD`        | -                              |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 159 defined                    | 7,490,102 |    136,741 | 2,797 | 1,779 |    459 |     559 |
+| `NOCM`        | NavmeshObstacleManager         |         1 |          0 |     5 |     1 |      4 |       0 |
+| `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
+| `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
+| `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
+| **186 types** | 163 defined                    | 7,490,102 |    136,741 | 2,797 | 1,783 |    471 |     543 |
 
-Subrecord occurrences: 50,419,561 in total; 46,699,654 typed (0 of them failed to decode), 2,720,522 opaque, 999,385 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,699,658 typed (0 of them failed to decode), 2,738,220 opaque, 981,683 unknown.
 
 ## Decoded through the definitions
 
@@ -417,7 +417,11 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `DOBJ`    | DefaultObjectManager           |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `MAAM`    | MeleeAimAssistModel            |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,471,442 | 46,699,654 |      0 |         0 |    18,685 |                   0 | 46,680,969 |       0 |        0 |
+| `NOCM`    | NavmeshObstacleManager         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| **Total** |                                |     7,471,446 | 46,699,658 |      0 |         0 |    18,685 |                   0 | 46,680,973 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -533,10 +537,12 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MUST`    | MusicTrack                     |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `NAVI`    | NavmeshInfoMap                 |              3 |     0 |      3 |         0 |                   0 |      3 |       0 |        0 |
 | `NAVM`    | Navmesh                        |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
+| `NOCM`    | NavmeshObstacleManager         |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `NPC_`    | Npc                            |            147 |   142 |      5 |        16 |                   0 |    131 |       0 |        0 |
 | `OMOD`    | ObjectModification             |             51 |    46 |      5 |         6 |                   0 |     45 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |              1 |     1 |      0 |         0 |                   0 |      1 |       0 |        0 |
 | `OTFT`    | Outfit                         |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
+| `OVIS`    | ObjectVisibilityManager        |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `PACK`    | Package                        |             84 |    80 |      4 |         1 |                   0 |     83 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode        |             47 |    44 |      3 |         1 |                   0 |     46 |       0 |        0 |
 | `PCCN`    | PlanetContentNode              |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
@@ -558,6 +564,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `RFGP`    | ReferenceGroup                 |             38 |    30 |      8 |         0 |                   0 |     38 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
 | `RSPJ`    | ResearchProject                |             48 |    45 |      3 |         0 |                   0 |     48 |       0 |        0 |
+| `SCCO`    | SceneCollection                |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SCEN`    | Scene                          |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
 | `SDLT`    | SecondaryDamageListForm        |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `SECH`    | SoundEchoMarker                |             15 |     1 |     14 |         0 |                   0 |     15 |       0 |        0 |
@@ -570,6 +577,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SOUN`    | SoundMarker                    |              8 |     3 |      5 |         0 |                   0 |      8 |       0 |        0 |
 | `SPCH`    | SpeechChallengeForm            |             10 |     3 |      7 |         0 |                   0 |     10 |       0 |        0 |
 | `SPEL`    | Spell                          |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
+| `SPGD`    | ShaderParticleGeometry         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `STAT`    | Static                         |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |             40 |    31 |      9 |         0 |                   0 |     40 |       0 |        0 |
@@ -591,7 +599,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          4,772 | 4,078 |    694 |       290 |                   2 |  4,480 |       0 |        0 |
+| **Total** |                                |          4,788 | 4,082 |    706 |       290 |                   2 |  4,496 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

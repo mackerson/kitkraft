@@ -1,0 +1,109 @@
+# NOCM: NavmeshObstacleManager, inventory definition (M4.BX2, ticket KK-112).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official NOCM record (1 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and the
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the NOCM definition of wbDefinitionsSF1.pas at the pinned revision (L14920-L14935),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
+# that has one keeps it raw.
+#
+# The corpus order interleaves obstacle entries and model names: runs of entries (INDX, 0
+# or more DATA, INTV) each followed by one model name (NAM1), so the members are grouped
+# as xEdit nests them (the inner array of entries, the outer array that ends in the model
+# string); the groups are named placeholders.
+signature = "NOCM"
+name = "NavmeshObstacleManager"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14920-L14935",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1 occurrences), 28 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14921-L14921",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+group = "ObstacleGroup"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead: 1694 obstacle entries in 1365 groups"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14933",
+]
+confidence = "corpus"
+note = "one or more obstacle entries followed by their model name (NAM1)"
+
+[[member.member]]
+group = "Obstacle"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead, with 12693 data points in all"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14931",
+]
+confidence = "corpus"
+note = "one obstacle entry: its index (INDX), its data points (DATA, 12 bytes each) and its interval (INTV)"
+
+[[member.member.member]]
+sig = "INDX"
+name = "Indx"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14929",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member.member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (12693 occurrences), 12 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14930-L14930",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member.member]]
+sig = "INTV"
+name = "Intv"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14931-L14931",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member]]
+sig = "NAM1"
+name = "Nam1"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1365 occurrences), 20..134 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14933-L14933",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
