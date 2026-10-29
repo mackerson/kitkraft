@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 168 record definitions, defs hash `fnv1a64:6aafb9a6656e221d` (the hash named in
+- Schema: 168 record definitions, defs hash `fnv1a64:601ee54551353df3` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -332,7 +332,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LVLB`    | LeveledBaseForm                |           373 |        373 |      0 |         0 |         0 |                   0 |        373 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm                |           369 |        369 |      0 |         0 |         0 |                   0 |        369 |       0 |        0 |
 | `ALCH`    | Ingestible                     |           365 |     14,303 |      0 |         0 |         0 |                   0 |     14,303 |       0 |        0 |
-| `EXPL`    | Explosion                      |           359 |      3,623 |      0 |         0 |     1,614 |                   0 |      2,009 |       0 |        0 |
+| `EXPL`    | Explosion                      |           359 |      3,623 |      0 |         0 |         0 |                   0 |      3,623 |       0 |        0 |
 | `IPDS`    | ImpactDataSet                  |           356 |        356 |      0 |         0 |         0 |                   0 |        356 |       0 |        0 |
 | `KEYM`    | Key                            |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
 | `IRES`    | Resource                       |           333 |      1,149 |      0 |         0 |         0 |                   0 |      1,149 |       0 |        0 |
@@ -430,7 +430,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,480,741 | 46,778,037 |      0 |         0 |    20,299 |                   0 | 46,757,738 |       0 |        0 |
+| **Total** |                                |     7,480,741 | 46,778,037 |      0 |         0 |    18,685 |                   0 | 46,759,352 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -493,7 +493,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `ENCH`    | Enchantment                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `EXPL`    | Explosion                      |             49 |    46 |      3 |        10 |                   0 |     39 |       0 |        0 |
+| `EXPL`    | Explosion                      |             49 |    46 |      3 |         1 |                   0 |     48 |       0 |        0 |
 | `FACT`    | Faction                        |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
 | `FFKW`    | FormFolderKeywordList          |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FLOR`    | Flora                          |             78 |    74 |      4 |         8 |                   0 |     70 |       0 |        0 |
@@ -613,7 +613,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,209 | 4,464 |    745 |       338 |                   2 |  4,869 |       0 |        0 |
+| **Total** |                                |          5,209 | 4,464 |    745 |       329 |                   2 |  4,878 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

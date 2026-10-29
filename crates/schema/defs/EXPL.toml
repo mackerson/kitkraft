@@ -40,8 +40,9 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
+  "corpus: the 359 EXPL records of the 14 official ESMs, 2026-10-29 scan (expl_types_full, crates/esm/tests/expl_types.rs): every subrecord is placed, every placed subrecord decodes, and the re-encoding reproduces every record (359 identical)",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -60,8 +61,11 @@ sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: OBND in all 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "the min/max bounding box (two Vec3s, 24 bytes); upstream marks it required"
 
 [[member]]
@@ -69,8 +73,11 @@ sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: ODTY in all 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "upstream marks it required"
 
 [[member]]
@@ -79,8 +86,11 @@ name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: OPDS in 27 of 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "the palette defaults block (80 bytes); the named flags live in defs/common/ObjectPaletteDefaults.toml"
 
 [[member]]
@@ -90,8 +100,11 @@ type = "formid"
 targets = ["LAYR"]
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: DEFL in 1 of 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "XALG"
@@ -99,14 +112,21 @@ name = "XalgFlags"
 type = "u64"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: XALG in 155 of 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "a flag set whose bit list upstream marks as copied from FO76 and probably wrong; kept as a plain integer"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: 310 of 359 official EXPL records carry a component block (BFCB..BFCE; PTCL in 169, REFL in 207, ANAM and BNAM in 1 each); 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "base form components"
 
 [[member]]
@@ -133,8 +153,12 @@ confidence = "corpus"
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
-note = "the generic model block; upstream marks it required"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: FLLD in all 359 official EXPL records, MODL in 356; 359 records, 359 identical",
+]
+confidence = "corpus"
+note = "the generic model block; upstream marks it required; MOLM, MODC and XFLG do not occur in the official records"
 
 [[member]]
 sig = "EITM"
@@ -143,8 +167,11 @@ type = "formid"
 targets = ["ENCH"]
 card = "optional"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: EITM in 36 of 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 note = "the enchantment helper's default capacity is False, so this is a plain enchantment reference, not an enchantment block"
 
 [[member]]
@@ -154,8 +181,11 @@ type = "formid"
 targets = ["IMAD"]
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11792-L11792",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: MNAM in 188 of 359 official EXPL records; 359 records, 359 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ENAM"
@@ -167,8 +197,9 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: ENAM in all 359 official EXPL records; 359 records, 359 identical, so the 164-byte layout decodes and re-encodes every one",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "the explosion data block (164 bytes)"
 field = [
   { name = "Light", type = "formid", targets = ["LIGH"] },
@@ -220,8 +251,9 @@ count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11838-L11838"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
+  "corpus: expl_types_full (crates/esm/tests/expl_types.rs), 2026-10-29: DAMA in 130 of 359 official EXPL records; 359 records, 359 identical, so each entry decodes under the 12-byte layout",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "one 12-byte entry per damage type"
 field = [
   { name = "Type", type = "formid", targets = ["DMGT"] },
