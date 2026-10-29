@@ -1,0 +1,59 @@
+# NAVI: NavmeshInfoMap, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official NAVI record (8 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the NAVI definition of wbDefinitionsSF1.pas at the pinned revision (L14770-L14891),
+#     cited per member for its position where it lists the subrecord.
+#   lane E's corpus lstring table: no NAVI subrecord is an lstring (M3.B8).
+#
+# An inventory: every payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). xEdit lists
+# an EDID, but no official NAVI record has one, so it is left out; a plugin that has one
+# keeps it raw.
+signature = "NAVI"
+name = "NavmeshInfoMap"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NAVI record (8) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14770-L14891",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; every payload opaque"
+
+[[member]]
+sig = "NVER"
+name = "Nver"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 8 of 8 official NAVI records (8 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14772-L14772",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory); 4 bytes"
+
+[[member]]
+sig = "NVMI"
+name = "Nvmi"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 8 of 8 official NAVI records (93295 occurrences, up to 56631 per record), 58..24510 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14774-L14774",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory); 58..24510 bytes"
+
+[[member]]
+sig = "NVPP"
+name = "Nvpp"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 8 of 8 official NAVI records (8 occurrences), 8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14878-L14878",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory); 8 bytes"

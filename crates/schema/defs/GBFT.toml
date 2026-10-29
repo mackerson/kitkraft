@@ -1,0 +1,49 @@
+# GBFT: GenericBaseFormTemplate, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official GBFT record (8 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the GBFT definition of wbDefinitionsSF1.pas at the pinned revision (L12267-L12287),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no GBFT subrecord is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). xEdit lists wbBaseFormComponents, but no official record shows a
+# BFCB..BFCE block, so it is left out; a plugin that has one keeps it raw.
+signature = "GBFT"
+name = "GenericBaseFormTemplate"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GBFT record (8) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12267-L12287",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 8 of 8 official GBFT records (8 occurrences), 10..30 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12284-L12284",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "STRV"
+name = "Strv"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 8 of 8 official GBFT records (40 occurrences, up to 17 per record), 19..41 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12286-L12286",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory); 19..41 bytes"

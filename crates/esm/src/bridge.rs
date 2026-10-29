@@ -575,6 +575,7 @@ mod tests {
     /// `cargo xtask add-def` adds a new EDID-less inventory here (sorted, one per line).
     #[rustfmt::skip]
     const WITHOUT_EDID: &[&[u8; 4]] = &[
+        b"NAVI",
         b"PGRE",
         b"RFGP",
         b"TES4",
