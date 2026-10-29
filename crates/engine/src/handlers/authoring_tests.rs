@@ -287,7 +287,8 @@ impl Plan {
         }
     }
 
-    /// Every member of `members`; inside the base form component block only `layout`.
+    /// Every member of `members`; inside the base form component block only the chosen
+    /// `layout` (groups nested in it, its `Conditions`, are still walked).
     fn members(&mut self, members: &[Member], prefix: &str, layout: &str, component: &str) {
         for m in members {
             let path = if prefix.is_empty() {
@@ -304,9 +305,10 @@ impl Plan {
                     self.subrecord(&path, s, value);
                 }
                 Member::Group(g) => {
-                    if kitkraft_schema::in_component_layout(&format!("{path}.x"))
-                        && g.name != layout
-                    {
+                    // A direct child of the block that is not the chosen layout: a different
+                    // component. Deeper, we are inside the chosen layout (or the record
+                    // itself) and everything is planned.
+                    if prefix == kitkraft_schema::COMPONENT_BLOCK && g.name != layout {
                         continue;
                     }
                     self.members(&g.members, &path, layout, component);
@@ -380,7 +382,13 @@ pub(super) fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a
 
 /// The checks every typed-write test makes (module docs).
 fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
-    let d = dir(&format!("authoring-{}", sig.to_lowercase()));
+    // The layout in the name: two layouts of one type (QUST) must not share a dir,
+    // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
+    let d = dir(&format!(
+        "authoring-{}-{}",
+        sig.to_lowercase(),
+        layout.to_lowercase()
+    ));
     // The Model group's FileName (MODL) reads back as "Typed" (no extension); plant
     // the file under exactly that name, loose next to the plugin, so
     // asset.missing-model does not fire (KK-018).
@@ -647,18 +655,37 @@ fn tmlm_new_sets_every_typed_member_and_reads_back() {
 
 // The PlanetContentProperties component layout: its conditions are the first condition
 // slot of the QUST member order (the BFCB block precedes the top-level condition groups),
-// so the plan's CTDA occurrence numbers align with the engine's slots. A layout without
-// conditions (ContactShadow) leaves the block's slot unplanned and every planned CTDA
-// lands one slot early, never writing the collection alias's match conditions.
-// That was the theory; in this layout too the read-back still leaves the collection alias's
-// match conditions unwritten, so the cause is unconfirmed (a lead for the engine fix).
-#[ignore = "QUST: members not written: [\"Aliases.Collection.Template.MatchConditions.Data\", \"Aliases.Collection.Template.MatchConditions.StringParameter1\", \"Aliases.Collection.Template.MatchConditions.StringParameter2\"]"]
+// so the plan's CTDA occurrence numbers align with the engine's slots.
+//
+// KK-220: it used to fail because the two sides counted the condition slots differently.
+// The plan skipped every group inside a component layout whose name was not the chosen
+// layout, so it skipped the `Conditions` group nested in this very layout and planned one
+// CTDA short; and `new`'s slot list held the block's slots of every layout, so the nine
+// planned CTDAs landed one slot early and the collection alias's match conditions were
+// never written. The plan now walks the chosen layout's own groups, and `new` holds the
+// block's slots of the one layout the record's fields select (newform.rs `plan_new`,
+// over scaffold.rs `slot_of`), so the k-th CTDA lands in the k-th condition group in
+// schema order. A layout without conditions (ContactShadow) leaves the block's condition
+// slot unplanned and out of the slot list, so its planned CTDAs each keep their own
+// group.
 #[test]
 fn qust_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "QUST",
         "PlanetContentProperties",
         "BGSPlanetContentManagerContentProperties_Component",
+    );
+}
+
+// The other side of KK-220: a layout without a block condition. The plan leaves the
+// block's condition slot unplanned and out of `new`'s slot list, so every planned CTDA
+// keeps its own condition group and the collection alias's match conditions are written.
+#[test]
+fn qust_contact_shadow_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "QUST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
     );
 }
 

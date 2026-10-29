@@ -71,13 +71,26 @@ fn leads(members: &[Member], depth: usize) -> Vec<[u8; 4]> {
     out
 }
 
-/// Every subrecord slot of `sig` in schema order (groups flattened).
+/// Every subrecord slot of `sig` in schema order (groups flattened, the component block's
+/// layouts all included).
 pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
+    order_in_layout(sig, None)
+}
+
+/// [`member_order`] in which the base form component block holds only the component
+/// layout `layout`: a record holds one component (its `BFCB` names it), and the block's
+/// other layouts are not slots of the record.
+pub(crate) fn member_order_of_layout(sig: [u8; 4], layout: &str) -> Vec<Slot> {
+    order_in_layout(sig, Some(layout))
+}
+
+fn order_in_layout(sig: [u8; 4], layout: Option<&str>) -> Vec<Slot> {
     fn walk(
         members: &[Member],
         prefix: &str,
         repeated: bool,
         groups: &[(String, Vec<[u8; 4]>)],
+        layout: Option<&str>,
         out: &mut Vec<Slot>,
     ) {
         if groups.len() > MAX_GROUP_DEPTH {
@@ -102,6 +115,13 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
                     groups: groups.iter().rev().cloned().collect(),
                 }),
                 Member::Group(g) => {
+                    // A direct child of the component block that is not the layout the
+                    // record holds: a different component, not a slot of this record.
+                    if prefix == kitkraft_schema::COMPONENT_BLOCK
+                        && layout.is_some_and(|l| l != g.name)
+                    {
+                        continue;
+                    }
                     // A group's members are required only inside the group, which may
                     // itself be absent: never added on their own, only when the group is
                     // started ([`fill_groups`]).
@@ -109,7 +129,7 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
                     let again = repeated || g.cardinality == Cardinality::Repeated;
                     let mut inner = groups.to_vec();
                     inner.push((path.clone(), leads(&g.members, groups.len())));
-                    walk(&g.members, &path, again, &inner, out);
+                    walk(&g.members, &path, again, &inner, layout, out);
                     for e in out.iter_mut().skip(start) {
                         e.card = Cardinality::Optional;
                     }
@@ -123,16 +143,19 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
         .ok()
         .and_then(|s| s.record(kitkraft_schema::Signature::from_bytes(sig)?))
     {
-        walk(&def.members, "", false, &[], &mut out);
+        walk(&def.members, "", false, &[], layout, &mut out);
     }
     out
 }
 
-/// Where occurrence `k` of signature `s` goes when a new record has `n` of them: its slot's
-/// position in [`member_order`]. One occurrence takes the record's own member (before a
-/// member of the same signature inside a component layout: PKIN `VNAM` is `Version`);
-/// several take the slots in schema order, `k`-th to `k`-th, the last slot taking the rest
-/// when it repeats. `None` when there is no slot for it.
+/// Where occurrence `k` of signature `s` goes when a record has `n` of them: the `k`-th
+/// slot of the signature in [`member_order`] — the record's own members and, of the base
+/// form component block, the slots of the one component layout the record holds. So the
+/// `k`-th occurrence lands in the `k`-th slot of the record in schema order: one
+/// occurrence takes the record's own member (before a member of the same signature inside
+/// a component layout: PKIN `VNAM` is `Version`); several take the slots in schema order,
+/// `k`-th to `k`-th, the last slot taking the rest when it repeats. `None` when there is
+/// no slot for it.
 pub(crate) fn slot_of(order: &[Slot], s: [u8; 4], k: usize, n: usize) -> Option<usize> {
     let slots: Vec<usize> = order
         .iter()
@@ -564,4 +587,69 @@ pub(crate) fn add_slots(
     }
     subs.extend(all.into_iter().map(|(_, _, s)| s));
     Ok(defaulted)
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests {
+    use super::{member_order, member_order_of_layout, slot_of};
+
+    #[test]
+    fn a_repeated_signature_counts_every_slot_of_a_repeating_group() {
+        // A QUST's `CTDA` has one slot per condition group, in schema order: the one in
+        // the BFCB block's PlanetContentProperties layout first, then the nine of the
+        // record itself (dialogue and story manager, each stage log entry's and
+        // reward's, each objective target's, each reference alias's and location
+        // alias's match conditions, a planet content request's, and a collection alias
+        // template's). Every group repeats, so the k-th occurrence takes the k-th slot
+        // for every k the definition has a slot for, and past the last slot the last
+        // one takes the rest.
+        let all = member_order(*b"QUST");
+        let ctda: Vec<usize> = all
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.sig == *b"CTDA")
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(ctda.len(), 10);
+        for (k, slot) in ctda.iter().copied().enumerate() {
+            assert_eq!(slot_of(&all, *b"CTDA", k, ctda.len()), Some(slot));
+        }
+        assert_eq!(
+            slot_of(&all, *b"CTDA", ctda.len(), ctda.len() + 1),
+            Some(*ctda.last().unwrap())
+        );
+        // A record holding the ContactShadow component: the block's condition is not a
+        // slot of it, so its `CTDA`s are the record's own nine groups, k-th to k-th, and
+        // past the ninth the last (repeating) one takes the rest.
+        let contact_shadow = member_order_of_layout(*b"QUST", "ContactShadow");
+        let own: Vec<usize> = contact_shadow
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.sig == *b"CTDA")
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(own.len(), 9);
+        for (k, slot) in own.iter().copied().enumerate() {
+            assert_eq!(slot_of(&contact_shadow, *b"CTDA", k, own.len()), Some(slot));
+        }
+        assert_eq!(
+            slot_of(&contact_shadow, *b"CTDA", own.len(), own.len() + 1),
+            Some(*own.last().unwrap())
+        );
+        // A signature whose last slot does not repeat reports `None` past it: a QUST's
+        // own `DNAM` is the only non-repeating slot after the block's AnimationGraph
+        // response file.
+        let dnam: Vec<usize> = all
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| e.sig == *b"DNAM")
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(dnam.len(), 2);
+        for (k, slot) in dnam.iter().copied().enumerate() {
+            assert_eq!(slot_of(&all, *b"DNAM", k, dnam.len()), Some(slot));
+        }
+        assert_eq!(slot_of(&all, *b"DNAM", dnam.len(), dnam.len() + 1), None);
+    }
 }
