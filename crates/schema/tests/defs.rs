@@ -594,7 +594,6 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 #[rustfmt::skip]
 const LSTRING_ONLY: &[&str] = &[
     "AVIF",
-    "BOOK",
     "BPTD",
     "DMGT",
     "ENCH",
