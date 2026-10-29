@@ -6,6 +6,11 @@
 #     base form component block (L5984-L6832), FULL (L3184), the sound reference
 #     (L2197-L2227) and the 3-component vector (wbDefinitionsCommon.pas L6725-L6740); the
 #     FormID check is cited at each member's own line.
+#   corpus: the 19 WATR records of the 14 official ESMs (crates/esm/tests/watr_types.rs,
+#     watr_types_full, 2026-10-29): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. VMAD, the component blocks and INAM are
+#     absent from all 19; WASH and each of the seven curves from 1 and XNAM from 16.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): FULL is an
 #     lstring in every official WATR record.
 #
@@ -17,9 +22,10 @@ signature = "WATR"
 name = "Water"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592"
 evidence = [
+  "corpus: crates/esm/tests/watr_types.rs (watr_types_full), 2026-10-29: in all 19 official WATR records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
   "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: FULL is an lstring in every official WATR record",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -43,7 +49,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
 ]
 confidence = "reference"
-note = "script data; its property values are unions by property type, kept raw"
+note = "script data; its property values are unions by property type, kept raw; absent from all 19 official WATR records"
 
 [[member]]
 group_ref = "BfcbBlock"
@@ -53,7 +59,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
 ]
 confidence = "reference"
-note = "base form components"
+note = "base form components; absent from all 19 official WATR records"
 
 [[member]]
 sig = "FULL"
@@ -72,8 +78,7 @@ sig = "ANAM"
 name = "Opacity"
 type = "u8"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18514-L18514"]
-confidence = "reference"
-note = "upstream marks the value unused"
+note = "upstream marks the value unused; in all 19 official WATR records"
 
 [[member]]
 sig = "FNAM"
@@ -87,8 +92,7 @@ bits = [
   ["BlendNormals", 0x10],
 ]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18515-L18524"]
-confidence = "reference"
-note = "bit 1 is unnamed upstream; unknown bits stay set"
+note = "bit 1 is unnamed upstream; unknown bits stay set; in all 19 official WATR records"
 
 [[member]]
 sig = "WASH"
@@ -98,8 +102,10 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18525-L18525"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
+  "corpus: crates/esm/tests/watr_types.rs (watr_types_full), 2026-10-29: 18 of the 19 official WATR records have WASH",
 ]
-confidence = "reference"
+confidence = "corpus"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "XNAM"
@@ -108,7 +114,7 @@ type = "formid"
 targets = ["SPEL"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18526-L18526"]
-confidence = "reference"
+note = "in 3 of the 19 official WATR records"
 
 [[member]]
 sig = "YNAM"
@@ -116,7 +122,7 @@ name = "ContactSpell"
 type = "formid"
 targets = ["SPEL"]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18527-L18527"]
-confidence = "reference"
+note = "in all 19 official WATR records"
 
 [[member]]
 sig = "INAM"
@@ -126,14 +132,14 @@ targets = ["IMGS"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18528-L18528"]
 confidence = "reference"
+note = "absent from all 19 official WATR records"
 
 [[member]]
 sig = "DATA"
 name = "Data"
 type = "opaque"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18529-L18529"]
-confidence = "reference"
-note = "upstream marks the payload unused without a size, kept raw"
+note = "upstream marks the payload unused without a size, kept raw; in all 19 official WATR records"
 
 [[member]]
 sig = "DNAM"
@@ -141,7 +147,7 @@ name = "VisualData"
 type = "struct"
 size = 152
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18530-L18581"]
-confidence = "reference"
+note = "in all 19 official WATR records"
 field = [
   { name = "DepthAmount", type = "f32" },
   { name = "ColorAbsorptionRanges", type = "struct", field = [
@@ -201,8 +207,7 @@ name = "Unknown"
 type = "opaque"
 size = 12
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18582-L18582"]
-confidence = "reference"
-note = "upstream gives a size but no layout, kept raw"
+note = "upstream gives a size but no layout, kept raw; in all 19 official WATR records"
 
 [[member]]
 sig = "NAM0"
@@ -211,8 +216,10 @@ type = "ref:Vec3"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18583-L18583"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: crates/esm/tests/watr_types.rs (watr_types_full), 2026-10-29: all 19 official WATR records have NAM0",
 ]
-confidence = "reference"
+confidence = "corpus"
+note = "in all 19 official WATR records"
 
 [[member]]
 sig = "NAM1"
@@ -221,8 +228,10 @@ type = "ref:Vec3"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18584-L18584"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: crates/esm/tests/watr_types.rs (watr_types_full), 2026-10-29: all 19 official WATR records have NAM1",
 ]
-confidence = "reference"
+confidence = "corpus"
+note = "in all 19 official WATR records"
 
 [[member]]
 sig = "ENAM"
@@ -231,7 +240,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18585-L18585"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "HNAM"
@@ -240,7 +249,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18586-L18586"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "JNAM"
@@ -249,7 +258,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18587-L18587"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "LNAM"
@@ -258,7 +267,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18588-L18588"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "MNAM"
@@ -267,7 +276,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18589-L18589"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "QNAM"
@@ -276,7 +285,7 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18590-L18590"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"
 
 [[member]]
 sig = "UNAM"
@@ -285,4 +294,4 @@ type = "formid"
 targets = ["CUR3"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18591-L18591"]
-confidence = "reference"
+note = "in 18 of the 19 official WATR records"

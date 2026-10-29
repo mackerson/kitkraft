@@ -194,7 +194,7 @@
 // - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
 // - TXST (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official TXST record (23) decodes with every subrecord placed and re-encodes identically; corpus)
 // - VOLI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official VOLI record (44) decodes with every subrecord placed and re-encodes identically; corpus)
-// - WATR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592; reference)
+// - WATR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592; corpus)
 // - WBAR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically; corpus)
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
 // - WKMF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official WKMF record (81) decodes with every subrecord placed and re-encodes identically; corpus)
