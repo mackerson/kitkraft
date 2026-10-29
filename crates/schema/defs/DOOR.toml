@@ -8,10 +8,14 @@
 #     Helpers: script data (L3407-L3411, kept opaque), object bounds
 #     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2
 #     (L3965-L3978), SNTP (L3919), XALG (L3230), the base form component block
-#     (L5984-L6832, kept raw), FULL (L3184), the generic model (L7008-L7029), destruction
+#     (L5984-L6832), FULL (L3184), the generic model (L7008-L7029), destruction
 #     data (L3829-L3890), keywords (wbDefinitionsCommon.pas L8935-L8951), NTRM (L5676),
 #     FTYP (L5699), PRPS (L5679-L5686), sound references (L2197-L2227), the sound level
 #     (L2574-L2581), navmesh geometry (L3995-L4128, kept opaque).
+#   corpus: the 376 DOOR records of the 14 official ESMs, checked by the
+#     door_types scan in crates/esm/tests/door_types.rs on 2026-10-29 (every
+#     subrecord placed, every placed subrecord decoded, every record re-encoded
+#     identically).
 #
 # Members xEdit lists that no official record has (OPDS, PTT2, SNTP, the destruction block)
 # are kept so a plugin that has one decodes it; they stay reference-level.
@@ -20,7 +24,10 @@
 signature = "DOOR"
 name = "Door"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621"
-confidence = "reference"
+evidence = [
+  "corpus: the 376 DOOR records of the 14 official ESMs, 2026-10-29 scan; every record decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "corpus"
 flags = [
   ["NonOccluder", 0x10],
   ["HasDistantLod", 0x8000],
@@ -35,14 +42,21 @@ type = "zstring"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11582-L11582",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
 name = "Scripts"
 type = "opaque"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: door_types_full (crates/esm/tests/door_types.rs), 2026-10-29: 14 of the 376 official DOOR records carry a VMAD and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
@@ -58,7 +72,11 @@ evidence = [
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: door_types_full (crates/esm/tests/door_types.rs), 2026-10-29: 376 of the 376 official DOOR records carry an ODTY and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
@@ -113,7 +131,9 @@ card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11592-L11592",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: door_types_full (crates/esm/tests/door_types.rs), 2026-10-29: 309 of the 376 official DOOR records carry a FULL and every record re-encodes identically",
 ]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Model"
@@ -129,6 +149,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11594-L11594",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
 ]
+confidence = "reference"
 note = "not present in the official DOOR records"
 
 [[member]]

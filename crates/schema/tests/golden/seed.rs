@@ -81,7 +81,7 @@
 // - DLBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DMGT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - DOBJ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; reference)
+// - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
