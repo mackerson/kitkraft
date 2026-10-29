@@ -23,7 +23,8 @@
 //!   once a second on its one engine worker ([`session::SessionState::poll_due`]),
 //!   and ends it with `game.stop` (previewed, confirmed, its report kept). The
 //!   buttons' enabled state is read from the catalog and the gate
-//!   ([`game_button`]); `game.probe` stays disabled with M6.G5.
+//!   ([`game_button`]); `game.probe` is permitted with M6.G5 and runs per row: the
+//!   session's probe table offers a Re-run and a Screenshot per row ([`probes`]).
 
 use std::path::{Path, PathBuf};
 
@@ -1224,10 +1225,12 @@ impl CockpitTab {
                                         Some("no session is started: nothing to stop".to_string())
                                 }
                             },
-                            // `game.probe` reaches the gate with M6.G5.
+                            // `game.probe` runs per row: its Re-run and Screenshot
+                            // buttons are on the probe rows of the session below
+                            // (M6.G5).
                             _ => {
                                 *ctx.notice = Some(format!(
-                                    "`{}`: its preview and confirm land with M6.G5",
+                                    "`{}` runs per row: use the Re-run and Screenshot buttons on a probe row of the session below (M6.G5)",
                                     b.id
                                 ))
                             }
@@ -2434,16 +2437,11 @@ mod tests {
             let s = game_button(*b, &implemented, &yes);
             assert!(s.enabled, "{}", s.reason);
         }
-        // Today: game.session and game.stop are in the catalog and the gate permits
-        // them (M6.G4); game.probe stays disabled with M6.G5.
+        // Today: all four game commands are in the catalog and the gate permits them
+        // (M6.G4 and M6.G5).
         for s in game_buttons() {
             assert!(gate::find_command(s.id).is_some(), "{}", s.id);
-            if s.id == "game.probe" {
-                assert!(!s.enabled, "{}: {}", s.id, s.reason);
-                assert!(s.reason.contains("M6.G5"), "{}: {}", s.id, s.reason);
-            } else {
-                assert!(s.enabled, "{}: {}", s.id, s.reason);
-            }
+            assert!(s.enabled, "{}: {}", s.id, s.reason);
         }
     }
 

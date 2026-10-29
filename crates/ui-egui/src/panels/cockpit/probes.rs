@@ -9,9 +9,11 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::status_of;
+use crate::gate::Request;
+use crate::panels::ledger::LedgerForm;
 use crate::theme::Status;
 
 /// A screenshot one probe row named, resolved against the paths `game.status`
@@ -42,6 +44,8 @@ pub struct ProbeRow {
     pub title: String,
     /// The forms the row works on.
     pub forms: Vec<String>,
+    /// The commands the row runs (from the status row); empty when it has none.
+    pub commands: Vec<String>,
     /// What the row expected.
     pub expected: String,
     /// What the row saw.
@@ -56,6 +60,8 @@ pub struct ProbeRow {
     pub rerun: bool,
     /// The row's screenshots, resolved against the paths the reply listed.
     pub shots: Vec<ProbeShot>,
+    /// The row as the reply gave it: the Ledger's prefill builds from it.
+    pub raw: Value,
 }
 
 /// Every probe row of a `game.status` reply, in the order the reply gives them:
@@ -64,6 +70,9 @@ pub struct ProbeRow {
 pub struct ProbeRows {
     /// The rows, in the reply's order.
     pub rows: Vec<ProbeRow>,
+    /// The reply's `data.screenshots` as it came: a row's screenshots resolve
+    /// against it when the Ledger prefills from the row.
+    pub shots: Value,
 }
 
 impl ProbeRows {
@@ -77,8 +86,93 @@ impl ProbeRows {
         let mut rows = Vec::new();
         push_rows(&mut rows, data, false, &listed, exists);
         push_rows(&mut rows, data, true, &listed, exists);
-        Self { rows }
+        let shots = data
+            .and_then(|d| d.get("screenshots"))
+            .cloned()
+            .unwrap_or_default();
+        Self { rows, shots }
     }
+
+    /// The one row of a `game.probe` reply as a re-run of its id (M6.G5): appended
+    /// to the rows, its screenshots resolved against the paths this reply listed,
+    /// and the reply's `data.screenshots` merged into the listed ones — so a
+    /// just-added row's "Record in Ledger" finds its screenshot at once, without
+    /// waiting for the next `game.status` poll. `false` when the reply has no such
+    /// row, so the caller can say the re-run did not run.
+    pub fn push_rerun(&mut self, env: &Value, exists: &dyn Fn(&Path) -> bool) -> bool {
+        let Some(data) = env.get("data") else {
+            return false;
+        };
+        let Some(v) = data.get("row").filter(|v| v.is_object()) else {
+            return false;
+        };
+        let listed = listed_shots(Some(data));
+        self.rows.push(row_of(v, true, &listed, exists));
+        self.merge_shots(data);
+        true
+    }
+
+    /// The re-run reply's `data.screenshots` merged into the listed ones (M6.G5):
+    /// an already-listed file takes the reply's entry for it, an unlisted one is
+    /// appended, the old entries the reply did not list are kept, and an entry
+    /// without a `file` or a `path` is ignored.
+    fn merge_shots(&mut self, data: &Value) {
+        let Some(incoming) = data.get("screenshots").and_then(Value::as_array) else {
+            return;
+        };
+        if !matches!(self.shots, Value::Array(_)) {
+            self.shots = Value::Array(Vec::new());
+        }
+        let Some(mine) = self.shots.as_array_mut() else {
+            return;
+        };
+        for s in incoming {
+            let Some(file) = s.get("file").and_then(Value::as_str) else {
+                continue;
+            };
+            if s.get("path").and_then(Value::as_str).is_none() {
+                continue;
+            }
+            match mine
+                .iter_mut()
+                .find(|e| e.get("file").and_then(Value::as_str) == Some(file))
+            {
+                Some(e) => *e = s.clone(),
+                None => mine.push(s.clone()),
+            }
+        }
+    }
+}
+
+/// The rows that would get a "Record in Ledger" button, each with the form the
+/// button would send (M6.G6): one per row [`LedgerForm::from_probe_row`] accepts
+/// (the undecided ones), in the rows' order.
+pub fn ledger_prefills(rows: &ProbeRows, session: &str, file: &str) -> Vec<(String, LedgerForm)> {
+    rows.rows
+        .iter()
+        .filter_map(|r| {
+            LedgerForm::from_probe_row(session, &r.raw, &rows.shots, file)
+                .map(|f| (r.id.clone(), f))
+        })
+        .collect()
+}
+
+/// The confirmed `game.probe` re-running `row` of `session`, taking a screenshot
+/// only when `screenshot` (M6.G5): the one place this crate builds a confirmed
+/// `game.probe` (the gate's source scan holds it). The catalog gives the command
+/// no dry run, so there is no preview — the confirm box's button builds it, once
+/// per click.
+pub fn probe_request(session: &str, row: &str, screenshot: bool) -> Request {
+    let mut a = json!({
+        "id": session,
+        "row": row
+    });
+    if screenshot {
+        if let Some(m) = a.as_object_mut() {
+            m.insert("screenshot".into(), json!(true));
+        }
+    }
+    Request::confirmed("game.probe", a)
 }
 
 /// The rows or re-runs of the reply, one [`ProbeRow`] per object in the list.
@@ -148,6 +242,15 @@ fn row_of(
                 .map(str::to_string)
                 .collect()
         });
+    let commands = v
+        .get("commands")
+        .and_then(Value::as_array)
+        .map_or_else(Vec::new, |a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        });
     let verdict = v
         .get("verdict")
         .and_then(|o| o.get("status"))
@@ -174,6 +277,7 @@ fn row_of(
         id: str("row"),
         title: str("title"),
         forms,
+        commands,
         expected: str("expected"),
         seen: str("seen"),
         verdict,
@@ -181,6 +285,7 @@ fn row_of(
         status,
         rerun,
         shots,
+        raw: v.clone(),
     }
 }
 
@@ -243,14 +348,14 @@ pub fn decode_screenshot(bytes: &[u8]) -> Result<egui::ColorImage, String> {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self};
+use eframe::egui::{self, RichText, ScrollArea};
 
-use crate::panels::common::{self, Action, TabCtx};
+use crate::panels::common::{self, Action, Slot, TabCtx};
 use crate::theme::{self, View};
 
 /// What the probes' drawing keeps between frames: the session the selection and
-/// the textures are for (a new session starts both over), the selected row, and
-/// the textures loaded per screenshot path.
+/// the textures are for (a new session starts both over), the selected row, the
+/// textures loaded per screenshot path, and the re-run the confirm box is open for.
 #[derive(Default)]
 pub struct ProbeUi {
     /// The session the current selection and textures are for.
@@ -259,6 +364,19 @@ pub struct ProbeUi {
     selected: Option<usize>,
     /// Each screenshot path loaded once: the texture, or why it does not draw.
     shots: HashMap<PathBuf, Result<egui::TextureHandle, String>>,
+    /// The confirm box is open for this re-run (its button builds the confirmed
+    /// request once per click).
+    pending: Option<ProbeConfirm>,
+}
+
+/// The probe re-run the confirm box is open for (M6.G5): its row and whether a
+/// screenshot is taken with it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProbeConfirm {
+    /// The row id the re-run runs (`"T-02"`).
+    pub row: String,
+    /// A screenshot is taken with the re-run.
+    pub screenshot: bool,
 }
 
 impl ProbeUi {
@@ -270,18 +388,23 @@ impl ProbeUi {
             self.session = key;
             self.selected = None;
             self.shots.clear();
+            self.pending = None;
         }
         self.selected
     }
 }
 
 /// The session's probe rows and, below them, the selected row's screenshots: the
-/// rows in a table with the status component and an inspect link per form, the
-/// screenshots scaled to the panel width.
+/// rows in a table with the status component, an inspect link per form, a
+/// "Record in Ledger" button per undecided row, and "Re-run" / "Screenshot"
+/// buttons per row while the session is idle (their confirm box below the table),
+/// the screenshots scaled to the panel width.
 pub(crate) fn rows_ui(
     ui: &mut egui::Ui,
     ctx: &mut TabCtx<'_>,
     session: Option<&str>,
+    phase: Option<&str>,
+    ledger_file: &str,
     rows: &ProbeRows,
     probe: &mut ProbeUi,
 ) {
@@ -295,7 +418,7 @@ pub(crate) fn rows_ui(
         ui,
         "cockpit-session-probes",
         &[
-            "row", "title", "forms", "expected", "seen", "verdict", "reason",
+            "row", "title", "forms", "expected", "seen", "verdict", "reason", "action",
         ],
         rows.rows.len(),
         View::Medium,
@@ -337,8 +460,49 @@ pub(crate) fn rows_ui(
                 }
             });
             row.cell(|ui| ui.weak(&r.reason));
+            row.cell(|ui| {
+                // The re-runs (M6.G5): the engine serves game.probe only while the
+                // session's phase is "idle"; the confirm box says what will run.
+                let idle = phase == Some("idle");
+                let enabled = idle && !busy;
+                for (label, screenshot, why) in [
+                    ("Re-run", false, "re-run this row"),
+                    ("Screenshot", true, "re-run this row and take a screenshot"),
+                ] {
+                    let b = ui
+                        .add_enabled(enabled, egui::Button::new(label))
+                        .on_hover_text(if idle {
+                            why
+                        } else {
+                            "the session is not idle; the engine serves re-runs only then"
+                        });
+                    if b.clicked() {
+                        probe.pending = Some(ProbeConfirm {
+                            row: r.id.clone(),
+                            screenshot,
+                        });
+                    }
+                }
+                // The undecided rows offer the Ledger prefill (M6.G6): it writes
+                // nothing, the owner previews and confirms in the Ledger tab.
+                if let Some(form) =
+                    LedgerForm::from_probe_row(session, &r.raw, &rows.shots, ledger_file)
+                {
+                    if ui
+                        .button("Record in Ledger")
+                        .on_hover_text(
+                            "send this undecided row to the Ledger tab as a pre-filled form",
+                        )
+                        .clicked()
+                    {
+                        ctx.actions.push(Action::LedgerPrefill(form));
+                    }
+                }
+            });
         },
     );
+    // The re-run confirm box (M6.G5), re-checked every frame.
+    probe_confirm_ui(ui, ctx, session, phase, rows, probe);
     let sel = selected.and_then(|i| rows.rows.get(i));
     let Some(r) = sel else {
         return;
@@ -351,6 +515,105 @@ pub(crate) fn rows_ui(
         for shot in &r.shots {
             screenshot_ui(ui, shot, probe);
         }
+    }
+}
+
+/// The re-run's confirm box (M6.G5): what will run — the session, the row, its
+/// commands from the status rows, and whether a screenshot is taken. Re-checked
+/// every frame: it closes on its own when the row is gone or the session is no
+/// longer idle, and only its confirm button builds the confirmed `game.probe`,
+/// once per click.
+fn probe_confirm_ui(
+    ui: &mut egui::Ui,
+    ctx: &mut TabCtx<'_>,
+    session: &str,
+    phase: Option<&str>,
+    rows: &ProbeRows,
+    probe: &mut ProbeUi,
+) {
+    let busy = ctx.busy;
+    let mut close = false;
+    if let Some(pending) = &probe.pending {
+        match (
+            rows.rows.iter().find(|r| r.id == pending.row),
+            phase == Some("idle"),
+        ) {
+            (Some(r), true) => {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    theme::status_line(
+                        ui,
+                        Status::Warn,
+                        &format!(
+                            "Re-run row `{}` of session `{}`{}? Nothing is written until the one click.",
+                            r.id,
+                            session,
+                            if pending.screenshot {
+                                ", taking a screenshot"
+                            } else {
+                                ""
+                            }
+                        ),
+                    );
+                    ui.horizontal(|ui| {
+                        ui.label("session");
+                        ui.weak(session);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("row");
+                        ui.weak(format!("{} ({})", r.id, r.title));
+                    });
+                    if r.commands.is_empty() {
+                        ui.weak("no commands (the owner does this row)");
+                    } else {
+                        ScrollArea::vertical()
+                            .id_salt("cockpit-probe-confirm-commands")
+                            .max_height(theme::view_height(ui, View::Short))
+                            .show(ui, |ui| {
+                                for c in &r.commands {
+                                    ui.monospace(c);
+                                }
+                            });
+                    }
+                    ui.horizontal(|ui| {
+                        let (row, screenshot) = (pending.row.clone(), pending.screenshot);
+                        if ui
+                            .add_enabled(
+                                !busy,
+                                egui::Button::new(
+                                    RichText::new(if screenshot {
+                                        "Confirm: re-run with screenshot"
+                                    } else {
+                                        "Confirm: re-run"
+                                    })
+                                    .strong(),
+                                ),
+                            )
+                            .clicked()
+                        {
+                            ctx.actions.push(Action::Submit(
+                                Slot::CockpitSession,
+                                probe_request(session, &row, screenshot),
+                            ));
+                            close = true;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            close = true;
+                        }
+                    });
+                });
+            }
+            _ => {
+                theme::status_line(
+                    ui,
+                    Status::Warn,
+                    "Re-run: confirm closed: the row is gone or the session is no longer idle",
+                );
+                close = true;
+            }
+        }
+    }
+    if close {
+        probe.pending = None;
     }
 }
 
@@ -402,14 +665,16 @@ fn shot_image(
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_screenshot, ProbeRows};
+    use super::{decode_screenshot, ledger_prefills, probe_request, ProbeRows};
+    use crate::gate;
+    use crate::panels::ledger::LedgerForm;
     use crate::theme::Status;
     use serde_json::{json, Value};
 
-    /// The canned `game.status` reply the view model is tested on: three rows
+    /// The canned `game.status` reply the view model is tested on: four rows
     /// (`T-01` pass, `T-02` fail with a reason and one screenshot, `T-03` manual
-    /// `inconclusive` with one screenshot) and one re-run, the screenshots the
-    /// reply lists, and the files on disk.
+    /// `inconclusive` with one screenshot, `T-04` a manual `not-run`) and one
+    /// re-run, the screenshots the reply lists, and the files on disk.
     fn status_env() -> Value {
         json!({
             "command": "game.status",
@@ -447,6 +712,16 @@ mod tests {
                         "seen": "a screenshot for the owner",
                         "verdict": { "status": "inconclusive", "reason": "manual: the owner confirms" },
                         "screenshots": ["T-03-1.png"]
+                    },
+                    {
+                        "row": "T-04",
+                        "title": "the owner reads the console",
+                        "forms": [],
+                        "commands": [],
+                        "expected": "the owner reads it",
+                        "seen": "not run",
+                        "verdict": { "status": "not-run", "reason": "manual: the owner reads the console" },
+                        "screenshots": []
                     }
                 ],
                 "reruns": [
@@ -484,11 +759,11 @@ mod tests {
     fn probe_rows_and_screenshots_come_from_game_status() {
         let rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
         // Every row is there, in the reply's order, and the re-run is marked.
-        assert_eq!(rows.rows.len(), 4, "{:?}", rows.rows);
+        assert_eq!(rows.rows.len(), 5, "{:?}", rows.rows);
         let ids: Vec<&str> = rows.rows.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["T-01", "T-02", "T-03", "T-02"]);
-        assert!(rows.rows.iter().take(3).all(|r| !r.rerun));
-        assert!(rows.rows.get(3).unwrap().rerun);
+        assert_eq!(ids, ["T-01", "T-02", "T-03", "T-04", "T-02"]);
+        assert!(rows.rows.iter().take(4).all(|r| !r.rerun));
+        assert!(rows.rows.get(4).unwrap().rerun);
         // Verdicts and reasons, mapped to the status component's statuses.
         let t1 = rows.rows.first().unwrap();
         assert_eq!(
@@ -514,7 +789,16 @@ mod tests {
                 Status::Inconclusive
             )
         );
-        let rr = rows.rows.get(3).unwrap();
+        let t4 = rows.rows.get(3).unwrap();
+        assert_eq!(
+            (t4.verdict.as_str(), t4.reason.as_str(), t4.status),
+            (
+                "not-run",
+                "manual: the owner reads the console",
+                Status::NotRun
+            )
+        );
+        let rr = rows.rows.get(4).unwrap();
         assert_eq!(
             (rr.verdict.as_str(), rr.reason.as_str(), rr.status),
             ("pass", "", Status::Pass)
@@ -581,6 +865,126 @@ mod tests {
                 .iter()
                 .all(|s| s.path.is_some() || s.reason == "not listed")
         }));
+    }
+
+    /// M6.G5: a re-run reply's screenshots join the listed ones at once — the old
+    /// entries the reply did not list are kept, the just-added row's "Record in
+    /// Ledger" finds its screenshot by its listed path, and a re-listed file is
+    /// replaced, not doubled.
+    #[test]
+    fn a_rerun_reply_lists_its_screenshots_at_once() {
+        let mut rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
+        let file = "observe/s/T-04-1.png";
+        let rerun = json!({
+            "command": "game.probe",
+            "data": {
+                "row": {
+                    "row": "T-04",
+                    "title": "the owner reads the console",
+                    "verdict": { "status": "inconclusive", "reason": "manual: the owner reads it" },
+                    "screenshots": ["T-04-1.png"]
+                },
+                "screenshots": [{ "file": "T-04-1.png", "path": file }]
+            }
+        });
+        assert!(rows.push_rerun(&rerun, &|p| p == std::path::Path::new(file)));
+        // The new entry joins the old ones, which the reply did not list.
+        let files = |r: &ProbeRows| {
+            r.shots
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|e| e.get("file").and_then(Value::as_str))
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(files(&rows), ["T-02-1.png", "T-03-1.png", "T-04-1.png"]);
+        // The just-added row's "Record in Ledger" names the screenshot by its listed
+        // path, not "not listed". Both T-04s are undecided: the original `not-run`
+        // row and the re-run; the re-run's form is the last one.
+        let prefills = ledger_prefills(&rows, "2026-10-27-t01", "docs/game-observations.md");
+        assert_eq!(prefills.len(), 3, "{prefills:#?}");
+        let form = prefills
+            .iter()
+            .rev()
+            .find(|(id, _)| id == "T-04")
+            .unwrap()
+            .1
+            .clone();
+        assert!(
+            form.note.contains("T-04-1.png: observe/s/T-04-1.png"),
+            "{form:?}"
+        );
+        // A re-listed file is replaced, not doubled.
+        let again = json!({
+            "command": "game.probe",
+            "data": {
+                "row": { "row": "T-04", "verdict": { "status": "pass" } },
+                "screenshots": [{ "file": "T-04-1.png", "path": "observe/s/T-04-2.png" }]
+            }
+        });
+        assert!(rows.push_rerun(&again, &|_: &std::path::Path| false));
+        assert_eq!(files(&rows), ["T-02-1.png", "T-03-1.png", "T-04-1.png"]);
+        assert_eq!(
+            rows.shots
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|e| e.get("file").and_then(Value::as_str) == Some("T-04-1.png"))
+                .and_then(|e| e.get("path").and_then(Value::as_str)),
+            Some("observe/s/T-04-2.png")
+        );
+    }
+
+    /// The rows that offer "Record in Ledger" are exactly the undecided ones — the
+    /// `inconclusive` row and the manual `not-run` row — and the form each would send
+    /// is [`LedgerForm::from_probe_row`]'s (M6.G6).
+    #[test]
+    fn record_in_ledger_is_offered_only_for_undecided_rows() {
+        let rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
+        let session = "2026-10-27-t01";
+        let file = "docs/game-observations.md";
+        let prefills = ledger_prefills(&rows, session, file);
+        // Exactly the undecided rows, in the rows' order.
+        let ids: Vec<&str> = prefills.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, ["T-03", "T-04"], "{prefills:#?}");
+        // The form each would send is from_probe_row's for that row.
+        for (id, form) in &prefills {
+            let raw = rows.rows.iter().find(|r| r.id == *id).unwrap();
+            let expected =
+                LedgerForm::from_probe_row(session, &raw.raw, &rows.shots, file).unwrap();
+            assert_eq!(form, &expected, "{id}");
+        }
+        // The decided rows (pass, fail, and the re-run) offer nothing.
+        for r in &rows.rows {
+            if r.id != "T-03" && r.id != "T-04" {
+                assert!(
+                    LedgerForm::from_probe_row(session, &r.raw, &rows.shots, file).is_none(),
+                    "{}",
+                    r.id
+                );
+            }
+        }
+    }
+
+    /// The confirmed re-run: `game.probe` for its row of its session, the
+    /// `screenshot` flag only when asked, and it passes the gate only confirmed.
+    #[test]
+    fn the_probe_request_is_confirmed_and_says_what_it_takes() {
+        let r = probe_request("2026-10-27-t01", "T-02", false);
+        assert_eq!(r.id, "game.probe");
+        assert!(r.is_confirmed());
+        assert_eq!(r.args, json!({"id": "2026-10-27-t01", "row": "T-02"}));
+        assert!(gate::check(&r).is_ok(), "{}", r.args);
+        let s = probe_request("2026-10-27-t01", "T-02", true);
+        assert_eq!(
+            s.args,
+            json!({"id": "2026-10-27-t01", "row": "T-02", "screenshot": true})
+        );
+        // Unconfirmed, the same arguments are refused (no preview form).
+        let un = crate::gate::Request::new("game.probe", json!({"id": "s", "row": "T-02"}));
+        assert!(!un.is_confirmed());
+        assert!(gate::check(&un).is_err());
     }
 
     #[test]

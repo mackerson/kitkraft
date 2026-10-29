@@ -4,9 +4,10 @@ The workbench is a read-only egui window over `Engine::execute` (ADR 0007 Amendm
 plan M4 lane W). It is a way to look at the data, not a second implementation of anything.
 Each view runs one engine command, or a fixed sequence of commands, and shows the result
 envelope. The UI track continues in M6 "Cockpit", M7 "CK parity" and M8 "Beyond the CK"
-("Roadmap" at the end). One write is permitted (Amendment 2): the Ledger
-tab appends the owner's in-game result as a row of `docs/game-observations.md`, a repo
-doc, one confirm click per row.
+("Roadmap" at the end). The window's first permitted write is the Ledger
+tab's (Amendment 2): it appends the owner's in-game result as a row of
+`docs/game-observations.md`, a repo doc, one confirm click per row. The six
+permitted writes ADR 0007 Amendment 3 names are listed under "What it can run".
 
 ## Launch
 
@@ -96,10 +97,10 @@ M6.G1 and M6.G3):
   with `out` or `overwrite`.
 - **The permitted writes** (`gate::PERMITTED_WRITES`, inside `gate::COCKPIT_SCOPE`, the six
   commands ADR 0007 Amendment 3 names: `ledger`, `deploy`, `deploy.rollback`,
-  `game.session`, `game.probe`, `game.stop`). Today five of them are permitted, each
-  with a preview that passes like a read and a writing form that passes only as a request
-  built by `Request::confirmed`, which one panel file per command makes, once per
-  confirm click:
+  `game.session`, `game.probe`, `game.stop`). Today all six of them are permitted, each
+  with a writing form that passes only as a request built by `Request::confirmed`, which
+  one panel file per command makes, once per confirm click, and five of them with a
+  preview that passes like a read (`game.probe` has none):
 
   | Command | Preview (writes nothing) | Writing form | Panel |
   | ------- | ------------------------ | ------------ | ----- |
@@ -107,6 +108,7 @@ M6.G1 and M6.G3):
   | `deploy` (`--dev`) | `dry_run: true` | `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit.rs`) |
   | `deploy.rollback` | `dry_run: true` | as `deploy` | Cockpit |
   | `game.session` | `dry_run: true` | `start: true`, `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit/session.rs`) |
+  | `game.probe` | none | confirmed | Cockpit (`panels/cockpit/probes.rs`) |
   | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
@@ -125,13 +127,14 @@ M6.G1 and M6.G3):
   confirmed or not; the gate also refuses `profile` = `Default` (any case, trimmed) in
   every form of `game.session`, while `profile` may be absent (the engine's default is
   `KitKraft Dev`). `game.stop`'s writing form is like `deploy`'s: no `dry_run`,
-  confirmed. `game.probe` is not yet permitted: its Cockpit buttons (Re-run probe,
-  Screenshot) stay disabled with M6.G5 as the reason. `game.status` is on the allowlist:
-  it is how the window follows a started session.
+  confirmed. `game.probe` is permitted now (M6.G5): it has no preview — its writing
+  form is only a confirmed request, built once per confirm click in the Cockpit's
+  probe rows (below). `game.status` is on the allowlist: it is how the window follows
+  a started session.
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
-  `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`,
-  `game.probe` and (M7, ADR 0007 Amendment 4, proposed) the editor's writes.
+  `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*` and (M7,
+  ADR 0007 Amendment 4, proposed) the editor's writes.
 
 Tests enforce this in six ways:
 
@@ -171,7 +174,9 @@ What the workbench writes, all of it:
   Cockpit confirm click: one isolated `KitKraft Dev - <plugin>` mod folder (and its
   `.previous`) in the loaded profile's MO2 instance, never a profile, `plugins.txt` or
   another mod (ADR 0009).
-- **Screenshots**, only when you set the tour's environment variable (below).
+- **Probe screenshots**, written by the engine's `game.probe` re-run when its confirm
+  box asks for one (the Cockpit's Screenshot button).
+- **Tour screenshots**, only when you set the tour's environment variable (below).
 
 `load` still fills the engine's own index cache, as it does for the CLI and MCP.
 
@@ -189,14 +194,15 @@ What the workbench writes, all of it:
   the reasons above), whose button sends the one confirmed request; after a write the
   panel reads the dev mod back. The ledger entries naming the plugin's file (or the
   SHA-256 the deploy preview reports) are listed. The game buttons (Launch and run
-  probes, Stop, Re-run probe, Screenshot) take their state from the catalog and the
-  gate: Launch and Stop are wired now (M6.G4). Launch previews with `game.session
+  probes, Stop, Re-run, Screenshot) take their state from the catalog and the
+  gate: Launch, Stop and the probe rows' Re-run and Screenshot are wired now
+  (M6.G4, M6.G5). Launch previews with `game.session
   --dry-run` (its plan and every refusal), and its confirm box opens only while the dry
   run said `would_start` for the arguments the form still holds; Stop previews with
   `game.stop --dry-run` (its `would` lines) and confirms the same way. While a session
   is started, the window follows it with a `game.status` poll every second over the one
   engine worker, and shows the phase, the current row, the rows done, the elapsed
-  seconds and the last events, and, from M6.G5 (first half), the probe rows: one row
+  seconds and the last events, and, from M6.G5, the probe rows: one row
   per probe, re-runs marked, each with its verdict (the status component) and reason,
   and each form a link that inspects it. Selecting a row shows its screenshots below
   the table, scaled to the panel width: the window opens only the files at the paths
@@ -205,8 +211,15 @@ What the workbench writes, all of it:
   `inconclusive` with its reason ("listed by game.status but missing on disk" or
   "not listed"), and one that cannot be opened or decoded is shown `inconclusive` with
   the decoder's reason — never hidden. Polling stops when the phase is `finished`,
-  when a status fails, or on the confirmed stop (whose report is kept). Re-run probe
-  and Screenshot stay disabled until M6.G5's second half.
+  when a status fails, or on the confirmed stop (whose report is kept). Each probe
+  row gets a **Re-run** and a **Screenshot** button (the latter re-running the row
+  with a screenshot), enabled only while the session is idle: a click opens a
+  confirm box — the session, the row and its commands, and whether a screenshot is
+  taken — whose button builds the one confirmed `game.probe`, once per click, and
+  whose reply's row joins the table as the latest re-run; a reply without a row,
+  or a refused request, is kept and shown as a status line. Each row the session
+  left undecided gets a **Record in Ledger** button that sends it to the Ledger tab
+  as a pre-filled form (a `custom` row, `note`) and writes nothing (M6.G6).
 - **Coverage**: `coverage --matrix` with optional record types, plugin and evidence file;
   one row per type with the six statuses as status components, a filter by type, and a
   click on a type lists each cell's evidence pointers and whether they resolve.
@@ -385,8 +398,8 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     screenshots by its listed path (a name not listed is named "not listed"), cut at
     a character boundary to the engine's `note` and `label` caps; the tab shows one
     line naming the session row the form came from, and nothing is written until the
-    owner previews, appends and confirms the row (the Cockpit button that sends a row
-    here is a later ticket).
+    owner previews, appends and confirms the row (the Cockpit's probe rows offer one
+    button per undecided row, above).
   - **Preview** runs `ledger` without `confirm` and shows the text it would append, and
     which entry it goes into (`game-<yyyymmdd>-<nn>: workbench ledger, <date>, <profile>`,
     new or continued). Nothing is written.

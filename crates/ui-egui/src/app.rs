@@ -786,7 +786,12 @@ impl App {
                     }
                     // M6.G4: the session's replies join its state directly (no view).
                     Slot::CockpitSession => {
-                        self.cockpit.session.receive_session(&reply.request, env)
+                        if reply.request.id == "game.probe" {
+                            // A confirmed re-run: its one row joins the probe rows (M6.G5).
+                            self.cockpit.session.receive_probe(env)
+                        } else {
+                            self.cockpit.session.receive_session(&reply.request, env)
+                        }
                     }
                     Slot::CockpitGameStatus => self.cockpit.session.receive_status(env),
                     Slot::CockpitGameStop => self.cockpit.session.receive_stop(env),
@@ -806,8 +811,11 @@ impl App {
             Slot::CockpitSession | Slot::CockpitGameStatus | Slot::CockpitGameStop
         ) {
             // Only a failed poll (or a failed start) ends the following; a failed
-            // preview leaves it in place. The error stays in the slot's result.
-            self.cockpit.session.failed(&reply.request);
+            // preview leaves it in place, and a failed re-run is kept as its own
+            // line. The error stays in the slot's result.
+            self.cockpit
+                .session
+                .failed(&reply.request, reply.result.as_ref().err());
         }
         // Replies arrive in submission order, so the session now is the one this
         // request ran against.
@@ -947,6 +955,12 @@ impl App {
                     Ok(req) => self.submit(Slot::Ledger, req),
                     Err(e) => self.notice = Some(e),
                 },
+                // The Cockpit's "Record in Ledger": nothing is written here — the form is
+                // pre-filled on the Ledger tab, where the owner previews and confirms.
+                Action::LedgerPrefill(form) => {
+                    self.ledger.prefill(form);
+                    self.tab = Tab::Ledger;
+                }
                 Action::SetTheme(choice) => {
                     self.theme = choice;
                     self.theme_source = "the Start tab (kept in ui.json)";
