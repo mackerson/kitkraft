@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         105 |   252,710 |    211,869 |   785,933 |  82,037 |
-| **Total**       |          186 |         168 | 7,490,102 | 46,767,390 | 2,863,426 | 788,745 |
+| container/other |          123 |         105 |   252,710 |    219,299 |   785,943 |  74,597 |
+| **Total**       |          186 |         168 | 7,490,102 | 46,774,820 | 2,863,436 | 781,305 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 168 record definitions, defs hash `fnv1a64:c1449352ddcec8ca` (the hash named in
+- Schema: 168 record definitions, defs hash `fnv1a64:d565a81c24aecd3e` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -145,7 +145,7 @@ Columns:
 | `KEYM`        | Key                            |       343 |          0 |    15 |     2 |      0 |      13 |
 | `IRES`        | Resource                       |       333 |          0 |    14 |     5 |      9 |       0 |
 | `IMGS`        | ImageSpaceForm                 |       303 |          0 |     4 |     1 |      3 |       0 |
-| `FLOR`        | Flora                          |       302 |          0 |    39 |     3 |      0 |      36 |
+| `FLOR`        | Flora                          |       302 |          0 |    39 |    37 |      2 |       0 |
 | `PROJ`        | Projectile                     |       299 |          0 |    24 |    22 |      2 |       0 |
 | `LVLN`        | LeveledNpc                     |       298 |          0 |    15 |    14 |      1 |       0 |
 | `MUST`        | MusicTrack                     |       279 |          0 |    10 |     1 |      9 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,870 |    488 |     439 |
+| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,904 |    490 |     403 |
 
-Subrecord occurrences: 50,419,561 in total; 46,767,390 typed (0 of them failed to decode), 2,863,426 opaque, 788,745 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,774,820 typed (0 of them failed to decode), 2,863,436 opaque, 781,305 unknown.
 
 ## Decoded through the definitions
 
@@ -337,7 +337,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `KEYM`    | Key                            |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
 | `IRES`    | Resource                       |           333 |      1,149 |      0 |         0 |         0 |                   0 |      1,149 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |           303 |        303 |      0 |         0 |         0 |                   0 |        303 |       0 |        0 |
-| `FLOR`    | Flora                          |           302 |        902 |      0 |         0 |         0 |                   0 |        902 |       0 |        0 |
+| `FLOR`    | Flora                          |           302 |      8,332 |      0 |         0 |         0 |                   0 |      8,332 |       0 |        0 |
 | `PROJ`    | Projectile                     |           299 |      4,421 |      0 |         0 |         0 |                   0 |      4,421 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |           298 |      5,323 |      0 |         0 |         0 |                   0 |      5,323 |       0 |        0 |
 | `MUST`    | MusicTrack                     |           279 |        279 |      0 |         0 |         0 |                   0 |        279 |       0 |        0 |
@@ -430,7 +430,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,480,741 | 46,767,390 |      0 |         0 |    18,685 |                   0 | 46,748,705 |       0 |        0 |
+| **Total** |                                |     7,480,741 | 46,774,820 |      0 |         0 |    18,685 |                   0 | 46,756,135 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -496,7 +496,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `EXPL`    | Explosion                      |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `FACT`    | Faction                        |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
 | `FFKW`    | FormFolderKeywordList          |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `FLOR`    | Flora                          |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `FLOR`    | Flora                          |             78 |    74 |      4 |         8 |                   0 |     70 |       0 |        0 |
 | `FLST`    | FormIdList                     |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
 | `FOGV`    | FogVolume                      |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FORC`    | ForceData                      |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -613,7 +613,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,087 | 4,349 |    738 |       320 |                   2 |  4,765 |       0 |        0 |
+| **Total** |                                |          5,162 | 4,420 |    742 |       328 |                   2 |  4,832 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -649,7 +649,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `DOOR`: `FLTR` (1), `INTV` (1)
 - `EXPL`: `ANAM` (1), `BFCB` (443), `BFCE` (443), `BNAM` (1), `DAMA` (130), `DEFL` (1), `EITM` (36), `ENAM` (359), `FLLD` (359), `MNAM` (188), `MODL` (356), `OBND` (359), `ODTY` (359), `OPDS` (27), `PTCL` (169), `REFL` (207), `XALG` (155)
 - `KEYM`: `DATA` (343), `FLAG` (277), `FLLD` (343), `KSIZ` (336), `KWDA` (336), `MODL` (338), `MOLM` (1), `OBND` (343), `ODTY` (343), `PTT2` (337), `VMAD` (12), `XALG` (317), `XFLG` (1)
-- `FLOR`: `ANAM` (40), `APPR` (261), `BFCB` (98), `BFCE` (98), `BNAM` (302), `DEST` (2), `DSTD` (1), `DSTF` (1), `FHLS` (125), `FLLD` (302), `FLXP` (92), `FMAG` (220), `FMAH` (302), `FMIG` (299), `FMIH` (302), `FNAM` (302), `JNAM` (302), `KSIZ` (297), `KWDA` (297), `MODL` (302), `MOLM` (40), `OBND` (302), `OBTE` (263), `OBTF` (173), `OBTS` (263), `ODTY` (302), `OPDS` (302), `PFHS` (259), `PFIG` (299), `PFPC` (302), `PNAM` (302), `PRPS` (296), `PTCL` (6), `STOP` (302), `VMAD` (4), `XFLG` (80)
 - `SFPT`: `DAT2` (255), `DATA` (76)
 - `HDPT`: `BFCB` (2), `BFCE` (2), `DATA` (236), `FLLD` (236), `HNAM` (30), `MNAM` (202), `MODL` (231), `NAM2` (147), `NAM3` (140), `PNAM` (236), `RNAM` (236), `TNAM` (1)
 - `ARTO`: `MNAM` (1)

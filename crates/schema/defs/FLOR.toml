@@ -1,27 +1,36 @@
-# FLOR: Flora, lstring-only definition (lane B round 3, M3.B8).
+# FLOR: Flora.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): ATTX, FULL are lstrings in every official FLOR record.
 #   xedit: the FLOR definition of wbDefinitionsSF1.pas at the pinned revision (L11984-L12021)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#     and the helpers it uses: EDID (L3182), script data (L3407-L3411, kept opaque), the
+#     object bounds (wbDefinitionsCommon.pas L9348-L9365), the dirtiness scale (L3921-L3923),
+#     the object palette defaults (L3925-L3962), the transforms (L3965-L3978), the base form
+#     component block (L5984-L6832), FULL (L3184), the generic model (L7008-L7029), the
+#     destructible block (L3829-L3890), the keywords (wbDefinitionsCommon.pas L8935-L8951),
+#     the properties (L5679-L5686), the marker color (wbDefinitionsCommon.pas L6954-L6968),
+#     the activate text override (L5700), the attach parent slots (L5698), the object
+#     template (L6961-L6974) and the sound reference (L2197-L2227); the base object list for
+#     the ingredient FormID is at L43-L54.
+#   corpus: the 302 FLOR records of the 14 official ESMs (crates/esm/tests/flora_types.rs,
+#     flora_types_full, 2026-10-29): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. PTT2 is absent from all 302; the destruction
+#     data in 2, VMAD in 4, ANAM in 40, the BFCB blocks in 92, FLXP in 92 and FHLS in 125,
+#     the remaining members in 220 or more records.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): ATTX and FULL
+#     are lstrings in every official FLOR record.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Every member xEdit gives a layout is typed here; the script data (VMAD) stays raw. EDID,
+# ATTX and FULL keep the lstring evidence they carried when the type was lstring-only.
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "FLOR"
 name = "Flora"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11984-L12021"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11984-L12021",
+  "corpus: crates/esm/tests/flora_types.rs (flora_types_full), 2026-10-29: in all 302 official FLOR records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: ATTX and FULL are lstrings in every official FLOR record",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
@@ -36,28 +45,51 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: ATTX, FULL in the official FLOR records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11984-L12021",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
-sig = "ATTX"
-name = "ActivateTextOverride"
-type = "lstring"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11998-L11998"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5700-L5700",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official FLOR records every ATTX is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw; in 4 of the 302 official FLOR records"
 
-[[member.member]]
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "absent from all 302 official FLOR records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; in 92 of the 302 official FLOR records"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -68,3 +100,178 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official FLOR records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+note = "in 301 of the 302 official FLOR records"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+note = "destruction data; in 2 of the 302 official FLOR records"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "in 297 of the 302 official FLOR records"
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
+note = "in 296 of the 302 official FLOR records"
+
+[[member]]
+sig = "PNAM"
+name = "MarkerColor"
+type = "ref:ColorRgb"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968"]
+note = "upstream names the color unused; in all 302 official FLOR records"
+
+[[member]]
+sig = "ATTX"
+name = "ActivateTextOverride"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11998-L11998"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5700-L5700",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official FLOR records every ATTX is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+note = "in 299 of the 302 official FLOR records"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "u16"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11999-L12000"]
+note = "upstream marks the value collapsible and names no bits; in all 302 official FLOR records"
+
+[[member]]
+sig = "JNAM"
+name = "ActivationAngleForPlayer"
+type = "u16"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12001-L12001"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "PFIG"
+name = "Ingredient"
+type = "formid"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54"]
+note = "in 299 of the 302 official FLOR records"
+
+[[member]]
+sig = "PFHS"
+name = "HarvestSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"]
+note = "in 259 of the 302 official FLOR records"
+
+[[member]]
+sig = "PFPC"
+name = "IngredientProduction"
+type = "struct"
+size = 4
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12004-L12009"]
+field = [
+  { name = "Spring", type = "u8" },
+  { name = "Summer", type = "u8" },
+  { name = "Fall", type = "u8" },
+  { name = "Winter", type = "u8" },
+]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+count = "rest"
+element = "formid"
+targets = ["KYWD"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698"]
+note = "in 261 of the 302 official FLOR records"
+
+[[member]]
+group_ref = "ObteBlock"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
+note = "the object template; its STOP marker is required; in all 302 official FLOR records"
+
+[[member]]
+sig = "ANAM"
+name = "ActionKeyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12013-L12013"]
+note = "ANAM in 40 of the 302 official FLOR records, direct or inside a BFCB animation graph component"
+
+[[member]]
+sig = "BNAM"
+name = "DamageRequiredToHarvest"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12014-L12014"]
+note = "BNAM in all 302 official FLOR records, direct or inside a BFCB animation graph component"
+
+[[member]]
+sig = "FMAH"
+name = "MaxHarvestCount"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12015-L12015"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "FMIH"
+name = "MinHarvestCount"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12016-L12016"]
+note = "in all 302 official FLOR records"
+
+[[member]]
+sig = "FMAG"
+name = "MaxGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12017-L12017"]
+note = "in 220 of the 302 official FLOR records"
+
+[[member]]
+sig = "FMIG"
+name = "MinGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12018-L12018"]
+note = "in 299 of the 302 official FLOR records"
+
+[[member]]
+sig = "FLXP"
+name = "Explosion"
+type = "formid"
+targets = ["EXPL"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12019-L12019"]
+note = "in 92 of the 302 official FLOR records"
+
+[[member]]
+sig = "FHLS"
+name = "HarvestLoopingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"]
+note = "in 125 of the 302 official FLOR records"
