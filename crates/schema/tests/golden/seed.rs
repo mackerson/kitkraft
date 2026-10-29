@@ -47,7 +47,7 @@
 // - ACTI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9199-L9274; corpus)
 // - ADDN (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official ADDN record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AFFE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9309-L9329; corpus)
-// - ALCH (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - ALCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384; corpus)
 // - AMBS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AMBS record (369) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AMDL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9387-L9409; corpus)
 // - AMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470; corpus)
@@ -11793,89 +11793,115 @@ impl AffeRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct AlchLocalizedStrings {
-    /// `DESC`, optional.
-    pub description: Option<Sub<LString>>,
-    /// `DNAM`, optional.
-    pub addiction_name: Option<Sub<LString>>,
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
-}
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlchComponents(pub Vec<Component>);
 
-impl AlchLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"DESC",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"DNAM",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FULL",
-            card: Card::Optional,
-        },
-    ];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.description,
-                    subs,
-                    *index,
-                    "ALCH.LocalizedStrings.DESC",
-                    ctx,
-                    extra,
-                ),
-                Hit::Sub { member: 1, index } => put(
-                    &mut self.addiction_name,
-                    subs,
-                    *index,
-                    "ALCH.LocalizedStrings.DNAM",
-                    ctx,
-                    extra,
-                ),
-                Hit::Sub { member: 2, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "ALCH.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
-        }
+impl Field for AlchComponents {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"DESC", self.description.as_ref());
-        emit(out, *b"DNAM", self.addiction_name.as_ref());
-        emit(out, *b"FULL", self.name.as_ref());
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
     }
 }
 
-impl Visit for AlchLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.description, "ALCH.LocalizedStrings.DESC", out);
-        visit_lstrings(&self.addiction_name, "ALCH.LocalizedStrings.DNAM", out);
-        visit_lstrings(&self.name, "ALCH.LocalizedStrings.FULL", out);
+impl Visit for AlchComponents {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.description, "ALCH.LocalizedStrings.DESC", out);
-        visit_lstrings_mut(&mut self.addiction_name, "ALCH.LocalizedStrings.DNAM", out);
-        visit_lstrings_mut(&mut self.name, "ALCH.LocalizedStrings.FULL", out);
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlchComponentDisplayIndices(pub Vec<u8>);
+
+impl Field for AlchComponentDisplayIndices {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AlchComponentDisplayIndices {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct AlchEffectDataFlags(pub u32);
+
+impl AlchEffectDataFlags {
+    pub const NO_AUTO_CALC: u32 = 0x1;
+    pub const FOOD_ITEM: u32 = 0x2;
+    pub const MEDICINE: u32 = 0x10000;
+    pub const POISON: u32 = 0x20000;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for AlchEffectDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AlchEffectDataFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AlchEffectData {
+    pub value: i32,
+    pub flags: AlchEffectDataFlags,
+    pub addiction: FormId,
+    pub addiction_chance: f32,
+    pub sound: SoundReference,
+}
+
+impl Field for AlchEffectData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "ALCH.ENIT.Value", ctx)?;
+        let f1 = Field::read(r, "ALCH.ENIT.Flags", ctx)?;
+        let f2 = Field::read(r, "ALCH.ENIT.Addiction", ctx)?;
+        let f3 = f32::read(r, "ALCH.ENIT.AddictionChance", ctx)?;
+        let f4 = Field::read(r, "ALCH.ENIT.Sound", ctx)?;
+        Ok(Self {
+            value: f0,
+            flags: f1,
+            addiction: f2,
+            addiction_chance: f3,
+            sound: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value.write(out);
+        self.flags.write(out);
+        self.addiction.write(out);
+        self.addiction_chance.write(out);
+        self.sound.write(out);
+    }
+}
+
+impl Visit for AlchEffectData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.addiction, "ALCH.ENIT.Addiction", out);
+        visit_form_ids(&self.sound, "ALCH.ENIT.Sound", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.addiction, "ALCH.ENIT.Addiction", out);
+        visit_form_ids_mut(&mut self.sound, "ALCH.ENIT.Sound", out);
     }
 }
 
@@ -11883,8 +11909,50 @@ impl Visit for AlchLocalizedStrings {
 pub struct AlchRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<AlchLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// Group `Destructible`, optional.
+    pub destructible: Option<Destructible>,
+    /// `PUSH`, optional.
+    pub pickup_sound: Option<Sub<SoundReference>>,
+    /// `PDSH`, optional.
+    pub putdown_sound: Option<Sub<SoundReference>>,
+    /// `ETYP`, optional.
+    pub equipment_type: Option<Sub<FormId>>,
+    /// `CUSH`, optional.
+    pub crafting_sound: Option<Sub<SoundReference>>,
+    /// `DESC`, optional.
+    pub description: Option<Sub<LString>>,
+    /// `CVPA`, optional.
+    pub components: Option<Sub<AlchComponents>>,
+    /// `CDIX`, optional.
+    pub component_display_indices: Option<Sub<AlchComponentDisplayIndices>>,
+    /// `DATA`, required.
+    pub weight: Option<Sub<f32>>,
+    /// `ENIT`, required.
+    pub effect_data: Option<Sub<AlchEffectData>>,
+    /// `DNAM`, optional.
+    pub addiction_name: Option<Sub<LString>>,
+    /// Group `Effect`, repeated.
+    pub effect: Vec<Effect>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -11899,9 +11967,93 @@ impl AlchRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: AlchLocalizedStrings::MEMBERS,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: Model::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Destructible::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"PUSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PDSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ETYP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CUSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DESC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CVPA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CDIX",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENIT",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Effect::MEMBERS,
         },
     ];
 
@@ -11917,10 +12069,126 @@ impl AlchRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "ALCH.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = AlchLocalizedStrings::default();
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "ALCH.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "ALCH.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "ALCH.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "ALCH.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "ALCH.PTT2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "ALCH.XALG", ctx, extra)
+                }
+                Hit::Group { member: 7, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.name, subs, *index, "ALCH.FULL", ctx, extra)
+                }
+                Hit::Group { member: 9, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Group { member: 10, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
+                }
+                Hit::Group { member: 11, hits } if self.destructible.is_none() => {
+                    let mut group = Destructible::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.destructible = Some(group);
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.pickup_sound,
+                    subs,
+                    *index,
+                    "ALCH.PUSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.putdown_sound,
+                    subs,
+                    *index,
+                    "ALCH.PDSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.equipment_type,
+                    subs,
+                    *index,
+                    "ALCH.ETYP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.crafting_sound,
+                    subs,
+                    *index,
+                    "ALCH.CUSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => {
+                    put(&mut self.description, subs, *index, "ALCH.DESC", ctx, extra)
+                }
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.components, subs, *index, "ALCH.CVPA", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => put(
+                    &mut self.component_display_indices,
+                    subs,
+                    *index,
+                    "ALCH.CDIX",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.weight, subs, *index, "ALCH.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 20, index } => {
+                    put(&mut self.effect_data, subs, *index, "ALCH.ENIT", ctx, extra)
+                }
+                Hit::Sub { member: 21, index } => put(
+                    &mut self.addiction_name,
+                    subs,
+                    *index,
+                    "ALCH.DNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 22, hits } => {
+                    let mut group = Effect::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.effect.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -11929,25 +12197,90 @@ impl AlchRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        if let Some(group) = &self.keywords {
+            group.emit(out);
+        }
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        if let Some(group) = &self.destructible {
+            group.emit(out);
+        }
+        emit(out, *b"PUSH", self.pickup_sound.as_ref());
+        emit(out, *b"PDSH", self.putdown_sound.as_ref());
+        emit(out, *b"ETYP", self.equipment_type.as_ref());
+        emit(out, *b"CUSH", self.crafting_sound.as_ref());
+        emit(out, *b"DESC", self.description.as_ref());
+        emit(out, *b"CVPA", self.components.as_ref());
+        emit(out, *b"CDIX", self.component_display_indices.as_ref());
+        emit(out, *b"DATA", self.weight.as_ref());
+        emit(out, *b"ENIT", self.effect_data.as_ref());
+        emit(out, *b"DNAM", self.addiction_name.as_ref());
+        for group in &self.effect {
             group.emit(out);
         }
     }
 }
 
 impl Visit for AlchRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "ALCH.PTT2", out);
+        visit_form_ids(&self.bfcb_block, "ALCH.BfcbBlock", out);
+        visit_form_ids(&self.keywords, "ALCH.Keywords", out);
+        visit_form_ids(&self.model, "ALCH.Model", out);
+        visit_form_ids(&self.destructible, "ALCH.Destructible", out);
+        visit_form_ids(&self.pickup_sound, "ALCH.PUSH", out);
+        visit_form_ids(&self.putdown_sound, "ALCH.PDSH", out);
+        visit_form_ids(&self.equipment_type, "ALCH.ETYP", out);
+        visit_form_ids(&self.crafting_sound, "ALCH.CUSH", out);
+        visit_form_ids(&self.components, "ALCH.CVPA", out);
+        visit_form_ids(&self.effect_data, "ALCH.ENIT", out);
+        visit_form_ids(&self.effect, "ALCH.Effect", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "ALCH.PTT2", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "ALCH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.keywords, "ALCH.Keywords", out);
+        visit_form_ids_mut(&mut self.model, "ALCH.Model", out);
+        visit_form_ids_mut(&mut self.destructible, "ALCH.Destructible", out);
+        visit_form_ids_mut(&mut self.pickup_sound, "ALCH.PUSH", out);
+        visit_form_ids_mut(&mut self.putdown_sound, "ALCH.PDSH", out);
+        visit_form_ids_mut(&mut self.equipment_type, "ALCH.ETYP", out);
+        visit_form_ids_mut(&mut self.crafting_sound, "ALCH.CUSH", out);
+        visit_form_ids_mut(&mut self.components, "ALCH.CVPA", out);
+        visit_form_ids_mut(&mut self.effect_data, "ALCH.ENIT", out);
+        visit_form_ids_mut(&mut self.effect, "ALCH.Effect", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "ALCH.LocalizedStrings", out);
+        visit_lstrings(&self.name, "ALCH.FULL", out);
+        visit_lstrings(&self.description, "ALCH.DESC", out);
+        visit_lstrings(&self.addiction_name, "ALCH.DNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "ALCH.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "ALCH.FULL", out);
+        visit_lstrings_mut(&mut self.description, "ALCH.DESC", out);
+        visit_lstrings_mut(&mut self.addiction_name, "ALCH.DNAM", out);
     }
 }
 
 impl AlchRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"ALCH";
+    /// Record-header flag.
+    pub const FLAG_MEDICINE: u32 = 0x20000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

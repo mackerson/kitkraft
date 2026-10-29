@@ -1,27 +1,36 @@
-# ALCH: Ingestible, lstring-only definition (lane B round 3, M3.B8).
+# ALCH: Ingestible, a consumable the player can eat or drink from a container. It
+# carries the ingredient components and their display order, the weight, the effect
+# data (value, flags, the addiction spell, the sound) and the effects it applies.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): DESC, DNAM, FULL are lstrings in every official ALCH record.
-#   xedit: the ALCH definition of wbDefinitionsSF1.pas at the pinned revision (L9332-L9384)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9332-L9384 - member order, the record
+#     flags. Helpers: script data (L3407-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS
+#     (L3925-L3962), PTT2 (L3965-L3978), XALG (L3230), the base form component
+#     block (L5984-L6832), FULL (L3184), the keywords (wbDefinitionsCommon.pas
+#     L8935-L8951), the generic model (L7008-L7029), the destruction data
+#     (L3829-L3890), the crafting, pickup and putdown sounds (L2333-L2335), ETYP
+#     (L4252), DESC (L3188), the components (L2258-L2267), the component display
+#     indices (L2269), the effect data (L9356-L9381) and the effect list
+#     (L6994-L6995).
+#   corpus: the 365 ALCH records of the 14 official ESMs, checked by the
+#     alch_types scan in crates/esm/tests/alch_types.rs on 2026-10-28 (every
+#     subrecord placed, every placed subrecord decoded, every record re-encoded
+#     identically).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# The lstring subrecords (FULL, DESC, DNAM) keep their lane E typing: the corpus
+# lstring table (crates/engine/src/edit/lstrings.rs, checked by
+# lstring_table_matches_the_corpus) names them in every official ALCH record.
 signature = "ALCH"
 name = "Ingestible"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384",
+  "corpus: the 365 ALCH records of the 14 official ESMs, 2026-10-28 scan; every record decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+flags = [
+  ["Medicine", 0x20000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -36,16 +45,118 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: DESC, DNAM, FULL in the official ALCH records are lstrings (lane E's table, edit::lstrings)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official ALCH records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry an ODTY and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
 
-[[member.member]]
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9344-L9344"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official ALCH records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
+note = "not present in the official ALCH records"
+
+[[member]]
+sig = "PUSH"
+name = "PickupSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+
+[[member]]
+sig = "PDSH"
+name = "PutdownSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+
+[[member]]
+sig = "ETYP"
+name = "EquipmentType"
+type = "formid"
+targets = ["EQUP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252"]
+confidence = "reference"
+note = "not present in the official ALCH records"
+
+[[member]]
+sig = "CUSH"
+name = "CraftingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333"]
+
+[[member]]
 sig = "DESC"
 name = "Description"
 type = "lstring"
@@ -57,7 +168,58 @@ evidence = [
 ]
 confidence = "corpus"
 
-[[member.member]]
+[[member]]
+sig = "CVPA"
+name = "Components"
+type = "array"
+element = "ref:Component"
+count = "rest"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2258-L2267",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 96 of the 365 official ALCH records carry a CVPA and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "xEdit leaves the entry's last four bytes unused in ALCH, though the same struct normally carries a curve table there"
+
+[[member]]
+sig = "CDIX"
+name = "ComponentDisplayIndices"
+type = "array"
+element = "u8"
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2269-L2269"]
+
+[[member]]
+sig = "DATA"
+name = "Weight"
+type = "f32"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9355-L9355",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry a DATA and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "ENIT"
+name = "EffectData"
+type = "struct"
+size = 56
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9356-L9381",
+  "corpus: alch_types_full (crates/esm/tests/alch_types.rs), 2026-10-28: 365 of the 365 official ALCH records carry an ENIT and every record re-encodes identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Value", type = "i32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["NoAutoCalc", 0x1], ["FoodItem", 0x2], ["Medicine", 0x10000], ["Poison", 0x20000]] },
+  { name = "Addiction", type = "formid", targets = ["SPEL"] },
+  { name = "AddictionChance", type = "f32" },
+  { name = "Sound", type = "ref:SoundReference" },
+]
+
+[[member]]
 sig = "DNAM"
 name = "AddictionName"
 type = "lstring"
@@ -68,14 +230,8 @@ evidence = [
 ]
 confidence = "corpus"
 
-[[member.member]]
-sig = "FULL"
-name = "Name"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9344-L9344"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official ALCH records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+[[member]]
+group_ref = "Effect"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6994-L6995"]
+note = "the effects the ingestible applies"
