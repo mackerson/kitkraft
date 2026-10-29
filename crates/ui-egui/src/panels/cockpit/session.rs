@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Map, Value};
 
 use super::{dev_target, probes, session_confirm_gate, CockpitEnv, DevTarget};
-use crate::gate::Request;
+use crate::gate::{Request, RunError};
 
 /// The interval between two `game.status` polls: one per second (M6.G4).
 pub const POLL_INTERVAL: Duration = Duration::from_secs(1);
@@ -330,6 +330,8 @@ pub struct SessionState {
     /// A `game.status` failed (for example "no session" after a stop): polling
     /// stopped, and why.
     pub poll_error: Option<String>,
+    /// A confirmed re-run failed (M6.G5), and why: the session's drawing shows it.
+    pub probe_error: Option<String>,
 }
 
 impl SessionState {
@@ -407,6 +409,7 @@ impl SessionState {
         self.probes = None;
         self.pending = None;
         self.poll_error = None;
+        self.probe_error = None;
         self.poll_pending = false;
         self.last_poll = None;
     }
@@ -451,6 +454,21 @@ impl SessionState {
         self.probes = Some(probes::ProbeRows::from_status(env, &|p| p.exists()));
     }
 
+    /// The reply to a `game.probe` re-run (M6.G5): its one row joins the probe rows
+    /// as the latest re-run; the next `game.status` poll lists it under `reruns` too.
+    /// A reply without that row is a failed re-run, kept and shown as a status line.
+    pub fn receive_probe(&mut self, env: &Value) {
+        let pushed = self
+            .probes
+            .get_or_insert_with(probes::ProbeRows::default)
+            .push_rerun(env, &|p| p.exists());
+        self.probe_error = if pushed {
+            None
+        } else {
+            Some("the reply has no data.row: the re-run did not run".to_string())
+        };
+    }
+
     /// The reply to a `game.stop` request: the dry run or the confirmed stop, by
     /// `data.dry_run`. The confirmed stop's report is kept, and the following ends.
     pub fn receive_stop(&mut self, env: &Value) {
@@ -472,8 +490,9 @@ impl SessionState {
 
     /// An error reply to one of the session's requests: only a failed status poll or
     /// a failed start ends the following — a failed preview (of the start or of the
-    /// stop) leaves it in place. The error stays in the slot's result.
-    pub fn failed(&mut self, request: &Request) {
+    /// stop) leaves it in place, and a failed re-run is kept as its own line. The
+    /// error stays in the slot's result.
+    pub fn failed(&mut self, request: &Request, error: Option<&RunError>) {
         self.poll_pending = false;
         let poll = request.id == "game.status";
         let start = request.id == "game.session"
@@ -488,6 +507,11 @@ impl SessionState {
                 "the status polls failed; polling stopped".to_string()
             } else {
                 "the start failed; nothing to follow".to_string()
+            });
+        } else if request.id == "game.probe" {
+            self.probe_error = Some(match error {
+                Some(e) => format!("the re-run failed: {e}"),
+                None => "the re-run failed".to_string(),
             });
         }
     }
@@ -793,6 +817,7 @@ pub(crate) fn session_ui(
                 ui,
                 ctx,
                 state.id.as_deref(),
+                state.phase.as_deref(),
                 form.ledger.trim(),
                 rows,
                 probe,
@@ -804,6 +829,9 @@ pub(crate) fn session_ui(
         }
         if let Some(err) = &state.poll_error {
             theme::status_line(ui, Status::Warn, err);
+        }
+        if let Some(err) = &state.probe_error {
+            theme::status_line(ui, Status::Fail, err);
         }
     }
 }
@@ -933,10 +961,10 @@ mod tests {
         s.receive_status(&probing);
         assert!(s.following(), "a probing session is still followed");
         assert!(s.poll_due(now).is_some(), "a poll is due after a status");
-        s.failed(&Request::new(
-            "game.status",
-            json!({"id": "2026-10-25-T01"}),
-        ));
+        s.failed(
+            &Request::new("game.status", json!({"id": "2026-10-25-T01"})),
+            None,
+        );
         assert!(s.poll_error.is_some(), "the failure is remembered");
         assert!(!s.following());
         assert!(s.poll_due(now).is_none(), "failed: no poll");
@@ -966,12 +994,39 @@ mod tests {
         assert!(s.preview.is_none(), "the start spends the dry run");
         assert!(s.stop_preview.is_none());
         assert!(s.following());
-        s.failed(&SessionForm::start_request(&preview.args));
+        s.failed(&SessionForm::start_request(&preview.args), None);
         assert!(
             s.poll_error.is_none(),
             "a refused second start: still followed"
         );
         assert!(s.following());
+    }
+
+    /// M6.G5: a re-run whose reply has no row, or that failed, is remembered and
+    /// shown; a good reply clears it.
+    #[test]
+    fn a_failed_rerun_is_kept_and_a_good_one_clears_it() {
+        let mut s = SessionState::default();
+        s.receive_start(&json!({"data": {"session": "2026-10-27-t01", "dry_run": false}}));
+        s.receive_probe(&json!({"data": {"row": "not-an-object"}}));
+        assert!(
+            s.probe_error.is_some(),
+            "a reply without a row is remembered"
+        );
+        s.receive_probe(&json!({"data": {
+            "row": {"row": "T-02", "verdict": {"status": "pass"}}
+        }}));
+        assert!(s.probe_error.is_none(), "the good reply clears it");
+        assert_eq!(
+            s.probes.as_ref().map(|p| p.rows.len()),
+            Some(1),
+            "only the good row joined the rows"
+        );
+        s.failed(
+            &Request::new("game.probe", json!({"id": "2026-10-27-t01", "row": "T-04"})),
+            Some(&gate::RunError::Refused("no such row".into())),
+        );
+        assert!(s.probe_error.is_some(), "the failed request is remembered");
     }
 
     /// M6.G4: the window follows a session it started, on the engine's one worker:
