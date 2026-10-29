@@ -43,7 +43,7 @@ confidence = "corpus"
 [[member]]
 group = "ObstacleGroup"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1365 groups, 1694 obstacle entries in all)"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead: 1694 obstacle entries in 1365 groups"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14933",
 ]
@@ -53,7 +53,7 @@ note = "one or more obstacle entries followed by their model name (NAM1)"
 [[member.member]]
 group = "Obstacle"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 entries, 12693 data points in all)"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead, with 12693 data points in all"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14931",
 ]
