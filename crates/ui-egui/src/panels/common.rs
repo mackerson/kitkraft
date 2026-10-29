@@ -98,6 +98,9 @@ pub(crate) enum Action {
     LoadProfile(StartProfile),
     /// The Ledger panel's confirm click: append this row (the workbench's one write).
     LedgerAppend(LedgerForm),
+    /// The Cockpit's "Record in Ledger": pre-fill the Ledger form with this probe row's
+    /// form and switch to the Ledger tab (nothing is written; the owner confirms there).
+    LedgerPrefill(LedgerForm),
     /// The Start tab's theme picker: apply this preset and mode and keep it in `ui.json`.
     SetTheme(ThemeChoice),
     /// The Help tab's "Use this checkout": remember the folder (when it is a checkout)

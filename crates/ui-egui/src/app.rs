@@ -947,6 +947,12 @@ impl App {
                     Ok(req) => self.submit(Slot::Ledger, req),
                     Err(e) => self.notice = Some(e),
                 },
+                // The Cockpit's "Record in Ledger": nothing is written here — the form is
+                // pre-filled on the Ledger tab, where the owner previews and confirms.
+                Action::LedgerPrefill(form) => {
+                    self.ledger.prefill(form);
+                    self.tab = Tab::Ledger;
+                }
                 Action::SetTheme(choice) => {
                     self.theme = choice;
                     self.theme_source = "the Start tab (kept in ui.json)";

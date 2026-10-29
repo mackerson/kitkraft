@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::status_of;
+use crate::panels::ledger::LedgerForm;
 use crate::theme::Status;
 
 /// A screenshot one probe row named, resolved against the paths `game.status`
@@ -42,6 +43,8 @@ pub struct ProbeRow {
     pub title: String,
     /// The forms the row works on.
     pub forms: Vec<String>,
+    /// The commands the row runs (from the status row); empty when it has none.
+    pub commands: Vec<String>,
     /// What the row expected.
     pub expected: String,
     /// What the row saw.
@@ -56,6 +59,8 @@ pub struct ProbeRow {
     pub rerun: bool,
     /// The row's screenshots, resolved against the paths the reply listed.
     pub shots: Vec<ProbeShot>,
+    /// The row as the reply gave it: the Ledger's prefill builds from it.
+    pub raw: Value,
 }
 
 /// Every probe row of a `game.status` reply, in the order the reply gives them:
@@ -64,6 +69,9 @@ pub struct ProbeRow {
 pub struct ProbeRows {
     /// The rows, in the reply's order.
     pub rows: Vec<ProbeRow>,
+    /// The reply's `data.screenshots` as it came: a row's screenshots resolve
+    /// against it when the Ledger prefills from the row.
+    pub shots: Value,
 }
 
 impl ProbeRows {
@@ -77,8 +85,39 @@ impl ProbeRows {
         let mut rows = Vec::new();
         push_rows(&mut rows, data, false, &listed, exists);
         push_rows(&mut rows, data, true, &listed, exists);
-        Self { rows }
+        let shots = data
+            .and_then(|d| d.get("screenshots"))
+            .cloned()
+            .unwrap_or_default();
+        Self { rows, shots }
     }
+
+    /// The one row of a `game.probe` reply as a re-run of its id (M6.G5): appended
+    /// to the rows, its screenshots resolved against the paths this reply listed
+    /// (the next `game.status` poll lists them under `reruns` too).
+    pub fn push_rerun(&mut self, env: &Value, exists: &dyn Fn(&Path) -> bool) {
+        let Some(data) = env.get("data") else {
+            return;
+        };
+        let Some(v) = data.get("row").filter(|v| v.is_object()) else {
+            return;
+        };
+        let listed = listed_shots(Some(data));
+        self.rows.push(row_of(v, true, &listed, exists));
+    }
+}
+
+/// The rows that would get a "Record in Ledger" button, each with the form the
+/// button would send (M6.G6): one per row [`LedgerForm::from_probe_row`] accepts
+/// (the undecided ones), in the rows' order.
+pub fn ledger_prefills(rows: &ProbeRows, session: &str, file: &str) -> Vec<(String, LedgerForm)> {
+    rows.rows
+        .iter()
+        .filter_map(|r| {
+            LedgerForm::from_probe_row(session, &r.raw, &rows.shots, file)
+                .map(|f| (r.id.clone(), f))
+        })
+        .collect()
 }
 
 /// The rows or re-runs of the reply, one [`ProbeRow`] per object in the list.
@@ -148,6 +187,15 @@ fn row_of(
                 .map(str::to_string)
                 .collect()
         });
+    let commands = v
+        .get("commands")
+        .and_then(Value::as_array)
+        .map_or_else(Vec::new, |a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        });
     let verdict = v
         .get("verdict")
         .and_then(|o| o.get("status"))
@@ -174,6 +222,7 @@ fn row_of(
         id: str("row"),
         title: str("title"),
         forms,
+        commands,
         expected: str("expected"),
         seen: str("seen"),
         verdict,
@@ -181,6 +230,7 @@ fn row_of(
         status,
         rerun,
         shots,
+        raw: v.clone(),
     }
 }
 
@@ -276,12 +326,14 @@ impl ProbeUi {
 }
 
 /// The session's probe rows and, below them, the selected row's screenshots: the
-/// rows in a table with the status component and an inspect link per form, the
-/// screenshots scaled to the panel width.
+/// rows in a table with the status component, an inspect link per form, and a
+/// "Record in Ledger" button per undecided row, the screenshots scaled to the
+/// panel width.
 pub(crate) fn rows_ui(
     ui: &mut egui::Ui,
     ctx: &mut TabCtx<'_>,
     session: Option<&str>,
+    ledger_file: &str,
     rows: &ProbeRows,
     probe: &mut ProbeUi,
 ) {
@@ -295,7 +347,7 @@ pub(crate) fn rows_ui(
         ui,
         "cockpit-session-probes",
         &[
-            "row", "title", "forms", "expected", "seen", "verdict", "reason",
+            "row", "title", "forms", "expected", "seen", "verdict", "reason", "action",
         ],
         rows.rows.len(),
         View::Medium,
@@ -337,6 +389,23 @@ pub(crate) fn rows_ui(
                 }
             });
             row.cell(|ui| ui.weak(&r.reason));
+            row.cell(|ui| {
+                // The undecided rows offer the Ledger prefill (M6.G6): it writes
+                // nothing, the owner previews and confirms in the Ledger tab.
+                if let Some(form) =
+                    LedgerForm::from_probe_row(session, &r.raw, &rows.shots, ledger_file)
+                {
+                    if ui
+                        .button("Record in Ledger")
+                        .on_hover_text(
+                            "send this undecided row to the Ledger tab as a pre-filled form",
+                        )
+                        .clicked()
+                    {
+                        ctx.actions.push(Action::LedgerPrefill(form));
+                    }
+                }
+            });
         },
     );
     let sel = selected.and_then(|i| rows.rows.get(i));
@@ -402,14 +471,15 @@ fn shot_image(
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_screenshot, ProbeRows};
+    use super::{decode_screenshot, ledger_prefills, ProbeRows};
+    use crate::panels::ledger::LedgerForm;
     use crate::theme::Status;
     use serde_json::{json, Value};
 
-    /// The canned `game.status` reply the view model is tested on: three rows
+    /// The canned `game.status` reply the view model is tested on: four rows
     /// (`T-01` pass, `T-02` fail with a reason and one screenshot, `T-03` manual
-    /// `inconclusive` with one screenshot) and one re-run, the screenshots the
-    /// reply lists, and the files on disk.
+    /// `inconclusive` with one screenshot, `T-04` a manual `not-run`) and one
+    /// re-run, the screenshots the reply lists, and the files on disk.
     fn status_env() -> Value {
         json!({
             "command": "game.status",
@@ -447,6 +517,16 @@ mod tests {
                         "seen": "a screenshot for the owner",
                         "verdict": { "status": "inconclusive", "reason": "manual: the owner confirms" },
                         "screenshots": ["T-03-1.png"]
+                    },
+                    {
+                        "row": "T-04",
+                        "title": "the owner reads the console",
+                        "forms": [],
+                        "commands": [],
+                        "expected": "the owner reads it",
+                        "seen": "not run",
+                        "verdict": { "status": "not-run", "reason": "manual: the owner reads the console" },
+                        "screenshots": []
                     }
                 ],
                 "reruns": [
@@ -484,11 +564,11 @@ mod tests {
     fn probe_rows_and_screenshots_come_from_game_status() {
         let rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
         // Every row is there, in the reply's order, and the re-run is marked.
-        assert_eq!(rows.rows.len(), 4, "{:?}", rows.rows);
+        assert_eq!(rows.rows.len(), 5, "{:?}", rows.rows);
         let ids: Vec<&str> = rows.rows.iter().map(|r| r.id.as_str()).collect();
-        assert_eq!(ids, ["T-01", "T-02", "T-03", "T-02"]);
-        assert!(rows.rows.iter().take(3).all(|r| !r.rerun));
-        assert!(rows.rows.get(3).unwrap().rerun);
+        assert_eq!(ids, ["T-01", "T-02", "T-03", "T-04", "T-02"]);
+        assert!(rows.rows.iter().take(4).all(|r| !r.rerun));
+        assert!(rows.rows.get(4).unwrap().rerun);
         // Verdicts and reasons, mapped to the status component's statuses.
         let t1 = rows.rows.first().unwrap();
         assert_eq!(
@@ -514,7 +594,16 @@ mod tests {
                 Status::Inconclusive
             )
         );
-        let rr = rows.rows.get(3).unwrap();
+        let t4 = rows.rows.get(3).unwrap();
+        assert_eq!(
+            (t4.verdict.as_str(), t4.reason.as_str(), t4.status),
+            (
+                "not-run",
+                "manual: the owner reads the console",
+                Status::NotRun
+            )
+        );
+        let rr = rows.rows.get(4).unwrap();
         assert_eq!(
             (rr.verdict.as_str(), rr.reason.as_str(), rr.status),
             ("pass", "", Status::Pass)
@@ -581,6 +670,37 @@ mod tests {
                 .iter()
                 .all(|s| s.path.is_some() || s.reason == "not listed")
         }));
+    }
+
+    /// The rows that offer "Record in Ledger" are exactly the undecided ones — the
+    /// `inconclusive` row and the manual `not-run` row — and the form each would send
+    /// is [`LedgerForm::from_probe_row`]'s (M6.G6).
+    #[test]
+    fn record_in_ledger_is_offered_only_for_undecided_rows() {
+        let rows = ProbeRows::from_status(&status_env(), &exists_on_disk());
+        let session = "2026-10-27-t01";
+        let file = "docs/game-observations.md";
+        let prefills = ledger_prefills(&rows, session, file);
+        // Exactly the undecided rows, in the rows' order.
+        let ids: Vec<&str> = prefills.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, ["T-03", "T-04"], "{prefills:#?}");
+        // The form each would send is from_probe_row's for that row.
+        for (id, form) in &prefills {
+            let raw = rows.rows.iter().find(|r| r.id == *id).unwrap();
+            let expected =
+                LedgerForm::from_probe_row(session, &raw.raw, &rows.shots, file).unwrap();
+            assert_eq!(form, &expected, "{id}");
+        }
+        // The decided rows (pass, fail, and the re-run) offer nothing.
+        for r in &rows.rows {
+            if r.id != "T-03" && r.id != "T-04" {
+                assert!(
+                    LedgerForm::from_probe_row(session, &r.raw, &rows.shots, file).is_none(),
+                    "{}",
+                    r.id
+                );
+            }
+        }
     }
 
     #[test]

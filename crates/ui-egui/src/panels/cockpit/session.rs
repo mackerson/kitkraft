@@ -789,7 +789,14 @@ pub(crate) fn session_ui(
             }
         });
         match &state.probes {
-            Some(rows) => probes::rows_ui(ui, ctx, state.id.as_deref(), rows, probe),
+            Some(rows) => probes::rows_ui(
+                ui,
+                ctx,
+                state.id.as_deref(),
+                form.ledger.trim(),
+                rows,
+                probe,
+            ),
             None => {
                 theme::gap(ui);
                 ui.weak("no probe rows yet");
