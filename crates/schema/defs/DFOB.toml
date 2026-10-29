@@ -1,0 +1,47 @@
+# DFOB: DefaultObject, inventory definition (KK-022).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official DFOB record (1273 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-29): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane decodes the record (docs/gaps.md).
+signature = "DFOB"
+name = "DefaultObject"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (KK-022): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1273 of 1273 official DFOB records (1273 occurrences), 9..58 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 8 of 1273 official DFOB records (8 occurrences), 8 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 8 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1200 of 1273 official DFOB records (1200 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-022 inventory); observed 4 bytes"

@@ -59,6 +59,7 @@
 // - ARTO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official ARTO record (212) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ATMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AVIF (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - AVMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
 // - BMMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BMOD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official BMOD record (529) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -76,7 +77,9 @@
 // - CPTH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11031-L11049; corpus)
 // - CSTY (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CUR3 (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CUR3 record (36) decodes with every subrecord placed and re-encodes identically; corpus)
+// - CURV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official CURV record (29) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DEBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DEBR record (3) decodes with every subrecord placed and re-encodes identically; corpus)
+// - DFOB (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DIAL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11297-L11523; corpus)
 // - DLBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DMGT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
@@ -111,6 +114,7 @@
 // - IMGS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMGS record (303) decodes with every subrecord placed and re-encodes identically; corpus)
 // - INFO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12756-L12884; corpus)
 // - INNR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12887-L13144; corpus)
+// - IPCT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official IPCT record (1459) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IPDS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IPDS record (356) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IRES (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically; corpus)
 // - KEYM (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
@@ -164,6 +168,7 @@
 // - QUST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16339-L16514; corpus)
 // - RACE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16517-L16812; corpus)
 // - REFR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8530-L9042; corpus)
+// - REGN (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official REGN record (4) decodes with every subrecord placed and re-encodes identically; corpus)
 // - REVB (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official REVB record (41) decodes with every subrecord placed and re-encodes identically; corpus)
 // - RFGP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official RFGP record (169006) decodes with every subrecord placed and re-encodes identically; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
@@ -17556,6 +17561,279 @@ impl AvifRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AvmdLnamEntries {
+    /// `LNAM`, required.
+    pub lnam: Option<Sub<Bytes>>,
+    /// `VNAM`, optional.
+    pub vnam: Option<Sub<Bytes>>,
+    /// `NNAM`, required.
+    pub nnam: Option<Sub<Bytes>>,
+}
+
+impl AvmdLnamEntries {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"LNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.lnam,
+                    subs,
+                    *index,
+                    "AVMD.LnamEntries.LNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.vnam,
+                    subs,
+                    *index,
+                    "AVMD.LnamEntries.VNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.nnam,
+                    subs,
+                    *index,
+                    "AVMD.LnamEntries.NNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"LNAM", self.lnam.as_ref());
+        emit(out, *b"VNAM", self.vnam.as_ref());
+        emit(out, *b"NNAM", self.nnam.as_ref());
+    }
+}
+
+impl Visit for AvmdLnamEntries {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AvmdRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `MNAM`, required.
+    pub mnam: Option<Sub<Bytes>>,
+    /// `YNAM`, required.
+    pub ynam: Option<Sub<Bytes>>,
+    /// `TNAM`, required.
+    pub tnam: Option<Sub<Bytes>>,
+    /// `ITMC`, required.
+    pub itmc: Option<Sub<Bytes>>,
+    /// Group `LnamEntries`, repeated.
+    pub lnam_entries: Vec<AvmdLnamEntries>,
+    /// `MODT`, required.
+    pub modt: Option<Sub<Bytes>>,
+    /// `AVMP`, optional.
+    pub avmp: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl AvmdRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"YNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ITMC",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: AvmdLnamEntries::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"MODT",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"AVMP",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "AVMD.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.mnam, subs, *index, "AVMD.MNAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.ynam, subs, *index, "AVMD.YNAM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.tnam, subs, *index, "AVMD.TNAM", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.itmc, subs, *index, "AVMD.ITMC", ctx, extra)
+                }
+                Hit::Group { member: 6, hits } => {
+                    let mut group = AvmdLnamEntries::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.lnam_entries.push(group);
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.modt, subs, *index, "AVMD.MODT", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.avmp, subs, *index, "AVMD.AVMP", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"MNAM", self.mnam.as_ref());
+        emit(out, *b"YNAM", self.ynam.as_ref());
+        emit(out, *b"TNAM", self.tnam.as_ref());
+        emit(out, *b"ITMC", self.itmc.as_ref());
+        for group in &self.lnam_entries {
+            group.emit(out);
+        }
+        emit(out, *b"MODT", self.modt.as_ref());
+        emit(out, *b"AVMP", self.avmp.as_ref());
+    }
+}
+
+impl Visit for AvmdRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "AVMD.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "AVMD.BfcbBlock", out);
+    }
+}
+
+impl AvmdRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"AVMD";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("AVMD", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("AVMD", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("AVMD", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("AVMD", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct BiomFlora(pub Vec<FormId>);
 
@@ -23963,6 +24241,119 @@ impl Cur3Record {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct CurvRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `REFL`, required.
+    pub refl: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl CurvRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"REFL",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "CURV.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.refl, subs, *index, "CURV.REFL", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"REFL", self.refl.as_ref());
+    }
+}
+
+impl Visit for CurvRecord {}
+
+impl CurvRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"CURV";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("CURV", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("CURV", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("CURV", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("CURV", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct DebrModels {
     /// `DATA`, required.
     pub data: Option<Sub<Bytes>>,
@@ -24124,6 +24515,129 @@ impl DebrRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("DEBR", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DfobRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `XALG`, optional.
+    pub xalg: Option<Sub<Bytes>>,
+    /// `DATA`, optional.
+    pub data: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl DfobRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "DFOB.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.xalg, subs, *index, "DFOB.XALG", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data, subs, *index, "DFOB.DATA", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"XALG", self.xalg.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+    }
+}
+
+impl Visit for DfobRecord {}
+
+impl DfobRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"DFOB";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("DFOB", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("DFOB", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("DFOB", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("DFOB", &mut out);
         out
     }
 }
@@ -33369,6 +33883,231 @@ impl InnrRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("INNR", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct IpctRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `MODL`, optional.
+    pub modl: Option<Sub<Bytes>>,
+    /// `FLLD`, required.
+    pub flld: Option<Sub<Bytes>>,
+    /// `DATA`, required.
+    pub data: Option<Sub<Bytes>>,
+    /// `GNAM`, optional.
+    pub gnam: Option<Sub<Bytes>>,
+    /// `HNAM`, optional.
+    pub hnam: Option<Sub<Bytes>>,
+    /// `DODT`, optional.
+    pub dodt: Option<Sub<Bytes>>,
+    /// `IDSH`, optional.
+    pub idsh: Option<Sub<Bytes>>,
+    /// `IDP1`, optional.
+    pub idp1: Option<Sub<Bytes>>,
+    /// `IDP3`, optional.
+    pub idp3: Option<Sub<Bytes>>,
+    /// `FNAM`, optional.
+    pub fnam: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl IpctRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"MODL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLLD",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DODT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDP1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDP3",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "IPCT.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.modl, subs, *index, "IPCT.MODL", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.flld, subs, *index, "IPCT.FLLD", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.data, subs, *index, "IPCT.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.gnam, subs, *index, "IPCT.GNAM", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.hnam, subs, *index, "IPCT.HNAM", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.dodt, subs, *index, "IPCT.DODT", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.idsh, subs, *index, "IPCT.IDSH", ctx, extra)
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.idp1, subs, *index, "IPCT.IDP1", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.idp3, subs, *index, "IPCT.IDP3", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.fnam, subs, *index, "IPCT.FNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"MODL", self.modl.as_ref());
+        emit(out, *b"FLLD", self.flld.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"GNAM", self.gnam.as_ref());
+        emit(out, *b"HNAM", self.hnam.as_ref());
+        emit(out, *b"DODT", self.dodt.as_ref());
+        emit(out, *b"IDSH", self.idsh.as_ref());
+        emit(out, *b"IDP1", self.idp1.as_ref());
+        emit(out, *b"IDP3", self.idp3.as_ref());
+        emit(out, *b"FNAM", self.fnam.as_ref());
+    }
+}
+
+impl Visit for IpctRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "IPCT.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "IPCT.BfcbBlock", out);
+    }
+}
+
+impl IpctRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"IPCT";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("IPCT", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("IPCT", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("IPCT", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("IPCT", &mut out);
         out
     }
 }
@@ -67708,6 +68447,159 @@ impl RefrRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct RegnRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `RCLR`, required.
+    pub rclr: Option<Sub<Bytes>>,
+    /// `RPLI`, optional.
+    pub rpli: Option<Sub<Bytes>>,
+    /// `RPLD`, optional.
+    pub rpld: Option<Sub<Bytes>>,
+    /// `RDAT`, optional.
+    pub rdat: Option<Sub<Bytes>>,
+    /// `RDWT`, optional.
+    pub rdwt: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl RegnRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCLR",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"RPLI",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RPLD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RDAT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RDWT",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "REGN.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.rclr, subs, *index, "REGN.RCLR", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.rpli, subs, *index, "REGN.RPLI", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.rpld, subs, *index, "REGN.RPLD", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.rdat, subs, *index, "REGN.RDAT", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.rdwt, subs, *index, "REGN.RDWT", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"RCLR", self.rclr.as_ref());
+        emit(out, *b"RPLI", self.rpli.as_ref());
+        emit(out, *b"RPLD", self.rpld.as_ref());
+        emit(out, *b"RDAT", self.rdat.as_ref());
+        emit(out, *b"RDWT", self.rdwt.as_ref());
+    }
+}
+
+impl Visit for RegnRecord {}
+
+impl RegnRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"REGN";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("REGN", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("REGN", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("REGN", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("REGN", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct RevbRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
@@ -83869,6 +84761,7 @@ pub enum Record {
     Arto(Box<ArtoRecord>),
     Atmo(Box<AtmoRecord>),
     Avif(Box<AvifRecord>),
+    Avmd(Box<AvmdRecord>),
     Biom(Box<BiomRecord>),
     Bmmo(Box<BmmoRecord>),
     Bmod(Box<BmodRecord>),
@@ -83886,7 +84779,9 @@ pub enum Record {
     Cpth(Box<CpthRecord>),
     Csty(Box<CstyRecord>),
     Cur3(Box<Cur3Record>),
+    Curv(Box<CurvRecord>),
     Debr(Box<DebrRecord>),
+    Dfob(Box<DfobRecord>),
     Dial(Box<DialRecord>),
     Dlbr(Box<DlbrRecord>),
     Dmgt(Box<DmgtRecord>),
@@ -83921,6 +84816,7 @@ pub enum Record {
     Imgs(Box<ImgsRecord>),
     Info(Box<InfoRecord>),
     Innr(Box<InnrRecord>),
+    Ipct(Box<IpctRecord>),
     Ipds(Box<IpdsRecord>),
     Ires(Box<IresRecord>),
     Keym(Box<KeymRecord>),
@@ -83974,6 +84870,7 @@ pub enum Record {
     Qust(Box<QustRecord>),
     Race(Box<RaceRecord>),
     Refr(Box<RefrRecord>),
+    Regn(Box<RegnRecord>),
     Revb(Box<RevbRecord>),
     Rfgp(Box<RfgpRecord>),
     Rsgd(Box<RsgdRecord>),
@@ -84036,6 +84933,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"ARTO", ArtoRecord::MEMBERS),
     (*b"ATMO", AtmoRecord::MEMBERS),
     (*b"AVIF", AvifRecord::MEMBERS),
+    (*b"AVMD", AvmdRecord::MEMBERS),
     (*b"BIOM", BiomRecord::MEMBERS),
     (*b"BMMO", BmmoRecord::MEMBERS),
     (*b"BMOD", BmodRecord::MEMBERS),
@@ -84053,7 +84951,9 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"CPTH", CpthRecord::MEMBERS),
     (*b"CSTY", CstyRecord::MEMBERS),
     (*b"CUR3", Cur3Record::MEMBERS),
+    (*b"CURV", CurvRecord::MEMBERS),
     (*b"DEBR", DebrRecord::MEMBERS),
+    (*b"DFOB", DfobRecord::MEMBERS),
     (*b"DIAL", DialRecord::MEMBERS),
     (*b"DLBR", DlbrRecord::MEMBERS),
     (*b"DMGT", DmgtRecord::MEMBERS),
@@ -84088,6 +84988,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"IMGS", ImgsRecord::MEMBERS),
     (*b"INFO", InfoRecord::MEMBERS),
     (*b"INNR", InnrRecord::MEMBERS),
+    (*b"IPCT", IpctRecord::MEMBERS),
     (*b"IPDS", IpdsRecord::MEMBERS),
     (*b"IRES", IresRecord::MEMBERS),
     (*b"KEYM", KeymRecord::MEMBERS),
@@ -84141,6 +85042,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"QUST", QustRecord::MEMBERS),
     (*b"RACE", RaceRecord::MEMBERS),
     (*b"REFR", RefrRecord::MEMBERS),
+    (*b"REGN", RegnRecord::MEMBERS),
     (*b"REVB", RevbRecord::MEMBERS),
     (*b"RFGP", RfgpRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
@@ -84226,6 +85128,7 @@ impl Record {
             b"ARTO" => Self::Arto(Box::new(ArtoRecord::decode(subs, ctx))),
             b"ATMO" => Self::Atmo(Box::new(AtmoRecord::decode(subs, ctx))),
             b"AVIF" => Self::Avif(Box::new(AvifRecord::decode(subs, ctx))),
+            b"AVMD" => Self::Avmd(Box::new(AvmdRecord::decode(subs, ctx))),
             b"BIOM" => Self::Biom(Box::new(BiomRecord::decode(subs, ctx))),
             b"BMMO" => Self::Bmmo(Box::new(BmmoRecord::decode(subs, ctx))),
             b"BMOD" => Self::Bmod(Box::new(BmodRecord::decode(subs, ctx))),
@@ -84243,7 +85146,9 @@ impl Record {
             b"CPTH" => Self::Cpth(Box::new(CpthRecord::decode(subs, ctx))),
             b"CSTY" => Self::Csty(Box::new(CstyRecord::decode(subs, ctx))),
             b"CUR3" => Self::Cur3(Box::new(Cur3Record::decode(subs, ctx))),
+            b"CURV" => Self::Curv(Box::new(CurvRecord::decode(subs, ctx))),
             b"DEBR" => Self::Debr(Box::new(DebrRecord::decode(subs, ctx))),
+            b"DFOB" => Self::Dfob(Box::new(DfobRecord::decode(subs, ctx))),
             b"DIAL" => Self::Dial(Box::new(DialRecord::decode(subs, ctx))),
             b"DLBR" => Self::Dlbr(Box::new(DlbrRecord::decode(subs, ctx))),
             b"DMGT" => Self::Dmgt(Box::new(DmgtRecord::decode(subs, ctx))),
@@ -84278,6 +85183,7 @@ impl Record {
             b"IMGS" => Self::Imgs(Box::new(ImgsRecord::decode(subs, ctx))),
             b"INFO" => Self::Info(Box::new(InfoRecord::decode(subs, ctx))),
             b"INNR" => Self::Innr(Box::new(InnrRecord::decode(subs, ctx))),
+            b"IPCT" => Self::Ipct(Box::new(IpctRecord::decode(subs, ctx))),
             b"IPDS" => Self::Ipds(Box::new(IpdsRecord::decode(subs, ctx))),
             b"IRES" => Self::Ires(Box::new(IresRecord::decode(subs, ctx))),
             b"KEYM" => Self::Keym(Box::new(KeymRecord::decode(subs, ctx))),
@@ -84331,6 +85237,7 @@ impl Record {
             b"QUST" => Self::Qust(Box::new(QustRecord::decode(subs, ctx))),
             b"RACE" => Self::Race(Box::new(RaceRecord::decode(subs, ctx))),
             b"REFR" => Self::Refr(Box::new(RefrRecord::decode(subs, ctx))),
+            b"REGN" => Self::Regn(Box::new(RegnRecord::decode(subs, ctx))),
             b"REVB" => Self::Revb(Box::new(RevbRecord::decode(subs, ctx))),
             b"RFGP" => Self::Rfgp(Box::new(RfgpRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
@@ -84396,6 +85303,7 @@ impl Record {
             Self::Arto(record) => record.encode(),
             Self::Atmo(record) => record.encode(),
             Self::Avif(record) => record.encode(),
+            Self::Avmd(record) => record.encode(),
             Self::Biom(record) => record.encode(),
             Self::Bmmo(record) => record.encode(),
             Self::Bmod(record) => record.encode(),
@@ -84413,7 +85321,9 @@ impl Record {
             Self::Cpth(record) => record.encode(),
             Self::Csty(record) => record.encode(),
             Self::Cur3(record) => record.encode(),
+            Self::Curv(record) => record.encode(),
             Self::Debr(record) => record.encode(),
+            Self::Dfob(record) => record.encode(),
             Self::Dial(record) => record.encode(),
             Self::Dlbr(record) => record.encode(),
             Self::Dmgt(record) => record.encode(),
@@ -84448,6 +85358,7 @@ impl Record {
             Self::Imgs(record) => record.encode(),
             Self::Info(record) => record.encode(),
             Self::Innr(record) => record.encode(),
+            Self::Ipct(record) => record.encode(),
             Self::Ipds(record) => record.encode(),
             Self::Ires(record) => record.encode(),
             Self::Keym(record) => record.encode(),
@@ -84501,6 +85412,7 @@ impl Record {
             Self::Qust(record) => record.encode(),
             Self::Race(record) => record.encode(),
             Self::Refr(record) => record.encode(),
+            Self::Regn(record) => record.encode(),
             Self::Revb(record) => record.encode(),
             Self::Rfgp(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
@@ -84565,6 +85477,7 @@ impl Record {
             Self::Arto(_) => ArtoRecord::SIGNATURE,
             Self::Atmo(_) => AtmoRecord::SIGNATURE,
             Self::Avif(_) => AvifRecord::SIGNATURE,
+            Self::Avmd(_) => AvmdRecord::SIGNATURE,
             Self::Biom(_) => BiomRecord::SIGNATURE,
             Self::Bmmo(_) => BmmoRecord::SIGNATURE,
             Self::Bmod(_) => BmodRecord::SIGNATURE,
@@ -84582,7 +85495,9 @@ impl Record {
             Self::Cpth(_) => CpthRecord::SIGNATURE,
             Self::Csty(_) => CstyRecord::SIGNATURE,
             Self::Cur3(_) => Cur3Record::SIGNATURE,
+            Self::Curv(_) => CurvRecord::SIGNATURE,
             Self::Debr(_) => DebrRecord::SIGNATURE,
+            Self::Dfob(_) => DfobRecord::SIGNATURE,
             Self::Dial(_) => DialRecord::SIGNATURE,
             Self::Dlbr(_) => DlbrRecord::SIGNATURE,
             Self::Dmgt(_) => DmgtRecord::SIGNATURE,
@@ -84617,6 +85532,7 @@ impl Record {
             Self::Imgs(_) => ImgsRecord::SIGNATURE,
             Self::Info(_) => InfoRecord::SIGNATURE,
             Self::Innr(_) => InnrRecord::SIGNATURE,
+            Self::Ipct(_) => IpctRecord::SIGNATURE,
             Self::Ipds(_) => IpdsRecord::SIGNATURE,
             Self::Ires(_) => IresRecord::SIGNATURE,
             Self::Keym(_) => KeymRecord::SIGNATURE,
@@ -84670,6 +85586,7 @@ impl Record {
             Self::Qust(_) => QustRecord::SIGNATURE,
             Self::Race(_) => RaceRecord::SIGNATURE,
             Self::Refr(_) => RefrRecord::SIGNATURE,
+            Self::Regn(_) => RegnRecord::SIGNATURE,
             Self::Revb(_) => RevbRecord::SIGNATURE,
             Self::Rfgp(_) => RfgpRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
@@ -84734,6 +85651,7 @@ impl Record {
             Self::Arto(record) => record.form_ids(),
             Self::Atmo(record) => record.form_ids(),
             Self::Avif(record) => record.form_ids(),
+            Self::Avmd(record) => record.form_ids(),
             Self::Biom(record) => record.form_ids(),
             Self::Bmmo(record) => record.form_ids(),
             Self::Bmod(record) => record.form_ids(),
@@ -84751,7 +85669,9 @@ impl Record {
             Self::Cpth(record) => record.form_ids(),
             Self::Csty(record) => record.form_ids(),
             Self::Cur3(record) => record.form_ids(),
+            Self::Curv(record) => record.form_ids(),
             Self::Debr(record) => record.form_ids(),
+            Self::Dfob(record) => record.form_ids(),
             Self::Dial(record) => record.form_ids(),
             Self::Dlbr(record) => record.form_ids(),
             Self::Dmgt(record) => record.form_ids(),
@@ -84786,6 +85706,7 @@ impl Record {
             Self::Imgs(record) => record.form_ids(),
             Self::Info(record) => record.form_ids(),
             Self::Innr(record) => record.form_ids(),
+            Self::Ipct(record) => record.form_ids(),
             Self::Ipds(record) => record.form_ids(),
             Self::Ires(record) => record.form_ids(),
             Self::Keym(record) => record.form_ids(),
@@ -84839,6 +85760,7 @@ impl Record {
             Self::Qust(record) => record.form_ids(),
             Self::Race(record) => record.form_ids(),
             Self::Refr(record) => record.form_ids(),
+            Self::Regn(record) => record.form_ids(),
             Self::Revb(record) => record.form_ids(),
             Self::Rfgp(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
@@ -84903,6 +85825,7 @@ impl Record {
             Self::Arto(record) => record.form_ids_mut(),
             Self::Atmo(record) => record.form_ids_mut(),
             Self::Avif(record) => record.form_ids_mut(),
+            Self::Avmd(record) => record.form_ids_mut(),
             Self::Biom(record) => record.form_ids_mut(),
             Self::Bmmo(record) => record.form_ids_mut(),
             Self::Bmod(record) => record.form_ids_mut(),
@@ -84920,7 +85843,9 @@ impl Record {
             Self::Cpth(record) => record.form_ids_mut(),
             Self::Csty(record) => record.form_ids_mut(),
             Self::Cur3(record) => record.form_ids_mut(),
+            Self::Curv(record) => record.form_ids_mut(),
             Self::Debr(record) => record.form_ids_mut(),
+            Self::Dfob(record) => record.form_ids_mut(),
             Self::Dial(record) => record.form_ids_mut(),
             Self::Dlbr(record) => record.form_ids_mut(),
             Self::Dmgt(record) => record.form_ids_mut(),
@@ -84955,6 +85880,7 @@ impl Record {
             Self::Imgs(record) => record.form_ids_mut(),
             Self::Info(record) => record.form_ids_mut(),
             Self::Innr(record) => record.form_ids_mut(),
+            Self::Ipct(record) => record.form_ids_mut(),
             Self::Ipds(record) => record.form_ids_mut(),
             Self::Ires(record) => record.form_ids_mut(),
             Self::Keym(record) => record.form_ids_mut(),
@@ -85008,6 +85934,7 @@ impl Record {
             Self::Qust(record) => record.form_ids_mut(),
             Self::Race(record) => record.form_ids_mut(),
             Self::Refr(record) => record.form_ids_mut(),
+            Self::Regn(record) => record.form_ids_mut(),
             Self::Revb(record) => record.form_ids_mut(),
             Self::Rfgp(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
@@ -85072,6 +85999,7 @@ impl Record {
             Self::Arto(record) => record.lstrings(),
             Self::Atmo(record) => record.lstrings(),
             Self::Avif(record) => record.lstrings(),
+            Self::Avmd(record) => record.lstrings(),
             Self::Biom(record) => record.lstrings(),
             Self::Bmmo(record) => record.lstrings(),
             Self::Bmod(record) => record.lstrings(),
@@ -85089,7 +86017,9 @@ impl Record {
             Self::Cpth(record) => record.lstrings(),
             Self::Csty(record) => record.lstrings(),
             Self::Cur3(record) => record.lstrings(),
+            Self::Curv(record) => record.lstrings(),
             Self::Debr(record) => record.lstrings(),
+            Self::Dfob(record) => record.lstrings(),
             Self::Dial(record) => record.lstrings(),
             Self::Dlbr(record) => record.lstrings(),
             Self::Dmgt(record) => record.lstrings(),
@@ -85124,6 +86054,7 @@ impl Record {
             Self::Imgs(record) => record.lstrings(),
             Self::Info(record) => record.lstrings(),
             Self::Innr(record) => record.lstrings(),
+            Self::Ipct(record) => record.lstrings(),
             Self::Ipds(record) => record.lstrings(),
             Self::Ires(record) => record.lstrings(),
             Self::Keym(record) => record.lstrings(),
@@ -85177,6 +86108,7 @@ impl Record {
             Self::Qust(record) => record.lstrings(),
             Self::Race(record) => record.lstrings(),
             Self::Refr(record) => record.lstrings(),
+            Self::Regn(record) => record.lstrings(),
             Self::Revb(record) => record.lstrings(),
             Self::Rfgp(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
@@ -85241,6 +86173,7 @@ impl Record {
             Self::Arto(record) => record.lstrings_mut(),
             Self::Atmo(record) => record.lstrings_mut(),
             Self::Avif(record) => record.lstrings_mut(),
+            Self::Avmd(record) => record.lstrings_mut(),
             Self::Biom(record) => record.lstrings_mut(),
             Self::Bmmo(record) => record.lstrings_mut(),
             Self::Bmod(record) => record.lstrings_mut(),
@@ -85258,7 +86191,9 @@ impl Record {
             Self::Cpth(record) => record.lstrings_mut(),
             Self::Csty(record) => record.lstrings_mut(),
             Self::Cur3(record) => record.lstrings_mut(),
+            Self::Curv(record) => record.lstrings_mut(),
             Self::Debr(record) => record.lstrings_mut(),
+            Self::Dfob(record) => record.lstrings_mut(),
             Self::Dial(record) => record.lstrings_mut(),
             Self::Dlbr(record) => record.lstrings_mut(),
             Self::Dmgt(record) => record.lstrings_mut(),
@@ -85293,6 +86228,7 @@ impl Record {
             Self::Imgs(record) => record.lstrings_mut(),
             Self::Info(record) => record.lstrings_mut(),
             Self::Innr(record) => record.lstrings_mut(),
+            Self::Ipct(record) => record.lstrings_mut(),
             Self::Ipds(record) => record.lstrings_mut(),
             Self::Ires(record) => record.lstrings_mut(),
             Self::Keym(record) => record.lstrings_mut(),
@@ -85346,6 +86282,7 @@ impl Record {
             Self::Qust(record) => record.lstrings_mut(),
             Self::Race(record) => record.lstrings_mut(),
             Self::Refr(record) => record.lstrings_mut(),
+            Self::Regn(record) => record.lstrings_mut(),
             Self::Revb(record) => record.lstrings_mut(),
             Self::Rfgp(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
@@ -85411,6 +86348,7 @@ impl Record {
             Self::Arto(record) => &record.extra,
             Self::Atmo(record) => &record.extra,
             Self::Avif(record) => &record.extra,
+            Self::Avmd(record) => &record.extra,
             Self::Biom(record) => &record.extra,
             Self::Bmmo(record) => &record.extra,
             Self::Bmod(record) => &record.extra,
@@ -85428,7 +86366,9 @@ impl Record {
             Self::Cpth(record) => &record.extra,
             Self::Csty(record) => &record.extra,
             Self::Cur3(record) => &record.extra,
+            Self::Curv(record) => &record.extra,
             Self::Debr(record) => &record.extra,
+            Self::Dfob(record) => &record.extra,
             Self::Dial(record) => &record.extra,
             Self::Dlbr(record) => &record.extra,
             Self::Dmgt(record) => &record.extra,
@@ -85463,6 +86403,7 @@ impl Record {
             Self::Imgs(record) => &record.extra,
             Self::Info(record) => &record.extra,
             Self::Innr(record) => &record.extra,
+            Self::Ipct(record) => &record.extra,
             Self::Ipds(record) => &record.extra,
             Self::Ires(record) => &record.extra,
             Self::Keym(record) => &record.extra,
@@ -85516,6 +86457,7 @@ impl Record {
             Self::Qust(record) => &record.extra,
             Self::Race(record) => &record.extra,
             Self::Refr(record) => &record.extra,
+            Self::Regn(record) => &record.extra,
             Self::Revb(record) => &record.extra,
             Self::Rfgp(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,

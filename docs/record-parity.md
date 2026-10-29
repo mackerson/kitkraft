@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 80: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, ARTO, ATMO, BMMO, BMOD, CAMS, CLDF, CLMT, COLL, CSTY, CUR3, DEBR, DLBR, DOBJ, DOOR, EFSH, EQUP, FFKW, FOGV, FORC, FSTP, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LIGH, LMSW, LSCR, LTEX, LVLB, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PERS, PGRE, PHZD, PSDC, PTST, REVB, RFGP, SCCO, SDLT, SECH, SFPC, SOUN, SPCH, SPGD, STAG, STBH, STND, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 85: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, ARTO, ATMO, AVMD, BMMO, BMOD, CAMS, CLDF, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, DOOR, EFSH, EQUP, FFKW, FOGV, FORC, FSTP, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LIGH, LMSW, LSCR, LTEX, LVLB, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PERS, PGRE, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SDLT, SECH, SFPC, SOUN, SPCH, SPGD, STAG, STBH, STND, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 80:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         100 |   252,710 |    156,981 |   660,734 | 262,124 |
-| **Total**       |          186 |         163 | 7,490,102 | 46,712,502 | 2,738,227 | 968,832 |
+| container/other |          123 |         105 |   252,710 |    188,309 |   788,074 | 103,456 |
+| **Total**       |          186 |         168 | 7,490,102 | 46,743,830 | 2,865,567 | 810,164 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 80:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 163 record definitions, defs hash `fnv1a64:f82447f067eff942` (the hash named in
+- Schema: 168 record definitions, defs hash `fnv1a64:17190a5afc7c1bcd` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -76,7 +76,7 @@ Columns:
 | `LCTN`        | Location                       |     7,316 |          0 |    29 |    29 |      0 |       0 |
 | `KYWD`        | Keyword                        |     6,965 |          0 |    12 |     9 |      1 |       2 |
 | `LVLI`        | LeveledItem                    |     6,543 |          0 |    22 |    21 |      1 |       0 |
-| `AVMD`        | -                              |     6,530 |          0 |    15 |     0 |      0 |      15 |
+| `AVMD`        | AvmsData                       |     6,530 |          0 |    15 |     5 |      7 |       3 |
 | `LCRT`        | LocationRefType                |     4,779 |          0 |     8 |     5 |      1 |       2 |
 | `PACK`        | Package                        |     4,578 |          0 |    34 |    34 |      0 |       0 |
 | `GBFM`        | GenericBaseForm                |     3,903 |          0 |    64 |    20 |      2 |      42 |
@@ -96,11 +96,11 @@ Columns:
 | `AFFE`        | AffinityEvent                  |     1,593 |          0 |    11 |    11 |      0 |       0 |
 | `SFTR`        | -                              |     1,514 |      1,514 |     9 |     0 |      0 |       9 |
 | `MISC`        | MiscItem                       |     1,495 |          0 |    33 |    31 |      2 |       0 |
-| `IPCT`        | -                              |     1,459 |          0 |    15 |     0 |      0 |      15 |
+| `IPCT`        | Impact                         |     1,459 |          0 |    15 |     3 |     12 |       0 |
 | `FLST`        | FormIdList                     |     1,415 |          0 |    11 |     9 |      0 |       2 |
 | `BOOK`        | Book                           |     1,368 |          0 |    26 |     5 |      0 |      21 |
 | `IDLE`        | IdleAnimation                  |     1,302 |          0 |     9 |     9 |      0 |       0 |
-| `DFOB`        | -                              |     1,273 |          0 |     3 |     0 |      0 |       3 |
+| `DFOB`        | DefaultObject                  |     1,273 |          0 |     3 |     1 |      2 |       0 |
 | `AVIF`        | ActorValueInformation          |     1,267 |          0 |     9 |     3 |      0 |       6 |
 | `ARMA`        | ArmorAddon                     |     1,238 |          0 |    39 |    36 |      1 |       2 |
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
@@ -199,7 +199,7 @@ Columns:
 | `FXPD`        | FacialExpression               |        31 |          0 |     4 |     2 |      0 |       2 |
 | `GPOF`        | GameplayOption                 |        31 |          0 |    11 |     5 |      0 |       6 |
 | `STAG`        | AnimationSoundTagSet           |        30 |          0 |     4 |     1 |      3 |       0 |
-| `CURV`        | -                              |        29 |          0 |     2 |     0 |      0 |       2 |
+| `CURV`        | CurveTable                     |        29 |          0 |     2 |     1 |      1 |       0 |
 | `BPTD`        | BodyPartData                   |        27 |          0 |    12 |     2 |      0 |      10 |
 | `LENS`        | LensFlare                      |        26 |          0 |     9 |     1 |      8 |       0 |
 | `EQUP`        | EquipType                      |        25 |          0 |     4 |     1 |      3 |       0 |
@@ -233,7 +233,7 @@ Columns:
 | `FORC`        | ForceData                      |         5 |          0 |     2 |     1 |      1 |       0 |
 | `PCMT`        | PlanetContentTree              |         5 |          0 |     6 |     6 |      0 |       0 |
 | `GPOG`        | GameplayOptionsGroup           |         4 |          0 |     4 |     1 |      3 |       0 |
-| `REGN`        | -                              |         4 |          0 |     6 |     0 |      0 |       6 |
+| `REGN`        | Region                         |         4 |          0 |     6 |     1 |      5 |       0 |
 | `DEBR`        | Debris                         |         3 |          0 |     3 |     1 |      2 |       0 |
 | `OSWP`        | ObjectSwap                     |         3 |          0 |     1 |     1 |      0 |       0 |
 | `WTHR`        | Weather                        |         3 |          0 |    26 |     3 |     23 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 163 defined                    | 7,490,102 |    136,741 | 2,797 | 1,810 |    472 |     515 |
+| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,821 |    499 |     477 |
 
-Subrecord occurrences: 50,419,561 in total; 46,712,502 typed (0 of them failed to decode), 2,738,227 opaque, 968,832 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,743,830 typed (0 of them failed to decode), 2,865,567 opaque, 810,164 unknown.
 
 ## Decoded through the definitions
 
@@ -278,6 +278,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LCTN`    | Location                       |         7,316 |     78,402 |      0 |         0 |         0 |                   0 |     78,402 |       0 |        0 |
 | `KYWD`    | Keyword                        |         6,965 |     22,948 |      0 |         0 |         0 |                   0 |     22,948 |       0 |        0 |
 | `LVLI`    | LeveledItem                    |         6,543 |     80,308 |      0 |         0 |         0 |                   0 |     80,308 |       0 |        0 |
+| `AVMD`    | AvmsData                       |         6,530 |     25,938 |      0 |         0 |         0 |                   0 |     25,938 |       0 |        0 |
 | `LCRT`    | LocationRefType                |         4,779 |     14,349 |      0 |         0 |         0 |                   0 |     14,349 |       0 |        0 |
 | `PACK`    | Package                        |         4,578 |    225,093 |      0 |         0 |         3 |                   0 |    225,090 |       0 |        0 |
 | `GBFM`    | GenericBaseForm                |         3,903 |    152,485 |      0 |         0 |         0 |                   0 |    152,485 |       0 |        0 |
@@ -296,9 +297,11 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LIGH`    | Light                          |         1,723 |      9,116 |      0 |         0 |         0 |                   0 |      9,116 |       0 |        0 |
 | `AFFE`    | AffinityEvent                  |         1,593 |     24,261 |      0 |         0 |         0 |                   0 |     24,261 |       0 |        0 |
 | `MISC`    | MiscItem                       |         1,495 |     19,435 |      0 |         0 |         3 |                   0 |     19,432 |       0 |        0 |
+| `IPCT`    | Impact                         |         1,459 |      4,085 |      0 |         0 |         0 |                   0 |      4,085 |       0 |        0 |
 | `FLST`    | FormIdList                     |         1,415 |     14,840 |      0 |         0 |         0 |                   0 |     14,840 |       0 |        0 |
 | `BOOK`    | Book                           |         1,368 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |         1,302 |      7,626 |      0 |         0 |         0 |                   0 |      7,626 |       0 |        0 |
+| `DFOB`    | DefaultObject                  |         1,273 |      1,273 |      0 |         0 |         0 |                   0 |      1,273 |       0 |        0 |
 | `AVIF`    | ActorValueInformation          |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
 | `ARMA`    | ArmorAddon                     |         1,238 |     27,776 |      0 |         0 |    18,000 |                   0 |      9,776 |       0 |        0 |
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
@@ -388,6 +391,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FXPD`    | FacialExpression               |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |            30 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
+| `CURV`    | CurveTable                     |            29 |         29 |      0 |         0 |         0 |                   0 |         29 |       0 |        0 |
 | `BPTD`    | BodyPartData                   |            27 |        260 |      0 |         0 |         0 |                   0 |        260 |       0 |        0 |
 | `LENS`    | LensFlare                      |            26 |         26 |      0 |         0 |         0 |                   0 |         26 |       0 |        0 |
 | `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
@@ -413,6 +417,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FORC`    | ForceData                      |             5 |          5 |      0 |         0 |         0 |                   0 |          5 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |             4 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
+| `REGN`    | Region                         |             4 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `WTHR`    | Weather                        |             3 |          7 |      0 |         0 |         0 |                   0 |          7 |       0 |        0 |
@@ -425,7 +430,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,471,446 | 46,712,502 |      0 |         0 |    18,685 |                   0 | 46,693,817 |       0 |        0 |
+| **Total** |                                |     7,480,741 | 46,743,830 |      0 |         0 |    18,685 |                   0 | 46,725,145 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -459,6 +464,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ARTO`    | ArtObject                      |             47 |    33 |     14 |         0 |                   0 |     47 |       0 |        0 |
 | `ATMO`    | Atmosphere                     |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation          |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `AVMD`    | AvmsData                       |             43 |    31 |     12 |         0 |                   0 |     43 |       0 |        0 |
 | `BIOM`    | Biome                          |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
 | `BMMO`    | BiomeMarker                    |             45 |    33 |     12 |         0 |                   0 |     45 |       0 |        0 |
 | `BMOD`    | BoneModifier                   |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
@@ -476,7 +482,9 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CPTH`    | CameraPath                     |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |             18 |     1 |     17 |         0 |                   0 |     18 |       0 |        0 |
 | `CUR3`    | Curve3D                        |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
+| `CURV`    | CurveTable                     |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DEBR`    | Debris                         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
+| `DFOB`    | DefaultObject                  |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `DIAL`    | DialogTopic                    |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -511,6 +519,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `INFO`    | DialogResponse                 |             90 |    84 |      6 |         7 |                   0 |     83 |       0 |        0 |
 | `INNR`    | InstanceNamingRules            |             42 |    38 |      4 |         1 |                   0 |     41 |       0 |        0 |
+| `IPCT`    | Impact                         |             44 |    31 |     13 |         0 |                   0 |     44 |       0 |        0 |
 | `IPDS`    | ImpactDataSet                  |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `IRES`    | Resource                       |             14 |     5 |      9 |         0 |                   0 |     14 |       0 |        0 |
 | `KEYM`    | Key                            |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -564,6 +573,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `QUST`    | Quest                          |            215 |   206 |      9 |         3 |                   0 |    212 |       0 |        0 |
 | `RACE`    | Race                           |            156 |   147 |      9 |         7 |                   0 |    149 |       0 |        0 |
 | `REFR`    | PlacedObject                   |            131 |   121 |     10 |         5 |                   0 |    126 |       0 |        0 |
+| `REGN`    | Region                         |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `REVB`    | ReverbParameters               |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `RFGP`    | ReferenceGroup                 |             38 |    30 |      8 |         0 |                   0 |     38 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
@@ -603,7 +613,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          4,861 | 4,151 |    710 |       299 |                   2 |  4,560 |       0 |        0 |
+| **Total** |                                |          4,959 | 4,216 |    743 |       299 |                   2 |  4,658 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -620,6 +630,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
 - `NPC_`: `FLTR` (6)
 - `KYWD`: `WAIM` (19), `WFIR` (19)
+- `AVMD`: `FLLD` (1), `GNAM` (1), `MODL` (1)
 - `LCRT`: `FLTR` (3), `INTV` (3)
 - `GBFM`: `APPR` (2,396), `BLUF` (2,030), `BODC` (63,974), `BODM` (2,030), `BODS` (70,644), `BODV` (70,644), `BOID` (2,030), `BUO4` (2,030), `CDND` (24), `CDNS` (24), `CNTO` (154), `COCT` (83), `DEST` (2,149), `DMDL` (51), `DSTD` (2,188), `DSTF` (2,188), `ESSF` (2,030), `EXAC` (2,030), `EXAS` (3,767), `EXBS` (2,030), `EXCI` (16,597), `EXCN` (16,597), `EXDC` (2,030), `EXDZ` (2,030), `FCTF` (2,030), `FLFM` (3,987), `FLKW` (3,987), `FLLD` (2,084), `FLTV` (46), `FTYP` (14), `HULL` (134), `INAM` (1,701), `INTV` (200), `ITMC` (2,334), `KSIZ` (3,826), `KWDA` (3,826), `MODL` (2,032), `PRPS` (2,110), `SAIA` (2,030), `SHWB` (2,030), `SODA` (4), `STRD` (1,258)
 - `COBJ`: `FLTR` (77), `INTV` (77)
