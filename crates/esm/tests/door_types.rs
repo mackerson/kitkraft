@@ -139,7 +139,10 @@ fn check_file(path: &Path, stats: &mut BTreeMap<String, TypeStats>) {
 
 fn report(stats: &BTreeMap<String, TypeStats>) {
     for (ty, t) in stats {
-        println!("door {ty}: {} records, {} identical", t.records, t.identical);
+        println!(
+            "door {ty}: {} records, {} identical",
+            t.records, t.identical
+        );
         if !t.unplaced.is_empty() || !t.failed.is_empty() {
             println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
         }
