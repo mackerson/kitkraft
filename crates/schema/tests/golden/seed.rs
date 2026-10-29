@@ -84,7 +84,7 @@
 // - DLBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DMGT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - DOBJ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - DOOR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official DOOR record (376) decodes with every subrecord placed and re-encodes identically; corpus)
+// - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -25917,56 +25917,231 @@ impl DobjRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoorForcedLocRefTypes(pub Vec<FormId>);
+
+impl Field for DoorForcedLocRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for DoorForcedLocRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DoorProperties(pub Vec<PropertyValue>);
+
+impl Field for DoorProperties {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for DoorProperties {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DoorFlags(pub u8);
+
+impl DoorFlags {
+    pub const NO_QUEST_TARGET: u8 = 0x1;
+    pub const AUTOMATIC: u8 = 0x2;
+    pub const HIDDEN: u8 = 0x4;
+    pub const MINIMAL_USE: u8 = 0x8;
+    pub const SLIDING: u8 = 0x10;
+    pub const DO_NOT_OPEN_IN_COMBAT_SEARCH: u8 = 0x20;
+    pub const NO_TO_TEXT: u8 = 0x40;
+    pub const NO_DIRECT_ACTIVATION: u8 = 0x80;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for DoorFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for DoorFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DoorSoundLevel {
+    None,
+    Silent,
+    Quiet,
+    Normal,
+    Loud,
+    VeryLoud,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl DoorSoundLevel {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Silent,
+            2 => Self::Quiet,
+            3 => Self::Normal,
+            4 => Self::Loud,
+            5 => Self::VeryLoud,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Silent => 1,
+            Self::Quiet => 2,
+            Self::Normal => 3,
+            Self::Loud => 4,
+            Self::VeryLoud => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for DoorSoundLevel {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for DoorSoundLevel {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DoorFacingAxisOverride {
+    UseXAxis,
+    UseYAxis,
+    BasedOnBounds,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl DoorFacingAxisOverride {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::UseXAxis,
+            1 => Self::UseYAxis,
+            2 => Self::BasedOnBounds,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::UseXAxis => 0,
+            Self::UseYAxis => 1,
+            Self::BasedOnBounds => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for DoorFacingAxisOverride {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for DoorFacingAxisOverride {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DoorRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `VMAD`, optional.
-    pub vmad: Option<Sub<Bytes>>,
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
     pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
     /// `XALG`, optional.
-    pub xalg: Option<Sub<Bytes>>,
+    pub xalg_flags: Option<Sub<u64>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `FULL`, optional.
     pub name: Option<Sub<LString>>,
-    /// `MODL`, required.
-    pub modl: Option<Sub<Bytes>>,
-    /// `MOLM`, optional.
-    pub molm: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
-    /// `XFLG`, optional.
-    pub xflg: Option<Sub<Bytes>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// Group `Destructible`, optional.
+    pub destructible: Option<Destructible>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `NTRM`, optional.
-    pub ntrm: Option<Sub<Bytes>>,
+    pub native_terminal: Option<Sub<FormId>>,
     /// `FTYP`, optional.
-    pub ftyp: Option<Sub<Bytes>>,
+    pub forced_loc_ref_types: Option<Sub<DoorForcedLocRefTypes>>,
     /// `PRPS`, optional.
-    pub prps: Option<Sub<Bytes>>,
+    pub properties: Option<Sub<DoorProperties>>,
     /// `DOSH`, optional.
-    pub dosh: Option<Sub<Bytes>>,
+    pub open_sound: Option<Sub<SoundReference>>,
     /// `DCSH`, optional.
-    pub dcsh: Option<Sub<Bytes>>,
+    pub close_sound: Option<Sub<SoundReference>>,
     /// `DLSH`, optional.
-    pub dlsh: Option<Sub<Bytes>>,
+    pub loop_sound: Option<Sub<SoundReference>>,
     /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<DoorFlags>>,
     /// `ONAM`, optional.
-    pub onam: Option<Sub<Bytes>>,
+    pub alternate_text_open: Option<Sub<Bytes>>,
     /// `CNAM`, optional.
-    pub cnam: Option<Sub<Bytes>>,
+    pub alternate_text_close: Option<Sub<Bytes>>,
     /// `DEVT`, required.
-    pub devt: Option<Sub<Bytes>>,
+    pub sound_level: Option<Sub<DoorSoundLevel>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub facing_axis_override: Option<Sub<DoorFacingAxisOverride>>,
     /// `NVNM`, optional.
-    pub nvnm: Option<Sub<Bytes>>,
+    pub navmesh_geometry: Option<Sub<Bytes>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -25994,6 +26169,18 @@ impl DoorRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"XALG",
             card: Card::Optional,
         },
@@ -26005,21 +26192,13 @@ impl DoorRecord {
             sig: *b"FULL",
             card: Card::Optional,
         },
-        MemberDesc::Sub {
-            sig: *b"MODL",
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"MOLM",
+        MemberDesc::Group {
             card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FLLD",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"XFLG",
-            card: Card::Optional,
+            members: Destructible::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -26088,7 +26267,7 @@ impl DoorRecord {
                     put(&mut self.editor_id, subs, *index, "DOOR.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.vmad, subs, *index, "DOOR.VMAD", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "DOOR.VMAD", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => put(
                     &mut self.object_bounds,
@@ -26098,73 +26277,125 @@ impl DoorRecord {
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.odty, subs, *index, "DOOR.ODTY", ctx, extra)
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "DOOR.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "DOOR.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "DOOR.PTT2", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.xalg, subs, *index, "DOOR.XALG", ctx, extra)
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "DOOR.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "DOOR.XALG", ctx, extra)
                 }
-                Hit::Group { member: 5, hits } => {
+                Hit::Group { member: 8, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 6, index } => {
+                Hit::Sub { member: 9, index } => {
                     put(&mut self.name, subs, *index, "DOOR.FULL", ctx, extra)
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.modl, subs, *index, "DOOR.MODL", ctx, extra)
+                Hit::Group { member: 10, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.molm, subs, *index, "DOOR.MOLM", ctx, extra)
+                Hit::Group { member: 11, hits } if self.destructible.is_none() => {
+                    let mut group = Destructible::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.destructible = Some(group);
                 }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.flld, subs, *index, "DOOR.FLLD", ctx, extra)
-                }
-                Hit::Sub { member: 10, index } => {
-                    put(&mut self.xflg, subs, *index, "DOOR.XFLG", ctx, extra)
-                }
-                Hit::Group { member: 11, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 12, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 12, index } => {
-                    put(&mut self.ntrm, subs, *index, "DOOR.NTRM", ctx, extra)
-                }
-                Hit::Sub { member: 13, index } => {
-                    put(&mut self.ftyp, subs, *index, "DOOR.FTYP", ctx, extra)
-                }
-                Hit::Sub { member: 14, index } => {
-                    put(&mut self.prps, subs, *index, "DOOR.PRPS", ctx, extra)
-                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.native_terminal,
+                    subs,
+                    *index,
+                    "DOOR.NTRM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.forced_loc_ref_types,
+                    subs,
+                    *index,
+                    "DOOR.FTYP",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 15, index } => {
-                    put(&mut self.dosh, subs, *index, "DOOR.DOSH", ctx, extra)
+                    put(&mut self.properties, subs, *index, "DOOR.PRPS", ctx, extra)
                 }
                 Hit::Sub { member: 16, index } => {
-                    put(&mut self.dcsh, subs, *index, "DOOR.DCSH", ctx, extra)
+                    put(&mut self.open_sound, subs, *index, "DOOR.DOSH", ctx, extra)
                 }
                 Hit::Sub { member: 17, index } => {
-                    put(&mut self.dlsh, subs, *index, "DOOR.DLSH", ctx, extra)
+                    put(&mut self.close_sound, subs, *index, "DOOR.DCSH", ctx, extra)
                 }
                 Hit::Sub { member: 18, index } => {
-                    put(&mut self.fnam, subs, *index, "DOOR.FNAM", ctx, extra)
+                    put(&mut self.loop_sound, subs, *index, "DOOR.DLSH", ctx, extra)
                 }
                 Hit::Sub { member: 19, index } => {
-                    put(&mut self.onam, subs, *index, "DOOR.ONAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "DOOR.FNAM", ctx, extra)
                 }
-                Hit::Sub { member: 20, index } => {
-                    put(&mut self.cnam, subs, *index, "DOOR.CNAM", ctx, extra)
-                }
-                Hit::Sub { member: 21, index } => {
-                    put(&mut self.devt, subs, *index, "DOOR.DEVT", ctx, extra)
-                }
+                Hit::Sub { member: 20, index } => put(
+                    &mut self.alternate_text_open,
+                    subs,
+                    *index,
+                    "DOOR.ONAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 21, index } => put(
+                    &mut self.alternate_text_close,
+                    subs,
+                    *index,
+                    "DOOR.CNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 22, index } => {
-                    put(&mut self.anam, subs, *index, "DOOR.ANAM", ctx, extra)
+                    put(&mut self.sound_level, subs, *index, "DOOR.DEVT", ctx, extra)
                 }
-                Hit::Sub { member: 23, index } => {
-                    put(&mut self.nvnm, subs, *index, "DOOR.NVNM", ctx, extra)
-                }
+                Hit::Sub { member: 23, index } => put(
+                    &mut self.facing_axis_override,
+                    subs,
+                    *index,
+                    "DOOR.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 24, index } => put(
+                    &mut self.navmesh_geometry,
+                    subs,
+                    *index,
+                    "DOOR.NVNM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -26172,45 +26403,70 @@ impl DoorRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"VMAD", self.vmad.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
         emit(out, *b"OBND", self.object_bounds.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"XALG", self.xalg.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
         emit(out, *b"FULL", self.name.as_ref());
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"MOLM", self.molm.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
-        emit(out, *b"XFLG", self.xflg.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        if let Some(group) = &self.destructible {
+            group.emit(out);
+        }
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"NTRM", self.ntrm.as_ref());
-        emit(out, *b"FTYP", self.ftyp.as_ref());
-        emit(out, *b"PRPS", self.prps.as_ref());
-        emit(out, *b"DOSH", self.dosh.as_ref());
-        emit(out, *b"DCSH", self.dcsh.as_ref());
-        emit(out, *b"DLSH", self.dlsh.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"ONAM", self.onam.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"DEVT", self.devt.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"NVNM", self.nvnm.as_ref());
+        emit(out, *b"NTRM", self.native_terminal.as_ref());
+        emit(out, *b"FTYP", self.forced_loc_ref_types.as_ref());
+        emit(out, *b"PRPS", self.properties.as_ref());
+        emit(out, *b"DOSH", self.open_sound.as_ref());
+        emit(out, *b"DCSH", self.close_sound.as_ref());
+        emit(out, *b"DLSH", self.loop_sound.as_ref());
+        emit(out, *b"FNAM", self.flags.as_ref());
+        emit(out, *b"ONAM", self.alternate_text_open.as_ref());
+        emit(out, *b"CNAM", self.alternate_text_close.as_ref());
+        emit(out, *b"DEVT", self.sound_level.as_ref());
+        emit(out, *b"ANAM", self.facing_axis_override.as_ref());
+        emit(out, *b"NVNM", self.navmesh_geometry.as_ref());
     }
 }
 
 impl Visit for DoorRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "DOOR.PTT2", out);
+        visit_form_ids(&self.snap_template, "DOOR.SNTP", out);
         visit_form_ids(&self.bfcb_block, "DOOR.BfcbBlock", out);
+        visit_form_ids(&self.model, "DOOR.Model", out);
+        visit_form_ids(&self.destructible, "DOOR.Destructible", out);
         visit_form_ids(&self.keywords, "DOOR.Keywords", out);
+        visit_form_ids(&self.native_terminal, "DOOR.NTRM", out);
+        visit_form_ids(&self.forced_loc_ref_types, "DOOR.FTYP", out);
+        visit_form_ids(&self.properties, "DOOR.PRPS", out);
+        visit_form_ids(&self.open_sound, "DOOR.DOSH", out);
+        visit_form_ids(&self.close_sound, "DOOR.DCSH", out);
+        visit_form_ids(&self.loop_sound, "DOOR.DLSH", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "DOOR.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "DOOR.SNTP", out);
         visit_form_ids_mut(&mut self.bfcb_block, "DOOR.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "DOOR.Model", out);
+        visit_form_ids_mut(&mut self.destructible, "DOOR.Destructible", out);
         visit_form_ids_mut(&mut self.keywords, "DOOR.Keywords", out);
+        visit_form_ids_mut(&mut self.native_terminal, "DOOR.NTRM", out);
+        visit_form_ids_mut(&mut self.forced_loc_ref_types, "DOOR.FTYP", out);
+        visit_form_ids_mut(&mut self.properties, "DOOR.PRPS", out);
+        visit_form_ids_mut(&mut self.open_sound, "DOOR.DOSH", out);
+        visit_form_ids_mut(&mut self.close_sound, "DOOR.DCSH", out);
+        visit_form_ids_mut(&mut self.loop_sound, "DOOR.DLSH", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -26225,6 +26481,14 @@ impl Visit for DoorRecord {
 impl DoorRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"DOOR";
+    /// Record-header flag.
+    pub const FLAG_NON_OCCLUDER: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HAS_DISTANT_LOD: u32 = 0x8000;
+    /// Record-header flag.
+    pub const FLAG_RANDOM_ANIM_START: u32 = 0x10000;
+    /// Record-header flag.
+    pub const FLAG_IS_MARKER: u32 = 0x800000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
