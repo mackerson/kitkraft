@@ -1,0 +1,317 @@
+# WTHR: Weather, inventory definition (KK-111).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-111 scan of every official WTHR record (3 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the WTHR definition of wbDefinitionsSF1.pas at the pinned revision (L18846-L18929),
+#     cited per member for its position where it lists the subrecord; some members are listed
+#     only through a helper of another upstream unit and are then not cited (FNAM, FLLD).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     group keeps its own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID and the keyword list are typed; every other payload is opaque (named
+# after its signature, a placeholder) until a family lane transcribes the record from the
+# pinned xEdit file (docs/gaps.md).
+signature = "WTHR"
+name = "Weather"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WTHR record (3) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18846-L18929",
+]
+confidence = "corpus"
+note = "inventory definition (KK-111): corpus order and cardinality; EDID and keywords typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 13..21 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18850-L18850",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 3 official WTHR records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18851-L18851",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18852-L18852",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18855-L18855",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18857-L18857",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "CLDC"
+name = "Cldc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18859-L18859",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "RNAM"
+name = "Rnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18861-L18861",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 32 bytes"
+
+[[member]]
+sig = "QNAM"
+name = "Qnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18862-L18862",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 32 bytes"
+
+[[member]]
+sig = "PNAM"
+name = "Pnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 1024 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18863-L18863",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 1024 bytes"
+
+[[member]]
+sig = "JNAM"
+name = "Jnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 1024 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18864-L18864",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 1024 bytes"
+
+[[member]]
+sig = "NAM0"
+name = "Nam0"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 608 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18870-L18870",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 608 bytes"
+
+[[member]]
+sig = "NAM4"
+name = "Nam4"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 128 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18865-L18865",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 128 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 72 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 72 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 20 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18871-L18871",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 20 bytes"
+
+[[member]]
+sig = "NAM1"
+name = "Nam1"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18901-L18901",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 3 official WTHR records (72 occurrences, up to 36 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18911-L18911",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "IMSP"
+name = "Imsp"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18914-L18914",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 32 bytes"
+
+[[member]]
+sig = "HNAM"
+name = "Hnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18915-L18915",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 32 bytes"
+
+[[member]]
+sig = "DALC"
+name = "Dalc"
+type = "opaque"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (24 occurrences, up to 8 per record), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18917-L18917",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 24 bytes"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 3 official WTHR records (1 occurrences), 31 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18918-L18918",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 31 bytes"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18921-L18921",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "UNAM"
+name = "Unam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18922-L18922",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 24 bytes"
+
+[[member]]
+sig = "VNAM"
+name = "Vnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18923-L18923",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+sig = "WNAM"
+name = "Wnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official WTHR records (3 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18926-L18926",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"

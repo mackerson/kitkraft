@@ -1,0 +1,84 @@
+# SDLT: SecondaryDamageListForm, inventory definition (KK-111).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-111 scan of every official SDLT record (2 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the SDLT definition of wbDefinitionsSF1.pas at the pinned revision (L17454-L17465),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out (here: the
+# base form component frame, L17456; no official record has a BFCB..BFCE block); a plugin
+# that has one keeps it raw.
+signature = "SDLT"
+name = "SecondaryDamageListForm"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17454-L17465",
+]
+confidence = "corpus"
+note = "inventory definition (KK-111): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (2 occurrences), 23 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17455-L17455",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "ITMC"
+name = "Itmc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17457-L17457",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member]]
+group = "SecondaryDamages"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (9 occurrences, up to 7 per record), each a DAMA (4 bytes) followed by its ACTV (4 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17458-L17458",
+]
+confidence = "corpus"
+note = "one secondary damage: its DAMA then its ACTV"
+
+[[member.member]]
+sig = "DAMA"
+name = "Dama"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (9 occurrences, up to 7 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17460-L17460",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+
+[[member.member]]
+sig = "ACTV"
+name = "Actv"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official SDLT records (9 occurrences, up to 7 per record), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17461-L17461",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 4 bytes"

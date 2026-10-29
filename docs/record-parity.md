@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |          88 |   252,710 |    144,115 |   642,777 | 292,947 |
-| **Total**       |          186 |         151 | 7,490,102 | 46,699,636 | 2,720,270 | 999,655 |
+| container/other |          123 |          96 |   252,710 |    144,133 |   643,029 | 292,677 |
+| **Total**       |          186 |         159 | 7,490,102 | 46,699,654 | 2,720,522 | 999,385 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 151 record definitions, defs hash `fnv1a64:55e9a427ffaba7bf` (the hash named in
+- Schema: 159 record definitions, defs hash `fnv1a64:3fa08335e5610fda` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -230,21 +230,21 @@ Columns:
 | `PCMT`        | PlanetContentTree              |         5 |          0 |     6 |     6 |      0 |       0 |
 | `GPOG`        | GameplayOptionsGroup           |         4 |          0 |     4 |     1 |      3 |       0 |
 | `REGN`        | -                              |         4 |          0 |     6 |     0 |      0 |       6 |
-| `DEBR`        | -                              |         3 |          0 |     3 |     0 |      0 |       3 |
-| `OSWP`        | -                              |         3 |          0 |     1 |     0 |      0 |       1 |
-| `WTHR`        | -                              |         3 |          0 |    26 |     0 |      0 |      26 |
-| `PERS`        | -                              |         2 |          0 |     2 |     0 |      0 |       2 |
-| `SDLT`        | -                              |         2 |          0 |     4 |     0 |      0 |       4 |
-| `DOBJ`        | -                              |         1 |          0 |     2 |     0 |      0 |       2 |
-| `GWED`        | -                              |         1 |          0 |     2 |     0 |      0 |       2 |
-| `MAAM`        | -                              |         1 |          0 |     2 |     0 |      0 |       2 |
+| `DEBR`        | Debris                         |         3 |          0 |     3 |     1 |      2 |       0 |
+| `OSWP`        | ObjectSwap                     |         3 |          0 |     1 |     1 |      0 |       0 |
+| `WTHR`        | Weather                        |         3 |          0 |    26 |     3 |     23 |       0 |
+| `PERS`        | UnknownPers                    |         2 |          0 |     2 |     0 |      2 |       0 |
+| `SDLT`        | SecondaryDamageListForm        |         2 |          0 |     4 |     1 |      3 |       0 |
+| `DOBJ`        | DefaultObjectManager           |         1 |          0 |     2 |     1 |      1 |       0 |
+| `GWED`        | GravityWielderEffectData       |         1 |          0 |     2 |     1 |      1 |       0 |
+| `MAAM`        | MeleeAimAssistModel            |         1 |          0 |     2 |     1 |      1 |       0 |
 | `NOCM`        | -                              |         1 |          0 |     5 |     0 |      0 |       5 |
 | `OVIS`        | -                              |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                              |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                              |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 151 defined                    | 7,490,102 |    136,741 | 2,797 | 1,770 |    426 |     601 |
+| **186 types** | 159 defined                    | 7,490,102 |    136,741 | 2,797 | 1,779 |    459 |     559 |
 
-Subrecord occurrences: 50,419,561 in total; 46,699,636 typed (0 of them failed to decode), 2,720,270 opaque, 999,655 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,699,654 typed (0 of them failed to decode), 2,720,522 opaque, 999,385 unknown.
 
 ## Decoded through the definitions
 
@@ -409,7 +409,15 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FORC`    | ForceData                      |             5 |          5 |      0 |         0 |         0 |                   0 |          5 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |             4 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
-| **Total** |                                |     7,471,426 | 46,699,636 |      0 |         0 |    18,685 |                   0 | 46,680,951 |       0 |        0 |
+| `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
+| `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
+| `WTHR`    | Weather                        |             3 |          7 |      0 |         0 |         0 |                   0 |          7 |       0 |        0 |
+| `PERS`    | UnknownPers                    |             2 |          0 |      0 |         0 |         0 |                   0 |          0 |       0 |        0 |
+| `SDLT`    | SecondaryDamageListForm        |             2 |          2 |      0 |         0 |         0 |                   0 |          2 |       0 |        0 |
+| `DOBJ`    | DefaultObjectManager           |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `GWED`    | GravityWielderEffectData       |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `MAAM`    | MeleeAimAssistModel            |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| **Total** |                                |     7,471,442 | 46,699,654 |      0 |         0 |    18,685 |                   0 | 46,680,969 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -460,9 +468,11 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CPTH`    | CameraPath                     |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |             18 |     1 |     17 |         0 |                   0 |     18 |       0 |        0 |
 | `CUR3`    | Curve3D                        |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
+| `DEBR`    | Debris                         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `DIAL`    | DialogTopic                    |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `DOBJ`    | DefaultObjectManager           |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                           |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `ENCH`    | Enchantment                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -485,6 +495,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GPOF`    | GameplayOption                 |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `GRAS`    | Grass                          |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
+| `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                       |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
@@ -511,6 +522,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LVLI`    | LeveledItem                    |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
 | `LVLP`    | LeveledPackIn                  |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
+| `MAAM`    | MeleeAimAssistModel            |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `MATT`    | MaterialType                   |              9 |     1 |      8 |         0 |                   0 |      9 |       0 |        0 |
 | `MESG`    | Message                        |             13 |     5 |      8 |         0 |                   0 |     13 |       0 |        0 |
 | `MGEF`    | MagicEffect                    |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
@@ -523,12 +535,14 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `NAVM`    | Navmesh                        |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
 | `NPC_`    | Npc                            |            147 |   142 |      5 |        16 |                   0 |    131 |       0 |        0 |
 | `OMOD`    | ObjectModification             |             51 |    46 |      5 |         6 |                   0 |     45 |       0 |        0 |
+| `OSWP`    | ObjectSwap                     |              1 |     1 |      0 |         0 |                   0 |      1 |       0 |        0 |
 | `OTFT`    | Outfit                         |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
 | `PACK`    | Package                        |             84 |    80 |      4 |         1 |                   0 |     83 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode        |             47 |    44 |      3 |         1 |                   0 |     46 |       0 |        0 |
 | `PCCN`    | PlanetContentNode              |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             43 |    40 |      3 |         2 |                   0 |     41 |       0 |        0 |
 | `PERK`    | Perk                           |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
+| `PERS`    | UnknownPers                    |              2 |     0 |      2 |         0 |                   0 |      2 |       0 |        0 |
 | `PGRE`    | PlacedProjectile               |             10 |     0 |     10 |         0 |                   0 |     10 |       0 |        0 |
 | `PHZD`    | PlacedHazard                   |             11 |     1 |     10 |         0 |                   0 |     11 |       0 |        0 |
 | `PKIN`    | PackIn                         |             54 |    50 |      4 |         0 |                   0 |     54 |       0 |        0 |
@@ -545,6 +559,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `RSGD`    | ResourceGenerationData         |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
 | `RSPJ`    | ResearchProject                |             48 |    45 |      3 |         0 |                   0 |     48 |       0 |        0 |
 | `SCEN`    | Scene                          |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
+| `SDLT`    | SecondaryDamageListForm        |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `SECH`    | SoundEchoMarker                |             15 |     1 |     14 |         0 |                   0 |     15 |       0 |        0 |
 | `SFBK`    | SurfaceBlock                   |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
 | `SFPC`    | SurfacePatternConfig           |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
@@ -572,10 +587,11 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WEAP`    | Weapon                         |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `WRLD`    | Worldspace                     |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
+| `WTHR`    | Weather                        |             26 |     3 |     23 |         0 |                   0 |     26 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          4,730 | 4,069 |    661 |       290 |                   2 |  4,438 |       0 |        0 |
+| **Total** |                                |          4,772 | 4,078 |    694 |       290 |                   2 |  4,480 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

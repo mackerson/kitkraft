@@ -1,0 +1,72 @@
+# DEBR: Debris, inventory definition (KK-111).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-111 scan of every official DEBR record (3 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the DEBR definition of wbDefinitionsSF1.pas at the pinned revision (L11282-L11286),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane transcribes the record from the pinned xEdit file
+# (docs/gaps.md). Members xEdit lists that no official record has are left out (here: the
+# base form component frame, L11284; no official record has a BFCB..BFCE block); a plugin
+# that has one keeps it raw.
+signature = "DEBR"
+name = "Debris"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DEBR record (3) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11282-L11286",
+]
+confidence = "corpus"
+note = "inventory definition (KK-111): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (3 occurrences), 12..30 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11283-L11283",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+group = "Models"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (26 occurrences, up to 11 per record), each a DATA (40..95 bytes) followed by its MODT (20 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11285-L11285",
+]
+confidence = "corpus"
+note = "one model: its DATA then its MODT"
+
+[[member.member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (26 occurrences, up to 11 per record), 40..95 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11285-L11285",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 40..95 bytes"
+
+[[member.member]]
+sig = "MODT"
+name = "Modt"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 3 official DEBR records (26 occurrences, up to 11 per record), 20 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11285-L11285",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-111 inventory); observed 20 bytes"

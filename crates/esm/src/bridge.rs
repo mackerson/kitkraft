@@ -576,6 +576,7 @@ mod tests {
     #[rustfmt::skip]
     const WITHOUT_EDID: &[&[u8; 4]] = &[
         b"NAVI",
+        b"PERS",
         b"PGRE",
         b"RFGP",
         b"TES4",
