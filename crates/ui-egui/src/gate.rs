@@ -1224,7 +1224,10 @@ mod tests {
         }
         // A confirmed re-run of `T-01`: the row comes back `pass`, no screenshot.
         let env = engine
-            .run(&Request::confirmed("game.probe", json!({"id": id, "row": "T-01"})))
+            .run(&Request::confirmed(
+                "game.probe",
+                json!({"id": id, "row": "T-01"}),
+            ))
             .unwrap();
         let row = &env["data"]["row"];
         assert_eq!(row["row"], json!("T-01"), "{env}");
