@@ -527,8 +527,8 @@ the inventory test prints and the tools read; set `KITKRAFT_DATA_DIR`):
    Edit a definition by hand afterwards and run it again.
 6. Commit the definition with what step 3 regenerated, `docs/record-parity.md` and the
    gap matrix headline (`docs/foothold/gap-matrix.md`) included. `cargo xtask ci` runs
-   `xtask/tests/reconcile.rs`, which fails while `docs/record-parity.md` names another
-   defs hash, definition count, definition name or inventory list than the schema has.
+   `crates/schema/tests/reconcile.rs`, which fails while `docs/record-parity.md` names
+   another defs hash, definition count, definition name or inventory list than the schema.
    So after any edit to a definition once step 3 has run (a review fix, step 5), or after
    `add-def --no-parity`, run `cargo xtask add-def <SIG>...` again (it reruns codegen and
    parity). Nothing else is needed: a type that moves from no definition to an inventory

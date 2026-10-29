@@ -21,6 +21,10 @@
 //! Failures name the document, the row (with its line) and the type. A campaign ticket
 //! that adds a definition keeps this green by running `cargo xtask add-def` (which runs
 //! `cargo xtask parity`), as `crates/schema/defs/README.md` ("Workflow") says.
+//!
+//! It lives in this crate, not in `xtask`: an integration test of `xtask` makes `cargo test
+//! --workspace` relink `target/debug/xtask.exe`, which `cargo xtask ci` is running and
+//! Windows keeps locked.
 
 // Test-only code: a panic fails the test. Clippy's `allow-*-in-tests` covers `#[test]`
 // functions, not the helpers of an integration-test file (AGENTS.md, "Never panic").
@@ -68,7 +72,7 @@ const NOT_RECORD_TYPES: &[(&str, &str)] = &[
 const CATCH_ALL: &str = "without a row here is covered by MX alone";
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("..")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
 }
 
 fn read(rel: &str) -> String {
