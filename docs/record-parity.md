@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         100 |   252,710 |    156,981 |   660,734 | 262,124 |
-| **Total**       |          186 |         163 | 7,490,102 | 46,712,502 | 2,738,227 | 968,832 |
+| container/other |          123 |         100 |   252,710 |    159,970 |   657,745 | 262,124 |
+| **Total**       |          186 |         163 | 7,490,102 | 46,715,491 | 2,735,238 | 968,832 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 163 record definitions, defs hash `fnv1a64:f82447f067eff942` (the hash named in
+- Schema: 163 record definitions, defs hash `fnv1a64:d4f460858cd76169` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -132,7 +132,7 @@ Columns:
 | `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     1 |      4 |       0 |
 | `LSCR`        | LoadScreen                     |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode        |       379 |          0 |    23 |    22 |      1 |       0 |
-| `DOOR`        | Door                           |       376 |          0 |    32 |    12 |     18 |       2 |
+| `DOOR`        | Door                           |       376 |          0 |    32 |    26 |      4 |       2 |
 | `LVLB`        | LeveledBaseForm                |       373 |          0 |    12 |     1 |     11 |       0 |
 | `AMBS`        | AmbienceSetForm                |       369 |          0 |     5 |     1 |      4 |       0 |
 | `ALCH`        | Ingestible                     |       365 |          0 |    32 |    31 |      1 |       0 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 163 defined                    | 7,490,102 |    136,741 | 2,797 | 1,810 |    472 |     515 |
+| **186 types** | 163 defined                    | 7,490,102 |    136,741 | 2,797 | 1,824 |    458 |     515 |
 
-Subrecord occurrences: 50,419,561 in total; 46,712,502 typed (0 of them failed to decode), 2,738,227 opaque, 968,832 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,715,491 typed (0 of them failed to decode), 2,735,238 opaque, 968,832 unknown.
 
 ## Decoded through the definitions
 
@@ -321,7 +321,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LTEX`    | LandscapeTexture               |           429 |        429 |      0 |         0 |         0 |                   0 |        429 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode        |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
-| `DOOR`    | Door                           |           376 |      3,778 |      0 |         0 |         0 |                   0 |      3,778 |       0 |        0 |
+| `DOOR`    | Door                           |           376 |      6,767 |      0 |         0 |         0 |                   0 |      6,767 |       0 |        0 |
 | `LVLB`    | LeveledBaseForm                |           373 |        373 |      0 |         0 |         0 |                   0 |        373 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm                |           369 |        369 |      0 |         0 |         0 |                   0 |        369 |       0 |        0 |
 | `ALCH`    | Ingestible                     |           365 |     14,303 |      0 |         0 |         0 |                   0 |     14,303 |       0 |        0 |
@@ -421,7 +421,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,471,446 | 46,712,502 |      0 |         0 |    18,685 |                   0 | 46,693,817 |       0 |        0 |
+| **Total** |                                |     7,471,446 | 46,715,491 |      0 |         0 |    18,685 |                   0 | 46,696,806 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -477,7 +477,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DLBR`    | DialogBranch                   |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOBJ`    | DefaultObjectManager           |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `DOOR`    | Door                           |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
+| `DOOR`    | Door                           |             70 |    63 |      7 |        10 |                   0 |     60 |       0 |        0 |
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `ENCH`    | Enchantment                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
@@ -599,7 +599,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          4,861 | 4,151 |    710 |       299 |                   2 |  4,560 |       0 |        0 |
+| **Total** |                                |          4,874 | 4,179 |    695 |       309 |                   2 |  4,563 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
