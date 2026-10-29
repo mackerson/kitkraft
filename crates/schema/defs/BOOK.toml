@@ -13,19 +13,23 @@
 #     (L2334-L2335), the keywords (wbDefinitionsCommon.pas L8935-L8951), FIMD
 #     (L2329), the generic model (L7008-L7029), the data slate
 #     (L10412-L10440), the teaching decider (L1823-L1841), CNAM (L10442,
-#     helper L3188), the data slate headers (L10443-L10446), INAM (L10447) and
-#     GNAM (L10448).
+#     helper L3188, kept raw), the data slate headers (L10443-L10446), INAM
+#     (L10447) and GNAM (L10448).
+#   corpus: the 1,368 BOOK records of the 14 official ESMs, checked by the
+#     book_types scan in crates/esm/tests/book_types.rs on 2026-10-29 (every
+#     subrecord placed, every placed subrecord decoded, every record
+#     re-encoded identically).
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs,
 #     checked by lstring_table_matches_the_corpus): DESC, ENAM, FNAM and FULL
-#     are lstrings in every official BOOK record.
+#     are lstrings in every official BOOK record; CNAM is not.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 signature = "BOOK"
 name = "Book"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10395-L10449"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10395-L10449",
+  "corpus: the 1,368 BOOK records of the 14 official ESMs, 2026-10-29 scan; every record decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -44,28 +48,43 @@ sig = "VMAD"
 name = "Scripts"
 type = "ref:ScriptAttachment"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 218 of the 1,368 official BOOK records carry a VMAD and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "script data; the property values are unions by property type and stay raw inside the attachment"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry an OBND and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry an ODTY and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PTT2"
 name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,341 of the 1,368 official BOOK records carry a PTT2 and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DEFL"
@@ -74,19 +93,29 @@ type = "formid"
 targets = ["LAYR"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official BOOK records"
 
 [[member]]
 sig = "XALG"
 name = "XalgFlags"
 type = "u64"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,263 of the 1,368 official BOOK records carry an XALG and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 810 of the 1,368 official BOOK records carry a component block (a BFCB..BFCE run) and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "base form components"
 
 [[member]]
@@ -103,7 +132,11 @@ confidence = "corpus"
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,365 of the 1,368 official BOOK records carry a MODL (FLLD in all 1,368, MOLM in 127 and XFLG in 134) and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DESC"
@@ -123,26 +156,38 @@ group_ref = "Destructible"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
 confidence = "reference"
-note = "destruction data, the xEdit layout"
+note = "not present in the official BOOK records"
 
 [[member]]
 sig = "PUSH"
 name = "PickupSound"
 type = "ref:SoundReference"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,063 of the 1,368 official BOOK records carry a PUSH and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PDSH"
 name = "PutdownSound"
 type = "ref:SoundReference"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,062 of the 1,368 official BOOK records carry a PDSH and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,351 of the 1,368 official BOOK records carry the keyword count and list (a KSIZ and a KWDA) and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FIMD"
@@ -151,14 +196,19 @@ type = "formid"
 targets = ["MESG"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2329-L2329"]
+confidence = "reference"
+note = "not present in the official BOOK records"
 
 [[member]]
 sig = "DATA"
 name = "Data"
 type = "struct"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10412-L10415"]
-confidence = "reference"
-note = "the xEdit struct applies to object format versions 0-1 only; the corpus payload size is the arbiter"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10412-L10415",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry a DATA and every record re-encodes identically, confirming the eight-byte value-and-weight layout",
+]
+confidence = "corpus"
+note = "the xEdit struct applies to object format versions 0-1 only; the corpus confirms the layout in every official record"
 field = [
   { name = "Value", type = "u32" },
   { name = "Weight", type = "f32" },
@@ -171,8 +221,9 @@ type = "struct"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10416-L10440",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1823-L1841",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry a DNAM and every record re-encodes identically, confirming the layout of flags, teaching, text offsets and slate type",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "the data slate; the teaching decider picks the teaching layout from the flags (L1823-L1841)"
 field = [
   { name = "Flags", type = "u8", note = "0x01 AdvanceActorValue, 0x02 CannotBeTaken, 0x04 AddSpell, 0x08 Unknown3, 0x10 AddPerk, 0x20 Unknown5; a plain integer because it decides the teaching layout" },
@@ -182,7 +233,7 @@ field = [
     { name = "Perk", type = "formid", targets = ["PERK"], when = [16, 18, 24, 26, 48, 50, 56, 58, 80, 82, 88, 90, 112, 114, 120, 122, 144, 146, 152, 154, 176, 178, 184, 186, 208, 210, 216, 218, 240, 242, 248, 250] },
     { name = "Unused", type = "opaque", size = 4, when = [0, 2, 8, 10, 32, 34, 40, 42, 64, 66, 72, 74, 96, 98, 104, 106, 128, 130, 136, 138, 160, 162, 168, 170, 192, 194, 200, 202, 224, 226, 232, 234] },
   ] },
-  { name = "TextOffsetX", type = "u32", note = "xEdit's Text Offset struct applies to object format versions 0-1 only; the corpus payload size is the arbiter" },
+  { name = "TextOffsetX", type = "u32", note = "the xEdit Text Offset struct applies to object format versions 0-1 only; the corpus confirms both offsets in every official record" },
   { name = "TextOffsetY", type = "u32" },
   { name = "DataSlateType", type = "enum", base = "u32", values = [["None", 0], ["Text", 1], ["Image", 2], ["Audio", 3]] },
 ]
@@ -193,16 +244,20 @@ name = "Cnam"
 type = "opaque"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10442-L10442",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3188-L3188",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: the corpus lstring table classifies BOOK's CNAM as not an lstring (lane E's table, edit::lstrings)",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,368 of the 1,368 official BOOK records carry a CNAM and every record re-encodes it raw",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "kept raw: xEdit types the description as a localized string, but the corpus lstring table does not classify BOOK's CNAM as an lstring, so the payload is kept as raw bytes"
 
 [[member]]
 group = "DataSlateHeaders"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10443-L10446"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10443-L10446",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 425 of the 1,368 official BOOK records carry an ENAM and 329 a FNAM, and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "the data slate header texts; xEdit allows any member to be absent, so both stay optional"
 
 [[member.member]]
@@ -233,7 +288,11 @@ name = "InventoryArt"
 type = "formid"
 targets = ["STAT"]
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10447-L10447"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10447-L10447",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 1,020 of the 1,368 official BOOK records carry an INAM and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "GNAM"
@@ -241,4 +300,8 @@ name = "Scene"
 type = "formid"
 targets = ["SCEN"]
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10448-L10448"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10448-L10448",
+  "corpus: book_types_full (crates/esm/tests/book_types.rs), 2026-10-29: 187 of the 1,368 official BOOK records carry a GNAM and every record re-encodes identically",
+]
+confidence = "corpus"

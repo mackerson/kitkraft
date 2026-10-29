@@ -62,7 +62,7 @@
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
 // - BMMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BMOD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official BMOD record (529) decodes with every subrecord placed and re-encodes identically; corpus)
-// - BOOK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10395-L10449; reference)
+// - BOOK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10395-L10449; corpus)
 // - BPTD (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - CAMS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CAMS record (276) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CELL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10589-L10744; corpus)
