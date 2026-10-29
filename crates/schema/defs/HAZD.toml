@@ -19,7 +19,10 @@
 signature = "HAZD"
 name = "Hazard"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591"
-confidence = "reference"
+evidence = [
+  "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: the 87 HAZD records of the 14 official ESMs; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -50,19 +53,24 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, kept raw"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official HAZD records"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: OBND is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: ODTY is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
@@ -70,6 +78,8 @@ name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official HAZD records"
 
 [[member]]
 sig = "PTT2"
@@ -77,6 +87,8 @@ name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official HAZD records"
 
 [[member]]
 sig = "SNTP"
@@ -85,6 +97,8 @@ type = "formid"
 targets = ["STMP"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official HAZD records"
 
 [[member]]
 sig = "SNBH"
@@ -93,6 +107,8 @@ type = "formid"
 targets = ["STBH"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official HAZD records"
 
 [[member]]
 sig = "DEFL"
@@ -101,6 +117,8 @@ type = "formid"
 targets = ["LAYR"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official HAZD records"
 
 [[member]]
 sig = "XALG"
@@ -144,7 +162,9 @@ sig = "DNAM"
 name = "Data"
 type = "struct"
 size = 92
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: DNAM is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12562-L12589"]
+confidence = "corpus"
 
 [[member.field]]
 name = "Sound"
@@ -220,7 +240,8 @@ name = "ConditionCount"
 type = "u32"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
-note = "number of Conditions that follow; stored, not derived"
+confidence = "reference"
+note = "number of Conditions that follow; stored, not derived; not present in the official HAZD records"
 
 [[member]]
 group_ref = "Condition"

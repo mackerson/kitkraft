@@ -107,7 +107,7 @@
 // - GPOG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GPOG record (4) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GRAS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GRAS record (193) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GWED (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GWED record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - HAZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591; reference)
+// - HAZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591; corpus)
 // - HDPT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - IDLE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685; corpus)
 // - IMAD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMAD record (224) decodes with every subrecord placed and re-encodes identically; corpus)
