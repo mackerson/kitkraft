@@ -34,7 +34,9 @@ use kitkraft_doc::flags::RECORD_FLAG_DELETED;
 use kitkraft_doc::lstring::is_lstring;
 use kitkraft_doc::strings::StringTables;
 use kitkraft_doc::typed::{self, Decoded};
-use kitkraft_doc::{FormRef, GlobalForm, LoadedRecord, MasterMap, RecordReader, Version};
+use kitkraft_doc::{
+    FormRef, GlobalForm, LoadOrder, LoadedRecord, MasterMap, RecordReader, Version,
+};
 
 use super::load::{acquire, has_runtime_note, lstring_json, runtime_note, schema_of, Loaded};
 use super::{failed, file_name, str_arg};
@@ -597,6 +599,139 @@ fn lmsw_json(data: &[u8]) -> Value {
     json!({"entries": entries})
 }
 
+/// The `Addon` entries of an `ARMO` record as JSON (`inspect --full`): each `INDX`/`MODL`
+/// pair names the `ARMA` addon, with the `ARMA`'s four model `FileName`s by slot. An
+/// `INDX` with no `MODL` after it, and a `MODL` shorter than 4 bytes, are skipped; an
+/// `ARMA` that does not resolve anywhere in the load order is `"missing"` with empty
+/// `models`; an `ARMA` that resolves but cannot be read is reported in `notes`.
+fn armo_addons_json(
+    lo: &LoadOrder,
+    reader: &mut RecordReader,
+    armo_plugin: u16,
+    rec: &LoadedRecord,
+    notes: &mut Vec<String>,
+) -> Value {
+    let subs = &rec.subs;
+    let mut addons = Vec::new();
+    // Pair each subrecord with the one immediately after it: an `INDX` names an addon
+    // only with a `MODL` right after it.
+    for (sub, nxt) in subs.iter().zip(subs.iter().skip(1)) {
+        if sub.signature().0 != *b"INDX" {
+            continue;
+        }
+        // An `INDX` with no `MODL` after it is skipped explicitly: an `INDX` that is the
+        // last subrecord has no successor at all, and one followed by anything but a
+        // `MODL` has a successor that is not a `MODL`.
+        if nxt.signature().0 != *b"MODL" {
+            continue;
+        }
+        let modl = nxt;
+        let Some(bytes) = sub.data().get(..2) else {
+            continue;
+        };
+        // An `INDX` shorter than 2 bytes is malformed: skipped, like a short `MODL`.
+        let index = match bytes {
+            [hi, lo] => u16::from_le_bytes([*hi, *lo]),
+            _ => continue,
+        };
+        let Some(bytes) = modl.data().get(..4) else {
+            continue;
+        };
+        // A `MODL` shorter than 4 bytes is skipped explicitly.
+        let raw = match bytes {
+            [a, b, c, d] => u32::from_le_bytes([*a, *b, *c, *d]),
+            _ => continue,
+        };
+        let entry = match lo.resolve(armo_plugin, raw) {
+            Err(_) => armo_addon_missing(index),
+            Ok(g) => match lo.forms.winner(g) {
+                None => armo_addon_missing(index),
+                Some(w) => match lo.record(w.plugin, w.record) {
+                    None => armo_addon_missing(index),
+                    Some(loc) => {
+                        // No runtime ID (the form is not mapped into the game's runtime
+                        // space): fall back to the FormID it was resolved as, never "".
+                        let formid = lo
+                            .runtime_id(g)
+                            .map(|id| format!("0x{id:08X}"))
+                            .unwrap_or_else(|| format!("0x{:08X}", g.object_id));
+                        let editor_id = lo.edid(w.plugin, loc).unwrap_or("");
+                        let plugin = lo
+                            .plugin(w.plugin)
+                            .map_or_else(String::new, |p| p.name.clone());
+                        json!({
+                            "index": index,
+                            "arma": {
+                                "formid": formid,
+                                "editor_id": editor_id,
+                                "plugin": plugin,
+                            },
+                            "models": armo_models_json(lo, reader, w.plugin, loc, &plugin, notes),
+                        })
+                    }
+                },
+            },
+        };
+        addons.push(entry);
+    }
+    json!(addons)
+}
+
+/// One `Addon` entry whose `ARMA` is not in the load order.
+fn armo_addon_missing(index: u16) -> Value {
+    json!({"index": index, "arma": "missing", "models": {}})
+}
+
+/// The four model `FileName`s of an `ARMA` by slot (`MOD2` male, `MOD3` female, `MOD4`
+/// male first person, `MOD5` female first person); an absent subrecord is `""`. An `ARMA`
+/// that resolves but cannot be read shows all four slots `""` and the read error goes
+/// into `notes`.
+fn armo_models_json(
+    lo: &LoadOrder,
+    reader: &mut RecordReader,
+    plugin: u16,
+    loc: &kitkraft_doc::RecordLoc,
+    plugin_name: &str,
+    notes: &mut Vec<String>,
+) -> Value {
+    let rec = match reader.read(lo, plugin, loc) {
+        Ok(rec) => rec,
+        Err(err) => {
+            notes.push(format!(
+                "addons: could not read the ARMA from {plugin_name}: {err}"
+            ));
+            return json!({
+                "male": "",
+                "female": "",
+                "male_first_person": "",
+                "female_first_person": "",
+            });
+        }
+    };
+    let mut male = String::new();
+    let mut female = String::new();
+    let mut male_first_person = String::new();
+    let mut female_first_person = String::new();
+    for sub in &rec.subs {
+        let sig = sub.signature().0;
+        if sig == *b"MOD2" {
+            male = kitkraft_doc::index::zstring(sub.data());
+        } else if sig == *b"MOD3" {
+            female = kitkraft_doc::index::zstring(sub.data());
+        } else if sig == *b"MOD4" {
+            male_first_person = kitkraft_doc::index::zstring(sub.data());
+        } else if sig == *b"MOD5" {
+            female_first_person = kitkraft_doc::index::zstring(sub.data());
+        }
+    }
+    json!({
+        "male": male,
+        "female": female,
+        "male_first_person": male_first_person,
+        "female_first_person": female_first_person,
+    })
+}
+
 /// Where a version handed to [`version_entry`] comes from.
 pub(super) enum VersionAt<'a> {
     /// A version of the load order.
@@ -983,7 +1118,7 @@ fn run_load_order(
             .and_then(|j| versions.get(j))
             .map(|prev| lo.encodings_compatible(prev.plugin, v.plugin));
         let h = &rec.record.header;
-        list.push(json!({
+        let mut version = json!({
             "plugin": p.name,
             "load_index": v.plugin,
             "winner": i == last,
@@ -1005,7 +1140,16 @@ fn run_load_order(
             "subrecords": subs,
             "vs_previous": class,
             "payloads_comparable": comparable,
-        }));
+        });
+        if full && h.signature.0 == *b"ARMO" {
+            if let Some(obj) = version.as_object_mut() {
+                obj.insert(
+                    "addons".into(),
+                    armo_addons_json(lo, &mut reader, v.plugin, rec, &mut notes),
+                );
+            }
+        }
+        list.push(version);
     }
     let winner = versions.last().copied();
     let editor_id = winner
@@ -1511,6 +1655,86 @@ mod tests {
             .unwrap()
             .iter()
             .any(|l| l.as_str().unwrap().contains("deleted versions")));
+    }
+
+    /// KK-222: `inspect --full` of an `ARMO` attaches its `Addon` entries as an `addons`
+    /// key on the version object, each with the resolved `ARMA` and its four model paths.
+    #[test]
+    fn an_armo_inspect_shows_addons_and_their_model_paths() {
+        use crate::edit::patch_tests::dir;
+        use crate::handlers::place_tests::world_master;
+
+        let d = dir("armo-inspect");
+        let data = world_master(&d);
+        let plugin = d.join("KC_Armor.esp");
+        // The addon's `ARMA` takes the appended plugin's first new form.
+        let r = execute(
+            "new",
+            json!({
+                "type": "ARMA", "edid": "KC_Addon",
+                "fields": {
+                    "MOD2": "meshes/armor/kc/male.nif",
+                    "MOD3": "meshes/armor/kc/female.nif",
+                    "MOD4": "meshes/armor/kc/male_1p.nif",
+                    "MOD5": "meshes/armor/kc/female_1p.nif",
+                },
+                "masters": ["World.esm"],
+                "into": plugin.display().to_string(),
+                "plugins": ["World.esm"], "data_dir": data.display().to_string(), "no_cache": true,
+            }),
+        )
+        .unwrap();
+        let arma_form_id = r["data"]["new_forms"][0]["form_id"].as_str().unwrap();
+        // The `ARMO` with one `Addon` pointing at it.
+        execute(
+            "new",
+            json!({
+                "type": "ARMO", "edid": "KC_Outfit",
+                "fields": {"INDX[0]": 0, "MODL[0]": arma_form_id},
+                "masters": ["World.esm"],
+                "into": plugin.display().to_string(),
+                "plugins": ["World.esm"], "data_dir": data.display().to_string(), "no_cache": true,
+            }),
+        )
+        .unwrap();
+        let plugins = json!(["World.esm", plugin.display().to_string()]);
+        let r = execute(
+            "inspect",
+            json!({
+                "form": "KC_Outfit", "plugins": plugins,
+                "data_dir": data.display().to_string(), "no_cache": true, "full": true,
+            }),
+        )
+        .unwrap();
+        let version = &r["data"]["versions"][0];
+        assert_eq!(version["record"]["signature"], "ARMO");
+        let addons = version["addons"].as_array().unwrap();
+        assert_eq!(addons.len(), 1);
+        let addon = &addons[0];
+        assert_eq!(addon["index"], 0);
+        assert_eq!(addon["arma"]["formid"], format!("0x{arma_form_id}"));
+        assert_eq!(addon["arma"]["editor_id"], "KC_Addon");
+        assert_eq!(addon["arma"]["plugin"], "KC_Armor.esp");
+        assert_eq!(
+            addon["models"],
+            json!({
+                "male": "meshes/armor/kc/male.nif",
+                "female": "meshes/armor/kc/female.nif",
+                "male_first_person": "meshes/armor/kc/male_1p.nif",
+                "female_first_person": "meshes/armor/kc/female_1p.nif",
+            })
+        );
+        // Without `full` the key is not there: the same gate as `lmsw`.
+        let r = execute(
+            "inspect",
+            json!({
+                "form": "KC_Outfit", "plugins": plugins,
+                "data_dir": data.display().to_string(), "no_cache": true,
+            }),
+        )
+        .unwrap();
+        assert!(r["data"]["versions"][0].get("addons").is_none());
+        let _ = std::fs::remove_dir_all(&d);
     }
 
     /// Minimal hex decoding for the assertions above.
