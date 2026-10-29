@@ -213,6 +213,17 @@ evidence = [
 ]
 note = "KK-021: new with every typed leaf member, read back identically, validate with no finding; dangling INAM reported"
 
+[[entry]]
+type = "QUST"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::qust_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::qust_contact_shadow_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::qust_dangling_link_is_reported",
+]
+note = "KK-220: new with every typed leaf member, read back identically, validate with no finding, on the PlanetContentProperties and ContactShadow component layouts; dangling QTYP, LNAM, GNAM, QSRC and a condition's Parameter1 reported"
+
 # LVLI has no entry: its read-back test is #[ignore]d (a BFCB block condition-slot
 # misalignment in `new`, an engine fix outside KK-017); its dangling-link test passes
 # but a dangling test alone is not a typed-writable row.

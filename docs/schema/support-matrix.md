@@ -182,25 +182,36 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
 | ACTI | not-run | pass |
 | KYWD | not-run | pass |
 | TMLM | not-run | pass |
+| QUST | not-run | pass |
 
 - `acti_new_sets_every_typed_member_and_reads_back`, `kywd_new_sets_every_typed_member_and_reads_back`
   and `tmlm_new_sets_every_typed_member_and_reads_back`: `new` with every typed leaf member
   of the definition, read back byte for byte, `validate` with no finding.
+- `qust_new_sets_every_typed_member_and_reads_back` (KK-220) and
+  `qust_contact_shadow_new_sets_every_typed_member_and_reads_back` (KK-220): `new` with
+  every typed leaf member of the definition, read back byte for byte, `validate` with no
+  finding, the first on the `PlanetContentProperties` component layout (the block's
+  condition is the first of the record's ten `CTDA` slots) and the second on the
+  `ContactShadow` layout (the block's condition slot is left unplanned and out of `new`'s
+  slot list, so every planned `CTDA` lands in its own condition group, the collection
+  alias's match conditions included).
 - `acti_dangling_link_is_reported` (`SNTP`, `SNBH`, `DEFL`), `kywd_dangling_link_is_reported`
-  (`DATA`, the attached resource) and `tmlm_dangling_link_is_reported` (`TNAM`, `BNAM`,
-  `XLOC.Key`): each link is reported by `validate`'s `formid.dangling` and listed as
-  `missing` by `refs`.
+  (`DATA`, the attached resource), `tmlm_dangling_link_is_reported` (`TNAM`, `BNAM`,
+  `XLOC.Key`) and `qust_dangling_link_is_reported` (`QTYP`, `LNAM`, `GNAM`, `QSRC`, a
+  condition's `Parameter1`): each link is reported by `validate`'s `formid.dangling` and
+  listed as `missing` by `refs`.
 
 KYWD and TMLM have no base form component block of their own, so the layout and component
 name in their tests are inert; every other typed member of the definition is written and
 read back.
 
-QUST and WRLD stay out of the list: `qust_new_sets_every_typed_member_and_reads_back` is
-`#[ignore]`d because, even in the `PlanetContentProperties` layout, the collection-alias
-match conditions (`Aliases.Collection.Template.MatchConditions.{Data, StringParameter1,
-StringParameter2}`) are not written, a slot misalignment that is an engine fix outside
-this ticket; and `new` refuses a WRLD (a worldspace roots exterior cells that are not
-written yet).
+WRLD stays out of the list: `new` refuses a WRLD (a worldspace roots exterior cells that
+are not written yet), and its read-back and dangling tests are `#[ignore]`d. QUST's slot
+misalignment was fixed in KK-220: the plan now walks the chosen layout's own groups, and
+`new`'s slot list holds the block's slots of only the layout the record's fields select,
+so the k-th `CTDA` lands in the k-th `CTDA` slot for every slot the definition has (the
+slot rule pinned by
+`edit::scaffold::tests::a_repeated_signature_counts_every_slot_of_a_repeating_group`).
 
 ## CONT, MISC, FLST and LVLI (KK-017, 2026-10-27)
 

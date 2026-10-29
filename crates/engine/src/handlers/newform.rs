@@ -39,8 +39,8 @@ use super::set::{
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit};
 use crate::edit::scaffold::{
-    fill_groups, first_unplaced, lead_refusal, member_order, missing_lead, placeholder, slot_of,
-    slot_placeholder, wanted_slots,
+    fill_groups, first_unplaced, lead_refusal, member_order, member_order_of_layout, missing_lead,
+    placeholder, slot_of, slot_placeholder, wanted_slots,
 };
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
@@ -147,10 +147,44 @@ pub(crate) fn plan_new(
         }
     }
     masters.sort_by_key(|(i, _)| *i);
-    let order = member_order(sig);
+    let all = member_order(sig);
     // How many occurrences of each signature the fields name (`PRPS[1]` makes two), and the
     // count subrecord of a whole counted array (`KWDA` brings `KSIZ`; lane D round 5).
-    let wanted = wanted_slots(&order, &req.edits, &std::collections::BTreeMap::new());
+    let wanted = wanted_slots(&all, &req.edits, &std::collections::BTreeMap::new());
+    // The component layout a new record holds: the wanted signatures the record cannot
+    // place wholly at its own level sit in the block's layout that carries them, and the
+    // layout is the intersection of those. A wanted signature with a slot of its own in
+    // the record places at most all of its occurrences there (its k-th occurrence may map
+    // into a slot of another layout in the full order, so it constrains nothing); a
+    // signature with no block member names no layout. The block's other layouts are not
+    // slots of this record.
+    let mut layout: Option<Vec<String>> = None;
+    for (s, n) in &wanted {
+        let own = all.iter().filter(|e| e.sig == *s && !e.component).count();
+        let mut in_layouts: Vec<String> = Vec::new();
+        for e in all.iter().filter(|e| e.sig == *s && e.component) {
+            if let Some(l) = e.path.split('.').nth(1) {
+                if !in_layouts.iter().any(|x| x == l) {
+                    in_layouts.push(l.to_string());
+                }
+            }
+        }
+        if in_layouts.is_empty() || *n <= own {
+            continue;
+        }
+        layout = match layout {
+            None => Some(in_layouts),
+            Some(prev) => Some(
+                prev.into_iter()
+                    .filter(|l| in_layouts.iter().any(|x| x == l))
+                    .collect(),
+            ),
+        };
+    }
+    let order = match layout.and_then(|l| l.into_iter().next()) {
+        Some(layout) => member_order_of_layout(sig, &layout),
+        None => all,
+    };
     let mut edid = req.edid.as_bytes().to_vec();
     edid.push(0);
     // Each subrecord with the position of its slot; EDID first.
