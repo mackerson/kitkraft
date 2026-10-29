@@ -1,102 +1,108 @@
-# DOOR: Door, inventory definition (M4.BX2, lane B).
+# DOOR: Door, a placeable object that opens and closes (doors, hatches, gates and sliding
+# windows). The model block carries the meshes, the three sound references carry the open,
+# close and loop sounds, and the rest of the behaviour is script data (VMAD).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official DOOR record (376 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the DOOR definition of wbDefinitionsSF1.pas at the pinned revision (L11575-L11621),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11575-L11621 - member order, the record flags,
+#     ODTY, FNAM and its eight bits, DEVT, ANAM, the sound references, ONAM and CNAM.
+#     Helpers: script data (L3407-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2
+#     (L3965-L3978), SNTP (L3919), XALG (L3230), the base form component block
+#     (L5984-L6832, kept raw), FULL (L3184), the generic model (L7008-L7029), destruction
+#     data (L3829-L3890), keywords (wbDefinitionsCommon.pas L8935-L8951), NTRM (L5676),
+#     FTYP (L5699), PRPS (L5679-L5686), sound references (L2197-L2227), the sound level
+#     (L2574-L2581), navmesh geometry (L3995-L4128, kept opaque).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Order: FTYP and PRPS never occur together in one official DOOR record; their order follows
-# the pinned xEdit file.
-# Inside component blocks (kept raw by BfcbBlock): ANAM BNAM CNAM ENAM FLTR INTV REFL STCP.
+# Members xEdit lists that no official record has (OPDS, PTT2, SNTP, the destruction block)
+# are kept so a plugin that has one decodes it; they stay reference-level.
+# Inside component blocks (kept raw by BfcbBlock): ANAM BNAM CNAM ENAM FLTR INTV REFL STCP;
+# FLTR and INTV occur only inside component blocks and stay outside the definition.
 signature = "DOOR"
 name = "Door"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official DOOR record (376) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621"
+confidence = "reference"
+flags = [
+  ["NonOccluder", 0x10],
+  ["HasDistantLod", 0x8000],
+  ["RandomAnimStart", 0x10000],
+  ["IsMarker", 0x800000],
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 8..64 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11582-L11582",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
-name = "Vmad"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 14 of 376 official DOOR records (14 occurrences), 34..233 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11583-L11583",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11584-L11584",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
-confidence = "corpus"
-note = "typed with the shared ObjectBounds layout the other types use (fix round W3, lane R request: references of a DOOR base draw as their bounds box); every official DOOR OBND is 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11585-L11585",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official DOOR records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official DOOR records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official DOOR records"
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 21 of 376 official DOOR records (21 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11590-L11590",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 347 of 376 official DOOR records (444 occurrences, up to 3 per record), 22..32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11591-L11591",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
 ]
-confidence = "corpus"
 note = "base form components; the component data stays raw"
 
 [[member]]
@@ -104,211 +110,159 @@ sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 309 of 376 official DOOR records (309 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11592-L11592",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official DOOR records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
-confidence = "corpus"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 18..145 bytes"
+group_ref = "Model"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11593-L11593",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
-sig = "MOLM"
-name = "Molm"
-type = "opaque"
+group_ref = "Destructible"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 39 of 376 official DOOR records (39 occurrences), 6 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11593-L11593",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11594-L11594",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11593-L11593",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "XFLG"
-name = "Xflg"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 46 of 376 official DOOR records (46 occurrences), 1 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11593-L11593",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "not present in the official DOOR records"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 206 of 376 official DOOR records (206 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11595-L11595",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
 ]
-confidence = "corpus"
 
 [[member]]
 sig = "NTRM"
-name = "Ntrm"
-type = "opaque"
+name = "NativeTerminal"
+type = "formid"
+targets = ["TMLM"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 268 of 376 official DOOR records (268 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11596-L11596",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5676-L5676"]
 
 [[member]]
 sig = "FTYP"
-name = "Ftyp"
-type = "opaque"
+name = "ForcedLocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 39 of 376 official DOOR records (39 occurrences), 4..8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11597-L11597",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699"]
 
 [[member]]
 sig = "PRPS"
-name = "Prps"
-type = "opaque"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 12 of 376 official DOOR records (12 occurrences), 12..24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11598-L11598",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
 
 [[member]]
 sig = "DOSH"
-name = "Dosh"
-type = "opaque"
+name = "OpenSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 345 of 376 official DOOR records (345 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11599-L11599",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "DCSH"
-name = "Dcsh"
-type = "opaque"
+name = "CloseSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 337 of 376 official DOOR records (337 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11600-L11600",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "DLSH"
-name = "Dlsh"
-type = "opaque"
+name = "LoopSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 376 official DOOR records (2 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11601-L11601",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 1 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11602-L11602",
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [
+  ["NoQuestTarget", 0x1],
+  ["Automatic", 0x2],
+  ["Hidden", 0x4],
+  ["MinimalUse", 0x8],
+  ["Sliding", 0x10],
+  ["DoNotOpenInCombatSearch", 0x20],
+  ["NoToText", 0x40],
+  ["NoDirectActivation", 0x80],
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11602-L11611"]
 
 [[member]]
 sig = "ONAM"
-name = "Onam"
+name = "AlternateTextOpen"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1 of 376 official DOOR records (1 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11612-L11612",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11612-L11612"]
 note = "xEdit lays it out as a localized string; one 4-byte occurrence in the corpus, too few for lane E's lstring table to classify, so it stays opaque"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
+name = "AlternateTextClose"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1 of 376 official DOOR records (1 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11613-L11613",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11613-L11613"]
 note = "xEdit lays it out as a localized string; one 4-byte top-level occurrence in the corpus (CNAM inside component blocks is other data), too few to classify, so it stays opaque"
 
 [[member]]
 sig = "DEVT"
-name = "Devt"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 4 bytes"
+name = "SoundLevel"
+type = "enum"
+base = "u32"
+values = [
+  ["None", 0],
+  ["Silent", 1],
+  ["Quiet", 2],
+  ["Normal", 3],
+  ["Loud", 4],
+  ["VeryLoud", 5],
+]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11614-L11614",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11615-L11615",
+name = "FacingAxisOverride"
+type = "enum"
+base = "u32"
+values = [
+  ["UseXAxis", 0],
+  ["UseYAxis", 1],
+  ["BasedOnBounds", 2],
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11615-L11619"]
 
 [[member]]
 sig = "NVNM"
-name = "Nvnm"
+name = "NavmeshGeometry"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 376 official DOOR records (2 occurrences), 276 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11620-L11620",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3995-L4128"]
+note = "navmesh geometry; kept raw"

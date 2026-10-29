@@ -589,7 +589,7 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
 /// actor family; ACTI, CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
-/// items/workshop family). DOOR, IRES, LSCR and MESG became M4.BX2 inventories
+/// items/workshop family). IRES, LSCR and MESG became M4.BX2 inventories
 /// ([`BX2_INVENTORY`]).
 #[rustfmt::skip]
 const LSTRING_ONLY: &[&str] = &[
@@ -633,7 +633,6 @@ const BX2_INVENTORY: &[&str] = &[
     "DEBR",
     "DLBR",
     "DOBJ",
-    "DOOR",
     "EFSH",
     "EQUP",
     "FFKW",
@@ -705,7 +704,7 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
 /// request: the Render Window draws their references as bounds boxes).
-const BX2_TYPED_BOUNDS: &[&str] = &["DOOR", "LIGH"];
+const BX2_TYPED_BOUNDS: &[&str] = &["LIGH"];
 
 /// M4.BX2: an inventory types only EDID, the corpus table's lstrings, the shared keyword
 /// list, the base form component frame and, for [`BX2_TYPED_BOUNDS`], `OBND`; every other
@@ -750,7 +749,7 @@ fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
             let shared = path.starts_with("Keywords.") || path.starts_with("BfcbBlock.");
             let edid = sub.signature == sig("EDID");
             let lstring = sub.ty == FieldType::LString;
-            // Fix round W3 (lane R request): DOOR and LIGH type OBND with the shared
+            // Fix round W3 (lane R request): LIGH types OBND with the shared
             // ObjectBounds layout the other types use.
             let bounds = BX2_TYPED_BOUNDS.contains(record)
                 && sub.signature == sig("OBND")
