@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         105 |   252,710 |    211,608 |   785,895 |  82,336 |
-| **Total**       |          186 |         168 | 7,490,102 | 46,767,129 | 2,863,388 | 789,044 |
+| container/other |          123 |         105 |   252,710 |    211,869 |   785,933 |  82,037 |
+| **Total**       |          186 |         168 | 7,490,102 | 46,767,390 | 2,863,426 | 788,745 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 168 record definitions, defs hash `fnv1a64:e021e93347fd4344` (the hash named in
+- Schema: 168 record definitions, defs hash `fnv1a64:c1449352ddcec8ca` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -212,7 +212,7 @@ Columns:
 | `AOPF`        | AudioOcclusionPrimitive        |        20 |          0 |     5 |     1 |      4 |       0 |
 | `LVSC`        | -                              |        20 |          0 |     6 |     0 |      0 |       6 |
 | `FSTS`        | -                              |        19 |          0 |     3 |     0 |      0 |       3 |
-| `WATR`        | Water                          |        19 |          0 |    19 |     2 |      0 |      17 |
+| `WATR`        | Water                          |        19 |          0 |    19 |    17 |      2 |       0 |
 | `IDLM`        | -                              |        18 |          0 |    13 |     0 |      0 |      13 |
 | `SCOL`        | -                              |        15 |          0 |    11 |     0 |      0 |      11 |
 | `BNDS`        | -                              |        14 |          0 |     5 |     0 |      0 |       5 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,855 |    486 |     456 |
+| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,870 |    488 |     439 |
 
-Subrecord occurrences: 50,419,561 in total; 46,767,129 typed (0 of them failed to decode), 2,863,388 opaque, 789,044 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,767,390 typed (0 of them failed to decode), 2,863,426 opaque, 788,745 unknown.
 
 ## Decoded through the definitions
 
@@ -402,7 +402,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AOPS`    | AimOpticalSightMarker          |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `CLDF`    | Clouds                         |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `AOPF`    | AudioOcclusionPrimitive        |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
-| `WATR`    | Water                          |            19 |         38 |      0 |         0 |         0 |                   0 |         38 |       0 |        0 |
+| `WATR`    | Water                          |            19 |        299 |      0 |         0 |         0 |                   0 |        299 |       0 |        0 |
 | `TES4`    | PluginHeader                   |            14 |         77 |      0 |         0 |         0 |                   0 |         77 |       0 |        0 |
 | `DMGT`    | DamageType                     |            11 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `PSDC`    | ParticleSystemDefineCollection |            11 |         11 |      0 |         0 |         0 |                   0 |         11 |       0 |        0 |
@@ -430,7 +430,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,480,741 | 46,767,129 |      0 |         0 |    18,685 |                   0 | 46,748,444 |       0 |        0 |
+| **Total** |                                |     7,480,741 | 46,767,390 |      0 |         0 |    18,685 |                   0 | 46,748,705 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -604,7 +604,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `TRAV`    | Traversal                      |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
 | `TXST`    | TextureSet                     |             12 |     1 |     11 |         0 |                   0 |     12 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `WATR`    | Water                          |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `WATR`    | Water                          |             54 |    48 |      6 |         2 |                   0 |     52 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WEAP`    | Weapon                         |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
@@ -613,7 +613,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,035 | 4,303 |    732 |       318 |                   2 |  4,715 |       0 |        0 |
+| **Total** |                                |          5,087 | 4,349 |    738 |       320 |                   2 |  4,765 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -664,7 +664,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `FXPD`: `MNAM` (871), `MWGT` (871)
 - `GPOF`: `GPOD` (31), `TNAM` (31), `VNAM` (31), `VORN` (144), `VORV` (144), `WNAM` (31)
 - `BPTD`: `BPD2` (233), `BPNN` (233), `BPNT` (233), `DNAM` (233), `ENAM` (233), `FLLD` (27), `FNAM` (233), `INAM` (7), `MODL` (27), `NAM4` (233)
-- `WATR`: `ANAM` (19), `DATA` (19), `DNAM` (19), `ENAM` (18), `FNAM` (19), `GNAM` (19), `HNAM` (18), `JNAM` (18), `LNAM` (18), `MNAM` (18), `NAM0` (19), `NAM1` (19), `QNAM` (18), `UNAM` (18), `WASH` (18), `XNAM` (3), `YNAM` (19)
 - `DMGT`: `DNAM` (11)
 - `CHAL`: `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `DESC` (18), `FULL` (18)
 

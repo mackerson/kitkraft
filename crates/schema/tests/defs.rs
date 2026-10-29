@@ -605,7 +605,6 @@ const LSTRING_ONLY: &[&str] = &[
     "HDPT",
     "KEYM",
     "PMFT",
-    "WATR",
 ];
 
 /// The M4.BX2 inventory definitions: corpus order and cardinality for record types no
