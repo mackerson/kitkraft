@@ -70,7 +70,14 @@ fn member_sigs(members: &[MemberDesc]) -> Vec<[u8; 4]> {
     out
 }
 
-fn check_record(name: &str, sig: [u8; 4], form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut Stats) {
+fn check_record(
+    name: &str,
+    sig: [u8; 4],
+    form_id: u32,
+    subs: &[RawSub<'_>],
+    ctx: Ctx,
+    t: &mut Stats,
+) {
     let Some(typed) = Typed::decode(sig, subs, ctx) else {
         panic!("{name} {form_id:08X}: no definition for {}", key(sig));
     };
@@ -91,7 +98,9 @@ fn check_record(name: &str, sig: [u8; 4], form_id: u32, subs: &[RawSub<'_>], ctx
         let k = key(subs[*i].signature);
         *t.unplaced.entry(k.clone()).or_insert(0) += 1;
         if t.failures.len() < 20 {
-            t.failures.push(format!("{name} {form_id:08X}: {k} at {i} matches no member"));
+            t.failures.push(format!(
+                "{name} {form_id:08X}: {k} at {i} matches no member"
+            ));
         }
     }
     for (i, sub) in typed.extra() {
@@ -108,14 +117,14 @@ fn check_record(name: &str, sig: [u8; 4], form_id: u32, subs: &[RawSub<'_>], ctx
     }
     let encoded = typed.encode();
     let same = encoded.len() == subs.len()
-        && encoded
-            .iter()
-            .zip(subs)
-            .all(|(e, r)| e.signature == r.signature && e.data == r.data && e.oversized == r.oversized);
+        && encoded.iter().zip(subs).all(|(e, r)| {
+            e.signature == r.signature && e.data == r.data && e.oversized == r.oversized
+        });
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
@@ -144,7 +153,10 @@ fn check_file(path: &Path, t: &mut Stats) {
 }
 
 fn report(t: &Stats) {
-    println!("watr WATR: {} records, {} identical", t.records, t.identical);
+    println!(
+        "watr WATR: {} records, {} identical",
+        t.records, t.identical
+    );
     if !t.unplaced.is_empty() || !t.failed.is_empty() {
         println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
     }
@@ -164,8 +176,10 @@ fn assert_clean(t: &Stats) {
 
 #[test]
 fn watr_types_sample() {
-    let Some(files) = common::files("watr_types_sample", &["Starfield.esm", "ShatteredSpace.esm"])
-    else {
+    let Some(files) = common::files(
+        "watr_types_sample",
+        &["Starfield.esm", "ShatteredSpace.esm"],
+    ) else {
         return;
     };
     let mut t = Stats::default();
