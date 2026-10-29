@@ -352,6 +352,9 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         by.keys()
             .filter_map(|(t, _)| <[u8; 4]>::try_from(t.as_bytes()).ok()),
     );
+    // No row for the plugin header (one per file, not a record type anything authors): the
+    // gap matrix keeps its statuses in a hand-checked row, and `cargo xtask parity` states
+    // the exclusion, with TES4's record count, in the headline it writes from this matrix.
     sigs.remove(b"TES4");
     if let Some(f) = &filter {
         sigs.retain(|s| f.contains(s));

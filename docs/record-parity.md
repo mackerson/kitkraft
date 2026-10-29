@@ -10,10 +10,10 @@ the family's record types from the tables below: **Record types** seen in the co
 **Definitions** in the schema (with or without corpus records), **Records**, and
 subrecord occurrences the definitions type, keep **Opaque**, or do not name
 (**Unknown**). *container/other* holds every other type: TES4, GMST, GLOB, KYWD, the
-lstring-only definitions, the M4.BX2 inventory definitions and the types without a
+lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAYR, RFGP, PGRE, PHZD, WKMF, LSCR, SOUN, WWED, ARTO, TXST.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 80: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, ARTO, ATMO, BMMO, BMOD, CAMS, CLDF, CLMT, COLL, CSTY, CUR3, DEBR, DLBR, DOBJ, DOOR, EFSH, EQUP, FFKW, FOGV, FORC, FSTP, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LIGH, LMSW, LSCR, LTEX, LVLB, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PERS, PGRE, PHZD, PSDC, PTST, REVB, RFGP, SCCO, SDLT, SECH, SFPC, SOUN, SPCH, SPGD, STAG, STBH, STND, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -31,6 +31,10 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
+- Every record type the files hold is counted, the plugin header `TES4` included (one
+  per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
+  headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
+  14 records fewer.
 - Schema: 163 record definitions, defs hash `fnv1a64:f82447f067eff942` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were

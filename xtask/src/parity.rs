@@ -306,22 +306,39 @@ pub(crate) fn run_with(root: &Path, check: bool, set: &DefSet) -> Result<()> {
         .map(|r| r.signature.as_str().to_string())
         .collect();
     let families = family_table(&signatures, &types);
-    let doc = render(
-        &manifest,
-        &set.hash(),
-        defined,
-        &types,
-        &files,
-        &not_examined,
-        schema,
-        &families,
-    );
 
     // The gap matrix headline (M5.D1): `kit coverage --matrix` over the official
     // files, rendered into the block between the markers of {GAP_MATRIX}; the
     // hand-kept record-family table is checked against it.
     let matrix = kit(root, &["coverage", "--matrix"])?;
-    let block = gap_matrix_block(&matrix)?;
+    let records: BTreeMap<String, u64> = types
+        .iter()
+        .map(|(sig, agg)| (sig.clone(), agg.records))
+        .collect();
+    let defs_hash = set.hash();
+    let headline = Headline {
+        records: &records,
+        manifest_hash: &manifest.hash,
+        defs_hash: &defs_hash,
+        defined,
+    };
+    let excluded = mx_exclusions(&matrix, &records)?;
+    let block = gap_matrix_block(&matrix, &headline)?;
+    let inventory = inventory_signatures(builtin);
+    let doc = render(
+        &types,
+        &RenderInputs {
+            manifest: &manifest,
+            defs_hash: &defs_hash,
+            defined,
+            files: &files,
+            not_examined: &not_examined,
+            schema,
+            families: &families,
+            inventory: &inventory,
+            excluded: &excluded,
+        },
+    );
     let path = root.join(GAP_MATRIX);
     let gap = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let disagreements = family_table_disagreements(&gap, &matrix)?;
@@ -521,10 +538,59 @@ fn row_status<'a>(row: &'a Value, key: &str) -> Result<&'a str> {
         .with_context(|| format!("matrix row has no `{key}` status"))
 }
 
+/// Why MX has no row for a record type the corpus has, per type. `kit coverage --matrix`
+/// drops `TES4` on purpose (`crates/engine/src/handlers/matrix.rs`): the plugin header is
+/// one per file, not a record type anything authors, and the gap matrix keeps its six
+/// statuses in a hand-checked row. A type MX drops without a reason here fails the run.
+const EXCLUDED_WHY: &[(&str, &str)] = &[(
+    "TES4",
+    "the plugin header, one per file, whose row the record-family table keeps by hand",
+)];
+
+/// What the headline says it was generated from, besides the matrix.
+struct Headline<'a> {
+    /// Records per record type over the corpus, from `kit coverage` (the parity walk).
+    records: &'a BTreeMap<String, u64>,
+    manifest_hash: &'a str,
+    defs_hash: &'a str,
+    defined: usize,
+}
+
+/// The record types the corpus has and MX has no row for (with their records), in
+/// signature order. An error when MX and the parity walk count a type differently, or
+/// when MX has a type with records the walk does not.
+fn mx_exclusions(matrix: &Value, records: &BTreeMap<String, u64>) -> Result<Vec<(String, u64)>> {
+    let rows = matrix
+        .get("data")
+        .and_then(|d| d.get("rows"))
+        .and_then(Value::as_array)
+        .context("matrix result has no rows")?;
+    let mut mx: BTreeMap<&str, u64> = BTreeMap::new();
+    for r in rows {
+        mx.insert(row_type(r)?, row_records(r)?);
+    }
+    for (t, n_mx) in &mx {
+        let n_walk = records.get(*t).copied().unwrap_or(0);
+        if *n_mx != n_walk {
+            bail!(
+                "`kit coverage --matrix` counts {n_mx} `{t}` records, `kit coverage` per file \
+                 {n_walk}"
+            );
+        }
+    }
+    Ok(records
+        .iter()
+        .filter(|(t, n)| **n > 0 && !mx.contains_key(t.as_str()))
+        .map(|(t, n)| (t.clone(), *n))
+        .collect())
+}
+
 /// The gap matrix's headline block (`docs/foothold/gap-matrix.md`, between the
-/// `parity:headline` markers): one line naming the source, then one row per status
-/// in matrix order. Deterministic: no commit hash, no time.
-fn gap_matrix_block(matrix: &Value) -> Result<String> {
+/// `parity:headline` markers): what it counts and what MX leaves out (with the parity
+/// walk's totals beside it), the inputs it was generated from, then one row per status in
+/// matrix order. Deterministic: no commit hash, no time, so it reads the same on every
+/// commit with the same corpus, definitions and evidence file.
+fn gap_matrix_block(matrix: &Value, headline: &Headline<'_>) -> Result<String> {
     let data = matrix
         .get("data")
         .context("`kit coverage --matrix` result has no data")?;
@@ -532,6 +598,21 @@ fn gap_matrix_block(matrix: &Value) -> Result<String> {
         .get("rows")
         .and_then(Value::as_array)
         .context("matrix result has no rows")?;
+    let excluded = mx_exclusions(matrix, headline.records)?;
+    let mut why = Vec::new();
+    for (t, records) in &excluded {
+        let reason = EXCLUDED_WHY
+            .iter()
+            .find(|(sig, _)| sig == t)
+            .map(|(_, reason)| *reason)
+            .with_context(|| {
+                format!(
+                    "`kit coverage --matrix` has no row for `{t}` ({records} records); \
+                     add the reason to EXCLUDED_WHY in xtask/src/parity.rs"
+                )
+            })?;
+        why.push(format!("`{t}`, {} records ({reason})", n(*records)));
+    }
     let files = data
         .get("files")
         .and_then(Value::as_array)
@@ -605,12 +686,51 @@ fn gap_matrix_block(matrix: &Value) -> Result<String> {
         &rows_md,
         &[false, true, true, true, true, false],
     );
-    Ok(format!(
-        "\n`kit coverage --matrix` (MX), {} record types, {} records, {} official files:\n\n{table}",
+    let mut out = String::from("\n");
+    let empty = rows
+        .iter()
+        .map(row_records)
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .filter(|r| *r == 0)
+        .count();
+    let empty = if empty == 0 {
+        String::new()
+    } else {
+        format!(" ({empty} of them defined with no corpus record)")
+    };
+    let _ = writeln!(
+        out,
+        "`kit coverage --matrix` (MX), {} record types{empty}, {} records, {} official files.",
         rows.len(),
         n(records),
         files.len()
-    ))
+    );
+    if why.is_empty() {
+        out.push_str("Excluded from MX: none.\n");
+    } else {
+        let _ = writeln!(out, "Excluded from MX: {}.", why.join("; "));
+        let all = headline
+            .records
+            .values()
+            .fold(0u64, |s, r| s.saturating_add(*r));
+        let _ = writeln!(
+            out,
+            "With them, `{OUT}` counts {} record types and {} records.",
+            headline.records.values().filter(|r| **r > 0).count(),
+            n(all)
+        );
+    }
+    let _ = writeln!(
+        out,
+        "Generated by `cargo xtask parity` from the files of `{MANIFEST}` (manifest hash \
+         `{}`), the schema's {} record definitions (defs hash `{}`) and \
+         `docs/schema/evidence.toml`; it names no commit, so it reads the same on every \
+         commit with those inputs.",
+        headline.manifest_hash, headline.defined, headline.defs_hash
+    );
+    let _ = write!(out, "\n{table}");
+    Ok(out)
 }
 
 /// The text between the two headline marker lines.
@@ -886,14 +1006,25 @@ const FAMILIES: &[(&str, &[&str])] = &[
 /// The family of record types no family lane owns.
 const OTHER_FAMILY: &str = "container/other";
 
-/// The M4.BX2 inventory definitions (corpus order and cardinality, EDID and lstrings typed,
-/// every other payload opaque): record types no family lane owns yet, so they count under
-/// [`OTHER_FAMILY`] until a lane takes one (a test checks each has a definition and sits in
-/// no family).
-const INVENTORY: &[&str] = &[
-    "DOOR", "LIGH", "IRES", "MESG", "LAYR", "RFGP", "PGRE", "PHZD", "WKMF", "LSCR", "SOUN", "WWED",
-    "ARTO", "TXST",
-];
+/// What an inventory definition's record-level `source` starts with (M4.BX2 and the
+/// KK-1xx tickets: `cargo xtask inventory-def` writes it, `add-def` and the schema tests
+/// require it).
+const INVENTORY_SOURCE: &str = "corpus: inventory_types_full";
+
+/// The inventory definitions (corpus order and cardinality, EDID and lstrings typed, every
+/// other payload opaque), by signature: read from the definitions, so a new one is listed
+/// as soon as `add-def` registers it. They are record types no family lane owns yet, so
+/// they count under [`OTHER_FAMILY`] until a lane takes one (a test checks none sits in a
+/// family).
+fn inventory_signatures(schema: &kitkraft_schema::Schema) -> Vec<String> {
+    let mut out: Vec<String> = schema
+        .records()
+        .filter(|r| r.provenance.source.starts_with(INVENTORY_SOURCE))
+        .map(|r| r.signature.as_str().to_string())
+        .collect();
+    out.sort();
+    out
+}
 
 /// The family a record type belongs to.
 fn family_of(signature: &str) -> &'static str {
@@ -982,17 +1113,36 @@ fn family_table(defined: &[String], types: &BTreeMap<String, TypeAgg>) -> String
     )
 }
 
-#[allow(clippy::too_many_arguments)]
-fn render(
-    manifest: &Manifest,
-    defs_hash: &str,
+/// What [`render`] writes besides the per-type aggregates.
+struct RenderInputs<'a> {
+    manifest: &'a Manifest,
+    defs_hash: &'a str,
     defined: usize,
-    types: &BTreeMap<String, TypeAgg>,
-    files: &[FileRow],
-    not_examined: &[String],
-    schema: &Value,
-    families: &str,
-) -> String {
+    files: &'a [FileRow],
+    not_examined: &'a [String],
+    /// `kit schema --json`'s `data`.
+    schema: &'a Value,
+    /// The rendered "Families" table.
+    families: &'a str,
+    /// [`inventory_signatures`].
+    inventory: &'a [String],
+    /// Record types the corpus has and MX has no row for, with their records.
+    excluded: &'a [(String, u64)],
+}
+
+fn render(types: &BTreeMap<String, TypeAgg>, inputs: &RenderInputs<'_>) -> String {
+    let RenderInputs {
+        manifest,
+        defs_hash,
+        defined,
+        files,
+        not_examined,
+        schema,
+        families,
+        inventory,
+        excluded,
+    } = inputs;
+    let defined = *defined;
     let mut sorted: Vec<(&String, &TypeAgg)> = types.iter().collect();
     sorted.sort_by(|a, b| b.1.records.cmp(&a.1.records).then(a.0.cmp(b.0)));
 
@@ -1071,13 +1221,14 @@ fn render(
          **Definitions** in the schema (with or without corpus records), **Records**, and\n\
          subrecord occurrences the definitions type, keep **Opaque**, or do not name\n\
          (**Unknown**). *container/other* holds every other type: TES4, GMST, GLOB, KYWD, the\n\
-         lstring-only definitions, the M4.BX2 inventory definitions and the types without a\n\
+         lstring-only definitions, the inventory definitions and the types without a\n\
          definition.\n\n",
     );
     let _ = writeln!(
         out,
-        "M4.BX2 inventory definitions (in *container/other*): {}.\n",
-        INVENTORY.join(", ")
+        "Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), {}: {}.\n",
+        inventory.len(),
+        inventory.join(", ")
     );
     out.push_str(families);
     out.push_str("\n## Corpus and method\n\n");
@@ -1090,6 +1241,24 @@ fn render(
         manifest.recorded,
         manifest.hash
     );
+    out.push_str(
+        "- Every record type the files hold is counted, the plugin header `TES4` included (one\n  \
+         per file).",
+    );
+    if excluded.is_empty() {
+        out.push_str(" The gap matrix's MX headline counts the same types.\n");
+    } else {
+        let names: Vec<String> = excluded.iter().map(|(t, _)| format!("`{t}`")).collect();
+        let _ = writeln!(
+            out,
+            " `kit coverage --matrix` (MX) has no row for {}; the gap matrix\n  \
+             headline (`{GAP_MATRIX}`) says so and counts {} record type(s) and\n  \
+             {} records fewer.",
+            names.join(", "),
+            excluded.len(),
+            n(excluded.iter().fold(0u64, |s, (_, r)| s.saturating_add(*r)))
+        );
+    }
     let _ = writeln!(
         out,
         "- Schema: {defined} record definitions, defs hash `{}` (the hash named in\n  \
@@ -1108,7 +1277,7 @@ fn render(
         out.push_str("  None failed to decode.\n");
     } else {
         out.push_str("  Not examined:\n");
-        for item in not_examined {
+        for item in *not_examined {
             let _ = writeln!(out, "  - {item}");
         }
     }
@@ -1235,8 +1404,8 @@ fn render(
 mod tests {
     use super::{
         confidence_table, decoded_table, extract_marked_block, family_of, family_table,
-        family_table_disagreements, gap_matrix_block, n, occurrence_check, replace_marked_block,
-        table, TypeAgg, CONFIDENCE, FAMILIES, INVENTORY,
+        family_table_disagreements, gap_matrix_block, inventory_signatures, mx_exclusions, n,
+        occurrence_check, replace_marked_block, table, Headline, TypeAgg, CONFIDENCE, FAMILIES,
     };
     use serde_json::json;
     use std::collections::BTreeMap;
@@ -1349,11 +1518,11 @@ mod tests {
         }
         assert_eq!(family_of("WEAP"), "weapons");
         assert_eq!(family_of("TES4"), "container/other");
-        // The M4.BX2 inventories have definitions and no family lane yet.
-        for sig in INVENTORY {
+        // The inventories (read from the definitions) have no family lane yet.
+        let inventory = inventory_signatures(schema);
+        assert!(inventory.iter().any(|s| s == "DOOR"), "{inventory:?}");
+        for sig in &inventory {
             assert_eq!(family_of(sig), "container/other", "{sig}");
-            let parsed = kitkraft_schema::Signature::parse(sig).unwrap();
-            assert!(schema.record(parsed).is_some(), "{sig} has no definition");
         }
     }
 
@@ -1487,8 +1656,9 @@ mod tests {
         );
     }
 
-    /// The headline block: one line naming the source, one row per status in matrix
-    /// order, counts beside the backticked passing types.
+    /// The headline block: what MX counts and leaves out (with the parity walk's totals),
+    /// the inputs, then one row per status in matrix order, counts beside the backticked
+    /// passing types.
     #[test]
     fn gap_matrix_headline_renders_from_the_matrix() {
         let row =
@@ -1530,22 +1700,74 @@ mod tests {
                 },
             },
         });
-        let block = gap_matrix_block(&matrix).unwrap();
+        let walk = |pairs: &[(&str, u64)]| -> BTreeMap<String, u64> {
+            pairs.iter().map(|(t, n)| ((*t).to_string(), *n)).collect()
+        };
+        let records = walk(&[("WEAP", 5), ("GMST", 1), ("LCTN", 3), ("TES4", 2)]);
+        let headline = |records| Headline {
+            records,
+            manifest_hash: "fnv1a64:0000000000000001",
+            defs_hash: "fnv1a64:0000000000000002",
+            defined: 4,
+        };
+        let block = gap_matrix_block(&matrix, &headline(&records)).unwrap();
         assert_eq!(
             block,
             concat!(
-                "\n`kit coverage --matrix` (MX), 3 record types, 9 records, 2 official files:\n",
-                "\n",
-                "| Status                 | pass | fail | inconclusive | not-run | Which pass     |\n",
-                "| ---------------------- | ---: | ---: | -----------: | ------: | -------------- |\n",
-                "| parsed                 |    2 |    1 |            0 |       0 | `GMST`, `WEAP` |\n",
-                "| typed-readable         |    1 |    2 |            0 |       0 | `GMST`         |\n",
-                "| typed-writable         |    2 |    0 |            0 |       1 | `LCTN`, `WEAP` |\n",
-                "| ck-differential-tested |    0 |    0 |            0 |       3 |                |\n",
-                "| game-runtime-tested    |    1 |    0 |            0 |       2 | `WEAP`         |\n",
-                "| save-reload-verified   |    0 |    0 |            0 |       3 |                |\n"
+                "
+`kit coverage --matrix` (MX), 3 record types, 9 records, 2 official files.
+",
+                "Excluded from MX: `TES4`, 2 records (the plugin header, one per file, whose row ",
+                "the record-family table keeps by hand).
+",
+                "With them, `docs/record-parity.md` counts 4 record types and 11 records.
+",
+                "Generated by `cargo xtask parity` from the files of `corpus/manifest.toml` ",
+                "(manifest hash `fnv1a64:0000000000000001`), the schema's 4 record definitions ",
+                "(defs hash `fnv1a64:0000000000000002`) and `docs/schema/evidence.toml`; it names ",
+                "no commit, so it reads the same on every commit with those inputs.
+",
+                "
+",
+                "| Status                 | pass | fail | inconclusive | not-run | Which pass     |
+",
+                "| ---------------------- | ---: | ---: | -----------: | ------: | -------------- |
+",
+                "| parsed                 |    2 |    1 |            0 |       0 | `GMST`, `WEAP` |
+",
+                "| typed-readable         |    1 |    2 |            0 |       0 | `GMST`         |
+",
+                "| typed-writable         |    2 |    0 |            0 |       1 | `LCTN`, `WEAP` |
+",
+                "| ck-differential-tested |    0 |    0 |            0 |       3 |                |
+",
+                "| game-runtime-tested    |    1 |    0 |            0 |       2 | `WEAP`         |
+",
+                "| save-reload-verified   |    0 |    0 |            0 |       3 |                |
+"
             )
         );
+        // Nothing excluded: said so, and no second total.
+        let same = walk(&[("WEAP", 5), ("GMST", 1), ("LCTN", 3)]);
+        let block = gap_matrix_block(&matrix, &headline(&same)).unwrap();
+        assert!(
+            block.contains(
+                "Excluded from MX: none.
+"
+            ),
+            "{block}"
+        );
+        assert!(!block.contains("With them"), "{block}");
+        // A type MX drops with no reason in EXCLUDED_WHY is an error naming it.
+        let other = walk(&[("WEAP", 5), ("GMST", 1), ("LCTN", 3), ("GLOB", 7)]);
+        let e = gap_matrix_block(&matrix, &headline(&other))
+            .unwrap_err()
+            .to_string();
+        assert!(e.contains("`GLOB`") && e.contains("EXCLUDED_WHY"), "{e}");
+        // MX and the walk counting a type differently is an error.
+        let off = walk(&[("WEAP", 4), ("GMST", 1), ("LCTN", 3)]);
+        let e = mx_exclusions(&matrix, &off).unwrap_err().to_string();
+        assert!(e.contains("5 `WEAP` records") && e.contains("4"), "{e}");
         // More than 15 passing types collapse to a count.
         let many = (0..16)
             .map(|i| {
@@ -1553,6 +1775,7 @@ mod tests {
                        "parsed": {"status": "pass"}})
             })
             .collect::<Vec<_>>();
+        let many_walk: BTreeMap<String, u64> = (0..16).map(|i| (format!("T{i:03}"), 1)).collect();
         let matrix = json!({
             "data": {
                 "rows": many,
@@ -1561,11 +1784,14 @@ mod tests {
                 "counts": {"parsed": {"pass": 16}},
             },
         });
-        let block = gap_matrix_block(&matrix).unwrap();
+        let block = gap_matrix_block(&matrix, &headline(&many_walk)).unwrap();
         assert!(block.contains("16 types"), "{block}");
         // A missing row field is an error, never a silent default.
+        let empty = BTreeMap::new();
         let bad = json!({"data": {"rows": [{"type": "WEAP"}], "files": [], "statuses": ["parsed"], "counts": {"parsed": {}}}});
-        let e = gap_matrix_block(&bad).unwrap_err().to_string();
+        let e = gap_matrix_block(&bad, &headline(&empty))
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("no `records`"), "{e}");
         // A result outside pass/fail/inconclusive/not-run (MX's `unknown`, when the
         // evidence file is missing) cannot be rendered: an error, not a silent zero.
@@ -1575,7 +1801,10 @@ mod tests {
             "statuses": ["typed-writable"],
             "counts": {"typed-writable": {"unknown": 1}},
         }});
-        let e = gap_matrix_block(&unknown).unwrap_err().to_string();
+        let one = walk(&[("WEAP", 1)]);
+        let e = gap_matrix_block(&unknown, &headline(&one))
+            .unwrap_err()
+            .to_string();
         assert!(e.contains("`unknown`"), "{e}");
     }
 

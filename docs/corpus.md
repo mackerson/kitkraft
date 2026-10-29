@@ -96,7 +96,11 @@ every layout inferred from CK observation.
 1. **Roundtrip (M1):** parse each file, write it back, compare byte for byte. A mismatch is
    reported as file, absolute offset, and group/record path.
 2. **Coverage (M1.14):** count record types and subrecord signatures across the corpus and
-   compare with schema definitions; output is `docs/record-parity.md`.
+   compare with schema definitions; output is `docs/record-parity.md`. Its counts are
+   reconciled by `xtask/tests/reconcile.rs` `corpus_counts_match_both_documents` (in every
+   gate when `KITKRAFT_DATA_DIR` is set, 2 s in debug): a header walk of its own, not
+   `kitkraft_esm`'s parser, recounts records per type and per file and checks them
+   against `docs/record-parity.md` and the gap matrix headline.
 3. **Hostile input (M1.7, M3.A5):** truncations and seeded bit flips of the three tiny files,
    and structure-aware mutations of the five small ones, must yield typed errors, never
    panics ("Hostile input" below).
