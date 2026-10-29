@@ -212,7 +212,7 @@ pub const RULES: &[RuleInfo] = &[
         id: "asset.missing-model",
         severity: Severity::Warning,
         input: Input::Plugin,
-        summary: "A Model group's FileName (MODL) names no model file loose next to the plugin or in Data, in the plugin's archives, or in the archives of its load order (grade D)",
+        summary: "A record's model FileName names no model file loose next to the plugin or in Data, in the plugin's archives, or in the archives of its load order: the shared Model group's MODL, and for ARMO/ARMA their world-, biped- and first-person model members (grade D)",
     },
     RuleInfo {
         id: "papyrus.denylisted-call",
@@ -469,11 +469,12 @@ struct Pass<'a> {
     cells: cells::Facts,
     /// Scripts attached through VMAD, for the papyrus rules (checked after the walk).
     attached: Vec<attached::Attached>,
-    /// Model paths named by a Model group's FileName (MODL), for asset.missing-model
-    /// (checked after the walk).
+    /// Model paths named by a record's model FileName member (the shared Model
+    /// group's MODL, ARMO/ARMA world-, biped- and first-person model members), for
+    /// asset.missing-model (checked after the walk).
     models: Vec<models::ModelRef>,
-    /// Signatures that use the shared Model group, cached (asset.missing-model).
-    model_groups: HashMap<[u8; 4], bool>,
+    /// Model FileName members per record signature, cached (asset.missing-model).
+    model_members: HashMap<[u8; 4], Vec<([u8; 4], String)>>,
 }
 
 impl Pass<'_> {
@@ -694,7 +695,7 @@ fn validate_plugin(
         cells: cells::Facts::default(),
         attached: Vec::new(),
         models: Vec::new(),
-        model_groups: HashMap::new(),
+        model_members: HashMap::new(),
     };
 
     let mut hedr: Option<u32> = None;
@@ -1165,14 +1166,26 @@ fn check_record(
         }
     }
 
-    // Model paths named by a Model group's FileName (MODL) (asset.missing-model):
-    // collected in the walk, searched after it in the shared sources.
-    if pass.on("asset.missing-model") && models::uses_model_group(sig, &mut pass.model_groups) {
-        for s in subs.iter().filter(|s| s.signature() == Signature(*b"MODL")) {
+    // Model paths named by a record's model FileName member (asset.missing-model):
+    // the shared Model group's MODL, and for ARMO/ARMA their world-, biped- and
+    // first-person model members. The member is resolved from the record type's
+    // schema definition (the signatures collide across ARMO/ARMA); collected in the
+    // walk, searched after it in the shared sources.
+    if pass.on("asset.missing-model") {
+        let members = models::model_file_members(sig, &mut pass.model_members);
+        for s in subs.iter() {
+            let Some((sub_sig, member)) = members
+                .iter()
+                .find(|(sub_sig, _)| *sub_sig == s.signature().0)
+            else {
+                continue;
+            };
             if let Some(path) = models::zstring(s.data()) {
                 pass.models.push(models::ModelRef {
                     record: id.clone(),
+                    subrecord: *sub_sig,
                     offset: sub_offset(s),
+                    member: member.clone(),
                     path,
                 });
             }

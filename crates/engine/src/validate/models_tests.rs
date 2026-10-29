@@ -16,6 +16,24 @@ fn stat(model: &[u8]) -> Record<'static> {
     )
 }
 
+/// An ARMA whose FemaleBipedModel (MOD3) names `model`.
+fn arma(model: &[u8]) -> Record<'static> {
+    record(
+        b"ARMA",
+        0x0001_0000,
+        vec![sub(b"EDID", b"TestArma\0"), sub(b"MOD3", model)],
+    )
+}
+
+/// An ARMO whose MaleWorldModel (MOD2) names `model`.
+fn armo(model: &[u8]) -> Record<'static> {
+    record(
+        b"ARMO",
+        0x0001_0000,
+        vec![sub(b"EDID", b"TestArmo\0"), sub(b"MOD2", model)],
+    )
+}
+
 #[test]
 fn a_missing_model_file_is_a_warning() {
     let d = dir("validate-model-missing");
@@ -81,6 +99,47 @@ fn an_archived_model_file_is_found() {
         &mut out,
     )
     .unwrap();
+    let data = check(&p, &["asset.missing-model"]);
+    assert_eq!(found(&data), Vec::<(String, String)>::new());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn an_arma_with_a_missing_female_biped_model_is_a_warning() {
+    let d = dir("validate-model-arma-missing");
+    let p = patch(
+        &d,
+        "MyMod.esp",
+        &[],
+        vec![arma(b"actors/creature/ghost.nif\0")],
+    );
+    let data = check(&p, &["asset.missing-model"]);
+    assert_eq!(found(&data), vec![pair("asset.missing-model", "warning")]);
+    // The finding names the member path, not just the subrecord (MOD3).
+    let subrecord = data["findings"][0]["subrecord"].as_str().unwrap();
+    assert!(
+        subrecord.contains("FemaleBipedModel.FileName"),
+        "{subrecord}"
+    );
+    let message = data["findings"][0]["message"].as_str().unwrap();
+    assert!(message.contains("actors/creature/ghost.nif"), "{message}");
+    assert!(message.contains("FemaleBipedModel.FileName"), "{message}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn an_armo_with_a_world_model_found_loose_is_clean() {
+    let d = dir("validate-model-armo-loose");
+    let p = patch(
+        &d,
+        "MyMod.esp",
+        &[],
+        vec![armo(b"actors/armor/plate.nif\0")],
+    );
+    // Lower-case on disk: names compare ASCII case-insensitively.
+    let dir = d.join("meshes/actors/armor");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("plate.nif"), b"fake nif").unwrap();
     let data = check(&p, &["asset.missing-model"]);
     assert_eq!(found(&data), Vec::<(String, String)>::new());
     let _ = std::fs::remove_dir_all(&d);
