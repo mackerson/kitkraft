@@ -1,34 +1,46 @@
-# HAZD: Hazard, lstring-only definition (lane B round 3, M3.B8).
+# HAZD: Hazard, a placeable environmental hazard (explosions, electric arcs, water
+# currents, gravity fields and the like).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official HAZD record.
-#   xedit: the HAZD definition of wbDefinitionsSF1.pas at the pinned revision (L12531-L12591)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12531-L12591 - member order, the record flags,
+#     the DNAM data block (sound reference, effect, light, impact data set, radius,
+#     lifetime, image space radius, target interval, the taper effectiveness triple,
+#     gravity, limit, flags and its bits) and the image space modifier. Helpers: script
+#     data (L3407-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2 (L3965-L3978),
+#     SNTP/SNBH (L3919-L3920), DEFL (L3963), XALG (L3230), the base form component block
+#     (L5984-L6832, common/BfcbBlock.toml), FULL (L3184), the generic model
+#     (L7008-L7029, common/Model.toml), the sound reference (L2197-L2227,
+#     common/SoundReference.toml), CITC (L2251) and the condition block
+#     (L4750-L4840, common/Condition.toml).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "HAZD"
 name = "Hazard"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591",
+  "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: the 87 HAZD records of the 14 official ESMs; every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
@@ -36,23 +48,203 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official HAZD records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official HAZD records"
 
-[[member.member]]
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: OBND is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+confidence = "corpus"
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: ODTY is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+confidence = "corpus"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official HAZD records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official HAZD records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official HAZD records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official HAZD records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official HAZD records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12559-L12559"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official HAZD records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+sig = "MNAM"
+name = "ImageSpaceModifier"
+type = "formid"
+targets = ["IMAD"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12561-L12561"]
+
+[[member]]
+sig = "DNAM"
+name = "Data"
+type = "struct"
+size = 92
+source = "corpus: hazd_types_full (crates/esm/tests/hazd_types.rs), 2026-10-29: DNAM is in all 87 of the official HAZD records, and every record decodes and re-encodes identically"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12562-L12589"]
+confidence = "corpus"
+
+[[member.field]]
+name = "Sound"
+type = "ref:SoundReference"
+
+[[member.field]]
+name = "Effect"
+type = "formid"
+targets = ["SPEL", "ENCH"]
+
+[[member.field]]
+name = "Light"
+type = "formid"
+targets = ["LIGH"]
+
+[[member.field]]
+name = "Impact"
+type = "formid"
+targets = ["IPDS"]
+
+[[member.field]]
+name = "Radius"
+type = "f32"
+
+[[member.field]]
+name = "Lifetime"
+type = "f32"
+
+[[member.field]]
+name = "ImageSpaceRadius"
+type = "f32"
+
+[[member.field]]
+name = "TargetInterval"
+type = "f32"
+
+[[member.field]]
+name = "TaperEffectiveness"
+type = "struct"
+field = [
+  { name = "FullEffectRadius", type = "f32" },
+  { name = "TaperWeight", type = "f32" },
+  { name = "TaperCurve", type = "f32" },
+]
+note = "field names are ours"
+
+[[member.field]]
+name = "Gravity"
+type = "f32"
+
+[[member.field]]
+name = "Limit"
+type = "u32"
+
+[[member.field]]
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["AffectsPlayerOnly", 0x1],
+  ["InheritDurationFromSpawnSpell", 0x2],
+  ["AlignToImpactNormal", 0x4],
+  ["InheritRadiusFromSpawnSpell", 0x8],
+  ["DropToGround", 0x10],
+  ["TaperEffectivenessByProximity", 0x20],
+  ["GravityPointSource", 0x40],
+  ["GravityOverride", 0x80],
+]
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+confidence = "reference"
+note = "number of Conditions that follow; stored, not derived; not present in the official HAZD records"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]

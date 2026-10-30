@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         110 |   252,710 |    235,565 |   800,433 |  43,841 |
-| **Total**       |          186 |         173 | 7,490,102 | 46,791,086 | 2,877,926 | 750,549 |
+| container/other |          123 |         110 |   252,710 |    236,139 |   800,466 |  43,234 |
+| **Total**       |          186 |         173 | 7,490,102 | 46,791,660 | 2,877,959 | 749,942 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 173 record definitions, defs hash `fnv1a64:c4990210182bdd35` (the hash named in
+- Schema: 173 record definitions, defs hash `fnv1a64:92aafb143c38ff93` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -174,7 +174,7 @@ Columns:
 | `MUSC`        | MusicTypeForm                  |       117 |          0 |     7 |     1 |      6 |       0 |
 | `STBH`        | SnapTemplateBehavior           |       103 |          0 |    11 |     8 |      1 |       2 |
 | `GCVR`        | GroundCover                    |        98 |          0 |     9 |     5 |      2 |       2 |
-| `HAZD`        | Hazard                         |        87 |          0 |    16 |     2 |      0 |      14 |
+| `HAZD`        | Hazard                         |        87 |          0 |    16 |    14 |      2 |       0 |
 | `RSPJ`        | ResearchProject                |        82 |          0 |    12 |    12 |      0 |       0 |
 | `WKMF`        | WwiseKeywordMapping            |        81 |          0 |     6 |     1 |      5 |       0 |
 | `FOGV`        | FogVolume                      |        80 |          0 |     2 |     1 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 173 defined                    | 7,490,102 |    136,741 | 2,797 | 1,936 |    513 |     348 |
+| **186 types** | 173 defined                    | 7,490,102 |    136,741 | 2,797 | 1,948 |    515 |     334 |
 
-Subrecord occurrences: 50,419,561 in total; 46,791,086 typed (0 of them failed to decode), 2,877,926 opaque, 750,549 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,791,660 typed (0 of them failed to decode), 2,877,959 opaque, 749,942 unknown.
 
 ## Decoded through the definitions
 
@@ -371,7 +371,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `MUSC`    | MusicTypeForm                  |           117 |        117 |      0 |         0 |         0 |                   0 |        117 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |           103 |      2,781 |      0 |         0 |         0 |                   0 |      2,781 |       0 |        0 |
 | `GCVR`    | GroundCover                    |            98 |        601 |      0 |         0 |         0 |                   0 |        601 |       0 |        0 |
-| `HAZD`    | Hazard                         |            87 |        170 |      0 |         0 |         0 |                   0 |        170 |       0 |        0 |
+| `HAZD`    | Hazard                         |            87 |        744 |      0 |         0 |         0 |                   0 |        744 |       0 |        0 |
 | `RSPJ`    | ResearchProject                |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |            81 |         81 |      0 |         0 |         0 |                   0 |         81 |       0 |        0 |
 | `FOGV`    | FogVolume                      |            80 |         80 |      0 |         0 |         0 |                   0 |         80 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,144 | 46,791,086 |      0 |         0 |    18,685 |                   0 | 46,772,401 |       0 |        0 |
+| **Total** |                                |     7,485,144 | 46,791,660 |      0 |         0 |    18,685 |                   0 | 46,772,975 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -518,7 +518,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GPOG`    | GameplayOptionsGroup           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `GRAS`    | Grass                          |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `HAZD`    | Hazard                         |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
 | `HDPT`    | HeadPart                       |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -623,7 +623,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,339 | 4,559 |    780 |       329 |                   2 |  5,008 |       0 |        0 |
+| **Total** |                                |          5,392 | 4,608 |    784 |       337 |                   2 |  5,053 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -670,7 +670,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
 - `STBH`: `FLTR` (30), `INTV` (30)
 - `GCVR`: `KSIZ` (14), `KWDA` (14)
-- `HAZD`: `ANAM` (4), `BFCB` (46), `BFCE` (46), `BNAM` (4), `CTDA` (27), `DNAM` (87), `FLLD` (87), `MNAM` (4), `MODL` (87), `OBND` (87), `ODTY` (87), `PTCL` (26), `REFL` (7), `XALG` (8)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `FXPD`: `MNAM` (871), `MWGT` (871)
 - `GPOF`: `GPOD` (31), `TNAM` (31), `VNAM` (31), `VORN` (144), `VORV` (144), `WNAM` (31)
