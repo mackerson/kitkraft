@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 83:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 168 record definitions, defs hash `fnv1a64:6e6cfa47915399f8` (the hash named in
+- Schema: 168 record definitions, defs hash `fnv1a64:98d67bd16f138122` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -294,7 +294,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ACTI`    | Activator                      |         1,940 |     24,186 |      0 |         0 |       384 |                   0 |     23,802 |       0 |        0 |
 | `SFBK`    | SurfaceBlock                   |         1,877 |     32,400 |      0 |         0 |         0 |                   0 |     32,400 |       0 |        0 |
 | `PNDT`    | Planet                         |         1,786 |     55,229 |      0 |         0 |         0 |                   0 |     55,229 |       0 |        0 |
-| `LIGH`    | Light                          |         1,723 |     24,967 |      0 |         0 |    17,573 |                   0 |      7,394 |       0 |        0 |
+| `LIGH`    | Light                          |         1,723 |     24,967 |      0 |         0 |     1,723 |                   0 |     23,244 |       0 |        0 |
 | `AFFE`    | AffinityEvent                  |         1,593 |     24,261 |      0 |         0 |         0 |                   0 |     24,261 |       0 |        0 |
 | `MISC`    | MiscItem                       |         1,495 |     19,435 |      0 |         0 |         3 |                   0 |     19,432 |       0 |        0 |
 | `IPCT`    | Impact                         |         1,459 |      4,085 |      0 |         0 |         0 |                   0 |      4,085 |       0 |        0 |
@@ -430,7 +430,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,480,741 | 46,790,671 |      0 |         0 |    36,258 |                   0 | 46,754,413 |       0 |        0 |
+| **Total** |                                |     7,480,741 | 46,790,671 |      0 |         0 |    20,408 |                   0 | 46,770,263 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -531,7 +531,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LENS`    | LensFlare                      |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `LGDI`    | LegendaryItem                  |             20 |     1 |     19 |         0 |                   0 |     20 |       0 |        0 |
 | `LGTM`    | LightingTemplateForm           |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `LIGH`    | Light                          |             69 |    64 |      5 |        27 |                   0 |     42 |       0 |        0 |
+| `LIGH`    | Light                          |             69 |    64 |      5 |        16 |                   0 |     53 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `LTEX`    | LandscapeTexture               |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
@@ -613,7 +613,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,182 | 4,450 |    732 |       355 |                   2 |  4,825 |       0 |        0 |
+| **Total** |                                |          5,182 | 4,450 |    732 |       344 |                   2 |  4,836 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

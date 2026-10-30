@@ -1520,7 +1520,7 @@ mod tests {
         assert_eq!(family_of("TES4"), "container/other");
         // The inventories (read from the definitions) have no family lane yet.
         let inventory = inventory_signatures(schema);
-        assert!(inventory.iter().any(|s| s == "LIGH"), "{inventory:?}");
+        assert!(inventory.iter().any(|s| s == "LAYR"), "{inventory:?}");
         for sig in &inventory {
             assert_eq!(family_of(sig), "container/other", "{sig}");
         }

@@ -15,6 +15,17 @@
 #     (L2337-L2347), the gobo animation (L2369-L2396), the light layer (L13889-L13895),
 #     the area light (L2349-L2366), the volumetric light intensity (L13898) and the
 #     byte colour (wbDefinitionsCommon.pas L6954-L6968).
+#   corpus: the 1,723 LIGH records of the 14 official ESMs (crates/esm/tests/ligh_types.rs,
+#     ligh_types_full, 2026-10-29): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, OBND, ODTY, DAT2, FLAD, FLBD, FLGD, the
+#     model's FLLD, FLRD, FVLD and LLLD are in all 1,723; the BFCB blocks in 1,273 (FLCS
+#     in 1,128, FLTR and INTV in 1,053 each, REFL in 42, ANAM and BNAM in 2 each), NAM0
+#     in 311, the keywords in 44, LNAM in 32 and the model's MODL in 1; the destruction
+#     data, VMAD, OPDS, PTT2, DEFL, XALG, PRPS, FULL, LLSH and the model's MOLM, MODC and
+#     XFLG are absent from all 1,723.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): none of
+#     the LIGH subrecords in the 14 official ESMs is an lstring.
 #
 # Every member xEdit gives a layout is typed here; the script data (VMAD) and FULL
 # stay raw. Names are ours (UpperCamelCase, CK wording where it exists). Upstream
@@ -24,9 +35,10 @@ signature = "LIGH"
 name = "Light"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899",
+  "corpus: crates/esm/tests/ligh_types.rs (ligh_types_full), 2026-10-29: in all 1,723 official LIGH records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: none of the LIGH subrecords in the 14 official ESMs is an lstring",
 ]
-confidence = "reference"
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["HiddenFromLocalMap", 0x200],
@@ -47,6 +59,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
 ]
 confidence = "reference"
+note = "in all 1,723 official LIGH records"
 
 [[member]]
 sig = "VMAD"
@@ -54,7 +67,8 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, kept raw; not present in the official LIGH records"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "OBND"
@@ -62,6 +76,7 @@ name = "ObjectBounds"
 type = "ref:ObjectBounds"
 card = "required"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+note = "in all 1,723 official LIGH records"
 
 [[member]]
 sig = "ODTY"
@@ -69,6 +84,7 @@ name = "DirtinessScale"
 type = "f32"
 card = "required"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3921"]
+note = "in all 1,723 official LIGH records"
 
 [[member]]
 sig = "OPDS"
@@ -76,7 +92,8 @@ name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
-note = "not present in the official LIGH records"
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "PTT2"
@@ -84,7 +101,8 @@ name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
-note = "not present in the official LIGH records"
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "DEFL"
@@ -94,7 +112,7 @@ targets = ["LAYR"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
 confidence = "reference"
-note = "not present in the official LIGH records"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "XALG"
@@ -102,28 +120,32 @@ name = "XalgFlags"
 type = "u64"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
-note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official LIGH records"
+confidence = "reference"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; absent from all 1,723 official LIGH records"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-note = "base form components; the component data stays raw"
+note = "base form components; in 1,273 of the 1,723 official LIGH records"
 
 [[member]]
 group_ref = "Model"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "in all 1,723 official LIGH records (FLLD in all, MODL in 1)"
 
 [[member]]
 group_ref = "Destructible"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
-note = "destruction data; not present in the official LIGH records"
+confidence = "reference"
+note = "destruction data; absent from all 1,723 official LIGH records"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "in 44 of the 1,723 official LIGH records"
 
 [[member]]
 sig = "PRPS"
@@ -133,7 +155,8 @@ count = "rest"
 element = "ref:PropertyValue"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
-note = "not present in the official LIGH records"
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "FULL"
@@ -141,7 +164,8 @@ name = "Name"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
-note = "upstream types it as a localized string; it is not an lstring in the corpus lstring table, kept raw; not present in the official LIGH records"
+confidence = "reference"
+note = "upstream types it as a localized string; kept raw; absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "DAT2"
@@ -185,7 +209,7 @@ field = [
   { name = "AdaptiveLightEv100Max", type = "f32" },
   { name = "RadiusFalloffExponent", type = "f32" },
 ]
-note = "upstream leaves five of the flag bits unnamed; the two byte gaps are padding"
+note = "upstream leaves five of the flag bits unnamed; the two byte gaps are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "NAM0"
@@ -193,6 +217,7 @@ name = "Gobo"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13874-L13874"]
+note = "in 311 of the 1,723 official LIGH records"
 
 [[member]]
 sig = "LLSH"
@@ -203,7 +228,8 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13875-L13875",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
 ]
-note = "not present in the official LIGH records"
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "LNAM"
@@ -212,6 +238,7 @@ type = "formid"
 targets = ["LENS"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13876-L13876"]
+note = "in 32 of the 1,723 official LIGH records"
 
 [[member]]
 sig = "FLBD"
@@ -226,12 +253,12 @@ field = [
   { name = "Right", type = "f32" },
   { name = "Top", type = "f32" },
   { name = "FalloffIntensity", type = "f32" },
-  { name = "HasFallout", type = "ref:Bool8" },
+  { name = "HasFalloff", type = "ref:Bool8" },
   { name = "HasBarndoors", type = "ref:Bool8" },
   { name = "Unknown0", type = "u8" },
   { name = "Unknown1", type = "u8" },
 ]
-note = "the two trailing bytes are padding"
+note = "the two trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLRD"
@@ -253,7 +280,7 @@ field = [
   { name = "Unknown1", type = "u8" },
   { name = "Unknown2", type = "u8" },
 ]
-note = "the three trailing bytes are padding"
+note = "the three trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLGD"
@@ -292,7 +319,7 @@ field = [
   { name = "Unknown1", type = "u8" },
   { name = "Unknown2", type = "u8" },
 ]
-note = "the three trailing bytes are padding"
+note = "the three trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "LLLD"
@@ -308,7 +335,7 @@ values = [
   ["AllLayers", 15],
 ]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13889-L13895"]
-note = "one light layer; the values are the model's FLLD light layer bits plus All Layers, upstream's default is 1 (Default Light Layer)"
+note = "one light layer; the values are the model's FLLD light layer bits plus All Layers, upstream's default is 1 (Default Light Layer); in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLAD"
@@ -329,7 +356,7 @@ field = [
   { name = "Unknown0", type = "u8" },
   { name = "Unknown1", type = "u8" },
 ]
-note = "the two trailing bytes are padding"
+note = "the two trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FVLD"
@@ -337,3 +364,4 @@ name = "VolumetricLightIntensityScale"
 type = "f32"
 card = "required"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13898-L13898"]
+note = "in all 1,723 official LIGH records"
