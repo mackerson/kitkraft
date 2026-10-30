@@ -1,0 +1,119 @@
+# SFTR: SurfaceTreeForm, inventory definition (KK-100).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official SFTR record (1514 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-29): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17656-L17672
+#     (cited for the record as a whole).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
+#     keeps its own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID and the component block frame are typed; every other payload is opaque
+# (named after its signature, a placeholder) until a family lane decodes the record
+# (docs/gaps.md).
+# Inside component blocks (kept raw by BfcbBlock): DAT2.
+signature = "SFTR"
+name = "SurfaceTreeForm"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official SFTR record (1514) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17656-L17672",
+]
+confidence = "corpus"
+note = "inventory definition (KK-100): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (1514 occurrences), 14..37 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17661-L17661",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 33 of 1514 official SFTR records (33 occurrences), 37 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17662-L17662",
+]
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (1514 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17663-L17663",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); observed 4 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (1514 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17664-L17664",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); observed 4 bytes"
+
+[[member]]
+group = "FnamEntries"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (3028 occurrences, up to 2 per record), each entry FNAM (262144 bytes), GNAM (65536 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17667-L17667",
+]
+confidence = "corpus"
+note = "one entry per FNAM, its members in this order, the entries consecutive"
+
+[[member.member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (3028 occurrences, up to 2 per record), 262144 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17668-L17668",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); observed 262144 bytes"
+
+[[member.member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (3028 occurrences, up to 2 per record), 65536 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17669-L17669",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); observed 65536 bytes"
+
+[[member]]
+sig = "NAM1"
+name = "Nam1"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1514 of 1514 official SFTR records (1514 occurrences), 5..47 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17671-L17671",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); observed 5..47 bytes"

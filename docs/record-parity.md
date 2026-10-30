@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, ARTO, ATMO, AVMD, BMMO, BMOD, CAMS, CLDF, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EQUP, FFKW, FOGV, FORC, FSTP, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LIGH, LMSW, LSCR, LTEX, LVLB, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PERS, PGRE, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SDLT, SECH, SFPC, SOUN, SPCH, SPGD, STAG, STBH, STND, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, ARTO, ATMO, AVMD, BMMO, BMOD, CAMS, CLDF, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LIGH, LMSW, LSCR, LTEX, LVLB, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PGRE, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TRNS, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         105 |   252,710 |    219,299 |   785,943 |  74,597 |
-| **Total**       |          186 |         168 | 7,490,102 | 46,774,820 | 2,863,436 | 781,305 |
+| container/other |          123 |         110 |   252,710 |    232,348 |   800,057 |  47,434 |
+| **Total**       |          186 |         173 | 7,490,102 | 46,787,869 | 2,877,550 | 754,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 84:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 168 record definitions, defs hash `fnv1a64:d565a81c24aecd3e` (the hash named in
+- Schema: 173 record definitions, defs hash `fnv1a64:2293b397c7f54272` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -94,7 +94,7 @@ Columns:
 | `PNDT`        | Planet                         |     1,786 |      1,786 |    31 |    21 |      0 |      10 |
 | `LIGH`        | Light                          |     1,723 |          0 |    24 |     9 |     13 |       2 |
 | `AFFE`        | AffinityEvent                  |     1,593 |          0 |    11 |    11 |      0 |       0 |
-| `SFTR`        | -                              |     1,514 |      1,514 |     9 |     0 |      0 |       9 |
+| `SFTR`        | SurfaceTreeForm                |     1,514 |      1,514 |     9 |     6 |      2 |       1 |
 | `MISC`        | MiscItem                       |     1,495 |          0 |    33 |    31 |      2 |       0 |
 | `IPCT`        | Impact                         |     1,459 |          0 |    15 |     3 |     12 |       0 |
 | `FLST`        | FormIdList                     |     1,415 |          0 |    11 |     9 |      0 |       2 |
@@ -115,11 +115,11 @@ Columns:
 | `MTPT`        | -                              |       906 |          0 |     2 |     0 |      0 |       2 |
 | `CONT`        | Container                      |       866 |          0 |    39 |    36 |      3 |       0 |
 | `ASPC`        | -                              |       814 |          0 |    16 |     0 |      0 |      16 |
-| `TRNS`        | -                              |       733 |          0 |     4 |     0 |      0 |       4 |
-| `PDCL`        | -                              |       732 |          0 |    13 |     0 |      0 |      13 |
-| `EFSQ`        | -                              |       728 |          0 |     2 |     0 |      0 |       2 |
+| `TRNS`        | Transform                      |       733 |          0 |     4 |     1 |      3 |       0 |
+| `PDCL`        | ProjectedDecal                 |       732 |          0 |    13 |     3 |      8 |       2 |
+| `EFSQ`        | EffectSequence                 |       728 |          0 |     2 |     1 |      1 |       0 |
 | `OTFT`        | Outfit                         |       698 |          0 |     2 |     2 |      0 |       0 |
-| `STMP`        | -                              |       696 |          0 |    15 |     0 |      0 |      15 |
+| `STMP`        | SnapTemplateForm               |       696 |          0 |    15 |     6 |      7 |       2 |
 | `WWED`        | WwiseEventData                 |       681 |          0 |     4 |     1 |      3 |       0 |
 | `SPEL`        | Spell                          |       662 |          0 |    19 |    19 |      0 |       0 |
 | `PERK`        | Perk                           |       608 |          0 |    29 |    26 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 168 defined                    | 7,490,102 |    136,741 | 2,797 | 1,904 |    490 |     403 |
+| **186 types** | 173 defined                    | 7,490,102 |    136,741 | 2,797 | 1,921 |    511 |     365 |
 
-Subrecord occurrences: 50,419,561 in total; 46,774,820 typed (0 of them failed to decode), 2,863,436 opaque, 781,305 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,787,869 typed (0 of them failed to decode), 2,877,550 opaque, 754,142 unknown.
 
 ## Decoded through the definitions
 
@@ -296,6 +296,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `PNDT`    | Planet                         |         1,786 |     55,229 |      0 |         0 |         0 |                   0 |     55,229 |       0 |        0 |
 | `LIGH`    | Light                          |         1,723 |      9,116 |      0 |         0 |         0 |                   0 |      9,116 |       0 |        0 |
 | `AFFE`    | AffinityEvent                  |         1,593 |     24,261 |      0 |         0 |         0 |                   0 |     24,261 |       0 |        0 |
+| `SFTR`    | SurfaceTreeForm                |         1,514 |      6,122 |      0 |         0 |         0 |                   0 |      6,122 |       0 |        0 |
 | `MISC`    | MiscItem                       |         1,495 |     19,435 |      0 |         0 |         3 |                   0 |     19,432 |       0 |        0 |
 | `IPCT`    | Impact                         |         1,459 |      4,085 |      0 |         0 |         0 |                   0 |      4,085 |       0 |        0 |
 | `FLST`    | FormIdList                     |         1,415 |     14,840 |      0 |         0 |         0 |                   0 |     14,840 |       0 |        0 |
@@ -311,7 +312,11 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
 | `FACT`    | Faction                        |           953 |      6,131 |      0 |         0 |         0 |                   0 |      6,131 |       0 |        0 |
 | `CONT`    | Container                      |           866 |     18,190 |      0 |         0 |         0 |                   0 |     18,190 |       0 |        0 |
+| `TRNS`    | Transform                      |           733 |        733 |      0 |         0 |         0 |                   0 |        733 |       0 |        0 |
+| `PDCL`    | ProjectedDecal                 |           732 |        854 |      0 |         0 |         0 |                   0 |        854 |       0 |        0 |
+| `EFSQ`    | EffectSequence                 |           728 |        727 |      0 |         0 |         0 |                   0 |        727 |       0 |        0 |
 | `OTFT`    | Outfit                         |           698 |      1,396 |      0 |         0 |         0 |                   0 |      1,396 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |           696 |      4,613 |      0 |         0 |         0 |                   0 |      4,613 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |           681 |        681 |      0 |         0 |         0 |                   0 |        681 |       0 |        0 |
 | `SPEL`    | Spell                          |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
 | `PERK`    | Perk                           |           608 |     27,868 |      0 |         0 |         0 |                   0 |     27,868 |       0 |        0 |
@@ -430,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,480,741 | 46,774,820 |      0 |         0 |    18,685 |                   0 | 46,756,135 |       0 |        0 |
+| **Total** |                                |     7,485,144 | 46,787,869 |      0 |         0 |    18,685 |                   0 | 46,769,184 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -491,6 +496,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DOBJ`    | DefaultObjectManager           |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                           |             70 |    63 |      7 |        10 |                   0 |     60 |       0 |        0 |
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
+| `EFSQ`    | EffectSequence                 |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `ENCH`    | Enchantment                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `EXPL`    | Explosion                      |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -560,6 +566,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `PCBN`    | PlanetContentBranchNode        |             47 |    44 |      3 |         1 |                   0 |     46 |       0 |        0 |
 | `PCCN`    | PlanetContentNode              |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             43 |    40 |      3 |         2 |                   0 |     41 |       0 |        0 |
+| `PDCL`    | ProjectedDecal                 |             41 |    31 |     10 |         0 |                   0 |     41 |       0 |        0 |
 | `PERK`    | Perk                           |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
 | `PERS`    | UnknownPers                    |              2 |     0 |      2 |         0 |                   0 |      2 |       0 |        0 |
 | `PGRE`    | PlacedProjectile               |             10 |     0 |     10 |         0 |                   0 |     10 |       0 |        0 |
@@ -585,6 +592,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SFBK`    | SurfaceBlock                   |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
 | `SFPC`    | SurfacePatternConfig           |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SFPT`    | SurfacePattern                 |             41 |    38 |      3 |         3 |                   0 |     38 |       0 |        0 |
+| `SFTR`    | SurfaceTreeForm                |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode         |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode          |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode          |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
@@ -596,12 +604,14 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `STAT`    | Static                         |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |             40 |    31 |      9 |         0 |                   0 |     40 |       0 |        0 |
 | `STDT`    | Star                           |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |             44 |    31 |     13 |         0 |                   0 |     44 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |             46 |    33 |     13 |         0 |                   0 |     46 |       0 |        0 |
 | `SUNP`    | SunPreset                      |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `TERM`    | Terminal                       |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
 | `TES4`    | PluginHeader                   |             11 |     8 |      3 |         0 |                   2 |      9 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |             25 |    24 |      1 |         0 |                   0 |     25 |       0 |        0 |
 | `TRAV`    | Traversal                      |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
+| `TRNS`    | Transform                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `TXST`    | TextureSet                     |             12 |     1 |     11 |         0 |                   0 |     12 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WATR`    | Water                          |             54 |    48 |      6 |         2 |                   0 |     52 |       0 |        0 |
@@ -613,7 +623,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,162 | 4,420 |    742 |       328 |                   2 |  4,832 |       0 |        0 |
+| **Total** |                                |          5,292 | 4,515 |    777 |       328 |                   2 |  4,962 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -640,10 +650,13 @@ Signatures seen in records of a defined type that its definition does not name
 - `SFBK`: `DAT2` (585), `DATA` (2)
 - `PNDT`: `FLLD` (3,479), `FULL` (1,786), `KSIZ` (1,706), `KWDA` (1,706), `MCQP` (113), `MODL` (1,736), `PCCC` (1,704), `XLMS` (113), `XMPM` (1,704), `XMSP` (113)
 - `LIGH`: `FLTR` (1,053), `INTV` (1,053)
+- `SFTR`: `DAT2` (33)
 - `FLST`: `FLTR` (44), `INTV` (44)
 - `AVIF`: `AVFL` (1,267), `NAM0` (1,267), `NAM1` (1,185), `NAM2` (35), `NAM3` (35), `NLDT` (387)
 - `ARMA`: `KSIZ` (1), `KWDA` (1)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
+- `PDCL`: `KSIZ` (62), `KWDA` (62)
+- `STMP`: `FLTR` (226), `INTV` (226)
 - `WRLD`: `SNAM` (580)
 - `BMOD`: `FLLD` (2), `FLTR` (24), `INTV` (24), `MODL` (2)
 - `DOOR`: `FLTR` (1), `INTV` (1)
