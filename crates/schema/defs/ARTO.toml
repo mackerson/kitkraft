@@ -1,192 +1,130 @@
-# ARTO: ArtObject, inventory definition (M4.BX2, lane B).
+# ARTO: ArtObject, an object that carries a magic effect (magic casting, magic hit
+# effect or enchantment) or is a piece of misc art.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official ARTO record (212 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the ARTO definition of wbDefinitionsSF1.pas at the pinned revision (L9778-L9804),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9778-L9804 - member order, the DNAM data block
+#     (art type, flags and their bits) and the effect shader reference. Helpers: script
+#     data (L3407-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), XALG (L3230), PTT2
+#     (L3965-L3978), the base form component block (L5984-L6832,
+#     common/BfcbBlock.toml), keywords (wbDefinitionsCommon.pas L8935-L8951,
+#     common/Keywords.toml), the generic model (L7008-L7029, common/Model.toml).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Order: OPDS, XALG, PTT2 and KSIZ never occur together in one official ARTO record (nor
-# KSIZ with BFCB), so their relative order follows the pinned xEdit file.
-# Inside component blocks (kept raw by BfcbBlock): ANAM BNAM MNAM PTCL REFL.
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "ARTO"
 name = "ArtObject"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official ARTO record (212) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804",
-]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 212 of 212 official ARTO records (212 occurrences), 12..46 bytes"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9779-L9779",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official ARTO records"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 212 of 212 official ARTO records (212 occurrences), 24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9781-L9781",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+confidence = "reference"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 212 of 212 official ARTO records (212 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9782-L9782",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+confidence = "reference"
 
 [[member]]
 sig = "OPDS"
-name = "Opds"
-type = "opaque"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 212 official ARTO records (2 occurrences), 80 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9783-L9783",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 30 of 212 official ARTO records (30 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9784-L9784",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 sig = "PTT2"
-name = "Ptt2"
-type = "opaque"
+name = "Transforms"
+type = "ref:Transforms"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 5 of 212 official ARTO records (5 occurrences), 32 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9785-L9785",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 168 of 212 official ARTO records (262 occurrences, up to 3 per record), 25..38 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9786-L9786",
-]
-confidence = "corpus"
-note = "base form components; the component data stays raw"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 212 official ARTO records (2 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9787-L9787",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 211 of 212 official ARTO records (211 occurrences), 24..88 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9788-L9788",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "MOLM"
-name = "Molm"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 5 of 212 official ARTO records (5 occurrences), 6 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9788-L9788",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 212 of 212 official ARTO records (212 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9788-L9788",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "XFLG"
-name = "Xflg"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 7 of 212 official ARTO records (7 occurrences), 1 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9788-L9788",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 212 of 212 official ARTO records (212 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9789-L9789",
+name = "Data"
+type = "struct"
+size = 8
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9789-L9802"]
+confidence = "reference"
+
+[[member.field]]
+name = "ArtType"
+type = "enum"
+base = "u32"
+values = [
+  ["MagicCasting", 0],
+  ["MagicHitEffect", 1],
+  ["EnchantmentEffect", 2],
+  ["MiscArtObject", 3],
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.field]]
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["RotateToFaceTarget", 0x1],
+  ["AttachToCamera", 0x2],
+  ["InheritRotation", 0x4],
+  ["ReferenceEffect", 0x80000000],
+]
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "EffectShader"
+type = "formid"
+targets = ["EFSH"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 4 of 212 official ARTO records (4 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9803-L9803",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9803-L9803"]
+confidence = "reference"
