@@ -107,7 +107,8 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
@@ -135,7 +136,10 @@ fn check_file(path: &Path, t: &mut TypeStats) {
 }
 
 fn report(t: &TypeStats) {
-    println!("expl EXPL: {} records, {} identical", t.records, t.identical);
+    println!(
+        "expl EXPL: {} records, {} identical",
+        t.records, t.identical
+    );
     for (sig, n) in &t.per_signature {
         println!("   {sig}: {n} records");
     }
