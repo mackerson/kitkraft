@@ -118,7 +118,7 @@
 // - IPCT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official IPCT record (1459) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IPDS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IPDS record (356) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IRES (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically; corpus)
-// - KEYM (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - KEYM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272; reference)
 // - KSSM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically; corpus)
 // - KYWD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13297-L13312; corpus)
 // - LAYR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -36568,62 +36568,172 @@ impl IresRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct KeymLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeymComponentsItem {
+    pub component: FormId,
+    pub count: u32,
+    pub unused: [u8; 4],
 }
 
-impl KeymLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "KEYM.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
-        }
+impl Field for KeymComponentsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "KEYM.CVPA.Component", ctx)?;
+        let f1 = u32::read(r, "KEYM.CVPA.Count", ctx)?;
+        let f2 = Field::read(r, "KEYM.CVPA.Unused", ctx)?;
+        Ok(Self {
+            component: f0,
+            count: f1,
+            unused: f2,
+        })
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    fn write(&self, out: &mut Vec<u8>) {
+        self.component.write(out);
+        self.count.write(out);
+        self.unused.write(out);
     }
 }
 
-impl Visit for KeymLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "KEYM.LocalizedStrings.FULL", out);
+impl Visit for KeymComponentsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.component, "KEYM.CVPA.Component", out);
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "KEYM.LocalizedStrings.FULL", out);
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.component, "KEYM.CVPA.Component", out);
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeymComponents(pub Vec<KeymComponentsItem>);
+
+impl Field for KeymComponents {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for KeymComponents {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeymComponentDisplayIndices(pub Vec<u8>);
+
+impl Field for KeymComponentDisplayIndices {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for KeymComponentDisplayIndices {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeymData {
+    pub value: i32,
+    pub weight: f32,
+}
+
+impl Field for KeymData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "KEYM.DATA.Value", ctx)?;
+        let f1 = f32::read(r, "KEYM.DATA.Weight", ctx)?;
+        Ok(Self {
+            value: f0,
+            weight: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value.write(out);
+        self.weight.write(out);
+    }
+}
+
+impl Visit for KeymData {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct KeymFlags(pub u32);
+
+impl KeymFlags {
+    pub const ALLOW_QUEST_ITEM_CRAFTING: u32 = 0x1;
+    pub const NON_INSTANCED_KEY: u32 = 0x2;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for KeymFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for KeymFlags {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct KeymRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<KeymLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// Group `Destructible`, optional.
+    pub destructible: Option<Destructible>,
+    /// `CUSH`, optional.
+    pub crafting_sound: Option<Sub<SoundReference>>,
+    /// `PUSH`, optional.
+    pub pickup_sound: Option<Sub<SoundReference>>,
+    /// `PDSH`, optional.
+    pub putdown_sound: Option<Sub<SoundReference>>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
+    /// `FIMD`, optional.
+    pub featured_item_message: Option<Sub<FormId>>,
+    /// `CVPA`, optional.
+    pub components: Option<Sub<KeymComponents>>,
+    /// `CDIX`, optional.
+    pub component_display_indices: Option<Sub<KeymComponentDisplayIndices>>,
+    /// `DATA`, required.
+    pub data: Option<Sub<KeymData>>,
+    /// `FLAG`, optional.
+    pub flags: Option<Sub<KeymFlags>>,
+    /// `NNAM`, optional.
+    pub short_name: Option<Sub<LString>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -36638,9 +36748,81 @@ impl KeymRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
-            card: Card::Repeated,
-            members: KeymLocalizedStrings::MEMBERS,
+            card: Card::Required,
+            members: Model::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Destructible::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"CUSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PUSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PDSH",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FIMD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CVPA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CDIX",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLAG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NNAM",
+            card: Card::Optional,
         },
     ];
 
@@ -36656,10 +36838,108 @@ impl KeymRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "KEYM.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = KeymLocalizedStrings::default();
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "KEYM.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "KEYM.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "KEYM.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "KEYM.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "KEYM.PTT2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "KEYM.XALG", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.name, subs, *index, "KEYM.FULL", ctx, extra)
+                }
+                Hit::Group { member: 8, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                    self.model = Some(group);
+                }
+                Hit::Group { member: 9, hits } if self.destructible.is_none() => {
+                    let mut group = Destructible::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.destructible = Some(group);
+                }
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.crafting_sound,
+                    subs,
+                    *index,
+                    "KEYM.CUSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.pickup_sound,
+                    subs,
+                    *index,
+                    "KEYM.PUSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.putdown_sound,
+                    subs,
+                    *index,
+                    "KEYM.PDSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 13, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.featured_item_message,
+                    subs,
+                    *index,
+                    "KEYM.FIMD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 15, index } => {
+                    put(&mut self.components, subs, *index, "KEYM.CVPA", ctx, extra)
+                }
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.component_display_indices,
+                    subs,
+                    *index,
+                    "KEYM.CDIX",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.data, subs, *index, "KEYM.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => {
+                    put(&mut self.flags, subs, *index, "KEYM.FLAG", ctx, extra)
+                }
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.short_name, subs, *index, "KEYM.NNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -36668,25 +36948,79 @@ impl KeymRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+        if let Some(group) = &self.model {
             group.emit(out);
         }
+        if let Some(group) = &self.destructible {
+            group.emit(out);
+        }
+        emit(out, *b"CUSH", self.crafting_sound.as_ref());
+        emit(out, *b"PUSH", self.pickup_sound.as_ref());
+        emit(out, *b"PDSH", self.putdown_sound.as_ref());
+        if let Some(group) = &self.keywords {
+            group.emit(out);
+        }
+        emit(out, *b"FIMD", self.featured_item_message.as_ref());
+        emit(out, *b"CVPA", self.components.as_ref());
+        emit(out, *b"CDIX", self.component_display_indices.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"FLAG", self.flags.as_ref());
+        emit(out, *b"NNAM", self.short_name.as_ref());
     }
 }
 
 impl Visit for KeymRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "KEYM.PTT2", out);
+        visit_form_ids(&self.model, "KEYM.Model", out);
+        visit_form_ids(&self.destructible, "KEYM.Destructible", out);
+        visit_form_ids(&self.crafting_sound, "KEYM.CUSH", out);
+        visit_form_ids(&self.pickup_sound, "KEYM.PUSH", out);
+        visit_form_ids(&self.putdown_sound, "KEYM.PDSH", out);
+        visit_form_ids(&self.keywords, "KEYM.Keywords", out);
+        visit_form_ids(&self.featured_item_message, "KEYM.FIMD", out);
+        visit_form_ids(&self.components, "KEYM.CVPA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "KEYM.PTT2", out);
+        visit_form_ids_mut(&mut self.model, "KEYM.Model", out);
+        visit_form_ids_mut(&mut self.destructible, "KEYM.Destructible", out);
+        visit_form_ids_mut(&mut self.crafting_sound, "KEYM.CUSH", out);
+        visit_form_ids_mut(&mut self.pickup_sound, "KEYM.PUSH", out);
+        visit_form_ids_mut(&mut self.putdown_sound, "KEYM.PDSH", out);
+        visit_form_ids_mut(&mut self.keywords, "KEYM.Keywords", out);
+        visit_form_ids_mut(&mut self.featured_item_message, "KEYM.FIMD", out);
+        visit_form_ids_mut(&mut self.components, "KEYM.CVPA", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "KEYM.LocalizedStrings", out);
+        visit_lstrings(&self.name, "KEYM.FULL", out);
+        visit_lstrings(&self.short_name, "KEYM.NNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "KEYM.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "KEYM.FULL", out);
+        visit_lstrings_mut(&mut self.short_name, "KEYM.NNAM", out);
     }
 }
 
 impl KeymRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"KEYM";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x2;
+    /// Record-header flag.
+    pub const FLAG_CALC_VALUE_FROM_COMPONENTS: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_PACK_IN_USE_ONLY: u32 = 0x2000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

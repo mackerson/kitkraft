@@ -1,34 +1,34 @@
-# KEYM: Key, lstring-only definition (lane B round 3, M3.B8).
+# KEYM: Key, the key record.
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13240-L13272 - member order, the record flags,
+#     DATA (value, weight), FLAG and its bits, NNAM. Helpers: script data (L3407-L3411, kept
+#     opaque), object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS
+#     (L3925-L3962), PTT2 (L3965-L3978), XALG (L3230), FULL (L3184), the generic model
+#     (L7008-L7029, common/Model.toml), destruction data (L3829-L3890,
+#     common/Destructible.toml), CUSH/PUSH/PDSH (L2333-L2335, common/SoundReference.toml),
+#     keywords (wbDefinitionsCommon.pas L8935-L8951), FIMD (L2329), CVPA (L2258-L2267), CDIX
+#     (L2269).
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official KEYM record.
-#   xedit: the KEYM definition of wbDefinitionsSF1.pas at the pinned revision (L13240-L13272)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "KEYM"
 name = "Key"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x2],
+  ["CalcValueFromComponents", 0x800],
+  ["PackInUseOnly", 0x2000],
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
@@ -36,23 +36,169 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official KEYM records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw"
 
-[[member.member]]
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13253-L13253"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official KEYM records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "CUSH"
+name = "CraftingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "PUSH"
+name = "PickupSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "PDSH"
+name = "PutdownSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "FIMD"
+name = "FeaturedItemMessage"
+type = "formid"
+targets = ["MESG"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2329-L2329"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "CVPA"
+name = "Components"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2258-L2267"]
+confidence = "reference"
+note = "what the item breaks down into; not present in the official KEYM records"
+field = [
+  { name = "Component", type = "formid", note = "upstream allows any base object (the CK only IRES)" },
+  { name = "Count", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4 },
+]
+
+[[member]]
+sig = "CDIX"
+name = "ComponentDisplayIndices"
+type = "array"
+count = "rest"
+element = "u8"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2269-L2269"]
+confidence = "reference"
+note = "not present in the official KEYM records"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 8
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13263-L13266"]
+field = [
+  { name = "Value", type = "i32" },
+  { name = "Weight", type = "f32" },
+]
+
+[[member]]
+sig = "FLAG"
+name = "Flags"
+type = "flags"
+base = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13267-L13270"]
+bits = [
+  ["AllowQuestItemCrafting", 0x1],
+  ["NonInstancedKey", 0x2],
+]
+
+[[member]]
+sig = "NNAM"
+name = "ShortName"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13271-L13271"]
+confidence = "reference"
+note = "not present in the official KEYM records"
