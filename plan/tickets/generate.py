@@ -637,7 +637,7 @@ Commit after the definition first loads, and after the corpus test passes.
         "crates/schema/tests/golden/seed.rs",
         "crates/esm/src/generated/records.rs",
         test_file,
-    ] + sorted(owns_docs) + ["docs/record-parity.md", "docs/gaps.md"]
+    ] + sorted(owns_docs) + ["docs/record-parity.md", "docs/foothold/gap-matrix.md", "docs/gaps.md"]
     title = (f"Type {sigs[0]} ({group[0]['def']['name']}) from the pinned xEdit file, corpus-checked" if len(group) == 1
              else f"Type {listing} from the pinned xEdit file, corpus-checked")
     return dict(mode="depth", id=tid, title=title, timeout_min=60, owns=owns, brief=wrap(brief), sigs=sigs,

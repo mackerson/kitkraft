@@ -10,6 +10,7 @@ owns = [
   "crates/esm/src/generated/records.rs",
   "crates/esm/tests/regn_gras_types.rs",
   "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
   "docs/gaps.md",
 ]
 brief = """
