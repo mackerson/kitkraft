@@ -9,6 +9,13 @@
 #     common/Destructible.toml), CUSH/PUSH/PDSH (L2333-L2335, common/SoundReference.toml),
 #     keywords (wbDefinitionsCommon.pas L8935-L8951), FIMD (L2329), CVPA (L2258-L2267), CDIX
 #     (L2269).
+#   corpus: the 343 KEYM records of the 14 official ESMs (crates/esm/tests/keym_types.rs,
+#     keym_types_full, 2026-10-30): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, DATA, FLLD, OBND and ODTY are in all
+#     343; XALG in 317, PTT2 in 337, FULL in 339, MODL in 338, KSIZ and KWDA in 336 each,
+#     FLAG in 277, VMAD in 12, and MOLM and XFLG in 1 each; OPDS, the destruction data,
+#     CUSH, PUSH, PDSH, FIMD, CVPA, CDIX and NNAM are absent from all 343.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official KEYM record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
@@ -17,7 +24,10 @@
 signature = "KEYM"
 name = "Key"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272"
-confidence = "reference"
+evidence = [
+  "corpus: crates/esm/tests/keym_types.rs (keym_types_full), 2026-10-30: in all 343 official KEYM records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+]
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x2],
   ["CalcValueFromComponents", 0x800],
@@ -40,21 +50,32 @@ sig = "VMAD"
 name = "Scripts"
 type = "opaque"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: VMAD in 12 of 343 official KEYM records; 343 records, 343 identical",
+]
+confidence = "corpus"
 note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: OBND is in all 343 of the official KEYM records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: ODTY is in all 343 of the official KEYM records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
@@ -70,14 +91,22 @@ sig = "PTT2"
 name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: PTT2 in 337 of 343 official KEYM records; 343 records, 343 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "XALG"
 name = "XalgFlags"
 type = "u64"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: XALG in 317 of 343 official KEYM records; 343 records, 343 identical",
+]
+confidence = "corpus"
 note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
@@ -93,7 +122,11 @@ confidence = "corpus"
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: the model block in all 343 official KEYM records (FLLD in all 343, MODL in 338, MOLM and XFLG in 1 each); 343 records, 343 identical",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Destructible"
@@ -132,7 +165,11 @@ note = "not present in the official KEYM records"
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: KSIZ and KWDA in 336 of 343 official KEYM records; 343 records, 343 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FIMD"
@@ -176,7 +213,11 @@ sig = "DATA"
 name = "Data"
 type = "struct"
 size = 8
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13263-L13266"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13263-L13266",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: DATA is in all 343 of the official KEYM records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 field = [
   { name = "Value", type = "i32" },
   { name = "Weight", type = "f32" },
@@ -188,7 +229,11 @@ name = "Flags"
 type = "flags"
 base = "u32"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13267-L13270"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13267-L13270",
+  "corpus: keym_types_full (crates/esm/tests/keym_types.rs), 2026-10-30: FLAG in 277 of 343 official KEYM records; 343 records, 343 identical",
+]
+confidence = "corpus"
 bits = [
   ["AllowQuestItemCrafting", 0x1],
   ["NonInstancedKey", 0x2],
