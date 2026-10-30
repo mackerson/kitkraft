@@ -10,12 +10,26 @@
 #     common/BfcbBlock.toml), keywords (wbDefinitionsCommon.pas L8935-L8951,
 #     common/Keywords.toml), the generic model (L7008-L7029, common/Model.toml).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   corpus: the 212 ARTO records of the 14 official ESMs (crates/esm/tests/arto_types.rs,
+#     arto_types_full, 2026-10-30): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, OBND, ODTY, DNAM and the model's FLLD
+#     are in all 212; BFCB in 168 (BFCE in 168, REFL in 112, BNAM in 85, ANAM in 84,
+#     PTCL in 61, MNAM in 1), the keywords in 2, XALG in 30, the model's MODL in 211,
+#     MOLM and PTT2 in 5 each, XFLG in 7, ENAM in 4, OPDS in 2, and VMAD is absent from
+#     all 212.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): none of
+#     the ARTO subrecords in the 14 official ESMs is an lstring.
 #
 # Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "ARTO"
 name = "ArtObject"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804"
-confidence = "reference"
+evidence = [
+  "corpus: arto_types_full (crates/esm/tests/arto_types.rs), 2026-10-30: in all 212 official ARTO records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: none of the ARTO subrecords in the 14 official ESMs is an lstring",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -35,21 +49,21 @@ type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
 confidence = "reference"
-note = "script data; its property values are unions by property type, kept raw; not present in the official ARTO records"
+note = "script data; its property values are unions by property type, kept raw; absent from all 212 official ARTO records"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
-confidence = "reference"
+note = "in all 212 official ARTO records"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
-confidence = "reference"
+note = "in all 212 official ARTO records"
 
 [[member]]
 sig = "OPDS"
@@ -57,7 +71,7 @@ name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
-confidence = "reference"
+note = "in 2 of the 212 official ARTO records"
 
 [[member]]
 sig = "XALG"
@@ -65,7 +79,7 @@ name = "XalgFlags"
 type = "u64"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
-note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; in 30 of the 212 official ARTO records"
 
 [[member]]
 sig = "PTT2"
@@ -73,22 +87,24 @@ name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
-confidence = "reference"
+note = "in 5 of the 212 official ARTO records"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-note = "base form components"
+note = "base form components; in 168 of the 212 official ARTO records"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "in 2 of the 212 official ARTO records"
 
 [[member]]
 group_ref = "Model"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "in all 212 official ARTO records (FLLD in all, MODL in 211, MOLM in 5, XFLG in 7)"
 
 [[member]]
 sig = "DNAM"
@@ -96,7 +112,7 @@ name = "Data"
 type = "struct"
 size = 8
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9789-L9802"]
-confidence = "reference"
+note = "in all 212 official ARTO records"
 
 [[member.field]]
 name = "ArtType"
@@ -127,4 +143,4 @@ type = "formid"
 targets = ["EFSH"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9803-L9803"]
-confidence = "reference"
+note = "in 4 of the 212 official ARTO records"
