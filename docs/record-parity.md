@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 173 record definitions, defs hash `fnv1a64:a3fef39931cea930` (the hash named in
+- Schema: 173 record definitions, defs hash `fnv1a64:2cf37652ed3b2ac5` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -364,7 +364,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LGDI`    | LegendaryItem                  |           147 |        147 |      0 |         0 |         0 |                   0 |        147 |       0 |        0 |
 | `ZOOM`    | Zoom                           |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |           135 |        135 |      0 |         0 |         0 |                   0 |        135 |       0 |        0 |
-| `ENCH`    | Enchantment                    |           135 |      1,967 |      0 |         0 |       405 |                   0 |      1,562 |       0 |        0 |
+| `ENCH`    | Enchantment                    |           135 |      1,967 |      0 |         0 |         0 |                   0 |      1,967 |       0 |        0 |
 | `FSTP`    | Footstep                       |           134 |        134 |      0 |         0 |         0 |                   0 |        134 |       0 |        0 |
 | `AMDL`    | AimModel                       |           126 |        252 |      0 |         0 |         0 |                   0 |        252 |       0 |        0 |
 | `STDT`    | Star                           |           124 |      2,455 |      0 |         0 |         0 |                   0 |      2,455 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,144 | 46,809,214 |      0 |         0 |    20,813 |                   0 | 46,788,401 |       0 |        0 |
+| **Total** |                                |     7,485,144 | 46,809,214 |      0 |         0 |    20,408 |                   0 | 46,788,806 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -497,7 +497,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DOOR`    | Door                           |             70 |    63 |      7 |        10 |                   0 |     60 |       0 |        0 |
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `ENCH`    | Enchantment                    |             49 |    45 |      4 |         4 |                   0 |     45 |       0 |        0 |
+| `ENCH`    | Enchantment                    |             49 |    45 |      4 |         1 |                   0 |     48 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `EXPL`    | Explosion                      |             49 |    46 |      3 |         1 |                   0 |     48 |       0 |        0 |
 | `FACT`    | Faction                        |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
@@ -623,7 +623,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,459 | 4,681 |    778 |       357 |                   2 |  5,100 |       0 |        0 |
+| **Total** |                                |          5,459 | 4,681 |    778 |       354 |                   2 |  5,103 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
