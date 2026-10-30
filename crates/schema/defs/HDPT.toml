@@ -10,6 +10,13 @@
 #     (L12639-L12641), the colour mapping (L12642-L12658), the mask (L12659), the
 #     texture set (L12660), the valid races (L12661), the morph (L12662) and the
 #     conditions (L4750-L4840).
+#   corpus: the 236 HDPT records of the 14 official ESMs (crates/esm/tests/hdpt_types.rs,
+#     hdpt_types_full, 2026-10-30): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, FULL, DATA, PNAM, RNAM and the model's
+#     FLLD are in all 236; the model's MODL in 231, MNAM in 202, NAM2 in 147, NAM3 in 140,
+#     HNAM in 27, TNAM in 1 and the BFCB blocks in 2; VMAD and the conditions are absent
+#     from all 236.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official HDPT record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
@@ -20,9 +27,10 @@ signature = "HDPT"
 name = "HeadPart"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664"
 evidence = [
+  "corpus: crates/esm/tests/hdpt_types.rs (hdpt_types_full), 2026-10-30: in all 236 official HDPT records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
   "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: FULL is an lstring in every official HDPT record",
 ]
-confidence = "reference"
+confidence = "corpus"
 flags = [["NonPlayable", 0x4]]
 
 [[member]]
@@ -129,7 +137,7 @@ targets = ["HDPT"]
 count = "rest"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12639-L12641"]
-note = "the extra parts list, one FormID per official subrecord (up to two in a row); in 30 of the 236 official HDPT records"
+note = "the extra parts list, one FormID per official subrecord; in 27 of the 236 official HDPT records"
 
 [[member]]
 sig = "NAM2"

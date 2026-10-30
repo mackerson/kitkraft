@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 173 record definitions, defs hash `fnv1a64:5eee81b244e67b02` (the hash named in
+- Schema: 173 record definitions, defs hash `fnv1a64:38d351324657fc74` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -349,7 +349,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CAMS`    | CameraShot                     |           276 |        498 |      0 |         0 |         0 |                   0 |        498 |       0 |        0 |
 | `SFPT`    | SurfacePattern                 |           264 |      1,753 |      0 |         0 |         0 |                   0 |      1,753 |       0 |        0 |
 | `MATT`    | MaterialType                   |           255 |        255 |      0 |         0 |         0 |                   0 |        255 |       0 |        0 |
-| `HDPT`    | HeadPart                       |           236 |      2,171 |      0 |         0 |     1,228 |                   0 |        943 |       0 |        0 |
+| `HDPT`    | HeadPart                       |           236 |      2,171 |      0 |         0 |         0 |                   0 |      2,171 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |           224 |        224 |      0 |         0 |         0 |                   0 |        224 |       0 |        0 |
 | `AACT`    | ActionForm                     |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject                      |           212 |      1,125 |      0 |         0 |         0 |                   0 |      1,125 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,144 | 46,809,210 |      0 |         0 |    21,636 |                   0 | 46,787,574 |       0 |        0 |
+| **Total** |                                |     7,485,144 | 46,809,210 |      0 |         0 |    20,408 |                   0 | 46,788,802 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -519,7 +519,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GRAS`    | Grass                          |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
-| `HDPT`    | HeadPart                       |             52 |    48 |      4 |        10 |                   0 |     42 |       0 |        0 |
+| `HDPT`    | HeadPart                       |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
@@ -623,7 +623,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,462 | 4,684 |    778 |       363 |                   2 |  5,097 |       0 |        0 |
+| **Total** |                                |          5,462 | 4,684 |    778 |       355 |                   2 |  5,105 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
