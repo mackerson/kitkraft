@@ -90,7 +90,7 @@
 // - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - EFSQ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official EFSQ record (728) decodes with every subrecord placed and re-encodes identically; corpus)
-// - ENCH (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - ENCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764; reference)
 // - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
 // - EXPL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839; corpus)
 // - FACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958; corpus)
@@ -27225,53 +27225,227 @@ impl EfsqRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct EnchLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EnchEffectDataFlags(pub u32);
+
+impl EnchEffectDataFlags {
+    pub const NO_AUTO_CALC: u32 = 0x1;
+    pub const EXTEND_DURATION_ON_RECAST: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
 }
 
-impl EnchLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
+impl Field for EnchEffectDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
 
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "ENCH.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EnchEffectDataFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnchEffectDataCastType {
+    ConstantEffect,
+    FireAndForget,
+    Concentration,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl EnchEffectDataCastType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::ConstantEffect,
+            1 => Self::FireAndForget,
+            2 => Self::Concentration,
+            other => Self::Other(other),
         }
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::ConstantEffect => 0,
+            Self::FireAndForget => 1,
+            Self::Concentration => 2,
+            Self::Other(raw) => raw,
+        }
     }
 }
 
-impl Visit for EnchLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "ENCH.LocalizedStrings.FULL", out);
+impl Field for EnchEffectDataCastType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "ENCH.LocalizedStrings.FULL", out);
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for EnchEffectDataCastType {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnchEffectDataTargetType {
+    SelfTarget,
+    Touch,
+    Aimed,
+    TargetActor,
+    TargetLocation,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl EnchEffectDataTargetType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::SelfTarget,
+            1 => Self::Touch,
+            2 => Self::Aimed,
+            3 => Self::TargetActor,
+            4 => Self::TargetLocation,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::SelfTarget => 0,
+            Self::Touch => 1,
+            Self::Aimed => 2,
+            Self::TargetActor => 3,
+            Self::TargetLocation => 4,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for EnchEffectDataTargetType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for EnchEffectDataTargetType {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnchEffectDataEnchantType {
+    Enchantment,
+    StaffEnchantment,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl EnchEffectDataEnchantType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            6 => Self::Enchantment,
+            12 => Self::StaffEnchantment,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Enchantment => 6,
+            Self::StaffEnchantment => 12,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for EnchEffectDataEnchantType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for EnchEffectDataEnchantType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnchEffectData {
+    pub enchantment_cost: i32,
+    pub flags: EnchEffectDataFlags,
+    pub cast_type: EnchEffectDataCastType,
+    pub enchantment_amount: i32,
+    pub target_type: EnchEffectDataTargetType,
+    pub enchant_type: EnchEffectDataEnchantType,
+    pub charge_time: f32,
+    pub base_enchantment: FormId,
+    pub worn_restrictions: FormId,
+}
+
+impl Field for EnchEffectData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "ENCH.ENIT.EnchantmentCost", ctx)?;
+        let f1 = Field::read(r, "ENCH.ENIT.Flags", ctx)?;
+        let f2 = Field::read(r, "ENCH.ENIT.CastType", ctx)?;
+        let f3 = i32::read(r, "ENCH.ENIT.EnchantmentAmount", ctx)?;
+        let f4 = Field::read(r, "ENCH.ENIT.TargetType", ctx)?;
+        let f5 = Field::read(r, "ENCH.ENIT.EnchantType", ctx)?;
+        let f6 = f32::read(r, "ENCH.ENIT.ChargeTime", ctx)?;
+        let f7 = Field::read(r, "ENCH.ENIT.BaseEnchantment", ctx)?;
+        let f8 = Field::read(r, "ENCH.ENIT.WornRestrictions", ctx)?;
+        Ok(Self {
+            enchantment_cost: f0,
+            flags: f1,
+            cast_type: f2,
+            enchantment_amount: f3,
+            target_type: f4,
+            enchant_type: f5,
+            charge_time: f6,
+            base_enchantment: f7,
+            worn_restrictions: f8,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.enchantment_cost.write(out);
+        self.flags.write(out);
+        self.cast_type.write(out);
+        self.enchantment_amount.write(out);
+        self.target_type.write(out);
+        self.enchant_type.write(out);
+        self.charge_time.write(out);
+        self.base_enchantment.write(out);
+        self.worn_restrictions.write(out);
+    }
+}
+
+impl Visit for EnchEffectData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.base_enchantment, "ENCH.ENIT.BaseEnchantment", out);
+        visit_form_ids(&self.worn_restrictions, "ENCH.ENIT.WornRestrictions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.base_enchantment, "ENCH.ENIT.BaseEnchantment", out);
+        visit_form_ids_mut(
+            &mut self.worn_restrictions,
+            "ENCH.ENIT.WornRestrictions",
+            out,
+        );
     }
 }
 
@@ -27279,8 +27453,20 @@ impl Visit for EnchLocalizedStrings {
 pub struct EnchRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<EnchLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, optional.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `ENIT`, required.
+    pub effect_data: Option<Sub<EnchEffectData>>,
+    /// Group `Effects`, repeated.
+    pub effects: Vec<Effect>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -27295,9 +27481,33 @@ impl EnchRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: EnchLocalizedStrings::MEMBERS,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENIT",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Effect::MEMBERS,
         },
     ];
 
@@ -27313,10 +27523,40 @@ impl EnchRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "ENCH.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = EnchLocalizedStrings::default();
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "ENCH.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "ENCH.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "ENCH.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 4, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.name, subs, *index, "ENCH.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.effect_data, subs, *index, "ENCH.ENIT", ctx, extra)
+                }
+                Hit::Group { member: 7, hits } => {
+                    let mut group = Effect::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.effects.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -27325,19 +27565,39 @@ impl EnchRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"ENIT", self.effect_data.as_ref());
+        for group in &self.effects {
             group.emit(out);
         }
     }
 }
 
 impl Visit for EnchRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ENCH.BfcbBlock", out);
+        visit_form_ids(&self.effect_data, "ENCH.ENIT", out);
+        visit_form_ids(&self.effects, "ENCH.Effects", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ENCH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.effect_data, "ENCH.ENIT", out);
+        visit_form_ids_mut(&mut self.effects, "ENCH.Effects", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "ENCH.LocalizedStrings", out);
+        visit_lstrings(&self.name, "ENCH.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "ENCH.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "ENCH.FULL", out);
     }
 }
 

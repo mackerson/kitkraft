@@ -1,27 +1,25 @@
-# ENCH: Enchantment, lstring-only definition (lane B round 3, M3.B8).
+# ENCH: Enchantment, the magic carried by a piece of equipment: effect data (cost,
+# flags, cast type, amount, charge time) and the list of magic effects.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official ENCH record.
-#   xedit: the ENCH definition of wbDefinitionsSF1.pas at the pinned revision (L11738-L11764)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11738-L11764 - member order: EDID (L3182),
+#     script data (L3393-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), the base form component block (L5984-L6832),
+#     FULL (L3184), the ENIT effect-data struct (L11745-L11762) with the cast
+#     (L4141-L4145) and target (L4147-L4153) enumerations, and the effect list
+#     (L6977-L6995, common/Effect.toml).
+#   corpus: the 135 ENCH records of the 14 official ESMs; the ench_types_full scan in
+#     crates/esm/tests/ench_types.rs (2026-10-30) checks this definition against them:
+#     135 records, 135 identical, every subrecord placed in a member and decoded.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
 # Names are ours (PascalCase, CK wording where it exists).
 signature = "ENCH"
 name = "Enchantment"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -36,16 +34,47 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official ENCH records are lstrings (lane E's table, edit::lstrings)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official ENCH records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: OBND in the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: present in all 135 records, every one decodes and re-encodes identically",
 ]
 confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+note = "present in every official record"
 
-[[member.member]]
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: ODTY in the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: present in all 135 records, every one decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: the component blocks of the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: BFCB and BFCE in 1 of the 135 records, a ParticleSystem component holding one PTCL, decoded and re-encoded identically",
+]
+confidence = "corpus"
+note = "base form components; observed in one official record"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -56,3 +85,53 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official ENCH records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "ENIT"
+name = "EffectData"
+type = "struct"
+size = 27
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11745-L11762",
+  "corpus: ENIT in the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: present in all 135 records, every one decodes and re-encodes identically",
+]
+confidence = "corpus"
+note = "present in every official record"
+field = [
+  { name = "EnchantmentCost", type = "i32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["NoAutoCalc", 0x1],
+    ["ExtendDurationOnRecast", 0x4],
+  ], note = "unnamed upstream bits are kept as read" },
+  { name = "CastType", type = "enum", base = "u8", values = [
+    ["ConstantEffect", 0],
+    ["FireAndForget", 1],
+    ["Concentration", 2],
+  ], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4141-L4145"] },
+  { name = "EnchantmentAmount", type = "i32" },
+  { name = "TargetType", type = "enum", base = "u8", values = [
+    ["SelfTarget", 0],
+    ["Touch", 1],
+    ["Aimed", 2],
+    ["TargetActor", 3],
+    ["TargetLocation", 4],
+  ], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4147-L4153"] },
+  { name = "EnchantType", type = "enum", base = "u8", values = [
+    ["Enchantment", 6],
+    ["StaffEnchantment", 12],
+  ], note = "the two kinds upstream names; other values are kept as read" },
+  { name = "ChargeTime", type = "f32" },
+  { name = "BaseEnchantment", type = "formid", targets = ["ENCH"] },
+  { name = "WornRestrictions", type = "formid", targets = ["FLST"] },
+]
+
+[[member]]
+group_ref = "Effect"
+name = "Effects"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6977-L6995",
+  "corpus: the effect entries of the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: EFID, EFIF, EFIT and MUID in all 135 records, CTDA in 35 and MNAM in 2, every entry decoded and re-encoded identically",
+]
+confidence = "corpus"
+note = "the magic effects of the enchantment"

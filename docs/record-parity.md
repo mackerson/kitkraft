@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 96:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    257,153 |   785,317 |  37,369 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,812,674 | 2,862,810 | 744,077 |
+| container/other |          123 |         118 |   252,710 |    258,856 |   785,318 |  35,665 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,814,377 | 2,862,811 | 742,373 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 96:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:fb290d4660cafb17` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:bfcf7aaf2bf4e3d0` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -167,7 +167,7 @@ Columns:
 | `LGDI`        | LegendaryItem                  |       147 |          0 |    20 |     1 |     19 |       0 |
 | `ZOOM`        | Zoom                           |       141 |          0 |     2 |     2 |      0 |       0 |
 | `DLBR`        | DialogBranch                   |       135 |          0 |     5 |     1 |      4 |       0 |
-| `ENCH`        | Enchantment                    |       135 |          0 |    14 |     2 |      0 |      12 |
+| `ENCH`        | Enchantment                    |       135 |          0 |    14 |    13 |      1 |       0 |
 | `FSTP`        | Footstep                       |       134 |          0 |     3 |     1 |      2 |       0 |
 | `AMDL`        | AimModel                       |       126 |          0 |     2 |     2 |      0 |       0 |
 | `STDT`        | Star                           |       124 |          0 |    16 |    10 |      0 |       6 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 1,998 |    537 |     262 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,009 |    538 |     250 |
 
-Subrecord occurrences: 50,419,561 in total; 46,812,674 typed (0 of them failed to decode), 2,862,810 opaque, 744,077 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,814,377 typed (0 of them failed to decode), 2,862,811 opaque, 742,373 unknown.
 
 ## Decoded through the definitions
 
@@ -364,7 +364,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LGDI`    | LegendaryItem                  |           147 |        147 |      0 |         0 |         0 |                   0 |        147 |       0 |        0 |
 | `ZOOM`    | Zoom                           |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |           135 |        135 |      0 |         0 |         0 |                   0 |        135 |       0 |        0 |
-| `ENCH`    | Enchantment                    |           135 |        264 |      0 |         0 |         0 |                   0 |        264 |       0 |        0 |
+| `ENCH`    | Enchantment                    |           135 |      1,967 |      0 |         0 |         0 |                   0 |      1,967 |       0 |        0 |
 | `FSTP`    | Footstep                       |           134 |        134 |      0 |         0 |         0 |                   0 |        134 |       0 |        0 |
 | `AMDL`    | AimModel                       |           126 |        252 |      0 |         0 |         0 |                   0 |        252 |       0 |        0 |
 | `STDT`    | Star                           |           124 |      2,455 |      0 |         0 |         0 |                   0 |      2,455 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,812,674 |      0 |         0 |    20,408 |                   0 | 46,792,266 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,814,377 |      0 |         0 |    20,408 |                   0 | 46,793,969 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -508,7 +508,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DOOR`    | Door                           |             70 |    63 |      7 |        10 |                   0 |     60 |       0 |        0 |
 | `EFSH`    | EffectShader                   |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `ENCH`    | Enchantment                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `ENCH`    | Enchantment                    |             49 |    45 |      4 |         1 |                   0 |     48 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `EXPL`    | Explosion                      |             49 |    46 |      3 |         1 |                   0 |     48 |       0 |        0 |
 | `FACT`    | Faction                        |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,602 | 4,784 |    818 |       370 |                   2 |  5,230 |       0 |        0 |
+| **Total** |                                |          5,649 | 4,827 |    822 |       371 |                   2 |  5,276 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -680,7 +680,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `ARTO`: `MNAM` (1)
 - `GRAS`: `KSIZ` (23), `KWDA` (23)
 - `STND`: `FLTR` (21), `INTV` (21)
-- `ENCH`: `BFCB` (1), `BFCE` (1), `CTDA` (140), `EFID` (286), `EFIF` (286), `EFIT` (286), `ENIT` (135), `MNAM` (12), `MUID` (286), `OBND` (135), `ODTY` (135), `PTCL` (1)
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
 - `STBH`: `FLTR` (30), `INTV` (30)
 - `GCVR`: `KSIZ` (14), `KWDA` (14)
