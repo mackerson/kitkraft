@@ -599,7 +599,6 @@ const LSTRING_ONLY: &[&str] = &[
     "ENCH",
     "FXPD",
     "GPOF",
-    "HDPT",
     "KEYM",
     "PMFT",
 ];

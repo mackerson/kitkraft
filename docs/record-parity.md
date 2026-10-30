@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         110 |   252,710 |    251,990 |   784,615 |  43,234 |
-| **Total**       |          186 |         173 | 7,490,102 | 46,807,511 | 2,862,108 | 749,942 |
+| container/other |          123 |         110 |   252,710 |    253,689 |   784,615 |  41,535 |
+| **Total**       |          186 |         173 | 7,490,102 | 46,809,210 | 2,862,108 | 748,243 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 173 record definitions, defs hash `fnv1a64:352a3896b023ab54` (the hash named in
+- Schema: 173 record definitions, defs hash `fnv1a64:5eee81b244e67b02` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -152,7 +152,7 @@ Columns:
 | `CAMS`        | CameraShot                     |       276 |          0 |     9 |     3 |      6 |       0 |
 | `SFPT`        | SurfacePattern                 |       264 |          0 |     9 |     7 |      0 |       2 |
 | `MATT`        | MaterialType                   |       255 |          0 |     9 |     1 |      8 |       0 |
-| `HDPT`        | HeadPart                       |       236 |          0 |    14 |     2 |      0 |      12 |
+| `HDPT`        | HeadPart                       |       236 |          0 |    14 |    14 |      0 |       0 |
 | `IMAD`        | ImageSpaceAdapter              |       224 |          0 |     2 |     1 |      1 |       0 |
 | `AACT`        | ActionForm                     |       222 |          0 |     5 |     1 |      4 |       0 |
 | `ARTO`        | ArtObject                      |       212 |          0 |    21 |     9 |     11 |       1 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 173 defined                    | 7,490,102 |    136,741 | 2,797 | 1,960 |    503 |     334 |
+| **186 types** | 173 defined                    | 7,490,102 |    136,741 | 2,797 | 1,972 |    503 |     322 |
 
-Subrecord occurrences: 50,419,561 in total; 46,807,511 typed (0 of them failed to decode), 2,862,108 opaque, 749,942 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,809,210 typed (0 of them failed to decode), 2,862,108 opaque, 748,243 unknown.
 
 ## Decoded through the definitions
 
@@ -349,7 +349,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CAMS`    | CameraShot                     |           276 |        498 |      0 |         0 |         0 |                   0 |        498 |       0 |        0 |
 | `SFPT`    | SurfacePattern                 |           264 |      1,753 |      0 |         0 |         0 |                   0 |      1,753 |       0 |        0 |
 | `MATT`    | MaterialType                   |           255 |        255 |      0 |         0 |         0 |                   0 |        255 |       0 |        0 |
-| `HDPT`    | HeadPart                       |           236 |        472 |      0 |         0 |         0 |                   0 |        472 |       0 |        0 |
+| `HDPT`    | HeadPart                       |           236 |      2,171 |      0 |         0 |     1,228 |                   0 |        943 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |           224 |        224 |      0 |         0 |         0 |                   0 |        224 |       0 |        0 |
 | `AACT`    | ActionForm                     |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject                      |           212 |      1,125 |      0 |         0 |         0 |                   0 |      1,125 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,144 | 46,807,511 |      0 |         0 |    20,408 |                   0 | 46,787,103 |       0 |        0 |
+| **Total** |                                |     7,485,144 | 46,809,210 |      0 |         0 |    21,636 |                   0 | 46,787,574 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -519,7 +519,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GRAS`    | Grass                          |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
-| `HDPT`    | HeadPart                       |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `HDPT`    | HeadPart                       |             52 |    48 |      4 |        10 |                   0 |     42 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
@@ -623,7 +623,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,412 | 4,638 |    774 |       353 |                   2 |  5,057 |       0 |        0 |
+| **Total** |                                |          5,462 | 4,684 |    778 |       363 |                   2 |  5,097 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -662,7 +662,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `DOOR`: `FLTR` (1), `INTV` (1)
 - `KEYM`: `DATA` (343), `FLAG` (277), `FLLD` (343), `KSIZ` (336), `KWDA` (336), `MODL` (338), `MOLM` (1), `OBND` (343), `ODTY` (343), `PTT2` (337), `VMAD` (12), `XALG` (317), `XFLG` (1)
 - `SFPT`: `DAT2` (255), `DATA` (76)
-- `HDPT`: `BFCB` (2), `BFCE` (2), `DATA` (236), `FLLD` (236), `HNAM` (30), `MNAM` (202), `MODL` (231), `NAM2` (147), `NAM3` (140), `PNAM` (236), `RNAM` (236), `TNAM` (1)
 - `ARTO`: `MNAM` (1)
 - `GRAS`: `KSIZ` (23), `KWDA` (23)
 - `STND`: `FLTR` (21), `INTV` (21)

@@ -109,7 +109,7 @@
 // - GRAS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GRAS record (193) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GWED (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GWED record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - HAZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591; corpus)
-// - HDPT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - HDPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664; reference)
 // - IDLE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685; corpus)
 // - IMAD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMAD record (224) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IMGS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMGS record (303) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -33533,62 +33533,184 @@ impl HazdRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct HdptLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct HdptData(pub u8);
+
+impl HdptData {
+    pub const PLAYABLE: u8 = 0x1;
+    pub const MALE: u8 = 0x2;
+    pub const FEMALE: u8 = 0x4;
+    pub const IS_EXTRA_PART: u8 = 0x8;
+    pub const USE_SOLID_TINT: u8 = 0x10;
+    pub const USES_BODY_TEXTURE: u8 = 0x20;
+    pub const HIDE_WITH_HIDE_EAR_MORPH: u8 = 0x40;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
 }
 
-impl HdptLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
+impl Field for HdptData {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
 
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "HDPT.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for HdptData {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HdptPartType {
+    Misc,
+    Face,
+    RightEye,
+    Hair,
+    FacialHair,
+    Scar,
+    Eyebrows,
+    Jewelry,
+    Meatcaps,
+    Teeth,
+    HeadRear,
+    ExtraHair,
+    LeftEye,
+    Eyelashes,
+    CreatureHead,
+    CreatureTorso,
+    CreatureArms,
+    CreatureLegs,
+    CreatureTail,
+    CreatureWings,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl HdptPartType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Misc,
+            1 => Self::Face,
+            2 => Self::RightEye,
+            3 => Self::Hair,
+            4 => Self::FacialHair,
+            5 => Self::Scar,
+            6 => Self::Eyebrows,
+            7 => Self::Jewelry,
+            8 => Self::Meatcaps,
+            9 => Self::Teeth,
+            10 => Self::HeadRear,
+            11 => Self::ExtraHair,
+            12 => Self::LeftEye,
+            13 => Self::Eyelashes,
+            14 => Self::CreatureHead,
+            15 => Self::CreatureTorso,
+            16 => Self::CreatureArms,
+            17 => Self::CreatureLegs,
+            18 => Self::CreatureTail,
+            19 => Self::CreatureWings,
+            other => Self::Other(other),
         }
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Misc => 0,
+            Self::Face => 1,
+            Self::RightEye => 2,
+            Self::Hair => 3,
+            Self::FacialHair => 4,
+            Self::Scar => 5,
+            Self::Eyebrows => 6,
+            Self::Jewelry => 7,
+            Self::Meatcaps => 8,
+            Self::Teeth => 9,
+            Self::HeadRear => 10,
+            Self::ExtraHair => 11,
+            Self::LeftEye => 12,
+            Self::Eyelashes => 13,
+            Self::CreatureHead => 14,
+            Self::CreatureTorso => 15,
+            Self::CreatureArms => 16,
+            Self::CreatureLegs => 17,
+            Self::CreatureTail => 18,
+            Self::CreatureWings => 19,
+            Self::Other(raw) => raw,
+        }
     }
 }
 
-impl Visit for HdptLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "HDPT.LocalizedStrings.FULL", out);
+impl Field for HdptPartType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "HDPT.LocalizedStrings.FULL", out);
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for HdptPartType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HdptExtraParts(pub Vec<FormId>);
+
+impl Field for HdptExtraParts {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for HdptExtraParts {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct HdptRecord {
-    /// `EDID`, optional.
+    /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<HdptLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, required.
+    pub name: Option<Sub<LString>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// `DATA`, required.
+    pub data: Option<Sub<HdptData>>,
+    /// `PNAM`, required.
+    pub part_type: Option<Sub<HdptPartType>>,
+    /// `HNAM`, repeated.
+    pub extra_parts: Vec<Sub<HdptExtraParts>>,
+    /// `NAM2`, optional.
+    pub color_mapping: Option<Sub<ZString>>,
+    /// `NAM3`, optional.
+    pub mask: Option<Sub<ZString>>,
+    /// `TNAM`, optional.
+    pub texture_set: Option<Sub<FormId>>,
+    /// `RNAM`, required.
+    pub valid_races: Option<Sub<FormId>>,
+    /// `MNAM`, optional.
+    pub morph: Option<Sub<FormId>>,
+    /// Group `Condition`, optional.
+    pub condition: Option<Condition>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -33601,11 +33723,59 @@ impl HdptRecord {
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
             sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
             card: Card::Optional,
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: HdptLocalizedStrings::MEMBERS,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: Model::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Condition::MEMBERS,
         },
     ];
 
@@ -33621,10 +33791,55 @@ impl HdptRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "HDPT.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = HdptLocalizedStrings::default();
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "HDPT.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.name, subs, *index, "HDPT.FULL", ctx, extra)
+                }
+                Hit::Group { member: 4, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.data, subs, *index, "HDPT.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.part_type, subs, *index, "HDPT.PNAM", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    push(&mut self.extra_parts, subs, *index, "HDPT.HNAM", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.color_mapping,
+                    subs,
+                    *index,
+                    "HDPT.NAM2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.mask, subs, *index, "HDPT.NAM3", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.texture_set, subs, *index, "HDPT.TNAM", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.valid_races, subs, *index, "HDPT.RNAM", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.morph, subs, *index, "HDPT.MNAM", ctx, extra)
+                }
+                Hit::Group { member: 13, hits } if self.condition.is_none() => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.condition = Some(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -33633,25 +33848,65 @@ impl HdptRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"PNAM", self.part_type.as_ref());
+        for value in &self.extra_parts {
+            emit(out, *b"HNAM", Some(value));
+        }
+        emit(out, *b"NAM2", self.color_mapping.as_ref());
+        emit(out, *b"NAM3", self.mask.as_ref());
+        emit(out, *b"TNAM", self.texture_set.as_ref());
+        emit(out, *b"RNAM", self.valid_races.as_ref());
+        emit(out, *b"MNAM", self.morph.as_ref());
+        if let Some(group) = &self.condition {
             group.emit(out);
         }
     }
 }
 
 impl Visit for HdptRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "HDPT.BfcbBlock", out);
+        visit_form_ids(&self.model, "HDPT.Model", out);
+        visit_form_ids(&self.extra_parts, "HDPT.HNAM", out);
+        visit_form_ids(&self.texture_set, "HDPT.TNAM", out);
+        visit_form_ids(&self.valid_races, "HDPT.RNAM", out);
+        visit_form_ids(&self.morph, "HDPT.MNAM", out);
+        visit_form_ids(&self.condition, "HDPT.Condition", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "HDPT.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "HDPT.Model", out);
+        visit_form_ids_mut(&mut self.extra_parts, "HDPT.HNAM", out);
+        visit_form_ids_mut(&mut self.texture_set, "HDPT.TNAM", out);
+        visit_form_ids_mut(&mut self.valid_races, "HDPT.RNAM", out);
+        visit_form_ids_mut(&mut self.morph, "HDPT.MNAM", out);
+        visit_form_ids_mut(&mut self.condition, "HDPT.Condition", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "HDPT.LocalizedStrings", out);
+        visit_lstrings(&self.name, "HDPT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "HDPT.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "HDPT.FULL", out);
     }
 }
 
 impl HdptRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"HDPT";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

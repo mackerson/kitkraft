@@ -1,58 +1,182 @@
-# HDPT: HeadPart, lstring-only definition (lane B round 3, M3.B8).
+# HDPT: HeadPart, the head and face parts (hair, eyebrows, scars, jewelry, creature
+# anatomy) that a race's head part list builds a face from.
 #
 # Sources (ADR 0004, ADR 0005):
+#   xedit: the HDPT definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L12594-L12664) and the helpers it uses: the record flag (L12595-L12597), EDID
+#     (L3182), the script data (L3407-L3411, kept raw), the base form component block
+#     (L5984-L6832), FULL (L3184), the generic model (L7008-L7029), the data flags
+#     (L12603-L12613), the part type enumeration (L12615-L12638), the extra parts
+#     (L12639-L12641), the colour mapping (L12642-L12658), the mask (L12659), the
+#     texture set (L12660), the valid races (L12661), the morph (L12662) and the
+#     conditions (L4750-L4840).
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official HDPT record.
-#   xedit: the HDPT definition of wbDefinitionsSF1.pas at the pinned revision (L12594-L12664)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Every member xEdit gives a layout is typed here; the script data (VMAD) stays raw.
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "HDPT"
 name = "HeadPart"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: FULL is an lstring in every official HDPT record",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+flags = [["NonPlayable", 0x4]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
+card = "required"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
+note = "in all 236 official HDPT records"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official HDPT records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; absent from all 236 official HDPT records"
 
-[[member.member]]
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; in 2 of the 236 official HDPT records"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
-card = "optional"
+card = "required"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12601-L12601"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official HDPT records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+note = "in all 236 official HDPT records"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "in all 236 official HDPT records (FLLD in all, MODL in 231; no MOLM, MODC or XFLG)"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "flags"
+base = "u8"
+card = "required"
+bits = [
+  ["Playable", 0x1],
+  ["Male", 0x2],
+  ["Female", 0x4],
+  ["IsExtraPart", 0x8],
+  ["UseSolidTint", 0x10],
+  ["UsesBodyTexture", 0x20],
+  ["HideWithHideEarMorph", 0x40],
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12603-L12613"]
+note = "in all 236 official HDPT records"
+
+[[member]]
+sig = "PNAM"
+name = "PartType"
+type = "enum"
+base = "u32"
+card = "required"
+values = [
+  ["Misc", 0],
+  ["Face", 1],
+  ["RightEye", 2],
+  ["Hair", 3],
+  ["FacialHair", 4],
+  ["Scar", 5],
+  ["Eyebrows", 6],
+  ["Jewelry", 7],
+  ["Meatcaps", 8],
+  ["Teeth", 9],
+  ["HeadRear", 10],
+  ["ExtraHair", 11],
+  ["LeftEye", 12],
+  ["Eyelashes", 13],
+  ["CreatureHead", 14],
+  ["CreatureTorso", 15],
+  ["CreatureArms", 16],
+  ["CreatureLegs", 17],
+  ["CreatureTail", 18],
+  ["CreatureWings", 19],
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12615-L12638"]
+note = "in all 236 official HDPT records"
+
+[[member]]
+sig = "HNAM"
+name = "ExtraParts"
+type = "array"
+element = "formid"
+targets = ["HDPT"]
+count = "rest"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12639-L12641"]
+note = "the extra parts list, one FormID per official subrecord (up to two in a row); in 30 of the 236 official HDPT records"
+
+[[member]]
+sig = "NAM2"
+name = "ColorMapping"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12642-L12642"]
+note = "in 147 of the 236 official HDPT records"
+
+[[member]]
+sig = "NAM3"
+name = "Mask"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12659-L12659"]
+note = "in 140 of the 236 official HDPT records"
+
+[[member]]
+sig = "TNAM"
+name = "TextureSet"
+type = "formid"
+targets = ["TXST"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12660-L12660"]
+note = "in 1 of the 236 official HDPT records"
+
+[[member]]
+sig = "RNAM"
+name = "ValidRaces"
+type = "formid"
+targets = ["FLST"]
+card = "required"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12661-L12661"]
+note = "in all 236 official HDPT records"
+
+[[member]]
+sig = "MNAM"
+name = "Morph"
+type = "formid"
+targets = ["MRPH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12662-L12662"]
+note = "in 202 of the 236 official HDPT records"
+
+[[member]]
+group_ref = "Condition"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "conditions; absent from all 236 official HDPT records"
