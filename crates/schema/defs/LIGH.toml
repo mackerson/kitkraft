@@ -1,215 +1,367 @@
-# LIGH: Light, inventory definition (M4.BX2, lane B).
+# LIGH: Light, a placeable light source (lamps, vehicle headlights, ship and station
+# lighting).
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official LIGH record (1723 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LIGH definition of wbDefinitionsSF1.pas at the pinned revision (L13795-L13899),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#   xedit: the LIGH definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L13795-L13899) and the helpers it uses: the record flags (L13796-L13806), script
+#     data (L3407-L3411, kept raw), the object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), the dirtiness scale (L3921-L3923), the object palette defaults
+#     (L3925-L3962), the transforms (L3965-L3978), the default layer (L3963), the XALG
+#     data (L3230), the base form component block (L5984-L6832), the generic model
+#     (L7008-L7029), the destruction block (L3829-L3890), the keywords
+#     (wbDefinitionsCommon.pas L8935-L8951), the properties (L5679-L5686), FULL (L3184),
+#     the light data (L13821-L13873), the gobo (L13874), the sound reference (L13875,
+#     L2197-L2227), the lens (L13876), the barndoors (L13877-L13886), the roundness
+#     (L2337-L2347), the gobo animation (L2369-L2396), the light layer (L13889-L13895),
+#     the area light (L2349-L2366), the volumetric light intensity (L13898) and the
+#     byte colour (wbDefinitionsCommon.pas L6954-L6968).
+#   corpus: the 1,723 LIGH records of the 14 official ESMs (crates/esm/tests/ligh_types.rs,
+#     ligh_types_full, 2026-10-29): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, OBND, ODTY, DAT2, FLAD, FLBD, FLGD, the
+#     model's FLLD, FLRD, FVLD and LLLD are in all 1,723; the BFCB blocks in 1,273 (FLCS
+#     in 1,128, FLTR and INTV in 1,053 each, REFL in 42, ANAM and BNAM in 2 each), NAM0
+#     in 311, the keywords in 44, LNAM in 32 and the model's MODL in 1; the destruction
+#     data, VMAD, OPDS, PTT2, DEFL, XALG, PRPS, FULL, LLSH and the model's MOLM, MODC and
+#     XFLG are absent from all 1,723.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): none of
+#     the LIGH subrecords in the 14 official ESMs is an lstring.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Inside component blocks (kept raw by BfcbBlock): ANAM BNAM FLCS FLTR INTV REFL.
+# Every member xEdit gives a layout is typed here; the script data (VMAD) and FULL
+# stay raw. Names are ours (UpperCamelCase, CK wording where it exists). Upstream
+# names the record flag bits 7 and 17, and five of the DAT2 flag bits, unknown or
+# leaves them empty; those bits are not named here.
 signature = "LIGH"
 name = "Light"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LIGH record (1723) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899",
+  "corpus: crates/esm/tests/ligh_types.rs (ligh_types_full), 2026-10-29: in all 1,723 official LIGH records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: none of the LIGH subrecords in the 14 official ESMs is an lstring",
 ]
 confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+flags = [
+  ["NonPlayable", 0x4],
+  ["HiddenFromLocalMap", 0x200],
+  ["AdaptiveLighting", 0x8000],
+  ["RandomAnimStart", 0x10000],
+  ["HasCurrents", 0x80000],
+  ["Obstacle", 0x2000000],
+  ["PortalStrict", 0x10000000],
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 10..74 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13807-L13807"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13807-L13807",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-confidence = "corpus"
+confidence = "reference"
+note = "in all 1,723 official LIGH records"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13809-L13809",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
-]
-confidence = "corpus"
-note = "typed with the shared ObjectBounds layout the other types use (fix round W3, lane R request: references of a LIGH base draw as their bounds box); every official LIGH OBND is 24 bytes"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+note = "in all 1,723 official LIGH records"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13810-L13810",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3921"]
+note = "in all 1,723 official LIGH records"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; absent from all 1,723 official LIGH records"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1273 of 1723 official LIGH records (2225 occurrences, up to 4 per record), 27..36 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13815-L13815",
-]
-confidence = "corpus"
-note = "base form components; the component data stays raw"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; in 1,273 of the 1,723 official LIGH records"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "in all 1,723 official LIGH records (FLLD in all, MODL in 1)"
+
+[[member]]
+group_ref = "Destructible"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1 of 1723 official LIGH records (1 occurrences), 94 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13816-L13816",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13816-L13816",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
+note = "destruction data; absent from all 1,723 official LIGH records"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 44 of 1723 official LIGH records (44 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13818-L13818",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "in 44 of the 1,723 official LIGH records"
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+confidence = "reference"
+note = "upstream types it as a localized string; kept raw; absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "DAT2"
-name = "Dat2"
-type = "opaque"
+name = "Data"
+type = "struct"
+size = 76
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 76 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13821-L13821",
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13821-L13873"]
+field = [
+  { name = "Time", type = "i32" },
+  { name = "Radius", type = "f32" },
+  { name = "Color", type = "ref:ColorRgb" },
+  { name = "Flags", type = "flags", base = "u16", bits = [
+      ["CanBeCarried", 0x2],
+      ["OffByDefault", 0x10],
+      ["DisableSpecular", 0x20],
+      ["DisableDistanceAttenuation", 0x40],
+      ["IsDirectSpotlight", 0x80],
+      ["UsePbrValue", 0x100],
+      ["FocusSpotlightBeam", 0x200],
+      ["ExternallyControlled", 0x1000],
+  ] },
+  { name = "Unknown0", type = "u8" },
+  { name = "Unknown1", type = "u8" },
+  { name = "FalloffExponent", type = "f32" },
+  { name = "Fov", type = "f32" },
+  { name = "NearClip", type = "f32" },
+  { name = "FlickerPeriod", type = "f32" },
+  { name = "FlickerIntensityAmplitude", type = "f32" },
+  { name = "FlickerMovementAmplitude", type = "f32" },
+  { name = "ShadowOffset", type = "f32" },
+  { name = "InnerFov", type = "f32" },
+  { name = "LightTemperature", type = "u32" },
+  { name = "LuminousPower", type = "u32" },
+  { name = "LightType", type = "enum", base = "u8", values = [["Omnidirectional", 0], ["ShadowSpotlight", 1], ["NonShadowSpotlight", 2]] },
+  { name = "FlickerEffect", type = "enum", base = "u8", values = [["None", 0], ["Flicker", 1], ["Pulse", 2]] },
+  { name = "UseAdaptiveLighting", type = "ref:Bool8" },
+  { name = "Unknown2", type = "u8" },
+  { name = "AdaptiveLightEc", type = "f32" },
+  { name = "AdaptiveLightEv100Min", type = "f32" },
+  { name = "AdaptiveLightEv100Max", type = "f32" },
+  { name = "RadiusFalloffExponent", type = "f32" },
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "upstream leaves five of the flag bits unnamed; the two byte gaps are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "NAM0"
-name = "Nam0"
-type = "opaque"
+name = "Gobo"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 311 of 1723 official LIGH records (311 occurrences), 37..94 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13874-L13874"]
+note = "in 311 of the 1,723 official LIGH records"
+
+[[member]]
+sig = "LLSH"
+name = "LightSound"
+type = "ref:SoundReference"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13874-L13874",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13875-L13875",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "absent from all 1,723 official LIGH records"
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "Lens"
+type = "formid"
+targets = ["LENS"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 32 of 1723 official LIGH records (32 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13876-L13876",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13876-L13876"]
+note = "in 32 of the 1,723 official LIGH records"
 
 [[member]]
 sig = "FLBD"
-name = "Flbd"
-type = "opaque"
+name = "Barndoors"
+type = "struct"
+size = 24
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13877-L13877",
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13877-L13886"]
+field = [
+  { name = "Left", type = "f32" },
+  { name = "Bottom", type = "f32" },
+  { name = "Right", type = "f32" },
+  { name = "Top", type = "f32" },
+  { name = "FalloffIntensity", type = "f32" },
+  { name = "HasFalloff", type = "ref:Bool8" },
+  { name = "HasBarndoors", type = "ref:Bool8" },
+  { name = "Unknown0", type = "u8" },
+  { name = "Unknown1", type = "u8" },
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "the two trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLRD"
-name = "Flrd"
-type = "opaque"
+name = "Roundness"
+type = "struct"
+size = 20
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 20 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13887-L13887",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2337-L2347",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+field = [
+  { name = "Width", type = "f32" },
+  { name = "Height", type = "f32" },
+  { name = "Roundness", type = "f32" },
+  { name = "Falloff", type = "f32" },
+  { name = "UsesRoundness", type = "ref:Bool8" },
+  { name = "Unknown0", type = "u8" },
+  { name = "Unknown1", type = "u8" },
+  { name = "Unknown2", type = "u8" },
+]
+note = "the three trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLGD"
-name = "Flgd"
-type = "opaque"
+name = "GoboAnimation"
+type = "struct"
+size = 88
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 88 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13888-L13888",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2369-L2396",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+field = [
+  { name = "StaticOffsetU", type = "f32" },
+  { name = "StaticOffsetV", type = "f32" },
+  { name = "RotationPivotU", type = "f32" },
+  { name = "RotationPivotV", type = "f32" },
+  { name = "StaticRotation", type = "f32" },
+  { name = "AnimatedRotationSpeed", type = "f32" },
+  { name = "AnimatedWaveRotationSpeed", type = "f32" },
+  { name = "AnimatedWaveRotationAmount", type = "f32" },
+  { name = "StaticScaleU", type = "f32" },
+  { name = "StaticScaleV", type = "f32" },
+  { name = "WaveScalingUSpeed", type = "f32" },
+  { name = "WaveScalingVSpeed", type = "f32" },
+  { name = "WaveScalingUAmount", type = "f32" },
+  { name = "WaveScalingVAmount", type = "f32" },
+  { name = "ScrollSpeedU", type = "f32" },
+  { name = "ScrollSpeedV", type = "f32" },
+  { name = "WaveScrollSpeedU", type = "f32" },
+  { name = "WaveScrollSpeedV", type = "f32" },
+  { name = "WaveScrollAmountU", type = "f32" },
+  { name = "WaveScrollAmountV", type = "f32" },
+  { name = "RandomTimeOffsetRange", type = "f32" },
+  { name = "IsAnimated", type = "ref:Bool8" },
+  { name = "Unknown0", type = "u8" },
+  { name = "Unknown1", type = "u8" },
+  { name = "Unknown2", type = "u8" },
+]
+note = "the three trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "LLLD"
-name = "Llld"
-type = "opaque"
+name = "LightLayer"
+type = "enum"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13889-L13889",
+values = [
+  ["DefaultLightLayer", 1],
+  ["HelmetLight", 2],
+  ["ShipInterior", 4],
+  ["ShipExterior", 8],
+  ["AllLayers", 15],
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13889-L13895"]
+note = "one light layer; the values are the model's FLLD light layer bits plus All Layers, upstream's default is 1 (Default Light Layer); in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FLAD"
-name = "Flad"
-type = "opaque"
+name = "AreaLight"
+type = "struct"
+size = 16
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 16 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13897-L13897",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2349-L2366",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+field = [
+  { name = "Width", type = "f32" },
+  { name = "Height", type = "f32" },
+  { name = "Radius", type = "f32" },
+  { name = "AreaLightType", type = "enum", base = "u8", values = [["None", 0], ["Rectangle", 1], ["Sphere", 2], ["Unknown51", 51], ["Unknown102", 102]] },
+  { name = "IsDiffuse", type = "ref:Bool8" },
+  { name = "Unknown0", type = "u8" },
+  { name = "Unknown1", type = "u8" },
+]
+note = "the two trailing bytes are padding; in all 1,723 official LIGH records"
 
 [[member]]
 sig = "FVLD"
-name = "Fvld"
-type = "opaque"
+name = "VolumetricLightIntensityScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13898-L13898",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13898-L13898"]
+note = "in all 1,723 official LIGH records"

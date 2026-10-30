@@ -649,7 +649,6 @@ const BX2_INVENTORY: &[&str] = &[
     "LENS",
     "LGDI",
     "LGTM",
-    "LIGH",
     "LSCR",
     "LTEX",
     "LVLB",
@@ -709,7 +708,7 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
 /// request: the Render Window draws their references as bounds boxes).
-const BX2_TYPED_BOUNDS: &[&str] = &["LIGH"];
+const BX2_TYPED_BOUNDS: &[&str] = &[];
 
 /// M4.BX2: an inventory types only EDID, the corpus table's lstrings, the shared keyword
 /// list, the base form component frame and, for [`BX2_TYPED_BOUNDS`], `OBND`; every other
