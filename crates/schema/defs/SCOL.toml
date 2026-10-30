@@ -1,0 +1,126 @@
+# SCOL: StaticCollection, inventory definition (KK-109).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official SCOL record (15 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-30): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431
+#     (cited for the record as a whole).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
+#     keeps its own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID and the component block frame are typed; every other payload is opaque
+# (named after its signature, a placeholder) until a family lane decodes the record
+# (docs/gaps.md).
+signature = "SCOL"
+name = "StaticCollection"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: every official SCOL record (15) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431",
+]
+confidence = "corpus"
+note = "inventory definition (KK-109): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 34..56 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 24 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+
+[[member]]
+sig = "SNTP"
+name = "Sntp"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 1 of 15 official SCOL records (1 occurrence), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 3 of 15 official SCOL records (3 occurrences), 25 bytes"
+confidence = "corpus"
+note = "base form components; the component data stays raw; never in one record with SNTP, so its order relative to it is not known from the corpus"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 34 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 34 bytes"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FLTR"
+name = "Fltr"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 5 of 15 official SCOL records (5 occurrences), 13..30 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 13..30 bytes"
+
+[[member]]
+group = "Parts"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), each entry ONAM (8 bytes), DATA (28..728 bytes)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17430-L17430",
+]
+confidence = "corpus"
+note = "one entry per ONAM, its members in this order, the entries consecutive"
+
+[[member.member]]
+sig = "ONAM"
+name = "Onam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), 8 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 8 bytes"
+
+[[member.member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), 28..728 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-109 inventory); observed 28..728 bytes"
