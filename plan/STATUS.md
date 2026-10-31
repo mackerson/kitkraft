@@ -1890,10 +1890,12 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
    `merge-report.json` per run), then 7 (per-class budgets), 9 (typed and opaque shares in
    the parity headline), 8 (a campaign trunk, trialled on one window, then an ADR 0014
    amendment) and 10 (`docs/analytics/2026-10-29-campaign.md`).
-3. **Refresh the gap matrix's hand rows.** `docs/foothold/gap-matrix.md` was last
-   reconciled as a whole at `81272e2` (M5.F2 style); the campaign changed most schema
-   rows (SC counts, MX results), and `docs/foothold/next-sprint.md` dates from the same
-   pause.
+3. ~~Refresh the gap matrix's hand rows.~~ Done 2026-10-31: `docs/foothold/gap-matrix.md`
+   checked as a whole at `630b3be` (14 of 48 record-family rows changed; QUST
+   typed-writable partial -> yes by KK-220), and `docs/foothold/next-sprint.md` marked as
+   the 2026-10-16 plan kept as history. Follow-up found by that check: LVLI's typed-write
+   read-back is still `#[ignore]`d (entry conditions written one slot early, the problem
+   KK-220 fixed for QUST), and no ticket covers it.
 4. **Checks the merge reports left** ("Campaign" above): ENCH's `ENIT` and ARTO's `DNAM`
    names against the pinned xEdit file, and two evidence notes that say more than their
    tests (ENCH's BfcbBlock, HDPT's HNAM).

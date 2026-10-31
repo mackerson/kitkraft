@@ -1,5 +1,13 @@
 # Next sprint (from the 2026-10-16 pause)
 
+**History, not the current plan (note added 2026-10-31).** This is the plan written at
+the 2026-10-16 pause, kept as it was. It is superseded: the default since 2026-10-23 is
+one ticket at a time by the local agent (ADR 0014), and the first unattended campaign
+(2026-10-26 to 2026-10-30) merged 60 of those tickets, among them most of the items
+below. What runs next is `plan/STATUS.md` "Next" (rewritten 2026-10-30) and the queue in
+`plan/tickets/README.md`; the current state per capability is `docs/foothold/gap-matrix.md`
+(hand rows checked as a whole at `630b3be` on 2026-10-31). Nothing below is updated.
+
 What landed on 2026-10-16, what a resuming session starts, in which order, what waits on
 the owner, and which director decisions wait for the owner's confirmation. Written by the
 reconciliation lane against `main` at `81272e2` (after fix round W3). Ticket text and
