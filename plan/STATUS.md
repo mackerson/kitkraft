@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -14,6 +14,92 @@ launched after the pause never ran; their work is the ticket queue's candidate l
 Landed 2026-10-23: the other session's branches `deploy-enable-dev-profile`, `deploy-meta-ini`
 (ADR 0009 Amendments 2 and 3, MEL DLC specs) and `lane-d/scale-aware-remap` (M5.D12), merged
 at `a2fd508` with the Windows gate green.
+
+## Campaign (2026-10-26 10:33 to 2026-10-30 06:49): what the local agent landed
+
+The first unattended campaign under ADR 0014 (`F:\AI\Scripts\overnight\runs\campaign-status.md`;
+one worker, 8 h segments, 10 segments started). The local Qwen agent worked one ticket per
+run; a morning merge session (Opus) reviewed each run, merged what held up, ran the Windows
+gate, pushed `main` and updated `plan/tickets/README.md` (its per-night reports are
+`F:\AI\Scripts\overnight\runs\kkq-*-merge.md`). **60 tickets merged** (the `Merge
+ticket/KK-*` commits on `main`, 2026-10-26 18:00 to 2026-10-30 06:35), every merge on a
+green `cargo xtask ci`; `main` is `827a7dd`, pushed, no ungated commit. **31 tickets are
+runnable** (`plan/tickets/README.md` "Queue": KK-211 to KK-219, KK-221, KK-224, KK-226 to
+KK-245; KK-225 waits on KK-224), 30 of them schema tickets. Each merged ticket has a
+Landed line at the end of this file (the file's style since 2026-10-24: one line or
+paragraph per ticket, in merge order); the summary by area:
+
+| Area | Tickets | What is on `main` now |
+| ---- | ------- | --------------------- |
+| Inventory definitions (M4.BX2 rest) | KK-008, KK-022, KK-100 to KK-112 (15) | 84 definitions added, every member opaque but EDID and the shared Keywords/BfcbBlock groups, each written from a full-corpus inventory run and checked by `crates/esm/tests/inventory_types.rs` (`defined: true`, nothing unplaced, byte-identical re-encode). 95 inventory definitions in all (`docs/record-parity.md` "Families"). Of the record types the corpus holds, only MRPH, CNDF, VTYP, MTPT and ASPC have no definition (KK-224, queued) |
+| Typed from the pinned xEdit file ("depth" tickets) | KK-023, KK-200 to KK-210 (12) | ALCH, BOOK, DOOR, WATR, FLOR, EXPL, HAZD, LIGH, KEYM, HDPT, ENCH and ARTO typed in xEdit member order over the shared blocks, each corpus-checked by a `<sig>_types_full` test (every official record identical; counts in the Landed lines), confidence raised to `corpus`, removed from `LSTRING_ONLY` or `BX2_INVENTORY`. Six lstring-only definitions remain: AVIF (KK-225), BPTD (KK-212), GPOF (KK-217), DMGT, FXPD, PMFT |
+| Typed-write tests | KK-002, KK-017, KK-021, KK-220 | ACTI, KYWD, TMLM, CONT, MISC, FLST, ARMO, ARMA, OTFT and QUST read back every typed member; `docs/schema/evidence.toml` has 23 typed-writable `pass` entries (was 13). LVLI's read-back stays `#[ignore]`d (entries' conditions written one slot early, an engine fix); WRLD's two tests ignored until KK-221 |
+| Engine, validate, inspect | KK-018, KK-019, KK-220, KK-222, KK-223 | `asset.missing-model` (warning) over the shared Model group and the ARMO/ARMA world, biped and first-person members, 628 findings on the official files, pinned per file; `set`/`clone`/build spec `swap_overrides` rewrite LMSW material swaps byte-exactly (17,410 official payloads rewrite to themselves); `new` writes every condition group of a QUST; `inspect --full` shows an ARMO's addons and their model paths |
+| Recipes and research | KK-011, KK-012, KK-013, KK-014, KK-015, KK-020 | `docs/recipes/location.md`, `terminal.md`, `ownership.md` (new-faction variant), `colourway.md`, each with a spec, a built plugin's size and hash and an ignored release corpus test that checks every claim; clone-sample corpus tests for PKIN and FACT (100/100 identical each); the armor OMOD property survey (`docs/research/armor-omods-2026-10.md`). Every recipe's in-game step is the owner's, not run |
+| Workbench and surface (M6 lanes V, P, G; M7 lanes W, R; MCP) | KK-030 to KK-043 (14) | The cockpit's game loop against `kitkraft_engine::testing::GameFakes` (KK-030): the gate permits all six Amendment 3 writes; Launch, follow by `game.status` polls, probe rows and screenshots, `game.probe` re-run and screenshot per row, Stop, and Record in Ledger (prefilled); `game.session` progress events; an MCP session follows and stops a game session across calls; the Cell View window over `cell` and its one selection with the Render Window; column drag-resize; the raw JSON buffer (-42% heap); the last profile loaded at start from the index cache; opt-level 2 for dependencies measured (+77% fresh build) and not adopted |
+| Tooling for schema tickets | KK-016, KK-090, and the merge sessions' own commits | `cargo xtask parity` runs `kit coverage --matrix` once and writes the gap-matrix headline, checking the hand family table against it (KK-016); the shared test lists are one entry per line so schema tickets merge cleanly (KK-090); `cargo xtask inventory-def` writes an inventory definition from the corpus, `inventory-check` checks the counts a definition cites, `add-def` registers definitions in the shared lists and regenerates everything (`xtask/src/inventory.rs`, `adddef.rs`; `crates/schema/defs/README.md` "Workflow"); `crates/schema/tests/reconcile.rs` fails the gate when `docs/record-parity.md` or the headline disagree with the schema, each other or the corpus; `plan/tickets/generate.py inventory|depth` cuts schema tickets from the parity gaps with no model in the loop (KK-226 to KK-245 at `9f8a912`) |
+| Tickets drafted by the local agent | KK-050, KK-051, KK-052 | Seven drafts reviewed at the morning merge: six promoted as KK-220 to KK-225 (KK-220, KK-222, KK-223 merged since), one rejected (`lmsw-mat-exists`: vanilla materials live in the `.cdb`, so the rule would warn on every swap to a vanilla material) |
+
+**Parity as it stands at `827a7dd`** (`docs/record-parity.md`, `docs/foothold/gap-matrix.md`
+headline, both generated by `cargo xtask parity`): 186 record types in the 14 official files
+(`TES4` included), 7,490,102 records, 181 definitions (defs hash `fnv1a64:900e9730925cb58c`);
+46,815,273 subrecord occurrences typed, 2,861,915 opaque, 742,373 unknown; 136,741 of
+136,741 compressed records examined, 0 decode failures, 0 re-encode conflicts, every file
+roundtrips identical. The headline's MX rows: parsed 185 pass; typed-readable 136 pass, 49
+fail; typed-writable 23 pass, 162 not-run; ck-differential-tested 0 pass, 185 not-run;
+game-runtime-tested 5 pass (`AMDL`, `CELL`, `OMOD`, `REFR`, `WEAP`); save-reload-verified
+185 not-run. **The MX typed-readable row is not a count of typed fields:** MX passes a type
+when every occurrence decodes and no signature is unknown, which an all-opaque inventory
+definition satisfies (KK-109 alone moved it from 126 to 133): of the 136, 83 are inventory
+definitions with every member opaque (the other 12 inventory types keep a signature
+unknown inside their component blocks) and 53 are typed definitions. The matrix's own
+Typed-readable column, which asks for `corpus` confidence on every member, is hand-kept
+and separate (gap matrix, "Statuses").
+
+**What the merge reports left for the owner** (`kkq-*-merge.md`, "For the owner"; none of
+it blocks the queue):
+
+- Harness: the gate wrapper reported `cargo xtask ci` red with an empty exit code on green
+  logs (every merge from 2026-10-26 to the morning of 2026-10-28; the merge sessions reran
+  the gate or read the log and pushed; green from the 2026-10-28 11:54 merge on);
+  finished queues were requeued twice (`kkq-20261026-0610.pending` rewritten while
+  `.merged` listed its runs); the 2026-10-28 11:54 queue ran on a stale mirror base
+  (`69b91b4`, before the inventory tools), so check that the mirror refresh follows the
+  plan commits; KK-207's grader went stale from minute 60 while the committed tree was
+  clean (the grader's copy kept the workspace's mtimes and reused its build cache, so
+  cargo never rebuilt a definition saved during the previous grade; fixed in the harness
+  2026-10-30, with the RFC's first group, `docs/local-agent.md`); the local agent's
+  commits carry a `Co-Authored-By: Claude Code` trailer it did not earn.
+- Not checked by eye: ENCH's `ENIT` layout, flag and enum names and ARTO's `DNAM` bits
+  against the pinned xEdit file (QA asked; the merge session could not read the file from
+  the host; byte-identical re-encoding proves the sizes, not the names). A skim of
+  `crates/schema/defs/ALCH.toml` (ENIT flags, record flag `Medicine`) was suggested for the
+  clean-room rules. ENCH's BfcbBlock evidence ("ParticleSystem component") and HDPT's HNAM
+  note ("one FormID per subrecord") say more than their tests printed.
+- Docs drift: `docs/gaps.md` still says "47 more record types have lstring-only
+  definitions" (six remain); `docs/record-parity.md`'s inventory line now comes from the
+  schema, no longer from `INVENTORY` in `xtask/src/parity.rs`; every `cargo xtask parity`
+  run warned "QUST Typed-writable: the table says partial, MX says pass" until the gap
+  matrix was corrected; `xtask`'s `families_name_defined_types_once` names LAYR as its
+  sample inventory type, so a ticket that types LAYR must own `xtask/src/parity.rs` (or
+  the test should stop naming a type); DOOR is still in `TYPES` of
+  `crates/esm/tests/inventory_types.rs` though typed (harmless).
+- To try in a real window on the dev box (every UI ticket is tested headless): KK-032's
+  launch, follow, stop and relaunch flow; KK-033's probe table and screenshots; KK-034's
+  confirm box (one request per click, buttons enabled only while idle); KK-036's Cell View
+  (and whether its Base column should show the EditorID rather than the formref); KK-040's
+  start-up load timing (`docs/design/workbench-performance.md`, the owner's row).
+- In game (KitKraft Dev, disposable save): the colourway recipe (KK-020; its pinned SHA
+  changes with a game update), the location, terminal and ownership recipes, the armor
+  testplan steps (KK-010). KK-221 would let `new` write a WRLD with no cells, never seen in
+  game: a product call before it runs.
+- `inventory-check` compares a group's cited counts with its first member's, so groups
+  whose start marker alternates (SECH's ECHO/ECHD) or nest (NOCM) need awkward source
+  wording. LGDI and STBH are `unordered = true` on corpus order alone, to revisit when a
+  family lane types them. The release corpus tests are not in the gate: the DOOR reserved-ID
+  drift from KK-202 sat on `main` until KK-223 noticed it.
+- Stale local branches to delete: `kk/KK-002-wip`, `kk/KK-022-wip`, `kk/KK-100-wip`,
+  `kk/KK-109-wip` (each fully merged).
 
 ## Pause (2026-10-16, evening): read this first when resuming
 
@@ -220,19 +306,25 @@ did. `C:/Modding/kitcraft/bin/kit.exe` stays on disk; nothing points at it after
 
 ## Current milestone: M5 partial (owner-gated), M6 and M7 in progress; M3 and M4 closing
 
-Paused 2026-10-16, evening; `main` at `81272e2` (after fix round W3). M0, M1 and M2 are
-done. M3 and M4 have no agent-executable criterion left: what stays open is the owner's
-CK sittings (rows 12 and 15), the in-game session 2 (row 14), the save/reload rows and the
-closing gates. M5 is partial and owner-gated: its agent tickets are on `main` except M5.D1's
-generator and M5.D2/D3's recipes (`docs/foothold/next-sprint.md`, item 2), and each of
-its two paths waits on one owner action (path (a) on row 12, path (b) on row 10). M6
-(cockpit) has its visual system, performance work and the cockpit's deploy and rollback;
-its game loop (M6.G4 to M6.G6) and sign-off wait on a live M4.T3 session. M7 (CK parity)
-has a read-only shell and Render Window built before any interface sitting, so every
-parity row they touch is `built, unobserved` or `unresearched` (ADR 0012 Amendment 1).
-The tables below check every "done when" bullet of `plan/execution-plan.md` against
-`main` at `81272e2`; status per capability is `docs/foothold/gap-matrix.md` (checked at
-the same commit).
+Updated 2026-10-30; `main` at `827a7dd` (after the campaign above; the last whole
+reconciliation was 2026-10-16 at `81272e2`). M0, M1 and M2 are done. M3 and M4 have no
+agent-executable criterion left: what stays open is the owner's CK sittings (rows 12 and
+15), the in-game session 2 (row 14), the save/reload rows and the closing gates; the
+M4.BX2 inventories are done but for MRPH, CNDF, VTYP, MTPT and ASPC (KK-224, queued). M5
+is partial and owner-gated: every agent ticket is on `main` (the M5.D1 rest as KK-016's
+generated gap-matrix headline, the M5.D2/D3 recipes and clone-sample tests as KK-004,
+KK-012, KK-013, KK-014, KK-015), and each of its two paths waits on one owner action (path
+(a) on row 12, path (b) on row 10). M6 (cockpit) has its visual system, performance work
+and all six confirmed writes, the game loop (M6.G4 to M6.G6) included since KK-031 to
+KK-035, proven against the engine's fakes only; its end-to-end row and sign-off wait on a
+live M4.T3 session. M7 (CK parity) has a read-only shell, the Cell View window and the
+Render Window, built before any interface sitting, so every parity row they touch is
+`built, unobserved` (14) or `unresearched` (22) (ADR 0012 Amendment 1). Schema work
+continues through the generated ticket queue (31 runnable). The tables below check every
+"done when" bullet of `plan/execution-plan.md` against `main` at `81272e2`, with a
+"Since" note where the campaign changed a cell; status per capability is
+`docs/foothold/gap-matrix.md` (headline regenerated by every `cargo xtask parity` run,
+hand rows checked at `81272e2` and per ticket since).
 
 ## M3 and M4 exit criteria (reconciled 2026-10-16 at `81272e2`)
 
@@ -291,11 +383,11 @@ Against `plan/execution-plan.md` "M5 is done when", with the states above.
 | Criterion | State | Tasks and evidence |
 | --------- | ----- | ------------------ |
 | Paths (a) and (b) are reached, and M5.A5 has run every fixture the owner recorded | **pending-owner** | (a): M5.A1 (session script) and M5.A2 (`cargo xtask oracle ck`, synthetic fixtures) done; M5.A3 waits on row 12 (M5.O1). (b): M4.T2 done, M4.T3 + M5.C1 built and tested against fakes (`crates/game/tests/session.rs`); M4.T1 and M5.C2 wait on row 10 (M4.O7; ledger `game-20261016-T1`). M5.A5 waits on row 15 |
-| `LCTN`, `TERM`, `PKIN` and `FACT` typed-writable with reference integrity (M5.D2..D6); the K0 mini-plugin (M5.D7) has game and save/reload rows | **partly** | Typed-writable and dangling-link tests for the four (`24ac42d`; `kit coverage --matrix` pass), `VMAD` object values followed (M5.D6), missing subrecords, typed arrays and `new:` placements (M5.D8 to M5.D10). **Carried** (lane D, `docs/foothold/next-sprint.md` item 2): M5.D2's corpus clone-sample test and the recipes `docs/recipes/location.md`, `terminal.md`. The mini-site is built (validate 0/0, every link resolves, `KitKraftMiniSite.esm` `05aac031...`); its game and save/reload rows are **pending-owner** (row 10, then M5.C2, or an owner sitting M5.O4) |
+| `LCTN`, `TERM`, `PKIN` and `FACT` typed-writable with reference integrity (M5.D2..D6); the K0 mini-plugin (M5.D7) has game and save/reload rows | **partly** | Typed-writable and dangling-link tests for the four (`24ac42d`; `kit coverage --matrix` pass), `VMAD` object values followed (M5.D6), missing subrecords, typed arrays and `new:` placements (M5.D8 to M5.D10). **Carried** (lane D, `docs/foothold/next-sprint.md` item 2): M5.D2's corpus clone-sample test and the recipes `docs/recipes/location.md`, `terminal.md`. Since: both landed in the campaign (clone-sample LCTN and TERM in KK-004, PKIN and FACT in KK-014; the recipes in KK-012, KK-013, the new-faction ownership variant in KK-015), so this row's agent half is done. The mini-site is built (validate 0/0, every link resolves, `KitKraftMiniSite.esm` `05aac031...`); its game and save/reload rows are **pending-owner** (row 10, then M5.C2, or an owner sitting M5.O4) |
 | Gate K0 is met: the scripted activator fires in game (M5.B3) and the CK re-export differential is clean (M5.A3) | **pending-owner** | M5.B3 waits on row 14 (or M4.T6 after row 10); M5.A3 on row 12. K0's other three items are met for KitKraft-built fixtures (`docs/foothold/gap-matrix.md` "Gate K0") |
 | The PEX differential (M5.B2) is recorded; the CK sources' provenance is complete (M5.B1) | **done** | M5.B1 (`extracted_folder_gives_the_same_index_as_the_zip`, registry row CK-CONTENT-RESOURCES); M5.B2 (`docs/research/pex-differential.md`: 50 of 50 equivalent). The CK's own compile route stays unobserved |
 | Every FTH-EXP ticket has a status with evidence (`not-run` with its reason counts) | **done** | `plan/execution-plan.md` M5 lane E: FTH-EXP-01 and -03 agent halves built (prototypes; game and CK rows not-run), FTH-EXP-10 partial (mixed-master decode), the other nine `not-run`, each naming the tickets and owner rows it waits on |
-| `docs/engine-limitations.md`, `docs/compatibility.md` and a generated gap matrix exist; `docs/research/hostile-encounters-2026-10-16.md` exists | **partly** | M5.F1, M5.F3 and M5.H1 done. The gap matrix is checked by hand at `81272e2` (M5.F2); its generation is **carried** with M5.D1 (lane D, next-sprint item 2) |
+| `docs/engine-limitations.md`, `docs/compatibility.md` and a generated gap matrix exist; `docs/research/hostile-encounters-2026-10-16.md` exists | **partly** | M5.F1, M5.F3 and M5.H1 done. The gap matrix is checked by hand at `81272e2` (M5.F2); its generation is **carried** with M5.D1 (lane D, next-sprint item 2). Since: KK-016 (2026-10-27) generates the matrix's headline from `kit coverage --matrix` in every `cargo xtask parity` run and checks the hand family table against it; the family and capability rows stay hand-kept by design (gap matrix, "Generated and hand-checked parts"), so the row reads **partly** still |
 | `cargo xtask ci` is green; the full corpus roundtrip is still identical | **carried** | To M5 close. Every 2026-10-16 merge passed `cargo xtask ci` ("Pause" above); `corpus_full_roundtrip` runs in it when `KITKRAFT_DATA_DIR` is set |
 
 ## Toolchain (verified on the dev box)
@@ -2980,3 +3072,6 @@ Landed 2026-10-30: KK-207 - KEYM (Key) typed from the pinned xEdit file (wbDefin
 Landed 2026-10-30: KK-208 - HDPT (HeadPart) typed from the pinned xEdit file (wbDefinitionsSF1.pas L12594-L12664) in xEdit member order, using the shared BfcbBlock, Model and Condition blocks and the 20-value PNAM part-type enum; corpus-checked by hdpt_types_full (236 records, 236 identical, every subrecord placed and decoded); VMAD kept opaque and the conditions absent from all 236 official records; removed from LSTRING_ONLY (FULL stays an lstring); records.rs, the golden seed and docs/record-parity.md regenerated by cargo xtask codegen and cargo xtask parity, docs/foothold/gap-matrix.md by cargo xtask parity (the row now shows 14 typed, 0 opaque and 0 unknown); cargo xtask ci green (branch ticket/KK-208).
 Landed 2026-10-30: KK-209 - ENCH (Enchantment) typed from the pinned xEdit file (wbDefinitionsSF1.pas L11738-L11764) in xEdit member order, using the shared ObjectBounds, BfcbBlock and Effect blocks plus the 27-byte ENIT effect-data struct; corpus-checked by ench_types_full (135 records, 135 identical, every subrecord placed and decoded); VMAD kept opaque (absent from all 135); removed from LSTRING_ONLY; records.rs, the golden seed and docs/record-parity.md regenerated by cargo xtask codegen and cargo xtask parity, docs/foothold/gap-matrix.md by cargo xtask parity (the row now shows 13 typed, 1 opaque and 0 unknown); cargo xtask ci green (branch ticket/KK-209).
 Landed 2026-10-30: KK-210 - ARTO (ArtObject) typed from the pinned xEdit file (wbDefinitionsSF1.pas L9778-L9804) in xEdit member order, using the shared BfcbBlock, Keywords, Model, ObjectBounds, ObjectPaletteDefaults and Transforms blocks and the 8-byte DNAM data struct; corpus-checked by arto_types_full (212 records, 212 identical, every subrecord placed and decoded); VMAD kept opaque (absent from all 212), XALG a plain u64 (its bit names unverified upstream); no longer an M4.BX2 inventory (removed from BX2_INVENTORY, docs/gaps.md row updated); records.rs, the golden seed and docs/record-parity.md regenerated by cargo xtask codegen and cargo xtask parity, docs/foothold/gap-matrix.md by cargo xtask parity (the row now shows 18 typed, 2 opaque and 1 unknown: MNAM, which occurs only inside component blocks); cargo xtask ci green (branch ticket/KK-210).
+Landed 2026-10-27: KK-032 - the Cockpit launches a game session and follows it by polling `game.status` (M6.G4, second half; line added 2026-10-30, the run left none): the Launch button opens the `game.session` preview, its confirm builds the one confirmed start, and the window then polls `game.status <id>` through the catalog until the phase is idle, so the engine worker is never held for minutes; the review commit `a337985` made a started session spend its preview (Launch and its confirm stay closed while a session is followed, and a refused second start no longer ends the following; test `a_started_session_spends_its_preview`). Tested headless against `GameFakes`; the full launch, follow, stop and relaunch flow in a real window is still to be tried (merge report, kkq-20261027-1056). Merged `9b81fd7` (5/5, QA CHANGES, fixed in review).
+Landed 2026-10-26: KK-051 - three apparel ticket drafts in `plan/tickets/drafts/` for the morning merge (line added 2026-10-30): `armo-inspect-addons` promoted as KK-222 (brief fixed at promotion: `lmsw` attaches to the REFL entry, `addons` goes on the version object, the lookup is `lo.resolve`, the corpus ARMO must have an EditorID), `armor-world-models` promoted as KK-223, and `lmsw-mat-exists` rejected (vanilla materials live in the `.cdb`, not as `.mat` files, so the rule would warn on every swap to a vanilla material; it needs a `.cdb` path list or an owner ruling first). Merged `dd29fd3` (4/4, QA CHANGES, fixed at promotion). KK-222 and KK-223 merged 2026-10-29.
+Landed 2026-10-29: KK-204 - EXPL (Explosion) typed from the pinned xEdit file (wbDefinitionsSF1.pas L11781-L11839) in xEdit member order over the shared blocks (line added 2026-10-30, the run's was folded into the review commit `bf7e22d`, rustfmt only); corpus-checked by expl_types_full (359 records, 359 identical, every subrecord placed and decoded); records.rs, the golden seed, docs/record-parity.md and the gap-matrix headline regenerated (the row shows 17 typed, 2 opaque and 0 unknown); merged `22ef15b` (5/6: scope failed only on `docs/foothold/gap-matrix.md`, owned since `c1f9b6e`; no QA ran); cargo xtask ci green (branch ticket/KK-204).

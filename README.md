@@ -89,8 +89,18 @@ Real mods, built by KitKraft, checked in the real game:
 - 🧰 **Every catalog command is live:** load orders from MO2 profiles, inspect, query, diff,
   conflicts, set, build, validate, schema, archives, Papyrus and string tables. What a command
   doesn't do yet is written in each result's `limitations` and in [docs/gaps.md](docs/gaps.md).
-- 🪟 **A read-only workbench** (`kit ui`) with Start, Ledger and Help tabs over the same
-  commands ([docs/workbench.md](docs/workbench.md)).
+- 🗂️ **181 record definitions** for the 186 record types in the official files
+  ([docs/record-parity.md](docs/record-parity.md), 2026-10-30; the five without one are
+  queued as a ticket). 95 of them are inventory definitions: every member kept opaque, so
+  the record decodes and re-encodes but its fields are not named yet. 84 definition files
+  were added between 2026-10-26 and 2026-10-30 by an unattended local-agent campaign
+  ([ADR 0014](plan/adr/0014-supervised-local-agent.md), [docs/local-agent.md](docs/local-agent.md)):
+  60 tickets merged, each graded by the gate and reviewed before merge.
+- 🪟 **A workbench** (`kit ui`): read-only views over the same commands, plus the cockpit's
+  six confirmed writes (`ledger`, `deploy --dev`, `deploy.rollback`, `game.session`,
+  `game.probe`, `game.stop`; ADR 0007 Amendment 3), each previewed and confirmed per click.
+  Its game loop has run against the engine's fakes only, not yet in the real game
+  ([docs/workbench.md](docs/workbench.md)).
 
 Where it's headed: [ROADMAP.md](ROADMAP.md). What's happening right now:
 [plan/STATUS.md](plan/STATUS.md).
@@ -158,7 +168,7 @@ kit papyrus {disasm,compile}                  # wraps Bethesda's compiler; never
 kit strings {dump,merge}
 kit doctor [--get data_dir|mo2|dev_profile|...] # what is detected here; each line OK or a fix
 kit mcp [--profile DIR]                       # stdio MCP server over the same catalog
-kit ui [--dev]                                # the read-only workbench
+kit ui [--dev]                                # the workbench (read-only views; six confirmed writes)
 kit install | uninstall [--apply]             # PATH + MCP registration (CLI only; dry run by default)
 ```
 
@@ -197,8 +207,8 @@ do not use detection) and are skipped without it; see [docs/corpus.md](docs/corp
 ```
 crates/   schema esm ba2 pex strings nif (L0)  doc (L1)  io (L3)  engine (L4)  mcp (L5)
 apps/     kit-cli (kit), kit (kit-ui, the workbench)
-xtask/    cargo xtask ci | layers | codegen | parity | dist
-plan/     STATUS.md, execution-plan.md, adr/
+xtask/    cargo xtask ci | layers | codegen | parity | inventory-def | inventory-check | add-def | dist
+plan/     STATUS.md, execution-plan.md, adr/, tickets/ (the local agent's queue, ADR 0014)
 docs/     architecture, mcp, parity checklists, gaps, corpus
 corpus/   README only; the corpus lives in your game install
 ```
@@ -226,13 +236,17 @@ in this repository.
   target-independent; only an explicit `kit deploy --dev` writes into MO2, into one
   isolated KitKraft-managed mod, never into profiles or other mods.
 - **Developer workbench** ([ADR 0007](plan/adr/0007-egui-shell-over-the-catalog.md),
-  Amendment 1): a read-only egui workbench over the same commands as the CLI comes once
-  the inspection APIs are stable; the full authoring UI is M6 (ROADMAP.md).
+  Amendments 1 and 3): an egui workbench over the same commands as the CLI, built
+  (`kit ui`); its only writes are the six cockpit commands Amendment 3 names, each
+  previewed and confirmed per click. Editing from the window is M7, under Amendment 4
+  (ROADMAP.md).
 
 > [!IMPORTANT]
 > **Status: pre-alpha.** KitKraft has built real, working mods and checked them in game, but
 > it is not a Creation Kit replacement yet: authoring is command-line first, the workbench
-> is read-only, and record layouts are still being filled in. Back up your saves, use a
+> edits nothing (its only writes are the cockpit's six confirmed ones), and record layouts
+> are still being filled in: 181 of 186 record types have a definition, but about half of
+> those are inventory definitions whose members are opaque. Back up your saves, use a
 > separate profile, and read each result's `limitations`.
 
 ## License
