@@ -37766,7 +37766,7 @@ pub struct IresRecord {
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `CUSH`, optional.
-    pub crafting_sound: Option<Sub<Bytes>>,
+    pub crafting_sound: Option<Sub<SoundReference>>,
     /// `FNAM`, optional.
     pub surface_item: Option<Sub<FormId>>,
     /// `SNAM`, required.
@@ -37778,7 +37778,7 @@ pub struct IresRecord {
     /// `NNAM`, optional.
     pub short_name: Option<Sub<LString>>,
     /// `GNAM`, optional.
-    pub art_name: Option<Sub<Bytes>>,
+    pub art_name: Option<Sub<ZString>>,
     /// `NAM1`, required.
     pub resource_av: Option<Sub<FormId>>,
     /// `NAM2`, required.
@@ -37958,6 +37958,7 @@ impl IresRecord {
 impl Visit for IresRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.keywords, "IRES.Keywords", out);
+        visit_form_ids(&self.crafting_sound, "IRES.CUSH", out);
         visit_form_ids(&self.surface_item, "IRES.FNAM", out);
         visit_form_ids(&self.child_resources, "IRES.CNAM", out);
         visit_form_ids(&self.resource_av, "IRES.NAM1", out);
@@ -37967,6 +37968,7 @@ impl Visit for IresRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.keywords, "IRES.Keywords", out);
+        visit_form_ids_mut(&mut self.crafting_sound, "IRES.CUSH", out);
         visit_form_ids_mut(&mut self.surface_item, "IRES.FNAM", out);
         visit_form_ids_mut(&mut self.child_resources, "IRES.CNAM", out);
         visit_form_ids_mut(&mut self.resource_av, "IRES.NAM1", out);

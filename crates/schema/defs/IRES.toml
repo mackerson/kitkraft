@@ -8,13 +8,13 @@
 #     which order and how often; every official record decodes with nothing left unplaced and
 #     re-encodes byte for byte.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
+#     group keeps its own provenance.
 #   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
 #
-# Transcribed from the pinned xEdit file (KK-215): EDID, the lstrings and the shared blocks
-# keep their earlier typing, and FNAM, SNAM, CNAM, TINC, NAM1, NAM2 and NAM3 are now typed
-# from xEdit at reference confidence; CUSH and GNAM stay opaque (kept raw) for now. Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Transcribed from the pinned xEdit file (KK-215): EDID, the lstrings and the shared block
+# keep their earlier typing, and FNAM, SNAM, CNAM, TINC, NAM1, NAM2, NAM3, CUSH and GNAM are
+# now typed from xEdit at reference confidence. Members xEdit lists that no official record
+# has are left out; a plugin that has one keeps it raw.
 signature = "IRES"
 name = "Resource"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically"
@@ -22,7 +22,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13197-L13238",
 ]
 confidence = "corpus"
-note = "KK-215: transcribed from the pinned xEdit file; FNAM, SNAM, CNAM, TINC, NAM1, NAM2 and NAM3 are typed at reference confidence, CUSH and GNAM stay opaque"
+note = "KK-215: transcribed from the pinned xEdit file; FNAM, SNAM, CNAM, TINC, NAM1, NAM2, NAM3, CUSH and GNAM are typed at reference confidence"
 
 [[member]]
 sig = "EDID"
@@ -62,14 +62,15 @@ confidence = "corpus"
 [[member]]
 sig = "CUSH"
 name = "CraftingSound"
-type = "opaque"
+type = "ref:SoundReference"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 309 of 333 official IRES records (309 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13219-L13219",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333",
 ]
-confidence = "corpus"
-note = "the crafting sound reference (40 bytes); kept raw"
+confidence = "reference"
+note = "the crafting sound reference (the shared SoundReference block)"
 
 [[member]]
 sig = "FNAM"
@@ -146,14 +147,14 @@ confidence = "corpus"
 [[member]]
 sig = "GNAM"
 name = "ArtName"
-type = "opaque"
+type = "zstring"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 161 of 333 official IRES records (161 occurrences), 4..25 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13234-L13234",
 ]
-confidence = "corpus"
-note = "the art name (a short string, 4..25 bytes); kept raw"
+confidence = "reference"
+note = "the art name (a null-terminated string)"
 
 [[member]]
 sig = "NAM1"
