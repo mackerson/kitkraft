@@ -1,32 +1,32 @@
-# PHZD: PlacedHazard, inventory definition (M4.BX2, lane B).
+# PHZD: PlacedHazard, a placed hazard projectile. NAME is the PROJ or HAZD placed.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official PHZD record (450 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the PHZD definition of wbDefinitionsSF1.pas at the pinned revision (L7063-L7113 and L7133),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the PHZD definition of wbDefinitionsSF1.pas at the pinned revision: one call
+#     ReferenceRecord(PHZD, 'Placed Hazard') at L7133, through the shared placed-reference
+#     helper L7063-L7113 (with the helpers it uses there and in wbDefinitionsCommon.pas:
+#     field layouts, FormID target types, flag values).
+#   corpus: tests/phzd_types.rs over every PHZD record of the 14 official ESMs (see the
+#     record evidence).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Order: official PHZD records put XLYR, XRFG, XLKR/XLKT and XESP in more than one order,
-# and xEdit marks the placed-reference definition unordered; members are listed in the order
-# most records use.
+# Member order: xEdit marks the members of placed references as unordered, and the official
+# files do not follow one order. The members the corpus has stand in the order the M4.BX2
+# scan recorded (crates/esm/tests/inventory_types.rs); the members no official record has
+# stand in the helper's order. The record is `unordered` (M4.BX1): the decoder matches a
+# subrecord from its current member on and, when none accepts it there, from the first
+# member again, and writes the values back in their on-disk order, so every member is typed
+# wherever it stands.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
+# (0 means none). Members no official record of this type has stay at `reference`.
 signature = "PHZD"
 name = "PlacedHazard"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official PHZD record (450) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133"
+confidence = "corpus"
+flags = [["TurnOffFire", 0x80], ["Persistent", 0x400], ["InitiallyDisabled", 0x800], ["ReflectedByAutoWater", 0x10000000], ["DontHavokSettle", 0x20000000], ["NoRespawn", 0x40000000]]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7063-L7113",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
 unordered = true
 
 [[member]]
@@ -34,130 +34,296 @@ sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 24 of 450 official PHZD records (24 occurrences), 16 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7076-L7076"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7076-L7076",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
+note = "24 EDID placed in the corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7077-L7077"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
+note = "base form components; payloads kept raw; not in any official PHZD"
 
 [[member]]
 sig = "VMAD"
-name = "Vmad"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1 of 450 official PHZD records (1 occurrences), 140 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7078-L7078"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7078-L7078",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; 1 VMAD placed in the corpus"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7079-L7079"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3195-L3230",
+]
+confidence = "reference"
+note = "64-bit flags; xEdit marks its bit names as unverified, so they are not transcribed; not in any official PHZD"
 
 [[member]]
 sig = "NAME"
 name = "Base"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 450 of 450 official PHZD records (450 occurrences), 4 bytes"
+type = "formid"
+targets = ["PROJ", "HAZD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7080-L7080"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7080-L7080",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the placed base form, named Base as in REFR and ACHR; payload not decoded (M4.BX2 inventory)"
+note = "the placed base form (PROJ or HAZD), named Base as in REFR and ACHR; 450 NAME placed in the corpus"
+
+[[member]]
+sig = "XEMI"
+name = "Emittance"
+type = "formid"
+card = "optional"
+targets = ["LIGH", "REGN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7082-L7082"
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XRGD"
+name = "RagdollBones"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:RagdollBone"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7084"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+]
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XRGB"
+name = "BipedRotation"
+type = "struct"
+card = "optional"
+size = 12
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+  { name = "Z", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7084"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+]
+confidence = "reference"
+note = "not in any official PHZD"
 
 [[member]]
 sig = "XLYR"
-name = "Xlyr"
-type = "opaque"
+name = "Layer"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 114 of 450 official PHZD records (114 occurrences), 4 bytes"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7098-L7098"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7098-L7098",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "114 XLYR placed in the corpus"
 
 [[member]]
 sig = "XRFG"
-name = "Xrfg"
-type = "opaque"
+name = "ReferenceGroup"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 121 of 450 official PHZD records (121 occurrences), 4 bytes"
+targets = ["RFGP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7086-L7086"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7086-L7086",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "121 XRFG placed in the corpus"
 
 [[member]]
-sig = "XLKR"
-name = "Xlkr"
-type = "opaque"
+sig = "XIS2"
+name = "IgnoredBySandbox"
+type = "empty"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 70 of 450 official PHZD records (70 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7092-L7092",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7090-L7090"
+confidence = "reference"
+note = "not in any official PHZD"
 
 [[member]]
-sig = "XLKT"
-name = "Xlkt"
-type = "opaque"
+group_ref = "LinkedReferences"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 70 of 450 official PHZD records (70 occurrences), 0 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7092-L7092"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7092-L7092",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7039-L7049",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "70 XLKR placed in the corpus"
+
+[[member]]
+sig = "XOWN"
+name = "Owner"
+type = "ref:OwnerData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7094-L7094"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+]
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XRNK"
+name = "FactionRank"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7094-L7094"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+]
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XEZN"
+name = "LocationOverride"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7096-L7096"
+confidence = "reference"
+note = "not in any official PHZD"
 
 [[member]]
 sig = "XESP"
-name = "Xesp"
-type = "opaque"
+name = "EnableParent"
+type = "ref:EnableParent"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 107 of 450 official PHZD records (107 occurrences), 8 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7104-L7104"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7104-L7104",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "107 XESP placed in the corpus"
+
+[[member]]
+sig = "XHTW"
+name = "HeadTrackingWeight"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7100-L7100"
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XLRT"
+name = "LocationRefTypes"
+type = "array"
+card = "optional"
+targets = ["LCRT"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7102-L7102"
+confidence = "reference"
+note = "not in any official PHZD"
 
 [[member]]
 sig = "XPCS"
-name = "Xpcs"
-type = "opaque"
+name = "SourcePackIn"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 450 official PHZD records (2 occurrences), 4 bytes"
+targets = ["PKIN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7088-L7088"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7088-L7088",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7051-L7051",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "2 XPCS placed in the corpus"
+
+[[member]]
+sig = "XATP"
+name = "ActivationPoint"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7106-L7106"
+confidence = "reference"
+note = "not in any official PHZD"
+
+[[member]]
+sig = "XLRL"
+name = "LocationReference"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7107-L7107"
+confidence = "reference"
+note = "not in any official PHZD"
 
 [[member]]
 sig = "XSCL"
-name = "Xscl"
-type = "opaque"
+name = "Scale"
+type = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 12 of 450 official PHZD records (12 occurrences), 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7108-L7108"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7108-L7108",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3194-L3194",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "12 XSCL placed in the corpus"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 450 of 450 official PHZD records (450 occurrences), 24 bytes"
+name = "Placement"
+type = "ref:PositionRotation"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7109-L7109"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7109-L7109",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "position, then rotation; 450 DATA placed in the corpus"
+
+[[member]]
+sig = "XLTW"
+name = "Xltw"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7110-L7110"
+confidence = "reference"
+note = "xEdit gives no layout for it, so it is kept raw; not in any official PHZD"
+
+[[member]]
+sig = "MNAM"
+name = "Comments"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7111-L7111"
+confidence = "reference"
+note = "not in any official PHZD"

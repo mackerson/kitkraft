@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 93: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 93:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    271,781 |   774,085 |  33,973 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,827,302 | 2,851,578 | 740,681 |
+| container/other |          123 |         118 |   252,710 |    273,177 |   772,689 |  33,973 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,828,698 | 2,850,182 | 740,681 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 93:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:58b48293fea98a36` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:f63ab5ba580a4242` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -131,7 +131,7 @@ Columns:
 | `FFKW`        | FormFolderKeywordList          |       493 |          0 |     2 |     1 |      1 |       0 |
 | `SMQN`        | StoryManagerQuestNode          |       471 |          0 |    12 |    12 |      0 |       0 |
 | `WEAP`        | Weapon                         |       452 |          0 |    54 |    52 |      2 |       0 |
-| `PHZD`        | PlacedHazard                   |       450 |          0 |    11 |     1 |     10 |       0 |
+| `PHZD`        | PlacedHazard                   |       450 |          0 |    11 |    10 |      1 |       0 |
 | `BIOM`        | Biome                          |       434 |          0 |    45 |    44 |      1 |       0 |
 | `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     1 |      4 |       0 |
 | `LSCR`        | LoadScreen                     |       393 |          0 |     4 |     2 |      2 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,048 |    509 |     240 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,057 |    500 |     240 |
 
-Subrecord occurrences: 50,419,561 in total; 46,827,302 typed (0 of them failed to decode), 2,851,578 opaque, 740,681 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,828,698 typed (0 of them failed to decode), 2,850,182 opaque, 740,681 unknown.
 
 ## Decoded through the definitions
 
@@ -328,7 +328,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FFKW`    | FormFolderKeywordList          |           493 |        493 |      0 |         0 |         0 |                   0 |        493 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode          |           471 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
 | `WEAP`    | Weapon                         |           452 |     18,432 |      0 |         0 |         0 |                   0 |     18,432 |       0 |        0 |
-| `PHZD`    | PlacedHazard                   |           450 |         24 |      0 |         0 |         0 |                   0 |         24 |       0 |        0 |
+| `PHZD`    | PlacedHazard                   |           450 |      1,420 |      0 |         0 |         0 |                   0 |      1,420 |       0 |        0 |
 | `BIOM`    | Biome                          |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
 | `LTEX`    | LandscapeTexture               |           429 |        429 |      0 |         0 |         0 |                   0 |        429 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,827,302 |      0 |         0 |    20,408 |                   0 | 46,806,894 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,828,698 |      0 |         0 |    20,408 |                   0 | 46,808,290 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -584,7 +584,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `PERK`    | Perk                           |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
 | `PERS`    | UnknownPers                    |              2 |     0 |      2 |         0 |                   0 |      2 |       0 |        0 |
 | `PGRE`    | PlacedProjectile               |             10 |     9 |      1 |         0 |                   0 |     10 |       0 |        0 |
-| `PHZD`    | PlacedHazard                   |             11 |     1 |     10 |         0 |                   0 |     11 |       0 |        0 |
+| `PHZD`    | PlacedHazard                   |             58 |    53 |      5 |        14 |                   0 |     44 |       0 |        0 |
 | `PKIN`    | PackIn                         |             54 |    50 |      4 |         0 |                   0 |     54 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `PNDT`    | Planet                         |             56 |    53 |      3 |         1 |                   0 |     55 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,733 | 4,934 |    799 |       377 |                   2 |  5,354 |       0 |        0 |
+| **Total** |                                |          5,780 | 4,986 |    794 |       391 |                   2 |  5,387 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
