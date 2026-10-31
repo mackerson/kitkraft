@@ -100,7 +100,7 @@ note = "in all 27 official BPTD records"
 field = [
   { name = "DamageMult", type = "f32" },
   { name = "Flags", type = "flags", base = "u8", bits = [["Severable", 0x1], ["HitReaction", 0x2], ["HitReactionDefault", 0x4], ["Explodable", 0x8], ["CutMeatCapSever", 0x10], ["OnCripple", 0x20], ["ExplodableAbsoluteChance", 0x40], ["ShowCrippleGeometry", 0x80]] },
-  { name = "PartType", type = "enum", base = "u8", values = [["Torso", 0], ["Head1", 1], ["Eye", 2], ["LookAt", 3], ["FlyGrab", 4], ["Head2", 5], ["LeftArm1", 6], ["LeftArm2", 7], ["RightArm1", 8], ["RightArm2", 9], ["LeftLeg1", 10], ["LeftLeg2", 11], ["LeftLeg3", 12], ["RightLeg1", 13], ["RightLeg2", 14], ["RightLeg3", 15], ["Brain", 16], ["Weapon", 17], ["Root", 18], ["COM", 19], ["Pelvis", 20], ["Camera", 21], ["OffsetRoot", 22], ["LeftFoot", 23], ["RightFoot", 24], ["FaceTargetSource", 25]] },
+  { name = "PartType", type = "enum", base = "u8", values = [["Torso", 0], ["Head1", 1], ["Eye", 2], ["LookAt", 3], ["FlyGrab", 4], ["Head2", 5], ["LeftArm1", 6], ["LeftArm2", 7], ["RightArm1", 8], ["RightArm2", 9], ["LeftLeg1", 10], ["LeftLeg2", 11], ["LeftLeg3", 12], ["RightLeg1", 13], ["RightLeg2", 14], ["RightLeg3", 15], ["Brain", 16], ["Weapon", 17], ["Root", 18], ["Com", 19], ["Pelvis", 20], ["Camera", 21], ["OffsetRoot", 22], ["LeftFoot", 23], ["RightFoot", 24], ["FaceTargetSource", 25]] },
   { name = "HealthPercent", type = "u8" },
   { name = "ActorValue", type = "formid", targets = ["AVIF"] },
   { name = "ToHitChance", type = "u8" },

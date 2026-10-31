@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:fd4df851b8135406` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:ab2f166c8c59e953` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -397,7 +397,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GPOF`    | GameplayOption                 |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |            30 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
 | `CURV`    | CurveTable                     |            29 |         29 |      0 |         0 |         0 |                   0 |         29 |       0 |        0 |
-| `BPTD`    | BodyPartData                   |            27 |      1,952 |      0 |         0 |     1,638 |                   0 |        314 |       0 |        0 |
+| `BPTD`    | BodyPartData                   |            27 |      1,952 |      0 |         0 |         0 |                   0 |      1,952 |       0 |        0 |
 | `LENS`    | LensFlare                      |            26 |         26 |      0 |         0 |         0 |                   0 |         26 |       0 |        0 |
 | `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
 | `TRAV`    | Traversal                      |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,816,965 |      0 |         0 |    22,046 |                   0 | 46,794,919 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,816,965 |      0 |         0 |    20,408 |                   0 | 46,796,557 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -484,7 +484,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `BMOD`    | BoneModifier                   |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `BNDS`    | BendableSplineForm             |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `BOOK`    | Book                           |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
-| `BPTD`    | BodyPartData                   |             49 |    46 |      3 |        10 |                   0 |     39 |       0 |        0 |
+| `BPTD`    | BodyPartData                   |             49 |    46 |      3 |         2 |                   0 |     47 |       0 |        0 |
 | `CAMS`    | CameraShot                     |              9 |     3 |      6 |         0 |                   0 |      9 |       0 |        0 |
 | `CELL`    | Cell                           |             66 |    61 |      5 |         4 |                   0 |     62 |       0 |        0 |
 | `CHAL`    | Challenge                      |             34 |    31 |      3 |         0 |                   0 |     34 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,698 | 4,883 |    815 |       383 |                   2 |  5,313 |       0 |        0 |
+| **Total** |                                |          5,698 | 4,883 |    815 |       375 |                   2 |  5,321 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
