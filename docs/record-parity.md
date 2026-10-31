@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PGRE, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, TXST, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 94: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, IRES, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MESG, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PGRE, PHZD, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    259,752 |   784,422 |  35,665 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,815,273 | 2,861,915 | 742,373 |
+| container/other |          123 |         118 |   252,710 |    259,920 |   784,254 |  35,665 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,815,441 | 2,861,747 | 742,373 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:900e9730925cb58c` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:1863c3b56b41d22c` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -204,7 +204,7 @@ Columns:
 | `LENS`        | LensFlare                      |        26 |          0 |     9 |     1 |      8 |       0 |
 | `EQUP`        | EquipType                      |        25 |          0 |     4 |     1 |      3 |       0 |
 | `TRAV`        | Traversal                      |        23 |          0 |     2 |     2 |      0 |       0 |
-| `TXST`        | TextureSet                     |        23 |          0 |    12 |     1 |     11 |       0 |
+| `TXST`        | TextureSet                     |        23 |          0 |    12 |    12 |      0 |       0 |
 | `AAPD`        | AimAssistPoseDataForm          |        22 |          0 |     7 |     1 |      6 |       0 |
 | `SMEN`        | StoryManagerEventNode          |        22 |          0 |     7 |     7 |      0 |       0 |
 | `AOPS`        | AimOpticalSightMarker          |        21 |          0 |     2 |     1 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,018 |    529 |     250 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,029 |    518 |     250 |
 
-Subrecord occurrences: 50,419,561 in total; 46,815,273 typed (0 of them failed to decode), 2,861,915 opaque, 742,373 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,815,441 typed (0 of them failed to decode), 2,861,747 opaque, 742,373 unknown.
 
 ## Decoded through the definitions
 
@@ -401,7 +401,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LENS`    | LensFlare                      |            26 |         26 |      0 |         0 |         0 |                   0 |         26 |       0 |        0 |
 | `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
 | `TRAV`    | Traversal                      |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
-| `TXST`    | TextureSet                     |            23 |         23 |      0 |         0 |         0 |                   0 |         23 |       0 |        0 |
+| `TXST`    | TextureSet                     |            23 |        191 |      0 |         0 |       168 |                   0 |         23 |       0 |        0 |
 | `AAPD`    | AimAssistPoseDataForm          |            22 |         22 |      0 |         0 |         0 |                   0 |         22 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode          |            22 |        142 |      0 |         0 |         0 |                   0 |        142 |       0 |        0 |
 | `AOPS`    | AimOpticalSightMarker          |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,815,273 |      0 |         0 |    20,408 |                   0 | 46,794,865 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,815,441 |      0 |         0 |    20,576 |                   0 | 46,794,865 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -628,7 +628,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `TODD`    | TimeOfDayDataForm              |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `TRAV`    | Traversal                      |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
 | `TRNS`    | Transform                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `TXST`    | TextureSet                     |             12 |     1 |     11 |         0 |                   0 |     12 |       0 |        0 |
+| `TXST`    | TextureSet                     |             47 |    43 |      4 |        13 |                   0 |     34 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WATR`    | Water                          |             54 |    48 |      6 |         2 |                   0 |     52 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,651 | 4,839 |    812 |       373 |                   2 |  5,276 |       0 |        0 |
+| **Total** |                                |          5,686 | 4,881 |    805 |       386 |                   2 |  5,298 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
