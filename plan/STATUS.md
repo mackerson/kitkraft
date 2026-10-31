@@ -1751,6 +1751,8 @@ Against `plan/execution-plan.md` "M5 is done when", with the states above.
 
 ## In progress
 
+_The entries below are the 2026-10-14 state, kept as history. The work in flight is "Campaign" above and "Next" below._
+
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
   harness, M3.H4) and its `docs/oracles.md`, `source-registry`, `xedit-reference` and
   gaps rows; conflicts in `docs/gaps.md` and STATUS kept both sides (the stale "not
@@ -1870,30 +1872,39 @@ Against `plan/execution-plan.md` "M5 is done when", with the states above.
 
 ## Next
 
-M2 lanes (from `PLAN.md` "M2 - agent surface" and the step 2 ladder). Owners are assigned
-when M2 is broken down in `plan/execution-plan.md`.
+Updated 2026-10-30 at `7d10db1`. The M2 lane table that stood here is history: M2 closed
+on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progress").
 
-| Lane       | Scope                                                                                                          | Where                                        |
-| ---------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| doc        | Load order, FormID resolution across masters, overrides and conflicts ("which plugin wins")                    | `crates/doc`                                 |
-| io         | MO2 profile reader: `plugins.txt`, mod list, Creations manifests                                               | `crates/io`                                  |
-| mcp        | stdio MCP server over `execute()` (`execute`, `command_line`, ...); `kit mcp` launcher                         | `crates/mcp`, `apps/kit-cli`                 |
-| ports      | `ba2` (`ba2x.py`), `pex` (`pexdis.py`), `strings` ported from `C:\Modding\scripts`                             | `crates/ba2`, `crates/pex`, `crates/strings` |
-| validate   | Rules: missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode pex calls               | `crates/engine`                              |
-| edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
-| smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
-| container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3: M3.B0-B5, B7, B8 done (see In progress); B6, B9-B12 open                                               | `crates/schema` (lane B)                     |
-
-Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
-`confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
-AMDL, OMOD, COBJ, ZOOM**; then **GMST, GLOB, KYWD** typed; then **LVLI, FLST, INNR**. Each
-definition is checked against every corpus occurrence before it moves to
-`confidence = "corpus"`; unions stay opaque.
+1. **The local-agent queue** (ADR 0014, `plan/tickets/README.md` "Queue"). 31 tickets are
+   runnable, 30 of them schema: KK-211 to KK-219 and KK-226 to KK-245 type one record type
+   each from the pinned xEdit file, corpus-checked; KK-224 is the five types without a
+   definition (MRPH, CNDF, VTYP, MTPT, ASPC), and KK-225 (type AVIF) waits on it. KK-221
+   (`new` writes a WRLD) is the one engine ticket. Start a campaign with
+   `F:\AI\Scripts\overnight\harness\kk-campaign.ps1 -Start -Until '<yyyy-MM-dd HH:mm>'`.
+   First re-enable the "KitKraft guard" scheduled task, which was disabled after the
+   2026-10-30 campaign.
+2. **The campaign RFC's remaining changes** ("RFC: Campaign loop changes after the first
+   unattended week", a Claude Docs doc). Its first group (Changes 1, 3, 4, 5, 6, 11) was
+   adopted on 2026-10-30 (`b99522b`, `docs/local-agent.md`), and the first segment after
+   it is its live test. Next in its order: Change 2 (the failure ledger,
+   `merge-report.json` per run), then 7 (per-class budgets), 9 (typed and opaque shares in
+   the parity headline), 8 (a campaign trunk, trialled on one window, then an ADR 0014
+   amendment) and 10 (`docs/analytics/2026-10-29-campaign.md`).
+3. **Refresh the gap matrix's hand rows.** `docs/foothold/gap-matrix.md` was last
+   reconciled as a whole at `81272e2` (M5.F2 style); the campaign changed most schema
+   rows (SC counts, MX results), and `docs/foothold/next-sprint.md` dates from the same
+   pause.
+4. **Checks the merge reports left** ("Campaign" above): ENCH's `ENIT` and ARTO's `DNAM`
+   names against the pinned xEdit file, and two evidence notes that say more than their
+   tests (ENCH's BfcbBlock, HDPT's HNAM).
 
 ## Blockers
 
-- None for lane B (the pinned xEdit files are staged, M3.O0).
+- None for the agent queue.
+- Owner-gated, as in "Pause" section 4: the CK sittings (M3.O1, M4.O1, M5.O1) hold every
+  `ck-diff` upgrade and M3.H3/M3.H5; the console-mods step (M4.O7) holds everything
+  runtime-facing (M4.T4..T7, M5.C2, the FTH-EXP rows); the M7 interface sittings
+  (M7.O2/O3).
 
 ## Decision records (owner, 2026-10-14)
 

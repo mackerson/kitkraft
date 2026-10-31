@@ -151,25 +151,50 @@ command, `kit help <command>` its arguments, and `--json` prints the full result
 Each line is a CLI subcommand, an MCP-reachable command, and a future menu item.
 
 ```
+# Look (read-only)
 kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"   # or --plugins A.esm B.esp
 kit inspect <FormID|EditorID> --profile ...   # every override, the winner, typed values
 kit query  --type WEAP --where "EDID ~ 'Rifle'"
+kit refs <form> [--incoming] [--depth N]      # typed FormID links, out or in
+kit cell [--world W | --interior] [--cell C]  # worldspaces, cells and a cell's references
+kit planet <form>                             # the Planet Content Manager chain around a form
 kit conflicts --master Starfield.esm          # which plugins override what (esmscan.py port)
-kit set    <form> FULL="Old Soviet Marksman Rifle" --into MyPatch.esm
 kit diff   A.esm B.esm [--form ...]           # record-level diff with byte ranges
-kit build  overhaul.toml <out.esm>            # data-driven patch compiler, validated
+kit schema --type WEAP [--deep]               # members, types, sources, confidence
+kit coverage <plugin> [--matrix]              # record types vs what the schema defines
+kit profiles                                  # the MO2 instance and its profiles
+
+# Write (always a new patch plugin, validated)
+kit set    <form> FULL="Old Soviet Marksman Rifle" --into MyPatch.esm
+kit new    <type> <edid> <into>               # a new base form
+kit clone  <form> <edid> <into>               # a copy of a base form as a new form
+kit place  <base> --position <json> <into>    # a new reference in a cell or a world
+kit revert <plugin> <form> [--to remove|previous]  # undo an override
+kit build  overhaul.toml <out.esm> [--plan]   # data-driven patch compiler
+kit overhaul scaffold <type>                  # a starter build spec for one record type
+
+# Check and ship
 kit validate --plugin <plugin>                # missing masters, bad links, localized FULL
                                               #   copies, stripped FULL/NTRM, god-mode calls
-kit schema --type WEAP [--deep]               # members, types, sources, confidence
-kit coverage <plugin>                         # record types vs what the schema defines
 kit roundtrip <esm> --verify                  # byte-identical rewrite, the M1 gate
+kit testplan <plugin> <out>                   # console batch + checklist for an in-game test
+kit package  <plugin> <out> [--ba2] [--zip]   # an MO2-ready mod folder with a hashed manifest
+kit deploy   <source> <mo2> --dev             # into an isolated "KitKraft Dev - <plugin>" mod
+kit deploy {rollback,status,enable,disable}   # dev mods only; Default is always refused
+kit game {session,status,probe,stop}          # agent-driven session on the dev profile (ADR 0010)
+kit mod run <spec>                            # build -> validate -> roundtrip -> package -> deploy
+                                              #   -> testplan -> game session, end to end
+kit ledger <row> <result> [--confirm]         # one dated row in docs/game-observations.md
+
+# Files and tools
 kit ba2 {list,extract,pack}
-kit papyrus {disasm,compile}                  # wraps Bethesda's compiler; never -release
+kit papyrus {disasm,compile,events}           # compile wraps Bethesda's compiler; never -release
 kit strings {dump,merge}
 kit doctor [--get data_dir|mo2|dev_profile|...] # what is detected here; each line OK or a fix
 kit mcp [--profile DIR]                       # stdio MCP server over the same catalog
 kit ui [--dev]                                # the workbench (read-only views; six confirmed writes)
 kit install | uninstall [--apply]             # PATH + MCP registration (CLI only; dry run by default)
+# `kit help` lists every command; `kit help <command>` gives its full usage
 ```
 
 ## Built for agents
