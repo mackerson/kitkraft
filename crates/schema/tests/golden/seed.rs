@@ -165,7 +165,7 @@
 // - PDCL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official PDCL record (732) decodes with every subrecord placed and re-encodes identically; corpus)
 // - PERK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15872-L15921; corpus)
 // - PERS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically; corpus)
-// - PGRE (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official PGRE record (2599) decodes with every subrecord placed and re-encodes identically; corpus)
+// - PGRE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132; corpus)
 // - PHZD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official PHZD record (450) decodes with every subrecord placed and re-encodes identically; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - PMFT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
@@ -58606,28 +58606,66 @@ impl PersRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PgreLocationRefTypes(pub Vec<FormId>);
+
+impl Field for PgreLocationRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PgreLocationRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PgreRagdollBones(pub Vec<RagdollBone>);
+
+impl Field for PgreRagdollBones {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PgreRagdollBones {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PgreRecord {
     /// `VMAD`, optional.
-    pub vmad: Option<Sub<Bytes>>,
+    pub scripts: Option<Sub<Bytes>>,
     /// `NAME`, required.
-    pub base: Option<Sub<Bytes>>,
+    pub base: Option<Sub<FormId>>,
     /// `XLRT`, optional.
-    pub xlrt: Option<Sub<Bytes>>,
+    pub location_ref_types: Option<Sub<PgreLocationRefTypes>>,
     /// `XRGD`, optional.
-    pub xrgd: Option<Sub<Bytes>>,
+    pub ragdoll_bones: Option<Sub<PgreRagdollBones>>,
     /// `XRFG`, optional.
-    pub xrfg: Option<Sub<Bytes>>,
+    pub reference_group: Option<Sub<FormId>>,
     /// `XLYR`, optional.
-    pub xlyr: Option<Sub<Bytes>>,
+    pub layer: Option<Sub<FormId>>,
     /// `XOWN`, optional.
-    pub xown: Option<Sub<Bytes>>,
+    pub owner: Option<Sub<OwnerData>>,
     /// `XESP`, optional.
-    pub xesp: Option<Sub<Bytes>>,
+    pub enable_parent: Option<Sub<EnableParent>>,
     /// `XSCL`, optional.
-    pub xscl: Option<Sub<Bytes>>,
+    pub scale: Option<Sub<f32>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub placement: Option<Sub<PositionRotation>>,
     /// The member of each typed value in on-disk order (an unordered record):
     /// `encode` writes the values back in this order; values added since decoding
     /// follow, member by member.
@@ -58696,34 +58734,54 @@ impl PgreRecord {
             let before = self.occurrences(member);
             match hit {
                 Hit::Sub { member: 0, index } => {
-                    put(&mut self.vmad, subs, *index, "PGRE.VMAD", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "PGRE.VMAD", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
                     put(&mut self.base, subs, *index, "PGRE.NAME", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.xlrt, subs, *index, "PGRE.XLRT", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.xrgd, subs, *index, "PGRE.XRGD", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.xrfg, subs, *index, "PGRE.XRFG", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.location_ref_types,
+                    subs,
+                    *index,
+                    "PGRE.XLRT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.ragdoll_bones,
+                    subs,
+                    *index,
+                    "PGRE.XRGD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.reference_group,
+                    subs,
+                    *index,
+                    "PGRE.XRFG",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.xlyr, subs, *index, "PGRE.XLYR", ctx, extra)
+                    put(&mut self.layer, subs, *index, "PGRE.XLYR", ctx, extra)
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.xown, subs, *index, "PGRE.XOWN", ctx, extra)
+                    put(&mut self.owner, subs, *index, "PGRE.XOWN", ctx, extra)
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.xesp, subs, *index, "PGRE.XESP", ctx, extra)
-                }
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.enable_parent,
+                    subs,
+                    *index,
+                    "PGRE.XESP",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 8, index } => {
-                    put(&mut self.xscl, subs, *index, "PGRE.XSCL", ctx, extra)
+                    put(&mut self.scale, subs, *index, "PGRE.XSCL", ctx, extra)
                 }
                 Hit::Sub { member: 9, index } => {
-                    put(&mut self.data, subs, *index, "PGRE.DATA", ctx, extra)
+                    put(&mut self.placement, subs, *index, "PGRE.DATA", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -58741,42 +58799,72 @@ impl PgreRecord {
 impl Unordered for PgreRecord {
     fn occurrences(&self, member: usize) -> usize {
         match member {
-            0 => self.vmad.count_values(),
+            0 => self.scripts.count_values(),
             1 => self.base.count_values(),
-            2 => self.xlrt.count_values(),
-            3 => self.xrgd.count_values(),
-            4 => self.xrfg.count_values(),
-            5 => self.xlyr.count_values(),
-            6 => self.xown.count_values(),
-            7 => self.xesp.count_values(),
-            8 => self.xscl.count_values(),
-            9 => self.data.count_values(),
+            2 => self.location_ref_types.count_values(),
+            3 => self.ragdoll_bones.count_values(),
+            4 => self.reference_group.count_values(),
+            5 => self.layer.count_values(),
+            6 => self.owner.count_values(),
+            7 => self.enable_parent.count_values(),
+            8 => self.scale.count_values(),
+            9 => self.placement.count_values(),
             _ => 0,
         }
     }
 
     fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
         match member {
-            0 => emit(out, *b"VMAD", self.vmad.nth_value(n)),
+            0 => emit(out, *b"VMAD", self.scripts.nth_value(n)),
             1 => emit(out, *b"NAME", self.base.nth_value(n)),
-            2 => emit(out, *b"XLRT", self.xlrt.nth_value(n)),
-            3 => emit(out, *b"XRGD", self.xrgd.nth_value(n)),
-            4 => emit(out, *b"XRFG", self.xrfg.nth_value(n)),
-            5 => emit(out, *b"XLYR", self.xlyr.nth_value(n)),
-            6 => emit(out, *b"XOWN", self.xown.nth_value(n)),
-            7 => emit(out, *b"XESP", self.xesp.nth_value(n)),
-            8 => emit(out, *b"XSCL", self.xscl.nth_value(n)),
-            9 => emit(out, *b"DATA", self.data.nth_value(n)),
+            2 => emit(out, *b"XLRT", self.location_ref_types.nth_value(n)),
+            3 => emit(out, *b"XRGD", self.ragdoll_bones.nth_value(n)),
+            4 => emit(out, *b"XRFG", self.reference_group.nth_value(n)),
+            5 => emit(out, *b"XLYR", self.layer.nth_value(n)),
+            6 => emit(out, *b"XOWN", self.owner.nth_value(n)),
+            7 => emit(out, *b"XESP", self.enable_parent.nth_value(n)),
+            8 => emit(out, *b"XSCL", self.scale.nth_value(n)),
+            9 => emit(out, *b"DATA", self.placement.nth_value(n)),
             _ => {}
         }
     }
 }
 
-impl Visit for PgreRecord {}
+impl Visit for PgreRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.base, "PGRE.NAME", out);
+        visit_form_ids(&self.location_ref_types, "PGRE.XLRT", out);
+        visit_form_ids(&self.reference_group, "PGRE.XRFG", out);
+        visit_form_ids(&self.layer, "PGRE.XLYR", out);
+        visit_form_ids(&self.owner, "PGRE.XOWN", out);
+        visit_form_ids(&self.enable_parent, "PGRE.XESP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.base, "PGRE.NAME", out);
+        visit_form_ids_mut(&mut self.location_ref_types, "PGRE.XLRT", out);
+        visit_form_ids_mut(&mut self.reference_group, "PGRE.XRFG", out);
+        visit_form_ids_mut(&mut self.layer, "PGRE.XLYR", out);
+        visit_form_ids_mut(&mut self.owner, "PGRE.XOWN", out);
+        visit_form_ids_mut(&mut self.enable_parent, "PGRE.XESP", out);
+    }
+}
 
 impl PgreRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"PGRE";
+    /// Record-header flag.
+    pub const FLAG_TURN_OFF_FIRE: u32 = 0x80;
+    /// Record-header flag.
+    pub const FLAG_PERSISTENT: u32 = 0x400;
+    /// Record-header flag.
+    pub const FLAG_INITIALLY_DISABLED: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_REFLECTED_BY_AUTO_WATER: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_DONT_HAVOK_SETTLE: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NO_RESPAWN: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

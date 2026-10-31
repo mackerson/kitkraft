@@ -1,150 +1,176 @@
-# PGRE: PlacedProjectile, inventory definition (M4.BX2, lane B).
+# PGRE: placed projectile. Lives in the children group of a cell like every placed
+# reference; NAME is the PROJ or HAZD base form placed. It shares the member set of
+# every placed reference (xEdit's ReferenceRecord helper).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official PGRE record (2599 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the PGRE definition of wbDefinitionsSF1.pas at the pinned revision (L7063-L7113 and L7132),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the PGRE definition of wbDefinitionsSF1.pas at the pinned revision,
+#     ReferenceRecord(PGRE) at L7132 through the shared ReferenceRecord helper
+#     L7063-L7113, and the helpers it names there and in wbDefinitionsCommon.pas:
+#     field layouts, FormID target types, flag values.
+#   corpus: tests/pgre_types.rs over every PGRE record of the 14 official ESMs (see the
+#     record evidence), and the M4.BX2 scan for the VMAD size.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Order: official PGRE records put XLYR, XOWN, XESP and XRGD in more than one order, and
-# xEdit marks the placed-reference definition unordered; members are listed in the order
-# most records use.
+# Record header flags: the six bits xEdit names for the placed-reference definition
+# (L7068-L7075).
+#
+# Member order: xEdit marks the members of placed references as unordered, and the
+# official files do not follow one order. The order below is the one the most official
+# records use (from the M4.BX2 scan). The record is `unordered` (M4.BX1): the decoder
+# matches a subrecord from its current member on and, when none accepts it there, from
+# the first member again, and writes the values back in their on-disk order, so every
+# member is typed wherever it stands.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored
+# values (0 means none). Members no official record of this type has are not listed; a
+# plugin that has one keeps it raw in `extra`.
 signature = "PGRE"
 name = "PlacedProjectile"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official PGRE record (2599) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7063-L7113",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132",
-]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132"
 confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+evidence = [
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+flags = [
+  ["TurnOffFire", 0x80],
+  ["Persistent", 0x400],
+  ["InitiallyDisabled", 0x800],
+  ["ReflectedByAutoWater", 0x10000000],
+  ["DontHavokSettle", 0x20000000],
+  ["NoRespawn", 0x40000000],
+]
 unordered = true
 
 [[member]]
 sig = "VMAD"
-name = "Vmad"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 53 of 2599 official PGRE records (53 occurrences), 93 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7078-L7078"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7078-L7078",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 53 of 2599 official PGRE records (53 occurrences), 93 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
 sig = "NAME"
 name = "Base"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2599 of 2599 official PGRE records (2599 occurrences), 4 bytes"
+type = "formid"
+targets = ["PROJ", "HAZD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7080-L7080"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7080-L7080",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the placed base form, named Base as in REFR and ACHR; payload not decoded (M4.BX2 inventory)"
+note = "the base object placed, PROJ or HAZD; 2,599 NAME placed in the corpus"
 
 [[member]]
 sig = "XLRT"
-name = "Xlrt"
-type = "opaque"
+name = "LocationRefTypes"
+type = "array"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 665 of 2599 official PGRE records (665 occurrences), 4 bytes"
+targets = ["LCRT"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7102-L7102"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7102-L7102",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "665 XLRT placed in the corpus"
 
 [[member]]
 sig = "XRGD"
-name = "Xrgd"
-type = "opaque"
+name = "RagdollBones"
+type = "array"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2170 of 2599 official PGRE records (2170 occurrences), 28 bytes"
+count = "rest"
+element = "ref:RagdollBone"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7084"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7084",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "2,170 XRGD placed in the corpus"
 
 [[member]]
 sig = "XRFG"
-name = "Xrfg"
-type = "opaque"
+name = "ReferenceGroup"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 453 of 2599 official PGRE records (453 occurrences), 4 bytes"
+targets = ["RFGP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7086-L7086"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7086-L7086",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "453 XRFG placed in the corpus"
 
 [[member]]
 sig = "XLYR"
-name = "Xlyr"
-type = "opaque"
+name = "Layer"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 960 of 2599 official PGRE records (960 occurrences), 4 bytes"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7098-L7098"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7098-L7098",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "960 XLYR placed in the corpus"
 
 [[member]]
 sig = "XOWN"
-name = "Xown"
-type = "opaque"
+name = "Owner"
+type = "ref:OwnerData"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 301 of 2599 official PGRE records (301 occurrences), 12 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7094-L7094"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7094-L7094",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "301 XOWN placed in the corpus"
 
 [[member]]
 sig = "XESP"
-name = "Xesp"
-type = "opaque"
+name = "EnableParent"
+type = "ref:EnableParent"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 360 of 2599 official PGRE records (360 occurrences), 8 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7104-L7104"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7104-L7104",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "360 XESP placed in the corpus"
 
 [[member]]
 sig = "XSCL"
-name = "Xscl"
-type = "opaque"
+name = "Scale"
+type = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 62 of 2599 official PGRE records (62 occurrences), 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7108-L7108"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7108-L7108",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3194-L3194",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "62 XSCL placed in the corpus"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2599 of 2599 official PGRE records (2599 occurrences), 24 bytes"
+name = "Placement"
+type = "ref:PositionRotation"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7109-L7109"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7109-L7109",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitkraft-esm tests/pgre_types.rs (pgre_types_full), 2026-10-31: in all 2,599 PGRE records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "2,599 DATA placed in the corpus"
