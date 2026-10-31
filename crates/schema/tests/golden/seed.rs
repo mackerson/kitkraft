@@ -166,7 +166,7 @@
 // - PERK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15872-L15921; corpus)
 // - PERS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically; corpus)
 // - PGRE (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official PGRE record (2599) decodes with every subrecord placed and re-encodes identically; corpus)
-// - PHZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133; reference)
+// - PHZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - PMFT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
 // - PNDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16048-L16225; corpus)

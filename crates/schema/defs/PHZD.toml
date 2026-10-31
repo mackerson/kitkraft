@@ -21,10 +21,11 @@
 signature = "PHZD"
 name = "PlacedHazard"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133"
-confidence = "reference"
+confidence = "corpus"
 flags = [["TurnOffFire", 0x80], ["Persistent", 0x400], ["InitiallyDisabled", 0x800], ["ReflectedByAutoWater", 0x10000000], ["DontHavokSettle", 0x20000000], ["NoRespawn", 0x40000000]]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7063-L7113",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 unordered = true
 
@@ -38,6 +39,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "24 EDID placed in the corpus"
@@ -60,9 +62,10 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7078-L7078"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
-note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw"
+confidence = "corpus"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; 1 VMAD placed in the corpus"
 
 [[member]]
 sig = "XALG"
@@ -82,8 +85,11 @@ name = "Base"
 type = "formid"
 targets = ["PROJ", "HAZD"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7080-L7080"
-confidence = "reference"
-note = "the placed base form (PROJ or HAZD), named Base as in REFR and ACHR"
+evidence = [
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "the placed base form (PROJ or HAZD), named Base as in REFR and ACHR; 450 NAME placed in the corpus"
 
 [[member]]
 sig = "XEMI"
@@ -136,7 +142,10 @@ type = "formid"
 card = "optional"
 targets = ["LAYR"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7098-L7098"
-confidence = "reference"
+evidence = [
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "114 XLYR placed in the corpus"
 
 [[member]]
@@ -146,7 +155,10 @@ type = "formid"
 card = "optional"
 targets = ["RFGP"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7086-L7086"
-confidence = "reference"
+evidence = [
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
 note = "121 XRFG placed in the corpus"
 
 [[member]]
@@ -164,8 +176,9 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7092-L7092"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7039-L7049",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "70 XLKR placed in the corpus"
 
 [[member]]
@@ -210,8 +223,9 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7104-L7104"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "107 XESP placed in the corpus"
 
 [[member]]
@@ -244,8 +258,9 @@ targets = ["PKIN"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7088-L7088"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7051-L7051",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "2 XPCS placed in the corpus"
 
 [[member]]
@@ -275,8 +290,9 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7108-L7108"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3194-L3194",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "12 XSCL placed in the corpus"
 
 [[member]]
@@ -289,8 +305,9 @@ evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitkraft-esm tests/phzd_types.rs (phzd_types_full), 2026-10-31: in all 450 PHZD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "position, then rotation; 450 DATA placed in the corpus"
 
 [[member]]
