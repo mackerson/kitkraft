@@ -1,34 +1,32 @@
-# BPTD: BodyPartData, lstring-only definition (lane B round 3, M3.B8).
+# BPTD: BodyPartData, the body-part data of a creature's body: the generic model and the
+# list of body parts. Each part names itself and points at its node and VATS target,
+# carries a data block (damage, flags, part type, health, the cripple effects), names its
+# gore target bone and hit-reaction strings, and references the blood-impact materials.
 #
 # Sources (ADR 0004, ADR 0005):
+#   xedit: the BPTD definition of wbDefinitionsSF1.pas at the pinned revision,
+#     L10452-L10527 - member order: EDID (L10453), the base form components (L10454,
+#     L5984-L6832), the generic model (L10455, L7008-L7029) and the body-parts array
+#     (L10456-L10525). Each part is a struct (L10457-L10520) whose first member is not
+#     required (L10524): the part name lstring (L10458), the part node and VATS target
+#     strings (L10459-L10460), the data block (L10461-L10513), the gore target bone and
+#     the hit-reaction strings (L10514-L10516), the two blood-impact material references
+#     (L10517-L10518) and the twist-variable prefix (L10519).
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): BPTN is an lstring in every official BPTD record.
-#   xedit: the BPTD definition of wbDefinitionsSF1.pas at the pinned revision (L10452-L10529)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# The 14 official ESMs hold 27 BPTD records; the bptd_types scan in
+# crates/esm/tests/bptd_types.rs checks this definition against them (corpus evidence
+# lines below).
 signature = "BPTD"
 name = "BodyPartData"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10452-L10529",
-]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10452-L10527"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
@@ -36,22 +34,111 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
+group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: BPTN in the official BPTD records are lstrings (lane E's table, edit::lstrings)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+group_ref = "Model"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10452-L10529",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10455-L10455",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
 ]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+note = "generic model"
+
+[[member]]
+group = "BodyPart"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10456-L10525"]
+note = "the body parts; the first member is not required upstream"
 
 [[member.member]]
 sig = "BPTN"
 name = "PartName"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10458-L10458"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10458-L10458",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official BPTD records every BPTN is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member.member]]
+sig = "BPNN"
+name = "PartNode"
+type = "zstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10459-L10459"]
+
+[[member.member]]
+sig = "BPNT"
+name = "VatsTarget"
+type = "zstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10460-L10460"]
+
+[[member.member]]
+sig = "BPD2"
+name = "Data"
+type = "struct"
+size = 34
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10461-L10513"]
+field = [
+  { name = "DamageMult", type = "f32" },
+  { name = "Flags", type = "flags", base = "u8", bits = [["Severable", 0x1], ["HitReaction", 0x2], ["HitReactionDefault", 0x4], ["Explodable", 0x8], ["CutMeatCapSever", 0x10], ["OnCripple", 0x20], ["ExplodableAbsoluteChance", 0x40], ["ShowCrippleGeometry", 0x80]] },
+  { name = "PartType", type = "enum", base = "u8", values = [["Torso", 0], ["Head1", 1], ["Eye", 2], ["LookAt", 3], ["FlyGrab", 4], ["Head2", 5], ["LeftArm1", 6], ["LeftArm2", 7], ["RightArm1", 8], ["RightArm2", 9], ["LeftLeg1", 10], ["LeftLeg2", 11], ["LeftLeg3", 12], ["RightLeg1", 13], ["RightLeg2", 14], ["RightLeg3", 15], ["Brain", 16], ["Weapon", 17], ["Root", 18], ["COM", 19], ["Pelvis", 20], ["Camera", 21], ["OffsetRoot", 22], ["LeftFoot", 23], ["RightFoot", 24], ["FaceTargetSource", 25]] },
+  { name = "HealthPercent", type = "u8" },
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "ToHitChance", type = "u8" },
+  { name = "OnCrippleArtObject", type = "formid", targets = ["ARTO"] },
+  { name = "OnCrippleDebris", type = "formid", targets = ["DEBR"] },
+  { name = "OnCrippleExplosion", type = "formid", targets = ["EXPL"] },
+  { name = "OnCrippleImpactDataSet", type = "formid", targets = ["IPDS"] },
+  { name = "OnCrippleDebrisScale", type = "f32" },
+  { name = "OnCrippleDebrisCount", type = "u8" },
+  { name = "OnCrippleDecalCount", type = "u8" },
+]
+
+[[member.member]]
+sig = "NAM4"
+name = "GoreTargetBone"
+type = "zstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10514-L10514"]
+
+[[member.member]]
+sig = "ENAM"
+name = "HitReactionStart"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10515-L10515"]
+
+[[member.member]]
+sig = "FNAM"
+name = "HitReactionEnd"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10516-L10516"]
+
+[[member.member]]
+sig = "INAM"
+name = "GoreBloodImpactMaterial"
+type = "formid"
+targets = ["MATT"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10517-L10517"]
+
+[[member.member]]
+sig = "JNAM"
+name = "OnCrippleBloodImpactMaterial"
+type = "formid"
+targets = ["MATT"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10518-L10518"]
+confidence = "reference"
+note = "not present in the official BPTD records"
+
+[[member.member]]
+sig = "DNAM"
+name = "TwistVariablePrefix"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10519-L10519"]

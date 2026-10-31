@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    259,752 |   784,422 |  35,665 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,815,273 | 2,861,915 | 742,373 |
+| container/other |          123 |         118 |   252,710 |    261,444 |   784,422 |  33,973 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,816,965 | 2,861,915 | 740,681 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 95:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:900e9730925cb58c` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:fd4df851b8135406` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -200,7 +200,7 @@ Columns:
 | `GPOF`        | GameplayOption                 |        31 |          0 |    11 |     5 |      0 |       6 |
 | `STAG`        | AnimationSoundTagSet           |        30 |          0 |     4 |     1 |      3 |       0 |
 | `CURV`        | CurveTable                     |        29 |          0 |     2 |     1 |      1 |       0 |
-| `BPTD`        | BodyPartData                   |        27 |          0 |    12 |     2 |      0 |      10 |
+| `BPTD`        | BodyPartData                   |        27 |          0 |    12 |    12 |      0 |       0 |
 | `LENS`        | LensFlare                      |        26 |          0 |     9 |     1 |      8 |       0 |
 | `EQUP`        | EquipType                      |        25 |          0 |     4 |     1 |      3 |       0 |
 | `TRAV`        | Traversal                      |        23 |          0 |     2 |     2 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,018 |    529 |     250 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,028 |    529 |     240 |
 
-Subrecord occurrences: 50,419,561 in total; 46,815,273 typed (0 of them failed to decode), 2,861,915 opaque, 742,373 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,816,965 typed (0 of them failed to decode), 2,861,915 opaque, 740,681 unknown.
 
 ## Decoded through the definitions
 
@@ -397,7 +397,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GPOF`    | GameplayOption                 |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |            30 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
 | `CURV`    | CurveTable                     |            29 |         29 |      0 |         0 |         0 |                   0 |         29 |       0 |        0 |
-| `BPTD`    | BodyPartData                   |            27 |        260 |      0 |         0 |         0 |                   0 |        260 |       0 |        0 |
+| `BPTD`    | BodyPartData                   |            27 |      1,952 |      0 |         0 |     1,638 |                   0 |        314 |       0 |        0 |
 | `LENS`    | LensFlare                      |            26 |         26 |      0 |         0 |         0 |                   0 |         26 |       0 |        0 |
 | `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
 | `TRAV`    | Traversal                      |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,815,273 |      0 |         0 |    20,408 |                   0 | 46,794,865 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,816,965 |      0 |         0 |    22,046 |                   0 | 46,794,919 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -484,7 +484,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `BMOD`    | BoneModifier                   |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `BNDS`    | BendableSplineForm             |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `BOOK`    | Book                           |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
-| `BPTD`    | BodyPartData                   |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `BPTD`    | BodyPartData                   |             49 |    46 |      3 |        10 |                   0 |     39 |       0 |        0 |
 | `CAMS`    | CameraShot                     |              9 |     3 |      6 |         0 |                   0 |      9 |       0 |        0 |
 | `CELL`    | Cell                           |             66 |    61 |      5 |         4 |                   0 |     62 |       0 |        0 |
 | `CHAL`    | Challenge                      |             34 |    31 |      3 |         0 |                   0 |     34 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,651 | 4,839 |    812 |       373 |                   2 |  5,276 |       0 |        0 |
+| **Total** |                                |          5,698 | 4,883 |    815 |       383 |                   2 |  5,313 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -686,7 +686,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `FXPD`: `MNAM` (871), `MWGT` (871)
 - `GPOF`: `GPOD` (31), `TNAM` (31), `VNAM` (31), `VORN` (144), `VORV` (144), `WNAM` (31)
-- `BPTD`: `BPD2` (233), `BPNN` (233), `BPNT` (233), `DNAM` (233), `ENAM` (233), `FLLD` (27), `FNAM` (233), `INAM` (7), `MODL` (27), `NAM4` (233)
 - `TODD`: `KSIZ` (8), `KWDA` (8)
 - `DMGT`: `DNAM` (11)
 - `CHAL`: `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `DESC` (18), `FULL` (18)
