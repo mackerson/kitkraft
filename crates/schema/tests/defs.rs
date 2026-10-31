@@ -589,7 +589,7 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
 /// actor family; ACTI, CONT, FLOR, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
-/// items/workshop family). IRES, LSCR and MESG became M4.BX2 inventories
+/// items/workshop family). LSCR and MESG became M4.BX2 inventories
 /// ([`BX2_INVENTORY`]).
 #[rustfmt::skip]
 const LSTRING_ONLY: &[&str] = &[
@@ -644,7 +644,6 @@ const BX2_INVENTORY: &[&str] = &[
     "IMAD",
     "IMGS",
     "IPDS",
-    "IRES",
     "KSSM",
     "LAYR",
     "LENS",

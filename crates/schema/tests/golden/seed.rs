@@ -37679,6 +37679,84 @@ impl IpdsRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IresRarity {
+    Common,
+    Uncommon,
+    Rare,
+    Exotic,
+    Unique,
+    Special,
+    Everywhere,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl IresRarity {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Common,
+            1 => Self::Uncommon,
+            2 => Self::Rare,
+            3 => Self::Exotic,
+            4 => Self::Unique,
+            5 => Self::Special,
+            6 => Self::Everywhere,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Common => 0,
+            Self::Uncommon => 1,
+            Self::Rare => 2,
+            Self::Exotic => 3,
+            Self::Unique => 4,
+            Self::Special => 5,
+            Self::Everywhere => 6,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for IresRarity {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for IresRarity {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IresChildResources(pub Vec<FormId>);
+
+impl Field for IresChildResources {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for IresChildResources {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct IresRecord {
     /// `EDID`, required.
@@ -37688,25 +37766,25 @@ pub struct IresRecord {
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `CUSH`, optional.
-    pub cush: Option<Sub<Bytes>>,
+    pub crafting_sound: Option<Sub<Bytes>>,
     /// `FNAM`, optional.
-    pub fnam: Option<Sub<Bytes>>,
+    pub surface_item: Option<Sub<FormId>>,
     /// `SNAM`, required.
-    pub snam: Option<Sub<Bytes>>,
+    pub rarity: Option<Sub<IresRarity>>,
     /// `CNAM`, repeated.
-    pub cnam: Vec<Sub<Bytes>>,
+    pub child_resources: Vec<Sub<IresChildResources>>,
     /// `TINC`, required.
-    pub tinc: Option<Sub<Bytes>>,
+    pub surface_color: Option<Sub<ColorRgb>>,
     /// `NNAM`, optional.
     pub short_name: Option<Sub<LString>>,
     /// `GNAM`, optional.
-    pub gnam: Option<Sub<Bytes>>,
+    pub art_name: Option<Sub<Bytes>>,
     /// `NAM1`, required.
-    pub nam1: Option<Sub<Bytes>>,
+    pub resource_av: Option<Sub<FormId>>,
     /// `NAM2`, required.
-    pub nam2: Option<Sub<Bytes>>,
+    pub resource_item: Option<Sub<FormId>>,
     /// `NAM3`, required.
-    pub nam3: Option<Sub<Bytes>>,
+    pub production_interval: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -37791,36 +37869,66 @@ impl IresRecord {
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.cush, subs, *index, "IRES.CUSH", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.fnam, subs, *index, "IRES.FNAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.crafting_sound,
+                    subs,
+                    *index,
+                    "IRES.CUSH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.surface_item,
+                    subs,
+                    *index,
+                    "IRES.FNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.snam, subs, *index, "IRES.SNAM", ctx, extra)
+                    put(&mut self.rarity, subs, *index, "IRES.SNAM", ctx, extra)
                 }
-                Hit::Sub { member: 6, index } => {
-                    push(&mut self.cnam, subs, *index, "IRES.CNAM", ctx, extra)
-                }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.tinc, subs, *index, "IRES.TINC", ctx, extra)
-                }
+                Hit::Sub { member: 6, index } => push(
+                    &mut self.child_resources,
+                    subs,
+                    *index,
+                    "IRES.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.surface_color,
+                    subs,
+                    *index,
+                    "IRES.TINC",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 8, index } => {
                     put(&mut self.short_name, subs, *index, "IRES.NNAM", ctx, extra)
                 }
                 Hit::Sub { member: 9, index } => {
-                    put(&mut self.gnam, subs, *index, "IRES.GNAM", ctx, extra)
+                    put(&mut self.art_name, subs, *index, "IRES.GNAM", ctx, extra)
                 }
                 Hit::Sub { member: 10, index } => {
-                    put(&mut self.nam1, subs, *index, "IRES.NAM1", ctx, extra)
+                    put(&mut self.resource_av, subs, *index, "IRES.NAM1", ctx, extra)
                 }
-                Hit::Sub { member: 11, index } => {
-                    put(&mut self.nam2, subs, *index, "IRES.NAM2", ctx, extra)
-                }
-                Hit::Sub { member: 12, index } => {
-                    put(&mut self.nam3, subs, *index, "IRES.NAM3", ctx, extra)
-                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.resource_item,
+                    subs,
+                    *index,
+                    "IRES.NAM2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.production_interval,
+                    subs,
+                    *index,
+                    "IRES.NAM3",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -37832,28 +37940,38 @@ impl IresRecord {
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"CUSH", self.cush.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"SNAM", self.snam.as_ref());
-        for value in &self.cnam {
+        emit(out, *b"CUSH", self.crafting_sound.as_ref());
+        emit(out, *b"FNAM", self.surface_item.as_ref());
+        emit(out, *b"SNAM", self.rarity.as_ref());
+        for value in &self.child_resources {
             emit(out, *b"CNAM", Some(value));
         }
-        emit(out, *b"TINC", self.tinc.as_ref());
+        emit(out, *b"TINC", self.surface_color.as_ref());
         emit(out, *b"NNAM", self.short_name.as_ref());
-        emit(out, *b"GNAM", self.gnam.as_ref());
-        emit(out, *b"NAM1", self.nam1.as_ref());
-        emit(out, *b"NAM2", self.nam2.as_ref());
-        emit(out, *b"NAM3", self.nam3.as_ref());
+        emit(out, *b"GNAM", self.art_name.as_ref());
+        emit(out, *b"NAM1", self.resource_av.as_ref());
+        emit(out, *b"NAM2", self.resource_item.as_ref());
+        emit(out, *b"NAM3", self.production_interval.as_ref());
     }
 }
 
 impl Visit for IresRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.keywords, "IRES.Keywords", out);
+        visit_form_ids(&self.surface_item, "IRES.FNAM", out);
+        visit_form_ids(&self.child_resources, "IRES.CNAM", out);
+        visit_form_ids(&self.resource_av, "IRES.NAM1", out);
+        visit_form_ids(&self.resource_item, "IRES.NAM2", out);
+        visit_form_ids(&self.production_interval, "IRES.NAM3", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.keywords, "IRES.Keywords", out);
+        visit_form_ids_mut(&mut self.surface_item, "IRES.FNAM", out);
+        visit_form_ids_mut(&mut self.child_resources, "IRES.CNAM", out);
+        visit_form_ids_mut(&mut self.resource_av, "IRES.NAM1", out);
+        visit_form_ids_mut(&mut self.resource_item, "IRES.NAM2", out);
+        visit_form_ids_mut(&mut self.production_interval, "IRES.NAM3", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
