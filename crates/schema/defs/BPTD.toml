@@ -6,22 +6,33 @@
 # Sources (ADR 0004, ADR 0005):
 #   xedit: the BPTD definition of wbDefinitionsSF1.pas at the pinned revision,
 #     L10452-L10527 - member order: EDID (L10453), the base form components (L10454,
-#     L5984-L6832), the generic model (L10455, L7008-L7029) and the body-parts array
-#     (L10456-L10525). Each part is a struct (L10457-L10520) whose first member is not
-#     required (L10524): the part name lstring (L10458), the part node and VATS target
-#     strings (L10459-L10460), the data block (L10461-L10513), the gore target bone and
-#     the hit-reaction strings (L10514-L10516), the two blood-impact material references
-#     (L10517-L10518) and the twist-variable prefix (L10519).
+#     L5984-L6832, common/BfcbBlock.toml), the generic model (L10455, L7008-L7029,
+#     common/Model.toml) and the body-parts array (L10456-L10525). Each part is a struct
+#     (L10457-L10520) whose first member is not required (L10524): the part name lstring
+#     (L10458), the part node and VATS target strings (L10459-L10460), the data block
+#     (L10461-L10513), the gore target bone and the hit-reaction strings
+#     (L10514-L10516), the two blood-impact material references (L10517-L10518) and the
+#     twist-variable prefix (L10519).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   corpus: the 27 BPTD records of the 14 official ESMs (crates/esm/tests/bptd_types.rs,
+#     bptd_types_full, 2026-10-31): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, the model's MODL and FLLD, and the part
+#     members BPTN, BPNN, BPNT, BPD2, NAM4, ENAM, FNAM and DNAM are in all 27; INAM in 3
+#     and JNAM in none; the base form components and the model's MOLM, MODC and XFLG are
+#     absent from all 27.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): BPTN is an lstring in every official BPTD record.
 #
-# The 14 official ESMs hold 27 BPTD records; the bptd_types scan in
-# crates/esm/tests/bptd_types.rs checks this definition against them (corpus evidence
-# lines below).
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "BPTD"
 name = "BodyPartData"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10452-L10527"
-confidence = "reference"
+evidence = [
+  "corpus: bptd_types_full (crates/esm/tests/bptd_types.rs), 2026-10-31: in all 27 official BPTD records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: BPTN is an lstring in every official BPTD record",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -37,7 +48,8 @@ confidence = "corpus"
 group_ref = "BfcbBlock"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-note = "base form components"
+confidence = "reference"
+note = "base form components; not present in the official BPTD records"
 
 [[member]]
 group_ref = "Model"
@@ -45,13 +57,13 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10455-L10455",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
 ]
-note = "generic model"
+note = "in all 27 official BPTD records (MODL and FLLD in all, MOLM, MODC and XFLG in none)"
 
 [[member]]
 group = "BodyPart"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10456-L10525"]
-note = "the body parts; the first member is not required upstream"
+note = "in all 27 official BPTD records; the first member is not required upstream"
 
 [[member.member]]
 sig = "BPTN"
@@ -69,12 +81,14 @@ sig = "BPNN"
 name = "PartNode"
 type = "zstring"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10459-L10459"]
+note = "in all 27 official BPTD records"
 
 [[member.member]]
 sig = "BPNT"
 name = "VatsTarget"
 type = "zstring"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10460-L10460"]
+note = "in all 27 official BPTD records"
 
 [[member.member]]
 sig = "BPD2"
@@ -82,6 +96,7 @@ name = "Data"
 type = "struct"
 size = 34
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10461-L10513"]
+note = "in all 27 official BPTD records"
 field = [
   { name = "DamageMult", type = "f32" },
   { name = "Flags", type = "flags", base = "u8", bits = [["Severable", 0x1], ["HitReaction", 0x2], ["HitReactionDefault", 0x4], ["Explodable", 0x8], ["CutMeatCapSever", 0x10], ["OnCripple", 0x20], ["ExplodableAbsoluteChance", 0x40], ["ShowCrippleGeometry", 0x80]] },
@@ -103,6 +118,7 @@ sig = "NAM4"
 name = "GoreTargetBone"
 type = "zstring"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10514-L10514"]
+note = "in all 27 official BPTD records"
 
 [[member.member]]
 sig = "ENAM"
@@ -110,6 +126,7 @@ name = "HitReactionStart"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10515-L10515"]
+note = "in all 27 official BPTD records"
 
 [[member.member]]
 sig = "FNAM"
@@ -117,6 +134,7 @@ name = "HitReactionEnd"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10516-L10516"]
+note = "in all 27 official BPTD records"
 
 [[member.member]]
 sig = "INAM"
@@ -125,6 +143,7 @@ type = "formid"
 targets = ["MATT"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10517-L10517"]
+note = "in 3 of the 27 official BPTD records"
 
 [[member.member]]
 sig = "JNAM"
@@ -134,7 +153,7 @@ targets = ["MATT"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10518-L10518"]
 confidence = "reference"
-note = "not present in the official BPTD records"
+note = "absent from all 27 official BPTD records"
 
 [[member.member]]
 sig = "DNAM"
@@ -142,3 +161,4 @@ name = "TwistVariablePrefix"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10519-L10519"]
+note = "in all 27 official BPTD records"
