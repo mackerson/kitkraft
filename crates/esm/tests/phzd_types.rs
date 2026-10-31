@@ -105,7 +105,8 @@ fn check_record(
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
@@ -136,7 +137,10 @@ fn check_file(path: &Path, stats: &mut BTreeMap<String, TypeStats>) {
 
 fn report(stats: &BTreeMap<String, TypeStats>) {
     for (ty, t) in stats {
-        println!("phzd {ty}: {} records, {} identical", t.records, t.identical);
+        println!(
+            "phzd {ty}: {} records, {} identical",
+            t.records, t.identical
+        );
         if !t.unplaced.is_empty() || !t.failed.is_empty() {
             println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
         }
