@@ -43,10 +43,20 @@ it. Paid usage is limited to the check-ins and the review before a merge.
    could not verify. `VERDICT: CHANGES` sends its notes back to the agent and regrades 15 minutes
    later, at most twice. `VERDICT: ACCEPT` ends the run. If the run ends with the checks passing
    but no accepted QA, a last QA is written for the merge review.
+   QA also runs when every acceptance command and the gate pass and only `scope` fails. It is
+   given the paths outside `owns` and says which are generator output, harness artifacts or real
+   overreach; it asks the agent only to revert real overreach. Scope is the merge's decision.
+   A queue picks and runs its tickets from a snapshot of `main`'s `plan/tickets/` taken when it
+   starts, the same commit its code comes from. A ticket edited mid-queue takes effect at the
+   next queue.
 3. Check on it with `overnight status`, or stop it with `overnight stop`. The final grade still
    runs after a stop.
 4. Results land in `F:\AI\Scripts\overnight\runs\kk-KK-001-<date-time>\`, one folder per ticket:
-   - `KK-001.bundle`: the agent's commits on branch `ticket/KK-001`.
+   - `KK-001.bundle`: the agent's commits on branch `ticket/KK-001`. Work left uncommitted at the
+     end is committed by the harness as `fixup! <the run's last commit>`, for the merge to fold
+     in with `git rebase -i --autosquash`. That commit takes tracked files and new files under
+     `owns` only.
+   - `left-out.txt`: untracked files outside `owns` that were not committed, if there were any.
    - `scores.jsonl`: every grade.
    - `grades\<label>\`: one log per check, plus `grade.json`.
    - `checkins\`: the Opus notes. The final QA notes are `qa-<n>-min<m>.md`, ending in the
@@ -83,6 +93,13 @@ read-only:
 | `gate` | `cargo xtask ci` exits 0 on Linux. |
 
 The score is the share of checks that pass. The ticket is done when all of them pass.
+
+`scope` diffs the working tree, uncommitted edits included, against the merge-base of `main`
+and the run's HEAD. It does not diff against the ticket's recorded `base`, so a run that merges
+or rebases `main` into its WIP branch is judged only on its own changes. The recorded base
+still decides where the run starts and what its bundle spans. Untracked files outside `owns`
+are not a failure: they are removed from the grading copy, listed as warnings in `grade.json`,
+and left out of the bundle.
 
 ## What the agent can and cannot do
 

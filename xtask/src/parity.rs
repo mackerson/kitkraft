@@ -1518,9 +1518,11 @@ mod tests {
         }
         assert_eq!(family_of("WEAP"), "weapons");
         assert_eq!(family_of("TES4"), "container/other");
-        // The inventories (read from the definitions) have no family lane yet.
+        // The inventories (read from the definitions) have no family lane yet. No sample type
+        // is named: each one this assertion named (DOOR, LIGH, LAYR) broke the gate for the
+        // depth ticket that typed it, outside that ticket's owns.
         let inventory = inventory_signatures(schema);
-        assert!(inventory.iter().any(|s| s == "LAYR"), "{inventory:?}");
+        assert!(!inventory.is_empty(), "{inventory:?}");
         for sig in &inventory {
             assert_eq!(family_of(sig), "container/other", "{sig}");
         }
