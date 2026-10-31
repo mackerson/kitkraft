@@ -1,20 +1,20 @@
-# IRES: Resource, inventory definition (M4.BX2, lane B).
+# IRES: Resource, a surface resource the player can mine (ore, plants, gas and the like).
 #
 # Sources (ADR 0004, ADR 0005):
+#   xedit: the IRES definition of wbDefinitionsSF1.pas at the pinned revision (L13197-L13238):
+#     member order and the record flags, cited per member for its position and its helper.
 #   corpus: the M4.BX2 scan of every official IRES record (333 in the 14 ESMs,
 #     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the IRES definition of wbDefinitionsSF1.pas at the pinned revision (L13197-L13238),
-#     cited per member for its position where it lists the subrecord.
+#     which order and how often; every official record decodes with nothing left unplaced and
+#     re-encodes byte for byte.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
+#     group keeps its own provenance.
 #   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Transcribed from the pinned xEdit file (KK-215): EDID, the lstrings and the shared block
+# keep their earlier typing, and FNAM, SNAM, CNAM, TINC, NAM1, NAM2, NAM3, CUSH and GNAM are
+# now typed from xEdit at reference confidence. Members xEdit lists that no official record
+# has are left out; a plugin that has one keeps it raw.
 signature = "IRES"
 name = "Resource"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically"
@@ -22,7 +22,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13197-L13238",
 ]
 confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+note = "KK-215: transcribed from the pinned xEdit file; FNAM, SNAM, CNAM, TINC, NAM1, NAM2, NAM3, CUSH and GNAM are typed at reference confidence"
 
 [[member]]
 sig = "EDID"
@@ -61,63 +61,76 @@ confidence = "corpus"
 
 [[member]]
 sig = "CUSH"
-name = "Cush"
-type = "opaque"
+name = "CraftingSound"
+type = "ref:SoundReference"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 309 of 333 official IRES records (309 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13219-L13219",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "the crafting sound reference (the shared SoundReference block)"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "SurfaceItem"
+type = "formid"
+targets = ["LVLI"]
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 47 of 333 official IRES records (47 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13220-L13220",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
+name = "Rarity"
+type = "enum"
+base = "u32"
+values = [
+  ["Common", 0],
+  ["Uncommon", 1],
+  ["Rare", 2],
+  ["Exotic", 3],
+  ["Unique", 4],
+  ["Special", 5],
+  ["Everywhere", 6],
+]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 333 of 333 official IRES records (333 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13221-L13221",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13221-L13229",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
+name = "ChildResources"
+type = "array"
+element = "formid"
+targets = ["IRES"]
+count = "rest"
 card = "repeated"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 26 of 333 official IRES records (35 occurrences, up to 3 per record), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13231-L13231",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "the child list is spread over consecutive CNAM subrecords (up to three in the official ESMs)"
 
 [[member]]
 sig = "TINC"
-name = "Tinc"
-type = "opaque"
+name = "SurfaceColor"
+type = "ref:ColorRgb"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 333 of 333 official IRES records (333 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13232-L13232",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6970-L6983",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
 
 [[member]]
 sig = "NNAM"
@@ -133,48 +146,48 @@ confidence = "corpus"
 
 [[member]]
 sig = "GNAM"
-name = "Gnam"
-type = "opaque"
+name = "ArtName"
+type = "zstring"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 161 of 333 official IRES records (161 occurrences), 4..25 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13234-L13234",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "the art name (a null-terminated string)"
 
 [[member]]
 sig = "NAM1"
-name = "Nam1"
-type = "opaque"
+name = "ResourceAV"
+type = "formid"
+targets = ["AVIF"]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 333 of 333 official IRES records (333 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13235-L13235",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
 
 [[member]]
 sig = "NAM2"
-name = "Nam2"
-type = "opaque"
+name = "ResourceItem"
+type = "formid"
+targets = ["LVLI", "COBJ"]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 333 of 333 official IRES records (333 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13236-L13236",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
 
 [[member]]
 sig = "NAM3"
-name = "Nam3"
-type = "opaque"
+name = "ProductionInterval"
+type = "formid"
+targets = ["GLOB"]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 333 of 333 official IRES records (333 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13237-L13237",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"

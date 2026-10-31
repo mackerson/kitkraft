@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    273,177 |   772,689 |  33,973 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,828,698 | 2,850,182 | 740,681 |
+| container/other |          123 |         118 |   252,710 |    275,394 |   770,472 |  33,973 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,830,915 | 2,847,965 | 740,681 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:f63ab5ba580a4242` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:48e9c672e5a52338` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -143,7 +143,7 @@ Columns:
 | `EXPL`        | Explosion                      |       359 |          0 |    19 |    17 |      2 |       0 |
 | `IPDS`        | ImpactDataSet                  |       356 |          0 |     3 |     1 |      2 |       0 |
 | `KEYM`        | Key                            |       343 |          0 |    15 |    14 |      1 |       0 |
-| `IRES`        | Resource                       |       333 |          0 |    14 |     5 |      9 |       0 |
+| `IRES`        | Resource                       |       333 |          0 |    14 |    14 |      0 |       0 |
 | `IMGS`        | ImageSpaceForm                 |       303 |          0 |     4 |     1 |      3 |       0 |
 | `FLOR`        | Flora                          |       302 |          0 |    39 |    37 |      2 |       0 |
 | `PROJ`        | Projectile                     |       299 |          0 |    24 |    22 |      2 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,057 |    500 |     240 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,066 |    491 |     240 |
 
-Subrecord occurrences: 50,419,561 in total; 46,828,698 typed (0 of them failed to decode), 2,850,182 opaque, 740,681 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,830,915 typed (0 of them failed to decode), 2,847,965 opaque, 740,681 unknown.
 
 ## Decoded through the definitions
 
@@ -340,7 +340,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `EXPL`    | Explosion                      |           359 |      3,623 |      0 |         0 |         0 |                   0 |      3,623 |       0 |        0 |
 | `IPDS`    | ImpactDataSet                  |           356 |        356 |      0 |         0 |         0 |                   0 |        356 |       0 |        0 |
 | `KEYM`    | Key                            |           343 |      3,997 |      0 |         0 |         0 |                   0 |      3,997 |       0 |        0 |
-| `IRES`    | Resource                       |           333 |      1,149 |      0 |         0 |         0 |                   0 |      1,149 |       0 |        0 |
+| `IRES`    | Resource                       |           333 |      3,366 |      0 |         0 |     2,217 |                   0 |      1,149 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |           303 |        303 |      0 |         0 |         0 |                   0 |        303 |       0 |        0 |
 | `FLOR`    | Flora                          |           302 |      8,332 |      0 |         0 |         0 |                   0 |      8,332 |       0 |        0 |
 | `PROJ`    | Projectile                     |           299 |      4,421 |      0 |         0 |         0 |                   0 |      4,421 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,828,698 |      0 |         0 |    20,408 |                   0 | 46,808,290 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,830,915 |      0 |         0 |    22,625 |                   0 | 46,808,290 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -540,7 +540,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `INNR`    | InstanceNamingRules            |             42 |    38 |      4 |         1 |                   0 |     41 |       0 |        0 |
 | `IPCT`    | Impact                         |             44 |    31 |     13 |         0 |                   0 |     44 |       0 |        0 |
 | `IPDS`    | ImpactDataSet                  |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `IRES`    | Resource                       |             14 |     5 |      9 |         0 |                   0 |     14 |       0 |        0 |
+| `IRES`    | Resource                       |             14 |    14 |      0 |         9 |                   0 |      5 |       0 |        0 |
 | `KEYM`    | Key                            |             33 |    32 |      1 |        15 |                   0 |     18 |       0 |        0 |
 | `KSSM`    | SoundKeywordMapping            |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `KYWD`    | Keyword                        |             42 |    37 |      5 |         1 |                   0 |     41 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,780 | 4,986 |    794 |       391 |                   2 |  5,387 |       0 |        0 |
+| **Total** |                                |          5,780 | 4,995 |    785 |       400 |                   2 |  5,378 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
