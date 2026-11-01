@@ -228,6 +228,7 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
 | CONT | not-run | pass |
 | MISC | not-run | pass |
 | FLST | not-run | pass |
+| LVLI | not-run | pass (2026-11-01, below) |
 
 - `cont_new_sets_every_typed_member_and_reads_back`,
   `misc_new_sets_every_typed_member_and_reads_back` and
@@ -238,14 +239,22 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
   `flst_dangling_link_is_reported` (`LNAM`, `ANAM`): each link is reported by
   `validate`'s `formid.dangling` and listed as `missing` by `refs`.
 
-LVLI stays out of the list: `lvli_new_sets_every_typed_member_and_reads_back` is
-`#[ignore]`d because `new`'s member order flattens every layout group of the BFCB block,
-and the block's `PlanetContentProperties` layout is its only condition slot, so that slot
-precedes the record's top-level `Conditions` group and the entries' conditions are never
-written, a slot misalignment that is an engine fix outside this ticket; its dangling-link
-test, `lvli_dangling_link_is_reported` (`LVLO.Item`, `DEFL`, `SNBH`), passes, but a
-dangling test alone is not a typed-writable row, so LVLI has no evidence entry while the
-read-back is ignored.
+LVLI joined the list on 2026-11-01 (typed-writable `not-run` to `pass`):
+`lvli_new_sets_every_typed_member_and_reads_back` was `#[ignore]`d here because `new`'s
+member order then held every layout of the BFCB block, whose `PlanetContentProperties`
+layout has the block's only condition slot ahead of the record's top-level `Conditions`
+group, so the list's and the entries' conditions landed one slot early and the entries'
+conditions were never written. KK-220's layout-aligned slots (`new` holds only the
+layout the fields select; `FLCS` selects `ContactShadow`) fixed it; the test is
+un-ignored and passes. The rule now lives in `edit::scaffold::record_order`, which `new`
+and `set`'s `add_slots` share, and it also covers a record that selects no layout: the
+block then holds none, so a new LVLI with a list condition and an entry condition and no
+component puts each in its own group
+(`a_new_lvli_without_a_component_puts_each_condition_in_its_own_group`; before, `new`
+refused it for the missing `BFCB`; rule pinned by
+`edit::scaffold::tests::a_record_holds_only_the_component_layout_its_occurrences_select`).
+Its dangling-link test, `lvli_dangling_link_is_reported` (`LVLO.Item`, `DEFL`, `SNBH`),
+passes.
 
 ## ARMO, ARMA and OTFT (KK-021, 2026-10-27)
 

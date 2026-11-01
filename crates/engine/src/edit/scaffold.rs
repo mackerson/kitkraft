@@ -79,9 +79,64 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
 
 /// [`member_order`] in which the base form component block holds only the component
 /// layout `layout`: a record holds one component (its `BFCB` names it), and the block's
-/// other layouts are not slots of the record.
+/// other layouts are not slots of the record. An empty `layout` names none: the block
+/// keeps only its own members (`BFCB`, `BFCE`).
 pub(crate) fn member_order_of_layout(sig: [u8; 4], layout: &str) -> Vec<Slot> {
     order_in_layout(sig, Some(layout))
+}
+
+/// The slots of a record of `sig` holding `counts` occurrences of each signature: the
+/// record's own members and the slots of the component layout those occurrences select
+/// (KK-220, generalised for LVLI). A signature the record cannot place wholly in its own
+/// slots (more occurrences than it has slots outside the block's layouts, the last of
+/// them not repeating) sits in a block layout that carries it, and the layout is the
+/// intersection of those; a signature its own slots can take constrains nothing (its
+/// `k`-th occurrence is the record's `k`-th own slot), and one with no layout member
+/// names no layout.
+///
+/// - One layout left: the block holds only it ([`member_order_of_layout`]).
+/// - No signature constrains a layout: the block holds none, so no layout slot takes an
+///   occurrence (a new LVLI with a list condition and an entry condition puts them in the
+///   record's two `Conditions` groups, not the first into the PlanetContentProperties
+///   layout's).
+/// - Signatures of several layouts (the intersection is empty): every layout stays, as in
+///   [`member_order`] (a record may hold several components).
+pub(crate) fn record_order(sig: [u8; 4], counts: &BTreeMap<[u8; 4], usize>) -> Vec<Slot> {
+    let all = member_order(sig);
+    let mut layout: Option<Vec<String>> = None;
+    for (s, n) in counts {
+        let own: Vec<&Slot> = all.iter().filter(|e| e.sig == *s && !e.component).collect();
+        // The record's own slots take every occurrence: one each, the last taking the
+        // rest when it repeats (a third LVLI condition goes to the repeating Entries).
+        if *n <= own.len() || own.last().is_some_and(|e| e.repeated) {
+            continue;
+        }
+        let mut in_layouts: Vec<String> = Vec::new();
+        for e in all.iter().filter(|e| e.sig == *s && e.component) {
+            if let Some(l) = e.path.split('.').nth(1) {
+                if !in_layouts.iter().any(|x| x == l) {
+                    in_layouts.push(l.to_string());
+                }
+            }
+        }
+        if in_layouts.is_empty() {
+            continue;
+        }
+        layout = Some(match layout {
+            None => in_layouts,
+            Some(prev) => prev
+                .into_iter()
+                .filter(|l| in_layouts.iter().any(|x| x == l))
+                .collect(),
+        });
+    }
+    match layout {
+        None => member_order_of_layout(sig, ""),
+        Some(l) => match l.first() {
+            Some(one) => member_order_of_layout(sig, one),
+            None => all,
+        },
+    }
 }
 
 fn order_in_layout(sig: [u8; 4], layout: Option<&str>) -> Vec<Slot> {
@@ -453,8 +508,16 @@ pub(crate) fn add_slots(
     if !lacks {
         return Ok(Vec::new());
     }
-    let order = member_order(sig);
-    let wanted = wanted_slots(&order, edits, &have);
+    let wanted = wanted_slots(&member_order(sig), edits, &have);
+    // The record's slots: the component layout its subrecords and the added ones select,
+    // or none ([`record_order`]), so the k-th occurrence of a signature lands in the
+    // record's k-th slot of it, as `new` places it.
+    let mut counts = have.clone();
+    for (s, n) in &wanted {
+        let c = counts.entry(*s).or_insert(0);
+        *c = (*c).max(*n);
+    }
+    let order = record_order(sig, &counts);
     let mut added: Vec<(usize, Subrecord<'static>)> = Vec::new();
     for (s, n) in &wanted {
         let present = have.get(s).copied().unwrap_or(0);
@@ -592,7 +655,56 @@ pub(crate) fn add_slots(
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{member_order, member_order_of_layout, slot_of};
+    use std::collections::BTreeMap;
+
+    use super::{member_order, member_order_of_layout, record_order, slot_of};
+
+    #[test]
+    fn a_record_holds_only_the_component_layout_its_occurrences_select() {
+        let ctda = |order: &[super::Slot]| -> Vec<String> {
+            order
+                .iter()
+                .filter(|e| e.sig == *b"CTDA")
+                .map(|e| e.path.clone())
+                .collect()
+        };
+        // An LVLI with a list condition and an entry condition and nothing of a layout:
+        // the block holds none, so the two CTDAs take the record's own two groups.
+        let two: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 2)].into();
+        let order = record_order(*b"LVLI", &two);
+        assert_eq!(ctda(&order), ["Conditions.Data", "Entries.Conditions.Data"]);
+        assert_eq!(
+            slot_of(&order, *b"CTDA", 0, 2),
+            order.iter().position(|e| e.path == "Conditions.Data")
+        );
+        // FLCS lives only in the ContactShadow layout: it selects that layout.
+        let shadow: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 2), (*b"FLCS", 1)].into();
+        assert!(record_order(*b"LVLI", &shadow)
+            .iter()
+            .any(|e| e.path == "BfcbBlock.ContactShadow.ContactShadows"));
+        assert_eq!(ctda(&record_order(*b"LVLI", &shadow)).len(), 2);
+        // A third CTDA: the repeating Entries group takes the rest, so it selects no
+        // layout either.
+        let three: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 3)].into();
+        assert_eq!(
+            ctda(&record_order(*b"LVLI", &three)),
+            ["Conditions.Data", "Entries.Conditions.Data"]
+        );
+        // A layout signature selects its layout: ZNAM selects PlanetContentProperties,
+        // whose condition then comes first.
+        let pcp: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 3), (*b"ZNAM", 1)].into();
+        let order = record_order(*b"LVLI", &pcp);
+        assert_eq!(ctda(&order).len(), 3);
+        assert!(ctda(&order)
+            .first()
+            .is_some_and(|p| p.starts_with("BfcbBlock.PlanetContentProperties.")));
+        // Signatures of two layouts: every layout stays, as in `member_order`.
+        let both: BTreeMap<[u8; 4], usize> = [(*b"FLCS", 1), (*b"ZNAM", 1)].into();
+        assert_eq!(
+            record_order(*b"LVLI", &both).len(),
+            member_order(*b"LVLI").len()
+        );
+    }
 
     #[test]
     fn a_repeated_signature_counts_every_slot_of_a_repeating_group() {

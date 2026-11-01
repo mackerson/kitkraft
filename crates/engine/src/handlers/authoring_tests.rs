@@ -1,10 +1,10 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
-//! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
-//! read-back and the two WRLD tests are ignored), CONT, MISC, FLST and LVLI (KK-017,
-//! 2026-10-27; the LVLI read-back is ignored) and ARMO, ARMA and OTFT (KK-021,
-//! 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable evidence of
-//! `docs/schema/evidence.toml`).
+//! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
+//! WRLD tests are ignored), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and ARMO, ARMA
+//! and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable
+//! evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored,
+//! pass since KK-220 (scaffold.rs `record_order`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
 //! from scratch with `new` on the synthetic load order of the `set` tests (`Source.esm`
@@ -611,17 +611,16 @@ fn otft_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
-// `new`'s member order flattens every layout group of the BFCB block, and the block's
-// PlanetContentProperties layout is its only condition slot (common/BfcbBlock.toml), so
-// that slot precedes the record's top-level Conditions group. This plan numbers the
-// condition occurrences by walking the definition with only the chosen layout's members
-// in the block (ContactShadow: FLCS): occurrence 0 the top-level group, occurrence 1 the
-// Entries' group. The engine writes them one slot early — occurrence 0 into the block
-// (the matcher places it at `BfcbBlock.PlanetContentProperties.Conditions.*`) and
-// occurrence 1 into the top-level group — and never writes the entries' conditions.
-// Aligning `new`'s block slots with the chosen component layout is the engine fix,
-// outside this ticket.
-#[ignore = "LVLI: members not written: [\"Entries.Conditions.Data\", \"Entries.Conditions.StringParameter1\", \"Entries.Conditions.StringParameter2\"]"]
+// The BFCB block's PlanetContentProperties layout has the block's only condition slot
+// (common/BfcbBlock.toml), and it precedes the record's top-level Conditions group. This
+// plan numbers the condition occurrences with only the chosen layout's members in the
+// block (ContactShadow: FLCS): occurrence 0 the top-level group, occurrence 1 the Entries'
+// group. It was ignored (KK-017) because `new` once held the block's slots of every
+// layout, so both landed one slot early (occurrence 0 in the block's layout, 1 in the
+// top-level group) and the entries' conditions were never written. KK-220's fix (`new`
+// holds only the layout the fields select: FLCS selects ContactShadow) already aligned
+// them; scaffold.rs `record_order` now carries the rule, and a record that selects no
+// layout holds none (`a_new_lvli_without_a_component_puts_each_condition_in_its_own_group`).
 #[test]
 fn lvli_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
@@ -1242,5 +1241,46 @@ fn undecodable_arrays_are_validate_errors() {
             assert!(message.contains(w), "{sig} {sub}: `{w}` not in {message}");
         }
     }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// A new LVLI with no base form component: its two conditions are the list's and the
+/// entry's, in the record's two `Conditions` groups. The block's PlanetContentProperties
+/// layout has a condition slot that precedes both, but a record that names nothing of a
+/// layout holds none, so no layout slot takes an occurrence (scaffold.rs `record_order`);
+/// before, `CTDA[0]` mapped into that layout and `new` refused it for the missing `BFCB`.
+#[test]
+fn a_new_lvli_without_a_component_puts_each_condition_in_its_own_group() {
+    let d = dir("authoring-lvli-no-component");
+    let mut fields = Map::new();
+    fields.insert("CTDA".into(), json!(hex(&[0u8; 32])));
+    fields.insert("CTDA[1]".into(), json!(hex(&[0u8; 32])));
+    fields.insert("LVLO".into(), json!(hex(&[0u8; 12])));
+    fields.insert("LLCT".into(), json!(hex(&[1u8])));
+    let r = new_record(&d, "LVLI", "KC_NoComponent", &fields);
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let bytes = std::fs::read(d.join("New.esp")).unwrap();
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let record = find_record(plugin.entries(), "LVLI").unwrap();
+    let subs = record.subrecords().unwrap();
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+    assert!(!sigs.contains(b"BFCB"), "{sigs:?}");
+    let schema = kitkraft_schema::builtin().unwrap();
+    let placed = typed::placements(schema, *b"LVLI", &sigs).unwrap();
+    let ctda: Vec<String> = sigs
+        .iter()
+        .zip(&placed)
+        .filter(|(s, _)| *s == b"CTDA")
+        .map(|(_, p)| match p {
+            Placement::Member { path, .. } => path.clone(),
+            other => panic!("CTDA not placed: {other:?}"),
+        })
+        .collect();
+    assert_eq!(ctda, ["Conditions.Data", "Entries.Conditions.Data"]);
     let _ = std::fs::remove_dir_all(&d);
 }
