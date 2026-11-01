@@ -20,7 +20,9 @@
 //!
 //! Verdicts are exactly `not-run`, `pass`, `fail` and `inconclusive`, each but `pass`
 //! with a reason. **Missing evidence is `inconclusive`, never `pass`:** no output to
-//! match, no number in it, a log that was not written, a screenshot not taken.
+//! match, no number in it, a log that was not written, a screenshot not taken. **A console
+//! failure line in any step's answer ([`console_failure`]) makes the row `fail`**, naming
+//! the step and the line, whatever the later matchers say.
 
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -353,6 +355,48 @@ pub fn judge(step: &Step, output: Option<&str>, papyrus: Option<&str>) -> Verdic
     }
 }
 
+/// The console's failure lines (game-20261101-T1 rows i to l, 2026-11-01-T03): a form
+/// the parameter does not resolve, a command that does not exist, a save that is not
+/// there. ASCII case ignored.
+const FAILURE_LINES: &str = concat!(
+    r#"(?i)(item\s+'[^'\r\n]*'\s+not\s+found\s+for\s+parameter[^\r\n]*"#,
+    r#"|script\s+command\s+"[^"\r\n]*"\s+not\s+found[^\r\n]*"#,
+    r#"|save\s+file\s+not\s+found[^\r\n]*)"#
+);
+
+/// The first console failure line in the answer `output` to `command`, trimmed: `Item
+/// 'X' not found for parameter ObjectReferenceID.`, `Script command "x" not found.`,
+/// `Save file not found.`. The command's own text (its echo and the `Command: <command>`
+/// line) is taken out first, so a command that spells such words is never read as its
+/// failure. A step whose answer has one failed, whatever its matcher says: a `load` that
+/// found no save leaves the game where it was, and a later getter would pass on the old
+/// state (2026-11-01-T03, row T-05).
+pub fn console_failure(command: &str, output: &str) -> Option<String> {
+    let re = Regex::new(FAILURE_LINES).ok()?;
+    let command = command.trim();
+    output.lines().find_map(|line| {
+        // Where the command's text is in the line: a match starting there is the echo.
+        let echoes: Vec<(usize, usize)> = if command.is_empty() {
+            Vec::new()
+        } else {
+            line.match_indices(command)
+                .filter_map(|(at, c)| Some((at, at.checked_add(c.len())?)))
+                .collect()
+        };
+        let mut from = 0;
+        while let Some(m) = re.find_at(line, from) {
+            match echoes
+                .iter()
+                .find(|(a, b)| *a <= m.start() && m.start() < *b)
+            {
+                Some((_, end)) => from = *end,
+                None => return Some(m.as_str().trim().to_string()),
+            }
+        }
+        None
+    })
+}
+
 /// The number a console getter answered: the one right after the last `>>` in `text`
 /// (`GetPos: X >> -17.00`). An answer without `>>` (only the echo, an error) has none, so
 /// a digit of the echoed command (`player.moveto 06001000`) is never read as the answer.
@@ -531,6 +575,48 @@ mod tests {
         bad_regex.probes[0].steps[1].matcher = Some(Matcher::Regex);
         bad_regex.probes[0].steps[1].expected = Some("(".into());
         assert!(bad_regex.check().is_err());
+    }
+
+    #[test]
+    fn console_failure_lines_are_found_and_the_echo_is_not() {
+        // The observed shapes (game-20261101-T1 rows i, k, l; 2026-11-01-T03 row T-05).
+        let load = "load KitKraftSession-20261101-03\nCommand: load KitKraftSession-20261101-03\nSave file not found.\n";
+        assert_eq!(
+            console_failure("load KitKraftSession-20261101-03", load).as_deref(),
+            Some("Save file not found.")
+        );
+        let prid = "prid KitKraftFirstPOICrate\nCommand: prid KitKraftFirstPOICrate\nItem 'KitKraftFirstPOICrate' not found for parameter ObjectReferenceID.\n";
+        assert_eq!(
+            console_failure("prid KitKraftFirstPOICrate", prid).as_deref(),
+            Some("Item 'KitKraftFirstPOICrate' not found for parameter ObjectReferenceID.")
+        );
+        let missing = "isdisabled\nCommand: isdisabled\nScript command \"isdisabled\" not found.";
+        assert_eq!(
+            console_failure("isdisabled", missing).as_deref(),
+            Some("Script command \"isdisabled\" not found.")
+        );
+        // On one line (the clipped form) too.
+        assert_eq!(
+            console_failure("load S", "load S Command: load S Save file not found.").as_deref(),
+            Some("Save file not found.")
+        );
+        // Answers without one.
+        let ok =
+            "player.getincell 0006BB29\nCommand: player.getincell 0006BB29\nGetInCell >> 1.00\n";
+        assert_eq!(console_failure("player.getincell 0006BB29", ok), None);
+        assert_eq!(console_failure("save S", "save S\nCommand: save S\n"), None);
+        assert_eq!(console_failure("getpos x", ""), None);
+        // A command that spells the words is not its own failure.
+        let odd = "help save file not found\nCommand: help save file not found\n";
+        assert_eq!(console_failure("help save file not found", odd), None);
+        assert_eq!(
+            console_failure(
+                "help save file not found",
+                "help save file not found Command: help save file not found Save file not found."
+            )
+            .as_deref(),
+            Some("Save file not found.")
+        );
     }
 
     #[test]

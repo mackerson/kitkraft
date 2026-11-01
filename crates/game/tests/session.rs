@@ -424,6 +424,83 @@ fn an_endpoint_that_never_answers_leaves_every_row_not_run() {
     std::fs::remove_dir_all(&f.root).unwrap();
 }
 
+/// 2026-11-01-T03, row T-05: `load` answered "Save file not found." (sent before the save
+/// was written) and the later getter passed on the state the load never left. A console
+/// failure line fails the row, naming the step, whatever the later matchers say.
+#[test]
+fn a_console_failure_line_fails_the_row_whatever_the_later_matchers_say() {
+    let f = fixture("notfound");
+    let c = console();
+    c.answer(
+        "load KitKraftSession-",
+        "load KitKraftSession-20261016-01\nCommand: load KitKraftSession-20261016-01\nSave file not found.\n",
+    );
+    c.answer(
+        "prid KitKraftCrate",
+        "prid KitKraftCrate\nCommand: prid KitKraftCrate\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.\n",
+    );
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T11");
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    // T-02: `prid` is step 1, the getpos after it still "passes".
+    assert_eq!(
+        v[1],
+        "fail (step 1 `prid KitKraftCrate`: the console answered `Item 'KitKraftCrate' not found for parameter ObjectReferenceID.`)"
+    );
+    // T-04: the load is step 3; the first failure is named, not the later prid.
+    assert_eq!(
+        v[3],
+        "fail (step 3 `load KitKraftSession-20261016-01`: the console answered `Save file not found.`)"
+    );
+    // Every step still ran (the evidence is kept).
+    assert!(
+        report.rows[3].seen.contains("getpos x -> "),
+        "{}",
+        report.rows[3].seen
+    );
+    // A missing command fails a row that has no matcher on that step.
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T12");
+    c.answer(
+        "isdisabled",
+        "isdisabled\nCommand: isdisabled\nScript command \"isdisabled\" not found.",
+    );
+    p.probes.probes = vec![probe(
+        "T-01",
+        false,
+        vec![
+            step("isdisabled", None, "", None),
+            step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5)),
+        ],
+    )];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    assert_eq!(
+        verdicts(&report.rows),
+        ["fail (step 1 `isdisabled`: the console answered `Script command \"isdisabled\" not found.`)"]
+    );
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+/// A base save the game does not find leaves the game at the main menu: no row runs.
+#[test]
+fn a_base_save_not_found_leaves_every_row_not_run() {
+    let f = fixture("nobase");
+    let c = console();
+    c.answer(
+        "load KitKraftBase",
+        "load KitKraftBase\nCommand: load KitKraftBase\nSave file not found.\n",
+    );
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T13");
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    assert!(
+        report.rows.iter().all(|r| matches!(&r.verdict,
+            Verdict::NotRun(w) if w.contains("the base save did not load") && w.contains("Save file not found."))),
+        "{:?}",
+        verdicts(&report.rows)
+    );
+    assert!(!c.received().iter().any(|s| s.starts_with("help ")));
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
 #[test]
 fn saves_and_loads_outside_the_session_names_are_refused() {
     let f = fixture("refuse");

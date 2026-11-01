@@ -10,6 +10,10 @@
 //! restore any that changed (the session is then `inconclusive`); append the ledger
 //! entry; write `report.json`. Every write goes through [`Authorized`].
 //!
+//! A step whose answer has a console failure line (`Item '...' not found for parameter`,
+//! `Script command "..." not found`, `Save file not found`: [`console_failure`]) makes
+//! its row `fail`, naming the step and the line, whatever the later matchers say; a base
+//! save the game does not find leaves every row `not-run`.
 //! A probe that times out is `inconclusive (timeout ...)`, the rows after it are
 //! `not-run (timeout at row X)`, and the game is ended. `game.stop` makes the remaining
 //! rows `not-run (stopped before row X)`. A `save` or `load` to a name the session does not
@@ -32,7 +36,7 @@ use crate::backup::{self, Backup, Change, Digest};
 use crate::console::{Console, ConsoleError};
 use crate::host::{is_running, Host, Launched};
 use crate::ledger::{self, Entry, RowReport};
-use crate::probes::{clip, judge, Probe, ProbeFile, Verdict};
+use crate::probes::{clip, console_failure, judge, Probe, ProbeFile, Verdict};
 use crate::profile::{fill, GameProfile, Timeouts};
 
 /// Commands the controller never sends: a batch file would bypass the save rules, and the
@@ -169,6 +173,10 @@ impl Plan {
         }
         None
     }
+}
+
+fn is_timeout(v: &Verdict) -> bool {
+    matches!(v, Verdict::Inconclusive(why) if why.starts_with("timeout"))
 }
 
 fn first_word(s: &str) -> String {
@@ -513,7 +521,8 @@ impl Run<'_> {
         }
     }
 
-    fn run_probe(&mut self, probe: &Probe, screenshot: bool) -> RowReport {
+    /// One row's report, and whether it timed out (the session then ends).
+    fn run_probe(&mut self, probe: &Probe, screenshot: bool) -> (RowReport, bool) {
         let expected: Vec<String> = probe
             .steps
             .iter()
@@ -556,13 +565,17 @@ impl Run<'_> {
             } else {
                 Verdict::NotRun(format!("manual: {reason}"))
             };
-            return report;
+            return (report, false);
         }
         let deadline = secs(self.plan.timeouts.probe_secs).min(self.budget_left());
         let started = Instant::now();
         let mut verdicts = Vec::new();
         let mut seen = Vec::new();
-        for step in &probe.steps {
+        // The first console failure line in any step's answer: the row's verdict, whatever
+        // the later matchers say (2026-11-01-T03: a `load` that found no save, then a
+        // getter that passed on the state the load never left).
+        let mut failed: Option<Verdict> = None;
+        for (n, step) in probe.steps.iter().enumerate() {
             let cmd = self.plan.fill(&step.command);
             if cmd.trim().is_empty() {
                 verdicts.push(judge(step, None, self.papyrus_text().as_deref()));
@@ -584,7 +597,18 @@ impl Run<'_> {
             match self.deps.console.run(&cmd, left) {
                 Ok(out) => {
                     seen.push(format!("{cmd} -> {}", clip(&out, 120)));
-                    if first_word(&cmd) == first_word(&self.plan.game.saves.load_command) {
+                    let failure = console_failure(&cmd, &out);
+                    if let Some(line) = &failure {
+                        failed.get_or_insert_with(|| {
+                            Verdict::Fail(format!(
+                                "step {} `{cmd}`: the console answered `{line}`",
+                                n.saturating_add(1)
+                            ))
+                        });
+                    }
+                    if failure.is_none()
+                        && first_word(&cmd) == first_word(&self.plan.game.saves.load_command)
+                    {
                         let limit = secs(self.plan.timeouts.load_secs);
                         if let Err(e) = self.wait_ready(limit, "the save to load", false) {
                             verdicts.push(Verdict::Inconclusive(format!("timeout: {e}")));
@@ -632,7 +656,16 @@ impl Run<'_> {
         }
         report.seen = seen.join("; ");
         report.verdict = Verdict::combine(&verdicts);
-        report
+        let timed_out = is_timeout(&report.verdict);
+        if let Some(Verdict::Fail(why)) = failed {
+            // A timeout after the failure still ends the session (`probes`), and says so.
+            report.verdict = Verdict::Fail(if timed_out {
+                format!("{why}; then {}", report.verdict.reason())
+            } else {
+                why
+            });
+        }
+        (report, timed_out)
     }
 
     fn not_run(&self, from: usize, why: &str) -> Vec<RowReport> {
@@ -685,9 +718,7 @@ impl Run<'_> {
                 }
                 return false;
             }
-            let r = self.run_probe(probe, probe.screenshot);
-            let timed_out =
-                matches!(&r.verdict, Verdict::Inconclusive(why) if why.starts_with("timeout"));
+            let (r, timed_out) = self.run_probe(probe, probe.screenshot);
             self.shared
                 .event(format!("row {}: {}", r.row, r.verdict.text()));
             self.push_row(rows, r);
@@ -735,7 +766,7 @@ impl Run<'_> {
                         .find(|p| p.row == row)
                         .cloned();
                     let r = match probe {
-                        Some(p) => self.run_probe(&p, screenshot || p.screenshot),
+                        Some(p) => self.run_probe(&p, screenshot || p.screenshot).0,
                         None => RowReport {
                             row: row.clone(),
                             title: String::new(),
@@ -882,7 +913,15 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                         shared.phase(Phase::LoadingSave, "loading the base save");
                         let cmd = fill(&plan.game.saves.load_command, &[("save", &plan.base_save)]);
                         let limit = secs(plan.timeouts.load_secs);
-                        let _ = r.deps.console.run(&cmd, limit.min(secs(30)));
+                        let answer = r.deps.console.run(&cmd, limit.min(secs(30)));
+                        // A base save the game did not find leaves it at the main menu;
+                        // no row would test the plugin there.
+                        if let Some(line) = answer.ok().and_then(|out| console_failure(&cmd, &out))
+                        {
+                            return Err(format!(
+                                "the base save did not load: `{cmd}` answered `{line}`"
+                            ));
+                        }
                         r.wait_ready(limit, "the base save to load", false)
                     });
                     match loaded {

@@ -106,7 +106,9 @@ pending = "M4.T1 (h): unresolved in game-20261101-T1; it did not change in a ses
 
 [timeouts]
 session_secs = 1800
-probe_secs = 60
+# A row's deadline: `kit testplan`'s persistence row pauses 10 s after each of its two
+# `coc`, its `save` and its `load` (game-20261101-T1, 2026-11-01-T03), plus the load itself.
+probe_secs = 120
 # From launch: the main window (14 s in game-20261101-T1/a), the 75 s settle, then a poll
 # every 5 s (the first answer came at 91 s); 300 s leaves room for a slow start.
 ready_secs = 300
