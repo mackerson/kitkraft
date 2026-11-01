@@ -152,7 +152,8 @@ fn the_first_poi_shape_gets_coc_moveto_help_getpos_and_persistence() {
     assert!(!text.contains("isdisabled ="), "{text}");
     assert!(!text.contains("command = \"isdisabled\""), "{text}");
     // Persistence: leave, the session's own save, load it, then return and look again. The
-    // synthetic load order has no CityNewAtlantisLodgeInt, so no getincell by its ID.
+    // synthetic load order has no CityNewAtlantisLodgeInt, so no getincell by its ID, and
+    // the row says it does not prove the reload.
     assert_eq!(
         commands(&p, "T-05"),
         [
@@ -162,7 +163,13 @@ fn the_first_poi_shape_gets_coc_moveto_help_getpos_and_persistence() {
             "player.getpos x"
         ]
     );
-    assert_eq!(waits(4), [Some(10), None, Some(10), None]);
+    // A wait after the save too (2026-11-01-T03: a load sent at once found no save).
+    assert_eq!(waits(4), [Some(10), Some(10), Some(10), None]);
+    assert!(p.probes[4].steps[3]
+        .why
+        .as_deref()
+        .unwrap()
+        .contains("does not prove the reload"));
     assert_eq!(
         commands(&p, "T-06"),
         [
@@ -287,6 +294,106 @@ fn the_ownership_shape_has_only_the_persistence_rows() {
     assert!(!p.probes[0].is_manual());
     assert!(p.probes[1].is_manual());
     std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// The persistence row proves the reload by the cell when both cells have runtime IDs: in
+/// the other cell before the load, in the leave cell after it (2026-11-01-T03, row T-05).
+#[test]
+fn the_persistence_row_goes_elsewhere_between_the_save_and_the_load() {
+    use super::super::{CellInfo, Form, IdBasis};
+    let basis = IdBasis {
+        short: "inferred".into(),
+        text: "inferred".into(),
+    };
+    let crate_in = |cell: &str, runtime: u32| Form {
+        signature: "REFR".into(),
+        stored: 0x0100_1000,
+        new: true,
+        editor_id: Some("KC_TestCrate".into()),
+        runtime: Some(0x0600_1000),
+        base: None,
+        cell: Some(CellInfo {
+            label: format!("X.esm:{cell}"),
+            editor_id: Some(cell.into()),
+            interior: true,
+            runtime: Some(runtime),
+        }),
+        position: Some([1.0, 2.0, 3.0]),
+        persistent: true,
+        offset: 0,
+        length: 0,
+        full: None,
+        base_edid: None,
+        base_runtime: None,
+        disabled: false,
+    };
+    let lodge = 0x0006_BB29;
+    let apartment = 0x0021_966F;
+    let row = |p: &ProbeFile| {
+        p.probes
+            .iter()
+            .find(|x| x.title.starts_with("persistence 1-3"))
+            .unwrap()
+            .clone()
+    };
+    let cmds = |p: &kitkraft_game::probes::Probe| -> Vec<String> {
+        p.steps.iter().map(|s| s.command.clone()).collect()
+    };
+
+    // The plugin's own interior cell is where the player goes.
+    let forms = [crate_in("KC_Room", 0x0600_0900)];
+    let p = super::build("X.esm", "00", &forms, &basis, Some(lodge), Some(apartment));
+    let r = row(&p);
+    assert_eq!(
+        cmds(&r),
+        [
+            "coc CityNewAtlantisLodgeInt",
+            "player.getincell 0006BB29",
+            "save {save}",
+            "coc KC_Room",
+            "player.getincell 06000900",
+            "load {save}",
+            "player.getincell 0006BB29",
+        ]
+    );
+    let waits: Vec<Option<u64>> = r.steps.iter().map(|s| s.wait_secs).collect();
+    assert_eq!(
+        waits,
+        [Some(10), None, Some(10), Some(10), None, Some(10), None]
+    );
+    assert!(r.steps[6]
+        .why
+        .as_deref()
+        .unwrap()
+        .contains("proves the reload"));
+    assert!(r.title.contains("go elsewhere"), "{}", r.title);
+    assert!(p.check().is_ok());
+
+    // No plugin cell (or the plugin's cell is the leave cell): CityNewAtlantisApartmentTEMPLATE.
+    for forms in [vec![], vec![crate_in("CityNewAtlantisLodgeInt", lodge)]] {
+        let p = super::build("X.esm", "00", &forms, &basis, Some(lodge), Some(apartment));
+        let c = cmds(&row(&p));
+        assert_eq!(c[3], "coc CityNewAtlantisApartmentTEMPLATE");
+        assert_eq!(c[4], "player.getincell 0021966F");
+    }
+
+    // A leave cell but nowhere else to go: the old check, and it says it proves nothing.
+    let p = super::build("X.esm", "00", &[], &basis, Some(lodge), None);
+    let r = row(&p);
+    assert_eq!(
+        cmds(&r),
+        [
+            "coc CityNewAtlantisLodgeInt",
+            "save {save}",
+            "load {save}",
+            "player.getincell 0006BB29",
+        ]
+    );
+    assert!(r.steps[3]
+        .why
+        .as_deref()
+        .unwrap()
+        .contains("does not prove the reload"));
 }
 
 #[test]

@@ -9,8 +9,12 @@
 //! item's runtime ID (`player.getitemcount` after `player.additem`), an armor's equipped
 //! state (`player.getequipped` after `player.equipitem`), a form's inline `FULL`
 //! (`help "<FULL>" 4`), a quest's stage (`getstage`). The persistence protocol
-//! (docs/game-observations.md) becomes `coc`, `save {save}`, `load {save}` and the return
-//! checks; the controller fills `{save}` with its own `KitKraftSession-*` name. A step with
+//! (docs/game-observations.md) becomes `coc` to [`LEAVE_CELL`], `save {save}`, `coc` to
+//! another cell, `load {save}` and the return checks; the controller fills `{save}` with
+//! its own `KitKraftSession-*` name. The reload is proved by the cell: in the other cell
+//! before the load (`player.getincell <other> >> 1`), in the leave cell after it. With no
+//! runtime ID for the two cells that proof is not possible, and the row's `why` says so.
+//! A step with
 //! no console getter (an exterior cell, a reference without a runtime ID) is
 //! `matcher = "manual"` with the reason.
 //!
@@ -28,6 +32,10 @@
 //!   command sent meanwhile answers with only its echo. Those steps carry
 //!   `wait_secs = `[`SETTLE_SECS`] (a `load` from the main menu answered a getter within
 //!   10 s).
+//! - `save` answers before the save file exists: a `load` of it sent 120 ms later answered
+//!   "Save file not found." (2026-11-01-T03, row T-05). `save {save}` carries
+//!   `wait_secs = `[`SAVE_SECS`], and the controller fails a row whose answer has such a
+//!   failure line.
 //! - An answer is the echo, `Command: <command>`, then the result: `... >> <number>` for a
 //!   getter, which is what the `number` matcher and the regexes here read.
 //!
@@ -54,10 +62,20 @@ pub(super) const POSITION_TOLERANCE: f64 = 0.5;
 /// The cell the persistence protocol leaves to (docs/game-observations.md, step 1).
 pub(super) const LEAVE_CELL: &str = "CityNewAtlantisLodgeInt";
 
+/// Where the persistence row goes between the save and the load when the plugin places
+/// nothing in an interior cell (2026-11-01-T03, row T-01: `coc` to it and
+/// `player.getincell 0021966F` answered `GetInCell >> 1.00`).
+pub(super) const ELSEWHERE_CELL: &str = "CityNewAtlantisApartmentTEMPLATE";
+
 /// Seconds the controller pauses after `player.moveto`, `coc` and `load` before the next
 /// step (game-20261101-T1: a command sent while the game moves answers with only its echo;
 /// a `load` from the main menu answered a getter within 10 s).
 pub(super) const SETTLE_SECS: u64 = 10;
+
+/// Seconds the controller pauses after `save {save}` before the next step
+/// (2026-11-01-T03, row T-05: a `load` sent about 120 ms after the `save` answered "Save
+/// file not found."; the save file was written moments later).
+pub(super) const SAVE_SECS: u64 = 10;
 
 /// The evidence for the console facts above.
 pub(super) const EVIDENCE: &str = "game-20261101-T1";
@@ -102,6 +120,14 @@ fn settle(command: String) -> Step {
     Step {
         wait_secs: Some(SETTLE_SECS),
         ..set(command)
+    }
+}
+
+/// `save {save}`, then [`SAVE_SECS`]: the game answers before the file is written.
+fn save_step() -> Step {
+    Step {
+        wait_secs: Some(SAVE_SECS),
+        ..set("save {save}".into())
     }
 }
 
@@ -182,13 +208,15 @@ fn in_cell(id: u32, why: &str) -> Step {
 }
 
 /// The probes for `forms`, numbered as the checklist numbers its steps. `leave` is the
-/// runtime ID of [`LEAVE_CELL`] in the load order, when it is there.
+/// runtime ID of [`LEAVE_CELL`] in the load order, when it is there, and `elsewhere` that
+/// of [`ELSEWHERE_CELL`].
 pub(super) fn build(
     plugin: &str,
     sha: &str,
     forms: &[Form],
     id_basis: &IdBasis,
     leave: Option<u32>,
+    elsewhere: Option<u32>,
 ) -> ProbeFile {
     let mut probes = Vec::new();
     let mut n: u32 = 1;
@@ -448,34 +476,70 @@ pub(super) fn build(
     }
     // Persistence (docs/game-observations.md, "Persistence protocol", steps 1 to 4).
     let row = next(&mut n);
-    let back_in = match leave {
-        Some(id) => in_cell(
-            id,
-            "the save loaded where it was made, by the leave cell's runtime ID (the one-hour wait of the protocol is not sent: no console command chosen, grade D)",
-        ),
-        None => check(
-            "player.getpos x".into(),
-            Matcher::Regex,
-            ANY_NUMBER.into(),
-            "the game answers a getter after the load; the leave cell is not in this load order, so no player.getincell by its runtime ID (the one-hour wait is not sent)",
-        ),
-    };
+    // Where the player goes between the save and the load, so the cell after the load
+    // differs from the cell before it: the plugin's own interior cell, else
+    // ELSEWHERE_CELL; never the leave cell itself.
+    let away = forms
+        .iter()
+        .filter(|f| is_ref(f) && f.new)
+        .filter_map(|f| f.cell.as_ref())
+        .filter(|c| c.interior)
+        .filter_map(|c| {
+            let e = c.editor_id.as_deref().filter(|e| token(e))?;
+            Some((e.to_string(), c.runtime?))
+        })
+        .chain(elsewhere.map(|id| (ELSEWHERE_CELL.to_string(), id)))
+        .find(|(_, id)| Some(*id) != leave);
     let mut leave_forms = vec![LEAVE_CELL.to_string()];
     if let Some(id) = leave {
         leave_forms.push(hex(id));
     }
-    probes.push(probe(
-        row,
-        "persistence 1-3: leave, save to the session's own save, load it".into(),
-        leave_forms,
-        false,
-        vec![
-            settle(format!("coc {LEAVE_CELL}")),
-            set("save {save}".into()),
-            settle("load {save}".into()),
-            back_in,
-        ],
-    ));
+    let mut steps = vec![settle(format!("coc {LEAVE_CELL}"))];
+    let title = match (leave, &away) {
+        (Some(l), Some((c, a))) => {
+            leave_forms.extend([c.clone(), hex(*a)]);
+            steps.extend([
+                in_cell(l, "the player is in the leave cell when the save is made"),
+                save_step(),
+                settle(format!("coc {c}")),
+                in_cell(
+                    *a,
+                    "the player left the leave cell after the save, so only the load can bring them back",
+                ),
+                settle("load {save}".into()),
+                in_cell(
+                    l,
+                    "the load took the player back to the leave cell, where the save was made: before the load they were in the other cell (the step before), so this proves the reload happened (the one-hour wait of the protocol is not sent: no console command chosen, grade D)",
+                ),
+            ]);
+            "persistence 1-3: leave, save to the session's own save, go elsewhere, load it"
+        }
+        (Some(l), None) => {
+            steps.extend([
+                save_step(),
+                settle("load {save}".into()),
+                in_cell(
+                    l,
+                    "the player is in the leave cell after the load, by its runtime ID; this does not prove the reload (no second cell with a runtime ID to go to before the load, and the player never left the leave cell): only the console failure guard catches a load that found no save (the one-hour wait is not sent)",
+                ),
+            ]);
+            "persistence 1-3: leave, save to the session's own save, load it"
+        }
+        (None, _) => {
+            steps.extend([
+                save_step(),
+                settle("load {save}".into()),
+                check(
+                    "player.getpos x".into(),
+                    Matcher::Regex,
+                    ANY_NUMBER.into(),
+                    "the game answers a getter after the load; this does not prove the reload: the leave cell is not in this load order, so no player.getincell by its runtime ID, and only the console failure guard catches a load that found no save (the one-hour wait is not sent)",
+                ),
+            ]);
+            "persistence 1-3: leave, save to the session's own save, load it"
+        }
+    };
+    probes.push(probe(row, title.into(), leave_forms, false, steps));
     let row = next(&mut n);
     let mut back = Vec::new();
     let mut back_ids = Vec::new();
@@ -526,6 +590,7 @@ pub(super) fn build(
             format!("References and cells are named by their runtime FormID: the console does not take a reference's EditorID (prid, help, player.moveto) or a cell's in player.getincell ({EVIDENCE}). EditorIDs are in titles and forms only."),
             format!("An answer is the echo, `Command: <command>`, then the result (`GetPos: X >> -17.00`, {EVIDENCE}); a number is read after `>>`, and an answer with only the echo is inconclusive, never pass."),
             format!("player.moveto, coc and load are followed by wait_secs = {SETTLE_SECS}: the game answers them before it has moved ({EVIDENCE})."),
+            format!("save is followed by wait_secs = {SAVE_SECS}: the game answers before the file is written, and a load sent at once answered \"Save file not found.\" (2026-11-01-T03). A console failure line (\"Item ... not found for parameter\", \"Script command ... not found\", \"Save file not found\") fails its row whatever the matchers say."),
             format!("The initially-disabled flag is not probed: `isdisabled` is not a Starfield console command ({EVIDENCE}), and no replacement was observed."),
             "Still grade D: coc by a cell's EditorID, getisid, getitemcount, getequipped, getstage, save and load from the world.".into(),
             format!("Positions match within {POSITION_TOLERANCE} units; numeric runtime IDs are {}.", id_basis.text),

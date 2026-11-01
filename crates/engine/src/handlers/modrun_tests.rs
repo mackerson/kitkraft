@@ -204,9 +204,9 @@ fn verified_game(s: &Setup, c: &FakeConsole) -> PathBuf {
     g.console.evidence = "fixture".into();
     g.saves.evidence = "fixture".into();
     g.console.url = c.url();
-    // The persistence row pauses `wait_secs` after its `coc` and its `load` (10 s each,
-    // game-20261101-T1); the row's deadline must cover them.
-    g.timeouts.probe_secs = 30;
+    // The persistence row pauses `wait_secs` after its `coc`, its `save` and its `load`
+    // (10 s each, game-20261101-T1, 2026-11-01-T03); the row's deadline must cover them.
+    g.timeouts.probe_secs = 45;
     g.timeouts.ready_secs = 3;
     g.timeouts.settle_secs = 0;
     g.timeouts.ready_poll_secs = 0;

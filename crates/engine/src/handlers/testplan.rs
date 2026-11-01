@@ -500,6 +500,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         &forms,
         &id_basis,
         cell_runtime(&lo, probes::LEAVE_CELL),
+        cell_runtime(&lo, probes::ELSEWHERE_CELL),
     );
     let probes_path = out.join(probes::FILE);
     let probes_text = probe_file
