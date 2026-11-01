@@ -108,7 +108,7 @@
 // - GCVR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GCVR record (98) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
-// - GPOF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430; reference)
+// - GPOF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430; corpus)
 // - GPOG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GPOG record (4) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GRAS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GRAS record (193) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GWED (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GWED record (1) decodes with every subrecord placed and re-encodes identically; corpus)

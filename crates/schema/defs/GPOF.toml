@@ -10,6 +10,12 @@
 #     type (L12390-L12395) and the type-dependent data (L12396-L12421), the rewards
 #     (L12423-L12428) and the keywords (L12429, L8935-L8951, common/Keywords.toml).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   corpus: the 31 GPOF records of the 14 official ESMs (crates/esm/tests/gpof_types.rs,
+#     gpof_types_full, 2026-11-01): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, NNAM, DNAM, TNAM, VNAM, WNAM, GPOD,
+#     VOVS, VORV, RESN and VORN are in all 31; the base form components and the
+#     keywords are absent from all 31.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): DNAM, NNAM, RESN and VOVS are lstrings in every
 #     official GPOF record.
@@ -19,9 +25,10 @@ signature = "GPOF"
 name = "GameplayOption"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430",
+  "corpus: gpof_types_full (crates/esm/tests/gpof_types.rs), 2026-11-01: in all 31 official GPOF records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: DNAM, NNAM, RESN and VOVS are lstrings in every official GPOF record",
 ]
-confidence = "reference"
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -52,7 +59,7 @@ group_ref = "BfcbBlock"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
 confidence = "reference"
-note = "the base form components of the option"
+note = "base form components; absent from the official GPOF records"
 
 [[member]]
 sig = "NNAM"
@@ -79,7 +86,7 @@ confidence = "corpus"
 [[member]]
 group = "TypeData"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12389-L12422"]
-note = "the type-dependent data is a union decided by TNAM, a sibling subrecord this format cannot express; the layout typed here is xEdit's Float branch"
+note = "in all 31 official GPOF records; the type-dependent data is a union decided by TNAM, a sibling subrecord this format cannot express, and the layout typed here is xEdit's Float branch"
 
 [[member.member]]
 sig = "TNAM"
@@ -88,6 +95,7 @@ type = "enum"
 base = "u8"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12390-L12395"]
 confidence = "reference"
+note = "in all 31 official GPOF records"
 values = [
   ["Bool", 0],
   ["Float", 1],
@@ -99,7 +107,7 @@ name = "Vnam"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12413-L12413"]
 confidence = "reference"
-note = "the option's default value; xEdit names both this and WNAM 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
+note = "in all 31 official GPOF records; the option's default value; xEdit names both this and WNAM 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
 
 [[member.member]]
 sig = "WNAM"
@@ -107,7 +115,7 @@ name = "Wnam"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12414-L12414"]
 confidence = "reference"
-note = "the option's default value; xEdit names both VNAM and this 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
+note = "in all 31 official GPOF records; the option's default value; xEdit names both VNAM and this 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
 
 [[member.member]]
 sig = "GPOD"
@@ -121,13 +129,13 @@ field = [
 ]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12415-L12419"]
 confidence = "reference"
-note = "the option's data range; saved only in xEdit's Float branch, its Bool branch marks the subrecord unused and does not save it"
+note = "in all 31 official GPOF records; the option's data range; saved only in xEdit's Float branch, its Bool branch marks the subrecord unused and does not save it"
 
 [[member]]
 group = "Rewards"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12423-L12428"]
-note = "the rewards the option grants"
+note = "the rewards the option grants; in all 31 official GPOF records"
 
 [[member.member]]
 sig = "VOVS"
@@ -146,6 +154,7 @@ name = "SettingValue"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12425-L12425"]
 confidence = "reference"
+note = "in all 31 official GPOF records"
 
 [[member.member]]
 sig = "RESN"
@@ -164,10 +173,11 @@ name = "RewardValue"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12427-L12427"]
 confidence = "reference"
+note = "in all 31 official GPOF records"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
 confidence = "reference"
-note = "the keywords of the option"
+note = "the keywords of the option; absent from the official GPOF records"
