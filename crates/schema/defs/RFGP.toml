@@ -18,6 +18,7 @@ name = "ReferenceGroup"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16894-L16903"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2189-L2195",
+  "corpus: rfgp_types_full (crates/esm/tests/rfgp_types.rs), 2026-11-01: all 169006 official RFGP records decode with every subrecord placed and re-encode identically; MNAM in all 169006 (12 bytes), RNAM in 137121, LNAM in 53019, PNAM in 18685, VMAD in 1, the component block in 2; EDID and NNAM in none",
 ]
 confidence = "reference"
 
