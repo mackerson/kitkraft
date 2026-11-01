@@ -338,6 +338,71 @@ command line there first if the help text shows a different one.
 | b' | Readiness | The port accepts connections about 5 s after launch, long before the game can take a command. In run 1 a `GetSFSEVersion` sent 8 s after launch answered HTTP 200 with an empty body, and the game process ended within 15 s with no Application event; run 2, which sent nothing until the game window had been up 75 s, ran normally. So: an open port is not readiness, and a command sent during startup can end the game (one occurrence, cause not isolated) | B | finding |
 | d | `load <save>` from the main menu | `load KitKraftBase` answered HTTP 200 (echo only) and the game loaded the save: `player.getpos x/y/z` gave -13.22, 4.69, 4.66 and the screenshot shows the apartment interior. `GetInCell CityNewAtlantisApartmentTEMPLATE` answered "Item ... not found for parameter Cell": that EditorID is not accepted there, so a cell check needs another form | A for the load; the cell check form is open | pass |
 | h | The Papyrus log path | `Documents\My Games\Starfield\Logs\Script\Papyrus.0.log` was rewritten during run 2 (01:43), so the profile's `[Papyrus]` switches take effect under MO2. `StarfieldConsoleHistory.log` did not change: commands sent over the API are not appended to it, or it is written only on a normal exit (the game was ended without one) | A for Papyrus; history unresolved | pass (Papyrus) |
+| i | A reference's EditorID in the console | `prid KitKraftFirstPOICrate` answered "Item 'KitKraftFirstPOICrate' not found for parameter ObjectReferenceID."; `help KitKraftFirstPOICrate 4` and `help KitKraftFirstPOI 4` listed nothing. Reference EditorIDs do not resolve at runtime (`v1-timing.log`, `v2-ids.log`, 02:04 and 02:07) | A | finding |
+| e | Runtime IDs | `prid 06001000` selected our crate: `getpos x/y/z` gave -17.00, -4.00, 4.63 (the plan's position) and `getdistance player` 9.48. 06 is the slot `kit testplan` infers by `runtime-slots-by-scale` for the load order of the session (our plugin last, after `kit deploy enable`); `prid 04001000`, the slot the base save's plugin list gave, was "not found". So the game numbers by the current load order, not the save's | A | pass (inferred slots); the `--from-save` rule is wrong when the order changed |
+| j | A cell's EditorID and FormID in `getincell` | `player.getincell CityNewAtlantisApartmentTEMPLATE` printed nothing after the echo; `player.getincell 0021966F` and `player.getincell 21966F` printed `GetInCell >> 1.00` | A | finding |
+| k | Commands that do not exist or answer late | `isdisabled`: "Script command \"isdisabled\" not found."; with no reference selected (after a failed `prid`) `getpos`, `getdistance` print only the echo; right after `player.moveto 06001000` the next `player.getpos x` printed only the echo (the move in progress) | A | finding |
+| l | Answer shape | The echo, then `Command: <command>`, then result lines such as `GetPos: X >> -17.00`, `GetInCell >> 1.00`, `GetDistance >> 9.48`; failures as an `Item ... not found` or `Script command ... not found` line. Each call took about 120 ms (the plugin's `iExecTimeout=100`) | A | finding |
 | c, e..g | `bAlwaysActive` behaviour unfocused, `bat`, runtime IDs, `{Form:...}` | not tried | - | not-run |
 
 The game was ended by stopping its process (no save, no `qqq`), as `game.stop` does.
+
+### game-20261101-01: agent session 2026-11-01-T01 (`kit game session`), KitKraftFirstPOI.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-01-T01`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-01 |
+| Status | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:/Modding/MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261101-01` |
+| Plugins | `KitKraftFirstPOI.esm` SHA-256 `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1` |
+| Probes | `observe/2026-11-01-poi-plan/probes.toml` SHA-256 `e739f90babeecf0ccaedf89d955d50ce02ef9afb016c76e5c05982ac5482458e` |
+| Screenshots | `C:\Modding\kitcraft\observe\2026-11-01-T01` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | coc CityNewAtlantisApartmentTEMPLATE: the cell of REFR `KitKraftFirstPOICrate` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+| T-02 | player.moveto KitKraftFirstPOICrate: stand at REFR `KitKraftFirstPOICrate` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+| T-03 | help KitKraftFirstPOICrate 4 names REFR `KitKraftFirstPOICrate` with its runtime ID (confirmed-by-save) | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+| T-04 | prid KitKraftFirstPOICrate; getpos x/y/z: REFR `KitKraftFirstPOICrate` at (-17.0, -4.0, 4.6) | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+| T-05 | persistence 1-3: leave, save to the session's own save, load it | - | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+| T-06 | persistence 4: return; every new reference where it was | KitKraftFirstPOICrate | - | - | not-run (timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)) | - |
+
+Finding: timeout after 300s waiting for the console endpoint (no main window of Starfield.exe yet; nothing sent)
+
+Cause (director, 2026-11-01): the game never started. MO2's `logs\mo_interface.log` shows `Error 5 ERROR_ACCESS_DENIED` spawning `sfse_loader.exe`: the session was started from an agent's sandboxed shell, whose child processes may not start the hooked loader. Rerun from an unsandboxed shell as `game-20261101-02`. The controller behaved as designed: nothing sent, every row not-run, profile files unchanged.
+
+### game-20261101-02: agent session 2026-11-01-T02 (`kit game session`), KitKraftFirstPOI.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-01-T02`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-01 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:/Modding/MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261101-02` |
+| Plugins | `KitKraftFirstPOI.esm` SHA-256 `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1` |
+| Probes | `observe/2026-11-01-poi-plan/probes.toml` SHA-256 `e739f90babeecf0ccaedf89d955d50ce02ef9afb016c76e5c05982ac5482458e` |
+| Screenshots | `C:\Modding\kitcraft\observe\2026-11-01-T02` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell CityNewAtlantisApartmentTEMPLATE` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE | regex >>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; player.getincell CityNewAtlantisApartmentTEMPLATE -> player.getincell CityNewAtlantisApartmentTEMPLATE Command: player.getincell CityNewAtlantisApartmentTEMPLATE | fail (/>>\s*1(\.0+)?\s*$/ does not match `player.getincell CityNewAtlantisApartmentTEMPLATE Command: player.getincell CityNewAtlantisApartmentTEMPLATE`) | - |
+| T-02 | `player.moveto KitKraftFirstPOICrate`, `prid KitKraftFirstPOICrate`, `getdistance player` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | number 0 +/- 500 | player.moveto KitKraftFirstPOICrate -> player.moveto KitKraftFirstPOICrate Command: player.moveto KitKraftFirstPOICrate; prid KitKraftFirstPOICrate -> prid KitKraftFirstPOICrate Command: prid KitKraftFirstPOICrate; getdistance player -> getdistance player Command: getdistance player | inconclusive (no number in `getdistance player Command: getdistance player`) | - |
+| T-03 | `help KitKraftFirstPOICrate 4` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | contains 04001000 | help KitKraftFirstPOICrate 4 -> help KitKraftFirstPOICrate 4 | fail (`04001000` not in `help KitKraftFirstPOICrate 4`) | - |
+| T-04 | `prid KitKraftFirstPOICrate`, `getpos x`, `getpos y`, `getpos z`, `isdisabled`, `prid 04001000`, `getpos x` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 04001000 | number -17 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5; regex >>\s*0(\.0+)?\s*$; number -17 +/- 0.5 | prid KitKraftFirstPOICrate -> prid KitKraftFirstPOICrate Command: prid KitKraftFirstPOICrate; getpos x -> getpos x Command: getpos x; getpos y -> getpos y Command: getpos y; getpos z -> getpos z Command: getpos z; isdisabled -> isdisabled Command: isdisabled; prid 04001000 -> prid 04001000 Command: ... | fail (/>>\s*0(\.0+)?\s*$/ does not match `isdisabled Command: isdisabled`) | T-04-1.png |
+| T-05 | `coc CityNewAtlantisLodgeInt`, `save KitKraftSession-20261101-02`, `load KitKraftSession-20261101-02`, `player.getincell CityNewAtlantisLodgeInt` | - | regex >>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; save KitKraftSession-20261101-02 -> save KitKraftSession-20261101-02 Command: save KitKraftSession-20261101-02; load KitKraftSession-20261101-02... | fail (/>>\s*1(\.0+)?\s*$/ does not match `player.getincell CityNewAtlantisLodgeInt Command: player.getincell CityNewAtlantisLodgeInt`) | - |
+| T-06 | `coc CityNewAtlantisApartmentTEMPLATE`, `prid KitKraftFirstPOICrate`, `getpos x`, `getpos y`, `getpos z` | KitKraftFirstPOICrate | number -17 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; prid KitKraftFirstPOICrate -> prid KitKraftFirstPOICrate Command: prid KitKraftFirstPOICrate; getpos x -> getpos x Command: getpos x; getpos y -> getpos y Command: getpos y; ge... | inconclusive (no number in `getpos x Command: getpos x`) | T-06-1.png |
+
+Finding: C:/Modding/MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (acad980c9b1f9aca7505410c35323e626a2f65967f349d93e80810d5d6673315 -> 5c8e159639ca0b87d16777c0a70ede3565a64673bf3e51f2665fe1d46698f326): restored from C:\Modding\kitcraft\observe\2026-11-01-T02\backup\01-plugins.txt
+
+Cause (director, 2026-11-01): the session ran end to end (launch, settle, load, six rows, session save and load, stop, restore), but the probes were not executable as written: they address the crate and the cell by EditorID, which the console does not resolve, use `isdisabled`, which does not exist, and expect the base save's runtime slot 04 while the game used 06 (see `game-20261101-T1` rows e, i to l). The `plugins.txt` change is the game's or MO2's rewrite during the session; the controller restored it. `kit testplan` is being fixed to use runtime FormIDs, the current load order's slots and a wait after moves.
