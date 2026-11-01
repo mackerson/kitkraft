@@ -1,9 +1,11 @@
 # ADR 0013: scoped `unsafe` for the GL viewport
 
-- Status: **Accepted by the director at the merge (f7ea7dd, 2026-10-16), pending the owner's
-  confirmation (plan/STATUS.md "Director assumptions pending owner").** Proposed by lane R (M7.R1). Lane R took it as the decision AGENTS.md lets a lane take ("decide,
-  record why, keep going"); it is not on the owner's list. Rejecting it means reverting
-  M7.R1's GL path, since the ticket cannot be built without it (Context).
+- Status: **ACCEPTED** (owner ruling 2026-11-01, `plan/owner-decisions-2026-11-01.md`
+  item 2: "accept all"). Accepted by the director at the merge (f7ea7dd, 2026-10-16) and
+  listed for the owner's confirmation in `plan/STATUS.md` "Pause", section 3. Proposed by
+  lane R (M7.R1). Lane R took it as the decision AGENTS.md lets a lane take ("decide,
+  record why, keep going"); it is not on the owner's list. Rejecting it would have meant
+  reverting M7.R1's GL path, since the ticket cannot be built without it (Context).
 - Date: 2026-10-16
 - Scope: where the workspace may contain `unsafe` code, and how that is enforced.
 - Relates to: AGENTS.md "Never panic", ADR 0002 Amendment 1 (the viewport is L5 view

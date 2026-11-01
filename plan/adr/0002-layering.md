@@ -71,9 +71,10 @@ None.
 
 ## Amendment 1 (2026-10-16): the viewport is L5 view code; the L2 `render` slot is retired
 
-- Status: **Accepted by the director**, 2026-10-16. Layering is not on the owner's list
-  (AGENTS.md "Owner decisions"); the owner may overrule it (`plan/execution-plan.md`,
-  "Decisions taken by the director 2026-10-16, pending owner").
+- Status: **Accepted by the director**, 2026-10-16; **confirmed by the owner 2026-11-01**
+  (`plan/owner-decisions-2026-11-01.md` item 3: "accept all"). Layering is not on the
+  owner's list (AGENTS.md "Owner decisions"); it was listed for his confirmation in
+  `plan/execution-plan.md`, "Decisions taken by the director 2026-10-16".
 - Context: the 3D viewport is planned as M7 lane R (`plan/execution-plan.md` "M7"), with
   its first ticket (M7.R1) allowed to start during M6. It draws inside the egui window
   through eframe's glow backend, so its code is toolkit code and cannot sit below L5

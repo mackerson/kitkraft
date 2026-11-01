@@ -63,3 +63,12 @@ cited to the pinned xEdit file). That is a box per base object with no NIF at al
 
 - Approve recommendations 1 to 3 (the source categories above), or
 - name a different category for `nif.xml` or the NifSkope fork.
+
+## Owner ruling (2026-11-01)
+
+**Recommendations 1 to 3 approved** (owner, in chat, 2026-11-01: "accept all";
+`plan/owner-decisions-2026-11-01.md` item 20). M7.O5 is decided and M7.S4 is unblocked.
+The categories are recorded in `docs/source-registry.md`, "Sources for NIF and mesh
+layout": NIFXML and the GPL bridges forbidden, NIFSKOPE not read, NIFSKOPE-SF
+external-oracle-only once its license is confirmed, NEXUS-MESH-NOTES docs-only. As
+recommendation 4 expects, M7.S5 starts as a corpus study in `docs/research/`.

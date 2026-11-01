@@ -80,16 +80,18 @@ menu bar from the catalog, floating Warnings and Use Info windows, read-only edi
 for eight types, and since the campaign a Cell View window over `cell`, KK-036, that
 shares one selection with the Render Window, KK-037) and a Render Window that draws a
 cell's references as `OBND` boxes exist, built before any CK interface sitting. 14 parity
-rows are `built, unobserved` (ADR 0012 Amendment 1, a director decision pending the
-owner), which never counts as parity; the other 22, the Render Window and its camera
-among them, are `unresearched`, and none is `observed` (`docs/ck-parity.md` at
-`827a7dd`). The layouts, menu order and camera wait on the interface sittings (M7.O2,
-M7.O3), editing on ADR 0007 Amendment 4 (M7.O4), meshes on the NIF source ruling (M7.O5).
+rows are `built, unobserved` (ADR 0012 Amendment 1, accepted by the owner 2026-11-01),
+which never counts as parity; the other 22, the Render Window and its camera among them,
+are `unresearched`, and none is `observed` (`docs/ck-parity.md` at `827a7dd`). The
+layouts, menu order and camera wait on the interface sittings (M7.O2, M7.O3), which may
+now be automated (ADR 0012 Amendment 2, accepted 2026-11-01). Editing waited on ADR 0007
+Amendment 4 (M7.O4) and meshes on the NIF source ruling (M7.O5); both were decided on
+2026-11-01 (Amendment 4 with model A; the NIF memo's recommendations 1 to 3).
 
-Director decisions taken in the owner's absence, to confirm or overturn: ADR 0013
-(`unsafe` in one viewport file), ADR 0012 Amendment 1, the floating-window model, `OBND`
-boxes first, the REFR rotation convention, system fonts, no NIF source, and the CK
-static-strings method (STATUS "Pause", section 3).
+The director decisions taken in the owner's absence (ADR 0013, ADR 0012 Amendment 1, the
+floating-window model, `OBND` boxes first, the REFR rotation convention, system fonts) were
+confirmed by the owner on 2026-11-01 (`plan/owner-decisions-2026-11-01.md`); the CK
+static-strings method was ruled out (STATUS "Pause", section 3).
 
 ## M0: scaffold
 
@@ -478,7 +480,8 @@ and may merge during M6 (see M6 (e)). It is built up in steps:
 
 Every step is read-only. Materials, lighting and placement editing are M8. Editing comes
 through the same commands the CLI and MCP use, each gated with a preview and a confirm
-under ADR 0007 Amendment 4 (proposed in M7.E1):
+under ADR 0007 Amendment 4 (proposed in M7.E1, accepted by the owner 2026-11-01 with
+model A, one confirmed write per OK click):
 
 - field edits through `set`, with a validation preview;
 - new and duplicate through `new` and `clone`;
@@ -491,7 +494,9 @@ Clean room (ADR 0012, `plan/adr/0012-ck-interface-clean-room.md`, accepted by th
 
 - **Reproduced:** layout, labels, menu structure, workflows and keyboard shortcuts, from
   watching the running CK in owner-assisted sittings (`plan/STATUS.md` rows 12 and 15
-  carry the existing ones; a computer-use agent may drive the CK while the owner watches).
+  carry the existing ones; a computer-use agent may drive the CK while the owner watches),
+  and since 2026-11-01 from automated sittings through UI Automation (ADR 0012 Amendment
+  2, accepted).
 - **Not interface observation:** the public CK wiki. It is a level-4 source for data
   facts (AGENTS.md "Clean room"); no interface row is filled from it.
 - **Never copied:** CK icons, images, help text, resources or binaries.
@@ -566,4 +571,5 @@ Kept from the former "M6+: editor":
 - In-game verification for other titles (Skyrim SE, Fallout 4): fill the lane C game
   profiles once a title is in scope.
 - Release: an installer beyond `kit install`, signed binaries, modder documentation, and
-  publishing. Publishing and any git remote are owner decision 6 (AGENTS.md).
+  publishing. Publishing releases or packages stays owner decision 6 (AGENTS.md); the git
+  remote is public GitHub (owner, 2026-11-01).
