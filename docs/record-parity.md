@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SOUN, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WKMF, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, RFGP, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    286,144 |   760,134 |  33,561 |
-| **Total**       |          186 |         181 | 7,490,102 | 46,841,665 | 2,837,627 | 740,269 |
+| container/other |          123 |         118 |   252,710 |    291,333 |   754,945 |  33,561 |
+| **Total**       |          186 |         181 | 7,490,102 | 46,846,854 | 2,832,438 | 740,269 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:84ecf7187297cd60` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:0f9964e92cb85df4` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -105,7 +105,7 @@ Columns:
 | `ARMA`        | ArmorAddon                     |     1,238 |          0 |    39 |    36 |      1 |       2 |
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | -                              |     1,145 |          0 |     4 |     0 |      0 |       4 |
-| `SOUN`        | SoundMarker                    |     1,133 |          0 |     8 |     3 |      5 |       0 |
+| `SOUN`        | SoundMarker                    |     1,133 |          0 |     8 |     8 |      0 |       0 |
 | `CNDF`        | -                              |     1,055 |          0 |     6 |     0 |      0 |       6 |
 | `FURN`        | Furniture                      |     1,045 |          0 |    50 |    40 |      4 |       6 |
 | `MGEF`        | MagicEffect                    |       989 |          0 |    12 |    10 |      2 |       0 |
@@ -176,7 +176,7 @@ Columns:
 | `GCVR`        | GroundCover                    |        98 |          0 |     9 |     5 |      2 |       2 |
 | `HAZD`        | Hazard                         |        87 |          0 |    16 |    14 |      2 |       0 |
 | `RSPJ`        | ResearchProject                |        82 |          0 |    12 |    12 |      0 |       0 |
-| `WKMF`        | WwiseKeywordMapping            |        81 |          0 |     6 |     1 |      5 |       0 |
+| `WKMF`        | WwiseKeywordMapping            |        81 |          0 |     6 |     6 |      0 |       0 |
 | `FOGV`        | FogVolume                      |        80 |          0 |     2 |     1 |      1 |       0 |
 | `ADDN`        | AddonNode                      |        77 |          0 |    12 |     4 |      8 |       0 |
 | `EFSH`        | EffectShader                   |        77 |          0 |    11 |     7 |      4 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,080 |    483 |     234 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,090 |    473 |     234 |
 
-Subrecord occurrences: 50,419,561 in total; 46,841,665 typed (0 of them failed to decode), 2,837,627 opaque, 740,269 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,846,854 typed (0 of them failed to decode), 2,832,438 opaque, 740,269 unknown.
 
 ## Decoded through the definitions
 
@@ -306,7 +306,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AVIF`    | ActorValueInformation          |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
 | `ARMA`    | ArmorAddon                     |         1,238 |     27,776 |      0 |         0 |    18,000 |                   0 |      9,776 |       0 |        0 |
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
-| `SOUN`    | SoundMarker                    |         1,133 |      1,135 |      0 |         0 |         0 |                   0 |      1,135 |       0 |        0 |
+| `SOUN`    | SoundMarker                    |         1,133 |      5,715 |      0 |         0 |         0 |                   0 |      5,715 |       0 |        0 |
 | `FURN`    | Furniture                      |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
 | `MGEF`    | MagicEffect                    |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
@@ -373,7 +373,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GCVR`    | GroundCover                    |            98 |        601 |      0 |         0 |         0 |                   0 |        601 |       0 |        0 |
 | `HAZD`    | Hazard                         |            87 |        744 |      0 |         0 |         0 |                   0 |        744 |       0 |        0 |
 | `RSPJ`    | ResearchProject                |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
-| `WKMF`    | WwiseKeywordMapping            |            81 |         81 |      0 |         0 |         0 |                   0 |         81 |       0 |        0 |
+| `WKMF`    | WwiseKeywordMapping            |            81 |        690 |      0 |         0 |         0 |                   0 |        690 |       0 |        0 |
 | `FOGV`    | FogVolume                      |            80 |         80 |      0 |         0 |         0 |                   0 |         80 |       0 |        0 |
 | `ADDN`    | AddonNode                      |            77 |        156 |      0 |         0 |         0 |                   0 |        156 |       0 |        0 |
 | `EFSH`    | EffectShader                   |            77 |        263 |      0 |         0 |         0 |                   0 |        263 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 46,841,665 |      0 |         0 |    23,037 |                   0 | 46,818,628 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 46,846,854 |      0 |         0 |    23,037 |                   0 | 46,823,817 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -611,7 +611,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SMBN`    | StoryManagerBranchNode         |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode          |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode          |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
-| `SOUN`    | SoundMarker                    |              8 |     3 |      5 |         0 |                   0 |      8 |       0 |        0 |
+| `SOUN`    | SoundMarker                    |              8 |     8 |      0 |         0 |                   0 |      8 |       0 |        0 |
 | `SPCH`    | SpeechChallengeForm            |             10 |     3 |      7 |         0 |                   0 |     10 |       0 |        0 |
 | `SPEL`    | Spell                          |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
@@ -633,13 +633,13 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WATR`    | Water                          |             54 |    48 |      6 |         2 |                   0 |     52 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WEAP`    | Weapon                         |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
-| `WKMF`    | WwiseKeywordMapping            |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `WKMF`    | WwiseKeywordMapping            |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
 | `WRLD`    | Worldspace                     |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WTHR`    | Weather                        |             26 |     3 |     23 |         0 |                   0 |     26 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,859 | 5,075 |    784 |       409 |                   2 |  5,448 |       0 |        0 |
+| **Total** |                                |          5,859 | 5,085 |    774 |       409 |                   2 |  5,448 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
