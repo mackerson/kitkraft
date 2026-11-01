@@ -524,8 +524,18 @@ def variant_users(sig):
     return sorted(hits)
 
 
+def without_edid():
+    """The signatures `crates/esm/src/bridge.rs` lists in `WITHOUT_EDID` (types with no EDID
+    member; a test there checks the list against the schema). A depth ticket that gives one of
+    them an EDID must take it off the list, so it owns the file (KK-219's merge, 2026-11-01)."""
+    text = open(os.path.join(ROOT, "crates", "esm", "src", "bridge.rs"), encoding="utf-8").read()
+    m = re.search(r"const WITHOUT_EDID: [^=]*= &\[(.*?)\];", text, re.S)
+    return set(re.findall(r'b"(.{4})"', m.group(1))) if m else set()
+
+
 def depth_ticket(tid, group, fams):
     sigs = [c["sig"] for c in group]
+    no_edid = without_edid() & set(sigs)
     stem = "_".join(s.lower().replace("_", "") for s in sigs)
     test_file, test_name, prefix = f"crates/esm/tests/{stem}_types.rs", f"{stem}_types_full", stem
     listing = " and ".join(sigs)
@@ -551,6 +561,10 @@ def depth_ticket(tid, group, fams):
                          "`crates/schema/tests/defs.rs` (those lists are for definitions that type "
                          "nothing but EDID, lstrings and shared blocks); leave `xtask/src/parity.rs`'s "
                          "`INVENTORY` list alone (out of scope)")
+        if c["sig"] in no_edid:
+            lists.append("it has no EDID member today: if xEdit gives it one and you add it, remove it "
+                         "from `WITHOUT_EDID` in `crates/esm/src/bridge.rs` (a test there checks that list "
+                         "against the schema)")
         target = (f"the `{c['sig']}` row of `docs/record-parity.md` must show at least {typed_min} typed "
                   f"(today {c['typed']}) and at most {unknown_max} unknown (today {c['unknown']}): at least "
                   f"half of the {feasible(c)} signatures a transcription can type, and no new unknown")
@@ -637,7 +651,7 @@ Commit after the definition first loads, and after the corpus test passes.
         "crates/schema/tests/golden/seed.rs",
         "crates/esm/src/generated/records.rs",
         test_file,
-    ] + sorted(owns_docs) + ["docs/record-parity.md", "docs/foothold/gap-matrix.md", "docs/gaps.md"]
+    ] + (["crates/esm/src/bridge.rs"] if no_edid else []) + sorted(owns_docs) +["docs/record-parity.md", "docs/foothold/gap-matrix.md", "docs/gaps.md"]
     title = (f"Type {sigs[0]} ({group[0]['def']['name']}) from the pinned xEdit file, corpus-checked" if len(group) == 1
              else f"Type {listing} from the pinned xEdit file, corpus-checked")
     return dict(mode="depth", id=tid, title=title, timeout_min=60, owns=owns, brief=wrap(brief), sigs=sigs,
