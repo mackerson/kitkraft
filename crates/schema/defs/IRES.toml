@@ -17,9 +17,10 @@
 # has are left out; a plugin that has one keeps it raw.
 signature = "IRES"
 name = "Resource"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13197-L13238"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13197-L13238",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official IRES record (333) decodes with every subrecord placed and re-encodes identically",
+  "corpus: kitkraft-esm tests/ires_types.rs (ires_types_full), 2026-11-01: all 333 IRES records of the 14 official ESMs decode with every subrecord placed and re-encode identically",
 ]
 confidence = "corpus"
 note = "KK-215: transcribed from the pinned xEdit file; FNAM, SNAM, CNAM, TINC, NAM1, NAM2, NAM3, CUSH and GNAM are typed at reference confidence"

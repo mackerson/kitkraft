@@ -23,6 +23,10 @@
 # Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored
 # values (0 means none). Members no official record of this type has are not listed; a
 # plugin that has one keeps it raw in `extra`.
+#
+# Counts: the typed members' notes add up to 10,169 occurrences, the Decoded count in
+# docs/record-parity.md; with VMAD's 53 (opaque, cited in its evidence and counted as
+# opaque there) the official files hold 10,222 PGRE subrecords.
 signature = "PGRE"
 name = "PlacedProjectile"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132"
