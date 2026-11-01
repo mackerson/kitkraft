@@ -143,7 +143,7 @@
 // - LVSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVSC record (20) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MAAM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MATT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MATT record (255) decodes with every subrecord placed and re-encodes identically; corpus)
-// - MESG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official MESG record (2671) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MESG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14310-L14358; corpus)
 // - MGEF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554; corpus)
 // - MISC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14557-L14605; corpus)
 // - MOVT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MOVT record (43) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -47016,16 +47016,43 @@ impl MattRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MesgFlags(pub u32);
+
+impl MesgFlags {
+    pub const MESSAGE_BOX: u32 = 0x1;
+    pub const DELAY_INITIAL_DISPLAY: u32 = 0x2;
+    pub const ALLOW_BACK_OUT: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for MesgFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for MesgFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MesgMenuButton {
     /// `ITXT`, required.
     pub button_text: Option<Sub<LString>>,
     /// `IBIN`, optional.
-    pub ibin: Option<Sub<Bytes>>,
-    /// `CTDA`, repeated.
-    pub ctda: Vec<Sub<Bytes>>,
+    pub event_name: Option<Sub<ZString>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
     /// `DODT`, optional.
-    pub dodt: Option<Sub<Bytes>>,
+    pub reference: Option<Sub<FormId>>,
 }
 
 impl MesgMenuButton {
@@ -47039,9 +47066,9 @@ impl MesgMenuButton {
             sig: *b"IBIN",
             card: Card::Optional,
         },
-        MemberDesc::Sub {
-            sig: *b"CTDA",
+        MemberDesc::Group {
             card: Card::Repeated,
+            members: Condition::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"DODT",
@@ -47067,23 +47094,20 @@ impl MesgMenuButton {
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.ibin,
+                    &mut self.event_name,
                     subs,
                     *index,
                     "MESG.MenuButton.IBIN",
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 2, index } => push(
-                    &mut self.ctda,
-                    subs,
-                    *index,
-                    "MESG.MenuButton.CTDA",
-                    ctx,
-                    extra,
-                ),
+                Hit::Group { member: 2, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
                 Hit::Sub { member: 3, index } => put(
-                    &mut self.dodt,
+                    &mut self.reference,
                     subs,
                     *index,
                     "MESG.MenuButton.DODT",
@@ -47097,15 +47121,25 @@ impl MesgMenuButton {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"ITXT", self.button_text.as_ref());
-        emit(out, *b"IBIN", self.ibin.as_ref());
-        for value in &self.ctda {
-            emit(out, *b"CTDA", Some(value));
+        emit(out, *b"IBIN", self.event_name.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
         }
-        emit(out, *b"DODT", self.dodt.as_ref());
+        emit(out, *b"DODT", self.reference.as_ref());
     }
 }
 
 impl Visit for MesgMenuButton {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "MESG.MenuButton.Conditions", out);
+        visit_form_ids(&self.reference, "MESG.MenuButton.DODT", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "MESG.MenuButton.Conditions", out);
+        visit_form_ids_mut(&mut self.reference, "MESG.MenuButton.DODT", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.button_text, "MESG.MenuButton.ITXT", out);
     }
@@ -47119,20 +47153,28 @@ impl Visit for MesgMenuButton {
 pub struct MesgRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `DESC`, required.
     pub description: Option<Sub<LString>>,
     /// `FULL`, optional.
     pub name: Option<Sub<LString>>,
     /// `INAM`, required.
-    pub inam: Option<Sub<Bytes>>,
+    pub icon: Option<Sub<FormId>>,
     /// `QNAM`, optional.
-    pub qnam: Option<Sub<Bytes>>,
+    pub owner_quest: Option<Sub<FormId>>,
+    /// `ICON`, optional.
+    pub inventory_image: Option<Sub<ZString>>,
     /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<MesgFlags>>,
     /// `TNAM`, optional.
-    pub tnam: Option<Sub<Bytes>>,
+    pub display_time: Option<Sub<u32>>,
+    /// `SNAM`, optional.
+    pub swf: Option<Sub<ZString>>,
     /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
+    pub index_chosen_on_back_out: Option<Sub<i32>>,
     /// `NNAM`, optional.
     pub short_title: Option<Sub<LString>>,
     /// Group `MenuButton`, repeated.
@@ -47152,6 +47194,14 @@ impl MesgRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
             sig: *b"DESC",
             card: Card::Required,
         },
@@ -47168,11 +47218,19 @@ impl MesgRecord {
             card: Card::Optional,
         },
         MemberDesc::Sub {
+            sig: *b"ICON",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"DNAM",
             card: Card::Required,
         },
         MemberDesc::Sub {
             sig: *b"TNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNAM",
             card: Card::Optional,
         },
         MemberDesc::Sub {
@@ -47202,30 +47260,59 @@ impl MesgRecord {
                     put(&mut self.editor_id, subs, *index, "MESG.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.description, subs, *index, "MESG.DESC", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "MESG.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.name, subs, *index, "MESG.FULL", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.inam, subs, *index, "MESG.INAM", ctx, extra)
+                    put(&mut self.description, subs, *index, "MESG.DESC", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.qnam, subs, *index, "MESG.QNAM", ctx, extra)
+                    put(&mut self.name, subs, *index, "MESG.FULL", ctx, extra)
                 }
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.dnam, subs, *index, "MESG.DNAM", ctx, extra)
+                    put(&mut self.icon, subs, *index, "MESG.INAM", ctx, extra)
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.tnam, subs, *index, "MESG.TNAM", ctx, extra)
+                    put(&mut self.owner_quest, subs, *index, "MESG.QNAM", ctx, extra)
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.bnam, subs, *index, "MESG.BNAM", ctx, extra)
-                }
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.inventory_image,
+                    subs,
+                    *index,
+                    "MESG.ICON",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 8, index } => {
+                    put(&mut self.flags, subs, *index, "MESG.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.display_time,
+                    subs,
+                    *index,
+                    "MESG.TNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.swf, subs, *index, "MESG.SNAM", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.index_chosen_on_back_out,
+                    subs,
+                    *index,
+                    "MESG.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => {
                     put(&mut self.short_title, subs, *index, "MESG.NNAM", ctx, extra)
                 }
-                Hit::Group { member: 9, hits } => {
+                Hit::Group { member: 13, hits } => {
                     let mut group = MesgMenuButton::default();
                     group.fill(hits, subs, ctx, extra);
                     self.menu_button.push(group);
@@ -47237,13 +47324,19 @@ impl MesgRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
         emit(out, *b"DESC", self.description.as_ref());
         emit(out, *b"FULL", self.name.as_ref());
-        emit(out, *b"INAM", self.inam.as_ref());
-        emit(out, *b"QNAM", self.qnam.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
-        emit(out, *b"TNAM", self.tnam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
+        emit(out, *b"INAM", self.icon.as_ref());
+        emit(out, *b"QNAM", self.owner_quest.as_ref());
+        emit(out, *b"ICON", self.inventory_image.as_ref());
+        emit(out, *b"DNAM", self.flags.as_ref());
+        emit(out, *b"TNAM", self.display_time.as_ref());
+        emit(out, *b"SNAM", self.swf.as_ref());
+        emit(out, *b"BNAM", self.index_chosen_on_back_out.as_ref());
         emit(out, *b"NNAM", self.short_title.as_ref());
         for group in &self.menu_button {
             group.emit(out);
@@ -47252,6 +47345,20 @@ impl MesgRecord {
 }
 
 impl Visit for MesgRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "MESG.BfcbBlock", out);
+        visit_form_ids(&self.icon, "MESG.INAM", out);
+        visit_form_ids(&self.owner_quest, "MESG.QNAM", out);
+        visit_form_ids(&self.menu_button, "MESG.MenuButton", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "MESG.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.icon, "MESG.INAM", out);
+        visit_form_ids_mut(&mut self.owner_quest, "MESG.QNAM", out);
+        visit_form_ids_mut(&mut self.menu_button, "MESG.MenuButton", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.description, "MESG.DESC", out);
         visit_lstrings(&self.name, "MESG.FULL", out);
@@ -47270,6 +47377,26 @@ impl Visit for MesgRecord {
 impl MesgRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"MESG";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
