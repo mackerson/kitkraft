@@ -1,0 +1,44 @@
+id = "KK-249"
+title = "Workbench: make a long path in a single-line field readable in full (UX audit A7)"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/panels/",
+  "crates/ui-egui/src/app/harness/tests.rs",
+  "docs/design/workbench-ux.md",
+]
+brief = """
+UX principle 6 (a value is shown in full). The plugin fields of the Cockpit
+(`crates/ui-egui/src/panels/cockpit.rs`, `plugin_bar`, "Plugin under review") and of the
+Validate tab (`crates/ui-egui/src/panels/validate.rs`, "plugin") cut a long path at the
+field's width (the tour's `cockpit.png` and `validate.png`), and the only way to read the
+rest is to move the caret. When the value is wider than the field, show it in full: the
+field's hover text is the whole value, and a weak line under the field shows the path
+wrapped (`ui.weak(..)` wraps). Apply it to both fields through one helper in
+`crates/ui-egui/src/panels/common.rs`.
+
+Read first: `docs/design/workbench-ux.md` (the eight principles, the harness and
+the findings table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`,
+`open_tab`, `click`, `one`, `assert_in_view`, `assert_absent`, `nodes_with`, `in_view`,
+`inject`) and `crates/ui-egui/src/app/harness/tests.rs` (how a finding's test is written:
+the `finding_*` and `audit_a*` tests). Every harness test starts with
+`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
+Colours, sizes and spacing come from `crate::theme` only: a source scan
+(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a
+sizing call, a `Color32`, or a spacing edit, in tests too. The workbench writes nothing
+but `ui.json`; do not add a write, and do not touch `crates/ui-egui/src/gate.rs`.
+
+Write one harness test, `audit_a7_a_long_plugin_path_is_readable`: set the Cockpit's
+plugin to a path of more than 160 characters ending in `KitKraftAVeryLongPluginName.esm`
+(`h.state_mut().app.cockpit.pick(..)`), open the Cockpit, and check a node whose text
+contains the whole path is in view and is as wide as the viewport at most. It must fail
+on `main`. Mark A7 fixed in `docs/design/workbench-ux.md` naming the test, and run
+`cargo xtask ci`.
+"""
+
+[[accept]]
+name = "audit_a7_a_long_plugin_path_is_readable"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::harness::tests::audit_a7_a_long_plugin_path_is_readable --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"

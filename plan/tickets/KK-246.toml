@@ -1,0 +1,52 @@
+id = "KK-246"
+title = "Workbench: show a form's refusal next to the button that caused it (UX audit A1)"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/panels/",
+  "crates/ui-egui/src/app.rs",
+  "crates/ui-egui/src/app/harness/tests.rs",
+  "docs/design/workbench-ux.md",
+]
+brief = """
+UX principle 2 says a refusal is shown in full next to the control that caused it. Today a
+button whose form is incomplete sets the window's notice (`*ctx.notice = Some(..)` in a
+tab's `fn ui`, or `self.notice = Some(e)` in `App::apply` in `crates/ui-egui/src/app.rs`),
+and the notice is drawn only in the top bar under the tabs (y about 69 of 900). The audit
+found it on Load ("Load"), Records ("Inspect"), Links ("Run"), Planet ("Show"), Diff
+("Compare"), Validate ("validate", "roundtrip --verify") and the Cockpit ("Status",
+"Preview deploy", at y 670: 600 points from its message).
+
+Add one way for a tab to attach a refusal to the button that caused it (for example a
+`TabCtx` method taking the button's `egui::Response` and the message, kept by the tab and
+drawn as a `theme::status_line(ui, Status::Fail, ..)` directly under that button's row
+until the next click), and use it at every place above. Keep the top-bar notice for what
+has no button (a failed `ui.json` write, a worker restart). An `Action` refused in
+`App::apply` (for example `LedgerAppend`) is reported back to its tab the same way.
+
+Read first: `docs/design/workbench-ux.md` (the eight principles, the harness and
+the findings table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`,
+`open_tab`, `click`, `one`, `assert_in_view`, `assert_absent`, `nodes_with`, `in_view`,
+`inject`) and `crates/ui-egui/src/app/harness/tests.rs` (how a finding's test is written:
+the `finding_*` and `audit_a*` tests). Every harness test starts with
+`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
+Colours, sizes and spacing come from `crate::theme` only: a source scan
+(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a
+sizing call, a `Color32`, or a spacing edit, in tests too. The workbench writes nothing
+but `ui.json`; do not add a write, and do not touch `crates/ui-egui/src/gate.rs`.
+
+Write one harness test, `audit_a1_a_refused_form_is_shown_by_its_button`, in
+`crates/ui-egui/src/app/harness/tests.rs`: for Load ("Load" with an empty form), Validate
+("validate" with no plugin) and Diff ("Compare" with one plugin), click the button with
+`click`, then check the refusal's text is in view (`assert_in_view`) and starts below the
+button within a sixth of the window's height (`SIZE[1] / 6.0`). It must fail on `main`.
+Then add a row to the findings table's A1 line in `docs/design/workbench-ux.md` naming the
+test, and run `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "audit_a1_a_refused_form_is_shown_by_its_button"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::harness::tests::audit_a1_a_refused_form_is_shown_by_its_button --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"

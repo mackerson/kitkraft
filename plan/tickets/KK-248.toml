@@ -1,0 +1,50 @@
+id = "KK-248"
+title = "Workbench: open the CK-style windows where they cover neither the tab nor each other (UX audit A6)"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/windows/mod.rs",
+  "crates/ui-egui/src/windows/shell.rs",
+  "crates/ui-egui/src/app/harness/tests.rs",
+  "docs/design/workbench-ux.md",
+  "docs/workbench.md",
+]
+brief = """
+UX principles 1 and 8. The View menu's windows (Warnings, Use Info, Edit Dialog;
+`WindowKind` in `crates/ui-egui/src/windows/mod.rs`) open at fixed default places
+(`default_pos`, `default_size`) over the current tab and over each other: the tour's
+`ck-layout.png` shows them stacked over the Load tab, which becomes unreadable. A window
+the owner moved keeps its place (`ui.json`, `layout_from_json`); only first openings
+change.
+
+Open a window the first time where it overlaps no other open window: for example cascade
+from the right half of the central panel, each next window below or beside the last, and
+size it no larger than the space it gets (sizes from `crate::theme`). Do not change the
+remembered-layout format.
+
+Read first: `docs/design/workbench-ux.md` (the eight principles, the harness and
+the findings table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`,
+`open_tab`, `click`, `one`, `assert_in_view`, `assert_absent`, `nodes_with`, `in_view`,
+`inject`) and `crates/ui-egui/src/app/harness/tests.rs` (how a finding's test is written:
+the `finding_*` and `audit_a*` tests). Every harness test starts with
+`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
+Colours, sizes and spacing come from `crate::theme` only: a source scan
+(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a
+sizing call, a `Color32`, or a spacing edit, in tests too. The workbench writes nothing
+but `ui.json`; do not add a write, and do not touch `crates/ui-egui/src/gate.rs`.
+
+The windows' rectangles are AccessKit nodes of role `Window` in the harness. Write one
+harness test, `audit_a6_ck_windows_open_without_overlap`: open all three windows with
+`h.state_mut().app.shell.set_open(kind, true)` for each `WindowKind::ALL`, run a few
+frames, then check that no two `Window` nodes' rectangles intersect and that each lies
+inside the viewport (`viewport()`). It must fail on `main`. Mark A6 fixed in
+`docs/design/workbench-ux.md` naming the test, update `docs/workbench.md` "CK-style
+windows" if it describes the first placement, and run `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "audit_a6_ck_windows_open_without_overlap"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::harness::tests::audit_a6_ck_windows_open_without_overlap --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"

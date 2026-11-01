@@ -1,0 +1,42 @@
+id = "KK-247"
+title = "Workbench: give the two copy buttons of a result block distinct labels (UX audit A5)"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/panels/common.rs",
+  "crates/ui-egui/src/app/harness/tests.rs",
+  "docs/design/workbench-ux.md",
+  "docs/workbench.md",
+]
+brief = """
+UX principle 3 says one control per action and one label per control. Every result block
+(`envelope_block` in `crates/ui-egui/src/panels/common.rs`) has two small buttons labelled
+"copy": one copies the `kit` command line, the other the MCP call. Label them by what they
+copy ("copy kit line", "copy MCP call"), keep their hover texts, and update any place in
+`docs/workbench.md` that names them.
+
+Read first: `docs/design/workbench-ux.md` (the eight principles, the harness and
+the findings table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`,
+`open_tab`, `click`, `one`, `assert_in_view`, `assert_absent`, `nodes_with`, `in_view`,
+`inject`) and `crates/ui-egui/src/app/harness/tests.rs` (how a finding's test is written:
+the `finding_*` and `audit_a*` tests). Every harness test starts with
+`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
+Colours, sizes and spacing come from `crate::theme` only: a source scan
+(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a
+sizing call, a `Color32`, or a spacing edit, in tests too. The workbench writes nothing
+but `ui.json`; do not add a write, and do not touch `crates/ui-egui/src/gate.rs`.
+
+Write one harness test, `audit_a5_each_result_block_has_distinct_copy_buttons`: open the
+Schema tab, click "Show" (the engine answers `schema` with nothing loaded), then check
+`one(&h, "copy kit line")` and `one(&h, "copy MCP call")` each find exactly one button and
+that no node's text is exactly "copy" (`assert_absent` is a substring check, so query with
+`h.query_all_by(|n| text_of(n).as_deref() == Some("copy"))`). It must fail on `main`. Then
+mark A5 fixed in `docs/design/workbench-ux.md` naming the test, and run `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "audit_a5_each_result_block_has_distinct_copy_buttons"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::harness::tests::audit_a5_each_result_block_has_distinct_copy_buttons --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
