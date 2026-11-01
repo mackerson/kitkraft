@@ -1,27 +1,39 @@
-# GPOF: GameplayOption, lstring-only definition (lane B round 3, M3.B8).
+# GPOF: GameplayOption, a gameplay option the player can switch in the settings: a name,
+# a description, the type of its value (a bool or a float with a data range) and the
+# rewards the option grants.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): DNAM, NNAM, RESN, VOVS are lstrings in every official GPOF record.
-#   xedit: the GPOF definition of wbDefinitionsSF1.pas at the pinned revision (L12368-L12430)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
+#   xedit: the GPOF definition of wbDefinitionsSF1.pas at the pinned revision,
+#     L12368-L12430 - member order: EDID (L12385), the base form components
+#     (L12386, L5984-L6832, common/BfcbBlock.toml), the name (L12387) and description
+#     (L12388) lstrings, the type data struct (L12389-L12422) whose members are the
+#     type (L12390-L12395) and the type-dependent data (L12396-L12421), the rewards
+#     (L12423-L12428) and the keywords (L12429, L8935-L8951, common/Keywords.toml).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
+#     lstring_table_matches_the_corpus): DNAM, NNAM, RESN and VOVS are lstrings in every
+#     official GPOF record.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "GPOF"
 name = "GameplayOption"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -36,16 +48,24 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
+group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: DNAM, NNAM, RESN, VOVS in the official GPOF records are lstrings (lane E's table, edit::lstrings)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "the base form components of the option"
+
+[[member]]
+sig = "NNAM"
+name = "OptionName"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12387-L12387"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official GPOF records every NNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
 
-[[member.member]]
+[[member]]
 sig = "DNAM"
 name = "OptionDescription"
 type = "lstring"
@@ -56,16 +76,76 @@ evidence = [
 ]
 confidence = "corpus"
 
+[[member]]
+group = "TypeData"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12389-L12422"]
+note = "the type-dependent data is a union decided by TNAM, a sibling subrecord this format cannot express; the layout typed here is xEdit's Float branch"
+
 [[member.member]]
-sig = "NNAM"
-name = "OptionName"
+sig = "TNAM"
+name = "Type"
+type = "enum"
+base = "u8"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12390-L12395"]
+confidence = "reference"
+values = [
+  ["Bool", 0],
+  ["Float", 1],
+]
+
+[[member.member]]
+sig = "VNAM"
+name = "Vnam"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12413-L12413"]
+confidence = "reference"
+note = "the option's default value; xEdit names both this and WNAM 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
+
+[[member.member]]
+sig = "WNAM"
+name = "Wnam"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12414-L12414"]
+confidence = "reference"
+note = "the option's default value; xEdit names both VNAM and this 'Default Value', so it is named after its subrecord; a one-byte bool in xEdit's Bool branch, decided by the sibling TNAM"
+
+[[member.member]]
+sig = "GPOD"
+name = "DataRange"
+type = "struct"
+size = 12
+field = [
+  { name = "Min", type = "f32" },
+  { name = "Max", type = "f32" },
+  { name = "Step", type = "f32" },
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12415-L12419"]
+confidence = "reference"
+note = "the option's data range; saved only in xEdit's Float branch, its Bool branch marks the subrecord unused and does not save it"
+
+[[member]]
+group = "Rewards"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12423-L12428"]
+note = "the rewards the option grants"
+
+[[member.member]]
+sig = "VOVS"
+name = "RewardDescription"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12387-L12387"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12424-L12424"
 evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official GPOF records every NNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official GPOF records every VOVS is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member.member]]
+sig = "VORV"
+name = "SettingValue"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12425-L12425"]
+confidence = "reference"
 
 [[member.member]]
 sig = "RESN"
@@ -79,12 +159,15 @@ evidence = [
 confidence = "corpus"
 
 [[member.member]]
-sig = "VOVS"
-name = "RewardDescription"
-type = "lstring"
+sig = "VORN"
+name = "RewardValue"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12427-L12427"]
+confidence = "reference"
+
+[[member]]
+group_ref = "Keywords"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12424-L12424"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official GPOF records every VOVS is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+confidence = "reference"
+note = "the keywords of the option"

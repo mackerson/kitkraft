@@ -596,7 +596,6 @@ const LSTRING_ONLY: &[&str] = &[
     "AVIF",
     "DMGT",
     "FXPD",
-    "GPOF",
     "PMFT",
 ];
 
