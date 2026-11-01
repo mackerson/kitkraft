@@ -171,3 +171,73 @@ Section 4 gains one status, below `observed`:
 - **Consequences.** Every `reproduced (layout unobserved)` row in `docs/ck-parity.md`
   becomes `built, unobserved`, the main menu bar's order row included.
   `crates/ui-egui/src/menu.rs` and `docs/workbench.md` use the same words.
+
+## Amendment 2 (2026-11-01, proposed): automated sittings through UI Automation
+
+- Status: **proposed, pending owner**. Drafted at the owner's request on 2026-11-01 after
+  the first UI Automation probe (`observe/2026-11-01-ck-uia-probe/`, gitignored). Until
+  the owner accepts it, nothing in `docs/ck-parity.md` moves on the strength of an
+  automated sitting; probe output stays in `observe\`.
+- Context: section 1 makes the owner-assisted sitting the only interface source. The
+  owner wants CK observation to stop depending on his time at the keyboard. The probe of
+  2026-11-01 launched CK 1.16.244 through MO2 on `Kitkraft Dev` and read its Windows UI
+  Automation tree, the interface the CK publishes to the operating system for screen
+  readers: window and panel names, the menu bar, about 80 named toolbar controls with
+  their actions, the Warnings window's controls. It loaded nothing, saved nothing and
+  invoked no command. The tree also carries what a user never sees (Qt object names, C++
+  class names, a Win32 dialog's control IDs), and it can carry tooltip and help text,
+  which section 2 forbids reproducing.
+
+### Decision
+
+1. **A sitting may be automated.** An agent may launch the CK through MO2 on `Kitkraft
+   Dev` without the owner present and observe it through UI Automation. An automated
+   sitting's record is, for each state observed: the UI Automation dump, a screenshot of
+   the same state taken at the same moment, the CK version, the date, and the state of
+   the CK's saved settings it started from (decision 4). It gets a sitting id and an
+   entry in `docs/ck-observations.md` like an owner-assisted sitting.
+2. **What counts as observed.** Only what a user could see on screen: window, panel and
+   dialog structure; labels; menu structure and order; enabled or disabled state; and
+   keyboard shortcuts where the tree exposes them. An element counts only when the tree
+   marks it on screen and the screenshot shows it. Everything else in the tree is
+   operational, never evidence:
+   - **Internal identifiers** (automation ids such as Qt object names, class names,
+     control IDs) may be used to find and drive controls. They are never cited as
+     interface facts, never reproduced in KitKraft, and never used as data facts.
+   - **Help, tooltip and status text** is dropped when the dump is taken (section 2: no
+     CK text beyond the labels themselves).
+3. **Storage and citation.** Dumps and screenshots stay in `observe\` (gitignored) and
+   are never committed. A `docs/ck-parity.md` row cites the sitting id and the file names,
+   and describes what was seen in our own words, as section 4 requires today.
+4. **Layout needs a known starting state.** The CK keeps its window arrangement in
+   `QtCreationKitSavedSettings.ini` and `CreationKitPrefs.ini` in the game folder and
+   rewrites both on every run. A layout row (which windows float or dock, where) is
+   observed only from a recorded starting state: the agent copies both files into the
+   sitting's `observe\` folder before the run and restores them afterwards; a run that
+   observes the CK's defaults starts from the files removed and restores them after. These
+   two files are the only game-folder files an automated sitting may write or restore.
+5. **Scope.** An automated sitting captures what the parity rows and the planned tickets
+   need, one state at a time, not every label the CK can show. Labels remain the only CK
+   text repeated anywhere, as names.
+6. **Observation only.** This amendment covers observing the CK. Saving plugins from the
+   CK (the F29/F30 differential, ADR 0005 §2, `ck-diff`) and edit-and-diff sittings run
+   under the existing differential rules (`docs/ck-observations.md`); the agent may drive
+   the CK for them only where the owner has allowed it for that sitting.
+
+### Consequences
+
+- The 14 `built, unobserved` and 22 `unresearched` rows of `docs/ck-parity.md` can be
+  observed without an owner sitting. Rows that differ from what was built go back to the
+  element being redone (Amendment 1); the main menu bar is the first known case: the
+  probe saw File, Edit, View, Docks, Galaxy, World, Terrain, NavMesh, Character,
+  Gameplay, Audio, Help.
+- A later CK version is re-observed by rerunning the same sitting and diffing the dumps,
+  which makes section 4's "moving back" rule a check rather than a new owner sitting.
+- `plan/STATUS.md` row 17 (a static strings scan of `CreationKit.exe`) is no longer
+  needed for an unattended CK route and can be answered "no".
+- Unattended CK runs rewrite the CK's two settings files in the game folder each time;
+  decision 4 is the stated exception to "nothing writes in the game folder", and only
+  for those two files.
+- Not covered: old-style Win32 dialogs whose controls carry no names (the probe's
+  "Inspector" property grid) give structure without labels; such rows still need the
+  screenshot, or an owner sitting, to be observed.
