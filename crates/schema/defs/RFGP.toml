@@ -1,96 +1,109 @@
-# RFGP: ReferenceGroup, inventory definition (M4.BX2, lane B).
+# RFGP: ReferenceGroup, the group a placed reference (a REFR's XRFG, or its XPCK)
+# points at: the group's references (RNAM and a second, unnamed reference), the
+# pack-in (PNAM, a PKIN) that spawns the group, the group's name, its scripts and
+# its components.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official RFGP record (169006 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the RFGP definition of wbDefinitionsSF1.pas at the pinned revision (L16894-L16903),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: the RFGP definition of wbDefinitionsSF1.pas at the pin (L16894-L16903):
+#     member order, EDID (L16895, helper L3182), the script data (L16896, helper
+#     L3407-L3411), the base form components (L16897, block L5984-L6832), the name
+#     (L16898), the references (L16899 and L16901, allowed targets L37-L40), the
+#     pack-in (L16900) and the unknown array (L16902).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Inside component blocks (kept raw by BfcbBlock): FLCS KSIZ KWDA.
+# Members xEdit lists that no official record has (EDID, NNAM) are kept so a plugin
+# that has one decodes it; they stay reference-level. Inside component blocks:
+# FLCS is typed by the shared BfcbBlock; KSIZ and KWDA stay raw in its component data.
 signature = "RFGP"
 name = "ReferenceGroup"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official RFGP record (169006) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16894-L16903"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16894-L16903",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2189-L2195",
+  "corpus: rfgp_types_full (crates/esm/tests/rfgp_types.rs), 2026-11-01: all 169006 official RFGP records decode with every subrecord placed and re-encode identically; MNAM in all 169006 (12 bytes), RNAM in 137121, LNAM in 53019, PNAM in 18685, VMAD in 1, the component block in 2; EDID and NNAM in none",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16895-L16895",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+]
+note = "not present in the official RFGP records"
 
 [[member]]
 sig = "VMAD"
-name = "Vmad"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1 of 169006 official RFGP records (1 occurrences), 35 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16896-L16896",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 2 of 169006 official RFGP records (2 occurrences), 25..36 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16897-L16897",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
 ]
-confidence = "corpus"
 note = "base form components; the component data stays raw"
 
 [[member]]
-sig = "RNAM"
-name = "Rnam"
-type = "opaque"
+sig = "NNAM"
+name = "Name"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 137121 of 169006 official RFGP records (137121 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16898-L16898",
+]
+note = "not present in the official RFGP records"
+
+[[member]]
+sig = "RNAM"
+name = "Reference"
+type = "formid"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16899-L16899",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L37-L40",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "raw FormID; xEdit allows any placed reference or none"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "PackIn"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 18685 of 169006 official RFGP records (18685 occurrences), 4 bytes"
+targets = ["PKIN"]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16900-L16900",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "Unknown1"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 53019 of 169006 official RFGP records (53019 occurrences), 4 bytes"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16901-L16901",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L37-L40",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "unknown in xEdit; a reference, like RNAM"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
+name = "Unknown2"
 type = "opaque"
+size = 12
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 169006 of 169006 official RFGP records (169006 occurrences), 12 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16902-L16902",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "an array of three unknown 4-byte fields upstream; kept raw"
