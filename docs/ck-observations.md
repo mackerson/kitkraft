@@ -282,3 +282,25 @@ scan's entry (M5.A4) was deleted from this file.
 | Not done | Our plugin could not be made the active file: "Set as Active File" on the selected, ticked row changed nothing visible (status stayed "Master File"; no message). So nothing was saved and F30's second half (save unchanged, then `cargo xtask oracle ck`) is open. The File menu offers "Convert Active File to ..." and "Compact Active File Form IDs for ...", which suggests the CK expects a non-master active file; an ESP twin of the plugin, or the owner's guidance, is the next step |
 | Side effects | The deployed copy is unchanged after the sitting (same SHA-256). The CK wrote `Backup\AutoSaveDEFAULT.bak` (126 bytes) into MO2's `overwrite\` and, as on every run, rewrote `CreationKitPrefs.ini` and `QtCreationKitSavedSettings.ini` in the game folder. It closed without a prompt |
 | Driving notes | The Data dialog is a Win32 dialog whose list rows are not exposed through UI Automation: a row is selected by type-ahead, ticked by double-click (single click and Space did not tick it); a modal dialog opened through UI Automation `Invoke` blocks the call, so modal-opening controls are clicked instead. Qt menus expose their items under the menu bar item while open |
+
+### ck-20261101-02: F30 second half, agent-run (the `.esp` twin, saved unchanged)
+
+The owner approved the twin in chat on 2026-11-01 ("yes, try the .esp twin for F30"). The
+sitting ran unattended through MO2 on `Kitkraft Dev`, driven the same way as
+`ck-20261101-01`. Record in `observe\ck-2026-11-01\F30b\` (`session.md`, `shots\`,
+`structure.txt`, the CK's saved file); fixture folder `observe\ck-2026-11-01\F30\` (the
+master attempt moved to `F30-master-attempt\`); oracle output in `observe\ck-oracle\F30\`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261101-02` |
+| Fixture | F30 (`docs/ck-sessions/f29-f30.md`), second half |
+| CK version / game build | CreationKit.exe 1.16.244.0; game 1.16.244.0 |
+| Input | `KitKraftFirstPOIEsp.esp`: the bytes of `out\poi\KitKraftFirstPOI.esm` with the TES4 master flag (`0x1`) cleared, nothing else changed (SHA-256 `ab620226...348083`, 1,821 bytes), deployed with `kit deploy --dev` as `KitKraft Dev - KitKraftFirstPOIEsp`, enabled for the sitting and disabled after it |
+| Question | Does the CK save our plugin unchanged, and what does it rewrite (Gate K0, "CK can re-export") |
+| Result | **Saved.** Data dialog: listed as "Plugin File", one parent master `Starfield.esm`; "Set as Active File" ticked it and changed its status to "Active File"; OK. Loaded in under 3 minutes; title bar `... - [KitKraftFirstPOIEsp.esp] <Small Master Capable- 4094 IDs remaining>`. File > Save Plugin wrote 1,808 bytes (SHA-256 `cd35126f...5e23f4`) with no prompt; File > Exit closed it with no prompt. Ctrl+S did not save (the window was not in front at the time; not retried) |
+| Records | **Unchanged.** `kit diff`: 0 added, 0 removed, 0 changed, 2 unchanged. The CELL override's compressed payload (1,485 bytes) and the REFR `01001000` (header and body) are byte-identical. The CK's file roundtrips identical (`kit roundtrip --verify --decode`) |
+| TES4 | `cargo xtask oracle ck`: fail, 4 unexplained, match 1/1. HEDR: version 0.96 kept; record count 3 -> 7 (the CK's count equals the two records plus the five groups); next object ID `FF001001` -> `00001007`. `DATA` after `MAST` (8 zero bytes) removed. `INCC` (4 bytes, value 1) removed. `BNAM` added: "Main" (the branch the title bar names). `CNAM` "DEFAULT" and `MAST` kept |
+| Groups and record headers | Below the oracle's view (from `structure.txt`): every GRUP gets version control `0x3561` (ours 0); the cell-children group (type 6) gets 7 and the temporary group (type 8) gets 1 in the field after it (ours 0); records keep version control 0. The CELL's form version 581 -> 582 (REFR stays 582) |
+| Side effects | The CK saved in place: MO2 wrote the change into the dev mod's own file, not into `overwrite\`, so `KitKraft Dev - KitKraftFirstPOIEsp` now differs from its deploy manifest (the dev mod is disabled; the CK's file is also copied to `F30\ck.esm`). The CK's two settings files were restored from `F30b\settings-before\` |
+| Open | M5.A3 classes the four TES4 differences and the group fields by hand (which are CK bookkeeping, which our writer should copy). Whether this counts as F30 "clean" for F29 (sheet item 21) is the owner's call: the records came back unchanged, the header did not |

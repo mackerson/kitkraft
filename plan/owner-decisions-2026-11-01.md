@@ -14,8 +14,9 @@ stays his to-do list and group D stays his; neither was answered.
 
 Each of items 1 to 23 carries its outcome and where it was applied, on the line after its
 title. The conflicts at the end of this sheet are fixed. What is left for the owner:
-group C, and one question from item 21: whether to try a non-master `.esp` twin of the
-POI plugin so the CK will take it as the active file (F30 is not clean yet).
+group C, and one question from item 21: F30 came back on 2026-11-01 with the `.esp`
+twin the owner approved (`docs/ck-observations.md` `ck-20261101-02`: records unchanged,
+four TES4 differences); does that count as clean for F29?
 
 ## How to answer
 
