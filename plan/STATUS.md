@@ -223,7 +223,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 
 **M3.O5 result (2026-10-15):** PASS. Owner ran every `player.additem` row of docs/overhaul/build-2.md on the vanilla `KitKraft Dev` profile with build 2 loaded: C1-C7 and C9-C14 pass (C8 dropped). Rifle shows "Old Earth Marksman Rifle". Gun overhaul closed; M3 exit criteria met except the deferred CK session.
 
-**M4.O2 result (2026-10-15):** PASS. On the vanilla `KitKraft Dev` profile the owner reached the crate with `coc CityNewAtlantisApartmentTEMPLATE` + `player.moveto 04001000` (runtime slot from the save, not MO2's index). Save/quit/reload persistence row: pending owner confirmation.
+**M4.O2 result (2026-10-15):** PASS. On the vanilla `KitKraft Dev` profile the owner reached the crate with `coc CityNewAtlantisApartmentTEMPLATE` + `player.moveto 04001000` (runtime slot from the save, not MO2's index). Save/quit/reload persistence row: **passed 2026-11-01 in an unattended `kit game session`** (`docs/game-observations.md` `game-20261101-04`: save, move away, load, back in the save's cell; the crate at its position after the reload).
 
 ## Lane F: human accessibility (2026-10-15)
 
