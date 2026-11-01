@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -91,8 +91,9 @@ it blocks the queue):
   start-up load timing (`docs/design/workbench-performance.md`, the owner's row).
 - In game (KitKraft Dev, disposable save): the colourway recipe (KK-020; its pinned SHA
   changes with a game update), the location, terminal and ownership recipes, the armor
-  testplan steps (KK-010). KK-221 would let `new` write a WRLD with no cells, never seen in
-  game: a product call before it runs.
+  testplan steps (KK-010). KK-221 lets `new` write a WRLD with no cells, never seen in
+  game: the product call was made 2026-11-01, the owner approved it (decision sheet item
+  23), so it runs as queued; an agent game session can check a new world later.
 - `inventory-check` compares a group's cited counts with its first member's, so groups
   whose start marker alternates (SECH's ECHO/ECHD) or nest (NOCM) need awkward source
   wording. LGDI and STBH are `unordered = true` on corpus order alone, to revisit when a
@@ -148,21 +149,27 @@ order".
 
 ### 3. Decisions the director took in the owner's absence (confirm or overturn)
 
-| Decision | Where recorded |
-| -------- | -------------- |
-| ADR 0013: `unsafe` allowed in exactly one file (`crates/ui-egui/src/viewport/gl.rs`) for the GL viewport; the workspace lint is `deny`, and `cargo xtask layers` fails on `unsafe` anywhere else | `plan/adr/0013-scoped-unsafe-for-the-gl-viewport.md` |
-| M7.M0 window model: CK-style floating `egui::Window`s inside the main viewport; docks only if a sitting shows them | `docs/workbench.md` "CK-style windows" |
-| M7.R3 uses `OBND` for bounding boxes; the NIF-derived variant waits on M7.O5 | `plan/execution-plan.md` M7.R3 |
-| REFR rotation convention Rx(-x)·Ry(-y)·Rz(-z), pinned from corpus box-corner alignment in three cells, unobserved against the CK | `crates/ui-egui/src/viewport/cell.rs`, `docs/ck-parity.md` Render Window row |
-| CK static-strings method (M5.A4) retained but not cited or repeated until ruled | "Director assumptions pending owner" table below |
-| M6.O2 fonts: system fonts only; M7.O5: no NIF source adopted | same table |
+**All answered 2026-11-01** (owner, in chat: "accept all"; `plan/owner-decisions-2026-11-01.md`,
+items in the last column).
+
+| Decision | Where recorded | Owner, 2026-11-01 |
+| -------- | -------------- | ----------------- |
+| ADR 0013: `unsafe` allowed in exactly one file (`crates/ui-egui/src/viewport/gl.rs`) for the GL viewport; the workspace lint is `deny`, and `cargo xtask layers` fails on `unsafe` anywhere else | `plan/adr/0013-scoped-unsafe-for-the-gl-viewport.md` | confirmed (item 2) |
+| M7.M0 window model: CK-style floating `egui::Window`s inside the main viewport; docks only if a sitting shows them | `docs/workbench.md` "CK-style windows" | confirmed for now (item 5); the 2026-11-01 probe saw a "Docks" menu in the CK, so it is revisited once a sitting observes the docks |
+| M7.R3 uses `OBND` for bounding boxes; the NIF-derived variant waits on M7.O5 | `plan/execution-plan.md` M7.R3 | confirmed (item 6); M7.O5 decided too (item 20) |
+| REFR rotation convention Rx(-x)·Ry(-y)·Rz(-z), pinned from corpus box-corner alignment in three cells, unobserved against the CK | `crates/ui-egui/src/viewport/scene.rs` (`ref_rotation`), `docs/ck-parity.md` Render Window row | confirmed (item 7); a CK sitting can re-check it |
+| CK static-strings method (M5.A4) retained but not cited or repeated until ruled | "Director assumptions pending owner" table below | **no** (item 18): static string scans of `CreationKit.exe` are not allowed; the entry is deleted |
+| M6.O2 fonts: system fonts only; M7.O5: no NIF source adopted | same table | fonts confirmed (item 19); M7.O5: the memo's recommendations 1 to 3 approved (item 20) |
+| ADR 0012 Amendment 1 (`built, unobserved`) | `plan/adr/0012-ck-interface-clean-room.md` | accepted (item 1) |
 
 ### 4. Owner-gated work (unchanged by the pause)
 
 Rows 10 (M4.O7 console mods; note the dev profile has `LocalSettings=false`, ledger
 `game-20261016-T1`), 12 (M5.O1 CK sitting; script in `docs/ck-sessions/f29-f30.md`), 14
 (M4.O4 session 2), 15 (M4.O1 sittings), 17 (static-strings ruling), and M7.O2/O3 (interface
-sittings) in "Owner next actions". Everything runtime-facing (M4.T4..T7, M5.C2, every
+sittings) in "Owner next actions". *Update 2026-11-01:* row 10 is done, row 17 is answered
+("no"), and the M7 interface sittings can run as automated sittings (ADR 0012 Amendment 2,
+accepted); see "Owner next actions". Everything runtime-facing (M4.T4..T7, M5.C2, every
 FTH-EXP row, M5.B3, M5.H2's second half) stays `not-run` until row 10 or a sitting.
 
 ### 5. How to resume
@@ -185,6 +192,12 @@ in-game sessions and license rulings.
 
 ### Director assumptions pending owner
 
+**All four answered 2026-11-01** (owner, in chat: "accept all"; `plan/owner-decisions-2026-11-01.md`):
+M6.O2 system fonts kept (item 19); M7.O5 the NIF memo's recommendations 1 to 3 approved
+(item 20; M7.S4 unblocked); M5.O2 closed, `crates/game` added no third-party crate (item
+10); M5.A4 static strings **not allowed**, the entry deleted from `docs/ck-observations.md`
+(item 18). The table is kept as the record of what was assumed.
+
 | Item | Assumption taken | What it unblocks or holds | Owner may |
 | ---- | ---------------- | ------------------------- | --------- |
 | M6.O2 (fonts) | Keep the Windows system fonts; no font is compiled in | M6.V3's type scale and M6.V4 proceed on system fonts | choose a compiled-in OFL font or an MIT/Apache icon font instead (row 16) |
@@ -194,7 +207,18 @@ in-game sessions and license rulings.
 
 ## Owner next actions
 
-**Start with `plan/owner-decisions-2026-11-01.md`**: every pending decision on one sheet, with a recommended answer each (reply `accept all` or per item).
+**Decisions are done (2026-11-01).** The owner answered `plan/owner-decisions-2026-11-01.md`
+in chat, verbatim: "accept all" (items 1 to 23), and corrected item 13: "on 13 we're
+public". Each answer is recorded in the sheet's "Answers" section and in the rows below.
+What is left for the owner:
+
+- **Group C of the sheet** (items 24 to 34), his to-do list: the folder move and install
+  (rows 5 and 11), the W12 rename package (row 2), session 2 (row 14), the workbench
+  walkthrough (row 8), the three schema files to eyeball, and the M2.O4 leftovers.
+- **The F30 question** (row 12): whether to try a non-master `.esp` twin of the POI
+  plugin, so the CK will take it as the active file and F30 can save. F29 is approved
+  once F30 comes back clean.
+- Group D (M6.O4, M7.O6) stays his for later.
 
 In-game checks use only the MO2 profile **KitKraft Dev**, each on a disposable save. Never
 use `Default` (AGENTS.md, "Owner's live game is off limits").
@@ -202,24 +226,24 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | # | Action | Unblocks | State |
 | - | ------ | -------- | ----- |
 | 1 | In-game check of the rename plugin `OldSovietMarksmanRifle.esm` (M2.O6) | M2 exit | **done 2026-10-14: PASS** |
-| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, `player.moveto KitKraftFirstPOICrate`, click the crate (the console should show `04001000`), then `prid 04001000` (Kitkraft Dev's slot, confirmed by its newest save: `kit testplan ... --from-save newest`, `docs/poi/first-poi.md`; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
-| 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
+| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, `player.moveto KitKraftFirstPOICrate`, click the crate (the console should show `04001000`), then `prid 04001000` (Kitkraft Dev's slot, confirmed by its newest save: `kit testplan ... --from-save newest`, `docs/poi/first-poi.md`; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | **visit PASS 2026-10-15** (owner, "M4.O2 result" below); **save/reload O2-08 PASS 2026-11-01**, unattended (`docs/game-observations.md` `game-20261101-04`). Left: W12, the rename package install (owner, or an agent session) |
+| 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | **PASS 2026-10-15** ("M3.O5 result" below; ledger `game-20261015-02`). Left: only the save/reload row O5-15, which an agent game session can run; nothing for the owner |
 | 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
 | 5 | Close every Claude Code session that has the repo open. Then double-click `C:\Modding\kitcraft\dist\KitKraft\Finish Move.cmd` (it warns, asks for `YES`, and runs `C:\Modding\scripts\finish_kitkraft_move.ps1` from a copy in TEMP; docs/QUICKSTART.md section 8). The script renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
 | 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | **decided 2026-10-15: started**. Lane W built the read-only workbench (`kit ui`, `docs/workbench.md`) |
-| 7 | Rule on two licenses in the workbench's dependency tree (ADR 0007, "Dependency list"). First, **BSL-1.0** (`clipboard-win`, `error-code`): eframe always pulls these in for the copy buttons; the license is permissive but is not named in the MIT/Apache/Zlib/BSD rule. Second, whether the optional `default_fonts` feature may ever be enabled (OFL-1.1 and Ubuntu Font Licence). It is off: the window uses the Windows system fonts | the first workbench merge to `main` | open (owner decision) |
+| 7 | Rule on two licenses in the workbench's dependency tree (ADR 0007, "Dependency list"). First, **BSL-1.0** (`clipboard-win`, `error-code`): eframe always pulls these in for the copy buttons; the license is permissive but is not named in the MIT/Apache/Zlib/BSD rule. Second, whether the optional `default_fonts` feature may ever be enabled (OFL-1.1 and Ubuntu Font Licence). It is off: the window uses the Windows system fonts | the first workbench merge to `main` | **decided 2026-11-01** (sheet items 9 and 19): BSL-1.0 allowed for the clipboard crates; system fonts only, `default_fonts` stays off (ADR 0007 "Dependency list") |
 | 9 | ~~Rule on **ADR 0010** (agent-driven game sessions on `KitKraft Dev`, M4.O6)~~ | lane C (M4.T1..T10 under their ids, M5.C1, M5.C2): unattended closing of in-game rows, then brief-to-mod end to end | **decided 2026-10-15: approved in principle** (`docs/foothold/owner-decisions-2026-10-15.md` item 6, addendum item 5). Conditions and the sub-question answers are ADR 0010 Amendment 1: isolated dev profile, disposable saves, explicit authorized paths, backups and restore-only rollback, timeouts, screenshots in scope (input injection deferred), statuses not-run/pass/fail/inconclusive with missing evidence = inconclusive, manual acceptance retained |
 | 10 | M4.O7 (path (b) of M5's shortest validated path): install Console API (Nexus 4280), Console Command Runner Updated (Nexus 7318) and optionally Console Output To File (Nexus 3142) into the `KitKraft Dev` profile through MO2; add `[General] bAlwaysActive=1` and the `[Papyrus]` logging keys to the profile's `StarfieldCustom.ini`; windowed in the profile's `StarfieldPrefs.ini`; create a disposable base save `KitKraftBase` in a quiet interior and note its SHA-256; note the versions in `docs/source-registry.md`. Agents do not download or install these (Nexus needs the owner's login) | M4.T1 (V0: `GetSFSEVersion` over HTTP on 1.16.244), then M4.T3 + M5.C1 and M5.C2, the first unattended save/reload | **done 2026-11-01 (owner)**: profile-specific INIs on (`LocalSettings=true`); Console API and Web Application, Console Command Runner Updated and Address Library for SFSE Plugins enabled in `Kitkraft Dev` only; `[General] bAlwaysActive=1` and the three `[Papyrus]` keys in the profile's `StarfieldCustom.ini`; `bFull Screen=0` (borderless windowed); base save `KitKraftBase.sfs` in `CityNewAtlantisApartmentTEMPLATE`, SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`. In game the console showed SFSE 0.2.21 on runtime `01100F40` (1.16.244). **The endpoint is on port 45555, not 55555**: Windows excludes TCP 55477-55576 on this box (Hyper-V/WSL reservations), the plugin logged `http server not started (unable to start)`, and the owner set `iPort=45555` in the mod's `sfse_plugin_console_api.ini`. Follow-ups done the same night: the game profile's url is 45555 and preflight refuses an excluded or mismatched port (`console-port`, `3d1408b`); V0 over HTTP passed (`docs/game-observations.md` `game-20261101-T1`) |
 | 8 | Run the workbench walkthrough against `KitKraft Dev` when the workbench changes (it is `#[ignore]`d, so `cargo xtask ci` skips it). PowerShell: `$env:KITKRAFT_WORKBENCH_PROFILE = 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'`, then `cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocapture`; it reads the profile and writes nothing but the engine's index cache (`docs/workbench.md`, "Panels") | confidence that `docs/workbench.md` matches the real profile | pending (owner), after each workbench round |
 | 11 | Install KitKraft for daily use (lane F, docs/QUICKSTART.md): close every Claude Code session, double-click `C:\Modding\kitcraft\dist\KitKraft\Install.cmd`, read the dry run (the same as "Install dry run" below), type `y`. Then start Claude Code: `/mcp` should list `kitkraft`, and `kit doctor` should end with no FIX on the MCP lines. Do it after row 5, or let `Finish Move.cmd` re-point it afterwards | `kit` on PATH in every terminal; the MCP server registered as `kitkraft` at the dist build | pending (owner) |
-| 12 | M5.O1 (path (a) of M5's shortest validated path): an owner-assisted CK sitting from the steps in this row, which are enough on their own (M5.A1's session script, when written, adds the ledger detail and the later sittings): **F29** (in the CK, place `Crate_MilitarySupply_01` `Starfield.esm:1E4FBD` in `CityNewAtlantisApartmentTEMPLATE` at the first POI's position, persistent, EditorID `KitKraftFirstPOICrate`, save with `Starfield.esm` as the only master) and **F30** (open `out\poi\KitKraftFirstPOI.esm` in the CK and save an unchanged copy). Screenshots and files into `observe\<date>-F29\` and `observe\<date>-F30\`. A computer-use agent may drive the CK while you watch; CK work is not assumed to run unattended (addendum item 5) | M5.A3: the first CK differential (Gate K0 "CK can load/re-export"), run with `cargo xtask observe`, `kit roundtrip --verify --decode` and `kit diff`; every `ck-diff` cell of `docs/foothold/gap-matrix.md` | **F30 first half done 2026-11-01, agent-run** (`docs/ck-observations.md` `ck-20261101-01`): the CK loaded our plugin with no warning naming it; it would not take the master-flagged file as the active file, so nothing was saved and F30's save and the differential are open (next: an ESP twin, or the owner's guidance). F29 not started (placing a reference needs the Render Window or the Cell View; owner OK per sitting, ADR 0012 Amendment 2 decision 6) |
-| 13 | M5.O2: confirm the dependency list `crates/game` adds (an HTTP client and a process crate) at the M4.T3 merge (ADR 0010 Amendment 1 (c)). Blocks the merge only if a license is not MIT or Apache-2.0 | M4.T3 merge, so path (b) | **M4.T3 merged 2026-10-16** with no third-party crate (ADR 0010 "Dependency list": workspace crates only, all MIT OR Apache-2.0), so it went in under the director assumption above; pending (owner): review the list |
+| 12 | M5.O1 (path (a) of M5's shortest validated path): an owner-assisted CK sitting from the steps in this row, which are enough on their own (M5.A1's session script, when written, adds the ledger detail and the later sittings): **F29** (in the CK, place `Crate_MilitarySupply_01` `Starfield.esm:1E4FBD` in `CityNewAtlantisApartmentTEMPLATE` at the first POI's position, persistent, EditorID `KitKraftFirstPOICrate`, save with `Starfield.esm` as the only master) and **F30** (open `out\poi\KitKraftFirstPOI.esm` in the CK and save an unchanged copy). Screenshots and files into `observe\<date>-F29\` and `observe\<date>-F30\`. Since 2026-11-01 an agent may run CK sittings without you under ADR 0012 Amendment 2 (accepted); a CK save still needs your OK per sitting. You allowed F30 on 2026-11-01, and F29 once F30 comes back clean (sheet item 21), under the same rules: dev profile, files into `observe\`, the CK's settings files restored | M5.A3: the first CK differential (Gate K0 "CK can load/re-export"), run with `cargo xtask observe`, `kit roundtrip --verify --decode` and `kit diff`; every `ck-diff` cell of `docs/foothold/gap-matrix.md` | **F30 first half done 2026-11-01, agent-run** (`docs/ck-observations.md` `ck-20261101-01`): the CK loaded our plugin with no warning naming it; it would not take the master-flagged file as the active file, so nothing was saved and F30's save and the differential are open. **F30 is not clean yet.** Open question for the owner: try a non-master `.esp` twin of the POI plugin so the CK takes it as the active file? F29 is approved once F30 comes back clean (sheet item 21) and not started (placing a reference needs the Render Window or the Cell View) |
+| 13 | M5.O2: confirm the dependency list `crates/game` adds (an HTTP client and a process crate) at the M4.T3 merge (ADR 0010 Amendment 1 (c)). Blocks the merge only if a license is not MIT or Apache-2.0 | M4.T3 merge, so path (b) | **M4.T3 merged 2026-10-16** with no third-party crate (ADR 0010 "Dependency list": workspace crates only, all MIT OR Apache-2.0), so it went in under the director assumption above; **closed 2026-11-01** (sheet item 10): the owner confirmed it, nothing to review |
 | 14 | M4.O4: in-game session 2 on `KitKraft Dev` with a disposable save, template O4 in `docs/game-observations.md`: the ownership and actors recipes (O4-01..O4-04), the outpost object and fabricator recipes (O4-05, O4-06; `docs/recipes/workshop.md`, `fabricator.md`), and the **scripts recipe in game** (O4-07; `docs/recipes/scripts.md`, "In game", plugin `KitKraftScripts.esm`) | M5.B3 (the scripted activator in game, Gate K0) unless lane C's M4.T6 closes O4-07 first; M5.O3; M4 exit | pending (owner) |
-| 15 | M4.O1: the CK sittings for fixtures F20..F28 (`plan/execution-plan.md` M4, "Fixture matrix (M4.H1)"), owner-assisted; a computer-use agent may drive the CK while you watch. Deferred on 2026-10-14 until the workbench existed (row 6); the workbench is built, so the deferral's condition is met. Best after M5.O1 (row 12), whose F29/F30 sitting sets up the CK | M5.A5 (fixtures through the CK differential), and through it FTH-EXP-01, -04, -08 and -10; M4.A1..A6's rules raised to `ck-diff` | pending (owner), after row 12 |
-| 16 | M6 "Cockpit" and M7 "CK parity" owner decisions (`plan/execution-plan.md` "M6" and "M7", lane O). **Decided 2026-10-16** (owner, in chat, verbatim: "Approve Amendment 3 and ADR 0012, start lane V mockups"): **M6.O3**, ADR 0007 Amendment 3 accepted as written. That is the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe` and `game.stop`, each previewed and confirmed per click, and nothing else; the window never launches the game itself, and `testplan` stays out. It also confirms the director's decision on rollback in and `testplan` out. **M7.O1**, ADR 0012 (`plan/adr/0012-ck-interface-clean-room.md`, the CK interface clean-room rule) accepted. Lane V started: M6.V1 and M6.V2 landed. **M6.O1 decided 2026-10-16: Workbench** (owner, in chat, verbatim: "Workbench, themes look great only keep the mocks if there's a good reason."); `workbench` is the default, `studio` selectable, `classic` legacy, the mockups removed. **Still open**: **M6.O2**, fonts, either Windows system fonts (the default) or a compiled-in OFL font or MIT/Apache icon font (row 7's BSL-1.0 ruling is still open beside it); **M7.O5**, the sources for Starfield NIF and geometry layout. Later: M6.O4 (the cockpit sign-off at the end of M6; a check at 125 and 150 percent is optional, lane X is deferred), M7.O2 and M7.O3 (CK interface sittings, combinable with rows 12 and 15), M7.O4 (Amendment 4, the editor write scope) and M7.O6 (A/B sign-off). **Director decisions still pending your confirmation** (`plan/execution-plan.md` "M6", "Decisions taken by the director 2026-10-16, pending owner"; ADR 0002 Amendment 1): `crates/nif` stays behind the engine and the L2 `render` slot is retired; M7.S5 geometry as base64 buffers in the JSON envelope; CK menu order `unresearched` until sitting 1 | Open: any M6.V4 icon font and a compiled-in font for the type scale (O2), M7.S4 and so M7.R3 to M7.R5 (M7.O5), M6 exit (O4). Unblocked by the 2026-10-16 rulings: M6.G3 to M6.G6 (each still on its other dependencies), M7.K2 onward, M6.V3 onward (O1) | **O3, M7.O1 and O1 decided 2026-10-16**; open: O2 and M7.O5, both can be decided now |
-| 17 | Rule whether a static strings scan of `CreationKit.exe` (printable text read from the binary's bytes, no disassembly, debugging or memory) is allowed: AGENTS.md "Clean room" allows the CK only "run and observed as a black box", ADR 0005 §3 forbids disassembly, decompilation, debugging and memory inspection, and the scan is neither. Answer as an ADR 0005 amendment or an AGENTS.md clarification. Until then: no further static analysis, and `docs/ck-observations.md` "M5.A4" is retained but not cited ("Director assumptions pending owner") | M5.A4 (unattended CK route) | pending (owner) |
+| 15 | M4.O1: the CK sittings for fixtures F20..F28 (`plan/execution-plan.md` M4, "Fixture matrix (M4.H1)"), owner-assisted; a computer-use agent may drive the CK while you watch. Deferred on 2026-10-14 until the workbench existed (row 6); the workbench is built, so the deferral's condition is met. Best after M5.O1 (row 12), whose F29/F30 sitting sets up the CK. Since 2026-11-01 each sitting may be an agent run (ADR 0012 Amendment 2), but each needs the owner's OK on its own (sheet item 21) | M5.A5 (fixtures through the CK differential), and through it FTH-EXP-01, -04, -08 and -10; M4.A1..A6's rules raised to `ck-diff` | pending (owner OK per sitting), after row 12 |
+| 16 | M6 "Cockpit" and M7 "CK parity" owner decisions (`plan/execution-plan.md` "M6" and "M7", lane O). **Decided 2026-10-16** (owner, in chat, verbatim: "Approve Amendment 3 and ADR 0012, start lane V mockups"): **M6.O3**, ADR 0007 Amendment 3 accepted as written. That is the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe` and `game.stop`, each previewed and confirmed per click, and nothing else; the window never launches the game itself, and `testplan` stays out. It also confirms the director's decision on rollback in and `testplan` out. **M7.O1**, ADR 0012 (`plan/adr/0012-ck-interface-clean-room.md`, the CK interface clean-room rule) accepted. Lane V started: M6.V1 and M6.V2 landed. **M6.O1 decided 2026-10-16: Workbench** (owner, in chat, verbatim: "Workbench, themes look great only keep the mocks if there's a good reason."); `workbench` is the default, `studio` selectable, `classic` legacy, the mockups removed. **Still open on 2026-10-16** (decided 2026-11-01, see State): **M6.O2**, fonts, either Windows system fonts (the default) or a compiled-in OFL font or MIT/Apache icon font (row 7's BSL-1.0 ruling is still open beside it); **M7.O5**, the sources for Starfield NIF and geometry layout. Later: M6.O4 (the cockpit sign-off at the end of M6; a check at 125 and 150 percent is optional, lane X is deferred), M7.O2 and M7.O3 (CK interface sittings, combinable with rows 12 and 15), M7.O4 (Amendment 4, the editor write scope) and M7.O6 (A/B sign-off). **Director decisions then pending your confirmation** (confirmed 2026-11-01) (`plan/execution-plan.md` "M6", "Decisions taken by the director 2026-10-16, pending owner"; ADR 0002 Amendment 1): `crates/nif` stays behind the engine and the L2 `render` slot is retired; M7.S5 geometry as base64 buffers in the JSON envelope; CK menu order `unresearched` until sitting 1 | Open: any M6.V4 icon font and a compiled-in font for the type scale (O2), M7.S4 and so M7.R3 to M7.R5 (M7.O5), M6 exit (O4). Unblocked by the 2026-10-16 rulings: M6.G3 to M6.G6 (each still on its other dependencies), M7.K2 onward, M6.V3 onward (O1) | **O3, M7.O1 and O1 decided 2026-10-16**; **O2, M7.O5 and M7.O4 decided 2026-11-01** (sheet items 19, 20, 22: system fonts only; the NIF memo's recommendations 1 to 3, so M7.S4 is unblocked; ADR 0007 Amendment 4 accepted with model A, one confirmed write per OK click, so M7.E2 to M7.E6 are unblocked), and the director decisions listed here confirmed (items 3, 4, 8). Later: M6.O4 and M7.O6 (sign-offs); M7.O2 and M7.O3 can be automated sittings (ADR 0012 Amendment 2) |
+| 17 | Rule whether a static strings scan of `CreationKit.exe` (printable text read from the binary's bytes, no disassembly, debugging or memory) is allowed: AGENTS.md "Clean room" allows the CK only "run and observed as a black box", ADR 0005 §3 forbids disassembly, decompilation, debugging and memory inspection, and the scan is neither. Answer as an ADR 0005 amendment or an AGENTS.md clarification. Until then: no further static analysis, and `docs/ck-observations.md` "M5.A4" is retained but not cited ("Director assumptions pending owner") | M5.A4 (unattended CK route) | **decided 2026-11-01: no** (sheet item 18). Static string scans of `CreationKit.exe` are not allowed (AGENTS.md "Clean room", ADR 0012 Amendment 2 "Owner ruling 2026-11-01"); the M5.A4 entry is deleted. The unattended route is ADR 0012 Amendment 2 |
 
-**Director ruling pending owner confirmation (2026-10-15):** eframe's clipboard support brings `clipboard-win` and `error-code` under BSL-1.0 (Boost). BSL-1.0 is permissive with no copyleft and is compatible with MIT/Apache-2.0; applying owner clarification 2 (no pause unless the license category differs), the workbench was merged with this noted. Owner: confirm, or ask for the clipboard feature to be dropped.
+**Director ruling of 2026-10-15, confirmed by the owner 2026-11-01** (sheet item 9): eframe's clipboard support brings `clipboard-win` and `error-code` under BSL-1.0 (Boost). BSL-1.0 is permissive with no copyleft and is compatible with MIT/Apache-2.0; applying owner clarification 2 (no pause unless the license category differs), the workbench was merged with this noted. The clipboard crates stay.
 
 **M3.O5 result (2026-10-15):** PASS. Owner ran every `player.additem` row of docs/overhaul/build-2.md on the vanilla `KitKraft Dev` profile with build 2 loaded: C1-C7 and C9-C14 pass (C8 dropped). Rifle shows "Old Earth Marksman Rifle". Gun overhaul closed; M3 exit criteria met except the deferred CK session.
 
@@ -345,13 +369,13 @@ SC). Each "done" cites the evidence that lane recorded.
 | `docs/ck-observations.md` entries for every M3.O1 fixture; M3.H3 targets answered; TES4 `SNAM`/`BNAM`/`CHGL` settled; CK fixtures roundtrip (M3.A4) | **pending-owner** | No CK sitting yet (gap matrix CK0). M3.O1's fixtures come through rows 12 (M5.O1, F29/F30, script `docs/ck-sessions/f29-f30.md`) and 15 (M4.O1, F20..F28); the deferral's condition (the workbench) is met. `cargo xtask observe` and `cargo xtask oracle ck` (M5.A2, synthetic fixtures) are ready |
 | The 160 recompression misses settled or restated with evidence | **done** (restated) | M3.A1: classified E/N/U with the study in `docs/gaps.md`. F07 still checks it in the CK (with the sittings above) |
 | `style: "ck"` in `set`/`build`, matching the CK's bytes or explained (M3.E5) | **carried** | M3.A3, M3.E5, after the CK sittings (rows 12, 15) |
-| `docs/ck-parity.md` ranks the CK features (M3.H5) | **carried** | M3.H5, after the sittings. `docs/ck-parity.md` now also holds the M7 interface rows (13 `built, unobserved`, 23 `unresearched`) |
+| `docs/ck-parity.md` ranks the CK features (M3.H5) | **carried** | M3.H5, after the sittings. `docs/ck-parity.md` now also holds the M7 interface rows (14 `built, unobserved`, 22 `unresearched`, counted 2026-11-01; 13 and 23 at Amendment 1 on 2026-10-16, before the Cell View row) |
 | Spec v2 and `kit overhaul` `Implemented` | **done** | M3.E6, M3.E7 |
 | First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 2 (2026-10-15, `docs/overhaul/build-2.md`): 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
 | Owner's in-game overhaul result recorded (M3.O5) | **done** | PASS 2026-10-15 (C1-C7, C9-C14), ledger `game-20261015-02` (M5.F4) with the plugin's hash. Its save/reload row O5-15 was not run |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses). M3.B11 rerun 2026-10-15 on every record of the 12 typed types: 149,454 agree, 2,825 agree with fewer xEdit fields, 190 disagree (X9, version skew), 0 ours. Also the Papyrus compiler oracle and M5.B2 (50 of 50). A build at the pin is the owner's (`docs/gaps.md`) |
 | Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, A5, B10, D1, D2, D3, D6, E1, E2, E3, E4 (lstrings from the schema, lane E round 5), F1..F4, G1..G3, and M3.D4 as M4.D1 (`refs`). Carried, each with its `docs/gaps.md` row: M3.B9 (other deciders; round 4 did the sibling field), M3.D5 (its in-game half is M4.T1 (f), after row 10; its CK half M3.O1), M3.E10 (patch remapping) |
-| ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). ADR 0007 Amendment 3 accepted 2026-10-16 (M6.O3); Amendment 4 proposed (M7.O4) |
+| ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). ADR 0007 Amendment 3 accepted 2026-10-16 (M6.O3); Amendment 4 accepted 2026-11-01 with model A (M7.O4) |
 | `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded then. Since: every 2026-10-16 lane merged on a green `cargo xtask ci` ("Pause" above); parity regenerated at `a8469e7` |
 
 ### M4 is done when
@@ -368,8 +392,8 @@ SC). Each "done" cites the evidence that lane recorded.
 | Spec v3 builds deterministically | **done** | M4.E3 (two builds identical); since M5.D10 `new:` also names a `[[place]]` |
 | Cell rules run with 0 errors on the official files | **done** | M4.E4: one known error (`ref.orphan` on 0x1FB). `layout.undecoded` and `layout.unplaced` 0 findings (`validate_corpus_official_files`) |
 | First POI built, validated and packaged | **done** | `out\poi\KitKraftFirstPOI.esm` (`docs/poi/first-poi.md`), reviewed |
-| First POI visited in game, persistence steps recorded in `docs/game-observations.md` | **partly** | Visit **done**: M4.O2 PASS 2026-10-15, ledger `game-20261015-03` (O2-05, O2-06 pass). Persistence **pending-owner**: O2-08 not run (row 2), or lane C's M5.C2 after row 10 |
-| P0 first deliverables W1..W6, W12 | **partly** | W1 **done** (M4.E1, `KitKraftW1.esm`). W2 **done** in game (the visit above). W3 recipe built (M4.E7, `docs/recipes/workshop.md`), **pending-owner** (M4.O4, O4-05). W4 recipe built (M4.E8), **pending-owner** (M4.O4). W5 **pending-owner** (persistence: O2-08 and the O4 persistence rows; `docs/design/persistence.md` done). W6 built (M4.E9 script attachment, `docs/recipes/scripts.md`), in game **pending-owner** (O4-07, row 14) or M4.T6. W12 **pending-owner**: the rename package install (O2-02) was not run in `game-20261015-03` |
+| First POI visited in game, persistence steps recorded in `docs/game-observations.md` | **partly** | Visit **done**: M4.O2 PASS 2026-10-15, ledger `game-20261015-03` (O2-05, O2-06 pass). Persistence **done** 2026-11-01: the save/reload row O2-08 passed in an unattended agent session (M5.C2 path, ledger `game-20261101-04`, rows T-05 and T-06) |
+| P0 first deliverables W1..W6, W12 | **partly** | W1 **done** (M4.E1, `KitKraftW1.esm`). W2 **done** in game (the visit above). W3 recipe built (M4.E7, `docs/recipes/workshop.md`), **pending-owner** (M4.O4, O4-05). W4 recipe built (M4.E8), **pending-owner** (M4.O4). W5 **partly** (persistence: O2-08 passed 2026-11-01, `game-20261101-04`; the O4 persistence rows pending-owner; `docs/design/persistence.md` done). W6 built (M4.E9 script attachment, `docs/recipes/scripts.md`), in game **pending-owner** (O4-07, row 14) or M4.T6. W12 **pending-owner**: the rename package install (O2-02) was not run in `game-20261015-03` |
 | P1 deliverables W7..W10 done or carried; W11 scoping document | **partly** | W7 **done** (M4.D3: `kit planet`, `docs/design/planet-content.md`). W8 recipe built (M4.E7, `docs/recipes/fabricator.md`), **pending-owner** (O4-06). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 **done** (M4.D1 `refs`; `VMAD` objects since M5.D6). W11 **done** (M4.G3) |
 | M4.O4 in-game results recorded | **pending-owner** | Row 14. The recipes for O4-01 to O4-07 are built; lane C's M4.T6 may close rows first after row 10 |
 | `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | **done** | M4.H3 (39 graded claims), M4.D3, M4.G3 |
@@ -1914,7 +1938,10 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 - Owner-gated, as in "Pause" section 4: the CK sittings (M3.O1, M4.O1, M5.O1) hold every
   `ck-diff` upgrade and M3.H3/M3.H5; the console-mods step (M4.O7) holds everything
   runtime-facing (M4.T4..T7, M5.C2, the FTH-EXP rows); the M7 interface sittings
-  (M7.O2/O3).
+  (M7.O2/O3). *Update 2026-11-01:* M4.O7 is done (row 10), so runtime work runs as agent
+  game sessions; the M7 interface sittings can be automated (ADR 0012 Amendment 2,
+  accepted); the CK fixture saves wait on F30 (row 12: the CK would not take the
+  master-flagged plugin as the active file) and on the owner's OK per sitting.
 
 ## Decision records (owner, 2026-10-14)
 
@@ -1963,10 +1990,14 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 | 2   | xEdit MPL source policy (ADR 0004)      | **decided 2026-10-14** (pinned xEdit SF1 definitions as reference) |
 | 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | **approved 2026-10-14** (M2.O1; lane B unpaused) |
 | 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | **approved 2026-10-14**: yes, same SHA, same rules (ADR 0004 owner approval) |
-| 3   | Video critique used as overhaul brief   | none; overhaul work is after M2   |
-| 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
-| 5   | Contact kinggath about SS2 now or later | later                             |
-| 6   | Git remote / publishing                 | local only                        |
+| 3   | Video critique used as overhaul brief   | **decided 2026-10-14** ("Everything WRONG With The Guns In Starfield", `docs/overhaul/brief.md`); closed 2026-11-01 (sheet item 15) |
+| 4   | License                                 | **decided 2026-11-01**: MIT OR Apache-2.0 (sheet item 12; ADR 0001) |
+| 5   | Contact kinggath about SS2 now or later | later (**confirmed 2026-11-01**, sheet item 16); still the owner's |
+| 6   | Git remote / publishing                 | **decided 2026-11-01** (sheet item 13, owner's correction "on 13 we're public"): the remote is public GitHub, `github.com/mackerson/kitkraft`; only the director pushes `main`. Publishing releases or packages is still the owner's |
+| M2.O5 | Third-party mods as format evidence   | **decided 2026-11-01: no** (sheet item 14) |
+| M7.O4 | Editor write scope (ADR 0007 Amendment 4) | **decided 2026-11-01: accepted with model A**, one confirmed write per OK click (sheet item 22) |
+| M7.O5 | NIF and mesh sources                  | **decided 2026-11-01**: the memo's recommendations 1 to 3 (sheet item 20; `docs/source-registry.md` "Sources for NIF and mesh layout") |
+| ADR 0012 Am. 2 | Automated CK sittings through UI Automation | **decided 2026-11-01: accepted** (sheet item 17); static string scans of `CreationKit.exe` not allowed (item 18) |
 | M3.O6 | UI (ADR 0007)                         | **decided 2026-10-14**: accepted with scope (read-only workbench, M4 lane W; authoring UI M5) |
 | M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
 | M4.O6 | Agent-driven game sessions on `KitKraft Dev` (ADR 0010) | **decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1): screenshots in scope, input injection deferred, `crates/game` dependencies MIT/Apache-2.0 confirmed by the owner at the merge |
@@ -1982,8 +2013,8 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 | M2.O1 | Approve ADR 0004, ADR 0005 Amendment 2, `docs/xedit-reference.md` | **done 2026-10-14** (with six clarifications) |
 | M2.O2 | Whether OMOD is in scope                                    | **done 2026-10-14**: in scope (M2.B7)  |
 | M2.O3 | Install SF1Edit (agents do not download executables)        | **done 2026-10-14 as M3.O3**: xEdit 4.1.5f at `C:\Modding\tools\xEdit\` (older than the pin; `docs/oracles.md`) |
-| M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), the `hardcoded-official-slots` check, M2.E3 `ck-diff` part |
-| M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
+| M2.O4 | CK and MO2 observation sessions                             | **split** into M3.O1 (CK) and M3.O2 (MO2 and in game) when M3 started (`plan/execution-plan.md` "M3"); tracked there. Its leftovers (one MO2 check, the runtime-ID check) are item 34 of `plan/owner-decisions-2026-11-01.md` |
+| M2.O5 | Third-party mod plugins as inventory evidence               | **decided 2026-11-01: no** (sheet item 14): loaded as the user's load order, never a source of format facts |
 | M2.O6 | In-game check of the rename plugin                          | **done 2026-10-14: PASS** (M2 fully closed) |
 
 #### M2.O6: in-game check of the rename plugin (owner)
@@ -2020,13 +2051,14 @@ Result: **PASS 2026-10-14** (recorded under "Done", "M2.O6 result").
 
 ### Divergence from the brief (for the owner)
 
-The agents' docs diverge from `PLAN.md` in two places, now reconciled in `PLAN.md` ("AGENTS.md
-wins") but still the owner's to confirm:
+The agents' docs diverged from `PLAN.md` in two places, reconciled in `PLAN.md` ("AGENTS.md
+wins") and both confirmed by the owner (the second on 2026-11-01):
 
 - **xEdit stance.** Resolved 2026-10-14: the owner decided ADR 0004 (pinned
   `wbDefinitionsSF1.pas` as the record-definition reference); `PLAN.md` and AGENTS.md agree.
-- **No push.** The brief said "push to main"; AGENTS.md says commit to local `main`, no
-  remote (owner decision 6).
+- **Push.** The brief said "push to main". Resolved 2026-11-01 (owner decision 6, sheet
+  item 13): the remote is public GitHub, `github.com/mackerson/kitkraft`, and only the
+  director pushes `main`, after an integration passes the gate; lanes never push.
 
 ## Requests (cross-lane)
 

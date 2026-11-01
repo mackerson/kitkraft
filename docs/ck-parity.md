@@ -62,20 +62,23 @@ evidence each status needs):
   resource files are never read.
 - All art is KitKraft's.
 
-The only observation source is the owner-assisted CK sittings (`plan/STATUS.md` rows 12
-and 15, M7.O2, M7.O3). A computer-use agent may drive the CK while the owner watches.
-Screenshots stay in `observe\` (gitignored). The public CK wiki is a level-4 source for
-data facts (AGENTS.md "Clean room"), not interface observation: no row here moves to
-`observed` on its word. The menu order in the first row is a recollection: the bar built
-to it is `built, unobserved` until sitting 1 observes the CK's order (director decisions
-2026-10-16, `plan/execution-plan.md` "M6"; ADR 0012 Amendment 1, pending owner).
+The observation sources are the owner-assisted CK sittings (`plan/STATUS.md` rows 12
+and 15, M7.O2, M7.O3), where a computer-use agent may drive the CK while the owner
+watches, and, since 2026-11-01, automated sittings an agent runs through UI Automation
+(ADR 0012 Amendment 2, accepted by the owner 2026-11-01). Screenshots and dumps stay in
+`observe\` (gitignored). The public CK wiki is a level-4 source for data facts (AGENTS.md
+"Clean room"), not interface observation: no row here moves to `observed` on its word.
+The menu order in the first row is a recollection: the bar built to it is `built,
+unobserved` until a sitting observes the CK's order (director decisions 2026-10-16,
+`plan/execution-plan.md` "M6", and ADR 0012 Amendment 1, both confirmed by the owner
+2026-11-01).
 
 Status, one of:
 
 - `unresearched`: not yet observed. What the row says comes from the owner's or a
   planner's recollection and is not evidence.
 - `built, unobserved`: below `observed` (ADR 0012 Amendment 1, director decision
-  2026-10-16, pending owner). KitKraft has the element (a window, dialog or menu bar),
+  2026-10-16, accepted by the owner 2026-11-01). KitKraft has the element (a window, dialog or menu bar),
   but it matches no observation: its layout, order and labels are KitKraft's own (or a
   recollection's). "Evidence" names the test or tour image of what was built; it is
   never counted as parity. It moves to `observed` only through a sitting, and the element
@@ -93,7 +96,10 @@ menu-item row maps to a catalog id that exists or to `gap:`.
 
 Seeded 2026-10-16 by the roadmap lane with every row `unresearched`; the rows M7 lane M
 built before any sitting are `built, unobserved`. No row is `observed` yet. Sitting 1
-(M7.O2) fills the menus and windows, sitting 2 (M7.O3) the edit dialogs.
+(M7.O2) fills the menus and windows, sitting 2 (M7.O3) the edit dialogs; either may be
+an automated sitting. The 2026-11-01 probe and `ck-20261101-01` ran before the owner
+accepted Amendment 2 the same day; their observations move rows in a change of their
+own. Today: 14 rows `built, unobserved`, 22 `unresearched` (counted 2026-11-01).
 
 | Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |
 | ---- | ------------------------------- | ------- | ------ | ------ | -------- |
@@ -128,7 +134,7 @@ built before any sitting are `built, unobserved`. No row is `observed` yet. Sitt
 | dialog | Edit dialog: CELL | M7.W3 read-only dialog, `crates/ui-egui/layouts/CELL.toml` (names ours; not in sitting 2's first eight types) | built, unobserved | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
 | dialog | Edit dialog: REFR | M7.W3 read-only dialog, `crates/ui-egui/layouts/REFR.toml` (names ours; not in sitting 2's first eight types) | built, unobserved | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
 | dialog | Edit dialog of any other type | M7.W3 default layout built from `schema` (one group per schema group) | built, unobserved | - | test `dialogs::tests::a_type_without_a_file_gets_a_default_layout_from_its_schema`; tour `ck-edit-default.png` (kept local) |
-| window | Window arrangement (floating or docked windows) | M7.M0: floating `egui::Window`s in the main window, each toggled from View and remembered in `ui.json` (`ck_windows`); every workbench tab can float too (View > Workbench tabs as windows); a dock layout only if a sitting shows the CK's docks | built, unobserved | director assumption 2026-10-16, pending the owner | test `windows::tests::the_layout_round_trips_and_ignores_damage`; tour `ck-layout.png` (kept local) |
+| window | Window arrangement (floating or docked windows) | M7.M0: floating `egui::Window`s in the main window, each toggled from View and remembered in `ui.json` (`ck_windows`); every workbench tab can float too (View > Workbench tabs as windows); a dock layout only if a sitting shows the CK's docks | built, unobserved | director assumption 2026-10-16, confirmed by the owner for now 2026-11-01 (to revisit: the 2026-11-01 probe saw a "Docks" menu) | test `windows::tests::the_layout_round_trips_and_ignores_damage`; tour `ck-layout.png` (kept local) |
 | shortcut | Keyboard shortcuts, every one observed | M7.M5 | unresearched | - | - |
 | workflow | New form, duplicate form | `new`, `clone` (M7.E3) | unresearched | - | - |
 | workflow | Place an object into a cell | `place` (M7.E4) | unresearched | - | - |

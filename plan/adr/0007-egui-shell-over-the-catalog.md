@@ -7,7 +7,9 @@
   click. "Amendment 3" (**ACCEPTED**, owner ruling 2026-10-16, M6.O3; proposed the same
   day): the M6 cockpit write scope, `ledger`, `deploy --dev`, `deploy.rollback`,
   `game.session`, `game.probe` and `game.stop`, each previewed and confirmed per click,
-  and nothing else.
+  and nothing else. "Amendment 4" (**ACCEPTED with model A**, owner ruling 2026-11-01,
+  M7.O4; proposed 2026-10-16): the M7 editor write scope, `set`, `new`, `clone`, `place`,
+  `build` and `revert` into the active file only, one confirmed write per OK click.
 - Date: 2026-10-14
 - Scope: `crates/ui-egui` (L5, not created), `apps/kit` (APP, not created), a `kit ui`
   launcher in `apps/kit-cli`
@@ -247,12 +249,14 @@ Licenses of the 117, by expression:
 | Apache-2.0 OR GPL-2.0-only (`self_cell`) | 1 | allowed (Apache option) |
 | ISC (`libloading`) | 1 | BSD-style |
 | (MIT OR Apache-2.0) AND Unicode-3.0 (`unicode-ident`) | 1 | already in the workspace (proc-macro, build time) |
-| **BSL-1.0** (`clipboard-win`, `error-code`, through `arboard`) | 2 | **owner decision pending**: not MIT/Apache/Zlib/BSD by name. The Boost licence is permissive and needs no attribution in binaries; eframe's native build enables the clipboard unconditionally, so dropping it means no copy buttons |
+| **BSL-1.0** (`clipboard-win`, `error-code`, through `arboard`) | 2 | **allowed by the owner 2026-11-01** (`plan/owner-decisions-2026-11-01.md` item 9, "accept all"; was the director's ruling of 2026-10-15): not MIT/Apache/Zlib/BSD by name. The Boost licence is permissive and needs no attribution in binaries; eframe's native build enables the clipboard unconditionally, so dropping it means no copy buttons |
 
 Not built: `epaint_default_fonts` ((MIT OR Apache-2.0) AND OFL-1.1 AND Ubuntu-font-1.0).
 The window reads Segoe UI and Consolas from `%WINDIR%\Fonts` at start, so no font is
 compiled in or shipped. `kitkraft-ui-egui`'s `default_fonts` feature turns the bundled
-fonts on for a machine without them; it needs the owner's yes before it is used.
+fonts on for a machine without them; it needs the owner's yes before it is used. **Owner
+ruling 2026-11-01** (M6.O2, `plan/owner-decisions-2026-11-01.md` item 19): system fonts
+only; `default_fonts` stays off, and no OFL font or icon font is compiled in.
 
 Build and test cost on the dev box: a clean debug build of the eframe tree takes about
 36 s (in parallel with the rest of the workspace); `cargo xtask ci` with a warm target dir
@@ -425,16 +429,16 @@ variable and refuses a folder that `guard_output_dir` rejects. The performance t
 | ----- | ------- | ------- | ----- |
 | `glow` 0.17.0 | M7.R1, the GL viewport through egui's `PaintCallback` on eframe's glow backend (reached as `eframe::glow`, with `eframe::egui_glow` 0.36.2; no new framework) | MIT OR Apache-2.0 OR Zlib (checked 2026-10-16 in the local registry copy) | already in the tree through `eframe`'s `glow` feature; M7.R1 uses it at the version eframe 0.36.2 pins, no second GL crate (lane R, 2026-10-16). Every `glow` call is an `unsafe fn`: ADR 0013 |
 | `image` 0.25.10, `png` feature only | M6.V2, the screenshot tour writes PNG instead of BMP (`crates/ui-egui/src/shots.rs`; the mockups are 3.6 MB as PNG, about 70 MB as BMP) | MIT OR Apache-2.0 (checked 2026-10-16 in the local registry copy; `png` 0.18.1 and its deflate crates are MIT OR Apache-2.0) | already in the tree through `eframe` and `arboard` with the `png` feature: a direct dependency, no new package in `Cargo.lock` (lane V, 2026-10-16) |
-| `glam` 0.34.1, `default-features = false`, `std` only | M7.R1 camera and transform math (`crates/ui-egui/src/viewport/`) | MIT OR Apache-2.0 (checked 2026-10-16 in the crate's manifest and its `LICENSE-MIT` and `LICENSE-APACHE`; with these features it has no dependencies, so `Cargo.lock` gains this one package) | added by M7.R1 (lane R, 2026-10-16); also listed in `ATTRIBUTION.md` |
+| `glam` 0.34.1, `default-features = false`, `std` only | M7.R1 camera and transform math (`crates/ui-egui/src/viewport/`) | MIT OR Apache-2.0 (checked 2026-10-16 in the crate's manifest and its `LICENSE-MIT` and `LICENSE-APACHE`; with these features it has no dependencies, so `Cargo.lock` gains this one package) | added by M7.R1 (lane R, 2026-10-16); also listed in `ATTRIBUTION.md`; confirmed by the owner 2026-11-01 (M6.O5, `plan/owner-decisions-2026-11-01.md` item 11) |
 | `egui_extras` (tables; image loaders only if M6.G5 needs them) | M6.P4 virtualized tables, M6.G5 screenshots | MIT OR Apache-2.0 (egui's own repository; to be checked at the merge with its transitive tree, e.g. `image` and its codecs) | new |
 | eframe's `accesskit` feature (`accesskit_winit` and the platform crates) | M6.X3 screen reader support (deferred with lane X, 2026-10-16) | expected MIT OR Apache-2.0; the full transitive list goes here before the merge | new feature |
 | A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen: M7.M0 (lane M, 2026-10-16) uses egui's own `Window`s (`docs/workbench.md` "CK-style windows") |
 | `toml` 0.8.23 | M7.W3, the edit-dialog layouts `crates/ui-egui/layouts/<TYPE>.toml` (`crates/ui-egui/src/dialogs/mod.rs`) | MIT OR Apache-2.0 (checked 2026-10-16 in the local registry copy) | already in the tree for `kitkraft-schema`: a direct dependency of `kitkraft-ui-egui`, no new package in `Cargo.lock` (lane M, 2026-10-16) |
 
-Any license outside MIT/Apache/Zlib/BSD-style goes to the owner. That includes the
-BSL-1.0 clipboard crates already pending (`plan/STATUS.md`, owner row 7) and any OFL font
-(M6.O2: fonts stay system fonts unless the owner rules otherwise). All icons and art are
-our own.
+Any license outside MIT/Apache/Zlib/BSD-style goes to the owner. The BSL-1.0 clipboard
+crates were allowed on 2026-11-01 (`plan/STATUS.md`, owner row 7), and fonts stay system
+fonts (M6.O2, decided 2026-11-01), so any OFL font would be a new ruling. All icons and
+art are our own.
 
 ### Consequences
 
@@ -477,11 +481,13 @@ mockups".
   - M6.G6 adds no id. It prefills the existing confirmed `ledger` request.
   - AGENTS.md "Layers" takes the `ui-egui` row wording above, in a separate small commit.
 
-## Amendment 4 (proposed, lane G for M7 lane E, 2026-10-16; owner decision M7.O4): the editor's write scope
+## Amendment 4 (accepted 2026-11-01, owner decision M7.O4; proposed by lane G for M7 lane E, 2026-10-16): the editor's write scope
 
-- Status: **PROPOSED.** Nothing in it takes effect until the owner accepts it (M7.O4).
-  Until then Amendment 3 stands as written: the window's writes are the six commands of
-  `COCKPIT_SCOPE`, and the M7 dialogs are read-only.
+- Status: **ACCEPTED with model A** (owner ruling 2026-11-01, M7.O4,
+  `plan/owner-decisions-2026-11-01.md` item 22: "accept all"): one confirmed write per OK
+  click ("Decided here" below). Each editor write still joins `PERMITTED_WRITES` only with
+  its M7.E ticket, under the rule below; until those land, the window's writes are the
+  six commands of `COCKPIT_SCOPE` and the M7 dialogs are read-only.
 - Context: M7 reproduces the Creation Kit's edit workflow (`ROADMAP.md`, "M7: CK
   parity"; ADR 0012). Agents stay the main authors through MCP, but a CK-shaped window
   that cannot edit is not CK parity. This amendment opens the editor's writes and no
@@ -550,7 +556,7 @@ file. Each new entry adds the Amendment 3 tests (preview unconfirmed, writing fo
 refused unconfirmed, confirmed reaches the engine on a scratch copy of a fixture plugin,
 an official master as output refused by the gate and by the engine).
 
-### Decided here (proposed): one write per OK
+### Decided here (accepted 2026-11-01, model A): one write per OK
 
 The CK collects a dialog's edits and applies them on OK, and writes the file on Save.
 Two ways to map that:
@@ -568,12 +574,13 @@ Two ways to map that:
   second source of truth, against "no logic of its own"), and one confirm would cover
   many records.
 
-The proposal is A. B can follow later as a `build`-spec batch if sittings show the owner
-needs it.
+The proposal was A, and the owner accepted A on 2026-11-01. B can follow later as a
+`build`-spec batch if sittings show the owner needs it; that would be a new amendment.
 
 ### Consequences
 
-- M7.E2 to M7.E6 wait on M7.O4; until then the dialogs are read-only, as the plan says.
+- M7.E2 to M7.E6 waited on M7.O4, decided 2026-11-01; each now waits only on its other
+  dependencies. Until its ticket lands, a dialog stays read-only.
 - `docs/workbench.md` "What it can run" is rewritten on each addition, as for Amendment 3.
 - The cockpit's six writes are unchanged; nothing here widens what the window may do in
   MO2 or in the game.

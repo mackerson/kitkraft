@@ -100,6 +100,14 @@ third-party crate, ADR 0010 "Dependency list"), and rows 5 and 11 (folder rename
 Taken during the 2026-10-16 run so lanes could proceed; each stands until the owner
 overturns it (`plan/STATUS.md` "Pause", section 3).
 
+*Note added 2026-11-01 (the rest of this file is unchanged):* the owner answered every row
+below in chat, "accept all" (`plan/owner-decisions-2026-11-01.md`, "Answers"): all are
+confirmed, except the CK static strings, ruled **not allowed**, with the M5.A4 entry
+removed. M7.O5 approved the memo's recommendations 1 to 3. The "13 rows" of the
+Amendment 1 row was the count on 2026-10-16; `docs/ck-parity.md` has 14 `built,
+unobserved` rows since the Cell View (KK-036). ADR 0013's status line no longer reads
+"pending the director's confirmation": it reads accepted by the owner.
+
 | Decision | Recorded in | If overturned |
 | -------- | ----------- | ------------- |
 | ADR 0013: `unsafe` in exactly one file (`crates/ui-egui/src/viewport/gl.rs`) for the GL viewport; lint `deny`, `cargo xtask layers` fails on `unsafe` elsewhere | `plan/adr/0013-scoped-unsafe-for-the-gl-viewport.md` (its status line still reads "pending the director's confirmation at the merge"; the director merged it and lists it as pending the owner) | M7.R1's GL path is reverted; the Render Window has no viewport |

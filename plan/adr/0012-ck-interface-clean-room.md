@@ -7,7 +7,11 @@
   description, so it starts as Accepted and never existed as a Proposed draft (M7.K1 is
   closed by it).
 - Amended: 2026-10-16 by Amendment 1 below (the status `built, unobserved`; director
-  decision 2026-10-16, **pending owner**).
+  decision 2026-10-16, **accepted by the owner 2026-11-01**), and 2026-11-01 by Amendment
+  2 below (automated sittings through UI Automation; **accepted by the owner
+  2026-11-01**, with the ruling that static string scans of `CreationKit.exe` are not
+  allowed). The owner, in chat, verbatim: "accept all" (`plan/owner-decisions-2026-11-01.md`,
+  items 1, 17 and 18).
 - Date: 2026-10-16
 - Scope: how M7 reproduces the Creation Kit's interface (windows, menus, dialogs, labels,
   workflows, keyboard shortcuts, camera controls) in `crates/ui-egui`. It covers which
@@ -42,7 +46,8 @@ like and how they behave, and two risks come with it:
 - An interface row is filled only from an owner-assisted CK sitting (M7.O2, M7.O3; they
   can share a sitting with `plan/STATUS.md` rows 12 and 15). The CK runs through MO2
   (executable #4) as a black box, under ADR 0001 and AGENTS.md "Clean room". A
-  computer-use agent may drive it while the owner watches.
+  computer-use agent may drive it while the owner watches. Since 2026-11-01 an automated
+  sitting under Amendment 2 counts as a sitting too.
 - Screenshots and notes from a sitting stay in `observe\` (gitignored) and are never
   committed. A row cites the sitting id and the screenshot file names only.
 - Anything that is not a sitting is not interface observation. That includes the
@@ -135,9 +140,9 @@ M7.S5 (geometry) follows M7.S4, so it waits on the same ruling.
 
 ## Amendment 1 (2026-10-16): the status `built, unobserved`
 
-- Status: **director decision 2026-10-16, pending owner**. The owner may confirm it or
-  overturn it (`plan/STATUS.md`, "Pause", section 3); until then it is followed as
-  written.
+- Status: **ACCEPTED** (owner ruling 2026-11-01, `plan/owner-decisions-2026-11-01.md`
+  item 1: "accept all"). It was a director decision of 2026-10-16, followed as written
+  while it waited for the owner (`plan/STATUS.md`, "Pause", section 3).
 - Context: the Fable review of wave 3 (finding 2, `plan/STATUS.md` "Pause", section 1)
   found that M7 lane M built CK-style elements (the menu bar, the Warnings and Use Info
   windows, the read-only edit dialogs, the window arrangement) before any sitting, and
@@ -172,12 +177,14 @@ Section 4 gains one status, below `observed`:
   becomes `built, unobserved`, the main menu bar's order row included.
   `crates/ui-egui/src/menu.rs` and `docs/workbench.md` use the same words.
 
-## Amendment 2 (2026-11-01, proposed): automated sittings through UI Automation
+## Amendment 2 (2026-11-01, accepted): automated sittings through UI Automation
 
-- Status: **proposed, pending owner**. Drafted at the owner's request on 2026-11-01 after
-  the first UI Automation probe (`observe/2026-11-01-ck-uia-probe/`, gitignored). Until
-  the owner accepts it, nothing in `docs/ck-parity.md` moves on the strength of an
-  automated sitting; probe output stays in `observe\`.
+- Status: **ACCEPTED** (owner ruling 2026-11-01, `plan/owner-decisions-2026-11-01.md`
+  item 17: "accept all"; see "Owner ruling 2026-11-01" at the end). Drafted at the
+  owner's request on 2026-11-01 after the first UI Automation probe
+  (`observe/2026-11-01-ck-uia-probe/`, gitignored). From the ruling on, an automated
+  sitting's observations may move `docs/ck-parity.md` rows under section 4; the dumps and
+  screenshots stay in `observe\`.
 - Context: section 1 makes the owner-assisted sitting the only interface source. The
   owner wants CK observation to stop depending on his time at the keyboard. The probe of
   2026-11-01 launched CK 1.16.244 through MO2 on `Kitkraft Dev` and read its Windows UI
@@ -241,3 +248,27 @@ Section 4 gains one status, below `observed`:
 - Not covered: old-style Win32 dialogs whose controls carry no names (the probe's
   "Inspector" property grid) give structure without labels; such rows still need the
   screenshot, or an owner sitting, to be observed.
+
+### Owner ruling 2026-11-01
+
+The owner, in chat, 2026-11-01, verbatim: "accept all", which takes the recommendations of
+`plan/owner-decisions-2026-11-01.md` items 1, 17, 18 and 21:
+
+- **Amendment 1 is accepted** (item 1): `built, unobserved` stays as defined.
+- **Amendment 2 is accepted as written** (item 17). Observations from automated sittings
+  may move `docs/ck-parity.md` rows from now on, with the evidence section 4 asks for.
+  Rows observed before the ruling (the probe of 2026-11-01, `ck-20261101-01`) move in a
+  change of their own, not in the change that records the ruling.
+- **No static string scans of `CreationKit.exe`** (item 18, `plan/STATUS.md` row 17). An
+  agent never reads text, tables or any other content out of the CK's binary, whether by a
+  strings scan, a resource viewer or any other tool. That is outside "run and observed as a
+  black box" (AGENTS.md "Clean room", ADR 0001). The 2026-10-16 strings scan (M5.A4) is
+  deleted from `docs/ck-observations.md`, and nothing it found is evidence for any ticket.
+  The unattended route into the CK is this amendment. A consequence the owner took with
+  it: the CK's own command-line switches are not tried from that list.
+- **CK saves stay per sitting** (decision 6; item 21). The owner allowed F30 (open our
+  plugin, save it unchanged) on 2026-11-01, and F29 once F30 comes back clean, under the
+  same rules: the dev profile, files into `observe\`, the two settings files restored.
+  F30 is not clean yet (`ck-20261101-01`: the CK loaded the plugin but would not take the
+  master-flagged file as the active file, so nothing was saved). F20..F28 still need an
+  OK each.

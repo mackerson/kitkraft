@@ -1,6 +1,7 @@
 # ADR 0001: License and clean-room rules
 
-- Status: Accepted (license pending owner confirmation, see "Open" below)
+- Status: Accepted (license MIT OR Apache-2.0 confirmed by the owner 2026-11-01, see
+  "Open" below)
 - Date: 2026-10-14
 - Amended: 2026-10-14 by Amendment 1 below (ADR 0004 decided: xEdit's MPL definitions
   are a permitted reference; §2 and the xEdit item of §3 are superseded); Amendment 1's
@@ -65,7 +66,9 @@ freely.
 
 ## Open
 
-- The owner confirms the license (PLAN.md open decision 4).
+- ~~The owner confirms the license (PLAN.md open decision 4).~~ **Closed 2026-11-01**: the
+  owner confirmed MIT OR Apache-2.0 (`plan/owner-decisions-2026-11-01.md` item 12: "accept
+  all"; AGENTS.md owner decision 4). Nothing is open here.
 
 ## Amendment 1 (2026-10-14): MPL definitions as reference
 

@@ -145,11 +145,15 @@ catalog command (read-only), and what it detects is every command's default
 - **CreationKit.exe may be run and observed as a black box only**: open plugins, save, take
   screenshots, diff its output against ours. Never disassemble, decompile, debug-attach,
   memory-dump, or point a reverse-engineering tool (Ghidra, IDA, REA, x64dbg) at it or at
-  Starfield.exe. Never extract or ship its assets. Observations stay local in `observe/`
+  Starfield.exe. Never read text, tables or other content out of its binary, a static
+  strings scan included (owner, 2026-11-01; ADR 0012 Amendment 2, "Owner ruling
+  2026-11-01"). Never extract or ship its assets. Observations stay local in `observe/`
   (gitignored).
 - **The CK's interface** (M7; ADR 0012, accepted 2026-10-16) is reproduced only from
-  owner-assisted CK sittings: layout, labels, menus, workflows and shortcuts, described in
-  our own words in `docs/ck-parity.md`. CK icons, images, help text, resource files and
+  owner-assisted CK sittings, and since 2026-11-01 from automated sittings through UI
+  Automation (ADR 0012 Amendment 2, accepted; a CK save needs the owner's OK per
+  sitting): layout, labels, menus, workflows and shortcuts, described in our own words in
+  `docs/ck-parity.md`. CK icons, images, help text, resource files and
   binaries are never copied or read for it. The CK wiki is not interface observation, and
   all art is ours. ADR 0012 section 4 says what evidence each parity status needs.
 - **Never read Mutagen or Spriggit source**, or any other GPL/LGPL/AGPL code that handles
@@ -201,7 +205,10 @@ gate is the CI.
 ## Commits
 
 - Commit after every arc that builds and passes `cargo xtask ci`. Small, frequent commits.
-- Local repo only, branch `main`, no remote yet. The remote is https://github.com/mackerson/kitkraft (private). Only the director pushes `main`, after an integration passes the gate; lanes never push, never force-push, and never push their worktree branches.
+- Branch `main`. The remote is https://github.com/mackerson/kitkraft, a **public** GitHub
+  repository (owner, 2026-11-01). Only the director pushes `main`, after an integration
+  passes the gate; lanes never push, never force-push, and never push their worktree
+  branches. Publishing releases or packages stays the owner's (owner decision 6).
 - Message: imperative subject naming the crate (`esm: preserve XXXX oversize prefix`), body
   says why. Update `plan/STATUS.md` in the same commit when a task finishes.
 
@@ -277,10 +284,18 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
    Still the owner's: changing the pinned revision, or a source file with a materially
    different license or source category (`wbDefinitionsSF1.pas` and
    `wbDefinitionsCommon.pas` are approved at the same SHA).
-3. Which video critique is the design brief for the gun overhaul.
-4. License (proposed MIT OR Apache-2.0; scaffolded that way).
-5. Whether and when to contact kinggath about Sim Settlements 2.
-6. Adding a git remote or publishing anything.
+3. Which video critique is the design brief for the gun overhaul: **decided 2026-10-14**
+   ("Everything WRONG With The Guns In Starfield", `docs/overhaul/brief.md`); closed
+   2026-11-01.
+4. License: **decided 2026-11-01**, MIT OR Apache-2.0 (ADR 0001).
+5. Whether and when to contact kinggath about Sim Settlements 2: **later** (confirmed
+   2026-11-01). Still the owner's.
+6. Git remote and publishing: the remote is **public** GitHub,
+   `github.com/mackerson/kitkraft`, and only the director pushes `main` (decided
+   2026-11-01). Publishing releases or packages is still the owner's.
+
+The owner answered the decision sheet `plan/owner-decisions-2026-11-01.md` on 2026-11-01
+("accept all", with item 13 corrected to "public"); its "Answers" section records each item.
 
 Owner policies decided 2026-10-14 (follow them; they are not open):
 
@@ -300,7 +315,10 @@ Owner policies decided 2026-10-14 (follow them; they are not open):
   world authoring). Its writes are only those ADR 0007 Amendments 2 and 3 allow (Amendment
   3 accepted 2026-10-16, M6.O3): `ledger`, `deploy --dev`, `deploy.rollback`,
   `game.session`, `game.probe` and `game.stop`. Each is previewed and confirmed per click,
-  and each enters the gate with its M6 ticket.
+  and each enters the gate with its M6 ticket. ADR 0007 Amendment 4 (accepted 2026-11-01
+  with model A, M7.O4) adds the M7 editor's writes into the active file only (`set`,
+  `new`, `clone`, `place`, `build`, `revert`), one confirmed write per OK click, each
+  entering the gate with its M7.E ticket.
 
 ## Owner's live game is off limits (2026-10-14)
 

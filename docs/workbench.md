@@ -134,7 +134,7 @@ M6.G1 and M6.G3):
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*` and (M7,
-  ADR 0007 Amendment 4, proposed) the editor's writes.
+  ADR 0007 Amendment 4, accepted 2026-11-01 with model A) the editor's writes, until each joins with its M7.E ticket.
 
 Tests enforce this in six ways:
 
@@ -445,7 +445,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
 
 ## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W2, M7.W3, M7.W5)
 
-**Decision (M7.M0, lane M, 2026-10-16; director assumption pending the owner):** the
+**Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
 window, not as a dock layout and not as separate OS windows. Each is toggled from the
 View menu and remembers whether it is open, its position and its size in `ui.json`
@@ -455,7 +455,10 @@ Workbench tabs as windows); a floating tab is drawn only in its window, and the 
 panel falls back to the last docked tab. Why: egui's own windows need no new crate (a
 docking crate such as `egui_dock` would be a new dependency for ADR 0007 to list), they
 keep the cockpit tabs intact, and no CK sitting has yet shown whether the CK docks its
-windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Code:
+windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. The owner
+confirmed this model for now on 2026-11-01 (`plan/owner-decisions-2026-11-01.md` item 5);
+the UI Automation probe of the same day saw a "Docks" menu in the CK, so the model is
+revisited once a sitting observes how the CK docks. Code:
 `crates/ui-egui/src/menu.rs`, `src/windows/` (the glue `shell.rs` is a child module of
 `app.rs`, which calls it through one-line hooks), `src/dialogs/`, and the layout files in
 `crates/ui-egui/layouts/`.
@@ -464,7 +467,7 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
   (bound by M7.M5). The CK's menus come first in the order `docs/ck-parity.md` records,
   which is a recollection: the bar's parity row is `built, unobserved` (ADR 0012
-  Amendment 1, pending owner), never counted as parity, until sitting 1 observes the
+  Amendment 1, accepted 2026-11-01), never counted as parity, until a sitting observes the
   CK's order (each such menu says so in its first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
   before Help; a CK menu with no command yet (World, NavMesh, Character, Gameplay) shows a
   disabled line saying why. An item opens the tab or window that runs its command and
@@ -497,8 +500,8 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
   KitKraft's own and marked "built, unobserved" until sitting 2 (M7.O3) (its parity
   row has that status, ADR 0012 Amendment 1); labels are the
   schema's member names with the signature beside them; a subrecord the layout does not
-  place shows on an "Other" tab. OK stays disabled until M7.E2 (after the owner rules on
-  ADR 0007 Amendment 4, M7.O4).
+  place shows on an "Other" tab. OK stays disabled until M7.E2 lands (the owner accepted
+  ADR 0007 Amendment 4 with model A on 2026-11-01, M7.O4).
 
 ## Screenshot tour (development aid)
 
@@ -543,8 +546,9 @@ The view-models read the inspection commands' shapes as `docs/shapes.md` documen
 (M4.W0), and format values by their `kind` marker. Their canned test envelopes for `refs`
 and `planet` are checked against the engine's own shapes, so they cannot drift from what
 the engine returns.
-- Owner decisions on licenses: BSL-1.0 for the clipboard crates, and the optional
-  `default_fonts` feature (ADR 0007, "Dependency list").
+- Owner decisions on licenses, decided 2026-11-01: BSL-1.0 is allowed for the clipboard
+  crates, and the optional `default_fonts` feature stays off (system fonts only; ADR 0007,
+  "Dependency list").
 
 ## Roadmap
 
