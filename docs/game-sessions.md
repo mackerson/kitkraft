@@ -8,10 +8,14 @@ ends the game. The rules are ADR 0010 and its Amendment 1. The code lives in `cr
 (L3) and in the engine commands `game.session`, `game.status`, `game.probe` and
 `game.stop`.
 
-**State (2026-10-16): built and tested against fakes; no real session has run.** The
-Starfield profile has no evidence yet for its launch, console and save facts (M4.T1), so
-the controller refuses a live session. The console tools are not installed either
-(M4.O7). Every runtime row stays `not-run` until both are done. `--dry-run` works now.
+**State (2026-11-01): built and tested against fakes; the Starfield profile has its
+launch, console and save evidence.** The first agent-run session (`game-20261101-T1`,
+M4.T1 rows a, b, d and h, scripted outside the controller) observed the MO2 command line,
+V0 over HTTP on port 45555, `load` from the main menu and the Papyrus log path, so
+`unverified-profile` no longer refuses Starfield. The same session showed that an open
+port is not readiness (row b'), and the controller now waits for the game's main window
+and a settle period before its first command (step 3 below). No session has yet been run
+by the controller itself.
 
 ## Commands
 
@@ -71,10 +75,23 @@ ledger entry's "Console port" line say what was not checked.
 
 1. Back up `modlist.txt`, `plugins.txt`, `loadorder.txt`, `lockedorder.txt`, the
    profile's `*.ini` and the base save into `observe\<id>\backup\`, with their SHA-256.
-2. Start `ModOrganizer.exe -p "<profile>" "moshortcut://:SFSE"`. This command line is
-   grade D until M4.T1 (a) observes it (`[launch]` in the profile).
-3. Poll the readiness command (`GetSFSEVersion`) until the endpoint answers, then
-   `load <base save>` and wait for it to answer again.
+2. Start `ModOrganizer.exe -p "<profile>" "moshortcut://:SFSE"` (observed in
+   `game-20261101-T1`, row a: the game window came up after 14 s).
+3. Wait for readiness, sending nothing until the game can take a command. The plugin's
+   port accepts connections about 5 s after launch, long before that, and in
+   `game-20261101-T1` (row b') a `GetSFSEVersion` sent 8 s after launch answered an empty
+   body and the game ended. So the controller:
+   - sends no command until `Starfield.exe` has a main window (the host's window list),
+     and then none for `[timeouts] settle_secs` (Starfield: 75 s, the wait that worked);
+   - then polls the readiness command (`GetSFSEVersion`) every `ready_poll_secs` (5 s).
+     An empty or blank body is not ready; with `ready_expect` empty any non-empty answer
+     is, otherwise the answer must contain it;
+   - gives up after `ready_secs` from launch (300 s), which covers the window, the settle
+     and the polls (the first answer came at 91 s). A profile whose `settle_secs` is not
+     below `ready_secs` is an error. The row reasons then name what was still missing (no
+     window yet, settling, or the last answer).
+
+   Then it sends `load <base save>` and waits for a non-empty answer again (`load_secs`).
 4. Run the probes in order. A row has its own deadline (`probe_secs`), and the session
    has a wall-clock budget (`session_secs`). The controller sends no `save` or `load` to a
    name it does not own, and it never sends `bat`, `saveini`, `qqq` or `quitgame`.
@@ -180,7 +197,7 @@ and nothing in it is read from a game binary.
 | `[mo2]` | `local_settings`, `local_saves` (required `settings.ini` values) |
 | `[[ini]]` | `file`, `section`, `key`, `value` |
 | `[[log]]` | `name`, `path` (`{documents}`), `evidence`, `pending` |
-| `[timeouts]` | `session_secs`, `probe_secs`, `ready_secs`, `load_secs`, `exit_secs` |
+| `[timeouts]` | `session_secs`, `probe_secs`, `ready_secs`, `settle_secs` (after the main window, before the first command; below `ready_secs`), `ready_poll_secs` (0: the controller's poll), `load_secs`, `exit_secs` |
 
 `evidence` names the ledger entry that observed a fact. While `launch`, `console` or
 `saves` has none, the controller refuses a live session and names each missing fact with
@@ -189,7 +206,7 @@ rows `inconclusive`.
 
 | Profile | Status | Missing |
 | ------- | ------ | ------- |
-| `starfield` | partial | launch (M4.T1 a), console (M4.T1 b, V0), saves (M4.T1 d) |
+| `starfield` | partial | nothing that blocks: launch, console and saves cite `game-20261101-T1` rows a, b, d, the Papyrus log row h; the console-history log has no evidence yet, and `load` from the world is unobserved |
 | `skyrimse` | unverified (stub) | everything; console candidates: a ConsoleUtil-class plugin, AutoTest, a skytest-style probe plugin |
 | `fallout4` | unverified (stub) | as `skyrimse` |
 

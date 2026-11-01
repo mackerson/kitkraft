@@ -1301,8 +1301,9 @@ and writes nothing. Without `start` the session runs to the end and returns `rep
 `current_row`, `rows`, `reruns`, `screenshots[] {file, path}`, `events`, `elapsed_secs` and
 `report`. `game.probe {id, row, screenshot = false}` re-runs one row once the probes are
 done. `game.stop {id, dry_run = false}` ends the session and returns its `report`. The
-real Starfield profile is refused today (`unverified-profile`) until M4.T1 records the
-launch, console and save facts.
+real Starfield profile has its launch, console and save evidence (`game-20261101-T1`), so
+`unverified-profile` no longer refuses it. A session sends nothing until the game window
+has been up `settle_secs` (`docs/game-sessions.md`).
 
 ### Following a game session
 

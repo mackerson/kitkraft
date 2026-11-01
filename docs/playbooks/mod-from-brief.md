@@ -12,12 +12,13 @@ these rules matter most:
 - Report unknown as unknown. A probe that did not run is `not-run`, and missing evidence
   is `inconclusive`. Neither is ever `pass`.
 
-**State (2026-10-16).** Every stage up to the game session works. The session is refused
-by preflight with the rule `unverified-profile`, because the Starfield game profile has no
-evidence yet for its launch, console and save facts (M4.T1). The console tools are not
-installed either (M4.O7, the owner's). So today a run ends `partial` with every probe
-`not-run`, and nothing in game is claimed. Once M4.T1 and M4.O7 are done, the same command
-runs the session and reports a verdict per probe. You do not need to change anything.
+**State (2026-11-01).** Every stage up to the game session works and is tested. The
+Starfield game profile now has evidence for its launch, console and save facts
+(`game-20261101-T1`, M4.T1), and the owner installed the console tools (M4.O7), so
+preflight no longer refuses the session with `unverified-profile`. On the dev box the same
+command can now run the session and report a verdict per probe. No such run is recorded
+yet, and the other preflight rules still apply. The session sends nothing for 75 s after
+the game window appears (`docs/game-sessions.md`, step 3).
 
 ## 1. The brief
 
@@ -184,7 +185,7 @@ Fix the first failing stage, then rerun the same `kit mod run`.
 | package | Validation inside package failed, or `--scripts` / `--loose` paths are wrong | Read the stage summary |
 | deploy | `mo2` was missing, the source changed, or a refusal rule fired (`deploy --dry-run` names them) | Never work around a deploy refusal by copying files by hand |
 | testplan | The plugin or its load order could not be read | Check the spec's `[load_order]`, or pass `--plugins` |
-| session `not-run` (refused) | Preflight said no; each rule is in the report | Fix what is yours to fix (`running`: close the game or MO2; `plugin-not-deployed`: ask the owner to enable the mod). `unverified-profile`, `console-plugin`, `base-save` and `ini-switch` wait on M4.T1 and M4.O7 |
+| session `not-run` (refused) | Preflight said no; each rule is in the report | Fix what is yours to fix (`running`: close the game or MO2; `plugin-not-deployed`: ask the owner to enable the mod). `console-plugin`, `base-save` and `ini-switch` are the owner's (M4.O7); `unverified-profile` means the game profile has a fact without evidence |
 | session `fail` / `inconclusive` | A probe ran and saw something else, or saw nothing | See the next table |
 
 What a failing probe means, by spec kind:
@@ -225,10 +226,11 @@ These are thin wrappers over `kit`, and the CLI stays the one implementation:
 rename brief (`docs/smoke-rename.toml`) and for the first POI spec
 (`docs/poi/first-poi.toml`). The command line is parsed by the CLI grammar and executed as
 `kit` does it, against a fixture MO2 instance. Stages 1 to 6 pass, and the rename
-plugin's SHA-256 is `docs/smoke-rename.md`'s. The session is refused with
-`unverified-profile` (plus `running` when MO2 or the game happens to be open), and every
-probe is `not-run`. The result is `partial` with exit 0. That is where "a fresh agent
-session produces the rename plugin and a pass without an owner step" stops today: it waits
-for M4.T1 and M4.O7. `crates/engine/src/handlers/modrun_tests.rs` runs the same chain on
+plugin's SHA-256 is `docs/smoke-rename.md`'s. The check runs on the real host, so it never
+lets a session start. It adds `--game` with a copy of the Starfield profile whose launch,
+console and save evidence is cleared, and the session is refused with
+`unverified-profile` (plus `running` when MO2 or the game happens to be open). Every
+probe is `not-run`, and the result is `partial` with exit 0. A pass without an owner step
+needs a real session on the dev box. `crates/engine/src/handlers/modrun_tests.rs` runs the same chain on
 synthetic data, including a session against the fake console. It produces a ledger entry,
 `pass` on the rename and persistence probes, and `fail` when the console shows another ID.
