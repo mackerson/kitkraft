@@ -578,7 +578,6 @@ mod tests {
         b"NAVI",
         b"PERS",
         b"PGRE",
-        b"RFGP",
         b"TES4",
     ];
 
