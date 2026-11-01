@@ -169,6 +169,8 @@ pub struct FakeHost {
     terminated: Mutex<Vec<String>>,
     no_screenshots: AtomicBool,
     hooks: Mutex<Vec<Box<dyn Fn() + Send + Sync>>>,
+    /// `None`: listing the excluded port ranges fails (unknown).
+    excluded: Mutex<Option<Vec<(u16, u16)>>>,
 }
 
 impl std::fmt::Debug for FakeHost {
@@ -178,12 +180,19 @@ impl std::fmt::Debug for FakeHost {
 }
 
 impl FakeHost {
-    /// A host running `running`, where a launch starts `starts`.
+    /// A host running `running`, where a launch starts `starts`, with no excluded port
+    /// ranges.
     pub fn new(running: &[&str], starts: &[&str]) -> FakeHost {
         let host = FakeHost::default();
         *lock(&host.running) = running.iter().map(|s| s.to_string()).collect();
         *lock(&host.starts) = starts.iter().map(|s| s.to_string()).collect();
+        *lock(&host.excluded) = Some(Vec::new());
         host
+    }
+
+    /// The excluded TCP port ranges from now on; `None` makes listing them fail.
+    pub fn set_excluded_ports(&self, ranges: Option<Vec<(u16, u16)>>) {
+        *lock(&self.excluded) = ranges;
     }
 
     /// Screenshots fail from now on.
@@ -255,6 +264,12 @@ impl Host for FakeHost {
             return Err(GameError::Process("fake screenshot failure".into()));
         }
         std::fs::write(dest, b"\x89PNG fake").map_err(|e| GameError::io(dest, e))
+    }
+
+    fn excluded_ports(&self) -> Result<Vec<(u16, u16)>> {
+        lock(&self.excluded)
+            .clone()
+            .ok_or_else(|| GameError::Process("fake: excluded port ranges unknown".into()))
     }
 }
 

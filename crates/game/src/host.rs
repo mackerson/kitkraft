@@ -3,9 +3,10 @@
 //! tested against [`crate::testing::FakeHost`]; [`SystemHost`] is the real one.
 //!
 //! [`SystemHost`] uses only `std::process` and Windows' own tools (`tasklist`, `taskkill`,
-//! PowerShell for a screen capture): no process crate (ADR 0010 Amendment 1 (c)). It never
-//! attaches to, reads or injects into a process (ADR 0001, ADR 0010 Decision 2): it lists
-//! image names, starts one program, and ends programs by image name.
+//! `netsh` for the excluded TCP port ranges, PowerShell for a screen capture): no process
+//! crate (ADR 0010 Amendment 1 (c)). It never attaches to, reads or injects into a process
+//! (ADR 0001, ADR 0010 Decision 2): it lists image names and excluded port ranges, starts
+//! one program, and ends programs by image name.
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -30,6 +31,29 @@ pub trait Host: Send + Sync {
     fn terminate(&self, images: &[String]) -> Result<Vec<String>>;
     /// Writes a PNG of the screen to `dest`.
     fn screenshot(&self, dest: &Path) -> Result<()>;
+    /// The TCP port ranges (inclusive) the operating system excludes from binding (on
+    /// Windows, Hyper-V/WSL reservations: `netsh int ipv4 show excludedportrange
+    /// protocol=tcp`). An error means unknown, not none.
+    fn excluded_ports(&self) -> Result<Vec<(u16, u16)>>;
+}
+
+/// The `(start, end)` ranges in `netsh int ipv4 show excludedportrange` output. Only lines
+/// of two integers count (an administered range carries a trailing `*`), so localized
+/// headers and footers are skipped.
+pub fn parse_excluded_ports(text: &str) -> Vec<(u16, u16)> {
+    text.lines()
+        .filter_map(|l| {
+            let mut words = l.split_whitespace();
+            let start = words.next()?.parse::<u16>().ok()?;
+            let end = words.next()?.parse::<u16>().ok()?;
+            match words.next() {
+                None | Some("*") if words.next().is_none() => {
+                    Some((start.min(end), start.max(end)))
+                }
+                _ => None,
+            }
+        })
+        .collect()
 }
 
 /// Whether `name` is among `running` (ASCII case ignored).
@@ -136,6 +160,25 @@ impl Host for SystemHost {
         Ok(ended)
     }
 
+    fn excluded_ports(&self) -> Result<Vec<(u16, u16)>> {
+        if !cfg!(windows) {
+            return Err(GameError::Process(
+                "excluded port ranges are read on Windows only".into(),
+            ));
+        }
+        let text = output(
+            Command::new("netsh").args([
+                "int",
+                "ipv4",
+                "show",
+                "excludedportrange",
+                "protocol=tcp",
+            ]),
+            "netsh",
+        )?;
+        Ok(parse_excluded_ports(&text))
+    }
+
     fn screenshot(&self, dest: &Path) -> Result<()> {
         output(
             Command::new("powershell")
@@ -165,5 +208,18 @@ mod tests {
         assert_eq!(names, ["System Idle Process", "ModOrganizer.exe"]);
         assert!(is_running(&names, "modorganizer.EXE"));
         assert!(!is_running(&names, "Starfield.exe"));
+    }
+
+    #[test]
+    fn netsh_excluded_ranges_are_lines_of_two_integers() {
+        // As the dev box printed it on 2026-11-01, and a localized header.
+        let text = "\r\nProtocol tcp Port Exclusion Ranges\r\n\r\nStart Port    End Port      \r\n----------    --------      \r\n      5357        5357      \r\n     50000       50059     *\r\n     55477       55576      \r\n\r\n* - Administered port exclusions.\r\n";
+        assert_eq!(
+            parse_excluded_ports(text),
+            [(5357, 5357), (50000, 50059), (55477, 55576)]
+        );
+        let localized = "Protokoll tcp Portausschlussbereiche\r\n\r\nStartport    Endport\r\n---------    -------\r\n     55477       55576\r\n 1 2 3\r\n 70000 70001\r\n 12 x\r\n";
+        assert_eq!(parse_excluded_ports(localized), [(55477, 55576)]);
+        assert!(parse_excluded_ports("").is_empty());
     }
 }

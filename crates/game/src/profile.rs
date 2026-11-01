@@ -10,7 +10,7 @@
 //! have no evidence; the controller refuses a live session while that list is not empty
 //! (M4.T9), and `--dry-run` shows it. Nothing here is read from a game binary.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -139,7 +139,7 @@ pub struct Launch {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ConsoleSpec {
-    /// The endpoint (`http://127.0.0.1:55555/console`); loopback only. Empty in a stub.
+    /// The endpoint (`http://127.0.0.1:45555/console`); loopback only. Empty in a stub.
     pub url: String,
     /// A harmless command whose answer means the endpoint is up.
     #[serde(default)]
@@ -160,6 +160,35 @@ pub struct ConsoleSpec {
     /// The ticket that observes it.
     #[serde(default)]
     pub pending: String,
+    /// Where the console plugin's own config names the port it listens on; preflight
+    /// refuses when the enabled plugin mod declares a port other than `url`'s
+    /// (`console-port`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub port_config: Option<PortConfig>,
+}
+
+/// `[console.port_config]`: one key of an INI file inside the console plugin's mod folder.
+/// Reading it is operating the tool (its user-facing config), never reading its source.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PortConfig {
+    /// The INI file, relative to the mod folder, `/`-separated
+    /// (`SFSE/plugins/sfse_plugin_console_api.ini`).
+    pub file: String,
+    /// Section, without brackets.
+    pub section: String,
+    /// The key whose value is the port.
+    pub key: String,
+}
+
+impl PortConfig {
+    /// The file under the mod folder `mod_dir`.
+    pub fn path(&self, mod_dir: &Path) -> PathBuf {
+        self.file
+            .split(['/', '\\'])
+            .filter(|c| !c.is_empty())
+            .fold(mod_dir.to_path_buf(), |p, c| p.join(c))
+    }
 }
 
 /// `[saves]`.
@@ -368,6 +397,22 @@ impl GameProfile {
             crate::console::Endpoint::parse(&self.console.url)
                 .map_err(|e| bad(format!("[console] url: {e}")))?;
         }
+        if let Some(pc) = &self.console.port_config {
+            let relative = !pc.file.starts_with(['/', '\\'])
+                && pc
+                    .file
+                    .split(['/', '\\'])
+                    .all(|c| !c.is_empty() && c != "." && c != ".." && !c.contains(':'));
+            if !relative {
+                return Err(bad(format!(
+                    "[console.port_config] file `{}` must be a path relative to the mod folder",
+                    pc.file
+                )));
+            }
+            if pc.section.trim().is_empty() || pc.key.trim().is_empty() {
+                return Err(bad("[console.port_config] needs a section and a key".into()));
+            }
+        }
         if self.saves.session_prefix.len() < 4 {
             return Err(bad("[saves] session_prefix is too short".into()));
         }
@@ -475,6 +520,20 @@ mod tests {
         let missing: Vec<String> = sf.missing().into_iter().map(|u| u.fact).collect();
         assert_eq!(missing, ["launch", "console", "saves"]);
         assert!(sf.missing()[0].pending.contains("M4.T1 (a)"));
+        assert_eq!(sf.console.url, "http://127.0.0.1:45555/console");
+        let pc = sf.console.port_config.clone().unwrap();
+        assert_eq!(
+            (pc.section.as_str(), pc.key.as_str()),
+            ("WebConsole", "iPort")
+        );
+        let mod_dir = Path::new("mods").join("Console API");
+        assert_eq!(
+            pc.path(&mod_dir),
+            mod_dir
+                .join("SFSE")
+                .join("plugins")
+                .join("sfse_plugin_console_api.ini")
+        );
         assert_eq!(
             sf.launch_args("Kitkraft Dev"),
             ["-p", "Kitkraft Dev", "moshortcut://:SFSE"]
@@ -501,9 +560,10 @@ mod tests {
     fn bad_profiles_are_errors() {
         let sf = builtin_text("starfield").unwrap();
         let remote = sf.replace(
-            "http://127.0.0.1:55555/console",
-            "http://10.0.0.5:55555/console",
+            "http://127.0.0.1:45555/console",
+            "http://10.0.0.5:45555/console",
         );
+        assert_ne!(remote, sf);
         assert!(GameProfile::from_toml("x", &remote)
             .unwrap_err()
             .to_string()
@@ -511,6 +571,12 @@ mod tests {
         let path_exe = sf.replace("game = \"Starfield.exe\"", "game = \"C:\\\\Starfield.exe\"");
         assert!(GameProfile::from_toml("x", &path_exe).is_err());
         assert!(GameProfile::from_toml("x", "nonsense = 1").is_err());
+        let file = "file = \"SFSE/plugins/sfse_plugin_console_api.ini\"";
+        assert!(sf.contains(file));
+        for bad in ["../x.ini", "/x.ini", "C:/x.ini", "a//x.ini", ""] {
+            let t = sf.replace(file, &format!("file = \"{bad}\""));
+            assert!(GameProfile::from_toml("x", &t).is_err(), "{bad}");
+        }
         assert!(GameProfile::named("morrowind").is_err());
     }
 

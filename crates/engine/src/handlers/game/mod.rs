@@ -19,7 +19,7 @@ use std::time::Duration;
 use kitkraft_game::console::HttpConsole;
 use kitkraft_game::controller::{self, Deps, Phase, Plan, Report, Shared, Snapshot};
 use kitkraft_game::host::{Host, SystemHost};
-use kitkraft_game::preflight::{self, BaseSave, Facts, PluginFacts, Refusal};
+use kitkraft_game::preflight::{self, BaseSave, ConfiguredPort, Facts, PluginFacts, Refusal};
 use kitkraft_game::probes::ProbeFile;
 use kitkraft_game::profile::fill;
 use kitkraft_game::GameProfile;
@@ -116,6 +116,86 @@ fn enabled_mods(profile_dir: &Path) -> Vec<String> {
         .iter()
         .filter_map(|l| l.trim().strip_prefix('+').map(str::to_string))
         .collect()
+}
+
+/// Whether the enabled mod `name` is one of the game profile's console plugin mods (the
+/// match preflight's `console-plugin` uses).
+fn is_console_mod(game: &GameProfile, name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    game.console
+        .mod_names
+        .iter()
+        .any(|n| lower.contains(&n.to_ascii_lowercase()))
+}
+
+/// The console port facts preflight's `console-port` checks, what of them is unknown, and
+/// one line for the ledger's versions table.
+struct PortFacts {
+    excluded: Option<Vec<(u16, u16)>>,
+    configured: Vec<ConfiguredPort>,
+    unknown: Vec<String>,
+    summary: String,
+}
+
+/// Reads the excluded TCP port ranges from the host and, when the game profile says where
+/// the console plugin keeps its port, that key of each enabled console plugin mod's config
+/// (`<instance>/mods/<mod>/<file>`): the plugin's user-facing settings, read only, never its
+/// source.
+fn console_port_facts(
+    game: &GameProfile,
+    instance: &Instance,
+    mods: &[String],
+    host: &dyn Host,
+) -> PortFacts {
+    let port = kitkraft_game::console::Endpoint::parse(&game.console.url)
+        .ok()
+        .map(|e| e.addr.port());
+    let port_text = port.map_or_else(|| "no console port".to_string(), |p| p.to_string());
+    let mut unknown = Vec::new();
+    let mut summary = vec![port_text.clone()];
+    let excluded = match host.excluded_ports() {
+        Ok(r) => {
+            summary.push(format!("checked against {} excluded TCP range(s)", r.len()));
+            Some(r)
+        }
+        Err(e) => {
+            unknown.push(format!(
+                "the TCP port ranges the OS excludes are unknown ({e}); the console port {port_text} was not checked against them (`netsh int ipv4 show excludedportrange protocol=tcp`)"
+            ));
+            summary.push("excluded TCP ranges unknown".into());
+            None
+        }
+    };
+    let mut configured = Vec::new();
+    if let Some(pc) = &game.console.port_config {
+        for m in mods.iter().filter(|m| is_console_mod(game, m)) {
+            let file = pc.path(&instance.mods_dir.join(m));
+            let value = read_ini(&file).and_then(|i| i.get(&pc.section, &pc.key));
+            match &value {
+                Some(v) => summary.push(format!("`{m}` [{}] {}={}", pc.section, pc.key, v.trim())),
+                None => {
+                    unknown.push(format!(
+                        "the console plugin mod `{m}` declares no [{}] {} in {} (file or key missing), so it listens on its own default port; the console port {port_text} was not checked against it",
+                        pc.section,
+                        pc.key,
+                        file.display()
+                    ));
+                    summary.push(format!("`{m}` [{}] {} unknown", pc.section, pc.key));
+                }
+            }
+            configured.push(ConfiguredPort {
+                mod_name: m.clone(),
+                file,
+                value,
+            });
+        }
+    }
+    PortFacts {
+        excluded,
+        configured,
+        unknown,
+        summary: summary.join("; "),
+    }
 }
 
 fn plugin_stem(name: &str) -> &str {
@@ -217,6 +297,7 @@ fn prepare(
         }
     }
     let mods = enabled_mods(&profile_dir);
+    let ports = console_port_facts(&game, &instance, &mods, host.as_ref());
     let stem = plugin_stem(&probes.plugin).to_string();
     let dev_mod = format!("{}{stem}", crate::deploy::PREFIX);
     let marker = std::fs::read_to_string(
@@ -257,6 +338,8 @@ fn prepare(
         local_saves: flag("LocalSaves"),
         ini_values,
         enabled_mods: mods.clone(),
+        excluded_ports: ports.excluded.clone(),
+        console_ports: ports.configured.clone(),
         plugin: Some(PluginFacts {
             name: probes.plugin.clone(),
             dev_mod,
@@ -381,11 +464,13 @@ fn prepare(
             tools.join("; ")
         },
     ));
+    versions.push(("Console port".to_string(), ports.summary.clone()));
 
     let limitations: Vec<String> = game
         .unverified_logs()
         .into_iter()
         .map(|u| format!("log {} has no evidence yet ({}); a row that needs it is inconclusive when it is missing", u.fact, u.pending))
+        .chain(ports.unknown.iter().cloned())
         .chain(std::iter::once(
             "what the console prints for each probe command is grade D until M4.T1 observes it".to_string(),
         ))

@@ -13,6 +13,7 @@
 //! | `profile-settings` | the profile's `settings.ini` lacks `LocalSettings=true` or `LocalSaves=true` |
 //! | `ini-switch` | an INI switch of the game profile is missing or different |
 //! | `console-plugin` | no enabled mod of the profile is the console plugin |
+//! | `console-port` | the console URL's port lies in a TCP range the OS excludes from binding, or the enabled console plugin mod's own config declares another port |
 //! | `base-save` | the base save is missing, its SHA-256 was not given, or differs |
 //! | `plugin-not-deployed` | the plugin under test is not a `deploy --dev` mod enabled in the profile |
 //! | `unverified-profile` | the game profile has facts without evidence ([`crate::GameProfile::missing`]) |
@@ -49,6 +50,12 @@ pub struct Facts {
     pub ini_values: Vec<(String, String, String, String)>,
     /// Names of the profile's enabled mods (`+` lines of `modlist.txt`).
     pub enabled_mods: Vec<String>,
+    /// The TCP port ranges (inclusive) the OS excludes from binding; `None` is unknown
+    /// (not Windows, or listing them failed), which refuses nothing.
+    pub excluded_ports: Option<Vec<(u16, u16)>>,
+    /// The port each enabled console plugin mod declares in its own config
+    /// ([`crate::profile::PortConfig`]), one entry per such mod.
+    pub console_ports: Vec<ConfiguredPort>,
     /// The plugin under test.
     pub plugin: Option<PluginFacts>,
     /// The base save.
@@ -64,6 +71,18 @@ pub struct PluginFacts {
     pub dev_mod: String,
     /// Whether the folder holds `deploy --dev`'s marker (`kitkraft-deploy.json`).
     pub marker: bool,
+}
+
+/// The port an enabled console plugin mod declares in its own config.
+#[derive(Debug, Clone, Default)]
+pub struct ConfiguredPort {
+    /// The mod's folder name.
+    pub mod_name: String,
+    /// The config file read.
+    pub file: PathBuf,
+    /// The key's value; `None` when the file or the key is absent (unknown: refuses
+    /// nothing, the plugin then uses its own default).
+    pub value: Option<String>,
 }
 
 /// The base save.
@@ -197,6 +216,41 @@ pub fn check(game: &GameProfile, facts: &Facts) -> Vec<Refusal> {
             );
         }
     }
+    let url_port = crate::console::Endpoint::parse(&game.console.url)
+        .ok()
+        .map(|e| e.addr.port());
+    if let Some(port) = url_port {
+        let excluded = facts.excluded_ports.as_deref().unwrap_or_default();
+        if let Some((a, b)) = excluded.iter().find(|(a, b)| (*a..=*b).contains(&port)) {
+            refuse(
+                "console-port",
+                format!(
+                    "the console port {port} ({}) lies in the excluded TCP range {a}-{b} (`netsh int ipv4 show excludedportrange protocol=tcp`): the plugin cannot bind it; set another port in the plugin's config and the game profile's url",
+                    game.console.url
+                ),
+            );
+        }
+        if let Some(pc) = &game.console.port_config {
+            for c in &facts.console_ports {
+                let Some(value) = c.value.as_deref().map(str::trim) else {
+                    continue;
+                };
+                if value.parse::<u16>().ok() != Some(port) {
+                    refuse(
+                        "console-port",
+                        format!(
+                            "the console plugin mod `{}` declares [{}] {}={value} in {}, but the game profile's url is {} (port {port}); one of them is out of date",
+                            c.mod_name,
+                            pc.section,
+                            pc.key,
+                            c.file.display(),
+                            game.console.url
+                        ),
+                    );
+                }
+            }
+        }
+    }
     let base = &facts.base_save;
     match (&base.sha256, &base.expected_sha256) {
         (None, _) => refuse(
@@ -282,6 +336,13 @@ mod tests {
                 })
                 .collect(),
             enabled_mods: vec!["Console API".into(), "KitKraft Dev - X".into()],
+            // The dev box's ranges on 2026-11-01 include the plugin's default 55555.
+            excluded_ports: Some(vec![(5357, 5357), (55477, 55576)]),
+            console_ports: vec![ConfiguredPort {
+                mod_name: "Console API".into(),
+                file: PathBuf::from("mods/Console API/SFSE/plugins/sfse_plugin_console_api.ini"),
+                value: Some(" 45555 ".into()),
+            }],
             plugin: Some(PluginFacts {
                 name: "X.esm".into(),
                 dev_mod: "KitKraft Dev - X".into(),
@@ -351,6 +412,22 @@ mod tests {
                 "console-plugin",
                 Box::new(|f| f.enabled_mods.retain(|m| m != "Console API")),
             ),
+            (
+                "console-port",
+                Box::new(|f| f.excluded_ports = Some(vec![(45555, 45555)])),
+            ),
+            (
+                "console-port",
+                Box::new(|f| f.excluded_ports = Some(vec![(45500, 45600)])),
+            ),
+            (
+                "console-port",
+                Box::new(|f| f.console_ports[0].value = Some("55555".into())),
+            ),
+            (
+                "console-port",
+                Box::new(|f| f.console_ports[0].value = Some("not a port".into())),
+            ),
             ("base-save", Box::new(|f| f.base_save.sha256 = None)),
             (
                 "base-save",
@@ -379,6 +456,49 @@ mod tests {
                 assert!(got.iter().all(|r| *r == rule), "{rule}: {got:?}");
             }
         }
+    }
+
+    #[test]
+    fn console_port_refusals_name_the_range_and_the_config() {
+        let g = verified();
+        let mut f = good(&g);
+        f.excluded_ports = Some(vec![(45500, 45600)]);
+        f.console_ports[0].value = Some("55555".into());
+        let msgs: Vec<String> = check(&g, &f)
+            .into_iter()
+            .filter(|r| r.rule == "console-port")
+            .map(|r| r.message)
+            .collect();
+        assert_eq!(msgs.len(), 2, "{msgs:?}");
+        assert!(msgs[0].contains("45555") && msgs[0].contains("45500-45600"));
+        assert!(msgs[0].contains("excludedportrange"));
+        assert!(msgs[1].contains("[WebConsole] iPort=55555"));
+        assert!(msgs[1].contains("`Console API`"));
+        assert!(msgs[1].contains("sfse_plugin_console_api.ini"));
+        // The plugin's default port is excluded on the dev box: a profile still on it is
+        // refused.
+        let mut old = verified();
+        old.console.url = "http://127.0.0.1:55555/console".into();
+        let mut f = good(&old);
+        f.console_ports[0].value = Some("55555".into());
+        assert_eq!(rules(&old, &f), ["console-port"]);
+    }
+
+    #[test]
+    fn unknown_port_facts_refuse_nothing() {
+        let g = verified();
+        let mut f = good(&g);
+        f.excluded_ports = None;
+        f.console_ports[0].value = None;
+        assert!(check(&g, &f).is_empty());
+        f.console_ports.clear();
+        assert!(check(&g, &f).is_empty());
+        // A profile with no port config ignores what the mod declares.
+        let mut g = verified();
+        g.console.port_config = None;
+        let mut f = good(&g);
+        f.console_ports[0].value = Some("1".into());
+        assert!(check(&g, &f).is_empty());
     }
 
     #[test]

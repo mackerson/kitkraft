@@ -28,12 +28,24 @@ pending = "M4.T1 (a): the MO2 2.5.2 command line that starts a named executable 
 [console]
 # Console API (stonegdi, Nexus 4280, v2.17.0): POST the command as the body, the answer
 # is the console output (docs/research/in-game-agent-testing-2026-10-15.md). Run-only tool.
-url = "http://127.0.0.1:55555/console"
+# Port 45555, not the plugin's 55555: Windows excludes TCP 55477-55576 on the dev box
+# (Hyper-V/WSL reservations, `netsh int ipv4 show excludedportrange protocol=tcp`), the
+# plugin could not bind 55555, and the owner set `iPort=45555` in its INI (plan/STATUS.md
+# "Owner next actions" row 10, 2026-11-01).
+url = "http://127.0.0.1:45555/console"
 ready_command = "GetSFSEVersion"
 ready_expect = ""
 mod_names = ["Console API"]
 evidence = ""
 pending = "M4.T1 (b): V0, Console API 2.17.0 answers GetSFSEVersion over HTTP on 1.16.244 with SFSE 0.2.21 (needs M4.O7)"
+
+# Where the plugin's own config names its port, relative to its MO2 mod folder (the file
+# and keys the owner edited, STATUS row 10, 2026-11-01). Preflight refuses when the
+# enabled mod declares a port other than `url`'s (`console-port`).
+[console.port_config]
+file = "SFSE/plugins/sfse_plugin_console_api.ini"
+section = "WebConsole"
+key = "iPort"
 
 [saves]
 dir = "saves"

@@ -134,6 +134,75 @@ fn fixture(tag: &str) -> Fixture {
     .unwrap()
 }
 
+/// Writes the Console API mod's own config with `[WebConsole] iPort=<port>`.
+fn write_port_config(f: &Fixture, port: &str) {
+    let dir = f
+        .instance
+        .join("mods")
+        .join("Console API")
+        .join("SFSE")
+        .join("plugins");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("sfse_plugin_console_api.ini"),
+        format!("[WebConsole]\r\nsHost=localhost\r\niPort={port}\r\n"),
+    )
+    .unwrap();
+}
+
+#[test]
+fn the_console_port_is_checked_against_exclusions_and_the_plugin_config() {
+    let c = console();
+    let port = kitkraft_game::console::Endpoint::parse(&c.url())
+        .unwrap()
+        .addr
+        .port();
+    let f = fixture("port");
+    let probes = probes_file(&f);
+    let game = game_file(&f, &c);
+    let dry = args(&f, &probes, &game, json!({"dry_run": true}));
+    let limits = |r: &Value| r["limitations"].to_string();
+
+    // Both facts known and agreeing: no refusal, nothing unknown.
+    write_port_config(&f, &port.to_string());
+    let (e, host) = engine(&[]);
+    let r = e.execute("game.session", dry.clone()).unwrap();
+    assert_eq!(r["data"]["would_start"], json!(true), "{r}");
+    assert!(!limits(&r).contains("not checked"), "{r}");
+
+    // The port inside an excluded range is refused, naming the range.
+    host.set_excluded_ports(Some(vec![(5357, 5357), (port, port.saturating_add(10))]));
+    let err = e
+        .execute("game.session", args(&f, &probes, &game, json!({})))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("refused [console-port]"), "{err}");
+    assert!(err.contains(&format!("{port}-")), "{err}");
+    assert!(host.launched().is_empty());
+
+    // Unknown ranges and a missing config refuse nothing but are named.
+    host.set_excluded_ports(None);
+    std::fs::remove_file(
+        f.instance
+            .join("mods")
+            .join("Console API")
+            .join("SFSE")
+            .join("plugins")
+            .join("sfse_plugin_console_api.ini"),
+    )
+    .unwrap();
+    let r = e.execute("game.session", dry).unwrap();
+    assert_eq!(r["data"]["would_start"], json!(true), "{r}");
+    let l = limits(&r);
+    assert!(
+        l.contains("TCP port ranges the OS excludes are unknown"),
+        "{l}"
+    );
+    assert!(l.contains("declares no [WebConsole] iPort"), "{l}");
+    assert!(c.received().is_empty());
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
 #[test]
 fn every_preflight_refusal_names_its_rule_and_writes_nothing() {
     let c = console();
@@ -192,6 +261,14 @@ fn every_preflight_refusal_names_its_rule_and_writes_nothing() {
                     "+KitKraft Dev - X\r\n-Console API\r\n",
                 )
                 .unwrap();
+                json!({})
+            }),
+        ),
+        (
+            "console-port",
+            &[],
+            Box::new(|f| {
+                write_port_config(f, "1");
                 json!({})
             }),
         ),
@@ -355,6 +432,8 @@ fn a_synchronous_session_fills_the_ledger_and_leaves_mo2_unchanged() {
     let entry = report["ledger_entry"].as_str().unwrap();
     assert!(ledger.contains(&format!("### {entry}: agent session")));
     assert!(ledger.contains("Console API 2.17.0"), "{ledger}");
+    // The fixture's Console API mod has no config of its own: the ledger says so.
+    assert!(ledger.contains("[WebConsole] iPort unknown"), "{ledger}");
     assert!(ledger.contains(&sha(FIXTURE_SAVE)));
     for w in report["written"].as_array().unwrap() {
         let w = Path::new(w.as_str().unwrap());
