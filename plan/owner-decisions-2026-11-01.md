@@ -14,9 +14,8 @@ stays his to-do list and group D stays his; neither was answered.
 
 Each of items 1 to 23 carries its outcome and where it was applied, on the line after its
 title. The conflicts at the end of this sheet are fixed. What is left for the owner:
-group C, and one question from item 21: F30 came back on 2026-11-01 with the `.esp`
-twin the owner approved (`docs/ck-observations.md` `ck-20261101-02`: records unchanged,
-four TES4 differences); does that count as clean for F29?
+group C. Item 21 is settled: the owner counted F30 as clean (`docs/ck-observations.md`
+`ck-20261101-02`) and F29 ran the same day (`ck-20261101-03`).
 
 ## How to answer
 
