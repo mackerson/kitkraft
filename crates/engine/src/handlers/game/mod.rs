@@ -591,7 +591,15 @@ pub(super) fn session(session: &mut Session, args: &Value) -> Result<Outcome, En
                 "summary": if refusals.is_empty() {
                     format!("session {} would start on `{}`; nothing written", plan.session, plan.profile)
                 } else {
-                    format!("session would be refused ({} reason(s)); nothing written", refusals.len())
+                    // One `[rule] message` line per refusal, so the text output (which
+                    // prints the summary) says why, not only how many (owner finding 10,
+                    // 2026-11-01).
+                    let mut lines = vec![format!(
+                        "session would be refused ({} reason(s)); nothing written",
+                        refusals.len()
+                    )];
+                    lines.extend(refusals.iter().map(|r| format!("[{}] {}", r.rule, r.message)));
+                    lines.join("\n")
                 },
             }),
             limitations,

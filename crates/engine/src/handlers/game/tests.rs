@@ -356,6 +356,17 @@ fn every_preflight_refusal_names_its_rule_and_writes_nothing() {
                 .any(|x| x["rule"] == json!(rule)),
             "{rule}"
         );
+        // The summary (what `kit game session --dry-run` prints) names every refusal as
+        // `[rule] message` (owner finding 10, 2026-11-01).
+        let summary = r["data"]["summary"].as_str().unwrap();
+        for x in r["data"]["refusals"].as_array().unwrap() {
+            let line = format!(
+                "[{}] {}",
+                x["rule"].as_str().unwrap(),
+                x["message"].as_str().unwrap()
+            );
+            assert!(summary.lines().any(|l| l == line), "{rule}: {summary}");
+        }
         assert!(!f.observe_root.exists());
         std::fs::remove_dir_all(&f.root).unwrap();
     }
