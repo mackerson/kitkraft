@@ -76,7 +76,9 @@ What keeps the typed share below 100 %: TERM's `VMAD` (script data, every record
 `REFL`; PKIN's `REFL` (LOD owner and effect sequence components); LCTN's reference lists'
 4 unnamed bytes per entry (`Bytes12`/`Bytes16`, unknown upstream); the condition and
 component bytes upstream leaves unused. `REFL` is read by a helper in another upstream unit,
-which is not an authorized source (ADR 0004).
+which is not an authorized source (ADR 0004); since 2026-10-31 it is known not to be
+needed, because the payload names its own classes and fields
+(`docs/research/reflection-scan-2026-10-31.md`).
 
 The proofs:
 
@@ -142,6 +144,8 @@ component layouts were added to `common/BfcbBlock.toml` from the pinned
 (L6203-L6206: `QUPA`, OMOD FormIDs), `SoundTag` (L6207-L6210 with L5675: `STCP`, an STAG
 FormID) and `ParticleSystem` (L6607-L6610: `PTCL`). `PTCL` stays opaque, as `REFL` does:
 upstream reads both with a helper in a unit that is not an authorized source (ADR 0004).
+Both are in the self-describing reflection format, readable from the corpus without it
+(`docs/research/reflection-scan-2026-10-31.md`).
 `crates/doc/tests/components.rs` (`component_layouts_full`) checks every official block of
 the eight layouts (156 display case, 216 quality upgrade, 966 sound tag, 1,545 particle
 system blocks) against its component name and for identical re-encoding;

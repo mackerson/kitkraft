@@ -132,7 +132,7 @@ no official LCRT has (notes, name, attraction rule, Flash linkage name).
 | NAVM `NVNM` | Nested counted arrays and version-gated parts |
 | NAVM `MNAM`, REFR `XSL1` | Lists whose entries carry their own counted lists; an array element cannot hold a counted array |
 | CELL and REFR `XTV2` | 56-byte traversal entries whose FormID is present only when a flag says so |
-| REFR `XNSE` | Reflection data from a helper not read yet |
+| REFR `XNSE` | Reflection data (`NavMeshSplineExtraData`) not read yet; it names its own classes and fields, so it can be read from the corpus without the upstream helper (`docs/research/reflection-scan-2026-10-31.md`) |
 | REFR `PDTO.Data` | A DIAL FormID or a 4-character subtype depending on `PDTO.Kind` (a union); the kind is typed |
 | WRLD `HNAM`, LCRT `FNAM`, ACHR `XGDS`, REFR `XCZA`, `XLTW`, LCTN `NAM0` | xEdit gives no meaning (unknown or unused) |
 | WRLD second `WLEV` | Cell data xEdit keeps as bytes; not in any official WRLD |

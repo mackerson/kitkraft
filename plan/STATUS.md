@@ -1899,6 +1899,12 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 4. **Checks the merge reports left** ("Campaign" above): ENCH's `ENIT` and ARTO's `DNAM`
    names against the pinned xEdit file, and two evidence notes that say more than their
    tests (ENCH's BfcbBlock, HDPT's HNAM).
+5. **Reflection payloads** (2026-10-31, `docs/research/reflection-scan-2026-10-31.md`).
+   `REFL`, `XNSE`, `PTCL`, `PCCC`, `RDIF` and `PSDF` (46,863 payloads) all carry their
+   own class and field tables, so a schema-driven reader over `crates/doc/src/refl.rs`
+   can type them and visit their FormIDs from the corpus alone, with no upstream helper.
+   Small by count (about 1.3 % of the untyped occurrences), not queued; the component-name
+   decider (`docs/gaps.md`) is the larger schema lever.
 
 ## Blockers
 

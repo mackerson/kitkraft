@@ -226,7 +226,7 @@ by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix
 | VMAD | LVLP, PKIN, GBFM, TRAV | Script property values are unions by property type |
 | OBTS property values | GBFM | The item is typed through `ObteBlock` since M4.BX1; its property values are struct-field unions by value type, typed since lane B round 4 |
 | NVNM | GBFM | Large nested navmesh geometry; kept raw until navmesh work |
-| REFL, RDIF | SUNP | Described by a helper in another upstream unit (`wbDefinitionsReflection.pas`) that is not an authorized source yet (ADR 0004 clarification 2) |
+| REFL, RDIF | SUNP | Described by a helper in another upstream unit (`wbDefinitionsReflection.pas`) that is not an authorized source yet (ADR 0004 clarification 2). Not needed: both payloads carry their own class and field table, so they can be read from the corpus (`docs/research/reflection-scan-2026-10-31.md`); PNDT and STDT `PCCC` are the same format |
 | ONAM, WED0 | STDT | Unknown upstream / a sound reference; never in an official STDT |
 | BNAM; GNAM slots 1-4, 6-12, 14, 17-20 | BIOM | Unnamed upstream; BNAM is always `01 00 00 00` |
 | PPBD `Data3`, `Data11`; HNAM `Data1`, `Data24`; FNAM `Data5` | PNDT | Unnamed upstream |

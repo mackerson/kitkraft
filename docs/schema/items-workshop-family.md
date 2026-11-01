@@ -226,7 +226,7 @@ Checked member by member against `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6
 | What | Where | Why |
 | ---- | ----- | --- |
 | VMAD (script data) | every type that has it | Property values are unions by property type; TERM and TMLM use fragment variants. Kept raw. |
-| Base form component blocks (BFCB..BFCE) | STAT, MISC, CONT, ACTI, FURN, MSTT, ARMO, ANIO, FLOR | Each component has its own layout, chosen by the name in BFCB. Since lane D (2026-10-15) the animation graph, contact shadow, placement properties and reflection layouts are typed in the shared block (the reflection's REFL stays raw); the others are kept as raw subrecords. A STAT's keywords live here. |
+| Base form component blocks (BFCB..BFCE) | STAT, MISC, CONT, ACTI, FURN, MSTT, ARMO, ANIO, FLOR | Each component has its own layout, chosen by the name in BFCB. Since lane D (2026-10-15) the animation graph, contact shadow, placement properties and reflection layouts are typed in the shared block (the reflection's REFL stays raw, though it names its own classes and fields: `docs/research/reflection-scan-2026-10-31.md`); the others are kept as raw subrecords. A STAT's keywords live here. |
 | NVNM (navmesh geometry) | STAT, ACTI | Large nested geometry; kept raw. |
 | CTDA parameters 1 and 2 of reference, actor and package parameters | ACTI, TMLM, IDLE, CPTH, TERM | Selected by the type byte's alias and packdata bits (`common/Condition.toml`); the comparison value, the other parameters and the reference are typed unions since lane D (2026-10-15). |
 | COED middle slot | CONT (never seen) | A global FormID or a faction rank depending on the owner's type. |

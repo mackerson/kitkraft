@@ -44,6 +44,12 @@
 //! property values (one each in the 18 payloads with the snapshot pair). 2,586 hold no
 //! swaps at all: 2,567 of them hold only material form references, and 19 hold only
 //! empty lists and yield no entries.
+//!
+//! The same chunk format is every occurrence of five other signatures in the official
+//! files: `XNSE` (11,433, REFR), `PTCL` (2,733), `PCCC` (1,825, PNDT and STDT), `RDIF`
+//! (898) and `PSDF` (77). Across all six, 214 classes with 994 fields are defined in the
+//! payloads themselves; values are read only for `LMSW` so far
+//! (`docs/research/reflection-scan-2026-10-31.md`).
 
 /// One chunk of a `REFL` payload.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -27,7 +27,9 @@ copied into either repository and no tool source was read.
   four ARMAs and differ only there (`1F1DCA` against `1F1DCB`). Some ARMOs also carry
   `MLM2` swaps on their world model.
 - `clone` copies an `LMSW` today (dry run, 2026-10-23); `set` cannot edit the paths.
-  Request 7 in `plan/STATUS.md` asks lane B to type it. A typed `REFL` reader would also
+  Request 7 in `plan/STATUS.md` asks lane B to type it. (2026-10-31: how far the format
+  reaches, six signatures and 46,863 payloads, is in `reflection-scan-2026-10-31.md`.)
+  A typed `REFL` reader would also
   serve every other record type that stores reflection data.
 
 ## `.mat` files (mod data, owner ruling pending)
