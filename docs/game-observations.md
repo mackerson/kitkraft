@@ -319,3 +319,25 @@ command line there first if the help text shows a different one.
 | --- | ---- | ----- | -------- | ---- | ------ |
 | custom | custom: ADR 0009 Am. 2: MO2 2.5.2 keeps a deploy.enable edit when it opens KitKraft Dev | `Minimum Enemy Level.esm`, `KitKraftMELDLC_ShatteredSpace.esm`, `KitKraftMELDLC_TerranArmada.esm` | - | Owner opened MO2 on Kitkraft Dev after kit deploy enable (backup 20261019T013513Z-26076): Minimum Enemy Level and KitKraft Dev - KitKraftMELDLC_ShatteredSpace / _TerranArmada enabled, their plugins ticked and last in that order. | pass |
 | custom | custom: ADR 0009 Am. 3: MO2 2.5.2 shows a deploy-written meta.ini (version, category) | `MEL DLC - Shattered Space.esm`, `MEL DLC - Terran Armada.esm` | - | Owner opened MO2 on Kitkraft Dev after deploy --category Gameplay of the renamed MEL DLC packages and deploy enable/disable: KitKraft Dev - MEL DLC - Shattered Space / Terran Armada enabled, version 1.0.0, category Gameplay, plugins last; old KitKraftMELDLC_* mods disabled. | pass |
+
+### game-20261101-T1: session facts (M4.T1), agent-run on `Kitkraft Dev`; (a), (b) and (d) observed
+
+| Field | Content |
+| ----- | ------- |
+| Session | M4.T1, run by an agent with the owner's approval in chat on 2026-11-01 ("go ahead with 2 and 3"); script `observe/2026-11-01-T1-v0/v0.ps1`, log `v0.log` (run 2) and `v0-run1.log` (run 1), screenshots beside them (gitignored) |
+| Date | 2026-11-01, 01:35 (run 1) and 01:41 (run 2) |
+| Game build | 1.16.244.0; SFSE 0.2.21 (runtime `01100F40`); Console API and Web Application, Console Command Runner Updated 1.11.0, Address Library for SFSE Plugins (owner-installed, STATUS row 10) |
+| MO2 | 2.5.2, portable `C:\Modding\MO2-Starfield`, closed before each run |
+| MO2 profile | `Kitkraft Dev`, profile-specific INIs and saves; base save `KitKraftBase.sfs`, SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf` |
+| Endpoint | `http://127.0.0.1:45555/console` (the plugin's `iPort=45555`: Windows excludes TCP 55477-55576 on this box, so 55555 could not bind) |
+
+| Row | Fact | Observation | Grade | Result |
+| --- | ---- | ----------- | ----- | ------ |
+| a | The MO2 command line that starts a named executable on a named profile | `ModOrganizer.exe -p "Kitkraft Dev" "moshortcut://:SFSE"` with MO2 closed started SFSE and the game (window after 14 s); the same form with `Creation Kit` started the CK in the probe of 01:21. MO2 stayed open after the game ended and closed on a window close | A | pass |
+| b | V0: Console API answers `GetSFSEVersion` over HTTP | At the main menu, `POST /console` with the body `GetSFSEVersion` answered HTTP 200 with the console echo and `SFSE version: 0.2.21, release idx 26, runtime 01100F40` (run 2, 91 s after launch, after a 75 s settle) | A | pass |
+| b' | Readiness | The port accepts connections about 5 s after launch, long before the game can take a command. In run 1 a `GetSFSEVersion` sent 8 s after launch answered HTTP 200 with an empty body, and the game process ended within 15 s with no Application event; run 2, which sent nothing until the game window had been up 75 s, ran normally. So: an open port is not readiness, and a command sent during startup can end the game (one occurrence, cause not isolated) | B | finding |
+| d | `load <save>` from the main menu | `load KitKraftBase` answered HTTP 200 (echo only) and the game loaded the save: `player.getpos x/y/z` gave -13.22, 4.69, 4.66 and the screenshot shows the apartment interior. `GetInCell CityNewAtlantisApartmentTEMPLATE` answered "Item ... not found for parameter Cell": that EditorID is not accepted there, so a cell check needs another form | A for the load; the cell check form is open | pass |
+| h | The Papyrus log path | `Documents\My Games\Starfield\Logs\Script\Papyrus.0.log` was rewritten during run 2 (01:43), so the profile's `[Papyrus]` switches take effect under MO2. `StarfieldConsoleHistory.log` did not change: commands sent over the API are not appended to it, or it is written only on a normal exit (the game was ended without one) | A for Papyrus; history unresolved | pass (Papyrus) |
+| c, e..g | `bAlwaysActive` behaviour unfocused, `bat`, runtime IDs, `{Form:...}` | not tried | - | not-run |
+
+The game was ended by stopping its process (no save, no `qqq`), as `game.stop` does.
