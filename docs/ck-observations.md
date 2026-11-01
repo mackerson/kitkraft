@@ -317,4 +317,25 @@ with `cargo xtask oracle ck`.
 
 ## Ledger
 
-No entries yet: the first M3.O1 session has not happened (M3.H3 is gated on it).
+### ck-20261101-01: F30 first half, agent-run (load only; no save)
+
+The first CK sitting, run unattended by an agent on 2026-11-01 with the owner's approval in
+chat ("go ahead with 2 and 3"), launched through MO2 on `Kitkraft Dev` and driven through
+the Windows UI Automation interface, window messages, keyboard and mouse input (no
+debugger, memory access or resource reading). Record and screenshots in
+`observe\ck-2026-11-01\` (`session.md`, `shots\`, `09-warnings.txt`); the CK's two settings
+files were copied to `settings-before\` first. Interface observations from the same sitting
+(the menu map, the Data dialog's layout) stay in `observe\` until the owner rules on ADR
+0012 Amendment 2.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261101-01` |
+| Fixture | F30 (`docs/ck-sessions/f29-f30.md`), first half |
+| CK version / game build | CreationKit.exe 1.16.244.0; game 1.16.244.0 |
+| Input | `KitKraftFirstPOI-CKRoundtrip.esm`: a byte copy of `out\poi\KitKraftFirstPOI.esm` (SHA-256 `13c22b48...57b5f1`, 1,821 bytes, roundtrips identical), deployed with `kit deploy --dev` as `KitKraft Dev - KitKraftFirstPOI-CKRoundtrip`, enabled for the sitting and disabled after it |
+| Question | Does the CK load our plugin, and with which warnings (Gate K0, "CK can load") |
+| Result | **Loaded.** Data dialog: the file listed as "Master File" with `Starfield.esm` as its one parent master; ticked; OK. The CK loaded `Starfield.esm` and our plugin in under 2 minutes (status bar "Done." by the check at 100 s, not yet at 40 s; working set about 16 GB) with no message box. Its Warnings window then held 1,590 rows (Time, Type, Form, Form ID, File, Last User, Current User, Last Touched, Text, Source File, Line Number); **none names our plugin or a KitKraft form**: every row is about vanilla forms (`MASTERFILE`, `FORMS` and the like) |
+| Not done | Our plugin could not be made the active file: "Set as Active File" on the selected, ticked row changed nothing visible (status stayed "Master File"; no message). So nothing was saved and F30's second half (save unchanged, then `cargo xtask oracle ck`) is open. The File menu offers "Convert Active File to ..." and "Compact Active File Form IDs for ...", which suggests the CK expects a non-master active file; an ESP twin of the plugin, or the owner's guidance, is the next step |
+| Side effects | The deployed copy is unchanged after the sitting (same SHA-256). The CK wrote `Backup\AutoSaveDEFAULT.bak` (126 bytes) into MO2's `overwrite\` and, as on every run, rewrote `CreationKitPrefs.ini` and `QtCreationKitSavedSettings.ini` in the game folder. It closed without a prompt |
+| Driving notes | The Data dialog is a Win32 dialog whose list rows are not exposed through UI Automation: a row is selected by type-ahead, ticked by double-click (single click and Space did not tick it); a modal dialog opened through UI Automation `Invoke` blocks the call, so modal-opening controls are clicked instead. Qt menus expose their items under the menu bar item while open |
