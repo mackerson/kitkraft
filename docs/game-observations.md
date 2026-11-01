@@ -406,3 +406,33 @@ Cause (director, 2026-11-01): the game never started. MO2's `logs\mo_interface.l
 Finding: C:/Modding/MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (acad980c9b1f9aca7505410c35323e626a2f65967f349d93e80810d5d6673315 -> 5c8e159639ca0b87d16777c0a70ede3565a64673bf3e51f2665fe1d46698f326): restored from C:\Modding\kitcraft\observe\2026-11-01-T02\backup\01-plugins.txt
 
 Cause (director, 2026-11-01): the session ran end to end (launch, settle, load, six rows, session save and load, stop, restore), but the probes were not executable as written: they address the crate and the cell by EditorID, which the console does not resolve, use `isdisabled`, which does not exist, and expect the base save's runtime slot 04 while the game used 06 (see `game-20261101-T1` rows e, i to l). The `plugins.txt` change is the game's or MO2's rewrite during the session; the controller restored it. `kit testplan` is being fixed to use runtime FormIDs, the current load order's slots and a wait after moves.
+
+### game-20261101-03: agent session 2026-11-01-T03 (`kit game session`), KitKraftFirstPOI.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-01-T03`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-01 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:/Modding/MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261101-03` |
+| Plugins | `KitKraftFirstPOI.esm` SHA-256 `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1` |
+| Probes | `observe/2026-11-01-poi-plan2/probes.toml` SHA-256 `bb3f88e7c5f041ebf0e57818760f1d7de843fccbfca8e22d1482ab6ded3d3170` |
+| Screenshots | `C:\Modding\kitcraft\observe\2026-11-01-T03` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| T-02 | `player.moveto 06001000`, `prid 06001000`, `getdistance player` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 06001000 | number 0 +/- 500 | player.moveto 06001000 -> player.moveto 06001000 Command: player.moveto 06001000; (waited 10s); prid 06001000 -> prid 06001000 Command: prid 06001000; getdistance player -> getdistance player Command: getdistance player GetDistance >> 0.86 | **pass** | - |
+| T-03 | `prid 06001000`, `getisid 001E4FBD` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 06001000 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 06001000 -> prid 06001000 Command: prid 06001000; getisid 001E4FBD -> getisid 001E4FBD Command: getisid 001E4FBD GetIsID >> 1.00 | **pass** | - |
+| T-04 | `prid 06001000`, `getpos x`, `getpos y`, `getpos z` | KitKraftFirstPOI.esm:001000, KitKraftFirstPOICrate, 06001000 | number -17 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 06001000 -> prid 06001000 Command: prid 06001000; getpos x -> getpos x Command: getpos x GetPos: X >> -17.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-04-1.png |
+| T-05 | `coc CityNewAtlantisLodgeInt`, `save KitKraftSession-20261101-03`, `load KitKraftSession-20261101-03`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29 | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); save KitKraftSession-20261101-03 -> save KitKraftSession-20261101-03 Command: save KitKraftSession-20261101-03; load KitKraftSessi... | **pass** | - |
+| T-06 | `coc CityNewAtlantisApartmentTEMPLATE`, `prid 06001000`, `getpos x`, `getpos y`, `getpos z` | KitKraftFirstPOICrate, 06001000 | number -17 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); prid 06001000 -> prid 06001000 Command: prid 06001000; getpos x -> getpos x Command: getpos x GetPos: X >> -17.00; getpos... | **pass** | T-06-1.png |
+
+Finding: C:/Modding/MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (c61020098aa6d2c789186aa1daf8628dbcecf38c25fd4fc0db222ab985e9516f -> c7bacaacfa976b844dccec4ed93c3eca9ec913f0c1f7e81e6dc5ec0a454e76f2): restored from C:\Modding\kitcraft\observe\2026-11-01-T03\backup\01-plugins.txt
+
+Director's reading (2026-11-01): **rows T-01 to T-04 and T-06 are real passes**, the first unattended in-game check of a KitKraft plugin: the crate `KitKraftFirstPOI.esm:001000` is in game at runtime ID `06001000`, in cell `0021966F` (`GetInCell >> 1.00`), its base is `001E4FBD` (`GetIsID >> 1.00`), at (-17.00, -4.00, 4.63) (the plan's position), and `player.moveto` lands beside it (`GetDistance >> 0.86`); after leaving and returning (T-06) it is still there. **T-05 is a false pass**: `load KitKraftSession-20261101-03` answered "Save file not found." because it was sent about 120 ms after `save`, before the file existed (it was written at 02:54); the final `getincell` held only because the player never left the cell. Save/reload stays `not-run`. The controller is being changed to fail a row on any console "not found" line and testplan to wait after `save`. The status is inconclusive because `plugins.txt` changes in every session: MO2 rewrites it when it launches the game (opening and closing MO2 alone leaves it unchanged); the controller restored it.
