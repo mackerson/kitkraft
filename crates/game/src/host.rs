@@ -3,10 +3,11 @@
 //! tested against [`crate::testing::FakeHost`]; [`SystemHost`] is the real one.
 //!
 //! [`SystemHost`] uses only `std::process` and Windows' own tools (`tasklist`, `taskkill`,
-//! `netsh` for the excluded TCP port ranges, PowerShell for a screen capture): no process
-//! crate (ADR 0010 Amendment 1 (c)). It never attaches to, reads or injects into a process
-//! (ADR 0001, ADR 0010 Decision 2): it lists image names and excluded port ranges, starts
-//! one program, and ends programs by image name.
+//! `netsh` for the excluded TCP port ranges, PowerShell for a screen capture and for
+//! whether the game has a main window): no process crate (ADR 0010 Amendment 1 (c)). It
+//! never attaches to, reads or injects into a process (ADR 0001, ADR 0010 Decision 2): it
+//! lists image names, top-level windows and excluded port ranges, starts one program, and
+//! ends programs by image name.
 
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -31,6 +32,10 @@ pub trait Host: Send + Sync {
     fn terminate(&self, images: &[String]) -> Result<Vec<String>>;
     /// Writes a PNG of the screen to `dest`.
     fn screenshot(&self, dest: &Path) -> Result<()>;
+    /// Whether a running process with the image name `image` (`Starfield.exe`) has a main
+    /// window. The controller sends no command before it does (game-20261101-T1/b'). An
+    /// error means unknown, not no.
+    fn has_main_window(&self, image: &str) -> Result<bool>;
     /// The TCP port ranges (inclusive) the operating system excludes from binding (on
     /// Windows, Hyper-V/WSL reservations: `netsh int ipv4 show excludedportrange
     /// protocol=tcp`). An error means unknown, not none.
@@ -55,6 +60,22 @@ pub fn parse_excluded_ports(text: &str) -> Vec<(u16, u16)> {
         })
         .collect()
 }
+
+/// The answer of [`WINDOWS`]: the number of processes with a main window, as text.
+pub fn parse_window_count(text: &str) -> Result<bool> {
+    text.trim().parse::<u32>().map(|n| n > 0).map_err(|_| {
+        GameError::Process(format!(
+            "main window: not a count: `{}`",
+            text.trim().chars().take(80).collect::<String>()
+        ))
+    })
+}
+
+/// PowerShell that prints how many processes named by its first argument (the image
+/// name without `.exe`) have a main window: the same test as the M4.T1 script
+/// (`MainWindowHandle` is not 0), read from the window list, not from the process.
+pub const WINDOWS: &str = "& { param($n) \
+@(Get-Process -Name $n -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }).Count }";
 
 /// Whether `name` is among `running` (ASCII case ignored).
 pub fn is_running(running: &[String], name: &str) -> bool {
@@ -179,6 +200,25 @@ impl Host for SystemHost {
         Ok(parse_excluded_ports(&text))
     }
 
+    fn has_main_window(&self, image: &str) -> Result<bool> {
+        if !cfg!(windows) {
+            return Err(GameError::Process(
+                "window lists are read on Windows only".into(),
+            ));
+        }
+        let stem = Path::new(image)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(image);
+        let text = output(
+            Command::new("powershell")
+                .args(["-NoProfile", "-NonInteractive", "-Command", WINDOWS])
+                .arg(stem),
+            "main window",
+        )?;
+        parse_window_count(&text)
+    }
+
     fn screenshot(&self, dest: &Path) -> Result<()> {
         output(
             Command::new("powershell")
@@ -208,6 +248,15 @@ mod tests {
         assert_eq!(names, ["System Idle Process", "ModOrganizer.exe"]);
         assert!(is_running(&names, "modorganizer.EXE"));
         assert!(!is_running(&names, "Starfield.exe"));
+    }
+
+    #[test]
+    fn a_window_count_is_a_number() {
+        assert!(parse_window_count("1\r\n").unwrap());
+        assert!(parse_window_count(" 2 ").unwrap());
+        assert!(!parse_window_count("0\r\n").unwrap());
+        assert!(parse_window_count("").is_err());
+        assert!(parse_window_count("Get-Process : error").is_err());
     }
 
     #[test]

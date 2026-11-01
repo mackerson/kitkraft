@@ -81,6 +81,8 @@ fn game_file(f: &Fixture, c: &FakeConsole) -> std::path::PathBuf {
     g.console.url = c.url();
     g.timeouts.probe_secs = 3;
     g.timeouts.ready_secs = 3;
+    g.timeouts.settle_secs = 0;
+    g.timeouts.ready_poll_secs = 0;
     g.timeouts.load_secs = 3;
     g.timeouts.exit_secs = 1;
     g.timeouts.session_secs = 60;
@@ -308,7 +310,7 @@ fn every_preflight_refusal_names_its_rule_and_writes_nothing() {
         (
             "unverified-profile",
             &[],
-            Box::new(|_| json!({"game": "starfield"})),
+            Box::new(|f| json!({"game": unverified_game(f).display().to_string()})),
         ),
         (
             "unverified-profile",
@@ -362,23 +364,65 @@ fn every_preflight_refusal_names_its_rule_and_writes_nothing() {
     );
 }
 
+/// The Starfield profile as it was before M4.T1 (game-20261101-T1): no launch, console or
+/// save evidence.
+fn unverified_game(f: &Fixture) -> std::path::PathBuf {
+    let mut g = GameProfile::named("starfield").unwrap();
+    g.launch.evidence.clear();
+    g.console.evidence.clear();
+    g.saves.evidence.clear();
+    g.launch.pending = "M4.T1 (a): unobserved in this test".into();
+    let path = f.root.join("unverified-game.toml");
+    std::fs::write(&path, toml::to_string(&g).unwrap()).unwrap();
+    path
+}
+
 #[test]
-fn the_real_starfield_profile_is_refused_until_m4_t1_and_says_why() {
+fn the_real_starfield_profile_has_its_evidence_and_one_without_is_refused_saying_why() {
     let c = console();
     let f = fixture("unverified");
     let probes = probes_file(&f);
     let game = game_file(&f, &c);
-    let (e, _) = engine(&[]);
+    let (e, host) = engine(&[]);
+    // game-20261101-T1 rows a, b and d: the built-in profile passes `unverified-profile`
+    // (a dry run only; a real session would wait 75 s for the settle).
+    let r = e
+        .execute(
+            "game.session",
+            args(
+                &f,
+                &probes,
+                &game,
+                json!({"game": "starfield", "dry_run": true}),
+            ),
+        )
+        .unwrap();
+    let refusals = r["data"]["refusals"].as_array().unwrap();
+    assert!(
+        !refusals
+            .iter()
+            .any(|x| x["rule"] == json!("unverified-profile")),
+        "{refusals:?}"
+    );
+    assert_eq!(
+        r["data"]["plan"]["launch"]["evidence"],
+        json!("game-20261101-T1/a")
+    );
+    assert_eq!(r["data"]["plan"]["timeouts"]["settle_secs"], json!(75));
+    assert!(host.launched().is_empty());
+    // Without the evidence it is refused, naming each fact and its ticket.
     let err = e
         .execute(
             "game.session",
-            args(&f, &probes, &game, json!({"game": "starfield"})),
+            args(&f, &probes, &unverified_game(&f), json!({})),
         )
         .unwrap_err()
         .to_string();
     for fact in ["`launch`", "`console`", "`saves`", "M4.T1 (a)"] {
         assert!(err.contains(fact), "{fact}: {err}");
     }
+    assert!(host.launched().is_empty());
+    assert!(c.received().is_empty());
     std::fs::remove_dir_all(&f.root).unwrap();
 }
 

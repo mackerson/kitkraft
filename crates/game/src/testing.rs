@@ -2,13 +2,14 @@
 //! API's `/console` endpoint, and a host whose processes are a list. Nothing in them talks
 //! to a game; they exist so every rule of the controller is tested without one.
 
+use std::collections::VecDeque;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::console::parse_response_request;
 use crate::error::{GameError, Result};
@@ -19,6 +20,7 @@ type Hook = Box<dyn Fn(&str) + Send + Sync>;
 #[derive(Default)]
 struct FakeState {
     answers: Mutex<Vec<(String, String)>>,
+    turns: Mutex<Vec<(String, VecDeque<String>)>>,
     delays: Mutex<Vec<(String, Duration)>>,
     received: Mutex<Vec<String>>,
     down: AtomicBool,
@@ -82,6 +84,15 @@ impl FakeConsole {
     /// Answers commands starting with `prefix` with `text`.
     pub fn answer(&self, prefix: &str, text: &str) {
         lock(&self.state.answers).push((prefix.to_ascii_lowercase(), text.to_string()));
+    }
+
+    /// Answers successive commands starting with `prefix` with `texts` in turn, the last
+    /// one from then on; overrides [`FakeConsole::answer`] for that prefix.
+    pub fn answer_in_turn(&self, prefix: &str, texts: &[&str]) {
+        lock(&self.state.turns).push((
+            prefix.to_ascii_lowercase(),
+            texts.iter().map(|s| s.to_string()).collect(),
+        ));
     }
 
     /// Waits `delay` before answering commands starting with `prefix`.
@@ -150,8 +161,23 @@ fn serve(mut stream: TcpStream, state: &FakeState) {
     if let Some(d) = delay {
         std::thread::sleep(d);
     }
-    let text = best(&lock(&state.answers), &command)
-        .cloned()
+    let turn = {
+        let mut turns = lock(&state.turns);
+        let c = command.to_ascii_lowercase();
+        turns
+            .iter_mut()
+            .filter(|(p, _)| c.starts_with(p.as_str()))
+            .max_by_key(|(p, _)| p.len())
+            .and_then(|(_, q)| {
+                if q.len() > 1 {
+                    q.pop_front()
+                } else {
+                    q.front().cloned()
+                }
+            })
+    };
+    let text = turn
+        .or_else(|| best(&lock(&state.answers), &command).cloned())
         .unwrap_or_default();
     let reply = format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",
@@ -171,6 +197,10 @@ pub struct FakeHost {
     hooks: Mutex<Vec<Box<dyn Fn() + Send + Sync>>>,
     /// `None`: listing the excluded port ranges fails (unknown).
     excluded: Mutex<Option<Vec<(u16, u16)>>>,
+    /// How long after the launch the game's main window appears; `None`: never.
+    window_after: Mutex<Option<Duration>>,
+    launched_at: Mutex<Option<Instant>>,
+    window_seen: Mutex<Option<Instant>>,
 }
 
 impl std::fmt::Debug for FakeHost {
@@ -187,7 +217,19 @@ impl FakeHost {
         *lock(&host.running) = running.iter().map(|s| s.to_string()).collect();
         *lock(&host.starts) = starts.iter().map(|s| s.to_string()).collect();
         *lock(&host.excluded) = Some(Vec::new());
+        *lock(&host.window_after) = Some(Duration::ZERO);
         host
+    }
+
+    /// The game's main window appears `after` the launch (`None`: never); at once by
+    /// default.
+    pub fn set_window_after(&self, after: Option<Duration>) {
+        *lock(&self.window_after) = after;
+    }
+
+    /// When [`Host::has_main_window`] first answered yes.
+    pub fn window_seen_at(&self) -> Option<Instant> {
+        *lock(&self.window_seen)
     }
 
     /// The excluded TCP port ranges from now on; `None` makes listing them fail.
@@ -239,6 +281,7 @@ impl Host for FakeHost {
 
     fn launch(&self, program: &Path, args: &[String], _cwd: &Path) -> Result<Box<dyn Launched>> {
         lock(&self.launched).push((program.to_path_buf(), args.to_vec()));
+        *lock(&self.launched_at) = Some(Instant::now());
         let starts = lock(&self.starts).clone();
         lock(&self.running).extend(starts);
         for hook in lock(&self.hooks).iter() {
@@ -264,6 +307,19 @@ impl Host for FakeHost {
             return Err(GameError::Process("fake screenshot failure".into()));
         }
         std::fs::write(dest, b"\x89PNG fake").map_err(|e| GameError::io(dest, e))
+    }
+
+    fn has_main_window(&self, image: &str) -> Result<bool> {
+        let running = lock(&self.running)
+            .iter()
+            .any(|r| r.eq_ignore_ascii_case(image));
+        let after = *lock(&self.window_after);
+        let launched = *lock(&self.launched_at);
+        let up = running && matches!((after, launched), (Some(d), Some(t)) if t.elapsed() >= d);
+        if up {
+            lock(&self.window_seen).get_or_insert_with(Instant::now);
+        }
+        Ok(up)
     }
 
     fn excluded_ports(&self) -> Result<Vec<(u16, u16)>> {

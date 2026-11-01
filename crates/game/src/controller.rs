@@ -2,12 +2,13 @@
 //!
 //! One session, in order: back up the dev profile's list files, INIs and the base save
 //! into `observe\<session>\backup\`; start the mod manager with the game profile's command
-//! line; wait for the console endpoint; load the base save; run the probes in order, each
-//! with its own deadline and the session's wall-clock budget over all; (with `stay`, serve
-//! `game.probe` re-runs until stopped); end the game and the processes the session
-//! started; copy the logs; compare the backed-up files' hashes and restore any that
-//! changed (the session is then `inconclusive`); append the ledger entry; write
-//! `report.json`. Every write goes through [`Authorized`].
+//! line; wait for the game's main window, then `settle_secs`, then the console endpoint
+//! (no command before that; an empty answer is not ready); load the base save; run the
+//! probes in order, each with its own deadline and the session's wall-clock budget over
+//! all; (with `stay`, serve `game.probe` re-runs until stopped); end the game and the
+//! processes the session started; copy the logs; compare the backed-up files' hashes and
+//! restore any that changed (the session is then `inconclusive`); append the ledger
+//! entry; write `report.json`. Every write goes through [`Authorized`].
 //!
 //! A probe that times out is `inconclusive (timeout ...)`, the rows after it are
 //! `not-run (timeout at row X)`, and the game is ended. `game.stop` makes the remaining
@@ -403,13 +404,27 @@ impl Run<'_> {
         secs(self.plan.timeouts.session_secs).saturating_sub(self.start.elapsed())
     }
 
-    /// Polls the readiness command until it answers (and contains the expected text).
-    fn wait_ready(&mut self, limit: Duration, what: &str) -> Result<(), String> {
+    /// Polls the readiness command until it answers with a non-empty body (that contains
+    /// `ready_expect`, when set): an empty or blank answer is not ready. With `window`
+    /// (after the launch), nothing is sent until the game's main window has existed for
+    /// `settle_secs` (game-20261101-T1/b': the port opens long before the game can take a
+    /// command, and a command sent then ended the game once). One deadline, `limit`, covers
+    /// the window, the settle and the polls.
+    fn wait_ready(&mut self, limit: Duration, what: &str, window: bool) -> Result<(), String> {
         let started = Instant::now();
         let limit = limit.min(self.budget_left());
         let cmd = self.plan.game.console.ready_command.clone();
         let expect = self.plan.game.console.ready_expect.to_ascii_lowercase();
-        let mut last = String::from("no answer");
+        let image = self.plan.game.executables.game.clone();
+        let settle = secs(self.plan.timeouts.settle_secs);
+        let every = secs(self.plan.timeouts.ready_poll_secs).max(self.plan.poll);
+        // When the main window was first seen (only with `window`).
+        let mut up: Option<Instant> = None;
+        let mut last = if window {
+            format!("no main window of {image} yet; nothing sent")
+        } else {
+            String::from("no answer")
+        };
         loop {
             if self.shared.stop_requested() {
                 return Err(format!("stopped while waiting for {what}"));
@@ -421,16 +436,53 @@ impl Run<'_> {
                     limit.as_secs()
                 ));
             }
-            match self.deps.console.run(&cmd, left.min(secs(5))) {
-                Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
-                    self.shared
-                        .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
-                    return Ok(());
+            let mut wait = every;
+            if window && up.is_none_or(|t| t.elapsed() < settle) {
+                if up.is_none() {
+                    match self.deps.host.has_main_window(&image) {
+                        Ok(true) => {
+                            up = Some(Instant::now());
+                            self.shared.event(format!(
+                                "{what}: the main window of {image} is up after {}s; no command for {}s",
+                                started.elapsed().as_secs(),
+                                settle.as_secs()
+                            ));
+                        }
+                        Ok(false) => last = format!("no main window of {image} yet; nothing sent"),
+                        Err(e) => {
+                            last = format!(
+                                "whether {image} has a main window is unknown ({e}); nothing sent"
+                            );
+                        }
+                    }
                 }
-                Ok(out) => last = format!("answer `{}`", clip(&out, 80)),
-                Err(e) => last = e.to_string(),
+                if let Some(t) = up {
+                    let rest = settle.saturating_sub(t.elapsed());
+                    if rest.is_zero() {
+                        continue;
+                    }
+                    last = format!(
+                        "settling: the main window has been up {}s of {}s; nothing sent",
+                        t.elapsed().as_secs(),
+                        settle.as_secs()
+                    );
+                    wait = wait.min(rest);
+                }
+            } else {
+                match self.deps.console.run(&cmd, left.min(secs(5))) {
+                    Ok(out) if out.trim().is_empty() => {
+                        last = format!("`{cmd}` answered an empty body, not ready");
+                    }
+                    Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
+                        self.shared
+                            .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
+                        return Ok(());
+                    }
+                    Ok(out) => last = format!("answer `{}`", clip(&out, 80)),
+                    Err(e) => last = e.to_string(),
+                }
             }
-            std::thread::sleep(self.plan.poll.min(limit.saturating_sub(started.elapsed())));
+            std::thread::sleep(wait.min(limit.saturating_sub(started.elapsed())));
         }
     }
 
@@ -534,7 +586,7 @@ impl Run<'_> {
                     seen.push(format!("{cmd} -> {}", clip(&out, 120)));
                     if first_word(&cmd) == first_word(&self.plan.game.saves.load_command) {
                         let limit = secs(self.plan.timeouts.load_secs);
-                        if let Err(e) = self.wait_ready(limit, "the save to load") {
+                        if let Err(e) = self.wait_ready(limit, "the save to load", false) {
                             verdicts.push(Verdict::Inconclusive(format!("timeout: {e}")));
                             break;
                         }
@@ -808,13 +860,13 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                 Ok(child) => {
                     shared.phase(Phase::WaitingForConsole, "waiting for the console endpoint");
                     let ready =
-                        r.wait_ready(secs(plan.timeouts.ready_secs), "the console endpoint");
+                        r.wait_ready(secs(plan.timeouts.ready_secs), "the console endpoint", true);
                     let loaded = ready.and_then(|()| {
                         shared.phase(Phase::LoadingSave, "loading the base save");
                         let cmd = fill(&plan.game.saves.load_command, &[("save", &plan.base_save)]);
                         let limit = secs(plan.timeouts.load_secs);
                         let _ = r.deps.console.run(&cmd, limit.min(secs(30)));
-                        r.wait_ready(limit, "the base save to load")
+                        r.wait_ready(limit, "the base save to load", false)
                     });
                     match loaded {
                         Err(why) => {

@@ -196,6 +196,8 @@ fn game_file(f: &Fixture, c: &FakeConsole) -> Result<PathBuf, String> {
     g.console.url = c.url();
     g.timeouts.probe_secs = 3;
     g.timeouts.ready_secs = 3;
+    g.timeouts.settle_secs = 0;
+    g.timeouts.ready_poll_secs = 0;
     g.timeouts.load_secs = 3;
     g.timeouts.exit_secs = 1;
     g.timeouts.session_secs = 60;

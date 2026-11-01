@@ -104,6 +104,8 @@ fn plan(f: &Fixture, console: &FakeConsole, papyrus: &Path, session: &str) -> Pl
     game.console.url = console.url();
     game.timeouts.probe_secs = 2;
     game.timeouts.ready_secs = 3;
+    game.timeouts.settle_secs = 0;
+    game.timeouts.ready_poll_secs = 0;
     game.timeouts.load_secs = 3;
     game.timeouts.exit_secs = 1;
     game.timeouts.session_secs = 60;
@@ -403,5 +405,149 @@ fn start_status_probe_and_stop_follow_a_session_on_its_thread() {
     assert_eq!(shared.snapshot().phase, Phase::Finished);
     assert!(shared.snapshot().report.is_some());
     assert!(shared.probe("T-01", false, Duration::from_secs(1)).is_err());
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+// The readiness rules (game-20261101-T1/b'): no command before the window, none during
+// the settle, an empty answer is not ready, ready after a non-empty one, and one deadline
+// over it all.
+
+fn first_rows_reason(report: &kitkraft_game::controller::Report) -> String {
+    match report.rows.first().map(|r| &r.verdict) {
+        Some(Verdict::NotRun(why)) => why.clone(),
+        v => format!("not a not-run row: {v:?}"),
+    }
+}
+
+#[test]
+fn no_command_is_sent_before_the_game_has_a_main_window() {
+    let f = fixture("nowindow");
+    let c = console();
+    let h = host();
+    h.set_window_after(None);
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T08");
+    p.timeouts.ready_secs = 1;
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    assert!(c.received().is_empty(), "{:?}", c.received());
+    let why = first_rows_reason(&report);
+    assert!(
+        why.contains("timeout after 1s waiting for the console endpoint")
+            && why.contains("no main window of Starfield.exe yet; nothing sent"),
+        "{why}"
+    );
+    assert!(report.rows.iter().all(|r| r.verdict.label() == "not-run"));
+    assert!(report.terminated.contains(&"Starfield.exe".to_string()));
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+#[test]
+fn no_command_is_sent_until_the_window_has_settled() {
+    let f = fixture("settle");
+    let c = console();
+    let first = Arc::new(std::sync::Mutex::new(None::<std::time::Instant>));
+    let seen = Arc::clone(&first);
+    c.on_command(move |_| {
+        seen.lock()
+            .unwrap()
+            .get_or_insert_with(std::time::Instant::now);
+    });
+    let h = host();
+    h.set_window_after(Some(Duration::from_millis(300)));
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T09");
+    p.timeouts.settle_secs = 1;
+    p.timeouts.ready_secs = 5;
+    let shared = Shared::new(&p.session);
+    let report = run(&p, deps(&h, &c), &shared);
+    assert_eq!(report.rows[0].verdict, Verdict::Pass, "{:?}", report.rows);
+    let window = h.window_seen_at().unwrap();
+    let first = first.lock().unwrap().unwrap();
+    assert!(
+        first >= window + Duration::from_secs(1),
+        "a command {:?} after the window, inside the 1s settle",
+        first.duration_since(window)
+    );
+    assert_eq!(c.received()[0], "GetSFSEVersion");
+    assert!(shared
+        .snapshot()
+        .events
+        .iter()
+        .any(|e| e.contains("the main window of Starfield.exe is up")
+            && e.contains("no command for 1s")));
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+#[test]
+fn an_empty_answer_is_not_ready() {
+    let f = fixture("empty");
+    let c = console();
+    c.answer("GetSFSEVersion", " \r\n");
+    let h = host();
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T10");
+    assert!(p.game.console.ready_expect.is_empty());
+    p.timeouts.ready_secs = 1;
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    let why = first_rows_reason(&report);
+    assert!(
+        why.contains("timeout after 1s waiting for the console endpoint")
+            && why.contains("answered an empty body, not ready"),
+        "{why}"
+    );
+    let sent = c.received();
+    assert!(sent.len() > 1, "polled more than once: {sent:?}");
+    assert!(sent.iter().all(|s| s == "GetSFSEVersion"), "{sent:?}");
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+#[test]
+fn the_endpoint_is_ready_after_its_first_non_empty_answer() {
+    let f = fixture("nonempty");
+    let c = console();
+    c.answer_in_turn("GetSFSEVersion", &["", "  ", "SFSE version: 0.2.21"]);
+    let h = host();
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T11");
+    let shared = Shared::new(&p.session);
+    let report = run(&p, deps(&h, &c), &shared);
+    let sent = c.received();
+    assert_eq!(
+        sent[..4],
+        [
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "load KitKraftBase"
+        ],
+        "{sent:?}"
+    );
+    assert_eq!(report.rows[0].verdict, Verdict::Pass);
+    assert!(shared
+        .snapshot()
+        .events
+        .iter()
+        .any(|e| e.contains("`GetSFSEVersion` answered `SFSE version: 0.2.21`")));
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+#[test]
+fn the_ready_deadline_covers_the_window_and_the_settle() {
+    let f = fixture("deadline");
+    let c = console();
+    let h = host();
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T12");
+    p.timeouts.settle_secs = 30;
+    p.timeouts.ready_secs = 1;
+    let started = std::time::Instant::now();
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    assert!(
+        started.elapsed() < Duration::from_secs(10),
+        "the deadline held"
+    );
+    assert!(c.received().is_empty(), "{:?}", c.received());
+    let why = first_rows_reason(&report);
+    assert!(
+        why.contains("timeout after 1s waiting for the console endpoint")
+            && why.contains("settling: the main window has been up")
+            && why.contains("of 30s; nothing sent"),
+        "{why}"
+    );
     std::fs::remove_dir_all(&f.root).unwrap();
 }

@@ -503,7 +503,15 @@ mod tests {
 
     #[test]
     fn unverified_profiles_are_refused_naming_what_is_missing() {
+        // The built-in Starfield profile has its M4.T1 evidence (game-20261101-T1).
         let sf = GameProfile::named("starfield").unwrap();
+        assert!(check(&sf, &good(&sf)).is_empty());
+        // As it was before: each fact without evidence is refused with its ticket.
+        let mut sf = sf;
+        sf.launch.evidence.clear();
+        sf.console.evidence.clear();
+        sf.saves.evidence.clear();
+        sf.launch.pending = "M4.T1 (a): unobserved".into();
         let refusals = check(&sf, &good(&sf));
         assert_eq!(refusals.len(), 3);
         assert!(refusals.iter().all(|r| r.rule == "unverified-profile"));

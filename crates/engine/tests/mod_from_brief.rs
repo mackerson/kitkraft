@@ -8,9 +8,11 @@
 //! writes only under a temp folder (and lane D's index cache).
 //!
 //! The playbook's "done when" (a session that reports `pass` with no owner step) needs
-//! M4.T1's launch, console and save evidence and M4.O7's console tools; until then this
-//! check proves every stage before the session and that the session is refused for
-//! exactly that reason, with every probe `not-run` and the run `partial` (exit 0).
+//! M4.T1's launch, console and save evidence. The built-in Starfield profile has it since
+//! game-20261101-T1, and this check runs on the real host, so it never lets a session
+//! start: it passes `--game` a copy of the profile with that evidence cleared, and proves
+//! every stage before the session and that the session is refused for exactly that
+//! reason, with every probe `not-run` and the run `partial` (exit 0).
 
 #![allow(
     clippy::unwrap_used,
@@ -24,6 +26,7 @@ use std::path::{Path, PathBuf};
 
 use kitkraft_engine::{execute, parse_line, Invocation};
 use kitkraft_game::testing::{mo2_fixture, FIXTURE_SAVE};
+use kitkraft_game::GameProfile;
 use serde_json::Value;
 
 fn data_dir() -> Option<PathBuf> {
@@ -70,9 +73,18 @@ fn run_brief(spec: &Path, name: &str, data: &Path) -> Value {
     )
     .unwrap();
     let out = root.join("out");
-    // The playbook, step 3 (the paths are this check's; the words are the playbook's).
+    // The Starfield profile without its launch, console and save evidence: the session is
+    // refused before anything starts (this test's host is the real one).
+    let mut game = GameProfile::named("starfield").unwrap();
+    game.launch.evidence.clear();
+    game.console.evidence.clear();
+    game.saves.evidence.clear();
+    let game_path = root.join("unverified-game.toml");
+    std::fs::write(&game_path, toml::to_string(&game).unwrap()).unwrap();
+    // The playbook, step 3 (the paths are this check's; the words are the playbook's,
+    // plus `--game`).
     let line = format!(
-        "mod run \"{}\" --name {name} --out \"{}\" --mo2 \"{}\" --base-save-sha256 {} --observe \"{}\" --ledger \"{}\" --data-dir \"{}\"",
+        "mod run \"{}\" --name {name} --out \"{}\" --mo2 \"{}\" --base-save-sha256 {} --observe \"{}\" --ledger \"{}\" --data-dir \"{}\" --game \"{}\"",
         spec.display(),
         out.display(),
         fx.instance.display(),
@@ -80,6 +92,7 @@ fn run_brief(spec: &Path, name: &str, data: &Path) -> Value {
         fx.observe_root.display(),
         fx.ledger.display(),
         data.display(),
+        game_path.display(),
     );
     println!("$ kit {line}");
     let Invocation::Run { command, args } = parse_line(&line).unwrap() else {

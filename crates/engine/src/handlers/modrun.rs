@@ -725,7 +725,7 @@ fn next_steps(stages: &[Stage], session: &Value, result: &str) -> Vec<String> {
         .unwrap_or_default();
     for rule in &rules {
         let step = match *rule {
-            "unverified-profile" => "The game profile has no evidence yet for its launch, console and save facts: M4.T1 records them in docs/game-observations.md (needs M4.O7, the owner's console tools); until then every probe stays not-run.",
+            "unverified-profile" => "The game profile has a launch, console or save fact without evidence (the refusal names it and its ticket): a ledger entry in docs/game-observations.md must observe it and the profile's `evidence` name it (the built-in Starfield profile has its M4.T1 entry, game-20261101-T1); until then every probe stays not-run.",
             "plugin-not-deployed" => "Enable the `KitKraft Dev - <plugin>` mod (and tick the plugin, last) in the KitKraft Dev profile in MO2: deploy never edits a profile (ADR 0009); the deploy stage's next_steps say how.",
             "console-plugin" => "The Console API is not an enabled mod of the dev profile (M4.O7, the owner's).",
             "base-save" => "Give --base-save-sha256 (the SHA-256 recorded for KitKraftBase at M4.O7).",

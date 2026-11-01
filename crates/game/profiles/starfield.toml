@@ -19,11 +19,12 @@ helpers = ["usvfs_proxy_x64.exe", "usvfs_proxy_x86.exe"]
 
 [launch]
 # The MO2 executable entry: `[customExecutables] 1\title=SFSE` in ModOrganizer.ini
-# (observed 2026-10-16). The command line itself is grade D.
+# (observed 2026-10-16). The command line was observed on 2026-11-01 with MO2 closed:
+# `ModOrganizer.exe -p "Kitkraft Dev" "moshortcut://:SFSE"` started SFSE and the game.
 mo2_executable = "SFSE"
 args = ["-p", "{profile}", "moshortcut://:{executable}"]
-evidence = ""
-pending = "M4.T1 (a): the MO2 2.5.2 command line that starts a named executable on a named profile, black box (`ModOrganizer.exe --help`); not run on 2026-10-16 because the owner's MO2 was running (game-20261016-T1, row a)"
+evidence = "game-20261101-T1/a"
+pending = ""
 
 [console]
 # Console API (stonegdi, Nexus 4280, v2.17.0): POST the command as the body, the answer
@@ -33,11 +34,15 @@ pending = "M4.T1 (a): the MO2 2.5.2 command line that starts a named executable 
 # plugin could not bind 55555, and the owner set `iPort=45555` in its INI (plan/STATUS.md
 # "Owner next actions" row 10, 2026-11-01).
 url = "http://127.0.0.1:45555/console"
+# Readiness (game-20261101-T1/b'): the port opens about 5 s after launch, long before the
+# game takes a command, so the controller sends nothing until the game's main window has
+# been up `[timeouts] settle_secs`, and an empty answer is not ready (with `ready_expect`
+# empty, any non-empty answer is).
 ready_command = "GetSFSEVersion"
 ready_expect = ""
 mod_names = ["Console API"]
-evidence = ""
-pending = "M4.T1 (b): V0, Console API 2.17.0 answers GetSFSEVersion over HTTP on 1.16.244 with SFSE 0.2.21 (needs M4.O7)"
+evidence = "game-20261101-T1/b"
+pending = "b' (one occurrence, cause not isolated): a GetSFSEVersion sent 8 s after launch answered an empty body and the game ended; the settle rule avoids it"
 
 # Where the plugin's own config names its port, relative to its MO2 mod folder (the file
 # and keys the owner edited, STATUS row 10, 2026-11-01). Preflight refuses when the
@@ -54,8 +59,8 @@ load_command = "load {save}"
 save_command = "save {save}"
 base_default = "KitKraftBase"
 session_prefix = "KitKraftSession-"
-evidence = ""
-pending = "M4.T1 (d): the console `load <save>` from the main menu and from the world (needs M4.O7)"
+evidence = "game-20261101-T1/d"
+pending = "`load <save>` from the main menu is observed; from the world it is not yet"
 
 [mo2]
 local_settings = true
@@ -89,19 +94,23 @@ value = "1"
 [[log]]
 name = "papyrus"
 path = "{documents}/My Games/Starfield/Logs/Script/Papyrus.0.log"
-evidence = ""
-pending = "M4.T1 (h): the Papyrus log path, and whether the profile INI controls it under MO2"
+evidence = "game-20261101-T1/h"
+pending = ""
 
 [[log]]
 name = "console-history"
 # Present on the dev box (2026-10-16, listing only; contents not read).
 path = "{documents}/My Games/Starfield/StarfieldConsoleHistory.log"
 evidence = ""
-pending = "M4.T1 (b..h): that a session's commands appear in it"
+pending = "M4.T1 (h): unresolved in game-20261101-T1; it did not change in a session ended without a normal exit, so commands sent over the API are not appended to it, or it is written only on a normal exit"
 
 [timeouts]
 session_secs = 1800
 probe_secs = 60
+# From launch: the main window (14 s in game-20261101-T1/a), the 75 s settle, then a poll
+# every 5 s (the first answer came at 91 s); 300 s leaves room for a slow start.
 ready_secs = 300
+settle_secs = 75
+ready_poll_secs = 5
 load_secs = 180
 exit_secs = 60

@@ -291,9 +291,20 @@ pub struct Timeouts {
     /// One probe row.
     #[serde(default = "t_probe")]
     pub probe_secs: u64,
-    /// From launch to the endpoint's first answer.
+    /// From launch to the endpoint's first answer; covers the wait for the game's main
+    /// window, `settle_secs` and the polls after it.
     #[serde(default = "t_ready")]
     pub ready_secs: u64,
+    /// How long the game's main window must have existed before the controller sends its
+    /// first command. The plugin's port accepts connections seconds after launch, long
+    /// before the game can take a command, and a command sent then ended the game once
+    /// (game-20261101-T1/b'). Must be less than `ready_secs`.
+    #[serde(default = "t_settle")]
+    pub settle_secs: u64,
+    /// Seconds between readiness checks (the main window, then `ready_command`); 0 means
+    /// the controller's own poll interval.
+    #[serde(default = "t_ready_poll")]
+    pub ready_poll_secs: u64,
     /// From a `load` to the endpoint answering again.
     #[serde(default = "t_load")]
     pub load_secs: u64,
@@ -311,6 +322,12 @@ fn t_probe() -> u64 {
 fn t_ready() -> u64 {
     300
 }
+fn t_settle() -> u64 {
+    75
+}
+fn t_ready_poll() -> u64 {
+    5
+}
 fn t_load() -> u64 {
     180
 }
@@ -324,6 +341,8 @@ impl Default for Timeouts {
             session_secs: t_session(),
             probe_secs: t_probe(),
             ready_secs: t_ready(),
+            settle_secs: t_settle(),
+            ready_poll_secs: t_ready_poll(),
             load_secs: t_load(),
             exit_secs: t_exit(),
         }
@@ -412,6 +431,12 @@ impl GameProfile {
             if pc.section.trim().is_empty() || pc.key.trim().is_empty() {
                 return Err(bad("[console.port_config] needs a section and a key".into()));
             }
+        }
+        if self.timeouts.settle_secs >= self.timeouts.ready_secs {
+            return Err(bad(format!(
+                "[timeouts] settle_secs ({}) must be less than ready_secs ({}): the readiness deadline covers the settle",
+                self.timeouts.settle_secs, self.timeouts.ready_secs
+            )));
         }
         if self.saves.session_prefix.len() < 4 {
             return Err(bad("[saves] session_prefix is too short".into()));
@@ -508,7 +533,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn builtins_parse_and_starfield_is_partial_until_m4_t1() {
+    fn builtins_parse_and_starfield_has_its_m4_t1_evidence() {
         for id in BUILTIN {
             let p = GameProfile::named(id).unwrap();
             assert_eq!(&p.game.id, id);
@@ -517,9 +542,16 @@ mod tests {
         assert_eq!(sf.game.status, "partial");
         assert_eq!(sf.executables.game, "Starfield.exe");
         assert_eq!(sf.launch.mo2_executable, "SFSE");
-        let missing: Vec<String> = sf.missing().into_iter().map(|u| u.fact).collect();
-        assert_eq!(missing, ["launch", "console", "saves"]);
-        assert!(sf.missing()[0].pending.contains("M4.T1 (a)"));
+        // game-20261101-T1 rows a, b, d and h; the console-history log is unresolved.
+        assert!(sf.missing().is_empty(), "{:?}", sf.missing());
+        assert_eq!(sf.launch.evidence, "game-20261101-T1/a");
+        assert_eq!(sf.console.evidence, "game-20261101-T1/b");
+        assert_eq!(sf.saves.evidence, "game-20261101-T1/d");
+        let logs: Vec<String> = sf.unverified_logs().into_iter().map(|u| u.fact).collect();
+        assert_eq!(logs, ["log.console-history"]);
+        // b': no command until the window has been up 75 s; the deadline covers it.
+        assert_eq!(sf.timeouts.settle_secs, 75);
+        assert!(sf.timeouts.ready_secs > sf.timeouts.settle_secs);
         assert_eq!(sf.console.url, "http://127.0.0.1:45555/console");
         let pc = sf.console.port_config.clone().unwrap();
         assert_eq!(
@@ -578,6 +610,13 @@ mod tests {
             assert!(GameProfile::from_toml("x", &t).is_err(), "{bad}");
         }
         assert!(GameProfile::named("morrowind").is_err());
+        let settle = "ready_secs = 300";
+        assert!(sf.contains(settle));
+        let short = sf.replace(settle, "ready_secs = 75");
+        assert!(GameProfile::from_toml("x", &short)
+            .unwrap_err()
+            .to_string()
+            .contains("settle_secs"));
     }
 
     #[test]

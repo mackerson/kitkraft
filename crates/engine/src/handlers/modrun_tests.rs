@@ -103,7 +103,8 @@ fn pairs(list: &[(&str, &str)]) -> Vec<(String, String)> {
 fn the_chain_runs_to_a_refused_session_and_reports_partial() {
     let s = setup("refused", RENAME);
     let ledger_before = std::fs::read(&s.fixture.ledger).unwrap();
-    let r = engine().execute("mod.run", args(&s, json!({}))).unwrap();
+    let game = json!({"game": unverified_game(&s).display().to_string()});
+    let r = engine().execute("mod.run", args(&s, game.clone())).unwrap();
     let d = &r["data"];
     assert_eq!(
         statuses(&r),
@@ -121,7 +122,7 @@ fn the_chain_runs_to_a_refused_session_and_reports_partial() {
     assert_eq!(d["result"], json!("partial"));
     assert_eq!(d["passed"], json!(true));
     assert_eq!(d["ledger_entry"], Value::Null);
-    // Today's refusal: the Starfield profile has no launch, console or save evidence.
+    // The refusal of a profile without launch, console or save evidence.
     assert_eq!(d["session"]["refused"], json!(true));
     assert_eq!(
         d["session"]["rules"],
@@ -177,9 +178,22 @@ fn the_chain_runs_to_a_refused_session_and_reports_partial() {
 
     // Rerun (the fix loop): the folder is the run's own, so it is reused; the deployed
     // mod is unchanged.
-    let again = engine().execute("mod.run", args(&s, json!({}))).unwrap();
+    let again = engine().execute("mod.run", args(&s, game)).unwrap();
     assert_eq!(again["data"]["result"], json!("partial"));
     let _ = std::fs::remove_dir_all(&s.root);
+}
+
+/// The Starfield profile as it was before M4.T1 (game-20261101-T1): no launch, console or
+/// save evidence, so preflight refuses it.
+fn unverified_game(s: &Setup) -> PathBuf {
+    let mut g = GameProfile::named("starfield").unwrap();
+    g.launch.evidence.clear();
+    g.console.evidence.clear();
+    g.saves.evidence.clear();
+    g.launch.pending = "M4.T1 (a): unobserved in this test".into();
+    let path = s.root.join("unverified-game.toml");
+    std::fs::write(&path, toml::to_string(&g).unwrap()).unwrap();
+    path
 }
 
 /// The Starfield profile with evidence filled in, the fake endpoint and short timeouts:
@@ -192,6 +206,8 @@ fn verified_game(s: &Setup, c: &FakeConsole) -> PathBuf {
     g.console.url = c.url();
     g.timeouts.probe_secs = 3;
     g.timeouts.ready_secs = 3;
+    g.timeouts.settle_secs = 0;
+    g.timeouts.ready_poll_secs = 0;
     g.timeouts.load_secs = 3;
     g.timeouts.exit_secs = 1;
     g.timeouts.session_secs = 60;
