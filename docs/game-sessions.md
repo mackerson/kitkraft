@@ -114,6 +114,18 @@ ledger entry's "Console port" line say what was not checked.
 Each row is exactly one of `not-run`, `pass`, `fail` or `inconclusive`, and every status
 except `pass` carries its reason.
 
+- A console failure line in any step's answer makes the row `fail`, whatever its later
+  matchers say: `Item '...' not found for parameter ...`, `Script command "..." not
+  found.`, `Save file not found.` (the shapes of `game-20261101-T1` rows i to l). The
+  reason names the step and the line, as in ``fail (step 3 `load KitKraftSession-...`: the
+  console answered `Save file not found.`)``. The command's own echo is never read as its
+  failure. The other steps still run, for the evidence. If a timeout follows, the row
+  stays `fail`, its reason adds the timeout, and the session ends as for any timeout.
+  Why: in `2026-11-01-T03`, row T-05, the `load` found no save (it was sent 120 ms after
+  the `save`, before the file was written), and the final `player.getincell` passed only
+  because the player never left the cell.
+- A base save the game does not find (`Save file not found.` after `load <base save>`)
+  leaves every row `not-run (the base save did not load: ...)`.
 - `inconclusive` means the evidence is missing or ambiguous. Examples: no output to match,
   no number in the output, a Papyrus log that was not written, a screenshot the row asks
   for that was not taken, or a timeout. Missing evidence is never `pass`.
@@ -185,7 +197,9 @@ Matchers:
 A step without a matcher is setup. `{save}` stands for the session's own save name and
 `{base_save}` for the base save's name. A step's optional `wait_secs` (at most 300) is a
 pause after its answer, before the next step; it counts against the row's `probe_secs`, so
-a wait that would run past the deadline is cut there and the next step times out.
+a wait that would run past the deadline is cut there and the next step times out. Every
+step's answer is also checked for a console failure line, whether or not the step has a
+matcher (see "Statuses").
 
 What the console does, observed on Starfield 1.16.244 over the Console API
 (`game-20261101-T1`):
@@ -210,6 +224,23 @@ What the console does, observed on Starfield 1.16.244 over the Console API
 - `player.moveto`, `coc` and `load` answer at once (the echo only) and the game then
   moves; a command sent meanwhile answers with only its echo. `kit testplan` gives those
   steps `wait_secs = 10` (a `load` from the main menu answered a getter within 10 s).
+- `save` also answers before its file exists: a `load` of it sent about 120 ms later
+  answered "Save file not found." and the file appeared moments after
+  (`2026-11-01-T03`, row T-05). `kit testplan` gives `save {save}` `wait_secs = 10`.
+
+The persistence row (`persistence 1-3`) proves that the reload happened by checking the
+player's cell, which differs before and after the load. The row runs `coc
+CityNewAtlantisLodgeInt` and checks `player.getincell <Lodge ID>`. Then it runs `save
+{save}` and goes to another cell: the plugin's own interior cell, or else
+`CityNewAtlantisApartmentTEMPLATE`, which `2026-11-01-T03` row T-01 observed with `coc` and
+`player.getincell 0021966F`. There it checks `player.getincell <other ID>`. Then it runs
+`load {save}` and checks `player.getincell <Lodge ID>` again. Every one of these commands
+was observed working, and a `1` after the load can only come from the save. If the load
+order has no runtime ID for the Lodge or for any other cell, the row keeps the weaker
+check after the load (`player.getincell <Lodge ID>`, or `player.getpos x` without a Lodge
+ID), and its `why` says that it does not prove the reload. With its four 10 s pauses and
+the load, the row needs more than the old 60 s deadline, so the Starfield profile's
+`probe_secs` is now 120.
 
 Everything else the probes send (`getisid`, `player.getitemcount`, `player.getequipped`,
 `getstage`, `save` and `load` from the world) is grade D until a session observes it.
@@ -259,7 +290,7 @@ complete.
 | O2-05 | probe | POI `T-01`: `coc <cell EditorID>`, `player.getincell <cell runtime ID>` |
 | O2-06 | probe | POI `T-02` (`player.moveto <runtime ID>`, `getdistance player`) and `T-03` (`prid <runtime ID>`, `getisid <base runtime ID>`) |
 | O2-07 | probe | POI `T-04`: `prid <runtime ID>`, `getpos x/y/z` against `DATA`; screenshot (no `isdisabled`: not a Starfield command, `game-20261101-T1`) |
-| O2-08 | probe | POI `T-05` (leave, `save {save}`, `load {save}`) and `T-06` (return, `getpos` again) |
+| O2-08 | probe | POI `T-05` (leave, `save {save}`, go to another cell, `load {save}`, back in the leave cell) and `T-06` (return, `getpos` again) |
 | O2-09 | manual | the long absence (168 game hours) has no chosen console route (FTH-EXP-07) |
 | O2-10 | manual | `placeatme` makes a reference whose ID is known only at run time (PS-09) |
 | O2-11 | probe | POI `T-03`: `prid <runtime ID>` with `getisid` on the base; `help KitKraftFirstPOICrate 4` itself lists nothing (`game-20261101-T1`: the console does not resolve a reference's EditorID), so the row's expectation cannot hold as written |
