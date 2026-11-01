@@ -61,6 +61,12 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # camera, projection, marker transforms. MIT OR Apache-2.0; no dependencies with these
 # features (ADR 0007 Amendment 3, dependency table; ATTRIBUTION.md).
 glam = { version = "0.34.1", default-features = false, features = ["std"] }
+# Headless UI tests of the workbench (crates/ui-egui dev-dependency only, `src/app/harness.rs`):
+# drives the window's frame and reads egui's own AccessKit tree, no window, GPU or platform
+# adapter (no `eframe`, `wgpu` or `snapshot` features). MIT OR Apache-2.0; pulls `kittest`
+# and `accesskit_consumer` (ADR 0007, dependency list; ATTRIBUTION.md). Owner confirmation
+# at merge (M6.O5).
+egui_kittest = { version = "=0.36.2", default-features = false }
 
 [workspace.lints.rust]
 # Denied, not forbidden, so that the one file xtask's `UNSAFE_ALLOWED` names may allow it:

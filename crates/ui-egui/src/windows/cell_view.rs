@@ -1,9 +1,9 @@
-//! The Cell View window (M7.W2): the engine's read-only `cell` command as a
-//! CK-style window. The left list shows the worldspaces (with "Interior" as a
-//! first entry), the interior cells, or one world's exterior cells with their
-//! grid; the right list shows the references of the selected cell. Both lists
-//! are `virtual_table`s, both paged. No engine logic here: every value comes
-//! from the envelope (the engine's `CELL` data shape).
+//! The Cell View (M7.W2): the engine's read-only `cell` command as a CK-style view,
+//! a tab since the owner's walkthrough of 2026-11-01 (finding 1). The left list shows
+//! the worldspaces (with "Interior" as a first entry), the interior cells, or one
+//! world's exterior cells with their grid; the right list shows the references of
+//! the selected cell. Both lists are `virtual_table`s, both paged. No engine logic
+//! here: every value comes from the envelope (the engine's `CELL` data shape).
 
 use serde_json::{json, Map, Value};
 
@@ -527,10 +527,14 @@ impl CellViewState {
             return None;
         }
         self.limitations_block(ui);
-        ui.horizontal(|ui| {
-            self.left_list(ui, busy, &mut ask);
-            ui.separator();
-            self.right_refs(ui, busy, &mut ask, inspected, shown);
+        // Two columns, each laid out top to bottom (owner finding 2, 2026-11-01: in one
+        // horizontal row the heading, the header and the rows sat side by side, and the
+        // rows showed as a sliver).
+        ui.columns(2, |cols| {
+            if let [left, right] = cols {
+                self.left_list(left, busy, &mut ask);
+                self.right_refs(right, busy, &mut ask, inspected, shown);
+            }
         });
         ask
     }

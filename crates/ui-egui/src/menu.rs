@@ -85,7 +85,7 @@ fn panel_of(id: &str) -> Option<Target> {
         "profiles" => Target::Tab("Start"),
         "inspect" | "query" => Target::Tab("Records"),
         "refs" => Target::Window(WindowKind::UseInfo),
-        "cell" => Target::Window(WindowKind::CellView),
+        "cell" => Target::Tab("Cell View"),
         "planet" => Target::Tab("Planet"),
         "diff" | "conflicts" => Target::Tab("Diff"),
         "validate" | "roundtrip" => Target::Tab("Validate"),
@@ -546,10 +546,10 @@ mod tests {
         }
     }
 
+    /// Owner finding 1 (2026-11-01): the Cell View is a tab, reachable from the tab bar,
+    /// and the `cell` item opens that tab.
     #[test]
-    fn the_cell_view_is_a_window_and_the_cell_item_opens_it() {
-        use crate::windows::WindowKind;
-        assert!(WindowKind::ALL.contains(&WindowKind::CellView));
-        assert_eq!(panel_of("cell"), Some(Target::Window(WindowKind::CellView)));
+    fn the_cell_view_is_a_tab_and_the_cell_item_opens_it() {
+        assert_eq!(panel_of("cell"), Some(Target::Tab("Cell View")));
     }
 }

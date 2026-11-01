@@ -232,6 +232,8 @@ pub(crate) struct LoadTab {
     /// Bumped each time a result replaces the table's rows, so the table scrolls back to
     /// the top and measures its columns afresh ([`virtual_table_for`]).
     pub data: u64,
+    /// The folder "List" last listed, so an empty listing says so (UX audit A2).
+    pub listed: Option<String>,
 }
 
 impl LoadTab {
@@ -252,8 +254,20 @@ impl LoadTab {
                 );
                 if ui.button("List").clicked() {
                     self.profiles = list_profiles(Path::new(self.profiles_dir.trim()));
+                    self.listed = Some(self.profiles_dir.trim().to_string());
                 }
             });
+            // A listing that found nothing says so by the button (UX principle 1).
+            if let Some(dir) = self.listed.as_deref().filter(|_| self.profiles.is_empty()) {
+                let shown = if dir.is_empty() { "(empty)" } else { dir };
+                theme::status_line(
+                    ui,
+                    Status::Warn,
+                    &format!(
+                        "no profile folders in {shown}: give an MO2 instance's `profiles` folder"
+                    ),
+                );
+            }
             for p in &self.profiles {
                 ui.horizontal(|ui| {
                     if ui.link(&p.name).clicked() {

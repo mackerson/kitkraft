@@ -23,6 +23,10 @@ glam.workspace = true
 # kitkraft-schema, so no new package.
 toml.workspace = true
 
+[dev-dependencies]
+# Headless UI tests (`src/app/harness.rs`; ADR 0007 dependency list, owner confirmation M6.O5).
+egui_kittest.workspace = true
+
 [features]
 # Compile egui's bundled fonts in (OFL-1.1 and Ubuntu Font Licence: an owner decision
 # before it is ever on by default, ADR 0007). Off: the window reads Windows system fonts.

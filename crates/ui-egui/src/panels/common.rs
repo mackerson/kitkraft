@@ -161,6 +161,8 @@ pub(crate) struct TableState {
     user_set: Vec<bool>,
     data: Option<u64>,
     grew: bool,
+    /// The rows' height the owner dragged the table's grip to (`None`: its view's).
+    height: Option<f32>,
 }
 
 /// One row of a [`virtual_table`]: its cells, added left to right with [`TableRow::cell`].
@@ -371,6 +373,7 @@ pub(crate) fn virtual_table_for(
     view: View,
     mut row: impl FnMut(&mut TableRow<'_>, usize),
 ) -> egui::Rect {
+    let name = format!("{id:?}");
     let id = ui.make_persistent_id(("virtual-table", id));
     let mut state: TableState = ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
     let replaced = state.data.is_some_and(|k| k != data);
@@ -382,7 +385,8 @@ pub(crate) fn virtual_table_for(
     state.grew = false;
     let zebra = theme::active(ui.ctx()).density.zebra;
     let (height, _) = table_metrics(ui);
-    let max_height = theme::view_height(ui, view);
+    let view_height = theme::view_height(ui, view);
+    let max_height = state.height.unwrap_or(view_height);
     let mut across = ScrollArea::horizontal()
         .id_salt((id, "h"))
         .auto_shrink([false, true]);
@@ -392,9 +396,14 @@ pub(crate) fn virtual_table_for(
     let rect = across
         .show(ui, |ui| {
             table_header(ui, id, &mut state, header);
+            // egui sizes a scroll area from the space left in the window's visible part,
+            // so a table low on a scrolled page shrank to a few rows (owner findings 2
+            // and 5, 2026-11-01): its minimum is its full height, shrunk only to fit its
+            // rows.
             let mut down = ScrollArea::vertical()
                 .id_salt((id, "v"))
                 .max_height(max_height)
+                .min_scrolled_height(max_height)
                 .auto_shrink([false, true]);
             if replaced {
                 down = down.vertical_scroll_offset(0.0);
@@ -408,6 +417,33 @@ pub(crate) fn virtual_table_for(
             .inner_rect
         })
         .inner;
+    // The grip under the rows (UX principle 7, owner finding 5): dragging it makes the
+    // table taller or shorter, from three rows to eight times its view's height.
+    let (grip, drag) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), theme::split_handle(ui)),
+        egui::Sense::drag(),
+    );
+    drag.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::WidgetType::ResizeHandle,
+            ui.is_enabled(),
+            format!("resize table {name}"),
+        )
+    });
+    let hot = drag.hovered() || drag.dragged();
+    if hot {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeVertical);
+    }
+    ui.painter().hline(
+        grip.x_range(),
+        grip.center().y,
+        theme::split_stroke(ui, hot),
+    );
+    if drag.dragged() {
+        let wanted = max_height + drag.drag_delta().y;
+        state.height = Some(wanted.clamp(height * 3.0, view_height * 8.0));
+        ui.ctx().request_repaint();
+    }
     let grew = state.grew;
     ui.data_mut(|d| d.insert_temp(id, state));
     if grew || replaced {

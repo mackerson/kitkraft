@@ -58,7 +58,7 @@ const TOUR_DEFAULT_FORM: &str = "Starfield.esm:000007";
 
 impl App {
     /// The inspected record (the Edit dialog's and Use Info's subject), as a formref.
-    fn ck_selected(&self) -> Option<String> {
+    pub(super) fn ck_selected(&self) -> Option<String> {
         self.records
             .record_view
             .as_ref()
@@ -162,6 +162,62 @@ impl App {
             Some(Pending::UseInfo) => self.shell.use_info.receive(result),
             Some(Pending::CellView) => self.shell.cell_view.receive(result),
             Some(Pending::Schema(sig)) => self.shell.dialog.receive_schema(&sig, result),
+            None => {}
+        }
+    }
+
+    /// The Cell View is shown this frame (docked, or floating): shown again after an
+    /// error, it clears it; shown with nothing in it, it asks for the worldspaces once.
+    pub(super) fn ck_cell_view_shown(&mut self) {
+        if !self.shell.cell_view_open && !self.shell.cell_view_shown {
+            self.shell.cell_view.on_reopen();
+        }
+        self.shell.cell_view_shown = true;
+        if self.shell.cell_view.list_mode.is_none()
+            && self.shell.cell_view.cell.is_none()
+            && !self.shell.cell_view.list_pending
+        {
+            if let Some(req) = self.shell.cell_view.worlds() {
+                self.ck_submit(Pending::CellView, req);
+            }
+        }
+    }
+
+    /// What a click in the Cell View asked for: its own `cell` pages, or an action for the
+    /// shell (the shared selection, the inspector, the Render Window).
+    pub(super) fn ck_cell_view_ask(&mut self, ask: Option<CellViewAsk>, actions: &mut Vec<Action>) {
+        match ask {
+            Some(CellViewAsk::Interiors) => {
+                if let Some(req) = self.shell.cell_view.interiors() {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::World(form)) => {
+                if let Some(req) = self.shell.cell_view.world(&form) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::Cell(form)) => {
+                if let Some(req) = self.shell.cell_view.cell(&form) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::ShowCell(form)) => {
+                // The Render Window's own slot, so the reply reaches its `receive_page`
+                // unchanged; the tab (or floating window) comes to the front with it.
+                actions.push(Action::Submit(
+                    Slot::RenderCell,
+                    self.render.show_cell(&form),
+                ));
+                self.ck_open_tab("Render Window");
+            }
+            Some(CellViewAsk::Page(cursor)) => {
+                if let Some(req) = self.shell.cell_view.page(cursor) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::Select(form)) => actions.push(Action::Select(form)),
+            Some(CellViewAsk::Inspect(form)) => actions.push(Action::Inspect(form)),
             None => {}
         }
     }
@@ -271,86 +327,6 @@ impl App {
             None => {}
         }
 
-        // Cell View (M7.W2): worldspaces, cells and references over `cell`.
-        let mut cell_ask = None;
-        if self.shell.is_open(WindowKind::CellView) {
-            // The shared selection and the cell the Render Window shows, as
-            // owned copies so the window closure borrows neither of them.
-            let inspected = self.ck_selected();
-            let rendered = self.render.shown_cell().map(str::to_string);
-            // Reopening it while an error is shown asks for the worldspaces again.
-            if !self.shell.cell_view_open {
-                self.shell.cell_view.on_reopen();
-            }
-            self.shell.cell_view_open = true;
-            // Opening it with nothing shown asks for the worldspaces once.
-            if self.shell.cell_view.list_mode.is_none()
-                && self.shell.cell_view.cell.is_none()
-                && !self.shell.cell_view.list_pending
-            {
-                if let Some(req) = self.shell.cell_view.worlds() {
-                    self.ck_submit(Pending::CellView, req);
-                }
-            }
-            let kind = WindowKind::CellView;
-            let state = self
-                .shell
-                .layout
-                .entry(kind.title().to_string())
-                .or_default();
-            let c = &mut self.shell.cell_view;
-            windows::floating(
-                ctx,
-                state,
-                &mut self.shell.dirty,
-                WinSpec {
-                    key: kind.title(),
-                    title: kind.title(),
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
-                    focus: is_focus(kind.title()),
-                },
-                |ui| cell_ask = c.ui(ui, busy, inspected.as_deref(), rendered.as_deref()),
-            );
-        } else {
-            self.shell.cell_view_open = false;
-        }
-        match cell_ask {
-            Some(CellViewAsk::Interiors) => {
-                if let Some(req) = self.shell.cell_view.interiors() {
-                    self.ck_submit(Pending::CellView, req);
-                }
-            }
-            Some(CellViewAsk::World(form)) => {
-                if let Some(req) = self.shell.cell_view.world(&form) {
-                    self.ck_submit(Pending::CellView, req);
-                }
-            }
-            Some(CellViewAsk::Cell(form)) => {
-                if let Some(req) = self.shell.cell_view.cell(&form) {
-                    self.ck_submit(Pending::CellView, req);
-                }
-            }
-            Some(CellViewAsk::ShowCell(form)) => {
-                // The Render Window's own slot, so the reply reaches its
-                // `receive_page` unchanged; the tab (or floating window)
-                // comes to the front with it.
-                actions.push(Action::Submit(
-                    Slot::RenderCell,
-                    self.render.show_cell(&form),
-                ));
-                self.ck_open_tab("Render Window");
-            }
-            Some(CellViewAsk::Page(cursor)) => {
-                if let Some(req) = self.shell.cell_view.page(cursor) {
-                    self.ck_submit(Pending::CellView, req);
-                }
-            }
-            Some(CellViewAsk::Select(form)) => actions.push(Action::Select(form)),
-            Some(CellViewAsk::Inspect(form)) => actions.push(Action::Inspect(form)),
-            None => {}
-        }
-
         // The edit dialog (M7.W3), read-only.
         let mut schema_req = None;
         if self.shell.is_open(WindowKind::EditDialog) {
@@ -394,10 +370,16 @@ impl App {
 
         // Floating tabs (M7.M0): any tab as a window.
         let tour = self.tour.is_some();
+        let mut cell_ask = None;
         for (tab, label) in TABS {
             if !self.shell.is_floating(label) {
                 continue;
             }
+            if *tab == Tab::CellView {
+                self.ck_cell_view_shown();
+            }
+            let cell_inspected = self.ck_selected();
+            let cell_rendered = self.render.shown_cell().map(str::to_string);
             let key = windows::tab_key(label);
             let mut ctx_tab = TabCtx {
                 busy,
@@ -433,6 +415,7 @@ impl App {
                 &mut self.start,
             );
             let session = self.session.as_ref();
+            let cell_view = &mut self.shell.cell_view;
             windows::floating(
                 ctx,
                 state,
@@ -447,6 +430,15 @@ impl App {
                 |ui| match tab {
                     Tab::Records => records.ui(ui, &mut ctx_tab),
                     Tab::Render => render.ui(ui, &mut ctx_tab),
+                    Tab::CellView => {
+                        cell_ask = cell_view_tab(
+                            ui,
+                            cell_view,
+                            busy,
+                            cell_inspected.as_deref(),
+                            cell_rendered.as_deref(),
+                        );
+                    }
                     _ => {
                         ScrollArea::both()
                             .id_salt(("float-tab-scroll", *tab))
@@ -477,13 +469,17 @@ impl App {
                                         help.checkout.as_ref().map(|(p, _)| p.as_path());
                                     coverage.ui(ui, &mut ctx_tab, checkout);
                                 }
-                                Tab::Records | Tab::Render => {}
+                                Tab::Records | Tab::Render | Tab::CellView => {}
                             });
                     }
                 },
             );
             actions.append(&mut ctx_tab.actions);
         }
+        self.ck_cell_view_ask(cell_ask.take(), &mut actions);
+        // The Cell View that was not shown this frame is closed: shown again after an
+        // error, it asks for the worldspaces again.
+        self.shell.cell_view_open = std::mem::take(&mut self.shell.cell_view_shown);
         self.apply(actions);
 
         // `ui.json`, when a window moved, resized, opened or closed (never in the tour).
@@ -588,4 +584,21 @@ impl App {
         }
         self.shell.tour_frames = 1;
     }
+}
+
+/// The Cell View tab (M7.W2; a tab since owner finding 1, 2026-11-01): the panel frame's
+/// head, then the window's lists (`crate::windows::cell_view`).
+pub(super) fn cell_view_tab(
+    ui: &mut egui::Ui,
+    state: &mut crate::windows::cell_view::CellViewState,
+    busy: bool,
+    inspected: Option<&str>,
+    rendered: Option<&str>,
+) -> Option<CellViewAsk> {
+    crate::panels::common::panel_head(
+        ui,
+        "Cell View",
+        "The worldspaces (\"Interior\" first), a world's exterior cells or the interior cells on the left, the clicked cell's references on the right (`cell`, paged). Click a reference to select it, double-click to inspect it.",
+    );
+    state.ui(ui, busy, inspected, rendered)
 }

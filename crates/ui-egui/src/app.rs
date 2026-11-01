@@ -58,6 +58,9 @@ enum Tab {
     Cockpit,
     Coverage,
     Render,
+    // Owner finding 1 (2026-11-01): the Cell View (M7.W2) is a tab, not a View-menu
+    // window.
+    CellView,
 }
 
 const TABS: &[(Tab, &str)] = &[
@@ -75,6 +78,7 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Cockpit, "Cockpit"),
     (Tab::Coverage, "Coverage"),
     (Tab::Render, "Render Window"),
+    (Tab::CellView, "Cell View"),
 ];
 
 impl Tab {
@@ -466,6 +470,12 @@ fn fonts() -> Result<FontDefinitions, UiError> {
 
 impl App {
     fn new(worker: Worker<Built>, opts: LaunchOptions) -> Self {
+        Self::with_prefs(worker, opts, prefs::default_path())
+    }
+
+    /// [`Self::new`] with the prefs file at `prefs_path` (`None`: nothing is read or
+    /// remembered, as the headless harness runs).
+    fn with_prefs(worker: Worker<Built>, opts: LaunchOptions, prefs_path: Option<PathBuf>) -> Self {
         let mut load_form = load_form_from_opts(&opts);
         let profiles_dir = opts
             .profile
@@ -473,7 +483,6 @@ impl App {
             .and_then(|p| Path::new(p).parent())
             .map(|p| p.display().to_string())
             .unwrap_or_default();
-        let prefs_path = prefs::default_path();
         let prefs = prefs_path.as_deref().map(Prefs::load).unwrap_or_default();
         // M6.P3a: with no load-order arguments and a not-seeded window (the tour and
         // the bench seed their own loads), the last profile loads at start, from the
@@ -561,6 +570,7 @@ impl App {
                 profiles_dir,
                 view: None,
                 data: 0,
+                listed: None,
             },
             records,
             links: LinksTab::default(),
@@ -979,7 +989,18 @@ impl App {
                         ));
                     }
                 }
-                Action::ReloadHelp => self.reload_help(),
+                Action::ReloadHelp => {
+                    self.reload_help();
+                    // The click says what it did (UX audit A4).
+                    self.info = Some(match &self.help.checkout {
+                        Some((root, _)) => format!(
+                            "Help: reread {} doc(s) and the ledger from {}",
+                            self.help.docs.len(),
+                            root.display()
+                        ),
+                        None => "Help: no checkout found; nothing to reread".to_string(),
+                    });
+                }
                 // Lane R (M7.R2): the shared selection, without leaving the tab.
                 Action::Select(form) => {
                     self.records.record_form.clone_from(&form);
@@ -1154,10 +1175,19 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        self.frame(ui, frame.info().cpu_usage);
+    }
+}
+
+impl App {
+    /// One frame of the window, without eframe's `Frame` (whose only use here is the last
+    /// frame's CPU time for the perf trace), so the headless harness (`app/harness.rs`)
+    /// drives the same code the window runs.
+    fn frame(&mut self, ui: &mut egui::Ui, last_frame_secs: Option<f32>) {
         let frame_start = Instant::now();
         // egui may run a frame in more than one pass; eframe times the whole frame.
         if perf::enabled() && ui.ctx().current_pass_index() == 0 {
-            self.perf_frame_start(frame.info().cpu_usage);
+            self.perf_frame_start(last_frame_secs);
         }
         self.window_frame(ui.ctx());
         if self.theme_changed {
@@ -1199,6 +1229,14 @@ impl eframe::App for App {
         let plugins = self.loaded_plugins();
         let tab = self.tab;
         let tour = self.tour.is_some();
+        // The Cell View asks for its first list when it is shown (docked here, or as a
+        // floating tab in `ck_windows`).
+        if tab == Tab::CellView {
+            self.ck_cell_view_shown();
+        }
+        let cell_inspected = self.ck_selected();
+        let cell_rendered = self.render.shown_cell().map(str::to_string);
+        let mut cell_ask = None;
         let mut ctx = TabCtx {
             busy,
             tour,
@@ -1218,6 +1256,17 @@ impl eframe::App for App {
                 if tab == Tab::Records {
                     // Two panes, each with its own scroll (the inspector beside the table).
                     self.records.ui(ui, &mut ctx);
+                    return;
+                }
+                if tab == Tab::CellView {
+                    // Two paged tables side by side, each with its own scroll.
+                    cell_ask = ck_shell::cell_view_tab(
+                        ui,
+                        &mut self.shell.cell_view,
+                        busy,
+                        cell_inspected.as_deref(),
+                        cell_rendered.as_deref(),
+                    );
                     return;
                 }
                 if tab == Tab::Render {
@@ -1262,11 +1311,12 @@ impl eframe::App for App {
                             let checkout = self.help.checkout.as_ref().map(|(p, _)| p.as_path());
                             self.coverage.ui(ui, &mut ctx, checkout);
                         }
-                        Tab::Render => {}
+                        Tab::Render | Tab::CellView => {}
                     });
             });
         note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);
-        let actions = ctx.actions;
+        let mut actions = ctx.actions;
+        self.ck_cell_view_ask(cell_ask, &mut actions);
         self.apply(actions);
         self.ck_windows(ui.ctx());
         if let Some(share) = self.records.split_changed.take() {
@@ -1743,6 +1793,10 @@ impl App {
         }
     }
 }
+
+/// The headless UI harness (egui_kittest) and the tests that click through the tabs.
+#[cfg(test)]
+mod harness;
 
 #[cfg(test)]
 mod tests {

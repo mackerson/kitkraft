@@ -182,8 +182,11 @@ What the workbench writes, all of it:
 
 ### Cockpit and Coverage (M6.G2, M6.G3, M6.G4, M6.G5, M6.G7, M6.G8)
 
-- **Cockpit**: pick the plugin under review from the checkout's `out\` (or type a path).
-  **Review** runs `validate`, `roundtrip --verify`, then the plugin against its masters
+- **Cockpit**: pick the plugin under review from the checkout's `out\` (or type a path;
+  **Clear** empties it and forgets its results). The tab is grouped in the order of the
+  work (UX spec `docs/design/workbench-ux.md`, owner findings 4 to 9 of 2026-11-01): the
+  plugin bar, then Review, Dev deployment, Game session and the ledger entries, each an
+  outlined group. **Review** runs `validate`, `roundtrip --verify`, then the plugin against its masters
   (`conflicts --plugin` when the plugin is in the loaded order, with `detail: fields`
   once the engine has it; otherwise a `diff` of each master `validate` found against the
   plugin, which leaves the session's load order alone). Each step shows `not-run` until
@@ -193,12 +196,15 @@ What the workbench writes, all of it:
   listing every path; **Deploy...** and **Roll back...** open the confirm box (closed for
   the reasons above), whose button sends the one confirmed request; after a write the
   panel reads the dev mod back. The ledger entries naming the plugin's file (or the
-  SHA-256 the deploy preview reports) are listed. The game buttons (Launch and run
-  probes, Stop, Re-run, Screenshot) take their state from the catalog and the
-  gate: Launch, Stop and the probe rows' Re-run and Screenshot are wired now
-  (M6.G4, M6.G5). Launch previews with `game.session
-  --dry-run` (its plan and every refusal), and its confirm box opens only while the dry
-  run said `would_start` for the arguments the form still holds; Stop previews with
+  SHA-256 the deploy preview reports) are listed. The Game session group's buttons
+  (Preview session, Launch..., Preview stop, Stop..., and each probe row's Re-run and
+  Screenshot) take their state from the catalog and the gate, and say why when off; there
+  is no second row of game buttons. The session's probes and base save SHA-256 are
+  prefilled from the ledger's newest passing session that names the plugin (a line names
+  the entry). **Preview session** runs `game.session --dry-run` and draws its result right
+  under the button, scrolled into view: the summary, every refusal as `[rule] message`,
+  and the plan. **Launch...** opens the confirm box only while the dry run said
+  `would_start` for the arguments the form still holds; Stop previews with
   `game.stop --dry-run` (its `would` lines) and confirms the same way. While a session
   is started, the window follows it with a `game.status` poll every second over the one
   engine worker, and shows the phase, the current row, the rows done, the elapsed
@@ -482,10 +488,11 @@ revisited once a sitting observes how the CK docks. Code:
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.
-- **Cell View (M7.W2)**: the left list shows `cell`'s worldspaces, with "Interior"
+- **Cell View (M7.W2)**: a tab since 2026-11-01 (owner finding 1; View > Cell View and
+  the `cell` menu item open it, and it floats like any tab). The left list shows `cell`'s worldspaces, with "Interior"
   as a first entry, the interior cells, or one world's exterior cells with their
   grid; the right list shows the selected cell's references (EditorID, base, type,
-  position, persistent); both paged. Opening it asks for the worldspaces once and
+  position, persistent); both paged, in two columns. Showing it asks for the worldspaces once and
   says "load a profile first" while nothing is loaded; a click on a reference
   selects it (the shared selection), a double-click inspects it. The row of the
   inspected record is drawn selected, and the list scrolls to it once when the
@@ -527,7 +534,7 @@ A minimized window does not repaint, so the tour waits until it is restored (see
 2026-10-15: started from a background shell, the window opened minimized; started with
 PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
 tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
-(`start`, `load`, ..., `ledger`, `help`, `cockpit`, `coverage`, `render window`), then the CK-style shell's images (`ck-menu-file`, `ck-menu-view`, `ck-menu-record`, `ck-menu-navmesh`, `ck-warnings`, `ck-use-info`, `ck-edit-weap`, `ck-edit-default` for `Starfield.esm:000007`, and `ck-layout` with every window open and the Schema tab floating), and closes. The tour's window is the usual 1400 x
+(`start`, `load`, ..., `ledger`, `help`, `cockpit`, `coverage`, `render window`, `cell view`), then the CK-style shell's images (`ck-menu-file`, `ck-menu-view`, `ck-menu-record`, `ck-menu-navmesh`, `ck-warnings`, `ck-use-info`, `ck-edit-weap`, `ck-edit-default` for `Starfield.esm:000007`, and `ck-layout` with every window open and the Schema tab floating), and closes. The tour's window is the usual 1400 x
 900 points; the Records tab folds "Record types", so the query table and the selected
 record's inspector (the right pane) are in one image, and the scroll is not animated. Add
 `--theme <preset>` to capture a preset (the M6.V2 mockups were made so; they were removed

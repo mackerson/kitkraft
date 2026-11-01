@@ -24,6 +24,7 @@ the decision that admitted them asked for it.
 | Crate | Version | Used by | Source (URL) | Author | License | Added | Decision |
 | ----- | ------- | ------- | ------------ | ------ | ------- | ----- | -------- |
 | `glam` | 0.34.1 (`std` only, no dependencies) | `crates/ui-egui/src/viewport/`: camera, projection and marker transforms of the 3D viewport | <https://github.com/bitshifter/glam-rs> | the glam-rs contributors (the crate names no author) | MIT OR Apache-2.0 | 2026-10-16 | M7.R1; ADR 0007 Amendment 3, dependency table |
+| `egui_kittest` | 0.36.2 (`default-features = false`; dev-dependency only, with `kittest` 0.4.0 and `accesskit_consumer` 0.35.0) | `crates/ui-egui/src/app/harness.rs`: the headless UI harness, test builds only | <https://github.com/emilk/egui> (`kittest`: <https://github.com/rerun-io/kittest>) | the egui and rerun.io contributors | MIT OR Apache-2.0 | 2026-11-01 | ADR 0007 dependency table; owner confirmation at merge (M6.O5) |
 
 Code dependency note (lane C, 2026-10-16; for the owner's confirmation at the M4.T3 merge,
 M5.O2): `crates/game` (`kitkraft-game`, ADR 0010) adds **no** third-party crate: no HTTP

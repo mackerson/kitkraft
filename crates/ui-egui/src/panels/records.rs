@@ -544,9 +544,11 @@ impl RecordsTab {
         let actions = &mut ctx.actions;
         // The screenshot tour folds the type list so the query table shows beside the
         // inspector in one image.
+        // Folded at first, so the query form (and its Run) opens in view (UX audit A3);
+        // one click shows the types.
         CollapsingHeader::new("Record types")
             .id_salt("types")
-            .default_open(true)
+            .default_open(false)
             .open(ctx.tour.then_some(false))
             .show(ui, |ui| {
                 action_bar(ui, |ui| {

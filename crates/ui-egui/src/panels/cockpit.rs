@@ -471,7 +471,8 @@ pub fn session_confirm_gate(
     }
     if !preview.would_start {
         return Err(
-            "the dry run would not start (the refusals, above): nothing to confirm".to_string(),
+            "the dry run would not start (its refusals are listed under Preview session): nothing to confirm"
+                .to_string(),
         );
     }
     Ok(preview.args.clone())
@@ -783,6 +784,119 @@ pub fn ledger_hits(ledger: &str, file: &str, sha256: Option<&str>) -> Vec<Ledger
     out
 }
 
+/// A session in the ledger: where its probes and base save came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LedgerSession {
+    /// The entry's id (`game-20261101-04`).
+    pub entry: String,
+    /// The `Probes` row's path, as written (relative to the checkout, `/`-separated).
+    pub probes: String,
+    /// The `Save` row's base save SHA-256.
+    pub base_save_sha256: String,
+}
+
+/// The newest session entry of the ledger's `## Ledger` section that names `file` in its
+/// `Plugins` row, has a `Probes` path and a base save SHA-256, and passed: its `Status`
+/// row says `pass`, or every row of its step table has the result `pass`. "Newest" is
+/// the greatest entry id (`game-<yyyymmdd>-<nn>`); a tie goes to the later entry. Text
+/// matching over the repo doc, as [`ledger_hits`] reads it; `None` when no entry fits.
+pub fn newest_passing_session(ledger: &str, file: &str) -> Option<LedgerSession> {
+    let file = file.trim().to_ascii_lowercase();
+    if file.is_empty() {
+        return None;
+    }
+    let mut best: Option<LedgerSession> = None;
+    let mut in_ledger = false;
+    let mut current: Option<(String, Vec<&str>)> = None;
+    let mut consider = |cur: Option<(String, Vec<&str>)>| {
+        let Some((heading, lines)) = cur else { return };
+        if let Some(s) = passing_session(&heading, &lines, &file) {
+            if best.as_ref().is_none_or(|b| s.entry >= b.entry) {
+                best = Some(s);
+            }
+        }
+    };
+    for line in ledger.lines() {
+        if let Some(h) = line.strip_prefix("## ") {
+            consider(current.take());
+            in_ledger = h.trim() == "Ledger";
+        } else if let Some(h) = line.strip_prefix("### ") {
+            consider(current.take());
+            if in_ledger {
+                current = Some((h.trim().to_string(), Vec::new()));
+            }
+        } else if let Some((_, lines)) = &mut current {
+            lines.push(line);
+        }
+    }
+    consider(current.take());
+    best
+}
+
+/// The cells of one Markdown table row.
+fn row_cells(line: &str) -> Vec<String> {
+    line.trim()
+        .trim_matches('|')
+        .split('|')
+        .map(|c| c.trim().to_string())
+        .collect()
+}
+
+/// One entry, if it is a passing session naming `file` (lower case).
+fn passing_session(heading: &str, lines: &[&str], file: &str) -> Option<LedgerSession> {
+    let entry = heading.split(':').next()?.trim().to_string();
+    let field = |name: &str| -> Option<String> {
+        lines.iter().find_map(|l| {
+            let c = row_cells(l);
+            if c.first().map(String::as_str) == Some(name) {
+                c.get(1).cloned()
+            } else {
+                None
+            }
+        })
+    };
+    let plugins = field("Plugins")?;
+    if !plugins.to_ascii_lowercase().contains(file) {
+        return None;
+    }
+    let probes = field("Probes")?.split('`').nth(1)?.trim().to_string();
+    let save = field("Save")?;
+    let base = save.split("session save").next().unwrap_or(&save);
+    let base_save_sha256 = base
+        .split('`')
+        .find(|t| t.len() == 64 && t.chars().all(|c| c.is_ascii_hexdigit()))?
+        .to_ascii_lowercase();
+    let status_pass = field("Status").is_some_and(|s| s.trim_matches('*').starts_with("pass"));
+    // The step table: its header row names the `Result` column.
+    let mut result_col = None;
+    let mut steps = 0usize;
+    let mut all_pass = true;
+    for l in lines {
+        if !l.trim_start().starts_with('|') {
+            continue;
+        }
+        let c = row_cells(l);
+        if c.first().map(String::as_str) == Some("Row") {
+            result_col = c.iter().position(|x| x == "Result");
+            continue;
+        }
+        let Some(col) = result_col else { continue };
+        if c.first().is_some_and(|x| x.starts_with("---")) {
+            continue;
+        }
+        steps = steps.saturating_add(1);
+        let word = c.get(col).map(|x| x.trim_matches('*').to_ascii_lowercase());
+        if word.as_deref() != Some("pass") {
+            all_pass = false;
+        }
+    }
+    (status_pass || (steps > 0 && all_pass)).then_some(LedgerSession {
+        entry,
+        probes,
+        base_save_sha256,
+    })
+}
+
 // ---- the game buttons (M6.G2) ------------------------------------------------------------
 
 /// One action-bar button for a game command: on, or off with the reason.
@@ -800,8 +914,8 @@ pub struct ButtonState {
 
 /// The game buttons: (label, command, the window ticket that wires it).
 pub const GAME_BUTTONS: &[(&str, &str, &str)] = &[
-    ("Launch and run probes", "game.session", "M6.G4"),
-    ("Stop", "game.stop", "M6.G4"),
+    ("Preview session", "game.session", "M6.G4"),
+    ("Preview stop", "game.stop", "M6.G4"),
     ("Re-run probe", "game.probe", "M6.G5"),
     ("Screenshot", "game.probe", "M6.G5"),
 ];
@@ -856,6 +970,31 @@ use crate::panels::common::{
 };
 use crate::theme::{self, Field, Status, View};
 
+/// One of the Cockpit's sections (owner finding 6, 2026-11-01): its heading and its
+/// controls in one outlined group, in the order of the work.
+fn section(ui: &mut egui::Ui, title: &str, add: impl FnOnce(&mut egui::Ui)) {
+    theme::gap(ui);
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        theme::fill_visible_width(ui);
+        ui.label(theme::subheading(ui, title));
+        add(ui);
+    });
+}
+
+/// A ledger `Probes` path (relative to the checkout, `/`-separated) as the form takes
+/// it: under the checkout when it is known.
+fn resolve_probes(rel: &str, checkout: Option<&Path>) -> String {
+    match checkout {
+        Some(c) => rel
+            .split('/')
+            .filter(|p| !p.is_empty())
+            .fold(c.to_path_buf(), |p, s| p.join(s))
+            .display()
+            .to_string(),
+        None => rel.to_string(),
+    }
+}
+
 /// What the shell hands the Cockpit besides the frame's context: the profile the
 /// session loaded, the docs checkout, and the ledger's text.
 pub(crate) struct CockpitEnv<'a> {
@@ -909,6 +1048,10 @@ pub(crate) struct CockpitTab {
     /// The probes' drawing state: the selected row and the screenshot textures
     /// (M6.G5).
     pub probe_ui: probes::ProbeUi,
+    /// The plugin the session form was last prefilled for from the ledger, and the
+    /// session it took the probes and base save from ([`newest_passing_session`]).
+    pub prefill_for: String,
+    pub prefilled: Option<LedgerSession>,
 }
 
 impl CockpitTab {
@@ -1117,10 +1260,8 @@ impl CockpitTab {
         panel_head(
             ui,
             "Cockpit",
-            "The plugin under review: its validate summary, byte roundtrip and its records against its masters (reads), its dev deployment (deploy --dev and roll back, each previewed and confirmed per click: ADR 0007 Amendment 3), and the ledger entries that name it. Every value comes from an engine command.",
+            "The plugin under review and what follows from it, in the order of the work: its review (validate, byte roundtrip, its records against its masters: reads), its dev deployment (deploy --dev and roll back), its game session (game.session, game.stop), and the ledger entries that name it. Every write is previewed and confirmed per click (ADR 0007 Amendment 3); every value comes from an engine command.",
         );
-
-        // -- the action bar: the plugin under review and the game session's buttons
         if self.found_in.is_none() {
             if let Some(root) = env.checkout {
                 let out = root.join(OUT_DIR);
@@ -1128,43 +1269,290 @@ impl CockpitTab {
                 self.found_in = Some(out);
             }
         }
-        action_bar(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(theme::subheading(ui, "Plugin under review"));
-                let edit = ui.add(
-                    TextEdit::singleline(&mut self.plugin)
-                        .desired_width(theme::width(ui, Field::Long))
-                        .hint_text(r"out\built\MyPlugin.esm, or any path"),
-                );
-                if edit.lost_focus() {
-                    self.form.source.clone_from(&self.plugin);
+        // The session form's probes and base save from the ledger's newest passing
+        // session for this plugin, once per plugin (owner, 2026-11-01).
+        self.prefill_session(env);
+
+        // -- the plugin under review: the action bar
+        action_bar(ui, |ui| self.plugin_bar(ui, ctx, env));
+
+        // -- 1. review
+        let name = file_name(&self.plugin);
+        let hash = self
+            .deploy
+            .as_ref()
+            .and_then(|d| d.plugin_sha256.clone())
+            .filter(|_| self.form.source.trim() == self.plugin.trim());
+        let hits = env
+            .ledger
+            .map(|l| ledger_hits(l, &name, hash.as_deref()))
+            .unwrap_or_default();
+        section(ui, "Review", |ui| {
+            theme::table(ui, "cockpit-steps").show(ui, |ui| {
+                for h in ["step", "status", "detail"] {
+                    ui.strong(h);
                 }
-                let mut picked = None;
-                ComboBox::from_id_salt("cockpit-out")
-                    .selected_text(format!("{OUT_DIR}\\... ({})", self.found.len()))
-                    .width(theme::combo_width(ui))
-                    .show_ui(ui, |ui| {
-                        let base = self.found_in.clone().unwrap_or_default();
-                        for p in &self.found {
-                            let shown = Path::new(p)
-                                .strip_prefix(&base)
-                                .map_or_else(|_| p.clone(), |r| r.display().to_string());
-                            if ui.selectable_label(*p == self.plugin, shown).clicked() {
-                                picked = Some(p.clone());
-                            }
+                ui.end_row();
+                for (step, label) in [
+                    (Step::Validate, "validate"),
+                    (Step::Roundtrip, "roundtrip --verify"),
+                    (Step::Masters, "against its masters"),
+                    (Step::DeployPreview, "deploy --dev (dry run)"),
+                ] {
+                    let (st, detail) = self.step(step, ctx.results);
+                    ui.label(label);
+                    let word = if step == Step::DeployPreview && st == Status::Fail {
+                        "refused"
+                    } else {
+                        ""
+                    };
+                    theme::status(ui, st, word);
+                    ui.label(detail);
+                    ui.end_row();
+                }
+                ui.label("ledger");
+                match (env.ledger, hits.is_empty()) {
+                    (None, _) => {
+                        theme::status(ui, Status::Unknown, "");
+                        ui.label("the ledger was not read (no checkout; Help tab)");
+                    }
+                    (Some(_), true) => {
+                        theme::status(ui, Status::NotRun, "");
+                        ui.label(format!("no ledger entry names {name}"));
+                    }
+                    (Some(_), false) => {
+                        theme::status(ui, Status::Pass, "found");
+                        ui.label(format!("{} entr(ies) name it (below)", hits.len()));
+                    }
+                }
+                ui.end_row();
+            });
+            let summary = review_summary(
+                match (&self.validate, self.step(Step::Validate, ctx.results)) {
+                    (Some(v), _) => Some(Ok(v)),
+                    (None, (Status::Fail, _)) => Some(Err("the engine refused or failed")),
+                    _ => None,
+                },
+                match (&self.roundtrip, self.step(Step::Roundtrip, ctx.results)) {
+                    (Some(r), _) => Some(Ok(r)),
+                    (None, (Status::Fail, _)) => Some(Err("the engine refused or failed")),
+                    _ => None,
+                },
+            );
+            CollapsingHeader::new("validation (AGENTS.md \"Reporting\")")
+                .id_salt("cockpit-yaml")
+                .default_open(true)
+                .show(ui, |ui| {
+                    theme::table(ui, "cockpit-yaml-grid").show(ui, |ui| {
+                        for (row, word, why) in &summary.rows {
+                            ui.monospace(*row);
+                            theme::status(ui, status_of(word), word);
+                            ui.label(why);
+                            ui.end_row();
                         }
                     });
-                if let Some(p) = picked {
-                    self.pick(&p);
+                });
+            if let Some(v) = &self.validate {
+                if v.findings_total > 0 {
+                    CollapsingHeader::new(format!("validate findings ({})", v.findings_total))
+                        .id_salt("cockpit-findings")
+                        .show(ui, |ui| {
+                            findings_grid(
+                                ui,
+                                "cockpit",
+                                v.groups.iter().flat_map(|g| g.findings.iter()),
+                            );
+                        });
                 }
-                if ui
-                    .small_button("rescan")
-                    .on_hover_text("list the plugins under the checkout's out folder again")
-                    .clicked()
-                {
-                    self.found_in = None;
+            }
+            if !self.masters.is_empty() || !self.masters_missing.is_empty() {
+                CollapsingHeader::new("against its masters")
+                    .id_salt("cockpit-masters")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        for m in &self.masters_missing {
+                            theme::status(
+                                ui,
+                                Status::Inconclusive,
+                                &format!("{m}: not found on disk; not compared"),
+                            );
+                        }
+                        for (master, data, view) in &self.masters {
+                            ui.label(RichText::new(master).strong());
+                            ui.label(view.counts.join(", "));
+                            ui.weak("removed: the master's records the plugin does not carry (expected for a plugin over a master); added: its new records; changed: its overrides");
+                            if !view.added.is_empty() {
+                                ui.weak(format!(
+                                    "new records ({}): {}",
+                                    view.added.len(),
+                                    view.added
+                                        .iter()
+                                        .take(20)
+                                        .cloned()
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                ));
+                            }
+                            // Every changed record, laid out only where scrolled into view.
+                            virtual_table_for(
+                                ui,
+                                ("cockpit-master", self.plugin.as_str(), master.as_str()),
+                                *data,
+                                &["record", "class", "sides", "fields"],
+                                view.records.len(),
+                                View::Medium,
+                                |row, i| {
+                                    let Some(r) = view.records.get(i) else {
+                                        return;
+                                    };
+                                    row.cell(|ui| {
+                                        if ui
+                                            .add_enabled(
+                                                !busy,
+                                                egui::Link::new(format!("{} {}", r.signature, r.form)),
+                                            )
+                                            .on_hover_text("inspect")
+                                            .clicked()
+                                        {
+                                            ctx.actions.push(Action::Inspect(r.form.clone()));
+                                        }
+                                    });
+                                    row.cell(|ui| ui.label(&r.class));
+                                    let sides: Vec<String> = r
+                                        .sides
+                                        .split(" -> ")
+                                        .map(|p| {
+                                            let n = file_name(p);
+                                            if n.is_empty() {
+                                                p.to_string()
+                                            } else {
+                                                n
+                                            }
+                                        })
+                                        .collect();
+                                    row.cell(|ui| ui.label(sides.join(" -> ")).on_hover_text(&r.sides));
+                                    let all: Vec<String> = r
+                                        .rows
+                                        .iter()
+                                        .map(|f| format!("{}: {} -> {}", f.path, f.before, f.after))
+                                        .collect();
+                                    let first = all.first().cloned().unwrap_or_default();
+                                    let more = all.len().saturating_sub(1);
+                                    let shown = if more > 0 {
+                                        format!("{first} (+{more} more, hover)")
+                                    } else {
+                                        first
+                                    };
+                                    row.cell(|ui| ui.label(shown).on_hover_text(all.join("\n")));
+                                },
+                            );
+                        }
+                    });
+            }
+        });
+
+        // -- 2. dev deployment
+        section(ui, "Dev deployment (deploy --dev, ADR 0009)", |ui| {
+            self.deploy_ui(ui, ctx, env);
+        });
+
+        // -- 3. the game session (M6.G4)
+        section(ui, "Game session (M6.G4)", |ui| {
+            self.session_ui(ui, ctx, env);
+        });
+
+        // -- 4. the ledger
+        section(ui, "Ledger entries naming this plugin", |ui| {
+            // -- the ledger
+            match &hash {
+                Some(h) => {
+                    ui.weak(format!(
+                        "SHA-256 {h} (from the deploy preview: the engine hashed the source)"
+                    ));
                 }
-                if ui
+                None => {
+                    ui.weak("SHA-256 unknown until Preview deploy (the engine hashes the source); entries are matched by file name");
+                }
+            }
+            if hits.is_empty() {
+                ui.weak("none");
+            } else {
+                virtual_table(
+                    ui,
+                    "cockpit-ledger",
+                    &["entry", "names", "line"],
+                    hits.len(),
+                    View::Medium,
+                    |row, i| {
+                        let Some(hit) = hits.get(i) else { return };
+                        row.cell(|ui| ui.label(&hit.entry));
+                        row.cell(|ui| {
+                            if hit.names_hash {
+                                theme::status(ui, Status::Pass, "this SHA-256")
+                            } else if hash.is_some() {
+                                theme::status(ui, Status::Warn, "the file name only")
+                            } else {
+                                theme::status(ui, Status::Unknown, "the file name")
+                            }
+                        });
+                        row.cell(|ui| ui.label(&hit.line));
+                    },
+                );
+            }
+        });
+    }
+
+    /// The action bar: the plugin under review (typed, or picked from `out\`), cleared
+    /// back to empty with one click (owner finding 4, 2026-11-01), and the review.
+    fn plugin_bar(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
+        let busy = ctx.busy;
+        ui.horizontal_wrapped(|ui| {
+            ui.label(theme::subheading(ui, "Plugin under review"));
+            let edit = ui.add(
+                TextEdit::singleline(&mut self.plugin)
+                    .desired_width(theme::width(ui, Field::Long))
+                    .hint_text(r"out\built\MyPlugin.esm, or any path"),
+            );
+            if edit.lost_focus() {
+                self.form.source.clone_from(&self.plugin);
+            }
+            if ui
+                .add_enabled(!self.plugin.trim().is_empty(), egui::Button::new("Clear"))
+                .on_hover_text("forget the plugin under review and its results")
+                .clicked()
+            {
+                self.pick("");
+            }
+            // Every entry in full, with no scroll of its own up to the window's height
+            // (owner finding 4: about 8 of 15 showed, and long paths were cut).
+            let mut picked = None;
+            ComboBox::from_id_salt("cockpit-out")
+                .selected_text(format!("pick from {OUT_DIR}\\ ({})", self.found.len()))
+                .width(theme::combo_width(ui))
+                .height(ui.ctx().content_rect().height())
+                .wrap_mode(egui::TextWrapMode::Extend)
+                .show_ui(ui, |ui| {
+                    let base = self.found_in.clone().unwrap_or_default();
+                    for p in &self.found {
+                        let shown = Path::new(p)
+                            .strip_prefix(&base)
+                            .map_or_else(|_| p.clone(), |r| r.display().to_string());
+                        if ui.selectable_label(*p == self.plugin, shown).clicked() {
+                            picked = Some(p.clone());
+                        }
+                    }
+                });
+            if let Some(p) = picked {
+                self.pick(&p);
+            }
+            if ui
+                .small_button("rescan")
+                .on_hover_text("list the plugins under the checkout's out folder again")
+                .clicked()
+            {
+                self.found_in = None;
+            }
+            if ui
                 .add_enabled(
                     !busy && !self.plugin.trim().is_empty(),
                     egui::Button::new("Review"),
@@ -1181,295 +1569,44 @@ impl CockpitTab {
                     Err(e) => *ctx.notice = Some(e),
                 }
             }
-            });
-            if env.checkout.is_none() {
-                ui.weak("no checkout found (Help tab): out\\ is not listed; type a path");
-            }
-            ui.separator();
-            // the game buttons (M6.G4 to M6.G6)
-            ui.horizontal_wrapped(|ui| {
-                ui.label(theme::subheading(ui, "Game session"));
-                for b in game_buttons() {
-                    let r = ui
-                        .add_enabled(b.enabled && !busy, egui::Button::new(b.label))
-                        .on_hover_text(&b.reason)
-                        .on_disabled_hover_text(&b.reason);
-                    if r.clicked() {
-                        match b.id {
-                            // Preview first: the dry run's plan and refusals, below.
-                            "game.session" => {
-                                if let Ok(t) = dev_target(env.loaded_profile) {
-                                    if self.session_form.mo2.trim().is_empty()
-                                        && self.session_form.profile.trim().is_empty()
-                                    {
-                                        self.session_form.fill(&t, env.checkout);
-                                    }
-                                }
-                                self.session.pending = None;
-                                ctx.actions.push(Action::Submit(
-                                    Slot::CockpitSession,
-                                    self.session_form.preview_request(),
-                                ));
-                            }
-                            // Preview first: the dry run's `would` lines, below.
-                            "game.stop" => match self.session.id.clone() {
-                                Some(id) => {
-                                    self.session.pending = None;
-                                    ctx.actions.push(Action::Submit(
-                                        Slot::CockpitGameStop,
-                                        session::SessionForm::stop_preview(&id),
-                                    ));
-                                }
-                                None => {
-                                    *ctx.notice =
-                                        Some("no session is started: nothing to stop".to_string())
-                                }
-                            },
-                            // `game.probe` runs per row: its Re-run and Screenshot
-                            // buttons are on the probe rows of the session below
-                            // (M6.G5).
-                            _ => {
-                                *ctx.notice = Some(format!(
-                                    "`{}` runs per row: use the Re-run and Screenshot buttons on a probe row of the session below (M6.G5)",
-                                    b.id
-                                ))
-                            }
-                        }
-                    }
-                }
-            });
-            let mut reasons: Vec<String> = Vec::new();
-            for b in game_buttons().into_iter().filter(|b| !b.enabled) {
-                if !reasons.contains(&b.reason) {
-                    reasons.push(b.reason);
-                }
-            }
-            for r in reasons {
-                ui.weak(r);
-            }
         });
+        if env.checkout.is_none() {
+            ui.weak("no checkout found (Help tab): out\\ is not listed; type a path");
+        }
+    }
 
-        theme::gap(ui);
-
-        // -- the game session (M6.G4)
-        self.session_ui(ui, ctx, env);
-
-        // -- the review summary
-        let name = file_name(&self.plugin);
-        let hash = self
-            .deploy
-            .as_ref()
-            .and_then(|d| d.plugin_sha256.clone())
-            .filter(|_| self.form.source.trim() == self.plugin.trim());
-        let hits = env
-            .ledger
-            .map(|l| ledger_hits(l, &name, hash.as_deref()))
-            .unwrap_or_default();
-        ui.label(theme::subheading(ui, "Review"));
-        theme::table(ui, "cockpit-steps").show(ui, |ui| {
-            for h in ["step", "status", "detail"] {
-                ui.strong(h);
+    /// Prefills the session form's probes and base save from the ledger's newest passing
+    /// session for the plugin under review ([`newest_passing_session`]), once per plugin
+    /// and only into empty fields, or into fields still holding the last prefill.
+    fn prefill_session(&mut self, env: &CockpitEnv<'_>) {
+        let Some(ledger) = env.ledger else { return };
+        let plugin = self.plugin.trim().to_string();
+        if self.prefill_for == plugin {
+            return;
+        }
+        self.prefill_for.clone_from(&plugin);
+        let form = &mut self.session_form;
+        if let Some(old) = self.prefilled.take() {
+            if form.probes == resolve_probes(&old.probes, env.checkout) {
+                form.probes.clear();
             }
-            ui.end_row();
-            for (step, label) in [
-                (Step::Validate, "validate"),
-                (Step::Roundtrip, "roundtrip --verify"),
-                (Step::Masters, "against its masters"),
-                (Step::DeployPreview, "deploy --dev (dry run)"),
-            ] {
-                let (st, detail) = self.step(step, ctx.results);
-                ui.label(label);
-                let word = if step == Step::DeployPreview && st == Status::Fail {
-                    "refused"
-                } else {
-                    ""
-                };
-                theme::status(ui, st, word);
-                ui.label(detail);
-                ui.end_row();
-            }
-            ui.label("ledger");
-            match (env.ledger, hits.is_empty()) {
-                (None, _) => {
-                    theme::status(ui, Status::Unknown, "");
-                    ui.label("the ledger was not read (no checkout; Help tab)");
-                }
-                (Some(_), true) => {
-                    theme::status(ui, Status::NotRun, "");
-                    ui.label(format!("no ledger entry names {name}"));
-                }
-                (Some(_), false) => {
-                    theme::status(ui, Status::Pass, "found");
-                    ui.label(format!("{} entr(ies) name it (below)", hits.len()));
-                }
-            }
-            ui.end_row();
-        });
-        let summary = review_summary(
-            match (&self.validate, self.step(Step::Validate, ctx.results)) {
-                (Some(v), _) => Some(Ok(v)),
-                (None, (Status::Fail, _)) => Some(Err("the engine refused or failed")),
-                _ => None,
-            },
-            match (&self.roundtrip, self.step(Step::Roundtrip, ctx.results)) {
-                (Some(r), _) => Some(Ok(r)),
-                (None, (Status::Fail, _)) => Some(Err("the engine refused or failed")),
-                _ => None,
-            },
-        );
-        CollapsingHeader::new("validation (AGENTS.md \"Reporting\")")
-            .id_salt("cockpit-yaml")
-            .default_open(true)
-            .show(ui, |ui| {
-                theme::table(ui, "cockpit-yaml-grid").show(ui, |ui| {
-                    for (row, word, why) in &summary.rows {
-                        ui.monospace(*row);
-                        theme::status(ui, status_of(word), word);
-                        ui.label(why);
-                        ui.end_row();
-                    }
-                });
-            });
-        if let Some(v) = &self.validate {
-            if v.findings_total > 0 {
-                CollapsingHeader::new(format!("validate findings ({})", v.findings_total))
-                    .id_salt("cockpit-findings")
-                    .show(ui, |ui| {
-                        findings_grid(
-                            ui,
-                            "cockpit",
-                            v.groups.iter().flat_map(|g| g.findings.iter()),
-                        );
-                    });
+            if form.base_save_sha256 == old.base_save_sha256 {
+                form.base_save_sha256.clear();
             }
         }
-        if !self.masters.is_empty() || !self.masters_missing.is_empty() {
-            CollapsingHeader::new("against its masters")
-                .id_salt("cockpit-masters")
-                .default_open(true)
-                .show(ui, |ui| {
-                    for m in &self.masters_missing {
-                        theme::status(
-                            ui,
-                            Status::Inconclusive,
-                            &format!("{m}: not found on disk; not compared"),
-                        );
-                    }
-                    for (master, data, view) in &self.masters {
-                        ui.label(RichText::new(master).strong());
-                        ui.label(view.counts.join(", "));
-                        ui.weak("removed: the master's records the plugin does not carry (expected for a plugin over a master); added: its new records; changed: its overrides");
-                        if !view.added.is_empty() {
-                            ui.weak(format!(
-                                "new records ({}): {}",
-                                view.added.len(),
-                                view.added
-                                    .iter()
-                                    .take(20)
-                                    .cloned()
-                                    .collect::<Vec<_>>()
-                                    .join(", ")
-                            ));
-                        }
-                        // Every changed record, laid out only where scrolled into view.
-                        virtual_table_for(
-                            ui,
-                            ("cockpit-master", self.plugin.as_str(), master.as_str()),
-                            *data,
-                            &["record", "class", "sides", "fields"],
-                            view.records.len(),
-                            View::Medium,
-                            |row, i| {
-                                let Some(r) = view.records.get(i) else {
-                                    return;
-                                };
-                                row.cell(|ui| {
-                                    if ui
-                                        .add_enabled(
-                                            !busy,
-                                            egui::Link::new(format!("{} {}", r.signature, r.form)),
-                                        )
-                                        .on_hover_text("inspect")
-                                        .clicked()
-                                    {
-                                        ctx.actions.push(Action::Inspect(r.form.clone()));
-                                    }
-                                });
-                                row.cell(|ui| ui.label(&r.class));
-                                let sides: Vec<String> = r
-                                    .sides
-                                    .split(" -> ")
-                                    .map(|p| {
-                                        let n = file_name(p);
-                                        if n.is_empty() {
-                                            p.to_string()
-                                        } else {
-                                            n
-                                        }
-                                    })
-                                    .collect();
-                                row.cell(|ui| ui.label(sides.join(" -> ")).on_hover_text(&r.sides));
-                                let all: Vec<String> = r
-                                    .rows
-                                    .iter()
-                                    .map(|f| format!("{}: {} -> {}", f.path, f.before, f.after))
-                                    .collect();
-                                let first = all.first().cloned().unwrap_or_default();
-                                let more = all.len().saturating_sub(1);
-                                let shown = if more > 0 {
-                                    format!("{first} (+{more} more, hover)")
-                                } else {
-                                    first
-                                };
-                                row.cell(|ui| ui.label(shown).on_hover_text(all.join("\n")));
-                            },
-                        );
-                    }
-                });
+        if plugin.is_empty() {
+            return;
         }
-        theme::gap(ui);
-
-        // -- dev deployment
-        self.deploy_ui(ui, ctx, env);
-        theme::gap(ui);
-
-        // -- the ledger
-        ui.label(theme::subheading(ui, "Ledger entries naming this plugin"));
-        match &hash {
-            Some(h) => {
-                ui.weak(format!(
-                    "SHA-256 {h} (from the deploy preview: the engine hashed the source)"
-                ));
-            }
-            None => {
-                ui.weak("SHA-256 unknown until Preview deploy (the engine hashes the source); entries are matched by file name");
-            }
+        let Some(found) = newest_passing_session(ledger, &file_name(&plugin)) else {
+            return;
+        };
+        if form.probes.trim().is_empty() {
+            form.probes = resolve_probes(&found.probes, env.checkout);
         }
-        if hits.is_empty() {
-            ui.weak("none");
-        } else {
-            virtual_table(
-                ui,
-                "cockpit-ledger",
-                &["entry", "names", "line"],
-                hits.len(),
-                View::Medium,
-                |row, i| {
-                    let Some(hit) = hits.get(i) else { return };
-                    row.cell(|ui| ui.label(&hit.entry));
-                    row.cell(|ui| {
-                        if hit.names_hash {
-                            theme::status(ui, Status::Pass, "this SHA-256")
-                        } else if hash.is_some() {
-                            theme::status(ui, Status::Warn, "the file name only")
-                        } else {
-                            theme::status(ui, Status::Unknown, "the file name")
-                        }
-                    });
-                    row.cell(|ui| ui.label(&hit.line));
-                },
-            );
+        if form.base_save_sha256.trim().is_empty() {
+            form.base_save_sha256.clone_from(&found.base_save_sha256);
         }
+        self.prefilled = Some(found);
     }
 
     /// The game session (M6.G4, second half): the drawing lives in [`session`].
@@ -1481,15 +1618,12 @@ impl CockpitTab {
             &mut self.session_form,
             &mut self.session,
             &mut self.probe_ui,
+            self.prefilled.as_ref(),
         );
     }
 
     fn deploy_ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
         let busy = ctx.busy;
-        ui.label(theme::subheading(
-            ui,
-            "Dev deployment (deploy --dev, ADR 0009)",
-        ));
         let target = dev_target(env.loaded_profile);
         match &target {
             Ok(t) => {
@@ -2443,6 +2577,38 @@ mod tests {
             assert!(gate::find_command(s.id).is_some(), "{}", s.id);
             assert!(s.enabled, "{}: {}", s.id, s.reason);
         }
+    }
+
+    /// The session prefill's source (owner, 2026-11-01): the newest entry naming the
+    /// plugin whose status or every step passed; a template, another plugin, a failed or
+    /// an older session never wins.
+    #[test]
+    fn the_newest_passing_session_for_a_plugin() {
+        let ledger = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/game-observations-sample.md"
+        ))
+        .unwrap();
+        let s = newest_passing_session(&ledger, "kitkraftfirstpoi.ESM").unwrap();
+        assert_eq!(s.entry, "game-20261101-04");
+        assert_eq!(s.probes, "observe/2026-11-01-poi-plan3/probes.toml");
+        assert_eq!(
+            s.base_save_sha256,
+            "fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf"
+        );
+        let other = newest_passing_session(&ledger, "KitKraftOverhaul.esp").unwrap();
+        assert_eq!(other.entry, "game-20261101-05");
+        assert!(newest_passing_session(&ledger, "Nothing.esm").is_none());
+        assert!(newest_passing_session(&ledger, "").is_none());
+        assert_eq!(
+            resolve_probes(&s.probes, Some(Path::new("C:/kk"))),
+            Path::new("C:/kk")
+                .join("observe")
+                .join("2026-11-01-poi-plan3")
+                .join("probes.toml")
+                .display()
+                .to_string()
+        );
     }
 
     #[test]

@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 
-use super::{dev_target, probes, session_confirm_gate, CockpitEnv, DevTarget};
+use super::{dev_target, game_buttons, probes, session_confirm_gate, CockpitEnv, DevTarget};
 use crate::gate::{Request, RunError};
 
 /// The interval between two `game.status` polls: one per second (M6.G4).
@@ -322,6 +322,9 @@ pub struct SessionState {
     pub last_poll: Option<Instant>,
     /// The last `game.session` dry run, if one arrived.
     pub preview: Option<SessionPreview>,
+    /// Dry runs received so far: the drawing scrolls a new one's result into view once
+    /// (owner finding 7, 2026-11-01).
+    pub previews: u64,
     /// The last `game.stop` dry run, if one arrived.
     pub stop_preview: Option<SessionStopPreview>,
     /// The confirm box is open for this action (its button builds the confirmed
@@ -386,6 +389,7 @@ impl SessionState {
     /// The dry run's reply: what the confirm box shows and checks.
     pub fn receive_preview(&mut self, request: &Request, env: &Value) {
         self.preview = Some(SessionPreview::from_reply(request, env));
+        self.previews = self.previews.wrapping_add(1);
     }
 
     /// The start's reply: the id comes back at once, and the following starts (the
@@ -519,7 +523,7 @@ impl SessionState {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, RichText, ScrollArea, TextEdit};
+use eframe::egui::{self, CollapsingHeader, RichText, ScrollArea, TextEdit};
 
 use crate::panels::common::{Action, Slot, TabCtx};
 use crate::theme::{self, Field, Status, View};
@@ -535,9 +539,20 @@ pub(crate) fn session_ui(
     form: &mut SessionForm,
     state: &mut SessionState,
     probe: &mut probes::ProbeUi,
+    prefilled: Option<&super::LedgerSession>,
 ) {
     let busy = ctx.busy;
-    ui.label(theme::subheading(ui, "Game session (M6.G4)"));
+    // The session's buttons are on only when the catalog has the command and the gate
+    // permits it (M6.G2); off, they say which ticket turns them on.
+    let buttons = game_buttons();
+    let allowed = |id: &str| {
+        buttons
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| (b.enabled, b.reason.clone()))
+    };
+    let (session_on, session_why) = allowed("game.session").unwrap_or((false, String::new()));
+    let (stop_on, stop_why) = allowed("game.stop").unwrap_or((false, String::new()));
     let target = dev_target(env.loaded_profile);
     match &target {
         Ok(t) => {
@@ -555,6 +570,7 @@ pub(crate) fn session_ui(
         }
     }
     let wide = theme::width(ui, Field::Long);
+    // What the session runs, then where it runs and writes (owner finding 6).
     theme::form_grid(ui, "cockpit-session-form").show(ui, |ui| {
         ui.label("probes");
         ui.add(TextEdit::singleline(&mut form.probes).desired_width(wide));
@@ -562,6 +578,14 @@ pub(crate) fn session_ui(
         ui.label("base save sha256");
         ui.add(TextEdit::singleline(&mut form.base_save_sha256).desired_width(wide));
         ui.end_row();
+        if let Some(p) = prefilled {
+            ui.label("");
+            ui.weak(format!(
+                "from the ledger: {} (the newest passing session naming this plugin)",
+                p.entry
+            ));
+            ui.end_row();
+        }
         ui.label("MO2 instance");
         ui.add(TextEdit::singleline(&mut form.mo2).desired_width(wide));
         ui.end_row();
@@ -578,11 +602,17 @@ pub(crate) fn session_ui(
     ui.horizontal_wrapped(|ui| {
         if ui
             .add_enabled(
-                !busy && !state.following(),
+                session_on && !busy && !state.following(),
                 egui::Button::new("Preview session"),
             )
-            .on_hover_text("game.session --dry-run: the plan and every refusal; writes nothing")
-            .on_disabled_hover_text("a session is started: stop it first")
+            .on_hover_text(
+                "game.session --dry-run: the plan and every refusal, below; writes nothing",
+            )
+            .on_disabled_hover_text(if !session_on {
+                session_why.as_str()
+            } else {
+                "a session is started: stop it first"
+            })
             .clicked()
         {
             state.pending = None;
@@ -608,10 +638,11 @@ pub(crate) fn session_ui(
             Some(id) => {
                 if ui
                     .add_enabled(
-                        !busy && state.following(),
+                        stop_on && !busy && state.following(),
                         egui::Button::new("Preview stop"),
                     )
                     .on_hover_text("game.stop --dry-run: the would lines; writes nothing")
+                    .on_disabled_hover_text(stop_why.as_str())
                     .clicked()
                 {
                     state.pending = None;
@@ -638,9 +669,22 @@ pub(crate) fn session_ui(
             }
         }
     });
-    // Confirm closed: the preview arrived, but its gate no longer passes.
+    for why in [
+        (!session_on).then_some(&session_why),
+        (!stop_on).then_some(&stop_why),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        ui.weak(why);
+    }
+    // The dry run's result, right under its button (owner findings 7 and 9, 2026-11-01):
+    // its summary, every refusal in full, the plan, or why the engine refused the request.
+    preview_block(ui, ctx, state);
+    // Confirm closed: the preview arrived, but its gate no longer passes (a dry run that
+    // would not start says so in its block above).
     if state.pending.is_none() {
-        if let Some(p) = &state.preview {
+        if let Some(p) = state.preview.as_ref().filter(|p| p.would_start) {
             if let Err(why) = session_confirm_gate(form, &target, Some(p)) {
                 theme::status_line(
                     ui,
@@ -833,6 +877,58 @@ pub(crate) fn session_ui(
         if let Some(err) = &state.probe_error {
             theme::status_line(ui, Status::Fail, err);
         }
+    }
+}
+
+/// The last `game.session` dry run's result (or the engine's error for it), drawn under
+/// the session's buttons and scrolled into view once when it arrives.
+fn preview_block(ui: &mut egui::Ui, ctx: &TabCtx<'_>, state: &SessionState) {
+    let failed = ctx
+        .results
+        .get(&Slot::CockpitSession.into())
+        .filter(|s| s.request.args.get("dry_run").and_then(Value::as_bool) == Some(true))
+        .and_then(|s| s.error.as_ref());
+    let block = ui.scope(|ui| {
+        if let Some(e) = failed {
+            theme::status_line(ui, Status::Fail, &format!("Preview session: {e}"));
+            return;
+        }
+        let Some(p) = &state.preview else { return };
+        let status = if p.would_start {
+            Status::Pass
+        } else {
+            Status::Fail
+        };
+        let summary = if p.summary.is_empty() {
+            if p.would_start {
+                "the session would start"
+            } else {
+                "the session would be refused"
+            }
+        } else {
+            p.summary.as_str()
+        };
+        theme::status_line(ui, status, &format!("Preview session: {summary}"));
+        for r in &p.refusals {
+            theme::status_line(ui, Status::Fail, r);
+        }
+        if !p.plan.is_empty() {
+            CollapsingHeader::new(format!("the plan ({} lines)", p.plan.len()))
+                .id_salt("cockpit-session-plan")
+                .default_open(p.refusals.is_empty())
+                .show(ui, |ui| {
+                    for l in &p.plan {
+                        ui.monospace(l);
+                    }
+                });
+        }
+    });
+    // A new dry run's result is brought into view once.
+    let id = ui.make_persistent_id("cockpit-session-preview-seen");
+    let seen: u64 = ui.data_mut(|d| d.get_temp(id)).unwrap_or(0);
+    if seen != state.previews {
+        ui.data_mut(|d| d.insert_temp(id, state.previews));
+        ui.scroll_to_rect(block.response.rect, None);
     }
 }
 

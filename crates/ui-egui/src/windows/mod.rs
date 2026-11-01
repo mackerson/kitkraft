@@ -5,8 +5,9 @@
 //! reachable while the CK layout grows (a dock layout comes only if a CK sitting shows
 //! docks; director assumption pending the owner).
 //!
-//! - [`cell_view`]: the Cell View window (M7.W2), `cell`'s worldspaces, cells and
-//!   references.
+//! - [`cell_view`]: the Cell View (M7.W2), `cell`'s worldspaces, cells and references;
+//!   a tab since the owner's 2026-11-01 walkthrough (finding 1), so it floats like any
+//!   tab.
 //! - [`warnings`]: the Warnings window (M7.M4), `validate` findings and `load` problems.
 //! - [`use_info`]: the Use Info window (M7.W5), `refs --incoming` of the selected record.
 //! - `shell.rs` is the glue the window shell (`app.rs`) declares as its own child module,
@@ -29,16 +30,14 @@ pub enum WindowKind {
     Warnings,
     UseInfo,
     EditDialog,
-    CellView,
 }
 
 impl WindowKind {
     /// Every window, in View-menu order.
-    pub const ALL: [WindowKind; 4] = [
+    pub const ALL: [WindowKind; 3] = [
         WindowKind::Warnings,
         WindowKind::UseInfo,
         WindowKind::EditDialog,
-        WindowKind::CellView,
     ];
 
     /// Title and `ui.json` key.
@@ -47,7 +46,6 @@ impl WindowKind {
             WindowKind::Warnings => "Warnings",
             WindowKind::UseInfo => "Use Info",
             WindowKind::EditDialog => "Edit Dialog",
-            WindowKind::CellView => "Cell View",
         }
     }
 
@@ -57,7 +55,6 @@ impl WindowKind {
             WindowKind::Warnings => [24.0, 420.0],
             WindowKind::UseInfo => [520.0, 110.0],
             WindowKind::EditDialog => [700.0, 90.0],
-            WindowKind::CellView => [24.0, 170.0],
         }
     }
 
@@ -67,7 +64,6 @@ impl WindowKind {
             WindowKind::Warnings => [760.0, 320.0],
             WindowKind::UseInfo => [640.0, 360.0],
             WindowKind::EditDialog => [620.0, 520.0],
-            WindowKind::CellView => [920.0, 420.0],
         }
     }
 }
@@ -159,8 +155,10 @@ pub struct Shell {
     pub warnings: warnings::WarningsState,
     pub use_info: use_info::UseInfoState,
     pub cell_view: cell_view::CellViewState,
-    /// The Cell View was open on the last frame (its error clears on reopen).
+    /// The Cell View was shown on the last frame (its error clears when shown again).
     pub cell_view_open: bool,
+    /// The Cell View was shown on this frame (docked or floating).
+    pub cell_view_shown: bool,
     pub dialog: crate::dialogs::DialogState,
     /// The screenshot tour's own steps (after the tabs).
     pub tour_step: usize,
