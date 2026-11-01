@@ -152,6 +152,8 @@ screenshots to `observe\<yyyy-mm-dd>-O2\`; answers into `plan/STATUS.md`.
 
 1. MO2: which mod MO2 shows providing `Interface\inventorymenu.swf`: `StarUI Inventory` or
    `StarUI Inventory - Free Lanes Compatibility Patch` (Data tab or conflicts view).
+   **Answered 2026-11-01 (owner):** the patch provides it (6 winning conflicts over
+   `StarUI Inventory`, 0 losing); recorded in `docs/load-order.md`.
 2. Console. `Constellation.esm` places no objects (its records are AVMD, KYWD, COBJ, OMOD,
    GLOB, LMSW, LVLI), so there is nothing of it to click. Use
    `help ConstellationTestGlobal 4` instead: the line shows its runtime ID (expected

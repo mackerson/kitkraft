@@ -670,8 +670,8 @@ Against `plan/execution-plan.md` "M5 is done when", with the states above.
   - D1 `docs/load-order.md`: every MO2 profile rule with its evidence (file and line, or
     nolvus.net / STEP / Ortham / LOOT by URL). modlist.txt's first line is the highest
     priority (docs plus a file check: both Free Lanes compatibility patches ship the same
-    files as their bases and are listed first). **Still open (M2.O4):** MO2's own UI view of
-    one such file.
+    files as their bases and are listed first). MO2's own UI view of one such file
+    agreed on 2026-11-01 (owner check, `docs/load-order.md`).
   - D2 `io`: read-only profile reader, overlay (overwrite > mods by priority > Data,
     case-insensitive), plugin plan naming why each plugin is active (`Starfield.ccc`,
     hardcoded official masters, `plugins.txt`, MO2 unmanaged entries, BlueprintShips
@@ -2283,7 +2283,8 @@ Agents append here when they need a change in a crate they do not own.
   (3) pruned (`PLANNED_IN_M2` is gone); (4) in the M2.F7 steps; (5) not added: `execute`
   reaches it, and the tool list stays small (8 tools with `record_schema`).
 - **Lane D -> owner (M2.O4).** In one session: (a) MO2's left pane for `StarUI Inventory`
-  vs its Free Lanes patch (which mod MO2 shows providing `Interface\inventorymenu.swf`);
+  vs its Free Lanes patch (which mod MO2 shows providing `Interface\inventorymenu.swf`;
+  **answered 2026-11-01 by the owner: the patch**, `docs/load-order.md` "modlist.txt order");
   (b) in game, `help` or a console click on a Constellation.esm object should show an
   `FE000xxx` ID and a full plugin's object `<slot>xxxxxx` (`kit inspect <form> --profile
   ...` prints the runtime ID it assumes; `inspect` now needs `runtime:<hex>` for a runtime
