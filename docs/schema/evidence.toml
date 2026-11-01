@@ -289,5 +289,44 @@ evidence = [
 ]
 note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2)"
 
-# Save/reload-verified: none. The M4.O2 save/quit/reload row and the O5-15 persistence row
-# are pending the owner.
+# CK-differential-tested: the CK opened KitKraft's first POI and saved it (F30), and placed
+# the same crate itself (F29); every difference is explained (M5.A3).
+
+[[entry]]
+type = "CELL"
+status = "ck-differential-tested"
+result = "pass"
+evidence = [
+  "ledger: ck-20261101-02",
+  "ledger: ck-20261101-03",
+  "ledger: ck-20261101-04",
+]
+note = "the carried interior cell's compressed payload came back byte-identical in both fixtures; the CK raised its form version 581 to 582"
+
+[[entry]]
+type = "REFR"
+status = "ck-differential-tested"
+result = "pass"
+evidence = [
+  "ledger: ck-20261101-02",
+  "ledger: ck-20261101-03",
+  "ledger: ck-20261101-04",
+]
+note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent"
+
+# Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
+# row (overhaul build 2) is still pending.
+
+[[entry]]
+type = "CELL"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261101-04"]
+note = "after a save in another cell and a load, the carried apartment cell held the crate where it was (rows T-05, T-06)"
+
+[[entry]]
+type = "REFR"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261101-04"]
+note = "the POI's persistent crate was at (-17, -4, 4.63) again after the reload (row T-06)"

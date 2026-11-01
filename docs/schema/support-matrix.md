@@ -52,8 +52,11 @@ Seeded 2026-10-15 from what `main` proves:
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
   STATUS "M4.O2 result"). CONT is not: the POI's crate is a STAT;
-- CK-differential-tested and save-reload-verified: none (the CK sessions are deferred; the
-  M4.O2 and O5-15 persistence rows are pending the owner).
+- CK-differential-tested: CELL and REFR (the first POI, F30 re-exported by the CK and F29
+  placed in it, every difference explained: `docs/ck-observations.md` `ck-20261101-04`);
+- save-reload-verified: CELL and REFR (the first POI's crate after a save and load,
+  unattended: `docs/game-observations.md` `game-20261101-04`). The O5-15 persistence row
+  (overhaul build 2) is pending.
 
 ## LCTN, TERM, PKIN, FACT (lane D, 2026-10-15)
 

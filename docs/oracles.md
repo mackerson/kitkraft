@@ -463,9 +463,10 @@ once the CK has saved it (ADR 0005 §2, observed black box only). `cargo xtask o
 (`xtask/src/ckoracle.rs`) compares our plugin with the CK's export of the same content and
 puts every difference in one of three classes. It automates the hand classing of M5.A3.
 
-**No real CK output exists yet.** No CK sitting has happened (M5.O1 is the owner's), so
-the oracle has only run on synthetic fixtures (below). Its first real input is F29/F30
-(`docs/ck-sessions/f29-f30.md`).
+**First real run: F29 and F30, 2026-11-01** (`docs/ck-sessions/f29-f30.md`; ledger
+`ck-20261101-02` to `-04`). With the normalizations M5.A3 classed by hand, F30 is `clean`
+and F29 `ours-missing` (the CK gave its reference its own FormID, so F29 names no `match`).
+The fixtures stay in `observe\ck-2026-11-01\` (not in the repository).
 
 ### Fixture folder
 
