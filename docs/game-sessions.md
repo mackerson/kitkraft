@@ -46,6 +46,7 @@ command returns, so use the synchronous form there and `--start` from MCP or the
 | `profile-settings` | the profile's `settings.ini` lacks `LocalSettings=true` or `LocalSaves=true` |
 | `ini-switch` | a switch of the game profile is missing from the profile's INI (`[General] bAlwaysActive=1`, `[Papyrus] bEnableLogging=1`, `bEnableTrace=1`, `bLoadDebugInformation=1`) |
 | `console-plugin` | no enabled mod of the profile is the Console API |
+| `console-port` | the console URL's port lies in a TCP range Windows excludes from binding (`netsh int ipv4 show excludedportrange protocol=tcp`), or the enabled Console API mod declares another port in its own config (`[console.port_config]`: `SFSE\plugins\sfse_plugin_console_api.ini`, `[WebConsole] iPort`) |
 | `base-save` | `saves\<base>.sfs` is missing, its SHA-256 was not given, or it differs |
 | `plugin-not-deployed` | the plugin of `probes.toml` is not a `kit deploy --dev` mod (`KitKraft Dev - <stem>` with `kitkraft-deploy.json`) enabled in the profile |
 | `unverified-profile` | the game profile has a fact without evidence (below) |
@@ -56,6 +57,15 @@ the INIs under `Documents\My Games\Starfield`, not the profile's. Profile-specif
 files must be switched on in MO2 before the profile's switches take effect. Second, the
 profile's `StarfieldCustom.ini` has none of the switches yet. The controller only reads
 INIs and never writes them.
+
+The console endpoint is `http://127.0.0.1:45555/console`, not the plugin's default
+55555. On the dev box Windows excludes TCP 55477-55576 (Hyper-V/WSL reservations), the
+plugin could not bind 55555, and the owner set `iPort=45555` in the mod's
+`sfse_plugin_console_api.ini` (`plan/STATUS.md` "Owner next actions" row 10, 2026-11-01).
+`console-port` catches the same trap on any box. The excluded ranges come from `netsh`
+through the host; when they cannot be read (not Windows, or `netsh` failed), or the mod has
+no such config file or key, nothing is refused, and the result's `limitations` and the
+ledger entry's "Console port" line say what was not checked.
 
 ## A session
 
@@ -165,6 +175,7 @@ and nothing in it is read from a game binary.
 | `[executables]` | `game`, `script_extender`, `editor`, `mod_manager`, `helpers` (file names) |
 | `[launch]` | `mo2_executable` (the MO2 executable title), `args` (`{profile}`, `{executable}`), `evidence`, `pending` |
 | `[console]` | `url` (loopback `http://` only), `ready_command`, `ready_expect`, `mod_names`, `candidates`, `evidence`, `pending` |
+| `[console.port_config]` | optional: `file` (relative to the console plugin's mod folder, `/`-separated), `section`, `key` (where the plugin's own config names its port) |
 | `[saves]` | `dir` (in the profile), `extension`, `load_command`, `save_command` (`{save}`), `base_default`, `session_prefix`, `evidence`, `pending` |
 | `[mo2]` | `local_settings`, `local_saves` (required `settings.ini` values) |
 | `[[ini]]` | `file`, `section`, `key`, `value` |
