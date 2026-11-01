@@ -38,8 +38,9 @@ pub(crate) fn runtime_note(lo: &LoadOrder) -> String {
         RuntimeBasis::Inferred => RUNTIME_ASSUMED.to_string(),
         RuntimeBasis::ConfirmedBySave(save) => format!(
             "{RUNTIME_NOTE} are confirmed by the save {save}: its plugin lists name exactly this \
-             load order's plugins, and each plugin's slot is its place in the save's list \
-             (docs/load-order.md, \"Save headers\")"
+             load order's plugins, in an order that gives each the slot this load order gives \
+             it (each plugin's slot is its place in the save's list; docs/load-order.md, \
+             \"Save headers\")"
         ),
     }
 }
@@ -292,17 +293,27 @@ fn from_save(
     );
     let label = format!("{name} (game {})", header.game_version);
     let mut notes = Vec::new();
+    // The game takes its slots from the load order it starts with (plugins.txt and
+    // loadorder.txt), not from the save it loads: a save made before the order changed
+    // names the same plugins in another order, and its slots are stale (game-20261101-T1:
+    // the save put KitKraftFirstPOI.esm 5th, slot 04; the game, after `deploy enable` moved
+    // it last, gave it 06, the inferred slot). So a save confirms only when its order maps
+    // to the same slots as this load order's.
+    let confirmed = m.confirmed() && m.differs_from_inferred.is_empty();
     match m.slots.clone() {
+        Some(_) if !confirmed => {
+            notes.push(format!(
+                "the save {label} lists this load order's plugins but in another order: it gives \
+                 other runtime slots than this load order does ({}). The game takes its slots \
+                 from the load order it starts with (plugins.txt, loadorder.txt), not from the \
+                 save, so a save made before the order changed is stale (game-20261101-T1); \
+                 its slots are not adopted and runtime IDs stay inferred",
+                m.differs_from_inferred.join("; ")
+            ));
+        }
         Some(slots) => {
             lo.adopt_runtime_slots(slots, label.clone())
                 .map_err(|e| failed(command, format!("{name}: {e}")))?;
-            if !m.differs_from_inferred.is_empty() {
-                notes.push(format!(
-                    "the save {label} gives other runtime slots than `runtime-slots-by-scale` \
-                     infers for this load order (the save's are used): {}",
-                    m.differs_from_inferred.join("; ")
-                ));
-            }
         }
         None => {
             let mut parts = Vec::new();
@@ -330,7 +341,7 @@ fn from_save(
         "medium": header.medium.len(),
         "plugin_block_offset": header.plugin_block_offset,
         "plugin_block_size": header.plugin_block_size,
-        "confirmed": m.confirmed(),
+        "confirmed": confirmed,
         "only_in_load_order": m.only_in_load_order,
         "only_in_save": m.only_in_save,
         "scale_mismatch": m.scale_mismatch,
@@ -1158,8 +1169,10 @@ pub(crate) mod tests {
     }
 
     /// POI investigation follow-up: `from_save` adopts a save's plugin lists as the runtime
-    /// slots when they name exactly the load order's plugins (even when the inferred rule
-    /// disagrees), says so everywhere, and refuses nothing but stays inferred otherwise.
+    /// slots when they name exactly the load order's plugins in an order that maps to the
+    /// same slots, says so everywhere, and refuses nothing but stays inferred otherwise:
+    /// another plugin set, or the same plugins in another order (a save made before the
+    /// load order changed; game-20261101-T1).
     #[test]
     fn from_save_confirms_runtime_slots_or_says_why_not() {
         use crate::handlers::testdata::save;
@@ -1170,19 +1183,37 @@ pub(crate) mod tests {
             p.display().to_string()
         };
         let mut args = plugins_args(&dir);
-        // The game (by this save) gave Patch slot 00 and Base 01: the save wins.
-        args["from_save"] = json!(path(
-            "Swapped.sfs",
-            save(&["Patch.esm", "Base.esm"], &[], &[])
-        ));
+        // The save lists Base then Patch, as this load order does: confirmed.
+        args["from_save"] = json!(path("Same.sfs", save(&["Base.esm", "Patch.esm"], &[], &[])));
         let engine = Engine::with_default_handlers();
         let r = engine.execute("load", args.clone()).unwrap();
         let data = &r["data"];
         assert_eq!(data["runtime_basis"], "confirmed-by-save");
         assert_eq!(data["save"]["confirmed"], true);
         assert_eq!(data["save"]["game_version"], "1.16.244.0");
-        assert_eq!(data["plugins"][0]["runtime_slot"], "01");
-        assert_eq!(data["plugins"][0]["runtime_basis"], "confirmed-by-save");
+        assert_eq!(data["plugins"][1]["runtime_slot"], "01");
+        assert_eq!(data["plugins"][1]["runtime_basis"], "confirmed-by-save");
+        assert_eq!(data["save"]["differs_from_inferred"], json!([]));
+        assert!(has_limitation(&r, "confirmed by the save Same.sfs"), "{r}");
+        assert!(!has_limitation(&r, "are inferred"), "{r}");
+        // Commands over the session's load order show the confirmed IDs.
+        let i = engine
+            .execute("inspect", json!({"form": "Base.esm:000800"}))
+            .unwrap();
+        assert_eq!(i["data"]["runtime_id"], "00000800");
+        assert_eq!(i["data"]["runtime_id_basis"], "confirmed-by-save");
+
+        // The same plugins in another order (Patch 00, Base 01): the game takes the slots
+        // of the load order it starts with, so the save is stale; inferred, and why.
+        args["from_save"] = json!(path(
+            "Swapped.sfs",
+            save(&["Patch.esm", "Base.esm"], &[], &[])
+        ));
+        let r = engine.execute("load", args.clone()).unwrap();
+        let data = &r["data"];
+        assert_eq!(data["runtime_basis"], "inferred");
+        assert_eq!(data["save"]["confirmed"], false);
+        assert_eq!(data["plugins"][0]["runtime_slot"], "00");
         assert_eq!(
             data["save"]["differs_from_inferred"],
             json!([
@@ -1190,18 +1221,10 @@ pub(crate) mod tests {
                 "Patch.esm: inferred 01, save 00"
             ])
         );
-        assert!(
-            has_limitation(&r, "confirmed by the save Swapped.sfs"),
-            "{r}"
-        );
-        assert!(has_limitation(&r, "gives other runtime slots"), "{r}");
-        assert!(!has_limitation(&r, "are inferred"), "{r}");
-        // Commands over the session's load order show the confirmed IDs.
-        let i = engine
-            .execute("inspect", json!({"form": "Base.esm:000800"}))
-            .unwrap();
-        assert_eq!(i["data"]["runtime_id"], "01000800");
-        assert_eq!(i["data"]["runtime_id_basis"], "confirmed-by-save");
+        assert!(has_limitation(&r, "but in another order"), "{r}");
+        assert!(has_limitation(&r, "Base.esm: inferred 00, save 01"), "{r}");
+        assert!(has_limitation(&r, "are inferred"), "{r}");
+        assert!(!has_limitation(&r, "confirmed by the save"), "{r}");
 
         // A save of another plugin set: nothing adopted, the reason stated.
         args["from_save"] = json!(path("Fewer.sfs", save(&["Base.esm"], &[], &[])));

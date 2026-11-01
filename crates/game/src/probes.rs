@@ -6,7 +6,15 @@
 //! a screenshot, and an ordered list of steps. A step is one console command; a step with
 //! a `matcher` is checked against that command's output (`contains`, `regex`, `number`
 //! within `tolerance`) or against the Papyrus log (`papyrus-log`); a step without one is
-//! setup. A row no console command can answer is `matcher = "manual"` with its `reason`.
+//! setup. A step's `wait_secs` is a pause after its answer, before the next step: the game
+//! answers `player.moveto`, `coc` and `load` at once and then moves, and a command sent
+//! meanwhile answers with only its echo (game-20261101-T1). A row no console command can
+//! answer is `matcher = "manual"` with its `reason`.
+//!
+//! The answer's shape (game-20261101-T1, Starfield 1.16.244 over the Console API): the
+//! command's echo, `Command: <command>`, then the result lines, a getter's as
+//! `GetPos: X >> -17.00` or `GetInCell >> 1.00`. So `number` reads the number after the
+//! last `>>`, never a digit of the echoed command.
 //! `{save}` in a command is the session's own save name and `{base_save}` the base save's;
 //! the controller fills both and refuses any other `save` or `load` target.
 //!
@@ -24,6 +32,9 @@ pub const FORMAT: u32 = 1;
 
 /// Longest console command accepted.
 pub const MAX_COMMAND: usize = 1000;
+
+/// Longest pause a step may ask for (`wait_secs`); a row's deadline bounds it too.
+pub const MAX_WAIT_SECS: u64 = 300;
 
 /// A `probes.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -99,6 +110,11 @@ pub struct Step {
     /// Where the expectation comes from.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub why: Option<String>,
+    /// Seconds to pause after this step's answer, before the next step (at most
+    /// [`MAX_WAIT_SECS`], and never past the row's deadline): a settle after a command
+    /// the game answers before it has acted on it (`player.moveto`, `coc`, `load`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wait_secs: Option<u64>,
 }
 
 /// How a step's output is checked.
@@ -109,7 +125,7 @@ pub enum Matcher {
     Contains,
     /// The output matches the regular expression `expected`.
     Regex,
-    /// The last number in the output is within `tolerance` of `expected`.
+    /// The number after the output's last `>>` is within `tolerance` of `expected`.
     Number,
     /// The Papyrus log written during the session contains `expected`.
     PapyrusLog,
@@ -189,6 +205,12 @@ fn check_step(s: &Step) -> std::result::Result<(), String> {
     }
     if s.command.trim().is_empty() && s.matcher != Some(Matcher::PapyrusLog) {
         return Err("empty command".into());
+    }
+    if s.wait_secs.is_some_and(|w| w > MAX_WAIT_SECS) {
+        return Err(format!(
+            "`{}`: wait_secs above {MAX_WAIT_SECS}",
+            clip(&s.command, 60)
+        ));
     }
     let Some(m) = s.matcher else {
         return Ok(());
@@ -312,8 +334,11 @@ pub fn judge(step: &Step, output: Option<&str>, papyrus: Option<&str>) -> Verdic
             Err(e) => Verdict::Inconclusive(format!("bad regex: {e}")),
         },
         Matcher::Number => {
-            let Some(seen) = last_number(text) else {
-                return Verdict::Inconclusive(format!("no number in `{}`", clip(text, 160)));
+            let Some(seen) = answer_number(text) else {
+                return Verdict::Inconclusive(format!(
+                    "no number after `>>` in `{}`",
+                    clip(text, 160)
+                ));
             };
             let Ok(want) = expected.trim().parse::<f64>() else {
                 return Verdict::Inconclusive(format!("bad expected number `{expected}`"));
@@ -328,13 +353,16 @@ pub fn judge(step: &Step, output: Option<&str>, papyrus: Option<&str>) -> Verdic
     }
 }
 
-/// The last decimal number in `text`.
-pub fn last_number(text: &str) -> Option<f64> {
-    let re = Regex::new(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?").ok()?;
-    re.find_iter(text)
-        .filter_map(|m| m.as_str().parse::<f64>().ok())
-        .filter(|v| v.is_finite())
+/// The number a console getter answered: the one right after the last `>>` in `text`
+/// (`GetPos: X >> -17.00`). An answer without `>>` (only the echo, an error) has none, so
+/// a digit of the echoed command (`player.moveto 06001000`) is never read as the answer.
+pub fn answer_number(text: &str) -> Option<f64> {
+    let re = Regex::new(r">>\s*(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)").ok()?;
+    re.captures_iter(text)
         .last()
+        .and_then(|c| c.get(1))
+        .and_then(|m| m.as_str().parse::<f64>().ok())
+        .filter(|v| v.is_finite())
 }
 
 /// `text` cut to `n` characters, newlines as spaces.
@@ -364,6 +392,7 @@ mod tests {
             expected: (!expected.is_empty()).then(|| expected.into()),
             tolerance: tol,
             why: None,
+            wait_secs: None,
         }
     }
 
@@ -380,6 +409,24 @@ mod tests {
 
         let n = step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5));
         assert_eq!(judge(&n, Some("GetPos: X >> -17.25"), None), Verdict::Pass);
+        // The observed shape (game-20261101-T1): echo, `Command: <cmd>`, the result.
+        assert_eq!(
+            judge(
+                &n,
+                Some("getpos x\nCommand: getpos x\nGetPos: X >> -17.00\n"),
+                None
+            ),
+            Verdict::Pass
+        );
+        // Only the echo (the game was still moving): no answer, whatever digits it has.
+        let d = step(
+            "player.getitemcount 06001000",
+            Some(Matcher::Number),
+            "6001000",
+            None,
+        );
+        let echo = "player.getitemcount 06001000\nCommand: player.getitemcount 06001000";
+        assert_eq!(judge(&d, Some(echo), None).label(), "inconclusive");
         assert_eq!(judge(&n, Some("GetPos: X >> 3.0"), None).label(), "fail");
         assert_eq!(
             judge(&n, Some("Script command not found"), None).label(),
@@ -472,6 +519,14 @@ mod tests {
         let mut no_matcher = file.clone();
         no_matcher.probes[0].steps[1].matcher = None;
         assert!(no_matcher.check().is_err());
+        let mut long_wait = file.clone();
+        long_wait.probes[0].steps[0].wait_secs = Some(MAX_WAIT_SECS + 1);
+        assert!(long_wait.check().is_err());
+        let mut waits = file.clone();
+        waits.probes[0].steps[0].wait_secs = Some(10);
+        let text = waits.to_toml().unwrap();
+        assert!(text.contains("wait_secs = 10"), "{text}");
+        assert_eq!(ProbeFile::parse(&text).unwrap(), waits);
         let mut bad_regex = file;
         bad_regex.probes[0].steps[1].matcher = Some(Matcher::Regex);
         bad_regex.probes[0].steps[1].expected = Some("(".into());
@@ -480,8 +535,15 @@ mod tests {
 
     #[test]
     fn numbers_and_clipping() {
-        assert_eq!(last_number("GetPos >> 1 then -4.25e1"), Some(-42.5));
-        assert_eq!(last_number("none"), None);
+        assert_eq!(answer_number("GetPos: X >> -17.00"), Some(-17.0));
+        assert_eq!(answer_number("A >> 1\nGetDistance >> 9.48"), Some(9.48));
+        assert_eq!(answer_number("GetInCell >> 1.00"), Some(1.0));
+        assert_eq!(answer_number("player.moveto 06001000"), None);
+        assert_eq!(
+            answer_number("Script command \"isdisabled\" not found."),
+            None
+        );
+        assert_eq!(answer_number("none"), None);
         assert_eq!(clip("a\nb", 10), "a b");
         assert_eq!(clip("abcdef", 3), "abc...");
     }

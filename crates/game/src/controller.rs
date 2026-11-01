@@ -5,7 +5,7 @@
 //! line; wait for the game's main window, then `settle_secs`, then the console endpoint
 //! (no command before that; an empty answer is not ready); load the base save; run the
 //! probes in order, each with its own deadline and the session's wall-clock budget over
-//! all; (with `stay`, serve `game.probe` re-runs until stopped); end the game and the
+//! all, pausing a step's `wait_secs` after its answer; (with `stay`, serve `game.probe` re-runs until stopped); end the game and the
 //! processes the session started; copy the logs; compare the backed-up files' hashes and
 //! restore any that changed (the session is then `inconclusive`); append the ledger
 //! entry; write `report.json`. Every write goes through [`Authorized`].
@@ -592,6 +592,23 @@ impl Run<'_> {
                         }
                     }
                     verdicts.push(judge(step, Some(&out), self.papyrus_text().as_deref()));
+                    if let Some(w) = step.wait_secs.filter(|w| *w > 0) {
+                        // The game answers a move or a load before it has acted on it; a
+                        // command sent meanwhile answers with only its echo
+                        // (game-20261101-T1). Bounded by the row's deadline; game.stop
+                        // cuts it short.
+                        let until = deadline.saturating_sub(started.elapsed()).min(secs(w));
+                        let paused = Instant::now();
+                        while paused.elapsed() < until && !self.shared.stop_requested() {
+                            std::thread::sleep(
+                                self.plan
+                                    .poll
+                                    .max(Duration::from_millis(20))
+                                    .min(until.saturating_sub(paused.elapsed())),
+                            );
+                        }
+                        seen.push(format!("(waited {}s)", paused.elapsed().as_secs()));
+                    }
                 }
                 Err(ConsoleError::Timeout) => {
                     seen.push(format!("{cmd} -> (no answer)"));

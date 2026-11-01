@@ -108,61 +108,92 @@ fn the_first_poi_shape_gets_coc_moveto_help_getpos_and_persistence() {
     assert_eq!(r["data"]["probes"]["manual"], json!(0));
     assert_eq!(p.sha256, r["data"]["sha256"].as_str().unwrap());
     assert_eq!(p.profile, "KitKraft Dev");
+    // References and cells by runtime ID (game-20261101-T1: the console takes neither's
+    // EditorID there); the EditorIDs stay in titles and forms.
     assert_eq!(
         commands(&p, "T-01"),
-        ["coc TestInterior", "player.getincell TestInterior"]
+        ["coc TestInterior", "player.getincell 00000900"]
+    );
+    assert_eq!(
+        p.probes[0].forms,
+        ["World.esm:000900", "TestInterior", "00000900"]
     );
     assert_eq!(
         commands(&p, "T-02"),
         [
-            "player.moveto KC_TestCrate",
-            "prid KC_TestCrate",
+            "player.moveto 01001000",
+            "prid 01001000",
             "getdistance player"
         ]
     );
-    // The click step: help by EditorID names the predicted runtime ID.
+    assert!(p.probes[1].title.contains("`KC_TestCrate`"));
+    assert!(p.probes[1].forms.contains(&"KC_TestCrate".to_string()));
+    // A wait after each move, none after a getter.
+    let waits = |row: usize| -> Vec<Option<u64>> {
+        p.probes[row].steps.iter().map(|s| s.wait_secs).collect()
+    };
+    assert_eq!(waits(0), [Some(10), None]);
+    assert_eq!(waits(1), [Some(10), None, None]);
+    // The click step: the runtime ID selects a reference of the plugin's base (by ID).
+    assert_eq!(commands(&p, "T-03"), ["prid 01001000", "getisid 00000800"]);
     let t3 = &p.probes[2];
-    assert_eq!(t3.steps[0].command, "help KC_TestCrate 4");
-    assert_eq!(t3.steps[0].matcher, Some(Matcher::Contains));
-    assert_eq!(t3.steps[0].expected.as_deref(), Some("01001000"));
-    // prid, getpos against DATA, isdisabled 0, the numeric ID; screenshot.
+    assert_eq!(t3.steps[1].matcher, Some(Matcher::Regex));
+    assert!(t3.title.contains("KC_Crate"), "{}", t3.title);
+    // prid, getpos against DATA; screenshot; no isdisabled (not a Starfield command).
     let t4 = &p.probes[3];
     assert!(t4.screenshot);
     assert_eq!(
         commands(&p, "T-04"),
-        [
-            "prid KC_TestCrate",
-            "getpos x",
-            "getpos y",
-            "getpos z",
-            "isdisabled",
-            "prid 01001000",
-            "getpos x"
-        ]
+        ["prid 01001000", "getpos x", "getpos y", "getpos z"]
     );
     let expected: Vec<Option<&str>> = t4.steps.iter().map(|s| s.expected.as_deref()).collect();
     assert_eq!(expected[1..4], [Some("10"), Some("20"), Some("30")]);
     assert_eq!(t4.steps[1].tolerance, Some(0.5));
-    // Persistence: leave, the session's own save, load it, then return and look again.
+    assert!(!text.contains("isdisabled ="), "{text}");
+    assert!(!text.contains("command = \"isdisabled\""), "{text}");
+    // Persistence: leave, the session's own save, load it, then return and look again. The
+    // synthetic load order has no CityNewAtlantisLodgeInt, so no getincell by its ID.
     assert_eq!(
         commands(&p, "T-05"),
         [
             "coc CityNewAtlantisLodgeInt",
             "save {save}",
             "load {save}",
-            "player.getincell CityNewAtlantisLodgeInt"
+            "player.getpos x"
         ]
     );
+    assert_eq!(waits(4), [Some(10), None, Some(10), None]);
     assert_eq!(
         commands(&p, "T-06"),
         [
             "coc TestInterior",
-            "prid KC_TestCrate",
+            "prid 01001000",
             "getpos x",
             "getpos y",
             "getpos z"
         ]
     );
+    // No step names a reference or a cell by EditorID, except `coc` (grade D).
+    for probe in &p.probes {
+        for s in &probe.steps {
+            if !s.command.starts_with("coc ") {
+                assert!(
+                    !s.command.contains("KC_TestCrate") && !s.command.contains("TestInterior"),
+                    "{}",
+                    s.command
+                );
+            }
+        }
+    }
+    // The answer shape the matchers read: numbers after `>>`, the 1 on its own line.
+    let getincell = &p.probes[0].steps[1];
+    let re = regex::Regex::new(getincell.expected.as_deref().unwrap()).unwrap();
+    assert!(re.is_match(
+        "player.getincell 00000900\nCommand: player.getincell 00000900\nGetInCell >> 1.00\n"
+    ));
+    assert!(!re.is_match("player.getincell 00000900\nCommand: player.getincell 00000900"));
+    assert!(!re.is_match("GetInCell >> 0.00"));
+    assert!(p.notes.iter().any(|n| n.contains("game-20261101-T1")));
     // Deterministic.
     let again = d.join("plan2");
     testplan(&data, &plugin, &again, json!(["World.esm"]));
@@ -193,7 +224,7 @@ fn the_actors_shape_uses_the_runtime_id_and_marks_what_needs_a_person() {
     assert_eq!(manual, ["T-01"], "the exterior cell has no coc target");
     assert!(p.probes[0].reason.as_deref().unwrap().contains("exterior"));
     assert_eq!(commands(&p, "T-02")[0], "player.moveto 01001000");
-    assert_eq!(commands(&p, "T-03"), ["prid 01001000", "getisid KC_Npc"]);
+    assert_eq!(commands(&p, "T-03"), ["prid 01001000", "getisid 00000801"]);
     assert_eq!(commands(&p, "T-04")[0], "prid 01001000");
     std::fs::remove_dir_all(&d).unwrap();
 }

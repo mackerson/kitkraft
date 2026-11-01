@@ -29,6 +29,7 @@ fn step(command: &str, m: Option<Matcher>, expected: &str, tol: Option<f64>) -> 
         expected: (!expected.is_empty()).then(|| expected.into()),
         tolerance: tol,
         why: None,
+        wait_secs: None,
     }
 }
 
@@ -267,6 +268,75 @@ fn a_session_runs_every_row_and_writes_only_authorized_paths() {
         );
     }
     assert!(p.observe.join("report.json").is_file());
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+/// A step's `wait_secs` pauses before the next step (game-20261101-T1: the game answers
+/// `player.moveto` at once and a command sent while it moves answers with only its echo).
+#[test]
+fn a_step_wait_pauses_before_the_next_step() {
+    let f = fixture("wait");
+    let c = console();
+    type Sent = Arc<std::sync::Mutex<Vec<(String, std::time::Instant)>>>;
+    let at: Sent = Arc::default();
+    let log = Arc::clone(&at);
+    c.on_command(move |cmd| {
+        log.lock()
+            .unwrap()
+            .push((cmd.to_string(), std::time::Instant::now()));
+    });
+    let mut moveto = step("player.moveto 06001000", None, "", None);
+    moveto.wait_secs = Some(1);
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T09");
+    p.probes.probes = vec![probe(
+        "T-01",
+        false,
+        vec![
+            moveto,
+            step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5)),
+        ],
+    )];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    assert_eq!(verdicts(&report.rows), ["pass"]);
+    assert!(
+        report.rows[0].seen.contains("(waited 1s)"),
+        "{}",
+        report.rows[0].seen
+    );
+    {
+        let at = at.lock().unwrap();
+        let when = |c: &str| at.iter().find(|(x, _)| x == c).map(|(_, t)| *t).unwrap();
+        assert!(
+            when("getpos x").duration_since(when("player.moveto 06001000"))
+                >= Duration::from_secs(1),
+            "getpos x was sent before the wait was over"
+        );
+    }
+    // A wait longer than the row's deadline (2 s here) is cut at the deadline: the next
+    // step is then a timeout, never a pass.
+    let mut long = step("player.moveto 06001000", None, "", None);
+    long.wait_secs = Some(30);
+    p.session = "2026-10-16-T10".into();
+    p.observe = f.observe_root.join(&p.session);
+    p.probes.probes = vec![probe(
+        "T-01",
+        false,
+        vec![
+            long,
+            step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5)),
+        ],
+    )];
+    let started = std::time::Instant::now();
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    assert!(started.elapsed() < Duration::from_secs(25));
+    assert!(
+        report.rows[0]
+            .verdict
+            .text()
+            .starts_with("inconclusive (timeout"),
+        "{}",
+        report.rows[0].verdict.text()
+    );
     std::fs::remove_dir_all(&f.root).unwrap();
 }
 

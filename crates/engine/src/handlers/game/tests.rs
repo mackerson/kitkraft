@@ -28,6 +28,7 @@ fn probes_file(f: &Fixture) -> std::path::PathBuf {
         expected: (!e.is_empty()).then(|| e.into()),
         tolerance: t,
         why: None,
+        wait_secs: None,
     };
     let p = ProbeFile {
         format: FORMAT,

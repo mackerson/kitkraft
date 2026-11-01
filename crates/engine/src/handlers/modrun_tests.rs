@@ -204,7 +204,9 @@ fn verified_game(s: &Setup, c: &FakeConsole) -> PathBuf {
     g.console.evidence = "fixture".into();
     g.saves.evidence = "fixture".into();
     g.console.url = c.url();
-    g.timeouts.probe_secs = 3;
+    // The persistence row pauses `wait_secs` after its `coc` and its `load` (10 s each,
+    // game-20261101-T1); the row's deadline must cover them.
+    g.timeouts.probe_secs = 30;
     g.timeouts.ready_secs = 3;
     g.timeouts.settle_secs = 0;
     g.timeouts.ready_poll_secs = 0;
@@ -227,6 +229,11 @@ fn with_a_verified_profile_the_session_runs_and_each_probe_has_a_verdict() {
     // The rename's probe: the weapon's name finds its runtime ID.
     c.answer("help", "WEAP: (00000800) 'Old Soviet Marksman Rifle'");
     c.answer("player.getincell", "GetInCell >> 1.00");
+    // The synthetic load order has no leave cell: the persistence row reads a getter.
+    c.answer(
+        "player.getpos",
+        "player.getpos x\nCommand: player.getpos x\nGetPos: X >> -13.22",
+    );
     let game = verified_game(&s, &c);
     let r = engine()
         .execute(
