@@ -368,7 +368,8 @@ ordering errors (a master loading after a plugin that names it), plugins that fa
 load or have no file, masters missing from the load order, where runtime IDs come from
 (inferred by `runtime-slots-by-scale`, or confirmed by a save: `load --from-save <path |
 newest>` adopts a save's plugin lists as the runtime slots when they name exactly the load
-order's plugins; `load`'s `data` then has `runtime_basis: "confirmed-by-save"`, each plugin
+order's plugins in an order that gives each the same slot, never a stale save of another
+order, `game-20261101-T1`; `load`'s `data` then has `runtime_basis: "confirmed-by-save"`, each plugin
 a `runtime_basis`, and `save` says which save and what differs; `docs/load-order.md`,
 "Runtime IDs" and "Save headers"), plugins whose own records resolve by the `full-style-self`
 assumption, records of one plugin resolving to the same form, records whose FormIDs do not
@@ -1098,13 +1099,14 @@ spec error, and so is a `[[place]]` named as a base, cell or world.
 `testplan {plugin, out, spec?, from_save?}` plus the load-order arguments; CLI `kit
 testplan <plugin> <out> --profile <dir> [--from-save <path|newest>]`. Writes
 `out/kitkraft-test.txt` (console commands, CRLF: `coc <cell EditorID>`, then
-`player.moveto` and `prid` per new reference, on its EditorID when it has one, else on its
-runtime ID; `player.additem <runtime ID> 1` per new item) and `out/checklist.md` (setup on
-the MO2 profile `KitKraft Dev` from a disposable save; a step per form that names it by
-EditorID first, then has the owner click the object in the console and compare the
-reference ID shown with the expected one; persistence steps; the game-ledger entry) and
-nothing else. Runtime IDs are lane D's: **confirmed** when `from_save` confirmed the load
-order and the plugin is in it, else **predicted** by `runtime-slots-by-scale` (and, for a
+`player.moveto` and `prid` per new reference on its runtime ID, since the console does not
+take a reference's EditorID (`game-20261101-T1`); `player.additem <runtime ID> 1` per new
+item), `out/checklist.md` (setup on the MO2 profile `KitKraft Dev` from a disposable save;
+a step per form that names it by runtime ID, then has the owner click the object in the
+console and compare the reference ID shown with the expected one; persistence steps; the
+game-ledger entry) and `out/probes.toml` (`docs/game-sessions.md`), and nothing else.
+Runtime IDs are lane D's: **confirmed** when `from_save` confirmed the load order (same
+plugins, same slots) and the plugin is in it, else **predicted** by `runtime-slots-by-scale` (and, for a
 plugin appended after the last master-flagged plugin, `masters-load-first`); the checklist,
 `limitations` and `runtime_id_basis` say which, as is the batch file's folder (grade D
 until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `profile` (always `KitKraft

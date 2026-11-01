@@ -266,10 +266,17 @@ slots high (the POI at `06`; MO2 showed `02`).
 
 Runtime IDs stay **inferred** unless a save confirms them: `load --profile <dir>
 --from-save <path|newest>` reads the save's plugin lists and, when they name exactly the
-load order's active plugins under the scales their headers give, adopts the save's slots
-(each result then says `runtime_basis: confirmed-by-save` and names the save). A save of
-another plugin set confirms nothing: `load` lists the plugins only in the load order, only
-in the save, or under another scale, and the IDs stay inferred. `newest` is the newest
+load order's active plugins under the scales their headers give, in an order that gives
+each plugin the slot this load order gives it, adopts the save's slots (each result then
+says `runtime_basis: confirmed-by-save` and names the save). A save of another plugin set
+confirms nothing: `load` lists the plugins only in the load order, only in the save, or
+under another scale, and the IDs stay inferred. Nor does a save of the same plugins in
+another order: the game takes its slots from the load order it starts with
+(`plugins.txt`, `loadorder.txt`), not from the save it loads, so such a save is stale. In
+`game-20261101-T1` the base save listed `KitKraftFirstPOI.esm` fifth (slot `04`), `kit
+deploy enable` had since moved it last, and the game gave its crate `06001000`, the
+inferred ID; `prid 04001000` found nothing. The IDs then stay inferred, and a limitation
+lists each plugin whose save slot differs (`save.differs_from_inferred`). `newest` is the newest
 `.sfs` in `<profile>\saves` when the profile's `settings.ini` says `LocalSaves=true` (MO2's
 profile-specific saves), else in `%USERPROFILE%\Documents\My Games\Starfield\Saves`; a
 `sLocalSavePath` in the game's INIs is not read. Our scripts README says the in-game high

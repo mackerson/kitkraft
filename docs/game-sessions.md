@@ -93,7 +93,9 @@ ledger entry's "Console port" line say what was not checked.
 
    Then it sends `load <base save>` and waits for a non-empty answer again (`load_secs`).
 4. Run the probes in order. A row has its own deadline (`probe_secs`), and the session
-   has a wall-clock budget (`session_secs`). The controller sends no `save` or `load` to a
+   has a wall-clock budget (`session_secs`). After a step with `wait_secs` the controller
+   pauses that long (within the row's deadline; `game.stop` cuts it short) before the next
+   step, and the row's `seen` notes `(waited Ns)`. The controller sends no `save` or `load` to a
    name it does not own, and it never sends `bat`, `saveini`, `qqq` or `quitgame`.
 5. With `--start`, stay open for `game.probe` until `game.stop` or the budget runs out.
 6. End `Starfield.exe`, `sfse_loader.exe`, MO2's helpers and MO2 itself. Preflight
@@ -143,23 +145,26 @@ format = 1
 plugin = "KitKraftFirstPOI.esm"
 sha256 = "..."
 profile = "KitKraft Dev"
-runtime_id_basis = "confirmed-by-save"
+runtime_id_basis = "inferred:runtime-slots-by-scale"
 
 [[probe]]
-row = "T-04"
-title = "prid KitKraftFirstPOICrate; getpos x/y/z: ..."
-forms = ["KitKraftFirstPOI.esm:001000", "KitKraftFirstPOICrate", "04001000"]
-screenshot = true
+row = "T-02"
+title = "player.moveto 06001000: stand at REFR `KitKraftFirstPOICrate`"
+forms = ["KitKraftFirstPOI.esm:001000", "KitKraftFirstPOICrate", "06001000"]
 
 [[probe.step]]
-command = "prid KitKraftFirstPOICrate"
+command = "player.moveto 06001000"
+wait_secs = 10
 
 [[probe.step]]
-command = "getpos x"
+command = "prid 06001000"
+
+[[probe.step]]
+command = "getdistance player"
 matcher = "number"
-expected = "-17"
-tolerance = 0.5
-why = "the reference's DATA position in the plugin"
+expected = "0"
+tolerance = 500.0
+why = "player.moveto puts the player beside the reference"
 
 [[probe]]
 row = "T-01"
@@ -174,12 +179,40 @@ Matchers:
 | ------- | ----------- |
 | `contains` | The output contains `expected` (ASCII case ignored) |
 | `regex` | The output matches `expected` |
-| `number` | The last number in the output is within `tolerance` of `expected` |
+| `number` | The number right after the output's last `>>` is within `tolerance` of `expected`; an output with no `>>` has no number (`inconclusive`) |
 | `papyrus-log` | The Papyrus log written during the session contains `expected` |
 
 A step without a matcher is setup. `{save}` stands for the session's own save name and
-`{base_save}` for the base save's name. What the console prints for each command is
-grade D until M4.T1 observes it.
+`{base_save}` for the base save's name. A step's optional `wait_secs` (at most 300) is a
+pause after its answer, before the next step; it counts against the row's `probe_secs`, so
+a wait that would run past the deadline is cut there and the next step times out.
+
+What the console does, observed on Starfield 1.16.244 over the Console API
+(`game-20261101-T1`):
+
+- An answer is the command's echo, then `Command: <command>`, then the result lines; a
+  getter's result is `GetPos: X >> -17.00`, `GetInCell >> 1.00`, `GetDistance >> 9.48`.
+  The `number` matcher reads the number after `>>`, so a digit of the echo
+  (`player.moveto 06001000`) is never taken for an answer, and `kit testplan`'s regexes
+  look for `>> 1` at the end of a line.
+- The console does not resolve a reference's EditorID: `prid KitKraftFirstPOICrate`
+  answers "Item 'KitKraftFirstPOICrate' not found for parameter ObjectReferenceID.",
+  `help KitKraftFirstPOICrate 4` lists nothing, so `player.moveto <EditorID>` cannot
+  work. Its runtime FormID does: `prid 06001000`, then `getpos x`, `getpos y`, `getpos z`
+  gave -17.00, -4.00, 4.63. A cell's EditorID in `player.getincell` gets no answer; its
+  FormID does (`player.getincell 0021966F` and `21966F` gave `GetInCell >> 1.00`). So
+  `kit testplan` names references and cells by their runtime ID (8 hex digits) in `prid`,
+  `player.moveto`, `getisid` and `player.getincell`, and keeps the EditorIDs in titles
+  and `forms`. `coc` still takes the cell's EditorID (grade D).
+- `isdisabled` is not a Starfield console command ("Script command \"isdisabled\" not
+  found."). `kit testplan` no longer probes the initially-disabled flag; no replacement
+  was observed.
+- `player.moveto`, `coc` and `load` answer at once (the echo only) and the game then
+  moves; a command sent meanwhile answers with only its echo. `kit testplan` gives those
+  steps `wait_secs = 10` (a `load` from the main menu answered a getter within 10 s).
+
+Everything else the probes send (`getisid`, `player.getitemcount`, `player.getequipped`,
+`getstage`, `save` and `load` from the world) is grade D until a session observes it.
 
 ## Game profiles (M4.T9)
 
@@ -223,18 +256,18 @@ complete.
 | O2-02 | manual | installing a package through MO2 is the owner's; the controller installs nothing |
 | O2-03 | manual | as O2-02 |
 | O2-04 | manual | the controller never sends `bat`; its rows send the same commands one by one |
-| O2-05 | probe | POI `T-01`: `coc <cell>`, `player.getincell <cell>` |
-| O2-06 | probe | POI `T-02` (`player.moveto`, `getdistance player`) and `T-03` (`help <EditorID> 4` contains the runtime ID) |
-| O2-07 | probe | POI `T-04`: `prid`, `getpos x/y/z` against `DATA`, `isdisabled`, the numeric ID; screenshot |
+| O2-05 | probe | POI `T-01`: `coc <cell EditorID>`, `player.getincell <cell runtime ID>` |
+| O2-06 | probe | POI `T-02` (`player.moveto <runtime ID>`, `getdistance player`) and `T-03` (`prid <runtime ID>`, `getisid <base runtime ID>`) |
+| O2-07 | probe | POI `T-04`: `prid <runtime ID>`, `getpos x/y/z` against `DATA`; screenshot (no `isdisabled`: not a Starfield command, `game-20261101-T1`) |
 | O2-08 | probe | POI `T-05` (leave, `save {save}`, `load {save}`) and `T-06` (return, `getpos` again) |
 | O2-09 | manual | the long absence (168 game hours) has no chosen console route (FTH-EXP-07) |
 | O2-10 | manual | `placeatme` makes a reference whose ID is known only at run time (PS-09) |
-| O2-11 | probe | POI `T-03`: `help KitKraftFirstPOICrate 4` |
+| O2-11 | probe | POI `T-03`: `prid <runtime ID>` with `getisid` on the base; `help KitKraftFirstPOICrate 4` itself lists nothing (`game-20261101-T1`: the console does not resolve a reference's EditorID), so the row's expectation cannot hold as written |
 | O2-12 | manual | the map and location UI |
 | O2-13 | manual | `n/a` for packages without an archive |
 | O4-01 | manual | the "Take" or "Steal" prompt is UI; the ownership plugin's probes cover persistence only |
 | O4-02 | manual | crime and bounty are UI |
-| O4-03 | probe | actors `T-02` (`player.moveto`) and `T-03` (`getisid` on the base); the sandboxing walk is a screenshot for the owner |
+| O4-03 | probe | actors `T-02` (`player.moveto <runtime ID>`) and `T-03` (`getisid <base runtime ID>`); the sandboxing walk is a screenshot for the owner |
 | O4-04 | probe | actors persistence rows (`save {save}`, `load {save}`, `getpos` within tolerance) |
 | O4-05 | manual | the outpost build menu is UI |
 | O4-06 | manual | the fabricator is UI |
@@ -243,7 +276,7 @@ complete.
 | O4-10 | manual | needs the M4.E9 script recipe (PS-06) |
 | O4-11 | manual | needs M4.E9 (PS-09) |
 | O4-12 | manual | needs M4.E9 (PS-10) |
-| O4-13 | manual | `disable` is not in the probes `kit testplan` writes; a hand-written `probes.toml` can do it with `isdisabled` |
+| O4-13 | manual | `disable` is not in the probes `kit testplan` writes, and `isdisabled` is not a Starfield console command (`game-20261101-T1`): no console check of the disabled state is observed yet |
 | O4-14 | manual | needs CK fixture F25 |
 | O4-15 | manual | needs F25 |
 | O4-16 | manual | needs M4.E9 (PS-19) |
