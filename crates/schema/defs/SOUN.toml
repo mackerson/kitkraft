@@ -1,29 +1,31 @@
-# SOUN: SoundMarker, inventory definition (M4.BX2, lane B).
+# SOUN: SoundMarker, a sound marker: object bounds, a dirtiness scale, an optional
+# flag set, keywords, an optional sound reference and the sound-detection data (a
+# level and a radius).
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17732-L17745 - member order, EDID (L17733),
+#     object bounds (L17735, wbObjectBounds: wbDefinitionsCommon.pas L9348-L9365), ODTY
+#     (L17736, wbODTYReq: L3921-L3923), XALG (L17737, L3195-L3230), the shared Keywords
+#     block (L17739), the sound reference (L17740, wbSoundReference: L2213-L2227,
+#     common/SoundReference.toml) and the sound-detection struct (L17741-L17744, the
+#     level enum L2574-L2581). Upstream also lists the script data (L17734) and the
+#     base form component block (L17738); no official record has either, so they are
+#     left out (a plugin that has one keeps it raw).
 #   corpus: the M4.BX2 scan of every official SOUN record (1133 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the SOUN definition of wbDefinitionsSF1.pas at the pinned revision (L17732-L17745),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords
+#     occur, in which order and how often, and their sizes. The soun_wkmf_types scan
+#     (crates/esm/tests/soun_wkmf_types.rs) checks this definition against the same
+#     records: every subrecord is placed, every placed subrecord decodes, and the
+#     re-encoding reproduces every record.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
 # Order: XALG precedes KSIZ in the one official SOUN record that has both.
 signature = "SOUN"
 name = "SoundMarker"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official SOUN record (1133) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -40,39 +42,40 @@ confidence = "corpus"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1133 of 1133 official SOUN records (1133 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17735-L17735",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1133 of 1133 official SOUN records (1133 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17736-L17736",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 56 of 1133 official SOUN records (56 occurrences), 8 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17737-L17737",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3195-L3230",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 group_ref = "Keywords"
@@ -85,24 +88,29 @@ confidence = "corpus"
 
 [[member]]
 sig = "SMLS"
-name = "Smls"
-type = "opaque"
+name = "SoundReference"
+type = "ref:SoundReference"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1125 of 1133 official SOUN records (1125 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17740-L17740",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "DEVT"
-name = "Devt"
-type = "opaque"
+name = "SoundDetection"
+type = "struct"
+size = 8
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1133 of 1133 official SOUN records (1133 occurrences), 8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17741-L17741",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17741-L17744",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+field = [
+  { name = "Level", type = "enum", base = "u32", values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]] },
+  { name = "Radius", type = "f32" },
+]

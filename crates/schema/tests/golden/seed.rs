@@ -193,7 +193,7 @@
 // - SMBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17674-L17687; corpus)
 // - SMEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17689-L17703; corpus)
 // - SMQN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17705-L17730; corpus)
-// - SOUN (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official SOUN record (1133) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SOUN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745; reference)
 // - SPCH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
 // - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -215,7 +215,7 @@
 // - WATR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592; corpus)
 // - WBAR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically; corpus)
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
-// - WKMF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official WKMF record (81) decodes with every subrecord placed and re-encodes identically; corpus)
+// - WKMF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107; reference)
 // - WRLD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035; corpus)
 // - WTHR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WTHR record (3) decodes with every subrecord placed and re-encodes identically; corpus)
 // - WTHS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WTHS record (187) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -80137,22 +80137,98 @@ impl SmqnRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SounSoundDetectionLevel {
+    None,
+    Silent,
+    Quiet,
+    Normal,
+    Loud,
+    VeryLoud,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl SounSoundDetectionLevel {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Silent,
+            2 => Self::Quiet,
+            3 => Self::Normal,
+            4 => Self::Loud,
+            5 => Self::VeryLoud,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Silent => 1,
+            Self::Quiet => 2,
+            Self::Normal => 3,
+            Self::Loud => 4,
+            Self::VeryLoud => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SounSoundDetectionLevel {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SounSoundDetectionLevel {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SounSoundDetection {
+    pub level: SounSoundDetectionLevel,
+    pub radius: f32,
+}
+
+impl Field for SounSoundDetection {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "SOUN.DEVT.Level", ctx)?;
+        let f1 = f32::read(r, "SOUN.DEVT.Radius", ctx)?;
+        Ok(Self {
+            level: f0,
+            radius: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.level.write(out);
+        self.radius.write(out);
+    }
+}
+
+impl Visit for SounSoundDetection {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SounRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// `XALG`, optional.
-    pub xalg: Option<Sub<Bytes>>,
+    pub xalg_flags: Option<Sub<u64>>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `SMLS`, optional.
-    pub smls: Option<Sub<Bytes>>,
+    pub sound_reference: Option<Sub<SoundReference>>,
     /// `DEVT`, required.
-    pub devt: Option<Sub<Bytes>>,
+    pub sound_detection: Option<Sub<SounSoundDetection>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -80205,26 +80281,46 @@ impl SounRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "SOUN.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "SOUN.OBND", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "SOUN.ODTY", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "SOUN.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "SOUN.ODTY",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.xalg, subs, *index, "SOUN.XALG", ctx, extra)
+                    put(&mut self.xalg_flags, subs, *index, "SOUN.XALG", ctx, extra)
                 }
                 Hit::Group { member: 4, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.smls, subs, *index, "SOUN.SMLS", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.devt, subs, *index, "SOUN.DEVT", ctx, extra)
-                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.sound_reference,
+                    subs,
+                    *index,
+                    "SOUN.SMLS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.sound_detection,
+                    subs,
+                    *index,
+                    "SOUN.DEVT",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -80232,24 +80328,26 @@ impl SounRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"XALG", self.xalg.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"SMLS", self.smls.as_ref());
-        emit(out, *b"DEVT", self.devt.as_ref());
+        emit(out, *b"SMLS", self.sound_reference.as_ref());
+        emit(out, *b"DEVT", self.sound_detection.as_ref());
     }
 }
 
 impl Visit for SounRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.keywords, "SOUN.Keywords", out);
+        visit_form_ids(&self.sound_reference, "SOUN.SMLS", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.keywords, "SOUN.Keywords", out);
+        visit_form_ids_mut(&mut self.sound_reference, "SOUN.SMLS", out);
     }
 }
 
@@ -89854,12 +89952,150 @@ impl WeapRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WkmfMappingTemplate {
+    ShipEngine,
+    Cockpit,
+    GravDrive,
+    CreatureAnim,
+    /// A value the definition does not name.
+    Other(u16),
+}
+
+impl WkmfMappingTemplate {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u16) -> Self {
+        match raw {
+            0 => Self::ShipEngine,
+            1 => Self::Cockpit,
+            2 => Self::GravDrive,
+            3 => Self::CreatureAnim,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u16 {
+        match self {
+            Self::ShipEngine => 0,
+            Self::Cockpit => 1,
+            Self::GravDrive => 2,
+            Self::CreatureAnim => 3,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for WkmfMappingTemplate {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for WkmfMappingTemplate {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WkmfKeywords(pub Vec<FormId>);
+
+impl Field for WkmfKeywords {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WkmfKeywords {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WkmfSoundMappingSoundsSwitchDataList {
+    pub switch_group: [u8; 16],
+    pub switch_state: [u8; 16],
+}
+
+impl Field for WkmfSoundMappingSoundsSwitchDataList {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "WKMF.SoundMapping.WMSD.SwitchDataList.SwitchGroup", ctx)?;
+        let f1 = Field::read(r, "WKMF.SoundMapping.WMSD.SwitchDataList.SwitchState", ctx)?;
+        Ok(Self {
+            switch_group: f0,
+            switch_state: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.switch_group.write(out);
+        self.switch_state.write(out);
+    }
+}
+
+impl Visit for WkmfSoundMappingSoundsSwitchDataList {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WkmfSoundMappingSounds {
+    pub sound_reference: SoundReference,
+    pub count: u32,
+    pub switch_data_list: Vec<WkmfSoundMappingSoundsSwitchDataList>,
+}
+
+impl Field for WkmfSoundMappingSounds {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "WKMF.SoundMapping.WMSD.SoundReference", ctx)?;
+        let f1 = u32::read(r, "WKMF.SoundMapping.WMSD.Count", ctx)?;
+        let n2 = count(f1, "WKMF.SoundMapping.WMSD.SwitchDataList", r.position())?;
+        let f2 = read_array(r, n2, "WKMF.SoundMapping.WMSD.SwitchDataList", ctx)?;
+        Ok(Self {
+            sound_reference: f0,
+            count: f1,
+            switch_data_list: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.sound_reference.write(out);
+        count_value(self.switch_data_list.len(), u32::MAX).write(out);
+        write_counted(&self.switch_data_list, u32::MAX, out);
+    }
+}
+
+impl Visit for WkmfSoundMappingSounds {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.sound_reference,
+            "WKMF.SoundMapping.WMSD.SoundReference",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.sound_reference,
+            "WKMF.SoundMapping.WMSD.SoundReference",
+            out,
+        );
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct WkmfSoundMapping {
     /// `WMSI`, required.
-    pub wmsi: Option<Sub<Bytes>>,
+    pub sound_id: Option<Sub<u16>>,
     /// `WMSD`, required.
-    pub wmsd: Option<Sub<Bytes>>,
+    pub sounds: Option<Sub<WkmfSoundMappingSounds>>,
 }
 
 impl WkmfSoundMapping {
@@ -89885,7 +90121,7 @@ impl WkmfSoundMapping {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.wmsi,
+                    &mut self.sound_id,
                     subs,
                     *index,
                     "WKMF.SoundMapping.WMSI",
@@ -89893,7 +90129,7 @@ impl WkmfSoundMapping {
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.wmsd,
+                    &mut self.sounds,
                     subs,
                     *index,
                     "WKMF.SoundMapping.WMSD",
@@ -89906,23 +90142,31 @@ impl WkmfSoundMapping {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"WMSI", self.wmsi.as_ref());
-        emit(out, *b"WMSD", self.wmsd.as_ref());
+        emit(out, *b"WMSI", self.sound_id.as_ref());
+        emit(out, *b"WMSD", self.sounds.as_ref());
     }
 }
 
-impl Visit for WkmfSoundMapping {}
+impl Visit for WkmfSoundMapping {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sounds, "WKMF.SoundMapping.WMSD", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sounds, "WKMF.SoundMapping.WMSD", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct WkmfRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `WMTI`, required.
-    pub wmti: Option<Sub<Bytes>>,
+    pub mapping_template: Option<Sub<WkmfMappingTemplate>>,
     /// `WMKA`, required.
-    pub wmka: Option<Sub<Bytes>>,
+    pub keywords: Option<Sub<WkmfKeywords>>,
     /// `WMSS`, required.
-    pub wmss: Option<Sub<Bytes>>,
+    pub count: Option<Sub<u32>>,
     /// Group `SoundMapping`, repeated.
     pub sound_mapping: Vec<WkmfSoundMapping>,
     /// Subrecords that matched no member or failed to decode, each with its index
@@ -89969,14 +90213,19 @@ impl WkmfRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "WKMF.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.wmti, subs, *index, "WKMF.WMTI", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.mapping_template,
+                    subs,
+                    *index,
+                    "WKMF.WMTI",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.wmka, subs, *index, "WKMF.WMKA", ctx, extra)
+                    put(&mut self.keywords, subs, *index, "WKMF.WMKA", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.wmss, subs, *index, "WKMF.WMSS", ctx, extra)
+                    put(&mut self.count, subs, *index, "WKMF.WMSS", ctx, extra)
                 }
                 Hit::Group { member: 4, hits } => {
                     let mut group = WkmfSoundMapping::default();
@@ -89990,16 +90239,26 @@ impl WkmfRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"WMTI", self.wmti.as_ref());
-        emit(out, *b"WMKA", self.wmka.as_ref());
-        emit(out, *b"WMSS", self.wmss.as_ref());
+        emit(out, *b"WMTI", self.mapping_template.as_ref());
+        emit(out, *b"WMKA", self.keywords.as_ref());
+        emit(out, *b"WMSS", self.count.as_ref());
         for group in &self.sound_mapping {
             group.emit(out);
         }
     }
 }
 
-impl Visit for WkmfRecord {}
+impl Visit for WkmfRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.keywords, "WKMF.WMKA", out);
+        visit_form_ids(&self.sound_mapping, "WKMF.SoundMapping", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.keywords, "WKMF.WMKA", out);
+        visit_form_ids_mut(&mut self.sound_mapping, "WKMF.SoundMapping", out);
+    }
+}
 
 impl WkmfRecord {
     /// Record signature.

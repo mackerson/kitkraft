@@ -1,28 +1,33 @@
-# WKMF: WwiseKeywordMapping, inventory definition (M4.BX2, lane B).
+# WKMF: WwiseKeywordMapping, a Wwise keyword mapping: a mapping template, a keyword
+# list, a count and the sound mappings (one sound ID and one sound block each).
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L19046-L19107 - member order, EDID (L19047), the
+#     mapping template (L19048-L19055), the keyword list (L19057-L19060), the count
+#     (L19061-L19062) and the repeated sound-mapping group (L19063-L19106: the sound ID
+#     L19064-L19091, the sound block L19092-L19105; the group's count is the WMSS count,
+#     L19106). The upstream sound ID is a union whose arms depend on the record's
+#     mapping template (wbWwiseKeywordMappingSoundDecider: wbDefinitionsCommon.pas
+#     L6161-L6167); a definition here cannot name a sibling subrecord as a decider, so
+#     the sound ID is kept a plain 16-bit value with a note.
 #   corpus: the M4.BX2 scan of every official WKMF record (81 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the WKMF definition of wbDefinitionsSF1.pas at the pinned revision (L19046-L19107),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur,
+#     in which order and how often, and their sizes. The soun_wkmf_types scan
+#     (crates/esm/tests/soun_wkmf_types.rs) checks this definition against the same
+#     records: every subrecord is placed, every placed subrecord decodes, and the
+#     re-encoding reproduces every record.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# The sound block carries a count its upstream layout lacks: upstream reads its switch
+# data to the end of the payload, but every official WMSD is a sound reference plus 4
+# bytes plus 32 bytes per entry, and the 4 bytes after the reference are that count,
+# which also equals the record's sound mappings (WMSS).
 signature = "WKMF"
 name = "WwiseKeywordMapping"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official WKMF record (81) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -39,70 +44,83 @@ confidence = "corpus"
 
 [[member]]
 sig = "WMTI"
-name = "Wmti"
-type = "opaque"
+name = "MappingTemplate"
+type = "enum"
+base = "u16"
+values = [["ShipEngine", 0], ["Cockpit", 1], ["GravDrive", 2], ["CreatureAnim", 3]]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 2 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19048-L19048",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19048-L19055",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "WMKA"
-name = "Wmka"
-type = "opaque"
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 4..8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19057-L19057",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19057-L19060",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "WMSS"
-name = "Wmss"
-type = "opaque"
+name = "Count"
+type = "u32"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19061-L19061",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19061-L19062",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "the number of sound mappings in the group that follows"
 
 [[member]]
 group = "SoundMapping"
 card = "repeated"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 2 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19064-L19064",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19063-L19106",
 ]
 confidence = "corpus"
 note = "one sound mapping: WMSI then WMSD; WMSS stores their number (kept as read)"
 
 [[member.member]]
 sig = "WMSI"
-name = "Wmsi"
-type = "opaque"
+name = "SoundId"
+type = "u16"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 2 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19064-L19064",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19064-L19091",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6161-L6167",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "which sound the mapping names depends on the record's mapping template (WMTI); upstream makes it a union decided by that sibling subrecord, which a definition here cannot express, so the value is kept a plain 16-bit number"
 
 [[member.member]]
 sig = "WMSD"
-name = "Wmsd"
-type = "opaque"
+name = "Sounds"
+type = "struct"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 44..108 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19092-L19092",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19092-L19105",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "a sound reference, then its switch data; the count is not in the upstream layout (it reads the switch data to the end of the payload) but every official WMSD has it: the reference plus 4 bytes, then 32 bytes per entry; the count equals the number of entries, and the entries pair one to one with the record's sound IDs"
+field = [
+  { name = "SoundReference", type = "ref:SoundReference" },
+  { name = "Count", type = "u32" },
+  { name = "SwitchDataList", type = "array", element = "struct", count_from = "Count", field = [
+    { name = "SwitchGroup", type = "opaque", size = 16, note = "a Wwise GUID; kept raw (there is no shared GUID type)" },
+    { name = "SwitchState", type = "opaque", size = 16, note = "a Wwise GUID; kept raw (there is no shared GUID type)" },
+  ] },
+]
