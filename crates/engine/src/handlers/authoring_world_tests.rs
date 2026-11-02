@@ -230,7 +230,10 @@ fn a_new_exterior_cell_is_refused() {
     assert_eq!(v["findings"], json!([]), "{v:#}");
     // New.esp holds the WRLD.
     let index = index_bytes(&std::fs::read(&into).unwrap(), &IndexOptions::default()).unwrap();
-    assert!(index.records.iter().any(|r| r.signature.to_string() == "WRLD"));
+    assert!(index
+        .records
+        .iter()
+        .any(|r| r.signature.to_string() == "WRLD"));
     let _ = std::fs::remove_dir_all(&d);
 }
 
@@ -280,9 +283,16 @@ fn a_new_world_is_written_alone_in_its_top_level_group() {
         .collect();
     assert_eq!(groups, [(0, u32::from_le_bytes(*b"WRLD"))], "{groups:?}");
     // Only the TES4 header and the WRLD: no persistent cell, no exterior cells.
-    let sigs: Vec<String> =
-        index.records.iter().map(|r| r.signature.to_string()).collect();
-    assert_eq!(sigs, vec!["TES4".to_string(), "WRLD".to_string()], "{sigs:?}");
+    let sigs: Vec<String> = index
+        .records
+        .iter()
+        .map(|r| r.signature.to_string())
+        .collect();
+    assert_eq!(
+        sigs,
+        vec!["TES4".to_string(), "WRLD".to_string()],
+        "{sigs:?}"
+    );
     // The field values read back.
     let parsed = Plugin::parse(&bytes).unwrap();
     let wrld = find_record(parsed.entries(), "WRLD").unwrap();
