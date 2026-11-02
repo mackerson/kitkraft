@@ -1709,12 +1709,22 @@ mod tests {
     }
 
     /// A scratch folder under the OS temp dir for one test (never the game's Data).
-    fn scratch(tag: &str) -> std::path::PathBuf {
+    /// Removed when dropped, so a test that fails midway leaves nothing behind (review
+    /// note I3).
+    fn scratch(tag: &str) -> Scratch {
         let dir =
             std::env::temp_dir().join(format!("kitkraft-ui-gate-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        dir
+        Scratch(dir)
+    }
+
+    struct Scratch(std::path::PathBuf);
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
     }
 
     /// Through the gate and the engine on a scratch fixture (`Fixture.esm`, one GLOB, made
@@ -1729,7 +1739,8 @@ mod tests {
         use crate::dialogs::set;
         use crate::panels::cockpit::fake_mo2::plugin_bytes;
 
-        let dir = scratch("set");
+        let scratch = scratch("set");
+        let dir = &scratch.0;
         let fixture = dir.join("Fixture.esm");
         let master = plugin_bytes(&[], 1, &[0x800], 1.5);
         std::fs::write(&fixture, &master).unwrap();
@@ -1806,7 +1817,6 @@ mod tests {
                 assert!(refused.is_err(), "{refused:?}");
             }
         }
-        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
