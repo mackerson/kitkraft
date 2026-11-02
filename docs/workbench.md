@@ -487,17 +487,23 @@ revisited once a sitting observes how the CK docks. Code:
 `app.rs`, which calls it through one-line hooks), `src/dialogs/`, and the layout files in
 `crates/ui-egui/layouts/`.
 
-- **Menu bar (M7.M1)**, above the tabs, built from the catalog: one item per command, in
+- **Menu bar (M7.M1)**, above the tabs. The CK's twelve menus come first, in the order
+  sitting `ck-20261101-01` observed (File, Edit, View, Docks, Galaxy, World, Terrain,
+  NavMesh, Character, Gameplay, Audio, Help; `docs/ck-parity.md`, filed in
+  `ck-20261102-01`); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game)
+  come before Help. A CK menu lists its observed items first, in the CK's order and with
+  the CK's labels (`menu.rs` `CK_ITEMS`, a test holds it equal to the `menu item` rows):
+  an item its row maps to a command opens that command's tab or window and is enabled or
+  disabled as the command is (File > Data... opens the Data dialog, View > Warnings the
+  Warnings window); an item its row gives a `gap:` is drawn disabled with that reason
+  (File > Save Plugin says each confirmed edit is written when it is made). Below a
+  "KitKraft" line come the catalog's own commands of that menu: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
-  (bound by M7.M5). The CK's menus come first in the order `docs/ck-parity.md` records,
-  which is a recollection: the bar's parity row is `built, unobserved` (ADR 0012
-  Amendment 1, accepted 2026-11-01), never counted as parity, until a sitting observes the
-  CK's order (each such menu says so in its first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
-  before Help; a CK menu with no command yet (World, NavMesh, Character, Gameplay) shows a
-  disabled line saying why. An item opens the tab or window that runs its command and
-  runs nothing itself. Disabled items carry a word beside them and the reason on hover:
-  `writes` (outside ADR 0007 Amendment 3's scope, or in it but not yet permitted),
-  `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
+  (bound by M7.M5); a command whose `menu_path` is an observed item is that item. An item
+  opens the tab or window that runs its command and runs nothing itself. Disabled items
+  carry a word beside them and the reason on hover: `writes` (outside ADR 0007 Amendments
+  3 and 4, or in the editor's scope and not yet permitted with its M7.E ticket), `gap`,
+  `no command`, `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
