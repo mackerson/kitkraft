@@ -325,11 +325,23 @@ pub fn official_master(file_name: &str) -> bool {
 /// path is read the same on every system. `None` when the gate has nothing against it;
 /// the dialog and the engine check the rest.
 pub fn output_refusal(path: &str) -> Option<String> {
-    let parts: Vec<&str> = path
-        .split(['/', '\\'])
-        .map(str::trim)
-        .filter(|p| !p.is_empty())
-        .collect();
+    // Components as Windows resolves them: `.` dropped, `..` pops, trailing dots and
+    // spaces trimmed (`Default.` is `Default`; review finding L2).
+    let mut parts: Vec<&str> = Vec::new();
+    for raw in path.split(['/', '\\']) {
+        match raw.trim() {
+            "." => {}
+            ".." => {
+                parts.pop();
+            }
+            c => {
+                let c = c.trim_end_matches(['.', ' ']);
+                if !c.is_empty() {
+                    parts.push(c);
+                }
+            }
+        }
+    }
     let name = parts.last().copied().unwrap_or_default();
     let lower = name.to_ascii_lowercase();
     if ![".esm", ".esp", ".esl"].iter().any(|e| lower.ends_with(e)) {
@@ -1019,6 +1031,13 @@ mod tests {
                 "live game",
             ),
             ("mo2/Profiles/ default /Patch.esp", "live game"),
+            // Review finding L2: spellings Windows resolves into `Default`.
+            (r"C:\MO2\profiles\.\Default\P.esp", "live game"),
+            (r"C:\MO2\profiles\Default.\P.esp", "live game"),
+            (r"C:\MO2\profiles\Default. .\P.esp", "live game"),
+            (r"C:\MO2\profiles\Other\..\Default\P.esp", "live game"),
+            (r"C:\MO2\x\..\profiles\Default\P.esp", "live game"),
+            ("Starfield.esm.", "official master"),
         ] {
             let got = output_refusal(bad);
             assert!(
