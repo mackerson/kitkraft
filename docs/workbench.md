@@ -496,8 +496,14 @@ revisited once a sitting observes how the CK docks. Code:
   single-plugin mode). Never the active file: a master-flagged plugin (as the CK refuses
   one, `ck-20261101-01`), an official master or Creation (the engine's activation rule
   `hardcoded-official`, `Starfield.ccc` or `blueprint-companion-of:`, or the official
-  names), and anything while the session was loaded from `Default`; the refusal shows
-  under the list and the active file stays as it was. The active file is UI state only
+  names), and anything while the session was loaded from `Default` (whose order is then
+  read-only: no ticks, OK sends no `load`); the refusal shows under the list and the
+  active file stays as it was. These refusals read the engine's `load` result; the engine's
+  output guard (`edit::patch::guard_target`, `guard_location`) refuses a load-order plugin,
+  the Data folders and MO2 as a write target on its own, with its own tests
+  (`edit/patch_tests.rs`, `handlers/build_tests.rs`). A Creation listed only in
+  `plugins.txt` is not recognised as one here (it lives in the Data folder, which the guard
+  refuses). The active file is UI state only
   (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
