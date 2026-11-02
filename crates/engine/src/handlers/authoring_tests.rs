@@ -1,7 +1,8 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
-//! WRLD tests are ignored), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and ARMO, ARMA
+//! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
+//! ARMO, ARMA
 //! and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable
 //! evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored,
 //! pass since KK-220 (scaffold.rs `record_order`).
@@ -884,9 +885,8 @@ fn qust_dangling_link_is_reported() {
     );
 }
 
-// Ignored with the read-back test: `new` refuses a WRLD (newform.rs `new_refused`), so the
-// record this test writes cannot be created yet.
-#[ignore = "`new` refuses a WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are not written yet"]
+// `new` writes a WRLD (KK-221), so this record can be created: its FormID
+// members are checked by formid.dangling.
 #[test]
 fn wrld_dangling_link_is_reported() {
     // The parent worldspace, the location, the biome and the climate.
