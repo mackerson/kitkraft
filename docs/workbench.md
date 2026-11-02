@@ -449,7 +449,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W2, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -485,6 +485,23 @@ revisited once a sitting observes how the CK docks. Code:
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
   severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
   double-click a finding to inspect its record.
+- **Data dialog (M7.M2)**: View > Data Dialog. The session's load order (the Load tab's
+  `load`) and the plugins its profile lists but does not activate, each with its status as
+  the CK names it ("Master File", "Plugin File", "Active File") and a tick: a double-click
+  or its box ticks a row, "Set as Active File" makes the selected plugin the active file
+  and ticks it, OK loads the ticked plugins with `load` when the ticks changed (through the
+  Load tab's slot, so the session follows) and then sets the active file, Cancel changes
+  nothing. The selected plugin's header shows beside the list (author, description,
+  masters, header flags, the stored timestamp; `inspect` of its `TES4`, FormID 0, in
+  single-plugin mode). Never the active file: a master-flagged plugin (as the CK refuses
+  one, `ck-20261101-01`), an official master or Creation (the engine's activation rule
+  `hardcoded-official`, `Starfield.ccc` or `blueprint-companion-of:`, or the official
+  names), and anything while the session was loaded from `Default`; the refusal shows
+  under the list and the active file stays as it was. The active file is UI state only
+  (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
+  Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
+  the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
+  the boxes, "No Active File"; the CK's type-ahead row selection is not built.
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.
