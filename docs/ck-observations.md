@@ -252,6 +252,93 @@ confirms it.
 | Script | Fixtures | Sitting | State |
 | ------ | -------- | ------- | ----- |
 | `docs/ck-sessions/f29-f30.md` | F29 (the first POI's crate placed in the CK, `KitKraftFirstPOI-CK.esm`), F30 (`KitKraftFirstPOI.esm` re-saved as `KitKraftFirstPOI-CKRoundtrip.esm`) | M5.O1 (`plan/STATUS.md` row 12) | written 2026-10-16; F30's load half run 2026-11-01 by an agent (`ck-20261101-01`, no save); F29 approved once F30 is clean |
+| "Interface sittings (M7.K2)" below | none (observation only) | M7.O2 (sitting 1), M7.O3 (sitting 2) | written 2026-11-02; sitting 1's menus, Data dialog, Object Window and Cell View done 2026-11-01 (`ck-20261101-01`, `-03`, filed in `ck-20261102-01`); its rest and sitting 2 open |
+
+## Interface sittings (M7.K2)
+
+The scripts of the two automated interface sittings (ADR 0012 Amendment 2; observation
+only, no CK save). Sitting 1 (M7.O2) fills the menu and window rows of `docs/ck-parity.md`
+"Interface parity", and sitting 2 (M7.O3) the edit dialog rows. Every step names the rows
+it fills by their "CK element" text. The 2026-11-01 sittings already saw sitting 1's menus,
+the Data dialog, the Object Window and the Cell View, so what is left of sitting 1 is its
+rest (S1-04 onward). A CK fixture of `plan/STATUS.md` rows 12 and 15 is a sitting of its
+own with its own id. It may share a launch with an interface sitting only after the
+observation steps, and only for the fixture the owner OK'd for that sitting (`ck-run.ps1
+-SaveAllowed <fixture>`).
+
+### The frame (every sitting)
+
+Scripts, gitignored and outside the repo, in `C:\Modding\kitkraft-observe\scripts\`:
+
+- `ck-lib.ps1`: UI Automation (find, dump, invoke, screenshot), from `ck-20261101-01`.
+- `ck-input.ps1`: mouse and keys, refused while no CK window is in front.
+- `ck-sitting.ps1`: the frame below.
+- `ck-run.ps1`: runs one steps file inside the frame.
+- `ck-sitting.selftest.ps1`: a desk test of the frame that launches nothing.
+
+Records go to `C:\Modding\kitkraft-observe\ck-<yyyy-mm-dd>\<name>\`: `session.md`,
+`preflight.json`, `settings-before\`, `shots\`, and one dump per observed state.
+
+| Step | The agent | Refuses or records |
+| ---- | --------- | ------------------ |
+| Preflight | `ck-run.ps1 -Id ck-<yyyymmdd>-<nn> -Name <name> -Steps <file>` checks that no Starfield, sfse_loader, CreationKit or ModOrganizer process runs, and that the profile is `Kitkraft Dev`, never `Default` | Refuses otherwise. `preflight.json` holds the CK version and SHA-256 and the hashes of the two settings files and of the dev profile's `modlist.txt`, `plugins.txt` and `loadorder.txt` |
+| Settings | Copies `CreationKitPrefs.ini` and `QtCreationKitSavedSettings.ini` from the game folder into `settings-before\` (decision 4). With `-Defaults` it then removes them, so the CK starts from its defaults | Refuses to overwrite an earlier backup; a file that was absent is recorded as absent |
+| Launch | MO2 with `-p "Kitkraft Dev" "moshortcut://:Creation Kit"`, then waits for the CK's main window (not its splash screen) | - |
+| Steps | For each state, a dump and a screenshot at the same moment (`Capture-State`, decision 1). Each new kind of probe runs at most twice, then it is `inconclusive` with a Request | Labels only. Automation ids and class names are used to drive, never cited. Help, tooltip and status text is never copied |
+| End | The CK is closed through its window and stopped only if it hangs for 90 s (a finding). MO2 is closed the same way (60 s). The settings files are restored and their hashes checked | The postflight checks that nothing is running and that the list files and settings files hash as at preflight. Otherwise `session.md` says `FAILED` and the sitting is `inconclusive` |
+
+The frame never answers a save prompt. A steps file runs only once it carries a line
+`# READY` of its own; an outline is refused. Each sitting gets one ledger entry below, and
+its rows move in `docs/ck-parity.md` in a change of their own.
+
+### Sitting 1 (M7.O2): menus and windows
+
+Data: `Starfield.esm` only, no active file, as in F29. Steps S1-01 to S1-03 were done on
+2026-11-01; the rest are X6's in sprint 2026-11-02.
+
+| Step | Done | The agent | Records | Parity rows filled |
+| ---- | ---- | --------- | ------- | ------------------ |
+| S1-01 | `ck-20261101-01`, filed in `ck-20261102-01` | Opens each top-level menu in turn (expand, dump, screenshot, collapse) | The menus' order and items | "Main menu bar, order"; the twelve "<menu> menu, every item" rows and their `menu item` rows |
+| S1-02 | `ck-20261101-01`, `-02`, `-03` | File > Data..., a plugin ticked, the active file set | The dialog's layout and behaviour | "Data dialog (choose masters and the active file; details)" |
+| S1-03 | `ck-20261101-03` | View > Cell View, a cell loaded, the Object Window filtered | Layout and labels | "Object Window (category tree, list, filter)", "Cell View (worldspace, cells, references)" |
+| S1-04 | open | Opens each submenu not yet opened by hovering its item, dumps it, takes a screenshot, then Escape: File > Import/Export, Theme (experimental), Compact Active File Form IDs for ..., Convert Active File to ...; View > Toggle Render Features, Object Windows, Render Windows, Packin; Docks > Recent Layouts; World > World Testing And Reports, Generate Max Height Data; NavMesh > Other Options | Each submenu's items | The `menu item` rows of these twelve items (from "not known yet"); a new `menu item` row "<menu> > <submenu> > <item>" per item |
+| S1-05 | open | Opens Docks again and dumps the open popup's whole subtree (the 2026-11-01 dump left out the entries below its separator); records each item's check state where the tree exposes it | Docks' full list; check marks | "Docks menu, every item" and its `menu item` rows; "Window arrangement (floating or docked windows)" |
+| S1-06 | open | Dumps each menu again with each item's accelerator key, where the tree exposes it; then Edit > Render Window Hotkeys, dumped page by page, and closed with Cancel or its close button | The CK's key bindings, as labels and keys | "Keyboard shortcuts, every one observed" |
+| S1-07 | open | Loads `CityNewAtlantisApartmentTEMPLATE` (World Space "Interior") as in F29. Then, for each control (right-drag, middle-drag, the wheel, W A S D, the same with Shift), one input inside the Render Window, a screenshot before and after, and the Render Window's title read before and after | Which input moves the camera, and how | "Render Window camera: orbit, pan, zoom, fly (mouse and keys)", "Render Window" |
+| S1-08 | open | File > Preferences...: every tab selected in turn, dumped and screenshot; then Cancel | Tabs, groups, labels | "Preferences" |
+| S1-09 | open | Object Window: every node of the category tree expanded, then the tree and the list's column headers dumped | The categories and their order | "Object Window (category tree, list, filter)" (the categories of M7.S2) |
+| S1-10 | open | View > Warnings: the window's controls (filter, columns) dumped and screenshot | Layout and labels | "Warnings window" |
+| S1-11 | open | Object Window: a row's context menu (right-click) dumped; its use-info entry opened and dumped, if it offers one | How the CK shows the references to a form | "Use Info (references to a form)" |
+| S1-12 | open | File > Exit (nothing changed, so no prompt is expected) | Any prompt is a finding | - |
+
+### Sitting 2 (M7.O3): the edit dialogs of the first eight types
+
+Data as in sitting 1. Each step does the same thing for its form: the Object Window's Text
+Filter set to the EditorID, the row double-clicked, then in the dialog every tab selected in
+turn, with the dialog's subtree dumped and a screenshot taken for each, and finally Cancel.
+OK is never pressed (observation only). After Cancel the title bar is read. If it shows the
+unsaved mark (`*`), that is a finding: the sitting stops, and at File > Exit the save prompt
+is answered No, which saves nothing. A control without a label in the tree (a Win32 property
+grid) is read from its screenshot, or left `inconclusive`. M7.K4 then maps each field to a
+schema member path, or to `gap:` with a `docs/gaps.md` row.
+
+| Step | Type | Form | EditorID | Parity row filled |
+| ---- | ---- | ---- | -------- | ----------------- |
+| S2-01 | WEAP | `Starfield.esm:0021BBCD` | `RussianHuntingRifle` | "Edit dialog: WEAP (tabs, groups, labels)" |
+| S2-02 | AMMO | `Starfield.esm:002B559B` | `Ammo9x39mm` | "Edit dialog: AMMO" |
+| S2-03 | COBJ | `Starfield.esm:2AA561` | `co_ammo_777mm` | "Edit dialog: COBJ" |
+| S2-04 | LCTN | `Starfield.esm:01295A` | `CityNewAtlantisLocation` | "Edit dialog: LCTN" |
+| S2-05 | TERM | `Starfield.esm:0029A4` | `LC017_RobotTurretControl` | "Edit dialog: TERM" |
+| S2-06 | CONT | `Starfield.esm:04A4F3` | `SQ_TreasureMap_SpaceCrate` | "Edit dialog: CONT" |
+| S2-07 | STAT | `Starfield.esm:1E4FBD` | `Crate_MilitarySupply_01` | "Edit dialog: STAT" |
+| S2-08 | KYWD | `Starfield.esm:04A0A1` | `WeaponTypeRifle` | "Edit dialog: KYWD" |
+| S2-09 | - | File > Exit | - | - |
+
+The forms were found with `kit query` on `Starfield.esm` on 2026-11-02: the rifle and its
+ammo are the M3 fixtures' forms and the crate is F29's. The other five come from the first
+page of a query each: COBJ `EDID ~ "Ammo"`, LCTN `EDID ~ "NewAtlantis"`, CONT `EDID ~
+"Crate" and has FULL`, KYWD `EDID ~ "WeaponType"`, and TERM with no filter (a named
+terminal).
 
 ## Ledger
 
