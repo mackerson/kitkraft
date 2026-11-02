@@ -217,7 +217,7 @@
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
 // - WKMF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107; reference)
 // - WRLD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035; corpus)
-// - WTHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18846-L18929; reference)
+// - WTHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18846-L18929; corpus)
 // - WTHS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WTHS record (187) decodes with every subrecord placed and re-encodes identically; corpus)
 // - WWED (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official WWED record (681) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ZOOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19109-L19128; corpus)

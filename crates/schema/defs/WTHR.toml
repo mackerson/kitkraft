@@ -5,6 +5,11 @@
 # layout, and the version gates follow xEdit. The official ESMs all carry the newest
 # layout, and the corpus lines below record what the scan of them observed.
 #
+# Checked against the corpus (KK-226): wthr_types_full (crates/esm/tests/wthr_types.rs),
+# 2026-11-02, decodes all 3 official WTHR records with every subrecord placed in a member,
+# every placed subrecord decoding with the declared layout, and every record re-encoding
+# identically.
+#
 # xEdit gives this type one record-header flag, bit 9, and names it "Unknown 9"; no
 # PascalCase name exists upstream, so no flag is declared here.
 #
@@ -13,7 +18,11 @@
 signature = "WTHR"
 name = "Weather"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18846-L18929"
-confidence = "reference"
+evidence = [
+  "corpus: wthr_types_full (crates/esm/tests/wthr_types.rs), 2026-11-02: all 3 WTHR records of the 14 official ESMs decode with every subrecord placed and re-encode identically",
+]
+confidence = "corpus"
+note = "KK-226: transcribed from the pinned xEdit file, checked by wthr_types_full; the Sounds block is absent from the official records and stays at reference confidence"
 
 [[member]]
 sig = "EDID"
