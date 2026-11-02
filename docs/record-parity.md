@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 91: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    504,991 |   563,238 |  11,610 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,060,512 | 2,640,731 | 718,318 |
+| container/other |          123 |         123 |   252,710 |    505,148 |   563,081 |  11,610 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,060,669 | 2,640,574 | 718,318 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:0aa7e2830f3932ef` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:307a3a807a29f22c` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -236,7 +236,7 @@ Columns:
 | `REGN`        | Region                         |         4 |          0 |     6 |     1 |      5 |       0 |
 | `DEBR`        | Debris                         |         3 |          0 |     3 |     1 |      2 |       0 |
 | `OSWP`        | ObjectSwap                     |         3 |          0 |     1 |     1 |      0 |       0 |
-| `WTHR`        | Weather                        |         3 |          0 |    26 |     3 |     23 |       0 |
+| `WTHR`        | Weather                        |         3 |          0 |    26 |    26 |      0 |       0 |
 | `PERS`        | UnknownPers                    |         2 |          0 |     2 |     0 |      2 |       0 |
 | `SDLT`        | SecondaryDamageListForm        |         2 |          0 |     4 |     1 |      3 |       0 |
 | `DOBJ`        | DefaultObjectManager           |         1 |          0 |     2 |     1 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,098 |    497 |     202 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,121 |    474 |     202 |
 
-Subrecord occurrences: 50,419,561 in total; 47,060,512 typed (0 of them failed to decode), 2,640,731 opaque, 718,318 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,060,669 typed (0 of them failed to decode), 2,640,574 opaque, 718,318 unknown.
 
 ## Decoded through the definitions
 
@@ -438,7 +438,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `REGN`    | Region                         |             4 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
-| `WTHR`    | Weather                        |             3 |          7 |      0 |         0 |         0 |                   0 |          7 |       0 |        0 |
+| `WTHR`    | Weather                        |             3 |        164 |      0 |         0 |         0 |                   0 |        164 |       0 |        0 |
 | `PERS`    | UnknownPers                    |             2 |          0 |      0 |         0 |         0 |                   0 |          0 |       0 |        0 |
 | `SDLT`    | SecondaryDamageListForm        |             2 |          2 |      0 |         0 |         0 |                   0 |          2 |       0 |        0 |
 | `DOBJ`    | DefaultObjectManager           |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,060,512 |      0 |         0 |   231,862 |                   0 | 46,828,650 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,060,669 |      0 |         0 |   231,862 |                   0 | 46,828,807 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -645,11 +645,11 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WEAP`    | Weapon                         |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
 | `WRLD`    | Worldspace                     |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
-| `WTHR`    | Weather                        |             26 |     3 |     23 |         0 |                   0 |     26 |       0 |        0 |
+| `WTHR`    | Weather                        |             31 |    31 |      0 |         3 |                   0 |     28 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,893 | 5,095 |    798 |       416 |                   2 |  5,475 |       0 |        0 |
+| **Total** |                                |          5,898 | 5,123 |    775 |       419 |                   2 |  5,477 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

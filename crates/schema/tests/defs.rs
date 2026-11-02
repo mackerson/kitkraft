@@ -681,7 +681,6 @@ const BX2_INVENTORY: &[&str] = &[
     "TRNS",
     "VOLI",
     "WBAR",
-    "WTHR",
     "WTHS",
     "WWED",
 ];
