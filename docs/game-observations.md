@@ -491,7 +491,8 @@ row shows.
 | O2-03 | manual | - | As O2-02; the session's copy was deployed by `kit deploy --dev`, and its SHA-256 matches the template's | not-run (owner) |
 | O2-04 | manual | - | The controller never sends `bat`; T-01 to T-04 send the batch's commands one by one | not-run (`bat` stays grade D) |
 | O2-05 | probe | T-01 | `coc CityNewAtlantisApartmentTEMPLATE`, then `player.getincell 0021966F` answered `GetInCell >> 1.00` | **pass** |
-| O2-06 | probe | T-02, T-03 | `player.moveto 06001000`, then `getdistance player` answered 0.86; `prid 06001000` with `getisid 001E4FBD` answered 1.00. That is the crate, with the plugin's base, by its runtime ID. Clicking the crate is replaced by `prid`, since input injection is deferred | **pass** |
+| O2-06, moved to the crate | probe | T-02 | `player.moveto 06001000`, then `getdistance player` answered 0.86 | **pass** |
+| O2-06, the ID shown on a click | manual | - | Nothing was clicked: input injection is deferred (ADR 0010 Amendment 1 (b)). `prid` with the ID the plan predicted (T-03) does not show what a click shows. The slot is known from `game-20261101-T1` row e | not-run (regraded 2026-11-02, review L1: the row was graded pass from T-03, which checks another expectation) |
 | O2-07, position | probe | T-04 | `getpos x/y/z` answered -17.00, -4.00, 4.63, the plugin's `DATA` | **pass** |
 | O2-07, facing | probe (screenshot) | T-04 (`T-04-1.png`) | No rotation getter was sent. The facing is in the screenshot only, which nobody has looked at against the wall piece `Starfield.esm:1B21E0` | **inconclusive** (screenshot only, owner to look) |
 | O2-08, position after a reload | probe | T-05, T-06 | Step 1 (leave): `coc CityNewAtlantisLodgeInt`, `GetInCell 0006BB29 >> 1.00`. Step 3 (save and reload): `save KitKraftSession-20261101-04`, then `coc` to the apartment (`GetInCell 0021966F >> 1.00`), `load` of that save, and back in the Lodge (`GetInCell 0006BB29 >> 1.00`), so the load happened. Step 4 (return): T-06 `getpos` gave -17.00, -4.00, 4.63 again | **pass** |
@@ -499,8 +500,8 @@ row shows.
 | O2-08, protocol steps 2 and 3 as written | - | T-05 | Step 2 (`wait` one game hour) is not sent (no console command chosen, grade D). Step 3 loads from the world, not after quitting to the main menu | deviation, recorded |
 | O2-09 | manual | - | The long absence (168 game hours) has no chosen console route (FTH-EXP-07) | not-run |
 | O2-10 | manual | - | `placeatme` makes a reference whose ID is known only at run time | not-run |
-| O2-11, as written | probe | T-03 | The template expects `help KitKraftFirstPOICrate 4` to name the reference. `game-20261101-T1` row i: it lists nothing, because a reference's EditorID does not resolve in the console. The expectation cannot hold, and the template is wrong | **fail** (the template's expectation, not the plugin) |
-| O2-11, intent (find the reference) | probe | T-03 | Found by runtime ID: `prid 06001000`, `getisid 001E4FBD >> 1.00` | **pass** |
+| O2-11, as written | probe | - (`game-20261101-T1` row i) | The template expects `help KitKraftFirstPOICrate 4` to name the reference. `game-20261101-T1` row i: `prid KitKraftFirstPOICrate` answered "Item ... not found for parameter ObjectReferenceID", and `help KitKraftFirstPOICrate 4` listed only its two empty section headers, within the console tool's 100 ms capture window. A reference's EditorID does not resolve in the console, so the expectation cannot hold: the template is wrong | **fail** (the template's expectation, not the plugin; ruling R19: the template is corrected and the row re-run in X9) |
+| O2-11, intent (find the reference) | probe | - | Not graded from T-03, which is O2-06's evidence (a runtime ID the plan predicted, not the lookup O2-11 asks for). Ruling R19: the corrected row runs in X9 before any grade | not-run (regraded 2026-11-02, review M2: was pass from T-03) |
 | O2-12 | manual | - | The map and location UI | not-run (PS-04 stays D) |
 | O2-13 | manual | - | Neither package has an archive | n/a |
 
@@ -517,6 +518,11 @@ Findings, one line each:
 - O2-11's template expectation is wrong. `help <reference EditorID> 4` lists nothing
   (`game-20261101-T1` row i). The row should say: find the reference by its runtime ID
   (`prid`, `getisid`), as T-03 does. For the template's owner (pipeline X, `docs/game-observations.md`
-  "Template: session O2").
+  "Template: session O2"); ruling R19 (18:10) has it corrected and re-run in X9.
+- O2-11's `help` result has no positive control: no `help <base form EditorID> 4` was sent
+  through the console tool in the same 100 ms capture window. X9 sends
+  `help Crate_MilitarySupply_01 4` beside the corrected row (review L4).
+- Regraded 2026-11-02 after review (rulings R19, review M2 and L1): O2-06 is split, its
+  click half not-run; O2-11 "intent" pass -> not-run. Nothing else changed.
 - O2-08's "once" has no probe. A count of the plugin's base in the cell after the reload would
   close it; no console getter for that was chosen (the session lane, `kit testplan`).
