@@ -16,7 +16,6 @@ use crate::gate::Request;
 
 /// The preview of writing `fields` (field path -> value, as `set` takes them) of `form`
 /// into `into`, the active file: a dry run, which the gate passes like a read.
-#[allow(dead_code)] // the edit dialog sends it from the next commit (M7.E2)
 pub(crate) fn preview_request(form: &str, fields: &Map<String, Value>, into: &str) -> Request {
     Request::new(
         "set",
@@ -26,7 +25,6 @@ pub(crate) fn preview_request(form: &str, fields: &Map<String, Value>, into: &st
 
 /// The confirmed write of a previewed `set`: the preview's arguments with `dry_run`
 /// dropped, built once per confirm click. `None` when `preview` is not a `set` dry run.
-#[allow(dead_code)] // the confirm box sends it from the next commit (M7.E2)
 pub(crate) fn write_request(preview: &Request) -> Option<Request> {
     if preview.id != "set" || preview.args.get("dry_run") != Some(&Value::Bool(true)) {
         return None;
@@ -39,7 +37,6 @@ pub(crate) fn write_request(preview: &Request) -> Option<Request> {
 /// The record a confirmed `set` wrote, read back from `into` alone (`inspect` in
 /// single-plugin mode, by the FormID as the write's envelope says it is stored there).
 /// `None` when the envelope names no written record.
-#[allow(dead_code)] // the confirm box sends it from the next commit (M7.E2)
 pub(crate) fn readback_request(written: &Value, into: &str) -> Option<Request> {
     let form_id = written
         .pointer("/data/records")?
