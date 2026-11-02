@@ -36,13 +36,11 @@ use crate::gate::{Request, LIVE_PROFILE};
 use crate::panels::common::Slot;
 use crate::panels::load::LoadView;
 
-/// What a Data dialog request sent through the shell's tickets was for.
+/// What a Data dialog request sent through the shell's tickets was for. The dialog's
+/// `load` is not one: it goes through `Slot::Load`, so the session and the Load tab
+/// follow it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DataTicket {
-    /// The load order the dialog lists. Unused: the dialog's `load` goes through
-    /// `Slot::Load`, so the session and the Load tab follow it.
-    #[allow(dead_code)]
-    Load,
     /// One plugin's details (its `TES4`): the plugin's path.
     Details(String),
 }
@@ -403,9 +401,7 @@ impl DataDialogState {
 
     /// Takes the reply to a request sent with `Pending::Data(ticket)`.
     pub fn receive(&mut self, ticket: &DataTicket, result: Result<&Value, String>) {
-        let DataTicket::Details(path) = ticket else {
-            return;
-        };
+        let DataTicket::Details(path) = ticket;
         if self.details_pending.as_deref() == Some(path.as_str()) {
             self.details_pending = None;
         }
