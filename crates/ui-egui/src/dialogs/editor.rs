@@ -75,6 +75,10 @@ struct Write {
     written: Option<Value>,
     /// Whether the read-back is still to be sent.
     readback_due: bool,
+    /// The confirmed write as sent; its reply is matched against it (review finding L5).
+    write_req: Option<Request>,
+    /// The read-back as sent; its reply is matched against it.
+    readback_req: Option<Request>,
     /// The read-back's envelope (the written record in the active file alone).
     readback: Option<Value>,
     /// The confirmed write was sent and no envelope came back: the confirm is spent, and
@@ -162,11 +166,14 @@ impl EditorState {
                     }
                 }
             }
-            (Slot::EditorWrite, "set") if w.written.is_none() => {
+            (Slot::EditorWrite, "set")
+                if w.written.is_none() && w.write_req.as_ref() == Some(request) =>
+            {
                 w.written = Some(env.clone());
                 w.readback_due = true;
                 self.awaiting = None;
                 if let Some(read) = set::readback_request(env, &w.into) {
+                    w.readback_req = Some(read.clone());
                     self.next = Some((Slot::EditorWrite, read));
                 }
                 let file = file_name(&w.into);
@@ -175,7 +182,7 @@ impl EditorState {
                     format!("written: {} into {file}", changed_line(env)),
                 ));
             }
-            (Slot::EditorWrite, "inspect") => {
+            (Slot::EditorWrite, "inspect") if w.readback_req.as_ref() == Some(request) => {
                 w.readback = Some(env.clone());
                 self.awaiting = None;
             }
@@ -489,6 +496,8 @@ fn start(
         previewed: None,
         written: None,
         readback_due: false,
+        write_req: None,
+        readback_req: None,
         readback: None,
         failed: false,
     });
@@ -569,9 +578,10 @@ fn confirm_box(
             });
         });
     if confirm {
-        if let Some(w) = state.write.as_ref() {
+        if let Some(w) = state.write.as_mut() {
             match set::write_request(&w.preview).map(|r| (gate::check(&r), r)) {
                 Some((Ok(()), req)) => {
+                    w.write_req = Some(req.clone());
                     state.awaiting = Some(Slot::EditorWrite);
                     out.push(Action::Submit(Slot::EditorWrite, req));
                 }
@@ -693,6 +703,8 @@ mod tests {
             previewed: None,
             written: None,
             readback_due: false,
+            write_req: None,
+            readback_req: None,
             readback: None,
             failed: false,
         }
@@ -797,7 +809,12 @@ mod tests {
         s.awaiting = Some(Slot::EditorWrite);
         let env = json!({"data": {"records": [{"form_id": "00000800",
                          "fields": [{"path": "FLTV", "before": 1.5, "after": 7.25}]}]}});
+        // Only the write as sent is taken (L5): another `set` on the slot is not.
+        let sent = Request::confirmed("set", json!({"x": 1}));
+        s.write.as_mut().unwrap().write_req = Some(sent.clone());
         s.receive_slot(Slot::EditorWrite, &Request::new("set", json!({})), &env);
+        assert!(s.write.as_ref().unwrap().written.is_none(), "another write");
+        s.receive_slot(Slot::EditorWrite, &sent, &env);
         let w = s.write.as_ref().unwrap();
         assert!(w.written.is_some() && w.readback_due);
         let (status, note) = s.note.clone().unwrap();
@@ -808,6 +825,9 @@ mod tests {
             &Request::new("inspect", json!({})),
             &json!({}),
         );
+        assert!(s.write.as_ref().unwrap().readback.is_none(), "another read");
+        let read = s.write.as_ref().unwrap().readback_req.clone().unwrap();
+        s.receive_slot(Slot::EditorWrite, &read, &json!({}));
         assert!(s.write.as_ref().unwrap().readback.is_some());
         // A failure ends only the wait it belongs to.
         s.awaiting = Some(Slot::EditorPreview);
