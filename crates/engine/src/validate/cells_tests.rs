@@ -56,7 +56,20 @@ fn patch(
     records: Vec<(Record<'static>, Vec<GroupHeader>)>,
     incc: Option<u32>,
 ) -> PathBuf {
-    let mut header = HeaderSpec::new(vec![b"World.esm".to_vec()]).to_record();
+    patch_flagged(data, name, records, incc, 0)
+}
+
+/// [`patch`] with these `TES4` flags.
+fn patch_flagged(
+    data: &Path,
+    name: &str,
+    records: Vec<(Record<'static>, Vec<GroupHeader>)>,
+    incc: Option<u32>,
+    flags: u32,
+) -> PathBuf {
+    let mut spec = HeaderSpec::new(vec![b"World.esm".to_vec()]);
+    spec.flags = flags;
+    let mut header = spec.to_record();
     if let Some(n) = incc {
         header.subrecords_mut().unwrap().push(Subrecord::new(
             Signature(*b"INCC"),
@@ -491,22 +504,35 @@ fn persistence_navmesh_and_incc() {
         );
         assert_eq!(found(&check(&p)), want);
     }
-    // cell.incc: wrong (an error), absent with an interior cell (a warning).
-    let p = patch(
+    // cell.incc: wrong (an error, master or not), absent with an interior cell (a warning
+    // on a master; none on a plugin without the master flag, as the CK saves it:
+    // ck-20261101-04).
+    for flags in [0, FLAG_MASTER] {
+        let p = patch_flagged(
+            &data,
+            "Incc.esm",
+            vec![(cell.clone(), path.clone())],
+            Some(2),
+            flags,
+        );
+        assert_eq!(
+            found(&check(&p)),
+            one("cell.incc", "error", "TES4:00000000")
+        );
+    }
+    let p = patch_flagged(
         &data,
-        "Incc.esm",
+        "NoIncc.esm",
         vec![(cell.clone(), path.clone())],
-        Some(2),
+        None,
+        FLAG_MASTER,
     );
-    assert_eq!(
-        found(&check(&p)),
-        one("cell.incc", "error", "TES4:00000000")
-    );
-    let p = patch(&data, "NoIncc.esm", vec![(cell, path)], None);
     assert_eq!(
         found(&check(&p)),
         one("cell.incc", "warning", "TES4:00000000")
     );
+    let p = patch(&data, "NoIncc.esp", vec![(cell, path)], None);
+    assert_eq!(found(&check(&p)), []);
     let _ = std::fs::remove_dir_all(&d);
 }
 

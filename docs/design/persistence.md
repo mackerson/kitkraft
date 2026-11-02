@@ -147,6 +147,17 @@ a hypothesis (D) and says so.
 Design rules for the owner's mod (claim a POI, restore it, register objects with an outpost),
 from the claims above. Each is as strong as its weakest claim.
 
+**Default: temporary** (owner decision 2026-11-02). A placed reference is temporary (type 9,
+no `0x400`) unless its recipe says `persistent = true`, as `kit place` and `[[place]]`
+already default to. This matches the CK, whose Reference dialog has no Persistent
+checkbox and which made F29's crate temporary (`ck-20261101-04`), and 98.4% of the interior
+`REFR`s of `Starfield.esm` (`docs/poi/first-poi-investigation.md`). A new recipe opts in
+only for the references rule 1 names. The recipes written before the decision keep
+`persistent = true` and are not changed by it: the location and mini-site recipes (a
+location's persistent list names their references), the terminal and actor recipes, and
+the first POI, whose persistent crate is the artifact of `game-20261101-04` and of F29's
+comparison (`docs/poi/variants/first-poi-temporary.toml` is its temporary twin).
+
 1. **Place everything a script, alias or location must find as persistent** (`[[place]]`
    `persistent = true`; type 8 and `0x400` as in PS-01/PS-02). `validate` warns
    (`ref.persistence`) when a temporary reference is named from outside its cell. Grade:

@@ -17,6 +17,7 @@ use kitkraft_esm::cells::{
     grid_label, group_type, interior_block, Grid, CELL_CHILD_TYPES, FLAG_PERSISTENT,
 };
 use kitkraft_esm::index::read_record_at;
+use kitkraft_esm::tes4::FLAG_MASTER;
 use kitkraft_esm::{GroupHeader, Record, Signature, Subrecord};
 
 use super::forms::Target;
@@ -716,19 +717,25 @@ pub(super) fn finish(
                     pass.cells.interior_cells
                 ),
             )),
-            None if pass.cells.interior_cells > 0 => findings.push(finding(
-                pass,
-                "cell.incc",
-                Severity::Warning,
-                Some("TES4:00000000".into()),
-                Some("INCC".into()),
-                None,
-                format!(
-                    "{} has {} interior cell(s) and no INCC (every official file has one)",
-                    plugin.display(),
-                    pass.cells.interior_cells
-                ),
-            )),
+            // The CK writes INCC only on a master (ck-20261101-04: F29's `.esp` has none,
+            // its `.esm` has one), so a non-master plugin without it is not flagged.
+            None if pass.cells.interior_cells > 0
+                && pass.space.flags.is_some_and(|f| f & FLAG_MASTER != 0) =>
+            {
+                findings.push(finding(
+                    pass,
+                    "cell.incc",
+                    Severity::Warning,
+                    Some("TES4:00000000".into()),
+                    Some("INCC".into()),
+                    None,
+                    format!(
+                        "{} is a master with {} interior cell(s) and no INCC (every official file has one, and the CK writes one on a master)",
+                        plugin.display(),
+                        pass.cells.interior_cells
+                    ),
+                ));
+            }
             _ => {}
         }
     }
