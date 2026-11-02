@@ -119,9 +119,17 @@ fn finding_2_the_cell_view_list_shows_its_rows() {
     assert_in_view(&h, "World0010");
 }
 
+/// An absolute path that never exists, built with the host's separators (a `C:\` literal
+/// is one file name on Linux, so the gate there would see no folders in it).
+fn fake_path(parts: &[&str]) -> std::path::PathBuf {
+    let mut p = std::env::temp_dir().join("kitkraft-ui-harness-fake");
+    p.extend(parts);
+    p
+}
+
 /// Fifteen plugins under a fake `out\`, with long nested paths.
 fn fake_out(h: &mut Bench) -> Vec<String> {
-    let base = std::path::PathBuf::from(r"C:\fake-checkout\out");
+    let base = fake_path(&["fake-checkout", "out"]);
     let found: Vec<String> = (1..=15)
         .map(|i| {
             base.join(format!("built-{i:02}"))
@@ -152,9 +160,16 @@ fn finding_4_the_plugin_picker_shows_every_entry_and_clears() {
     h.run_steps(2);
     out_picker(&h).click();
     h.run_steps(4);
+    let base = fake_path(&["fake-checkout", "out"]);
     let shown: Vec<String> = found
         .iter()
-        .map(|p| p.trim_start_matches(r"C:\fake-checkout\out\").to_string())
+        .map(|p| {
+            std::path::Path::new(p)
+                .strip_prefix(&base)
+                .unwrap()
+                .display()
+                .to_string()
+        })
         .collect();
     for s in &shown {
         let n = h.get_by(|n| text_of(n).as_deref() == Some(s.as_str()));
@@ -239,7 +254,8 @@ fn finding_5_the_ledger_table_has_row_spacing_and_resizes() {
         .collect::<String>();
     let ledger = format!("# Ledger sample\n\n## Ledger\n\n{ledger}");
     h.state_mut().app.ledger.observations = Some(ledger);
-    h.state_mut().app.cockpit.pick(r"C:\x\KitKraftThing.esm");
+    let thing = fake_path(&["x", "KitKraftThing.esm"]);
+    h.state_mut().app.cockpit.pick(&thing.display().to_string());
     open_tab(&mut h, Tab::Cockpit);
     grip(&h, "cockpit-ledger").scroll_to_me();
     h.run_steps(4);
@@ -449,10 +465,8 @@ fn the_session_form_is_prefilled_from_the_newest_passing_ledger_session() {
     ))
     .unwrap();
     h.state_mut().app.ledger.observations = Some(ledger);
-    h.state_mut()
-        .app
-        .cockpit
-        .pick(r"C:\any\out\KitKraftFirstPOI.esm");
+    let poi = fake_path(&["any", "out", "KitKraftFirstPOI.esm"]);
+    h.state_mut().app.cockpit.pick(&poi.display().to_string());
     open_tab(&mut h, Tab::Cockpit);
     let form = &h.state().app.cockpit.session_form;
     assert!(
