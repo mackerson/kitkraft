@@ -233,12 +233,18 @@ fn a_plugins_own_archive_wins_and_every_holder_is_named() {
 fn archive_precedence_ranks_plugin_then_patch_then_base() {
     assert!(rank("SFBGS003 - Main.ba2") > rank("Starfield - MeshesPatch.ba2"));
     assert!(rank("Starfield - MeshesPatch.ba2") > rank("Starfield - Meshes01.ba2"));
-    assert_eq!(entry_path("Test\\Crate.nif"), "meshes/test/crate.nif");
     assert_eq!(
-        entry_path("Meshes\\Test\\Crate.nif"),
+        entry_path("Test\\Crate.nif").unwrap(),
         "meshes/test/crate.nif"
     );
-    assert_eq!(entry_path("\\Test/Crate.nif"), "meshes/test/crate.nif");
+    assert_eq!(
+        entry_path("Meshes\\Test\\Crate.nif").unwrap(),
+        "meshes/test/crate.nif"
+    );
+    assert_eq!(
+        entry_path("Test/Crate.nif").unwrap(),
+        "meshes/test/crate.nif"
+    );
 }
 
 #[test]
@@ -339,4 +345,31 @@ fn mesh_geometry_is_deferred_to_m7_s5_and_refused() {
     );
     let err = execute("mesh.geometry", json!({"model": "Meshes\\Test\\Crate.nif"})).unwrap_err();
     assert_eq!(err.kind(), "deferred");
+}
+
+#[test]
+fn a_model_path_leaving_meshes_is_refused_before_any_file_is_opened() {
+    // Review M1: `..` let the reviewer read Data\Starfield.esm and C:\Windows\win.ini.
+    let data = data_dir("mesh-escape");
+    // A real file one level up: refused without being opened (no size, no parse error).
+    std::fs::write(data.join("outside.nif"), nif([0.0; 3], &[BOXED])).unwrap();
+    for bad in [
+        r"..\outside.nif",
+        r"Test\..\..\outside.nif",
+        r"..\..\..\..\Windows\win.ini",
+        r"C:\x.nif",
+        r"C:x.nif",
+        r"\\?\C:\x.nif",
+        r"\Test\Crate.nif",
+        "/Test/Crate.nif",
+        r"Test\.\Crate.nif",
+        r"Test\\Crate.nif",
+        "",
+    ] {
+        let err = run(&data, json!({"model": bad})).unwrap_err();
+        assert!(
+            err.to_string().contains("not a path inside Meshes"),
+            "{bad}: {err}"
+        );
+    }
 }

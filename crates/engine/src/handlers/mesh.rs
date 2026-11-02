@@ -116,14 +116,29 @@ pub(crate) fn rank(archive: &str) -> u8 {
 }
 
 /// `meshes/<model>`, normalized as archive entry names are, from a model path as a `MODL`
-/// names it (relative to `Meshes`) or one that already starts with `Meshes\`.
-pub(crate) fn entry_path(model: &str) -> String {
-    let n = kitkraft_ba2::normalize(model.trim_start_matches(['\\', '/']));
-    if n.starts_with("meshes/") {
+/// names it (relative to `Meshes`) or one that already starts with `Meshes\`. Refused
+/// before any file is opened (review M1): an empty path, a leading separator, a drive or
+/// device prefix (`:` or `?` in a segment), and empty, `.` or `..` segments, so the path
+/// can only name a file under `Data\Meshes` or an archive entry under `meshes/`.
+pub(crate) fn entry_path(model: &str) -> Result<String, EngineError> {
+    let refuse = || {
+        failed(
+            ID,
+            format!(
+                "model `{model}` is not a path inside Meshes (relative, no `.` or `..` segments, no drive)"
+            ),
+        )
+    };
+    let n = kitkraft_ba2::normalize(model);
+    let bad = |s: &str| s.is_empty() || s == "." || s == ".." || s.contains([':', '?']);
+    if n.split('/').any(bad) {
+        return Err(refuse());
+    }
+    Ok(if n.starts_with("meshes/") {
         n
     } else {
         format!("meshes/{n}")
-    }
+    })
 }
 
 /// What a base object names as its model.
@@ -232,7 +247,7 @@ pub(super) fn bounds(session: &mut Session, args: &Value) -> Result<Outcome, Eng
 
     let (data_dir, _) = data_dir_source(args)
         .ok_or_else(|| failed(ID, "no Data dir: pass `data_dir` or set KITKRAFT_DATA_DIR"))?;
-    let wanted = entry_path(&model);
+    let wanted = entry_path(&model)?;
     let rel: PathBuf = wanted.split('/').collect();
     let loose = data_dir.join(&rel);
 
