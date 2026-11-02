@@ -645,7 +645,6 @@ const BX2_INVENTORY: &[&str] = &[
     "KSSM",
     "LAYR",
     "LENS",
-    "LGDI",
     "LGTM",
     "LSCR",
     "LTEX",

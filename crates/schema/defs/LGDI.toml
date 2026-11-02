@@ -1,31 +1,53 @@
-# LGDI: LegendaryItem, inventory definition (KK-105).
+# LGDI: LegendaryItem, the Starfield legendary-item template: the object mod per rank
+# (BNAM), the quality tiers (GNAM), the re-roll and pick costs (FNAM, KNAM, JNAM), the
+# keyword filters per rank and tier (CNAM, DNAM, HNAM, INAM), the condition index map
+# (LNAM) and the ranked mod conditions (CITC plus conditions).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-105 scan of every official LGDI record (147 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LGDI definition of wbDefinitionsSF1.pas at the pinned revision (L13639-L13754),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13639-L13754 - the record definition: the
+#     record flags (L13640-L13652), EDID (L13657), VMAD (L3407-L3411, kept raw), the
+#     object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS
+#     (L3925-L3962), PTT2 (L3965-L3978), SNTP (L3919), SNBH (L3920), DEFL (L3963),
+#     XALG (L3230), the base form components (L5984-L6832), the generic model
+#     (L7008-L7029), FULL (wbFull, L3184), the empty DATA (L13670), the three object
+#     references ANAM/ENAM/MNAM (L13671-L13673), the rank slot arrays BNAM
+#     (L13674-L13684) and GNAM (L13729-L13739), the condition index map LNAM
+#     (L13685-L13695), the ranked mod conditions (L13696-L13702), the keyword filters
+#     CNAM, DNAM, HNAM and INAM (L13703-L13704, L13740-L13741) and the cost arrays
+#     FNAM, KNAM and JNAM (L13705-L13716, L13717-L13728, L13742-L13753). Helpers: the
+#     rank slot (wbLGDIRankSlot, wbDefinitionsCommon.pas L8501-L8514), the rank enum
+#     (L7832-L7842) and the quality tier enum (L7844-L7859), the filter array
+#     (wbLGDIFilter, L9086-L9100) and the slot array (wbLGDIRankSlotArray,
+#     L9102-L9126), the required condition count (L2251), the condition list
+#     (L4750-L4840) and the base object signature list (L43-L54).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out (VMAD, OPDS,
-# PTT2, SNTP, SNBH, DEFL, XALG, the base form components and INAM); a plugin that has one
-# keeps it raw.
-# Order: official LGDI records put the condition subrecords (CITC and the CTDA conditions)
-# in both orders, so the record matches unordered; members are listed in the order the
-# records use, which is also the order xEdit lists them.
+# The 14 official ESMs hold 147 LGDI records; the lgdi_types scan in
+# crates/esm/tests/lgdi_types.rs checks this definition against them: every subrecord
+# is placed, every placed subrecord decodes, and the re-encoding reproduces every
+# record.
+#
+# The ranked mod conditions (L13696-L13702) are an upstream repeated block of a
+# condition count and its conditions, but the official records put the count and the
+# conditions in both orders, so the block is matched as the two repeated members the
+# records use (the order is not significant; the record matches unordered).
 signature = "LGDI"
 name = "LegendaryItem"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LGDI record (147) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13639-L13754",
-]
-confidence = "corpus"
-note = "inventory definition (KK-105): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13639-L13754"
+confidence = "reference"
 unordered = true
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+  ["MustBeUnique", 0x80000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -41,229 +63,354 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-sig = "OBND"
-name = "Obnd"
+sig = "VMAD"
+name = "Scripts"
 type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13659-L13659",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13658-L13658"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; no official LGDI record has one"
+
+[[member]]
+sig = "OBND"
+name = "Bounds"
+type = "ref:ObjectBounds"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13659-L13659"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+confidence = "reference"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13660-L13660",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13660-L13660"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+confidence = "reference"
 
 [[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13668-L13668",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+sig = "OPDS"
+name = "PaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13661-L13661"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13662-L13662"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13663-L13663"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehaviour"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13664-L13664"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13665-L13665"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+sig = "XALG"
+name = "AdditionalFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13666-L13666"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "not present in the official LGDI records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13667-L13667"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; no official LGDI record has one"
+
+[[member]]
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13668-L13668"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+confidence = "reference"
 
 [[member]]
 sig = "FULL"
-name = "Full"
-type = "opaque"
+name = "Name"
+type = "lstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 147 official LGDI records (2 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13669-L13669",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13669-L13669"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+confidence = "reference"
 
 [[member]]
 sig = "DATA"
 name = "Data"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 147 of 147 official LGDI records (147 occurrences), 0 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13670-L13670",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+type = "empty"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13670-L13670"
+confidence = "reference"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "BaseObjectList"
+type = "formid"
+targets = ["LVLI"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 142 of 147 official LGDI records (142 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13671-L13671",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13671-L13671"
+confidence = "reference"
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "RankTemplate"
+type = "formid"
+targets = ["LGDI"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 147 official LGDI records (117 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13672-L13672",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13672-L13672"
+confidence = "reference"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "AddIntoLegendary"
+type = "formid"
+targets = ["LGDI"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (3 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13673-L13673",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13673-L13673"
+confidence = "reference"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "Mods"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 142 of 147 official LGDI records (142 occurrences), 8..256 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13674-L13674",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "ObjectModification", type = "formid", targets = ["OMOD"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13674-L13684"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9102-L9126",
+]
+confidence = "reference"
+note = "one object mod per rank"
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "ConditionIndexMap"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (3 occurrences), 88..96 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13685-L13685",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "ReferenceMod", type = "u32" },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13685-L13695"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842"]
+confidence = "reference"
 
 [[member]]
 sig = "CITC"
-name = "Citc"
-type = "opaque"
+name = "ConditionCount"
+type = "u32"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (35 occurrences, up to 12 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13698-L13698",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13696-L13702"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+confidence = "reference"
+note = "number of conditions that follow; stored, not derived"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 3 of 147 official LGDI records (70 occurrences, up to 24 per record), 32 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13699-L13699",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13696-L13702"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
+name = "RankAllowedKeyword"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 39 of 147 official LGDI records (39 occurrences), 72..204 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13703-L13703",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "ReferencedMod", type = "u32" },
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13703-L13703"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9100",
+]
+confidence = "reference"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "RankDisallowedKeyword"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 36 of 147 official LGDI records (36 occurrences), 60..636 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13704-L13704",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "ReferencedMod", type = "u32" },
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13704-L13704"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9100",
+]
+confidence = "reference"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "ReRollCost"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 72 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13705-L13705",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "Count", type = "u32" },
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13705-L13716"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9102-L9126",
+]
+confidence = "reference"
 
 [[member]]
 sig = "KNAM"
-name = "Knam"
-type = "opaque"
+name = "PickCosts"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 72 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13717-L13717",
+field = [
+  { name = "Rank", type = "enum", base = "u32", values = [["Rank1", 0], ["Rank2", 1], ["Rank3", 2], ["Rank4", 3], ["Rank5", 4]] },
+  { name = "Count", type = "u32" },
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13717-L13728"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7832-L7842",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9102-L9126",
+]
+confidence = "reference"
 
 [[member]]
 sig = "GNAM"
-name = "Gnam"
-type = "opaque"
+name = "QualityMods"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 147 official LGDI records (13 occurrences), 40..2032 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13729-L13729",
+field = [
+  { name = "QualityTier", type = "enum", base = "u32", values = [["Tier1", 0], ["Tier2", 1], ["Tier3", 2], ["Tier4", 3], ["Tier5", 4], ["Tier6", 5], ["Tier7", 6], ["Tier8", 7], ["Tier9", 8], ["Tier10", 9]] },
+  { name = "ObjectModification", type = "formid", targets = ["OMOD"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13729-L13739"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7844-L7859",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9102-L9126",
+]
+confidence = "reference"
 
 [[member]]
 sig = "HNAM"
-name = "Hnam"
-type = "opaque"
+name = "QualityAllowedKeyword"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 13 of 147 official LGDI records (13 occurrences), 60..3048 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13740-L13740",
+field = [
+  { name = "QualityTier", type = "enum", base = "u32", values = [["Tier1", 0], ["Tier2", 1], ["Tier3", 2], ["Tier4", 3], ["Tier5", 4], ["Tier6", 5], ["Tier7", 6], ["Tier8", 7], ["Tier9", 8], ["Tier10", 9]] },
+  { name = "ReferencedMod", type = "u32" },
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13740-L13740"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7844-L7859",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9100",
+]
+confidence = "reference"
+
+[[member]]
+sig = "INAM"
+name = "QualityDisallowedKeyword"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "QualityTier", type = "enum", base = "u32", values = [["Tier1", 0], ["Tier2", 1], ["Tier3", 2], ["Tier4", 3], ["Tier5", 4], ["Tier6", 5], ["Tier7", 6], ["Tier8", 7], ["Tier9", 8], ["Tier10", 9]] },
+  { name = "ReferencedMod", type = "u32" },
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13741-L13741"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7844-L7859",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9100",
+]
+confidence = "reference"
+note = "not present in the official LGDI records"
 
 [[member]]
 sig = "JNAM"
-name = "Jnam"
-type = "opaque"
+name = "QualityUpgradeCosts"
+type = "array"
+count = "rest"
+element = "struct"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 10 of 147 official LGDI records (10 occurrences), 60..84 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13742-L13742",
+field = [
+  { name = "QualityTier", type = "enum", base = "u32", values = [["Tier1", 0], ["Tier2", 1], ["Tier3", 2], ["Tier4", 3], ["Tier5", 4], ["Tier6", 5], ["Tier7", 6], ["Tier8", 7], ["Tier9", 8], ["Tier10", 9]] },
+  { name = "Count", type = "u32" },
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13742-L13753"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7844-L7859",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9102-L9126",
+]
+confidence = "reference"
