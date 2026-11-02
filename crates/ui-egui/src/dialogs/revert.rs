@@ -19,7 +19,6 @@ use crate::gate::Request;
 
 /// The preview of dropping `form`'s override from `plugin`, the active file: a dry run,
 /// which the gate passes like a read.
-#[allow(dead_code)] // the editor's undo sends it from the next commit (M7.E6)
 pub(crate) fn preview_request(plugin: &str, form: &str) -> Request {
     Request::new(
         "revert",
@@ -29,7 +28,6 @@ pub(crate) fn preview_request(plugin: &str, form: &str) -> Request {
 
 /// The confirmed undo of a previewed `revert`: the preview's arguments with `dry_run`
 /// dropped, built once per confirm click. `None` when `preview` is not a `revert` dry run.
-#[allow(dead_code)] // the confirm box sends it from the next commit (M7.E6)
 pub(crate) fn write_request(preview: &Request) -> Option<Request> {
     if preview.id != "revert" || preview.args.get("dry_run") != Some(&Value::Bool(true)) {
         return None;

@@ -23,7 +23,7 @@ use crate::windows::WindowKind;
 const FORM: &str = "Fixture.esm:000800";
 
 /// A scratch folder under the OS temp dir with `Fixture.esm` (GLOB 000800 `Glob800`,
-/// FLTV 1.5); removed when dropped.
+/// FLTV 1.5, and GLOB 000801 `Glob801`, FLTV 2.5); removed when dropped.
 struct Scratch(PathBuf);
 
 impl Scratch {
@@ -32,7 +32,11 @@ impl Scratch {
             std::env::temp_dir().join(format!("kitkraft-ui-editor-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("Fixture.esm"), plugin_bytes(&[], 1, &[0x800], 1.5)).unwrap();
+        std::fs::write(
+            dir.join("Fixture.esm"),
+            plugin_bytes(&[], 1, &[0x800, 0x801], 1.5),
+        )
+        .unwrap();
         Self(dir)
     }
 
@@ -334,4 +338,125 @@ fn m7_e2_a_failed_write_needs_a_new_ok_and_a_new_dry_run() {
     assert!(enabled(&h, "Write to Patch.esp"));
     press(&mut h, "Write to Patch.esp");
     assert_eq!(fltv_in(&patch), hex(5.0));
+}
+
+// ---- M7.E6: undo of the editor's last write (`revert`) ---------------------------------
+
+/// Inspects `form` in the Records tab, so the edit dialog shows it.
+fn show(h: &mut Bench, form: &str) {
+    h.state_mut()
+        .app
+        .apply(vec![Action::Inspect(form.to_string())]);
+    settle(h);
+}
+
+/// Edits the box showing `from` to `to`, OK, the confirm, then closes the box.
+fn write_field(h: &mut Bench, from: &str, to: &str) {
+    retype(h, from, to);
+    press(h, "OK");
+    press(h, "Write to Patch.esp");
+    assert_in_view(h, "written:");
+    press(h, "Close");
+}
+
+/// `diff`'s counts of `a` against `b` (added, removed, changed).
+fn diff_counts(a: &str, b: &str) -> [Value; 3] {
+    let env = ReadOnlyEngine::new()
+        .run(&Request::new("diff", json!({"a": a, "b": b})))
+        .unwrap();
+    let c = &env["data"]["counts"];
+    [
+        c["added"].clone(),
+        c["removed"].clone(),
+        c["changed"].clone(),
+    ]
+}
+
+/// M7.E6's acceptance: edit, undo, and `diff` against the original shows no change. The
+/// active file holds a write of 000801 (the original); a write of 000800 is undone from
+/// the edit dialog: the dry run shows the one record going and writes nothing, one
+/// confirm drops it, and the file has no difference from the original. A second undo
+/// has nothing to undo.
+#[test]
+fn m7_e6_edit_undo_and_diff_against_the_original_shows_no_change() {
+    let s = Scratch::new("undo");
+    let patch = s.path("Patch.esp");
+    let original = s.path("Original.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    show(&mut h, "Fixture.esm:000801");
+    write_field(&mut h, "2.5", "9");
+    std::fs::copy(&patch, &original).unwrap();
+    show(&mut h, FORM);
+    write_field(&mut h, "1.5", "7.25");
+    assert_ne!(
+        diff_counts(&original, &patch),
+        [json!(0), json!(0), json!(0)]
+    );
+    let before = std::fs::read(&patch).unwrap();
+    press(&mut h, "Undo last write");
+    assert_in_view(
+        &h,
+        "Diff of the file (dry run): 1 removed, 0 changed, 0 added",
+    );
+    assert_eq!(std::fs::read(&patch).unwrap(), before, "the dry run wrote");
+    assert!(enabled(&h, "Undo in Patch.esp"));
+    press(&mut h, "Undo in Patch.esp");
+    assert_in_view(&h, "undone: 1 removed");
+    assert_eq!(
+        diff_counts(&original, &patch),
+        [json!(0), json!(0), json!(0)],
+        "the undo left a difference"
+    );
+    // One undo per write.
+    assert!(!enabled(&h, "Undo in Patch.esp"));
+    press(&mut h, "Close");
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "nothing to undo");
+    assert_absent(&h, "Undo in Patch.esp");
+}
+
+/// An undo that would revert more than one write is refused: the last write replaced a
+/// version the active file already held (a second edit of the record), and `revert`
+/// would drop both. Nothing is sent and nothing changes.
+#[test]
+fn m7_e6_an_undo_that_would_drop_more_than_one_write_is_refused() {
+    let s = Scratch::new("undo-two");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    write_field(&mut h, "1.5", "7.25");
+    write_field(&mut h, "Glob800", "Glob800x");
+    let before = std::fs::read(&patch).unwrap();
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "undo refused");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(std::fs::read(&patch).unwrap(), before);
+}
+
+/// The undo's confirm is closed when the active file changed after its preview, and an
+/// undo with no write this session has nothing to undo.
+#[test]
+fn m7_e6_the_undo_confirm_follows_the_active_file() {
+    let s = Scratch::new("undo-moved");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "nothing to undo");
+    press(&mut h, "Close");
+    write_field(&mut h, "1.5", "3");
+    let before = std::fs::read(&patch).unwrap();
+    press(&mut h, "Undo last write");
+    assert!(enabled(&h, "Undo in Patch.esp"));
+    h.state_mut().app.active_file = Some(s.path("Other.esp"));
+    h.run_steps(3);
+    assert!(!enabled(&h, "Undo in Patch.esp"));
+    one(&h, "Undo in Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert_eq!(std::fs::read(&patch).unwrap(), before);
 }

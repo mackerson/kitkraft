@@ -27,13 +27,23 @@
 //! differs from the winner as `hex:` at its `set` path, puts the dialog's edits over
 //! them, and previews again: the confirm box shows the whole difference from the winner
 //! that will be written, with the kept paths named.
+//!
+//! M7.E6 (`revert`): the edit dialog's "Undo last write" asks for
+//! `OpenEditor { command: "revert", form }`. The editor undoes only its own last
+//! confirmed write, and only when that write added the record to the active file (the
+//! write's envelope says `inserted`): then `revert --dry-run` with `to: remove` previews
+//! dropping that override (the diff of the file and `validate`), and the box's one
+//! "Undo in <file>" click sends the confirmed `revert` (built in `dialogs/revert.rs`).
+//! A write that replaced a version the file already held cannot be undone this way:
+//! `revert` would drop the earlier version too, so the undo is refused with the reason.
+//! One undo per write: the last write is forgotten once it is undone.
 
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
-use super::{edit, set};
+use super::{edit, revert, set};
 use crate::gate::{self, Request};
 use crate::panels::common::{Action, Slot};
 use crate::panels::fmt_value;
@@ -53,6 +63,8 @@ pub enum EditorTicket {
 /// One write in progress: from its preview to its read-back.
 #[derive(Debug, Clone, PartialEq)]
 struct Write {
+    /// The catalog command: `set`, or `revert` (the undo).
+    command: &'static str,
     /// The record (formref).
     form: String,
     /// The output: the active file when the preview was sent.
@@ -86,9 +98,21 @@ struct Write {
     failed: bool,
 }
 
+/// The editor's last confirmed `set`, the one its undo may invert.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct LastWrite {
+    form: String,
+    into: String,
+    /// The write added the record to the active file (`outcome: inserted`), so dropping
+    /// the override restores the file exactly.
+    inserted: bool,
+}
+
 /// The editor's state (kept in `crate::windows::Shell`).
 #[derive(Default)]
 pub struct EditorState {
+    /// The last confirmed `set` not yet undone.
+    last: Option<LastWrite>,
     /// A dialog's OK, taken up by the next frame (which knows the active file).
     opening: Option<(String, String)>,
     /// The write in progress, shown in the confirm box.
@@ -181,6 +205,33 @@ impl EditorState {
                     Status::Pass,
                     format!("written: {} into {file}", changed_line(env)),
                 ));
+                self.last = Some(LastWrite {
+                    form: w.form.clone(),
+                    into: w.into.clone(),
+                    inserted: write_outcome(env) == Some("inserted"),
+                });
+            }
+            (Slot::EditorPreview, "revert") if *request == w.preview => {
+                self.awaiting = None;
+                w.previewed = Some(env.clone());
+            }
+            (Slot::EditorWrite, "revert")
+                if w.written.is_none() && w.write_req.as_ref() == Some(request) =>
+            {
+                w.written = Some(env.clone());
+                self.awaiting = None;
+                // One undo per write.
+                self.last = None;
+                self.note = Some((
+                    Status::Pass,
+                    format!(
+                        "undone: {} ({})",
+                        diff_line(env),
+                        env.pointer("/data/summary")
+                            .and_then(Value::as_str)
+                            .unwrap_or("revert")
+                    ),
+                ));
             }
             (Slot::EditorWrite, "inspect") if w.readback_req.as_ref() == Some(request) => {
                 w.readback = Some(env.clone());
@@ -272,6 +323,32 @@ fn changed_line(env: &Value) -> String {
         .map(|(p, b, a)| format!("{p} {b} -> {a}"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// What a `set` envelope says it did to the record in the active file: `inserted`,
+/// `replaced` or `moved`.
+fn write_outcome(env: &Value) -> Option<&str> {
+    env.pointer("/data/records")?
+        .as_array()?
+        .iter()
+        .find(|r| r.get("parent") != Some(&Value::Bool(true)))?
+        .get("outcome")?
+        .as_str()
+}
+
+/// A `revert` envelope's diff of the file in one line.
+fn diff_line(env: &Value) -> String {
+    let n = |k: &str| {
+        env.pointer(&format!("/data/diff/counts/{k}"))
+            .and_then(Value::as_u64)
+            .unwrap_or(0)
+    };
+    format!(
+        "{} removed, {} changed, {} added",
+        n("removed"),
+        n("changed"),
+        n("added")
+    )
 }
 
 /// The FormID (as the active file stores it) of the record a `set` dry run says it would
@@ -452,7 +529,7 @@ fn start(
         return;
     }
     state.write = None;
-    if command != "set" {
+    if command != "set" && command != "revert" {
         state.note = Some((
             Status::NotRun,
             format!("`{command}` is not in the editor yet (ADR 0007 Amendment 4: its M7.E ticket)"),
@@ -467,6 +544,10 @@ fn start(
         ));
         return;
     };
+    if command == "revert" {
+        start_undo(state, form, into, out);
+        return;
+    }
     let fields = match edit::changed_fields(ctx, form) {
         Ok(f) if f.is_empty() => {
             state.note = Some((Status::NotRun, "no field changed".to_string()));
@@ -486,10 +567,64 @@ fn start(
     state.note = None;
     state.next = None;
     state.write = Some(Write {
+        command: "set",
         form: form.to_string(),
         into: into.to_string(),
         preview: preview.clone(),
         edits: fields,
+        held: None,
+        first: None,
+        kept: Vec::new(),
+        previewed: None,
+        written: None,
+        readback_due: false,
+        write_req: None,
+        readback_req: None,
+        readback: None,
+        failed: false,
+    });
+    state.awaiting = Some(Slot::EditorPreview);
+    out.push(Action::Submit(Slot::EditorPreview, preview));
+}
+
+/// Takes up "Undo last write" on `form`: the `revert` preview of the editor's last write,
+/// when that write is of `form` into the active file and added the record there; else
+/// the reason there is none.
+fn start_undo(state: &mut EditorState, form: &str, into: &str, out: &mut Vec<Action>) {
+    let file = file_name(into);
+    let Some(last) = state
+        .last
+        .as_ref()
+        .filter(|l| l.form == form && l.into == into)
+    else {
+        state.note = Some((
+            Status::NotRun,
+            format!("nothing to undo: the editor has no write of {form} into {file} this session"),
+        ));
+        return;
+    };
+    if !last.inserted {
+        state.note = Some((
+            Status::Fail,
+            format!(
+                "undo refused: {file} already held {form} before the last write, and `revert` would drop that earlier version too (it would undo more than one write); `kit revert` drops the whole override"
+            ),
+        ));
+        return;
+    }
+    let preview = revert::preview_request(into, form);
+    if let Err(e) = gate::check(&preview) {
+        state.note = Some((Status::Fail, e.to_string()));
+        return;
+    }
+    state.note = None;
+    state.next = None;
+    state.write = Some(Write {
+        command: "revert",
+        form: form.to_string(),
+        into: into.to_string(),
+        preview: preview.clone(),
+        edits: Map::new(),
         held: None,
         first: None,
         kept: Vec::new(),
@@ -516,7 +651,8 @@ fn confirm_box(
 ) {
     let mut close = false;
     let mut confirm = false;
-    egui::Window::new("Confirm set")
+    let command = state.write.as_ref().map_or("set", |w| w.command);
+    egui::Window::new(format!("Confirm {command}"))
         .id(egui::Id::new("kitkraft-editor-confirm"))
         .collapsible(false)
         .resizable(true)
@@ -527,14 +663,22 @@ fn confirm_box(
             }
             if let Some(w) = &state.write {
                 ui.horizontal_wrapped(|ui| {
-                    ui.strong(format!("set {} into {}", w.form, file_name(&w.into)));
+                    let what = if w.command == "revert" {
+                        format!("undo: revert {} in {}", w.form, file_name(&w.into))
+                    } else {
+                        format!("set {} into {}", w.form, file_name(&w.into))
+                    };
+                    ui.strong(what);
                     ui.weak(&w.into);
                 });
                 match &w.previewed {
                     None => {
                         ui.horizontal(|ui| {
                             ui.spinner();
-                            ui.label("previewing: `set --dry-run` into a staged copy");
+                            ui.label(format!(
+                                "previewing: `{} --dry-run` on a staged copy",
+                                w.command
+                            ));
                         });
                     }
                     Some(env) => {
@@ -549,8 +693,14 @@ fn confirm_box(
                                 ),
                             );
                         }
-                        preview_lines(ui, env);
+                        preview_lines(ui, env, w.command);
                     }
+                }
+                if let (Some(done), "revert") = (&w.written, w.command) {
+                    ui.label(theme::subheading(
+                        ui,
+                        format!("Undone in {}: {}", file_name(&w.into), diff_line(done)),
+                    ));
                 }
                 if let Some(back) = &w.readback {
                     readback_lines(ui, back, &w.into);
@@ -560,13 +710,21 @@ fn confirm_box(
             ui.horizontal(|ui| {
                 if let Some(w) = &state.write {
                     let blocked = confirm_blocked(w, busy, state.awaiting.is_some(), active_file);
-                    let label = format!("Write to {}", file_name(&w.into));
+                    let (label, hover) = if w.command == "revert" {
+                        (
+                            format!("Undo in {}", file_name(&w.into)),
+                            "one confirmed `revert`: drops the override the last write added",
+                        )
+                    } else {
+                        (
+                            format!("Write to {}", file_name(&w.into)),
+                            "one confirmed `set`: the previewed fields, into the active file",
+                        )
+                    };
                     let b = ui.add_enabled(blocked.is_none(), egui::Button::new(label));
                     let b = match &blocked {
                         Some(why) => b.on_disabled_hover_text(why.as_str()),
-                        None => b.on_hover_text(
-                            "one confirmed `set`: the previewed fields, into the active file",
-                        ),
+                        None => b.on_hover_text(hover),
                     };
                     if b.clicked() {
                         confirm = true;
@@ -579,16 +737,19 @@ fn confirm_box(
         });
     if confirm {
         if let Some(w) = state.write.as_mut() {
-            match set::write_request(&w.preview).map(|r| (gate::check(&r), r)) {
+            let confirmed = if w.command == "revert" {
+                revert::write_request(&w.preview)
+            } else {
+                set::write_request(&w.preview)
+            };
+            match confirmed.map(|r| (gate::check(&r), r)) {
                 Some((Ok(()), req)) => {
                     w.write_req = Some(req.clone());
                     state.awaiting = Some(Slot::EditorWrite);
                     out.push(Action::Submit(Slot::EditorWrite, req));
                 }
                 Some((Err(e), _)) => state.note = Some((Status::Fail, e.to_string())),
-                None => {
-                    state.note = Some((Status::Fail, "the preview is not a `set` dry run".into()))
-                }
+                None => state.note = Some((Status::Fail, "the preview is not a dry run".into())),
             }
         }
     }
@@ -598,25 +759,41 @@ fn confirm_box(
     }
 }
 
-/// The preview's changes, its `validate` on the staged result, and its limitations.
-fn preview_lines(ui: &mut egui::Ui, env: &Value) {
+/// The preview's changes (`set`: the fields; `revert`: the diff of the file), its
+/// `validate` on the staged result, and its limitations.
+fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
     let data = env.get("data").unwrap_or(&Value::Null);
-    ui.label(theme::subheading(ui, "Fields changed (dry run)"));
-    let rows = changes(env);
-    if rows.is_empty() {
-        ui.weak("  (none: the values are what the record holds)");
+    if command == "revert" {
+        ui.label(theme::subheading(
+            ui,
+            format!("Diff of the file (dry run): {}", diff_line(env)),
+        ));
+        for r in data
+            .pointer("/diff/removed")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            ui.monospace(format!("removed {}", fmt_value(r)));
+        }
+    } else {
+        ui.label(theme::subheading(ui, "Fields changed (dry run)"));
+        let rows = changes(env);
+        if rows.is_empty() {
+            ui.weak("  (none: the values are what the record holds)");
+        }
+        egui::Grid::new("kitkraft-editor-changes")
+            .striped(true)
+            .show(ui, |ui| {
+                for (path, before, after) in &rows {
+                    ui.monospace(path);
+                    ui.monospace(before);
+                    ui.label("->");
+                    ui.monospace(after);
+                    ui.end_row();
+                }
+            });
     }
-    egui::Grid::new("kitkraft-editor-changes")
-        .striped(true)
-        .show(ui, |ui| {
-            for (path, before, after) in &rows {
-                ui.monospace(path);
-                ui.monospace(before);
-                ui.label("->");
-                ui.monospace(after);
-                ui.end_row();
-            }
-        });
     let would = data.get("would_write") == Some(&Value::Bool(true));
     let validate = data.get("validate").unwrap_or(&Value::Null);
     let n = |k: &str| validate.get(k).and_then(Value::as_u64).unwrap_or(0);
@@ -693,6 +870,7 @@ mod tests {
 
     fn write(into: &str) -> Write {
         Write {
+            command: "set",
             form: "Fixture.esm:000800".into(),
             into: into.into(),
             preview: Request::new("set", json!({"dry_run": true})),
