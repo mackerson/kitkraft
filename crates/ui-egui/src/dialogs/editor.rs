@@ -810,7 +810,8 @@ mod tests {
         let env = json!({"data": {"records": [{"form_id": "00000800",
                          "fields": [{"path": "FLTV", "before": 1.5, "after": 7.25}]}]}});
         // Only the write as sent is taken (L5): another `set` on the slot is not.
-        let sent = Request::confirmed("set", json!({"x": 1}));
+        let sent =
+            set::write_request(&Request::new("set", json!({"x": 1, "dry_run": true}))).unwrap();
         s.write.as_mut().unwrap().write_req = Some(sent.clone());
         s.receive_slot(Slot::EditorWrite, &Request::new("set", json!({})), &env);
         assert!(s.write.as_ref().unwrap().written.is_none(), "another write");
