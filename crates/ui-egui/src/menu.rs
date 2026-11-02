@@ -94,6 +94,14 @@ fn panel_of(id: &str) -> Option<Target> {
         "ledger" => Target::Tab("Ledger"),
         "deploy" | "deploy.rollback" | "deploy.status" | "game.session" | "game.probe"
         | "game.stop" | "game.status" => Target::Tab("Cockpit"),
+        // Step 0 of sprint 2026-11-02: pipeline E's writes open the editor in the Edit
+        // dialog (M7.E2 to M7.E6) once the gate permits each; until then `target`
+        // disables them before this match is asked.
+        "set" | "new" | "clone" | "place" | "build" | "revert" => {
+            Target::Window(WindowKind::EditDialog)
+        }
+        // Pipeline R's NIF bounds (M7.S4, M7.R3) belong to the Render Window.
+        "mesh.bounds" => Target::Tab("Render Window"),
         _ => return None,
     })
 }
@@ -551,5 +559,29 @@ mod tests {
     #[test]
     fn the_cell_view_is_a_tab_and_the_cell_item_opens_it() {
         assert_eq!(panel_of("cell"), Some(Target::Tab("Cell View")));
+    }
+
+    /// Step 0 of sprint 2026-11-02: the editor's six writes have the Edit dialog as their
+    /// panel but stay disabled until the gate permits each (ADR 0007 Amendment 4), and
+    /// `mesh.bounds` (read-only, allowed) opens the Render Window from Tools.
+    #[test]
+    fn the_editor_writes_wait_on_the_gate_and_mesh_bounds_opens_the_render_window() {
+        for id in ["set", "new", "clone", "place", "build", "revert"] {
+            assert_eq!(
+                panel_of(id),
+                Some(Target::Window(WindowKind::EditDialog)),
+                "{id}"
+            );
+            let spec = gate::find_command(id).unwrap();
+            if gate::permitted(id).is_none() {
+                let why = target(spec).unwrap_err();
+                assert!(why.starts_with("writes"), "{id}: {why}");
+            }
+        }
+        let bounds = gate::find_command("mesh.bounds").unwrap();
+        assert_eq!(top_of(bounds.menu_path), "Tools");
+        assert_eq!(target(bounds), Ok(Target::Tab("Render Window")));
+        let geometry = target(gate::find_command("mesh.geometry").unwrap()).unwrap_err();
+        assert!(geometry.starts_with("deferred to M7.S5"), "{geometry}");
     }
 }
