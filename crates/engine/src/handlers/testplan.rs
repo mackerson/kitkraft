@@ -39,7 +39,9 @@ use std::fmt::Write as _;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitkraft_doc::{GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec, RuntimeBasis};
+use kitkraft_doc::{
+    GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec, RecordReader, RuntimeBasis,
+};
 use kitkraft_esm::cells::group_type;
 use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
 use kitkraft_esm::tes4::{Tes4, FLAG_MASTER};
@@ -218,6 +220,18 @@ fn cell_runtime(lo: &LoadOrder, edid: &str) -> Option<u32> {
     })
 }
 
+/// The `VMAD` payload of the winning version of `form`, when it has one.
+fn base_vmad(lo: &LoadOrder, records: &mut RecordReader, form: GlobalForm) -> Option<Vec<u8>> {
+    let v = lo.forms.versions(form).last()?;
+    let loc = lo.record(v.plugin, v.record)?;
+    let record = records.read(lo, v.plugin, loc).ok()?;
+    record
+        .subs
+        .iter()
+        .find(|s| s.signature() == Signature(*b"VMAD"))
+        .map(|s| s.data().to_vec())
+}
+
 fn signature_of(lo: &LoadOrder, form: GlobalForm) -> Option<String> {
     let v = lo.forms.versions(form).last()?;
     lo.record(v.plugin, v.record)
@@ -312,6 +326,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut file =
         File::open(&plugin).map_err(|e| failed(ID, format!("{}: {e}", plugin.display())))?;
     let mut forms: Vec<Form> = Vec::new();
+    let mut records = RecordReader::new();
     for loc in index.records.iter().skip(1) {
         let new = usize::try_from(loc.form_id >> 24).is_ok_and(|i| i == own);
         let global = lo.resolve(at, loc.form_id).ok();
@@ -368,6 +383,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 form.scripts = traces::of_vmad_bytes(dir, v.data(), false);
             }
             if let Some(base) = raw_of(b"NAME").and_then(|r| lo.resolve(at, r).ok()) {
+                // M4.T6 (review M1): the base form's scripts run on the reference too.
+                if let Some(vmad) = base_vmad(&lo, &mut records, base) {
+                    form.scripts.extend(traces::of_vmad_bytes(dir, &vmad, true));
+                }
                 form.base_edid = edid_of(&lo, base);
                 form.base_runtime = lo.runtime_id(base);
                 form.base = Some(match edid_of(&lo, base) {

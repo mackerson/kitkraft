@@ -951,3 +951,47 @@ fn a_trace_in_another_state_is_not_expected() {
         .collect();
     assert_eq!(expected, ["awake line"]);
 }
+
+/// Review M1: a script on the placed reference's base form (the mini-site's switch, a
+/// cloned ACTI carrying HelloOnLoad) gets its row too, not silence.
+#[test]
+fn a_script_on_the_base_form_gets_its_row() {
+    let d = dir("probes-script-base");
+    let data = world_master(&d);
+    let scripts = d.join("Scripts").join("KitKraft");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::write(
+        scripts.join("Probe.pex"),
+        pex_calling("x", &[("Trace", Arg::Prop)]),
+    )
+    .unwrap();
+    let spec = d.join("site.toml");
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
+[[clone]]\nname = \"switch\"\nform = \"KC_Crate\"\nedid = \"KC_SiteSwitch\"\n\
+scripts = [{{ name = \"KitKraft:Probe\", properties = {{ Text = \"KitKraft: site switch loaded\" }} }}]\n\n\
+[[place]]\nbase = \"new:switch\"\ncell = \"TestInterior\"\nposition = [1, 2, 3]\nedid = \"KC_SiteSwitchRef\"\n",
+            data.display()
+        ),
+    )
+    .unwrap();
+    let plugin = d.join("KC_Site.esm");
+    execute(
+        "build",
+        json!({"spec": spec.display().to_string(), "out": plugin.display().to_string()}),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(rows(&p), checklist_steps(&out));
+    let s = script_probe(&p);
+    assert!(s.title.contains("base"), "{}", s.title);
+    assert_eq!(
+        s.steps[0].expected.as_deref(),
+        Some("KitKraft: site switch loaded")
+    );
+    assert!(s.steps[0].why.as_deref().unwrap().contains("base form"));
+}
