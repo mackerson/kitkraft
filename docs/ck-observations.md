@@ -327,8 +327,8 @@ schema member path, or to `gap:` with a `docs/gaps.md` row.
 
 | Step | Type | Form | EditorID | Parity row filled |
 | ---- | ---- | ---- | -------- | ----------------- |
-| S2-01 | WEAP | `Starfield.esm:0021BBCD` | `RussianHuntingRifle` | "Edit dialog: WEAP (tabs, groups, labels)" |
-| S2-02 | AMMO | `Starfield.esm:002B559B` | `Ammo9x39mm` | "Edit dialog: AMMO" |
+| S2-01 | WEAP | `Starfield.esm:21BBCD` | `RussianHuntingRifle` | "Edit dialog: WEAP (tabs, groups, labels)" |
+| S2-02 | AMMO | `Starfield.esm:2B559B` | `Ammo9x39mm` | "Edit dialog: AMMO" |
 | S2-03 | COBJ | `Starfield.esm:2AA561` | `co_ammo_777mm` | "Edit dialog: COBJ" |
 | S2-04 | LCTN | `Starfield.esm:01295A` | `CityNewAtlantisLocation` | "Edit dialog: LCTN" |
 | S2-05 | TERM | `Starfield.esm:0029A4` | `LC017_RobotTurretControl` | "Edit dialog: TERM" |
