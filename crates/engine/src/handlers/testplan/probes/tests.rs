@@ -995,3 +995,20 @@ scripts = [{{ name = \"KitKraft:Probe\", properties = {{ Text = \"KitKraft: site
     );
     assert!(s.steps[0].why.as_deref().unwrap().contains("base form"));
 }
+
+/// Review L2: a script name that would leave the plugin's folder is not looked up.
+#[test]
+fn a_script_name_with_dot_dot_is_not_looked_up() {
+    use super::super::traces::loose;
+    assert!(loose(Path::new("d"), "..:..:x").is_none());
+    assert!(loose(Path::new("d"), "A:.:B").is_none());
+    assert!(loose(Path::new("d"), "A::B").is_none());
+    assert!(loose(Path::new("d"), "A:B c").is_none());
+    let (path, rel) = loose(Path::new("d"), "KitKraft:HelloOnLoad").unwrap();
+    assert_eq!(rel, "Scripts\\KitKraft\\HelloOnLoad.pex");
+    assert!(path.ends_with(
+        Path::new("Scripts")
+            .join("KitKraft")
+            .join("HelloOnLoad.pex")
+    ));
+}

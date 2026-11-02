@@ -60,6 +60,10 @@ pub(super) struct Attached {
 /// may name anything; the lookup stays inside the plugin's folder).
 pub(super) fn loose(dir: &Path, script: &str) -> Option<(PathBuf, String)> {
     let parts: Vec<&str> = script.split([':', '\\', '/']).collect();
+    let ok = |p: &&str| !p.is_empty() && p.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+    if !parts.iter().all(ok) {
+        return None;
+    }
     let mut path = dir.join("Scripts");
     let mut rel = String::from("Scripts");
     for (i, part) in parts.iter().enumerate() {
