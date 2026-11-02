@@ -1,0 +1,165 @@
+# ASPC: AcousticSpace, inventory definition (KK-224).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official ASPC record (814 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane decodes the record (docs/gaps.md).
+signature = "ASPC"
+name = "AcousticSpace"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official ASPC record (814) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 812 of 814 official ASPC records (812 occurrences), 10..73 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+note = "2 official records lack it"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 24 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "Opds"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 6 of 814 official ASPC records (6 occurrences), 80 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 80 bytes"
+
+[[member]]
+sig = "ASLS"
+name = "Asls"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 556 of 814 official ASPC records (556 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 40 bytes"
+
+[[member]]
+sig = "WED0"
+name = "Wed0"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 21 of 814 official ASPC records (21 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 40 bytes"
+
+[[member]]
+sig = "WED1"
+name = "Wed1"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 20 of 814 official ASPC records (20 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 40 bytes"
+
+[[member]]
+sig = "AAMB"
+name = "Aamb"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 616 of 814 official ASPC records (616 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "AMUS"
+name = "Amus"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 44 of 814 official ASPC records (44 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 796 of 814 official ASPC records (796 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "AEAR"
+name = "Aear"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "FLTV"
+name = "Fltv"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "XTRI"
+name = "Xtri"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 1 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 1 bytes"
+
+[[member]]
+sig = "BOLV"
+name = "Bolv"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 1 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 1 bytes"
+
+[[member]]
+sig = "DEVT"
+name = "Devt"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "ASDF"
+name = "Asdf"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 598 of 814 official ASPC records (598 occurrences), 8 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 8 bytes"

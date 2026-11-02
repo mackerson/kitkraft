@@ -1,0 +1,56 @@
+# VTYP: VoiceType, inventory definition (KK-224).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official VTYP record (915 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
+#     subrecords occur, in which order and how often, written out by `cargo xtask
+#     inventory-def`. Every member is listed because the corpus has it, and every official
+#     record decodes with nothing left unplaced and re-encodes byte for byte.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+#
+# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
+# placeholder) until a family lane decodes the record (docs/gaps.md).
+signature = "VTYP"
+name = "VoiceType"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official VTYP record (915) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 8..36 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 1 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 1 bytes"
+
+[[member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 263 of 915 official VTYP records (263 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+
+[[member]]
+sig = "PNAM"
+name = "Pnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 1 bytes"
+confidence = "corpus"
+note = "payload not decoded (KK-224 inventory); observed 1 bytes"
