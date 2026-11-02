@@ -768,6 +768,7 @@ members[].kind: "subrecord" | "group" | "any_until"
 members[].name: str
 members[].confidence: "reference" | "container-reference" | "corpus" | "ck-diff" | "verified"
 members[]....: (more members may follow)
+category?: str
 summary: str
 -- data, when `kind` = "header":
 type: str
@@ -813,6 +814,7 @@ records[].confidence_counts.verified: int
 records[].type: str
 records[].name: str
 records[].confidence: "reference" | "container-reference" | "corpus" | "ck-diff" | "verified"
+records[].category?: str
 headers: [object]
 headers[].type: str | null
 headers[].name: str

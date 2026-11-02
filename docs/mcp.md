@@ -930,6 +930,27 @@ come from the reverse index's placement ranges (built once per load order, cache
 disk), so a cell with no child record is not listed (a limitation says so). Evidence:
 the winning version's record header of each listed cell or reference.
 
+### `mesh.bounds` (M7.S4; CLI `kit mesh bounds`)
+
+Arguments `{model?, form?, plugin?}` plus the load-order arguments; read-only. `model` is
+a model path as a base object's `MODL` names it (relative to the Data folder's `Meshes`
+folder), read from loose files or a BA2; `form` is a base object (formref or EditorID)
+whose model is read. **Not built yet**: until M7.S4 reads the NIF, the command reads no
+file and returns `data {model, form, bounds: null, summary}` (`model` and `form` echo the
+arguments, `null` when not given), coverage `unknown`, no evidence, and the limitation
+"mesh.bounds is not built yet (M7.S4)", so a `null` bound is never read as a model
+without one. The workbench may run it (the gate's read-only list); its menu item is
+Tools > Mesh Bounds.
+
+### `mesh.geometry` (M7.S5; CLI `kit mesh geometry`)
+
+Deferred to M7.S5: `execute` refuses it with a `deferred` error (`kit help` and MCP
+`tools/list` show the reason). It will return a model's positions, indices and normals
+as base64 little-endian buffers (`f32` positions and normals, `u32` indices) inside the
+envelope, from loose files or a BA2, under a size budget with a limitation per skipped
+mesh (`plan/execution-plan.md`, M7.S5). Its arguments are those of `mesh.bounds`. The
+workbench does not run it (classified unused read-only in the gate).
+
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
 Arguments `{plugin?, scripts?, plugin_archives?, rules?}` (`plugin`, `scripts`, or both)

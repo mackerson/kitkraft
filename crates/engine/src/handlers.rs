@@ -14,6 +14,7 @@ mod build;
 mod build_tests;
 #[cfg(test)]
 mod build_v3_tests;
+mod categories;
 mod cell;
 mod conflicts;
 mod coverage;
@@ -25,6 +26,9 @@ mod inspect;
 mod ledger;
 mod load;
 mod matrix;
+mod mesh;
+#[cfg(test)]
+mod mesh_tests;
 mod newform;
 #[cfg(test)]
 mod newform_tests;
@@ -206,6 +210,8 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("cell", Box::new(cell::run)),
         // Lane T round 2 (M4.T10): brief to report, chaining the commands above.
         ("mod.run", Box::new(modrun::run)),
+        // Step 0 of sprint 2026-11-02 (prepares M7.S4, lane R): a stub until the NIF reader.
+        ("mesh.bounds", Box::new(mesh::bounds)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

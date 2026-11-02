@@ -579,6 +579,34 @@ static CATALOG: &[CommandSpec] = &[
         writes: false,
         status: Status::Implemented,
     },
+    // Step 0 of sprint 2026-11-02 (prepares M7.S4, M7.S5, lane R): the mesh commands are
+    // registered here so the handler, the gate and the menu agree on them; `mesh.bounds`
+    // returns `bounds: null` with a limitation until M7.S4 reads the NIF.
+    CommandSpec {
+        id: "mesh.bounds",
+        label: "Mesh Bounds",
+        menu_path: "Tools/Mesh Bounds...",
+        shortcut: None,
+        aliases: &[],
+        summary: "A model's bounds from its NIF (loose or in a BA2), found from a base object's model or given as a path; read-only. Not built yet (M7.S4): bounds is null and a limitation says so",
+        args_schema: r#"{"type":"object","properties":{"model":{"type":"string","description":"A model path as a base object's MODL names it (relative to the Data folder's Meshes folder), read from loose files or a BA2"},"form":{"type":"string","description":"A base object (Plugin.esm:XXXXXX or EditorID) whose model to read"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile, plugin and model names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "mesh.geometry",
+        label: "Mesh Geometry",
+        menu_path: "Tools/Mesh Geometry...",
+        shortcut: None,
+        aliases: &[],
+        summary: "A model's positions, indices and normals as base64 little-endian buffers, from loose files or a BA2, under a size budget; read-only",
+        args_schema: r#"{"type":"object","properties":{"model":{"type":"string","description":"A model path as a base object's MODL names it (relative to the Data folder's Meshes folder), read from loose files or a BA2"},"form":{"type":"string","description":"A base object (Plugin.esm:XXXXXX or EditorID) whose model to read"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile, plugin and model names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Deferred {
+            reason: "the geometry layout study and the NIF reader come first (M7.S4)",
+            milestone: "M7.S5",
+        },
+    },
     // Lane T round 2 (M4.T10): a brief's spec to one report (docs/playbooks/mod-from-brief.md).
     CommandSpec {
         id: "mod.run",

@@ -175,6 +175,13 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads a started game session's phase, the row running, the probe rows so far, the screenshots taken, the events and the report once it has finished (lane C, M4.T3; M6.G4)",
     },
+    // Step 0 of sprint 2026-11-02 (prepares M7.S4, M7.R3): the Render Window's NIF bounds.
+    Allowed {
+        id: "mesh.bounds",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads a model's bounds from its NIF, loose or in a BA2 (not built yet: bounds null until M7.S4)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
@@ -1321,6 +1328,8 @@ mod tests {
             "papyrus.disasm",
             "papyrus.events",
             "strings.dump",
+            // Deferred to M7.S5 (step 0 of sprint 2026-11-02).
+            "mesh.geometry",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

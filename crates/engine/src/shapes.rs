@@ -1219,6 +1219,9 @@ const SCHEMA_LIST: Shape = Obj(&[
                     req("type", Str),
                     req("name", Str),
                     req("confidence", CONFIDENCE),
+                    // M7.S2 (pipeline W): the Object Window category; step 0 of sprint
+                    // 2026-11-02 declared it before `schema` returns it.
+                    opt("category", Str),
                 ],
             ])),
         ),
@@ -1260,6 +1263,8 @@ const SCHEMA_RECORD: Shape = Obj(&[
         req("deep", Bool),
         req("member", NSTR),
         req("members", List(&SCHEMA_MEMBER)),
+        // M7.S2: the Object Window category (declared at step 0 of sprint 2026-11-02).
+        opt("category", Str),
         req("summary", Str),
     ],
 ]);
