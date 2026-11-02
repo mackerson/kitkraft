@@ -5,8 +5,9 @@ budget_h = 1.5
 after = ["KK-023", "KK-224"]
 owns = [
   "crates/schema/defs/AVIF.toml",
-  "crates/schema/tests/",
-  "crates/esm/src/generated/",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
   "crates/esm/tests/avif_types.rs",
   "docs/schema/actor-family.md",
   "docs/record-parity.md",
