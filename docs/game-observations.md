@@ -108,7 +108,7 @@ from `docs/poi/first-poi.md` and `docs/packaging.md`.
 | O2-08 | **Persistence**, protocol steps 1-4 | the crate | The crate is where it was, once (PS-02) | | |
 | O2-09 | **Persistence**, protocol step 5 (long absence), then return | the crate; a vanilla item dropped in the apartment before leaving (note its base) | The crate is unchanged (persistent, PS-26); write down whether the dropped item is still there (answers PS-22/PS-26 for a temporary, player-made reference) | | |
 | O2-10 | Before leaving: `player.placeatme 1E4FBD 1`, note the new reference's ID (`prid`); then protocol steps 1-4, and after O2-09's long absence look again | base `Starfield.esm:1E4FBD` | Unknown (PS-09, grade D): present or gone after the save, and after the long absence | | |
-| O2-11 | `help KitKraftFirstPOICrate 4` | the crate | One line naming the reference and its runtime ID | | |
+| O2-11 | Find the crate by its runtime ID: `prid <the plan's runtime ID>` (`06001000` on Kitkraft Dev in `game-20261101-04`), then `getisid 001E4FBD`; as a control in the same session, `help Crate_MilitarySupply_01 4` (a base form's EditorID) | the crate; base STAT `Starfield.esm:1E4FBD` | `prid` selects the crate and `getisid` answers 1; the control lists the base form (so `help` answers within the console tool's capture window). A reference's own EditorID is not looked up: the console does not resolve it (`game-20261101-T1` row i). Corrected 2026-11-02 (ruling R19): the row first expected `help KitKraftFirstPOICrate 4` to name the reference | | |
 | O2-12 | Note whether the apartment's location (`help` on the cell's location, or the map) lists anything new; nothing to do if not visible | the crate's cell's location | Informational for PS-04 (no `ACPR` was written) | | |
 | O2-13 | Archive naming (M4.G4): only if a package with a `- Main.ba2` was installed | - | `n/a` for the POI and rename packages (neither has an archive) | | |
 
@@ -524,5 +524,9 @@ Findings, one line each:
   `help Crate_MilitarySupply_01 4` beside the corrected row (review L4).
 - Regraded 2026-11-02 after review (rulings R19, review M2 and L1): O2-06 is split, its
   click half not-run; O2-11 "intent" pass -> not-run. Nothing else changed.
+- Template corrected 2026-11-02 (ruling R19): "Template: session O2" row O2-11 now finds the
+  crate by its runtime ID with a `help <base EditorID> 4` control, instead of
+  `help KitKraftFirstPOICrate 4`. The fail above grades the old text; the corrected row is
+  re-run in X9 before it gets a grade.
 - O2-08's "once" has no probe. A count of the plugin's base in the cell after the reload would
   close it; no console getter for that was chosen (the session lane, `kit testplan`).
