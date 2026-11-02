@@ -291,7 +291,7 @@ pub(super) fn bounds(session: &mut Session, args: &Value) -> Result<Outcome, Eng
         let source = json!({"kind": "loose", "file": shown, "archive": null});
         if !also_in.is_empty() {
             limitations.push(format!(
-                "read the loose file; {} archive(s) also hold this model ({})",
+                "read the loose file; {} archive(s) also hold this model ({}); loose over archives is our rule (the game's order is not modelled)",
                 also_in.len(),
                 also_in.join(", ")
             ));

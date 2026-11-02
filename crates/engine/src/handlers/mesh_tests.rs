@@ -257,6 +257,7 @@ fn a_loose_model_wins_over_the_archives() {
         json!({"min": [0.0, 5.0, 0.0], "max": [2.0, 9.0, 6.0]})
     );
     assert!(has(&env, "read the loose file; 1 archive(s) also hold"));
+    assert!(has(&env, "loose over archives is our rule"));
     let ev = env["evidence"].as_array().unwrap();
     assert!(ev[0]["file"].as_str().unwrap().ends_with("loose.nif"));
 }
