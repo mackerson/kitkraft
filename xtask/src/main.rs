@@ -40,6 +40,7 @@ mod ckoracle;
 mod codegen;
 mod dist;
 mod evidence;
+mod gameregress;
 mod graph;
 mod inventory;
 mod observe;
@@ -172,6 +173,11 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             ui::run(&workspace_root()?, &rest)
         }
+        // Step 0 of sprint 2026-11-02 (prepares M4.T7, pipeline X); `ci` does not call it.
+        Some("game-regress") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            gameregress::run(&workspace_root()?, &rest)
+        }
         Some("oracle") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             oracle::run(&workspace_root()?, &rest)
@@ -225,6 +231,7 @@ fn print_help() {
     println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff;");
     println!("           `oracle ck <fixture-dir>... [--out DIR] [--check]`: kitkraft.esm vs the");
     println!("           CK's ck.esm, every difference classed (lane A, M5.A2)");
+    println!("  game-regress  replay the recorded game sessions (M4.T7): not built yet");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
