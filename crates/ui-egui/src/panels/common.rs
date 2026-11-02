@@ -179,6 +179,11 @@ pub(crate) struct TabCtx<'a> {
     /// The profile last loaded from the start screen (`ui.json`).
     pub last_profile: Option<&'a str>,
     pub prefs_path: Option<&'a Path>,
+    /// The active file (M7.M2: the Data dialog's "Set as Active File"; ADR 0007
+    /// Amendment 4), `None` until one is set. No tab reads it yet; the `allow` goes when
+    /// one does (step 0 of sprint 2026-11-02).
+    #[allow(dead_code)]
+    pub active_file: Option<&'a str>,
 }
 
 /// The window's title (the OS title bar).
