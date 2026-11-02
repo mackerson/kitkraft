@@ -190,12 +190,18 @@ impl EditorState {
             return;
         }
         self.awaiting = None;
-        if slot == Slot::EditorWrite {
-            if let Some(w) = self.write.as_mut() {
-                if w.written.is_none() {
-                    w.failed = true;
+        match slot {
+            Slot::EditorWrite => {
+                if let Some(w) = self.write.as_mut() {
+                    if w.written.is_none() {
+                        w.failed = true;
+                    }
                 }
             }
+            // A preview (or its read of the active file) that failed leaves nothing to
+            // confirm: no spinner, no dead button, only the note (review finding L1).
+            Slot::EditorPreview => self.write = None,
+            _ => {}
         }
         let what = match slot {
             Slot::EditorPreview => "the preview (`set --dry-run`)",
@@ -812,6 +818,10 @@ mod tests {
             Some("refused by the read-only workbench: no"),
         );
         assert_eq!(s.awaiting, None);
+        assert!(
+            s.write.is_none(),
+            "a failed preview leaves nothing to confirm"
+        );
         assert!(s
             .note
             .unwrap()
