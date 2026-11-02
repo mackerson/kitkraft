@@ -14,7 +14,7 @@ in progress (AGENTS.md, "Owner's live game").
 | `VMAD` is the shared `ScriptAttachment` block: `Version` 6, `ObjectFormat` 2, the script count, then each script (name, flags, properties: name, type byte, flags, value by type), then a fragment block on quests, dialogue, packages, scenes and perks | `xedit: wbDefinitionsSF1.pas@9fb01688#L3232-L3411` (lane BQ's `common/ScriptAttachment.toml` types the header; `crates/engine/src/edit/vmad.rs` reads and writes the script list) |
 | Every `VMAD` of the 14 official files (12,857: REFR 5,608, INFO 2,040, QUST 1,703, ACTI 850, ...) decodes and re-encodes byte-identically, all version 6 / object format 2, 43,246 object values with the two unused bytes zero | `crates/engine/tests/vmad_corpus.rs` (`every_official_vmad_roundtrips`, release) |
 | Attaching a script to a corpus copy keeps the vanilla scripts and fragment bytes as they were (the reference `Starfield.esm:0011FD`: its script, then the new one) | `vmad_corpus.rs` (`attaching_to_a_corpus_copy_keeps_the_block`) |
-| `ObjectReference` declares `Event OnLoad()` (`ObjectReference.psc` line 1657) and `Debug` declares `Function Notification(string asNotificationText) native global` (`Debug.psc` line 60) | `kit papyrus events --script ObjectReference --event OnLoad --declarations-only`; `kit papyrus events --script Debug --function Notification` |
+| `ObjectReference` declares `Event OnLoad()` (`ObjectReference.psc` line 1657) and `Debug` declares `Function Notification(string asNotificationText) native global` (`Debug.psc` line 60) and `Function Trace(string asTextToPrint, int aiSeverity = 0) native global` (`Debug.psc` line 100) | `kit papyrus events --script ObjectReference --event OnLoad --declarations-only`; `kit papyrus events --script Debug --function Notification`; `kit papyrus events --script Debug --function Trace` (2026-11-02) |
 | `ActivatorSwitch01` (`Starfield.esm:03CCF4`, "Switch") is an `ACTI` with a model and no `VMAD` | `kit query ACTI --where 'not has VMAD and has MODL and has FULL and not EDID ~ "Marker"' --plugins Starfield.esm` |
 | A script is found as `Scripts\<Namespace>\<Name>.pex` next to the plugin, in the Data folder, or in the archives of the load order (`ObjectReference.pex` is in `Starfield - Misc.ba2`); its properties are its `.pex` property table and its parents' | `crates/engine/src/validate/attached.rs` (grade D for the game's own lookup order) |
 
@@ -41,13 +41,23 @@ is an undeclared property or a value of the wrong type (`papyrus.property-unreso
 
 2026-10-15 (release build): `HelloOnLoad.pex` 911 bytes, SHA-256
 `c01efb0167fad5cf29a0a8ad6379657b0b3722bf1c36aea46d194cc9f6f7ee42` (PapyrusCompiler
-4.7.0.5, not release mode); `KitKraftScripts.esm` 15,297 bytes, SHA-256
+4.7.0.5, not release mode). 2026-11-02, the Trace variant (M4.T6: `OnLoad` first writes
+`Text` to the Papyrus log with `Debug.Trace`, then shows the notifications): 1,064 bytes,
+SHA-256 `3b7272417bd258dc4ba96162bddf4e5a1ae568a2fa7c5edee42e6bd48c534def`, compiled the
+same way (`kit papyrus compile KitKraft:HelloOnLoad ... --sources-zip`), and its
+disassembly opens `OnLoad` with `callstatic debug Trace ::nonevar ::Text_var 0`. The plugin
+does not hold the script, so it is unchanged: `KitKraftScripts.esm` 15,297 bytes, SHA-256
 `b20cf5770b3d32016274546f6c7478e687d58e130904c0c2367bfa56c11a1d45`, one master
 (`Starfield.esm`), new `REFR` `KitKraftScripts.esm:001000` (`KitKraftHelloSwitch`) in the
 carried cell `CityNewAtlantisFreestarEmbassy`; `validate` 0 errors, 0 warnings (the 16
 plugin rules, the two papyrus rules included); `roundtrip --verify` identical.
 `testplan`: `coc CityNewAtlantisFreestarEmbassy`, `player.moveto 01001000`, `prid
-01001000` (runtime IDs under the assumption `runtime-slots-by-scale`).
+01001000` (runtime IDs under the assumption `runtime-slots-by-scale`). Since M4.T6 its
+`probes.toml` has row `T-05`, a `papyrus-log` step expecting "KitKraft: hello from a script
+attached by kit": `testplan` reads the compiled script next to the plugin, finds the
+`Debug.Trace` of the `Text` property and takes the value the reference's `VMAD` sets
+(`crates/engine/src/handlers/testplan/traces.rs`). Whether the game writes that line into
+`Papyrus.0.log`, and when, is for a session to show (grade D).
 
 ## In game (owner, M4.O4; KitKraft Dev, disposable save)
 
@@ -58,7 +68,9 @@ plugin rules, the two papyrus rules included); `roundtrip --verify` identical.
    "KitKraft: hello from a script attached by kit" twice (`Times` = 2 from `VMAD`, not the
    script's default 1).
 3. `player.moveto 01001000`: the switch stands at (4, 4, 0) in the embassy.
-4. Record the result in `docs/game-observations.md` (`game-<yyyymmdd>-<nn>`, with both
+4. With the Trace variant (2026-11-02), the Papyrus log (`Papyrus.0.log`, with the dev
+   profile's `[Papyrus]` logging switches on) holds the same text once per load.
+5. Record the result in `docs/game-observations.md` (`game-<yyyymmdd>-<nn>`, with both
    hashes above). One notification means the property value was not read; none means the
    script did not run (check `Data\Scripts` first).
 
