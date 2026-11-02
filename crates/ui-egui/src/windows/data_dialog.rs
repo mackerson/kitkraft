@@ -306,10 +306,21 @@ impl DataDialogState {
     }
 
     /// Ticks or unticks row `i` (a row the engine gave no path cannot be ticked).
+    /// Nothing is ticked or unticked while the session came from `Default` (review M2).
     pub fn toggle(&mut self, i: usize) {
+        if !self.tickable() {
+            return;
+        }
         if let Some(r) = self.rows.get_mut(i).filter(|r| !r.path.is_empty()) {
             r.ticked = !r.ticked;
         }
+    }
+
+    /// The ticks may change: not while the session came from `Default`, whose order is
+    /// read-only input (reloading it as a plugin list would drop the `Default` refusal;
+    /// review M2).
+    pub fn tickable(&self) -> bool {
+        !live_source(&self.source)
     }
 
     /// Why row `i` cannot be the active file, if it cannot.
@@ -362,7 +373,7 @@ impl DataDialogState {
     /// OK: `load` of the ticked plugins (with the session's `data_dir`, `language` and
     /// `no_cache`) when they differ from the load order, and the active file.
     pub fn accept(&self, session: Option<&Map<String, Value>>) -> DataAsk {
-        let changed = self.rows.iter().any(|r| r.ticked != r.loaded);
+        let changed = self.tickable() && self.rows.iter().any(|r| r.ticked != r.loaded);
         let ticked: Vec<&str> = self
             .rows
             .iter()
@@ -456,6 +467,14 @@ impl DataDialogState {
             ));
         }
         theme::gap(ui);
+        let tickable = self.tickable();
+        if !tickable {
+            theme::status_line(
+                ui,
+                Status::NotRun,
+                &format!("loaded from `{LIVE_PROFILE}`: its order is read-only input here (no ticks, no active file)"),
+            );
+        }
         let height = theme::view_height(ui, View::Medium);
         ui.columns(2, |cols| {
             let [left, right] = cols else {
@@ -474,7 +493,7 @@ impl DataDialogState {
                                 break;
                             };
                             ui.add_enabled(
-                                !r.path.is_empty(),
+                                tickable && !r.path.is_empty(),
                                 egui::Checkbox::without_text(&mut r.ticked),
                             );
                             let name = ui.selectable_label(selected, &r.name);
@@ -715,6 +734,24 @@ mod tests {
         s.set_active().unwrap();
         s.sync(Some(&view(&format!("profile:{}", live.display()))), 2, None);
         assert_eq!(s.active, None);
+    }
+
+    /// Review M2: OK in a `Default` session never reloads it as a plugin list (which would
+    /// drop the `Default` refusal): the ticks stay and OK sends no `load`.
+    #[test]
+    fn ok_never_turns_a_default_session_into_a_plugin_list() {
+        let live = std::env::temp_dir().join("profiles").join("Default");
+        let mut s = opened(&format!("profile:{}", live.display()));
+        s.toggle(2);
+        assert!(s.rows[2].ticked, "the Default order is read-only input");
+        s.rows[2].ticked = false; // as if a box were clicked anyway
+        assert_eq!(
+            s.accept(None),
+            DataAsk::Accept {
+                load: None,
+                active: None
+            }
+        );
     }
 
     #[test]
