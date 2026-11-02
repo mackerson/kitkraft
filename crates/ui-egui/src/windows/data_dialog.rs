@@ -19,6 +19,13 @@
 //! writes go into (ADR 0007 Amendment 4). The details are `inspect` of the selected
 //! plugin's first record (FormID 0, its `TES4`) in single-plugin mode.
 //!
+//! The active-file path field (director ruling R17, sprint 2026-11-02; KitKraft's
+//! addition, not a CK element) takes a new or existing `.esp`/`.esm` outside the load
+//! order: never relative, never an official master's name, never inside a Starfield Data
+//! folder (the game's or the user's) or an MO2 instance, never master-flagged by the
+//! engine's `inspect` of an existing file's `TES4`; a listed plugin typed in takes its
+//! row's refusal. The engine's output guard has the final word when the editor writes.
+//!
 //! Refused as the active file, before anything is sent: a plugin the engine's `load`
 //! result marks master-flagged (`flag_names` has `master`); an official master or
 //! Creation, by the engine's activation rule (`hardcoded-official`, `Starfield.ccc`,
@@ -118,6 +125,47 @@ impl Details {
     }
 }
 
+impl Details {
+    /// The record header's flags have the master bit (`0x1`).
+    pub fn master_flag(&self) -> bool {
+        u32::from_str_radix(self.flags.trim().trim_start_matches("0x"), 16)
+            .is_ok_and(|f| f & 1 == 1)
+    }
+}
+
+/// Why `path` lies where KitKraft never writes (R17; the engine's
+/// `edit::patch::guard_location` checks the same on its own): a folder named `Data` in a
+/// folder named `Starfield` (the game's and the user's Data folders), a folder holding
+/// `Starfield.esm`, an MO2 instance or profile, or `MO2-Starfield`.
+fn refused_location(path: &Path) -> Option<String> {
+    let named = |d: &Path, want: &str| {
+        d.file_name()
+            .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(want))
+    };
+    for d in path.ancestors().skip(1).take(64) {
+        let data = (named(d, "Data") && d.parent().is_some_and(|p| named(p, "Starfield")))
+            || d.join("Starfield.esm").is_file();
+        if data {
+            return Some(format!(
+                "{} is inside a Starfield Data folder ({}): the game loads from there; choose a folder of your own",
+                path.display(),
+                d.display()
+            ));
+        }
+        let mo2 = named(d, "MO2-Starfield")
+            || d.join("ModOrganizer.ini").is_file()
+            || (d.join("modlist.txt").is_file() && d.join("plugins.txt").is_file());
+        if mo2 {
+            return Some(format!(
+                "{} is inside a Mod Organizer instance or profile ({}), which KitKraft never writes",
+                path.display(),
+                d.display()
+            ));
+        }
+    }
+    None
+}
+
 /// The text of a NUL-terminated string given as hex (up to the first NUL; a pair that is
 /// not hex ends it).
 fn zstring(hex: &str) -> String {
@@ -177,6 +225,13 @@ fn live_source(source: &str) -> bool {
     })
 }
 
+/// The refusal of any active file while the session came from `Default`.
+fn live_refusal() -> String {
+    format!(
+        "the session was loaded from `{LIVE_PROFILE}`, the owner's live game: read-only input, never a target; load the dev profile or a plugin list"
+    )
+}
+
 /// The Data dialog's state (kept in `crate::windows::Shell`).
 #[derive(Debug, Default)]
 pub struct DataDialogState {
@@ -196,6 +251,9 @@ pub struct DataDialogState {
     pub details: Option<Details>,
     /// The path whose details are on the way.
     pub details_pending: Option<String>,
+    /// The active-file path field (R17; KitKraft's addition, not a CK element): a new or
+    /// existing plugin outside the load order.
+    pub path_field: String,
 }
 
 /// What the Data dialog asks the shell for.
@@ -263,12 +321,87 @@ impl DataDialogState {
     /// Whether `path` may stay the active file under this load: never while the session
     /// came from `Default`, and never when the load lists it on a refused row.
     fn active_ok(&self, path: &str) -> bool {
-        !live_source(&self.source)
-            && self
-                .rows
-                .iter()
-                .position(|r| r.path == path)
-                .is_none_or(|i| self.refused(i).is_none())
+        match self.rows.iter().position(|r| r.path == path) {
+            Some(i) => self.refused(i).is_none(),
+            None => self.refused_path(path).is_none(),
+        }
+    }
+
+    /// Why `path`, typed in the active-file field, cannot be the active file (R17): the
+    /// `Default` session, a relative path, no `.esm`/`.esp`, an official master's name, a
+    /// listed plugin's own refusal, a plugin the engine's `inspect` read as
+    /// master-flagged, or a place inside the game's or the user's Data folder or an MO2
+    /// instance. The engine's output guard has the final word on the write.
+    pub fn refused_path(&self, path: &str) -> Option<String> {
+        let path = path.trim();
+        if path.is_empty() {
+            return Some("type the full path of a new or existing .esp or .esm".to_string());
+        }
+        if let Some(i) = self
+            .rows
+            .iter()
+            .position(|r| !r.path.is_empty() && r.path.eq_ignore_ascii_case(path))
+        {
+            return self.refused(i);
+        }
+        if live_source(&self.source) {
+            return Some(live_refusal());
+        }
+        let p = Path::new(path);
+        if !p.is_absolute() {
+            return Some(format!("{path}: give a full path"));
+        }
+        let ext = p
+            .extension()
+            .map(|e| e.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        if ext != "esp" && ext != "esm" {
+            return Some(format!("{path}: the active file is a .esp or .esm plugin"));
+        }
+        let name = p
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if is_official_name(&name) {
+            return Some(format!(
+                "{name} is an official master's name: never the active file"
+            ));
+        }
+        if self
+            .details
+            .as_ref()
+            .is_some_and(|d| d.path == path && d.master_flag())
+        {
+            return Some(format!(
+                "{name} has the master flag (the engine's `inspect` of its TES4): a master-flagged plugin cannot be the active file"
+            ));
+        }
+        refused_location(p)
+    }
+
+    /// The active-file field's "Use This File": the path becomes the dialog's choice
+    /// (applied on OK), or the refusal says why not. An existing file's `TES4` is asked
+    /// for, so a master flag the engine reads refuses it when the reply arrives.
+    pub fn use_path(&mut self) -> Option<DataAsk> {
+        let path = self.path_field.trim().to_string();
+        if let Some(why) = self.refused_path(&path) {
+            self.refusal = Some(why);
+            return None;
+        }
+        self.refusal = None;
+        self.active = Some(path.clone());
+        if !Path::new(&path).is_file()
+            || self.details.as_ref().is_some_and(|d| d.path == path)
+            || self.details_pending.as_deref() == Some(path.as_str())
+        {
+            return None;
+        }
+        self.details_pending = Some(path.clone());
+        let req = Request::new(
+            "inspect",
+            json!({"form": "0", "plugin": path, "max_bytes": 4096}),
+        );
+        Some(DataAsk::Details(path, req))
     }
 
     /// The CK's status of row `i`.
@@ -328,9 +461,7 @@ impl DataDialogState {
             return Some("select a plugin first".to_string());
         };
         if live_source(&self.source) {
-            return Some(format!(
-                "the session was loaded from `{LIVE_PROFILE}`, the owner's live game: read-only input, never a target; load the dev profile or a plugin list"
-            ));
+            return Some(live_refusal());
         }
         if let Some(why) = &r.official {
             return Some(format!(
@@ -392,10 +523,14 @@ impl DataDialogState {
         // The active file only if this load does not refuse it (review M1) and, when it
         // is one of the listed plugins, only if it is still ticked: an unticked one is not
         // loaded.
-        let active = self
-            .active
-            .clone()
-            .filter(|a| self.active_ok(a) && self.rows.iter().any(|r| r.ticked && r.path == *a));
+        let active = self.active.clone().filter(|a| {
+            self.active_ok(a)
+                && self
+                    .rows
+                    .iter()
+                    .find(|r| r.path == *a)
+                    .is_none_or(|r| r.ticked)
+        });
         DataAsk::Accept { load, active }
     }
 
@@ -413,6 +548,11 @@ impl DataDialogState {
                 ..Details::default()
             },
         });
+        // A typed active file the engine reads as master-flagged is refused now.
+        if self.active.as_deref() == Some(path.as_str()) && !self.active_ok(path) {
+            self.refusal = self.refused_path(path);
+            self.active = None;
+        }
     }
 
     /// Takes a successful reply that came back on `Slot::DataLoad` or
@@ -509,6 +649,34 @@ impl DataDialogState {
                 });
             self.details_ui(right);
         });
+        // R17: KitKraft's addition (the CK's Data dialog has no such field): a new or
+        // existing plugin outside the load order as the active file.
+        ui.horizontal(|ui| {
+            let label = ui.label("Active file path:");
+            if ui.button("Use This File").clicked() {
+                if let Some(a) = self.use_path() {
+                    ask = Some(a);
+                }
+            }
+            ui.add(
+                egui::TextEdit::singleline(&mut self.path_field)
+                    .hint_text("a new or existing .esp or .esm outside Data and MO2")
+                    .desired_width(ui.available_width()),
+            )
+            .labelled_by(label.id);
+        });
+        if let Some(a) = self
+            .active
+            .as_deref()
+            .filter(|a| !self.rows.iter().any(|r| r.path == *a))
+        {
+            let new = if Path::new(a).is_file() {
+                "existing file"
+            } else {
+                "new file: the first write creates it"
+            };
+            ui.weak(format!("chosen, not in the load order: {a} ({new})"));
+        }
         if let Some(why) = &self.refusal {
             theme::status_line(ui, Status::Fail, why);
         }
@@ -710,6 +878,91 @@ mod tests {
         }
     }
 
+    /// R17: the active-file field takes a new or existing plugin outside the load order,
+    /// outside the Data folders and MO2; everything else is refused, and the choice
+    /// survives OK because no listed row names it.
+    #[test]
+    fn the_path_field_takes_a_plugin_outside_data_and_mo2() {
+        let base = std::env::temp_dir().join(format!("kitkraft-ui-r17-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let mo2 = base.join("mo2");
+        std::fs::create_dir_all(mo2.join("mods").join("A")).unwrap();
+        std::fs::write(mo2.join("ModOrganizer.ini"), b"[General]").unwrap();
+        let mut s = opened("plugins");
+        let refused = |s: &mut DataDialogState, path: String, want: &str| {
+            s.path_field = path;
+            assert!(s.use_path().is_none());
+            let why = s.refusal.clone().unwrap_or_default();
+            assert!(why.contains(want), "{}: {why}", s.path_field);
+            assert_eq!(s.active, None);
+        };
+        refused(&mut s, String::new(), "full path");
+        refused(&mut s, "Patch.esp".into(), "full path");
+        refused(
+            &mut s,
+            base.join("Patch.txt").display().to_string(),
+            ".esp or .esm",
+        );
+        refused(
+            &mut s,
+            base.join("SFBGS004.esm").display().to_string(),
+            "official master",
+        );
+        let data = base
+            .join("steam")
+            .join("Starfield")
+            .join("Data")
+            .join("Patch.esp");
+        refused(&mut s, data.display().to_string(), "Data folder");
+        let user = base
+            .join("My Games")
+            .join("Starfield")
+            .join("Data")
+            .join("P.esp");
+        refused(&mut s, user.display().to_string(), "Data folder");
+        let modded = mo2.join("mods").join("A").join("Patch.esp");
+        refused(&mut s, modded.display().to_string(), "Mod Organizer");
+        // A listed plugin typed in takes its row's refusal.
+        let listed = s.rows[1].path.clone();
+        refused(&mut s, listed, "master flag");
+
+        let scratch = base.join("work").join("Scratch.esp").display().to_string();
+        s.path_field = format!("  {scratch} ");
+        assert!(s.use_path().is_none(), "a new file needs no details");
+        assert_eq!(s.active.as_deref(), Some(scratch.as_str()));
+        assert!(s.refusal.is_none());
+        let DataAsk::Accept { active, .. } = s.accept(None) else {
+            panic!("accept");
+        };
+        assert_eq!(active.as_deref(), Some(scratch.as_str()));
+
+        // An existing file the engine reads as master-flagged is refused on the reply.
+        std::fs::create_dir_all(base.join("work")).unwrap();
+        let master = base.join("work").join("Flagged.esp");
+        std::fs::write(&master, b"TES4").unwrap();
+        let master = master.display().to_string();
+        s.path_field = master.clone();
+        let Some(DataAsk::Details(p, _)) = s.use_path() else {
+            panic!("an existing file's TES4 is asked for");
+        };
+        assert_eq!(s.active.as_deref(), Some(master.as_str()));
+        let env = json!({"data": {"record": {"signature": "TES4", "flags": "0x00000001"}}});
+        s.receive(&DataTicket::Details(p), Ok(&env));
+        assert_eq!(s.active, None);
+        assert!(s.refusal.clone().unwrap().contains("master flag"));
+
+        // Never while the session came from `Default`.
+        let live = std::env::temp_dir().join("profiles").join("Default");
+        let mut d = opened(&format!("profile:{}", live.display()));
+        refused(&mut d, scratch.clone(), "`Default`");
+        // A stale typed choice is dropped by a `Default` load too (review M1).
+        s.path_field = scratch.clone();
+        s.use_path();
+        s.sync(Some(&view(&format!("profile:{}", live.display()))), 9, None);
+        assert_eq!(s.active, None);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[test]
     fn the_default_profile_is_never_a_target() {
         let dir = std::env::temp_dir().join("profiles").join("Default");
@@ -864,8 +1117,14 @@ mod tests {
         assert_eq!(s.selected, None);
         assert!(s.active.is_some(), "a new load keeps the dialog's choice");
         s.closed();
+        let x = std::env::temp_dir().join("kitkraft-ui-x").join("X.esp");
+        let x = x.display().to_string();
+        s.sync(Some(&view("plugins")), 2, Some(&x));
+        assert_eq!(s.active.as_deref(), Some(x.as_str()));
+        // A relative path is not a usable active file: dropped on opening.
+        s.closed();
         s.sync(Some(&view("plugins")), 2, Some("X.esp"));
-        assert_eq!(s.active.as_deref(), Some("X.esp"));
+        assert_eq!(s.active, None);
         s.closed();
         s.sync(None, 3, None);
         assert!(s.rows.is_empty() && s.active.is_none());

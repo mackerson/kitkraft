@@ -523,6 +523,15 @@ revisited once a sitting observes how the CK docks. Code:
   `plugins.txt` is not recognised as one here (it lives in the Data folder, which the guard
   refuses). The active file is UI state only
   (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
+  Below the list, the "Active file path:" field and "Use This File" (director ruling R17,
+  2026-11-02; KitKraft's addition, the CK's Data dialog has no such field) take a new or
+  existing `.esp` or `.esm` outside the load order as the active file: a full path, not
+  an official master's name, not inside a Starfield Data folder (the game's or
+  `My Games\Starfield\Data`) or an MO2 instance, not master-flagged (an existing file's
+  `TES4` is read with `inspect`); a new file is created by the editor's first write. The
+  engine's output guard has the final word. Writing again into such a file once it is
+  loaded is refused by the engine until its guard exempts the active file (E's ask A6,
+  deferred).
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
   the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row

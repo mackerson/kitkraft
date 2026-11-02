@@ -268,3 +268,45 @@ fn the_default_profile_gives_no_active_file() {
     assert_eq!(dir.snapshot(), before);
     assert!(Path::new(&mine).is_file());
 }
+
+/// R17 (the wave-1 end-to-end check's first step): a scratch active file under a temp
+/// folder, typed into the Data dialog's active-file field, becomes `App.active_file` on
+/// OK; the file is not created (the first write does that).
+#[test]
+fn a_typed_scratch_path_becomes_the_active_file() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("r17");
+    let mine = dir.write("Mine.esp", &plugin_bytes(&[], 0, &[0x800], 3.0));
+    let load = Request::new("load", json!({"plugins": [mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+    let scratch = dir.0.join("out").join("Scratch.esp").display().to_string();
+    let input: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Active file path:")
+        })
+        .collect();
+    assert_eq!(input.len(), 1, "one active-file field");
+    input[0].focus();
+    h.run_steps(1);
+    let input: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Active file path:")
+        })
+        .collect();
+    input[0].type_text(&scratch);
+    h.run_steps(2);
+    click_button(&mut h, "Use This File");
+    assert_in_view(&h, "chosen, not in the load order");
+    click_button(&mut h, "OK");
+    assert_eq!(h.state().app.active_file.as_deref(), Some(scratch.as_str()));
+    assert!(
+        !std::path::Path::new(&scratch).exists(),
+        "nothing is written"
+    );
+}
