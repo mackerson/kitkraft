@@ -37,6 +37,8 @@ pub struct ModelBounds {
     pub unreached_geometries: u32,
     /// Children reached a second time, ignored (none in the official models).
     pub revisits: u32,
+    /// The union does not fit in `f32` (huge placements); `aabb` is then `None`.
+    pub box_overflow: bool,
 }
 
 impl ModelBounds {
@@ -165,11 +167,15 @@ impl Nif<'_> {
                     && !visited.get(*i).copied().unwrap_or(false)
             })
             .count();
+        let mut box_overflow = false;
         let aabb = if lo.iter().zip(hi.iter()).all(|(l, u)| l <= u) {
-            Some(Aabb {
-                min: lo.map(|v| v as f32),
-                max: hi.map(|v| v as f32),
-            })
+            let (min, max) = (lo.map(|v| v as f32), hi.map(|v| v as f32));
+            if min.iter().chain(max.iter()).all(|v| v.is_finite()) {
+                Some(Aabb { min, max })
+            } else {
+                box_overflow = true;
+                None
+            }
         } else {
             None
         };
@@ -178,6 +184,7 @@ impl Nif<'_> {
             geometries,
             unreached_geometries: u32::try_from(unreached_geometries).unwrap_or(u32::MAX),
             revisits,
+            box_overflow,
         })
     }
 }

@@ -406,3 +406,17 @@ fn a_set_value_where_every_official_block_has_none_is_refused() {
         })
     ));
 }
+
+#[test]
+fn a_box_beyond_f32_is_no_box_not_infinite_numbers() {
+    // Review L5: finite but huge transforms made f32 corners infinite, written as null.
+    let m = model(vec![
+        node(&moved([0.0; 3], 1.0e30), &[1]),
+        geometry(&moved([0.0; 3], 1.0e30), UNIT_SPHERE, UNIT_BOX, NULL),
+    ]);
+    let bytes = m.bytes();
+    let b = Nif::parse(&bytes).unwrap().model_bounds().unwrap();
+    assert_eq!(b.aabb, None);
+    assert!(b.box_overflow);
+    assert_eq!(b.counts(), [1, 0, 0, 0]);
+}

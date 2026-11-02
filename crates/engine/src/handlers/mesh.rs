@@ -386,6 +386,10 @@ pub(super) fn bounds(session: &mut Session, args: &Value) -> Result<Outcome, Eng
             mb.unreached_geometries, mb.revisits
         ));
     }
+    if mb.box_overflow {
+        limitations
+            .push("the box overflows f32 (the placements are huge): no box is given".to_string());
+    }
     limitations.push(OBND_NOTE.to_string());
 
     let bounds = mb.aabb.map(|b| json!({"min": b.min, "max": b.max}));
