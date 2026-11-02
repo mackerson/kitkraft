@@ -1,10 +1,10 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
-//! WRLD tests are ignored), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and ARMO, ARMA
-//! and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable
-//! evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored,
-//! pass since KK-220 (scaffold.rs `record_order`).
+//! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
+//! ARMO, ARMA and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the
+//! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
+//! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
 //! from scratch with `new` on the synthetic load order of the `set` tests (`Source.esm`
@@ -688,11 +688,8 @@ fn qust_contact_shadow_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
-// `new` refuses a WRLD (newform.rs `new_refused`; asserted by
-// `a_new_exterior_cell_is_refused`): a worldspace roots a world, and a new world's
-// exterior grid and cells are not written yet, so no `new`/`set`/`build` path creates one;
-// WRLD's typed-writable row awaits that writer.
-#[ignore = "`new` refuses a WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are not written yet"]
+// `new` writes a WRLD as a lone record in its top-level group (KK-221): no world
+// children, no persistent cell, no exterior cells — `place` adds them later.
 #[test]
 fn wrld_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
@@ -887,9 +884,8 @@ fn qust_dangling_link_is_reported() {
     );
 }
 
-// Ignored with the read-back test: `new` refuses a WRLD (newform.rs `new_refused`), so the
-// record this test writes cannot be created yet.
-#[ignore = "`new` refuses a WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are not written yet"]
+// `new` writes a WRLD (KK-221), so this record can be created: its FormID
+// members are checked by formid.dangling.
 #[test]
 fn wrld_dangling_link_is_reported() {
     // The parent worldspace, the location, the biome and the climate.

@@ -1,4 +1,4 @@
-//! Typed write and reference integrity for REFR, ACHR and CELL (lane D round 4,
+//! Typed write and reference integrity for REFR, ACHR, CELL and WRLD (lane D round 4,
 //! 2026-10-16; `docs/schema/support-matrix.md`, the typed-writable evidence of
 //! `docs/schema/evidence.toml`), in the pattern of `authoring_tests.rs` on the synthetic
 //! master of the `place` tests (`World.esm`: the static `KC_Crate` 800, the NPC `KC_Npc`
@@ -14,6 +14,8 @@
 //! - CELL: `new` writes a new interior cell with every typed leaf member, which the writer
 //!   puts in the interior block and sub-block its FormID gives; `build`'s `[[new]]` writes
 //!   one too.
+//! - WRLD: `new` writes a new worldspace alone in its top-level group (KK-221): no world
+//!   children, no cells.
 //!
 //! Each written record is read back by `authoring_tests::check_written`: every member placed
 //! where the definition puts it, nothing raw, identical re-encoding, the field values, and
@@ -31,7 +33,7 @@ use kitkraft_esm::index::{index_bytes, IndexOptions};
 use kitkraft_esm::Plugin;
 use serde_json::{json, Map, Value};
 
-use super::authoring_tests::{check_written, plan_in, validate_at, Plan};
+use super::authoring_tests::{check_written, find_record, plan_in, validate_at, Plan};
 use super::place_tests::world_master;
 use crate::edit::patch_tests::dir;
 use crate::execute;
@@ -209,17 +211,108 @@ fn a_new_exterior_cell_is_refused() {
     .to_string();
     assert!(err.contains("new.cell-exterior"), "{err}");
     assert!(!into.exists());
-    // A world stays refused.
-    let err = execute(
+    // A world is written now: alone in its top-level group, no cells yet (KK-221).
+    let r = execute(
         "new",
         json!({
             "type": "WRLD", "edid": "KC_World", "into": into.display().to_string(),
             "plugins": [MASTER], "data_dir": data.display().to_string(), "no_cache": true,
         }),
     )
-    .unwrap_err()
-    .to_string();
-    assert!(err.contains("new.not-top-level"), "{err}");
+    .unwrap_or_else(|e| panic!("new WRLD: {e}"));
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let v = validate_at(&into, &data);
+    assert_eq!(v["findings"], json!([]), "{v:#}");
+    // New.esp holds the WRLD.
+    let index = index_bytes(&std::fs::read(&into).unwrap(), &IndexOptions::default()).unwrap();
+    assert!(index
+        .records
+        .iter()
+        .any(|r| r.signature.to_string() == "WRLD"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// `new` writes a WRLD alone in its top-level group (KK-221): no world children
+/// group, no cells.
+#[test]
+fn a_new_world_is_written_alone_in_its_top_level_group() {
+    let d = dir("authoring-world-wrld");
+    let data = world_master(&d);
+    let into = d.join("New.esp");
+    let r = execute(
+        "new",
+        json!({
+            "type": "WRLD", "edid": "KC_World",
+            "fields": {
+                "RNAM": "hex:01000200010000000008000003000400",
+                "FULL": "KC World", "DATA": 3,
+            },
+            "masters": [MASTER], "into": into.display().to_string(),
+            "plugins": [MASTER], "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap_or_else(|e| panic!("new WRLD: {e}"));
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let v = validate_at(&into, &data);
+    assert_eq!(v["findings"], json!([]), "{v:#}");
+    // The WRLD sits alone in its top-level group: no world children, no cells.
+    let bytes = std::fs::read(&into).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+    let wrld = index
+        .records
+        .iter()
+        .find(|r| r.signature.to_string() == "WRLD")
+        .unwrap();
+    let groups: Vec<(i32, u32)> = index
+        .group_path(wrld.group)
+        .iter()
+        .map(|g| (g.header.group_type, g.header.label_u32()))
+        .collect();
+    assert_eq!(groups, [(0, u32::from_le_bytes(*b"WRLD"))], "{groups:?}");
+    // Only the TES4 header and the WRLD: no persistent cell, no exterior cells.
+    let sigs: Vec<String> = index
+        .records
+        .iter()
+        .map(|r| r.signature.to_string())
+        .collect();
+    assert_eq!(
+        sigs,
+        vec!["TES4".to_string(), "WRLD".to_string()],
+        "{sigs:?}"
+    );
+    // The field values read back.
+    let parsed = Plugin::parse(&bytes).unwrap();
+    let wrld = find_record(parsed.entries(), "WRLD").unwrap();
+    let sub = |s: &str| {
+        wrld.subrecords()
+            .unwrap()
+            .iter()
+            .find(|x| x.signature().to_string() == s)
+            .unwrap()
+            .data()
+            .to_vec()
+    };
+    assert_eq!(sub("EDID"), b"KC_World\0".to_vec());
+    assert_eq!(sub("FULL"), b"KC World\0".to_vec());
+    assert_eq!(sub("DATA"), vec![3]);
+    // RNAM: cell X=2, Y=1, one reference of KC_Crate (800) at X=4, Y=3.
+    assert_eq!(
+        sub("RNAM"),
+        [1u8, 0, 2, 0, 1, 0, 0, 0, 0, 8, 0, 0, 3, 0, 4, 0].to_vec()
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
 

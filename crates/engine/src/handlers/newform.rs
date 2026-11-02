@@ -1,9 +1,10 @@
 //! `new` and `clone` (M4.E1): new base forms in a patch plugin.
 //!
 //! - `new {type, edid, fields?, masters?, into}`: a record of a type the schema defines and
-//!   that lives in its top-level group, or a new interior `CELL` (lane D round 4: `DATA`
-//!   flags `Interior` unless given, placed by the writer in the interior block and sub-block
-//!   its FormID gives, no references), with its `EDID`, the members the schema marks
+//!   that lives in its top-level group — a new `WRLD` worldspace written alone in its group,
+//!   no cells yet — or a new interior `CELL` (lane D round 4: `DATA` flags `Interior` unless
+//!   given, placed by the writer in the interior block and sub-block its FormID gives, no
+//!   references), with its `EDID`, the members the schema marks
 //!   required written as zero bytes (an empty string for a string), and `fields` applied
 //!   (each field's subrecord is created in schema member order first, zero bytes or an
 //!   empty string, then written as `set` writes it). `masters` names the plugins its
@@ -81,12 +82,13 @@ fn nested_or_world(sig: [u8; 4]) -> bool {
 /// The `DATA` flag of an interior cell (`CELL.toml`, `Flags.Interior`).
 pub(crate) const CELL_INTERIOR: u32 = 0x1;
 
-/// Record types `new` refuses: [`nested_or_world`] less `CELL`. A new `CELL` is an
-/// interior cell (lane D round 4): the writer puts it in the interior block and sub-block
+/// Record types `new` refuses: [`nested_or_world`] less `CELL` and `WRLD`. A new `CELL` is
+/// an interior cell (lane D round 4): the writer puts it in the interior block and sub-block
 /// its FormID computes (`kitkraft_esm::cells::interior_block`), with no children; a new
-/// exterior cell (a world and a grid) is not written.
+/// `WRLD` is written alone in its top-level group, no world children and no cells (`place`
+/// adds them); a new exterior cell (a world and a grid) is still not written.
 fn new_refused(sig: [u8; 4]) -> bool {
-    &sig != b"CELL" && nested_or_world(sig)
+    !matches!(&sig, b"CELL" | b"WRLD") && nested_or_world(sig)
 }
 
 fn check_edid(
@@ -126,7 +128,7 @@ pub(crate) fn plan_new(
         return Err(failed(command, format!("new.untyped: {at}: {text} has no record definition in the schema; a new form is written only for a typed type")));
     }
     if new_refused(sig) {
-        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, and interior cells")));
+        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, interior cells and worldspaces")));
     }
     check_edid(command, "new", loaded, at, &req.edid)?;
     let mut masters: Vec<(u16, String)> = Vec::new();
