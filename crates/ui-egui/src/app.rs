@@ -112,6 +112,15 @@ impl Tab {
             | Slot::CockpitGameStop => Tab::Cockpit,
             Slot::Coverage => Tab::Coverage,
             Slot::RenderCell => Tab::Render,
+            // Step 0 of sprint 2026-11-02: the pipelines' windows are no tabs; the perf
+            // trace counts each reply against the tab nearest its window.
+            Slot::DataLoad | Slot::DataDetails => Tab::Load,
+            Slot::ObjectCategories
+            | Slot::ObjectList
+            | Slot::EditorPreview
+            | Slot::EditorWrite
+            | Slot::EditorValidate => Tab::Records,
+            Slot::MeshBounds => Tab::Render,
         }
     }
 }
@@ -1008,6 +1017,9 @@ impl App {
                         self.submit(Slot::Inspect, req);
                     }
                 }
+                // Step 0 of sprint 2026-11-02: a window asks for another (the editor for
+                // the Edit dialog, the Object Window for the Data dialog, ...).
+                Action::OpenWindow(kind) => self.shell.set_open(kind, true),
             }
         }
     }

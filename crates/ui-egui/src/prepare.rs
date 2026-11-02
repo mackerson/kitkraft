@@ -110,7 +110,17 @@ pub(crate) fn build(
             | Slot::CockpitRollback
             | Slot::CockpitSession
             | Slot::CockpitGameStatus
-            | Slot::CockpitGameStop => View::None,
+            | Slot::CockpitGameStop
+            // Step 0 of sprint 2026-11-02: the pipelines' windows join their replies into
+            // state they hold (routed in `app.rs`).
+            | Slot::DataLoad
+            | Slot::DataDetails
+            | Slot::ObjectCategories
+            | Slot::ObjectList
+            | Slot::EditorPreview
+            | Slot::EditorWrite
+            | Slot::EditorValidate
+            | Slot::MeshBounds => View::None,
         },
     };
     Built { prepared, view }

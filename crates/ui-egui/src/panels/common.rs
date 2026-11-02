@@ -55,6 +55,33 @@ pub(crate) enum Slot {
     Coverage,
     // Lane R (M7.R2): the Render Window's cell, a page at a time.
     RenderCell,
+    // Step 0 of sprint 2026-11-02: the slots the pipelines' windows reply to. Each is
+    // routed to its owner's `receive` in `app.rs`; the `allow` goes when the owner sends
+    // the first request.
+    /// The Data dialog's `load` (M7.M2, pipeline W).
+    #[allow(dead_code)]
+    DataLoad,
+    /// The Data dialog's details of one plugin (`inspect` of its `TES4`; M7.M2).
+    #[allow(dead_code)]
+    DataDetails,
+    /// The Object Window's category tree (`schema` categories; M7.S2, M7.W1, pipeline W).
+    #[allow(dead_code)]
+    ObjectCategories,
+    /// The Object Window's list of one category (M7.W1).
+    #[allow(dead_code)]
+    ObjectList,
+    /// An editor write's preview (M7.E2 to M7.E6, pipeline E).
+    #[allow(dead_code)]
+    EditorPreview,
+    /// An editor write's confirmed form (one write per OK click; ADR 0007 Amendment 4).
+    #[allow(dead_code)]
+    EditorWrite,
+    /// The `validate` an editor preview shows before the confirm (M7.E2).
+    #[allow(dead_code)]
+    EditorValidate,
+    /// The Render Window's NIF bounds (`mesh.bounds`; M7.S4, M7.R3, pipeline R).
+    #[allow(dead_code)]
+    MeshBounds,
 }
 
 /// `Slot` as a map key.
@@ -111,6 +138,11 @@ pub(crate) enum Action {
     /// Lane R (M7.R2): a reference picked in the Render Window becomes the Records
     /// inspector's record (inspected there) without leaving the tab.
     Select(String),
+    // Step 0 of sprint 2026-11-02: the actions the pipelines' windows ask for, applied in
+    // `app.rs`; the `allow` goes when the owner first sends one.
+    /// Open (and bring to the front) one of the CK-style windows.
+    #[allow(dead_code)]
+    OpenWindow(crate::windows::WindowKind),
 }
 
 /// What a tab's `ui` gets each frame besides its own state: whether the engine is busy,
