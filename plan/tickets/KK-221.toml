@@ -7,6 +7,7 @@ owns = [
   "crates/engine/src/handlers/newform.rs",
   "crates/engine/src/handlers/authoring_tests.rs",
   "crates/engine/src/handlers/authoring_world_tests.rs",
+  "crates/engine/src/handlers/newform_tests.rs",
   "docs/gaps.md",
 ]
 brief = """
@@ -49,7 +50,13 @@ The one existing test this ticket may change is `a_new_exterior_cell_is_refused`
 refused" half: the exterior-cell half (the `new.cell-exterior` refusal and the
 `!into.exists()` check) stays exactly as it is, and the world half becomes: the WRLD
 `new` succeeds, the plugin validates with no findings, and `New.esp` holds the WRLD.
-No other existing test may change.
+The other existing test this ticket may change is `new_and_clone_refusals_are_typed` in
+`crates/engine/src/handlers/newform_tests.rs`, and only its one `new` case
+`json!({"type": "WRLD", "edid": "KC_A"})` expecting `new.not-top-level`, which this
+change makes untrue: replace `"WRLD"` in that case with `"INFO"` (typed, and still refused with
+`new.not-top-level`, so the case keeps covering the refusal; `LAND` would not do, it is
+untyped and is refused earlier with `new.untyped`). Every other case of that
+test stays exactly as it is. No other existing test may change.
 
 The `validate` decision, stated up front: a lone WRLD must validate with zero findings,
 and the run must not loosen, add or change any validate rule (validate is not owned).
@@ -82,7 +89,7 @@ a new world is not game-tested.
 Done means: `wrld_new_sets_every_typed_member_and_reads_back` passes (its `#[ignore]`
 removed); `a_new_world_is_written_alone_in_its_top_level_group` passes;
 `a_new_exterior_cell_is_refused` passes with only its "A world stays refused" half
-changed; every other existing test passes unchanged; the gaps line is in. Do not touch
+changed; `new_and_clone_refusals_are_typed` passes with only its WRLD case changed to INFO; every other existing test passes unchanged; the gaps line is in. Do not touch
 any file outside `owns`; do not change `clone`'s refusal of worlds. Run `cargo test -p
 kitkraft-engine --lib authoring` while you work, then `cargo xtask ci`. Commit when the
 first test passes.
