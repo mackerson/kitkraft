@@ -11,6 +11,9 @@ struct Model {
     blocks: Vec<(u16, Vec<u8>)>,
     strings: Vec<&'static str>,
     roots: Vec<u32>,
+    /// The words after the string table: the `u32` (0 in every official model) and
+    /// anything a test inserts after it.
+    after_strings: Vec<u32>,
 }
 
 fn u32s(out: &mut Vec<u8>, v: &[u32]) {
@@ -51,7 +54,7 @@ impl Model {
             u32s(&mut out, &[s.len() as u32]);
             out.extend_from_slice(s.as_bytes());
         }
-        u32s(&mut out, &[0]);
+        u32s(&mut out, &self.after_strings);
         for (_, b) in &self.blocks {
             out.extend_from_slice(b);
         }
@@ -96,6 +99,7 @@ fn model(blocks: Vec<(u16, Vec<u8>)>) -> Model {
         blocks,
         strings: vec!["root"],
         roots: vec![0],
+        after_strings: vec![0],
     }
 }
 
@@ -350,4 +354,55 @@ fn a_block_of_another_type_is_neither_node_nor_geometry() {
     assert_eq!(nif.geometry(1).unwrap(), None);
     assert_eq!(nif.geometry(0).unwrap(), None);
     assert_eq!(nif.model_bounds().unwrap().aabb, None);
+}
+
+#[test]
+fn a_nonzero_u32_after_the_string_table_is_refused() {
+    // Review H1: the study shows only that this u32 is 0; any other value is a layout no
+    // official model has, refused with its offset (the reviewer's probe: 1, then DEADBEEF).
+    let mut m = model(vec![node(&Transform::IDENTITY, &[])]);
+    m.after_strings = vec![1, 0xDEAD_BEEF];
+    assert!(matches!(
+        Nif::parse(&m.bytes()),
+        Err(Error::Unsupported {
+            what: "u32 after the string table",
+            value: 1,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_footer_other_than_one_then_a_block_is_refused() {
+    // Review H1 (root count): only `1, 0` occurs in the official footers.
+    let mut m = model(vec![node(&Transform::IDENTITY, &[])]);
+    m.roots = vec![0, 0];
+    assert!(matches!(
+        Nif::parse(&m.bytes()),
+        Err(Error::Unsupported {
+            what: "footer u32",
+            value: 2,
+            ..
+        })
+    ));
+}
+
+#[test]
+fn a_set_value_where_every_official_block_has_none_is_refused() {
+    // The u32 after the extra-data list is 0xFFFFFFFF in every official block (B2).
+    let mut b = Vec::new();
+    prefix(&mut b, 0, &Transform::IDENTITY);
+    b[8..12].copy_from_slice(&0u32.to_le_bytes());
+    u32s(&mut b, &[0]);
+    let m = model(vec![(0, b)]);
+    let bytes = m.bytes();
+    let nif = Nif::parse(&bytes).unwrap();
+    assert!(matches!(
+        nif.node(0),
+        Err(Error::Unsupported {
+            what: "u32 after the extra data",
+            value: 0,
+            ..
+        })
+    ));
 }

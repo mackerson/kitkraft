@@ -31,7 +31,7 @@ pub struct ModelBounds {
     /// The union of every reached geometry's box (or its sphere's box when only a sphere
     /// is stored); `None` when no reached geometry has a bound.
     pub aabb: Option<Aabb>,
-    /// Every geometry block reached from the roots, in visiting order.
+    /// Every geometry block reached from the root, in visiting order.
     pub geometries: Vec<GeometryBound>,
     /// Geometry blocks not reached from any root (none in the official models).
     pub unreached_geometries: u32,
@@ -98,16 +98,14 @@ fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 }
 
 impl Nif<'_> {
-    /// The model's box. Walks from each root through node children; each geometry's
+    /// The model's box. Walks from the root through node children; each geometry's
     /// bound is in its own frame, so its own transform applies, then each ancestor's.
     /// Each block is visited at most once, so the walk is bounded by the block count.
     pub fn model_bounds(&self) -> Result<ModelBounds> {
         let mut visited = vec![false; self.blocks.len()];
         let mut stack: Vec<(usize, Affine)> = Vec::new();
-        for r in self.roots.iter().rev() {
-            if let Ok(r) = usize::try_from(*r) {
-                stack.push((r, Affine::IDENTITY));
-            }
+        if let Ok(r) = usize::try_from(self.root) {
+            stack.push((r, Affine::IDENTITY));
         }
         let mut lo = [f64::INFINITY; 3];
         let mut hi = [f64::NEG_INFINITY; 3];

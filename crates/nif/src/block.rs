@@ -54,10 +54,11 @@ pub struct Prefix {
     pub name: Option<u32>,
     /// References to the block's extra-data blocks.
     pub extra_data: Vec<u32>,
-    /// A reference that is null in every official block.
-    pub unused_ref: Option<u32>,
-    /// A `u32` of flags (not interpreted).
-    pub flags: u32,
+    /// The `u32` after the extra-data list, 0xFFFFFFFF in every official block; any other
+    /// value is refused.
+    pub after_extra: u32,
+    /// The next `u32`, not interpreted (values such as 0x0000000E and 0x2000000F).
+    pub opaque: u32,
     /// Placement in the parent's frame.
     pub transform: Transform,
     /// Reference to the block's collision object, or none.
@@ -166,8 +167,16 @@ impl Nif<'_> {
                 }
             }
         }
-        let unused_ref = self.checked_ref(c, "reference after the extra data")?;
-        let flags = c.u32("flags")?;
+        let after_at = c.offset();
+        let after_extra = c.u32("u32 after the extra data")?;
+        if after_extra != u32::MAX {
+            return Err(Error::Unsupported {
+                what: "u32 after the extra data",
+                offset: after_at,
+                value: u64::from(after_extra),
+            });
+        }
+        let opaque = c.u32("u32 after that")?;
         let translation = c.f32s::<3>("translation")?;
         let r = c.f32s::<9>("rotation")?;
         let scale = c.f32("scale")?;
@@ -176,8 +185,8 @@ impl Nif<'_> {
         Ok(Prefix {
             name,
             extra_data,
-            unused_ref,
-            flags,
+            after_extra,
+            opaque,
             transform: Transform {
                 translation,
                 rotation: [[r0, r1, r2], [r3, r4, r5], [r6, r7, r8]],

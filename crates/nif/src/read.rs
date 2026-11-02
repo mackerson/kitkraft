@@ -21,19 +21,20 @@ const NO_REF: u32 = u32::MAX;
 pub struct Header {
     /// Offset 39: always [`VERSION`] in the official models.
     pub version: u32,
-    /// Offset 43: always 1.
-    pub flag: u8,
-    /// Offset 44: always 12.
-    pub tag: u32,
-    /// Offset 52: 170, 172, 173, 174 or 175 in the official models.
-    pub revision: u32,
+    /// The `u8` at offset 43: always 1.
+    pub u8_43: u8,
+    /// The `u32` at offset 44: always 12.
+    pub u32_44: u32,
+    /// The `u32` at offset 52: 170, 172, 173, 174 or 175 in the official models.
+    pub u32_52: u32,
     /// The first short string (a `u8` length, then the bytes).
     pub short_a: Vec<u8>,
     /// The `u32` after it: 3 in the archived models, 2 in the 4 loose ones.
-    pub value: u32,
+    pub u32_after_short_a: u32,
     /// The second short string.
     pub short_b: Vec<u8>,
-    /// The third short string: 1 to 9 bytes, always ending in a 0 byte.
+    /// The third short string: 1 to 13 bytes in the official models, always ending in a 0
+    /// byte.
     pub short_c: Vec<u8>,
 }
 
@@ -62,10 +63,12 @@ pub struct Nif<'a> {
     pub strings: Vec<String>,
     /// Offset of the string-table count, for evidence.
     pub strings_offset: usize,
-    /// The `u32` list after the string table: empty in every official model.
-    pub groups: Vec<u32>,
-    /// Root block indices from the footer: exactly one, block 0, in every official model.
-    pub roots: Vec<u32>,
+    /// The `u32` after the string count, equal to the longest string's length in every
+    /// official model (claim H4).
+    pub longest_string_len: u32,
+    /// The block index the footer names after its `u32` 1: block 0 in every official model.
+    /// Walking from it reaches every geometry block (claim C1a), so we call it the root.
+    pub root: u32,
 }
 
 impl<'a> Nif<'a> {
@@ -85,21 +88,21 @@ impl<'a> Nif<'a> {
                 value: u64::from(version),
             });
         }
-        let flag = c.u8("header flag")?;
-        let tag = c.u32("header tag")?;
+        let u8_43 = c.u8("u8 at offset 43")?;
+        let u32_44 = c.u32("u32 at offset 44")?;
         let block_count = c.u32("block count")?;
-        let revision = c.u32("header revision")?;
+        let u32_52 = c.u32("u32 at offset 52")?;
         let short_a = c.short_string("header short string a")?;
-        let value = c.u32("header value")?;
+        let u32_after_short_a = c.u32("u32 after short string a")?;
         let short_b = c.short_string("header short string b")?;
         let short_c = c.short_string("header short string c")?;
         let header = Header {
             version,
-            flag,
-            tag,
-            revision,
+            u8_43,
+            u32_44,
+            u32_52,
             short_a,
-            value,
+            u32_after_short_a,
             short_b,
             short_c,
         };
@@ -138,15 +141,21 @@ impl<'a> Nif<'a> {
 
         let strings_offset = c.pos;
         let string_count = c.u32("string count")?;
-        let _max_len = c.u32("longest string length")?;
+        let longest_string_len = c.u32("u32 after the string count")?;
         let mut strings = Vec::with_capacity(c.cap(u64::from(string_count), 4));
         for _ in 0..string_count {
             strings.push(c.long_string("string")?);
         }
-        let group_count = c.u32("group count")?;
-        let mut groups = Vec::with_capacity(c.cap(u64::from(group_count), 4));
-        for _ in 0..group_count {
-            groups.push(c.u32("group")?);
+        // A u32 that is 0 in every official model (claim H4); its meaning is not known, so
+        // any other value is a layout this crate does not read.
+        let after_at = c.offset();
+        let after_strings = c.u32("u32 after the string table")?;
+        if after_strings != 0 {
+            return Err(Error::Unsupported {
+                what: "u32 after the string table",
+                offset: after_at,
+                value: u64::from(after_strings),
+            });
         }
 
         let mut blocks = Vec::with_capacity(count);
@@ -164,19 +173,24 @@ impl<'a> Nif<'a> {
             });
         }
 
-        let root_count = c.u32("root count")?;
-        let mut roots = Vec::with_capacity(c.cap(u64::from(root_count), 4));
-        for _ in 0..root_count {
-            let at = c.offset();
-            let r = c.u32("root")?;
-            if usize::try_from(r).map_or(true, |r| r >= blocks.len()) {
-                return Err(Error::OutOfRange {
-                    what: "root",
-                    offset: at,
-                    value: u64::from(r),
-                });
-            }
-            roots.push(r);
+        // The footer: a u32 that is 1 in every official model (claim H6), then a block index.
+        let footer_at = c.offset();
+        let footer = c.u32("footer u32")?;
+        if footer != 1 {
+            return Err(Error::Unsupported {
+                what: "footer u32",
+                offset: footer_at,
+                value: u64::from(footer),
+            });
+        }
+        let at = c.offset();
+        let root = c.u32("root")?;
+        if usize::try_from(root).map_or(true, |r| r >= blocks.len()) {
+            return Err(Error::OutOfRange {
+                what: "root",
+                offset: at,
+                value: u64::from(root),
+            });
         }
         if c.pos != bytes.len() {
             return Err(Error::Trailing {
@@ -191,8 +205,8 @@ impl<'a> Nif<'a> {
             blocks,
             strings,
             strings_offset,
-            groups,
-            roots,
+            longest_string_len,
+            root,
         })
     }
 

@@ -48,7 +48,7 @@ struct Tally {
     geometry: [u64; 4],
     skinned: u64,
     null_children: u64,
-    revisions: BTreeMap<u32, u64>,
+    u32_52_values: BTreeMap<u32, u64>,
     short_c_lens: BTreeMap<usize, u64>,
     with_box: u64,
     violations: Vec<String>,
@@ -79,25 +79,48 @@ fn check(path: &Path, bytes: &[u8], t: &mut Tally) {
         Err(e) => return t.fail(path, format!("parse: {e}")),
     };
     let h = &nif.header;
-    if h.version != VERSION || h.flag != 1 || h.tag != 12 {
+    if h.version != VERSION || h.u8_43 != 1 || h.u32_44 != 12 {
         t.fail(
             path,
-            format!("header constants {} {} {}", h.version, h.flag, h.tag),
+            format!("header constants {} {} {}", h.version, h.u8_43, h.u32_44),
         );
     }
-    if ![170, 172, 173, 174, 175].contains(&h.revision) {
-        t.fail(path, format!("revision {}", h.revision));
+    if ![170, 172, 173, 174, 175].contains(&h.u32_52) {
+        t.fail(path, format!("u32 at 52: {}", h.u32_52));
     }
-    *t.revisions.entry(h.revision).or_default() += 1;
+    *t.u32_52_values.entry(h.u32_52).or_default() += 1;
+    // H3: the two header patterns, archived and loose.
+    let archived = h.short_a == b"\0" && h.u32_after_short_a == 3 && h.short_b == b"\0";
+    let loose =
+        h.short_a == b"BSFBXNiConverter\0" && h.u32_after_short_a == 2 && h.short_b == b"Static\0";
+    if !archived && !loose {
+        t.fail(
+            path,
+            format!(
+                "short strings {:?} {} {:?}",
+                h.short_a, h.u32_after_short_a, h.short_b
+            ),
+        );
+    }
+    // H4: the u32 after the string count is the longest string's length.
+    let longest = nif.strings.iter().map(String::len).max().unwrap_or(0);
+    if nif.longest_string_len as usize != longest {
+        t.fail(
+            path,
+            format!(
+                "longest string {longest}, stored {}",
+                nif.longest_string_len
+            ),
+        );
+    }
     *t.short_c_lens.entry(h.short_c.len()).or_default() += 1;
     if h.short_c.last() != Some(&0) {
         t.fail(path, format!("short string c {:?}", h.short_c));
     }
-    if !nif.groups.is_empty() || nif.roots != [0] {
-        t.fail(
-            path,
-            format!("groups {:?} roots {:?}", nif.groups, nif.roots),
-        );
+    // H6: the root is block 0 (the reader refuses any other u32 after the string table
+    // or footer value).
+    if nif.root != 0 {
+        t.fail(path, format!("root {}", nif.root));
     }
     t.blocks += nif.blocks.len() as u64;
 
@@ -109,10 +132,21 @@ fn check(path: &Path, bytes: &[u8], t: &mut Tally) {
             match nif.node(i) {
                 Ok(Some(n)) => {
                     *t.nodes.entry(ty.clone()).or_default() += 1;
-                    if ty == "NiNode" && n.trailing != 0 {
+                    // B3: bytes after the children list, per node type.
+                    let ok = match ty.as_str() {
+                        "NiNode" => n.trailing == 0,
+                        "BSFaceGenNiNode" | "NiBillboardNode" => n.trailing == 2,
+                        "BSBlastNode" => n.trailing == 3,
+                        "BSValueNode" => n.trailing == 5,
+                        "NiSwitchNode" => n.trailing == 6,
+                        "BSOrderedNode" => n.trailing == 17,
+                        "BSWeakReferenceNode" => n.trailing >= 96,
+                        _ => false,
+                    };
+                    if !ok {
                         t.fail(
                             path,
-                            format!("block {i} NiNode: {} bytes after children", n.trailing),
+                            format!("block {i} {ty}: {} bytes after children", n.trailing),
                         );
                     }
                     t.null_children += n.children.iter().filter(|c| c.is_none()).count() as u64;
@@ -204,11 +238,8 @@ fn check(path: &Path, bytes: &[u8], t: &mut Tally) {
             continue;
         };
         // B2: the shared prefix.
-        if prefix.unused_ref.is_some() {
-            t.fail(
-                path,
-                format!("block {i}: reference after the extra data is set"),
-            );
+        if prefix.after_extra != u32::MAX {
+            t.fail(path, format!("block {i}: u32 after the extra data is set"));
         }
         for x in &prefix.extra_data {
             let xt = type_of(*x);
@@ -280,8 +311,8 @@ fn every_claim_holds_on_every_reachable_official_model() {
         t.files, t.blocks, t.nodes, t.null_children
     );
     eprintln!(
-        "geometry bounds: stored {}, sphere only {}, not stored {} (skinned {}), unrecognised {}; models with a box {}; revisions {:?}; short string c lengths {:?}",
-        t.geometry[0], t.geometry[1], t.geometry[2], t.skinned, t.geometry[3], t.with_box, t.revisions, t.short_c_lens
+        "geometry bounds: stored {}, sphere only {}, not stored {} (skinned {}), unrecognised {}; models with a box {}; u32_52_values {:?}; short string c lengths {:?}",
+        t.geometry[0], t.geometry[1], t.geometry[2], t.skinned, t.geometry[3], t.with_box, t.u32_52_values, t.short_c_lens
     );
     assert!(
         t.violations.is_empty(),
