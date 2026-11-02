@@ -288,3 +288,18 @@ pub(crate) fn tab_labels() -> Vec<&'static str> {
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests;
+
+// Step 0 of sprint 2026-11-02: each pipeline's harness tests in a file of its own, so the
+// writers never share this one (pipeline E, W, R; X's live checks).
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod live;
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests_e;
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests_r;
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests_w;
