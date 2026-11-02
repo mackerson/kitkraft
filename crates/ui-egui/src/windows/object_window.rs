@@ -7,10 +7,11 @@
 //! `app.rs`) and its View-menu window, so W fills it without touching those seams. Every
 //! body is a no-op until M7.W1.
 
+use eframe::egui;
 use serde_json::Value;
 
 use crate::gate::Request;
-use crate::panels::common::Slot;
+use crate::panels::common::{Action, Slot};
 
 /// What an Object Window request sent through the shell's tickets was for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,4 +33,12 @@ impl ObjectWindowState {
     /// Takes a successful reply that came back on `Slot::ObjectCategories` or
     /// `Slot::ObjectList`.
     pub(crate) fn receive_slot(&mut self, _slot: Slot, _request: &Request, _env: &Value) {}
+
+    /// Draws the window's content; returns the actions it asks for. Pipeline E's
+    /// `new`/`clone` controls (M7.E3) come from its one hook here. The `allow` goes when
+    /// W draws the window from `shell.rs` (M7.W1).
+    #[allow(dead_code)]
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, selected: Option<&str>) -> Vec<Action> {
+        crate::dialogs::new::object_window_actions(ui, selected)
+    }
 }

@@ -478,6 +478,8 @@ pub enum CellViewAsk {
     Select(String),
     /// A reference double-clicked: inspect it.
     Inspect(String),
+    /// Pipeline E's place bar (M7.E4): place a base into the shown cell.
+    Place(crate::dialogs::place::PlaceAsk),
 }
 
 /// The error to show: the engine's "no load order" error says "load a profile
@@ -655,6 +657,10 @@ impl CellViewState {
                 }
             }
         });
+        // Pipeline E's place bar (M7.E4; step 0 of sprint 2026-11-02).
+        if let Some(p) = crate::dialogs::place::cell_view_bar(ui, c, inspected) {
+            *ask = Some(CellViewAsk::Place(p));
+        }
         let sel = self.selected_row(inspected);
         let mut scroll_to = self.scroll_row_once(inspected, sel);
         // The table's row height (the theme's density, never less than a

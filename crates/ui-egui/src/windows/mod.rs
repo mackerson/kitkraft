@@ -166,6 +166,8 @@ pub enum Pending {
     Object(object_window::ObjectTicket),
     /// A request of the Data dialog (M7.M2; step 0 of sprint 2026-11-02).
     Data(data_dialog::DataTicket),
+    /// A request of the editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02).
+    Editor(crate::dialogs::editor::EditorTicket),
 }
 
 /// The state of the CK-style shell: the windows, the floating tabs, and the requests
@@ -196,6 +198,8 @@ pub struct Shell {
     pub object_window: object_window::ObjectWindowState,
     pub data_dialog: data_dialog::DataDialogState,
     pub preferences: preferences::PreferencesState,
+    /// Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02).
+    pub editor: crate::dialogs::editor::EditorState,
     /// The screenshot tour's own steps (after the tabs).
     pub tour_step: usize,
     pub tour_frames: u8,

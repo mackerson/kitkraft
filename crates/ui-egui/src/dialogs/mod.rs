@@ -13,6 +13,16 @@
 //! placement by position is M7.W4's).
 
 pub mod edit;
+// Step 0 of sprint 2026-11-02: pipeline E's editor (M7.E2 to M7.E6) and layouts (M7.W4),
+// declared here so E fills its own files.
+pub mod build;
+pub mod clone;
+pub mod editor;
+pub mod layouts;
+pub mod new;
+pub mod place;
+pub mod revert;
+pub mod set;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -20,12 +30,17 @@ use serde_json::Value;
 
 use crate::panels::records::SubRow;
 
+pub use layouts::SHIPPED;
+
 /// One group of fields on a tab.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayoutGroup {
     pub name: String,
     /// Subrecord signatures, in display order.
     pub fields: Vec<String>,
+    /// The member paths the group's fields edit (M7.W4: `members` in the layout file),
+    /// when the layout names them; `None` when it does not.
+    pub members: Option<Vec<String>>,
 }
 
 /// One tab of the dialog.
@@ -48,42 +63,6 @@ pub struct Layout {
     pub source: String,
     pub tabs: Vec<LayoutTab>,
 }
-
-/// The layout files shipped in the binary, by record type.
-pub const SHIPPED: &[(&str, &str)] = &[
-    (
-        "WEAP",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/WEAP.toml")),
-    ),
-    (
-        "ACTI",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/ACTI.toml")),
-    ),
-    (
-        "LCTN",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/LCTN.toml")),
-    ),
-    (
-        "TERM",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/TERM.toml")),
-    ),
-    (
-        "FACT",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/FACT.toml")),
-    ),
-    (
-        "PKIN",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/PKIN.toml")),
-    ),
-    (
-        "CELL",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/CELL.toml")),
-    ),
-    (
-        "REFR",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/REFR.toml")),
-    ),
-];
 
 /// Most tabs, groups and fields a layout may have (a bound on hostile files).
 const MAX_ITEMS: usize = 256;
@@ -130,9 +109,28 @@ pub fn parse(text: &str, source: &str) -> Result<Layout, String> {
                         .ok_or_else(|| format!("{source}: a field must be a 4-character signature"))
                 })
                 .collect::<Result<Vec<_>, _>>()?;
+            // Optional (M7.W4); parsed only when the group names it.
+            let members = if g.contains_key("members") {
+                Some(
+                    arr(g, "members")?
+                        .iter()
+                        .map(|m| {
+                            m.as_str()
+                                .filter(|m| !m.trim().is_empty())
+                                .map(str::to_string)
+                                .ok_or_else(|| {
+                                    format!("{source}: a member must be a non-empty string")
+                                })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                )
+            } else {
+                None
+            };
             groups.push(LayoutGroup {
                 name: s(g, "name")?,
                 fields,
+                members,
             });
         }
         tabs.push(LayoutTab {
@@ -212,12 +210,14 @@ pub fn default_layout(signature: &str, schema_env: &Value) -> Layout {
             groups.push(LayoutGroup {
                 name: group,
                 fields: sigs,
+                members: None,
             });
         }
     }
     let mut all = vec![LayoutGroup {
         name: "Record".to_string(),
         fields: plain,
+        members: None,
     }];
     all.extend(groups);
     Layout {
@@ -365,7 +365,6 @@ mod tests {
     use super::*;
     use crate::gate::{check, ReadOnlyEngine, Request};
     use serde_json::json;
-    use std::path::{Path, PathBuf};
 
     fn sub(sig: &str, member: &str, value: &str) -> SubRow {
         SubRow {
@@ -379,51 +378,21 @@ mod tests {
         }
     }
 
-    fn repo() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(2)
-            .unwrap()
-            .to_path_buf()
-    }
-
-    /// Every shipped layout parses, names its own type, cites a `dialog` row of
-    /// `docs/ck-parity.md`, says it is unobserved, and names only signatures the record
-    /// schema defines for that type (asked through the gate, as the window asks).
+    /// A group's `members` (M7.W4) is parsed when present and stays `None` when absent;
+    /// one that is not an array of non-empty strings is refused.
     #[test]
-    fn every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row() {
-        let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
-        let dialog_rows: Vec<String> = parity
-            .lines()
-            .filter(|l| l.starts_with("| dialog |"))
-            .filter_map(|l| l.split('|').nth(2).map(|c| c.trim().to_string()))
-            .collect();
-        let engine = ReadOnlyEngine::new();
-        assert_eq!(SHIPPED.len(), 8);
-        for (t, _) in SHIPPED {
-            let layout = shipped(t).unwrap().unwrap();
-            assert_eq!(&layout.record_type, t);
-            assert!(!layout.observed, "{t}: no sitting has observed it yet");
-            assert!(
-                dialog_rows.contains(&layout.parity),
-                "{t}: parity `{}` is no dialog row of docs/ck-parity.md",
-                layout.parity
-            );
-            let req = Request::new("schema", json!({"type": t}));
-            assert!(check(&req).is_ok());
-            let env = engine.run(&req).unwrap();
-            let sigs = schema_signatures(&env);
-            assert!(sigs.len() > 10, "{t}: {sigs:?}");
-            for tab in &layout.tabs {
-                assert!(!tab.name.trim().is_empty() && !tab.groups.is_empty(), "{t}");
-                for g in &tab.groups {
-                    assert!(!g.fields.is_empty(), "{t}/{}/{}", tab.name, g.name);
-                    for f in &g.fields {
-                        assert!(sigs.contains(f), "{t}: {f} is not in the schema");
-                    }
-                }
-            }
-        }
+    fn a_groups_members_are_parsed_only_when_present() {
+        let head = "type = \"WEAP\"\n[[tab]]\nname = \"A\"\n[[tab.group]]\nname = \"G\"\nfields = [\"EDID\", \"FULL\"]\n";
+        let none = parse(head, "x").unwrap();
+        assert_eq!(none.tabs[0].groups[0].members, None);
+        let some = parse(&format!("{head}members = [\"EditorID\", \"Name\"]"), "x").unwrap();
+        assert_eq!(
+            some.tabs[0].groups[0].members,
+            Some(vec!["EditorID".to_string(), "Name".to_string()])
+        );
+        assert!(parse(&format!("{head}members = \"Name\""), "x").is_err());
+        assert!(parse(&format!("{head}members = [1]"), "x").is_err());
+        assert!(parse(&format!("{head}members = [\" \"]"), "x").is_err());
     }
 
     #[test]

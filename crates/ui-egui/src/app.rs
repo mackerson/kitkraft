@@ -382,6 +382,10 @@ struct App {
     coverage: CoverageTab,
     render: RenderTab,
     shell: crate::windows::Shell,
+    /// The active file (M7.M2: the Data dialog's "Set as Active File"; ADR 0007
+    /// Amendment 4): the one plugin the editor's writes go into. UI state only, never
+    /// saved to `ui.json`; `None` until the Data dialog sets one.
+    active_file: Option<String>,
 }
 
 /// Opens the window and blocks until it closes.
@@ -599,6 +603,7 @@ impl App {
             },
             render: RenderTab::default(),
             shell: crate::windows::Shell::default(),
+            active_file: None,
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -824,6 +829,12 @@ impl App {
                         .shell
                         .object_window
                         .receive_slot(slot, &reply.request, env),
+                    // Pipeline E's editor (M7.E2 to M7.E6).
+                    Slot::EditorPreview | Slot::EditorWrite | Slot::EditorValidate => {
+                        self.shell.editor.receive_slot(slot, &reply.request, env)
+                    }
+                    // `Slot::MeshBounds` (M7.R3) is not routed yet: the Render Window's
+                    // receive is in pipeline R's `panels/render.rs`, not a step-0 file.
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.
@@ -1030,6 +1041,11 @@ impl App {
                 // Step 0 of sprint 2026-11-02: a window asks for another (the editor for
                 // the Edit dialog, the Object Window for the Data dialog, ...).
                 Action::OpenWindow(kind) => self.shell.set_open(kind, true),
+                // Pipeline W's Data dialog (M7.M2) and pipeline E's editor (M7.E2 to
+                // M7.E6): the active file is UI state; the editor decides what opens.
+                Action::SetActiveFile(file) => self.active_file = file,
+                Action::OpenEditor { command, form } => self.shell.editor.open(&command, &form),
+                Action::PlaceInCell { base, cell } => self.shell.editor.place(&base, &cell),
             }
         }
     }

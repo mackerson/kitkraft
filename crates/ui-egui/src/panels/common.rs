@@ -143,6 +143,23 @@ pub(crate) enum Action {
     /// Open (and bring to the front) one of the CK-style windows.
     #[allow(dead_code)]
     OpenWindow(crate::windows::WindowKind),
+    /// The Data dialog's "Set as Active File" (M7.M2): the file the editor writes into
+    /// (UI state only, never saved to `ui.json`); `None` clears it.
+    #[allow(dead_code)]
+    SetActiveFile(Option<String>),
+    /// Open the editor for `command` (a catalog id: `set`, `new`, `clone`, `place`,
+    /// `build`, `revert`) on `form` (M7.E2 to M7.E6; the Object Window's double-click and
+    /// Edit > Duplicate, M7.W1, M7.E3).
+    #[allow(dead_code)]
+    OpenEditor {
+        command: String,
+        form: String,
+    },
+    /// Place `base` into `cell` (formrefs; the Cell View's place bar, M7.E4).
+    PlaceInCell {
+        base: String,
+        cell: String,
+    },
 }
 
 /// What a tab's `ui` gets each frame besides its own state: whether the engine is busy,

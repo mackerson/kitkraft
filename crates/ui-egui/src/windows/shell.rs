@@ -165,6 +165,8 @@ impl App {
             // Step 0 of sprint 2026-11-02: pipeline W's windows (M7.W1, M7.M2).
             Some(Pending::Object(t)) => self.shell.object_window.receive(&t, result),
             Some(Pending::Data(t)) => self.shell.data_dialog.receive(&t, result),
+            // Pipeline E's editor (M7.E2 to M7.E6).
+            Some(Pending::Editor(t)) => self.shell.editor.receive(&t, result),
             None => {}
         }
     }
@@ -221,6 +223,11 @@ impl App {
             }
             Some(CellViewAsk::Select(form)) => actions.push(Action::Select(form)),
             Some(CellViewAsk::Inspect(form)) => actions.push(Action::Inspect(form)),
+            // Pipeline E's place bar (M7.E4; step 0 of sprint 2026-11-02).
+            Some(CellViewAsk::Place(p)) => actions.push(Action::PlaceInCell {
+                base: p.base,
+                cell: p.cell,
+            }),
             None => {}
         }
     }
@@ -370,6 +377,16 @@ impl App {
                 .to_string();
             self.ck_submit(Pending::Schema(sig), req);
         }
+
+        // Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02): its
+        // per-frame hook, with the active file and the shared selection.
+        actions.extend(crate::dialogs::editor::ui(
+            ctx,
+            &mut self.shell.editor,
+            busy,
+            self.active_file.as_deref(),
+            selected.as_deref(),
+        ));
 
         // Floating tabs (M7.M0): any tab as a window.
         let tour = self.tour.is_some();
