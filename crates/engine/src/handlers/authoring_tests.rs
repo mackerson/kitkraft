@@ -688,11 +688,8 @@ fn qust_contact_shadow_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
-// `new` refuses a WRLD (newform.rs `new_refused`; asserted by
-// `a_new_exterior_cell_is_refused`): a worldspace roots a world, and a new world's
-// exterior grid and cells are not written yet, so no `new`/`set`/`build` path creates one;
-// WRLD's typed-writable row awaits that writer.
-#[ignore = "`new` refuses a WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are not written yet"]
+// `new` writes a WRLD as a lone record in its top-level group (KK-221): no world
+// children, no persistent cell, no exterior cells — `place` adds them later.
 #[test]
 fn wrld_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
