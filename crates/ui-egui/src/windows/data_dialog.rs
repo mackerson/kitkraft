@@ -254,6 +254,22 @@ impl DataDialogState {
             });
             loaded.chain(inactive).take(65_536).collect()
         });
+        // Review M1: an active file chosen under another load (the MO2 `mods` folder is
+        // shared by every profile) is dropped when this load refuses it.
+        if self.active.as_deref().is_some_and(|a| !self.active_ok(a)) {
+            self.active = None;
+        }
+    }
+
+    /// Whether `path` may stay the active file under this load: never while the session
+    /// came from `Default`, and never when the load lists it on a refused row.
+    fn active_ok(&self, path: &str) -> bool {
+        !live_source(&self.source)
+            && self
+                .rows
+                .iter()
+                .position(|r| r.path == path)
+                .is_none_or(|i| self.refused(i).is_none())
     }
 
     /// The CK's status of row `i`.
@@ -363,11 +379,13 @@ impl DataDialogState {
             }
             Request::new("load", Value::Object(args))
         });
-        // The active file only if it is still ticked: an unticked one is not loaded.
+        // The active file only if this load does not refuse it (review M1) and, when it
+        // is one of the listed plugins, only if it is still ticked: an unticked one is not
+        // loaded.
         let active = self
             .active
             .clone()
-            .filter(|a| self.rows.iter().any(|r| r.ticked && r.path == *a));
+            .filter(|a| self.active_ok(a) && self.rows.iter().any(|r| r.ticked && r.path == *a));
         DataAsk::Accept { load, active }
     }
 
@@ -669,6 +687,34 @@ mod tests {
         let mut s = opened(&format!("profile:{}", dev.display()));
         s.select(3);
         s.set_active().unwrap();
+    }
+
+    /// Review M1: an active file chosen under another profile does not survive a `Default`
+    /// load, and OK does not re-assert it.
+    #[test]
+    fn a_stale_active_file_is_dropped_under_default() {
+        let mut s = opened("plugins");
+        s.select(3);
+        s.set_active().unwrap();
+        let path = s.rows[3].path.clone();
+        s.closed();
+        let live = std::env::temp_dir().join("profiles").join("Default");
+        s.sync(
+            Some(&view(&format!("profile:{}", live.display()))),
+            2,
+            Some(&path),
+        );
+        assert_eq!(s.status(3), "Plugin File");
+        let DataAsk::Accept { active, .. } = s.accept(None) else {
+            panic!("accept");
+        };
+        assert_eq!(active, None);
+        // A new load (same opening) that refuses the row drops it as well.
+        let mut s = opened("plugins");
+        s.select(3);
+        s.set_active().unwrap();
+        s.sync(Some(&view(&format!("profile:{}", live.display()))), 2, None);
+        assert_eq!(s.active, None);
     }
 
     #[test]
