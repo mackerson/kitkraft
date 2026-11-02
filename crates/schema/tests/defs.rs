@@ -692,12 +692,17 @@ const BX2_INVENTORY: &[&str] = &[
 /// the other by whether the file cites xEdit.
 #[rustfmt::skip]
 const INVENTORY_CORPUS_ONLY: &[&str] = &[
+    "ASPC",
     "AVMD",
+    "CNDF",
     "CURV",
     "DFOB",
     "IPCT",
     "LMSW",
+    "MRPH",
+    "MTPT",
     "REGN",
+    "VTYP",
 ];
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R

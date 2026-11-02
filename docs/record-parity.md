@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 92: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    500,158 |   546,120 |  33,561 |
-| **Total**       |          186 |         181 | 7,490,102 | 47,055,679 | 2,623,613 | 740,269 |
+| container/other |          123 |         123 |   252,710 |    504,991 |   563,238 |  11,610 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,060,512 | 2,640,731 | 718,318 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:21c3e5227bd66f9d` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:0aa7e2830f3932ef` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -104,17 +104,17 @@ Columns:
 | `AVIF`        | ActorValueInformation          |     1,267 |          0 |     9 |     3 |      0 |       6 |
 | `ARMA`        | ArmorAddon                     |     1,238 |          0 |    39 |    36 |      1 |       2 |
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
-| `MRPH`        | -                              |     1,145 |          0 |     4 |     0 |      0 |       4 |
+| `MRPH`        | MorphableObject                |     1,145 |          0 |     4 |     1 |      3 |       0 |
 | `SOUN`        | SoundMarker                    |     1,133 |          0 |     8 |     8 |      0 |       0 |
-| `CNDF`        | -                              |     1,055 |          0 |     6 |     0 |      0 |       6 |
+| `CNDF`        | ConditionForm                  |     1,055 |          0 |     6 |     1 |      5 |       0 |
 | `FURN`        | Furniture                      |     1,045 |          0 |    50 |    40 |      4 |       6 |
 | `MGEF`        | MagicEffect                    |       989 |          0 |    12 |    10 |      2 |       0 |
 | `TMLM`        | TerminalMenu                   |       974 |          0 |    22 |    21 |      1 |       0 |
 | `FACT`        | Faction                        |       953 |          0 |    20 |    20 |      0 |       0 |
-| `VTYP`        | -                              |       915 |          0 |     4 |     0 |      0 |       4 |
-| `MTPT`        | -                              |       906 |          0 |     2 |     0 |      0 |       2 |
+| `VTYP`        | VoiceType                      |       915 |          0 |     4 |     1 |      3 |       0 |
+| `MTPT`        | MaterialPath                   |       906 |          0 |     2 |     1 |      1 |       0 |
 | `CONT`        | Container                      |       866 |          0 |    39 |    36 |      3 |       0 |
-| `ASPC`        | -                              |       814 |          0 |    16 |     0 |      0 |      16 |
+| `ASPC`        | AcousticSpace                  |       814 |          0 |    16 |     1 |     15 |       0 |
 | `TRNS`        | Transform                      |       733 |          0 |     4 |     1 |      3 |       0 |
 | `PDCL`        | ProjectedDecal                 |       732 |          0 |    13 |     3 |      8 |       2 |
 | `EFSQ`        | EffectSequence                 |       728 |          0 |     2 |     1 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,093 |    470 |     234 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,098 |    497 |     202 |
 
-Subrecord occurrences: 50,419,561 in total; 47,055,679 typed (0 of them failed to decode), 2,623,613 opaque, 740,269 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,060,512 typed (0 of them failed to decode), 2,640,731 opaque, 718,318 unknown.
 
 ## Decoded through the definitions
 
@@ -306,12 +306,17 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AVIF`    | ActorValueInformation          |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
 | `ARMA`    | ArmorAddon                     |         1,238 |     27,776 |      0 |         0 |    18,000 |                   0 |      9,776 |       0 |        0 |
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
+| `MRPH`    | MorphableObject                |         1,145 |      1,145 |      0 |         0 |         0 |                   0 |      1,145 |       0 |        0 |
 | `SOUN`    | SoundMarker                    |         1,133 |      5,715 |      0 |         0 |         0 |                   0 |      5,715 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |         1,055 |      1,055 |      0 |         0 |         0 |                   0 |      1,055 |       0 |        0 |
 | `FURN`    | Furniture                      |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
 | `MGEF`    | MagicEffect                    |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
 | `FACT`    | Faction                        |           953 |      6,131 |      0 |         0 |         0 |                   0 |      6,131 |       0 |        0 |
+| `VTYP`    | VoiceType                      |           915 |        915 |      0 |         0 |         0 |                   0 |        915 |       0 |        0 |
+| `MTPT`    | MaterialPath                   |           906 |        906 |      0 |         0 |         0 |                   0 |        906 |       0 |        0 |
 | `CONT`    | Container                      |           866 |     18,190 |      0 |         0 |         0 |                   0 |     18,190 |       0 |        0 |
+| `ASPC`    | AcousticSpace                  |           814 |        812 |      0 |         0 |         0 |                   0 |        812 |       0 |        0 |
 | `TRNS`    | Transform                      |           733 |        733 |      0 |         0 |         0 |                   0 |        733 |       0 |        0 |
 | `PDCL`    | ProjectedDecal                 |           732 |        854 |      0 |         0 |         0 |                   0 |        854 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |           728 |        727 |      0 |         0 |         0 |                   0 |        727 |       0 |        0 |
@@ -443,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 47,055,679 |      0 |         0 |   231,862 |                   0 | 46,823,817 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,060,512 |      0 |         0 |   231,862 |                   0 | 46,828,650 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -476,6 +481,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ARMA`    | ArmorAddon                     |             83 |    79 |      4 |        40 |                   0 |     43 |       0 |        0 |
 | `ARMO`    | Armor                          |             85 |    81 |      4 |        11 |                   0 |     74 |       0 |        0 |
 | `ARTO`    | ArtObject                      |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
+| `ASPC`    | AcousticSpace                  |             16 |     1 |     15 |         0 |                   0 |     16 |       0 |        0 |
 | `ATMO`    | Atmosphere                     |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation          |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `AVMD`    | AvmsData                       |             43 |    31 |     12 |         0 |                   0 |     43 |       0 |        0 |
@@ -492,6 +498,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CLDF`    | Clouds                         |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CLFM`    | ColorForm                      |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `CLMT`    | ClimateForm                    |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `COBJ`    | ConstructibleObject            |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
 | `COLL`    | CollisionLayerForm             |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `CONT`    | Container                      |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
@@ -565,7 +572,9 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MGEF`    | MagicEffect                    |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
 | `MISC`    | MiscItem                       |             68 |    64 |      4 |        10 |                   0 |     58 |       0 |        0 |
 | `MOVT`    | MovementTypeForm               |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
+| `MRPH`    | MorphableObject                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `MSTT`    | MoveableStatic                 |             65 |    61 |      4 |         8 |                   0 |     57 |       0 |        0 |
+| `MTPT`    | MaterialPath                   |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `MUSC`    | MusicTypeForm                  |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `MUST`    | MusicTrack                     |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
 | `NAVI`    | NavmeshInfoMap                 |              3 |     0 |      3 |         0 |                   0 |      3 |       0 |        0 |
@@ -630,6 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `TRNS`    | Transform                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `TXST`    | TextureSet                     |             47 |    43 |      4 |         2 |                   0 |     45 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
+| `VTYP`    | VoiceType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WATR`    | Water                          |             54 |    48 |      6 |         2 |                   0 |     52 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WEAP`    | Weapon                         |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
@@ -639,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,861 | 5,090 |    771 |       416 |                   2 |  5,443 |       0 |        0 |
+| **Total** |                                |          5,893 | 5,095 |    798 |       416 |                   2 |  5,475 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
