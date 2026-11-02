@@ -2,9 +2,9 @@
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
-//! ARMO, ARMA
-//! and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable
-//! evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored,
+//! ARMO, ARMA and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the
+//! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
+//! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //! pass since KK-220 (scaffold.rs `record_order`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type

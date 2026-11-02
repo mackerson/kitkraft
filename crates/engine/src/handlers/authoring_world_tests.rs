@@ -209,17 +209,26 @@ fn a_new_exterior_cell_is_refused() {
     .to_string();
     assert!(err.contains("new.cell-exterior"), "{err}");
     assert!(!into.exists());
-    // A world stays refused.
-    let err = execute(
+    // A world is written now: alone in its top-level group, no cells yet (KK-221).
+    let r = execute(
         "new",
         json!({
             "type": "WRLD", "edid": "KC_World", "into": into.display().to_string(),
             "plugins": [MASTER], "data_dir": data.display().to_string(), "no_cache": true,
         }),
     )
-    .unwrap_err()
-    .to_string();
-    assert!(err.contains("new.not-top-level"), "{err}");
+    .unwrap_or_else(|e| panic!("new WRLD: {e}"));
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let v = validate_at(&into, &data);
+    assert_eq!(v["findings"], json!([]), "{v:#}");
+    // New.esp holds the WRLD.
+    let index = index_bytes(&std::fs::read(&into).unwrap(), &IndexOptions::default()).unwrap();
+    assert!(index.records.iter().any(|r| r.signature.to_string() == "WRLD"));
     let _ = std::fs::remove_dir_all(&d);
 }
 
