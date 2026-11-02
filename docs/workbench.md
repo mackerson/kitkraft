@@ -6,8 +6,9 @@ Each view runs one engine command, or a fixed sequence of commands, and shows th
 envelope. The UI track continues in M6 "Cockpit", M7 "CK parity" and M8 "Beyond the CK"
 ("Roadmap" at the end). The window's first permitted write is the Ledger
 tab's (Amendment 2): it appends the owner's in-game result as a row of
-`docs/game-observations.md`, a repo doc, one confirm click per row. The six
-permitted writes ADR 0007 Amendment 3 names are listed under "What it can run".
+`docs/game-observations.md`, a repo doc, one confirm click per row. The
+permitted writes (Amendment 3's six, and `set` from Amendment 4) are listed under "What it
+can run".
 
 ## Launch
 
@@ -95,12 +96,12 @@ M6.G1 and M6.G3):
   --incoming` fills the engine's reverse-link cache, as `load` fills the index cache.)
 - **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
   with `out` or `overwrite`.
-- **The permitted writes** (`gate::PERMITTED_WRITES`, inside `gate::COCKPIT_SCOPE`, the six
-  commands ADR 0007 Amendment 3 names: `ledger`, `deploy`, `deploy.rollback`,
-  `game.session`, `game.probe`, `game.stop`). Today all six of them are permitted, each
-  with a writing form that passes only as a request built by `Request::confirmed`, which
-  one panel file per command makes, once per confirm click, and five of them with a
-  preview that passes like a read (`game.probe` has none):
+- **The permitted writes** (`gate::PERMITTED_WRITES`: Amendment 3's six, inside
+  `gate::COCKPIT_SCOPE`, `ledger`, `deploy`, `deploy.rollback`, `game.session`,
+  `game.probe`, `game.stop`; and `set` from Amendment 4, inside `gate::EDITOR_SCOPE`).
+  Today all seven are permitted, each with a writing form that passes only as a request built by `Request::confirmed`, which
+  one panel file per command makes, once per confirm click, and all but `game.probe`
+  with a preview that passes like a read:
 
   | Command | Preview (writes nothing) | Writing form | Panel |
   | ------- | ------------------------ | ------------ | ----- |
@@ -110,6 +111,21 @@ M6.G1 and M6.G3):
   | `game.session` | `dry_run: true` | `start: true`, `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit/session.rs`) |
   | `game.probe` | none | confirmed | Cockpit (`panels/cockpit/probes.rs`) |
   | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
+  | `set` (M7.E2, Amendment 4) | `dry_run: true` | no `dry_run`, confirmed, `into` named | Edit dialog (`dialogs/set.rs`, `dialogs/editor.rs`) |
+
+  `set` is the editor's first write (ADR 0007 Amendment 4, accepted 2026-11-01 with
+  model A: one confirmed write per OK click; `gate::EDITOR_SCOPE` holds the six editor
+  ids, each permitted with its M7.E ticket). The gate requires `into` in the writing
+  form. In every form it refuses an `into` that is not a plugin (.esm, .esp, .esl), an
+  official master by name (Starfield, Constellation, OldMars, ShatteredSpace,
+  `BlueprintShips-*.esm`, `SFBGS*.esm`, any case) or a path in the MO2 profile
+  `Default`, as well as `profile` = `Default` and `overwrite`. The edit dialog edits
+  numbers and plain text in place. OK previews every changed field of the record as one
+  `set --dry-run` into the active file. The confirm box shows the paths changed, the
+  validate findings on the staged result and the limitations, and keeps its one button
+  disabled unless the dry run would write and the active file is still the preview's
+  output. The engine's output guard refuses load-order plugins, the game and user Data
+  folders, MO2 and links on its own.
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
   refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
@@ -132,9 +148,10 @@ M6.G1 and M6.G3):
   probe rows (below). `game.status` is on the allowlist: it is how the window follows
   a started session.
 - **Refused before the engine sees the request:** every other catalog command and alias.
-  That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
+  That includes `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*` and (M7,
-  ADR 0007 Amendment 4, accepted 2026-11-01 with model A) the editor's writes, until each joins with its M7.E ticket.
+  ADR 0007 Amendment 4, accepted 2026-11-01 with model A) the editor's other writes
+  (`new`, `clone`, `place`, `build`, `revert`), until each joins with its M7.E ticket.
 
 Tests enforce this in six ways:
 
@@ -142,10 +159,11 @@ Tests enforce this in six ways:
 - The allowlist must hold no command the catalog marks `writes`, the gate's writing list
   must equal the catalog's `writes` set, and a guarded command must refuse its writing
   arguments. The writing commands the window can run in a writing form must be exactly
-  the ids of `PERMITTED_WRITES`; each must be in `COCKPIT_SCOPE`, in the catalog,
-  `writes` and `Implemented`; `COCKPIT_SCOPE` is pinned to Amendment 3's six ids. A
-  scratch test adds `testplan`, `set`, `package` and `revert` and checks that each fails
-  the rule.
+  the ids of `PERMITTED_WRITES`; each must be in `COCKPIT_SCOPE` or `EDITOR_SCOPE`, in
+  the catalog, `writes` and `Implemented`; both scopes are pinned (`COCKPIT_SCOPE` to
+  Amendment 3's six ids, `EDITOR_SCOPE` to Amendment 4's six). A scratch test adds
+  `testplan`, `package`, `mod.run` and `deploy.enable` and checks that each fails the
+  rule, and that an editor id fails against `COCKPIT_SCOPE` alone.
 - Every refused id and alias is tried, and each must be refused (a permitted write in its
   writing form, unconfirmed). A confirmed request for any other command is refused.
 - A scan of the crate's sources allows `Request::confirmed("<id>", ..)` only in `gate.rs`
