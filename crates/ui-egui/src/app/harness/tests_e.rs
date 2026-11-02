@@ -301,3 +301,37 @@ fn m7_e2_a_second_edit_of_the_same_record_keeps_the_first() {
         "EDID Glob800x"
     );
 }
+
+/// Review finding M1 (probe R-P5): a write that failed spends the confirm. The button
+/// stays disabled on the old preview, so one OK sends one write; the next OK runs a new
+/// dry run and asks again.
+#[test]
+fn m7_e2_a_failed_write_needs_a_new_ok_and_a_new_dry_run() {
+    let s = Scratch::new("failed");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    retype(&mut h, "1.5", "5");
+    press(&mut h, "OK");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    // The write fails: a folder stands where the active file would be written.
+    std::fs::create_dir_all(&patch).unwrap();
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "the write");
+    assert!(
+        !enabled(&h, "Write to Patch.esp"),
+        "re-armed on the old preview"
+    );
+    std::fs::remove_dir_all(&patch).unwrap();
+    one(&h, "Write to Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert!(!Path::new(&patch).exists(), "a second write from one OK");
+    // A new OK: a new dry run, then one write.
+    press(&mut h, "OK");
+    assert_in_view(&h, "Fields changed (dry run)");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    press(&mut h, "Write to Patch.esp");
+    assert_eq!(fltv_in(&patch), hex(5.0));
+}

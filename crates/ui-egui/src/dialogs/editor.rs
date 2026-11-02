@@ -77,6 +77,9 @@ struct Write {
     readback_due: bool,
     /// The read-back's envelope (the written record in the active file alone).
     readback: Option<Value>,
+    /// The confirmed write was sent and no envelope came back: the confirm is spent, and
+    /// another write needs a new OK and a new dry run (review finding M1).
+    failed: bool,
 }
 
 /// The editor's state (kept in `crate::windows::Shell`).
@@ -187,6 +190,13 @@ impl EditorState {
             return;
         }
         self.awaiting = None;
+        if slot == Slot::EditorWrite {
+            if let Some(w) = self.write.as_mut() {
+                if w.written.is_none() {
+                    w.failed = true;
+                }
+            }
+        }
         let what = match slot {
             Slot::EditorPreview => "the preview (`set --dry-run`)",
             Slot::EditorWrite => "the write",
@@ -344,6 +354,9 @@ fn confirm_blocked(
     if w.written.is_some() {
         return Some("written: one write per OK; edit and OK again for another".to_string());
     }
+    if w.failed {
+        return Some("the write failed: OK again for a new dry run".to_string());
+    }
     if env.pointer("/data/would_write") != Some(&Value::Bool(true)) {
         return Some(
             "the dry run says a real write would be refused (validate finds errors on the written record)"
@@ -471,6 +484,7 @@ fn start(
         written: None,
         readback_due: false,
         readback: None,
+        failed: false,
     });
     state.awaiting = Some(Slot::EditorPreview);
     out.push(Action::Submit(Slot::EditorPreview, preview));
@@ -674,6 +688,7 @@ mod tests {
             written: None,
             readback_due: false,
             readback: None,
+            failed: false,
         }
     }
 
@@ -743,6 +758,10 @@ mod tests {
         let other = confirm_blocked(&w, false, false, Some(r"C:\out\Other.esp")).unwrap();
         assert!(other.contains("no longer Patch.esp"), "{other}");
         assert!(confirm_blocked(&w, false, false, None).is_some());
+        w.failed = true;
+        let spent = confirm_blocked(&w, false, false, active).unwrap();
+        assert!(spent.contains("OK again"), "{spent}");
+        w.failed = false;
         w.written = Some(json!({}));
         let once = confirm_blocked(&w, false, false, active).unwrap();
         assert!(once.contains("one write per OK"), "{once}");
