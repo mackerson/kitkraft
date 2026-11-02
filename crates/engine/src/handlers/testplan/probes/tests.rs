@@ -675,7 +675,7 @@ fn a_script_with_nothing_to_match_is_a_manual_row_with_the_reason() {
     let (p, _, _) = scripted("probes-script-local", Some(local), json!({}));
     let s = script_probe(&p);
     assert!(s.is_manual());
-    assert!(s.reason.as_deref().unwrap().contains("only at run time"));
+    assert!(s.reason.as_deref().unwrap().contains("built at run time"));
 
     let (p, steps, _) = scripted("probes-script-missing", None, json!({}));
     assert_eq!(rows(&p), steps);
@@ -686,4 +686,268 @@ fn a_script_with_nothing_to_match_is_a_manual_row_with_the_reason() {
         .as_deref()
         .unwrap()
         .contains("not next to the plugin"));
+}
+
+/// A synthetic state: its name and its event handlers with their code.
+type StateCode<'a> = (&'a str, Vec<(&'a str, Vec<Ins>)>);
+
+/// One instruction of a synthetic event handler.
+enum Ins {
+    /// `callstatic Debug <function>(<arg>)`.
+    Call(&'static str, Arg),
+    /// `jmpf ::temp0 <offset>`: the start of an If or While.
+    Jmpf,
+}
+
+/// A compiled script `KitKraft:Probe` like [`pex_calling`], with any states and event
+/// handlers: `states` is (state name, [(event, code)]), `auto_state` the object's auto
+/// state ("" for none).
+fn pex_states(default: &str, auto_state: &str, states: &[StateCode]) -> Vec<u8> {
+    let mut strings: Vec<String> = [
+        "",
+        "KitKraft:Probe",
+        "ObjectReference",
+        "Text",
+        "String",
+        "::Text_var",
+        default,
+        "None",
+        "Debug",
+        "::nonevar",
+        "loc",
+        "::temp0",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    fn index(s: &str, strings: &mut Vec<String>) -> u16 {
+        match strings.iter().position(|x| x == s) {
+            Some(i) => i as u16,
+            None => {
+                strings.push(s.to_string());
+                (strings.len() - 1) as u16
+            }
+        }
+    }
+    let op = |name: &str| {
+        kitkraft_pex::OPCODES
+            .iter()
+            .position(|(n, _, _)| *n == name)
+            .unwrap() as u8
+    };
+    let ident = |o: &mut Vec<u8>, i: u16| {
+        o.push(1);
+        o.extend(i.to_le_bytes());
+    };
+    let auto = index(auto_state, &mut strings);
+    let mut o = Vec::new();
+    o.extend(2u16.to_le_bytes()); // parent
+    o.extend(0u16.to_le_bytes()); // doc
+    o.push(0);
+    o.extend(0u32.to_le_bytes());
+    o.extend(auto.to_le_bytes()); // auto state
+    o.extend(0u16.to_le_bytes()); // structs
+    o.extend(1u16.to_le_bytes()); // variables: String ::Text_var = default
+    o.extend(5u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(2);
+    o.extend(6u16.to_le_bytes());
+    o.push(0);
+    o.extend(0u16.to_le_bytes()); // guards
+    o.extend(1u16.to_le_bytes()); // properties: String Text, auto
+    o.extend(3u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(7);
+    o.extend(5u16.to_le_bytes());
+    o.extend((states.len() as u16).to_le_bytes());
+    for (state, functions) in states {
+        let s = index(state, &mut strings);
+        o.extend(s.to_le_bytes());
+        o.extend((functions.len() as u16).to_le_bytes());
+        for (event, code) in functions {
+            let e = index(event, &mut strings);
+            o.extend(e.to_le_bytes());
+            o.extend(7u16.to_le_bytes()); // returns None
+            o.extend(0u16.to_le_bytes());
+            o.extend(0u32.to_le_bytes());
+            o.push(0);
+            o.extend(0u16.to_le_bytes()); // params
+            o.extend(1u16.to_le_bytes()); // locals: String loc
+            o.extend(10u16.to_le_bytes());
+            o.extend(4u16.to_le_bytes());
+            o.extend((code.len() as u16).to_le_bytes());
+            for ins in code {
+                match ins {
+                    Ins::Jmpf => {
+                        o.push(op("jmpf"));
+                        ident(&mut o, 11);
+                        o.push(3);
+                        o.extend(2i32.to_le_bytes());
+                    }
+                    Ins::Call(function, arg) => {
+                        o.push(op("callstatic"));
+                        ident(&mut o, 8);
+                        let f = index(function, &mut strings);
+                        ident(&mut o, f);
+                        ident(&mut o, 9);
+                        o.push(3);
+                        o.extend(1i32.to_le_bytes());
+                        match arg {
+                            Arg::Prop => ident(&mut o, 5),
+                            Arg::Local => ident(&mut o, 10),
+                            Arg::Literal(t) => {
+                                let i = index(t, &mut strings);
+                                o.push(2);
+                                o.extend(i.to_le_bytes());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let ws = |b: &mut Vec<u8>, s: &str| {
+        b.extend((s.len() as u16).to_le_bytes());
+        b.extend(s.as_bytes());
+    };
+    let mut b = Vec::new();
+    b.extend(0xFA57_C0DEu32.to_le_bytes());
+    b.extend([3u8, 12]);
+    b.extend(2u16.to_le_bytes());
+    b.extend(0u64.to_le_bytes());
+    ws(&mut b, "Probe.psc");
+    ws(&mut b, "u");
+    ws(&mut b, "m");
+    b.extend((strings.len() as u16).to_le_bytes());
+    for s in &strings {
+        ws(&mut b, s);
+    }
+    b.push(0); // no debug info
+    b.extend(0u16.to_le_bytes()); // user flags
+    b.extend(1u16.to_le_bytes()); // objects
+    b.extend(1u16.to_le_bytes()); // object name
+    b.extend((o.len() as u32 + 4).to_le_bytes());
+    b.extend(o);
+    b
+}
+
+/// Review H1, probe 1: a Trace after a branch in `OnLoad` (inside an If) may not run, so it
+/// is no expected line; the row says why.
+#[test]
+fn a_trace_inside_a_branch_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[(
+            "",
+            vec![(
+                "OnLoad",
+                vec![
+                    Ins::Jmpf,
+                    Ins::Call("Trace", Arg::Literal("only when Gate is 1")),
+                ],
+            )],
+        )],
+    );
+    let (p, steps, _) = scripted("probes-script-branch", Some(pex), json!({}));
+    assert_eq!(rows(&p), steps);
+    let s = script_probe(&p);
+    assert!(s.is_manual() && s.steps.is_empty(), "{s:?}");
+    assert!(
+        s.reason.as_deref().unwrap().contains("after a branch"),
+        "{s:?}"
+    );
+}
+
+/// Review H1, probe 2: a Trace in another event (`OnActivate`) is not run by entering the
+/// cell.
+#[test]
+fn a_trace_in_another_event_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[(
+            "",
+            vec![(
+                "OnActivate",
+                vec![Ins::Call("Trace", Arg::Literal("only on activate"))],
+            )],
+        )],
+    );
+    let (p, _, _) = scripted("probes-script-event", Some(pex), json!({}));
+    let s = script_probe(&p);
+    assert!(s.is_manual() && s.steps.is_empty(), "{s:?}");
+    assert!(s.reason.as_deref().unwrap().contains("OnActivate"), "{s:?}");
+}
+
+/// Review H1, probe 3: a Trace in `OnLoad` of a state that is not the auto state does not
+/// run; the auto state's `OnLoad` does.
+#[test]
+fn a_trace_in_another_state_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[
+            (
+                "",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("auto state line"))],
+                )],
+            ),
+            (
+                "Sleeping",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("only in state Sleeping"))],
+                )],
+            ),
+        ],
+    );
+    let (p, _, _) = scripted("probes-script-state", Some(pex), json!({}));
+    let s = script_probe(&p);
+    assert!(!s.is_manual(), "{s:?}");
+    let expected: Vec<_> = s
+        .steps
+        .iter()
+        .map(|x| x.expected.clone().unwrap())
+        .collect();
+    assert_eq!(expected, ["auto state line"]);
+    let why = s.steps[0].why.as_deref().unwrap();
+    assert!(
+        why.contains("state Sleeping"),
+        "the unchecked call is named: {why}"
+    );
+    // An auto state of its own replaces the default state's handler.
+    let pex = pex_states(
+        "x",
+        "Awake",
+        &[
+            (
+                "",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("default state line"))],
+                )],
+            ),
+            (
+                "Awake",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("awake line"))],
+                )],
+            ),
+        ],
+    );
+    let (p, _, _) = scripted("probes-script-auto", Some(pex), json!({}));
+    let s = script_probe(&p);
+    let expected: Vec<_> = s
+        .steps
+        .iter()
+        .map(|x| x.expected.clone().unwrap())
+        .collect();
+    assert_eq!(expected, ["awake line"]);
 }

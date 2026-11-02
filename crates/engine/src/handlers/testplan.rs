@@ -363,9 +363,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     .and_then(|b| <[u8; 4]>::try_from(b).ok())
                     .map(u32::from_le_bytes)
             };
+            let dir = plugin.parent().unwrap_or_else(|| Path::new(""));
             if let Some(v) = subs.iter().find(|s| s.signature() == Signature(*b"VMAD")) {
-                let dir = plugin.parent().unwrap_or_else(|| Path::new(""));
-                form.scripts = traces::of_reference(dir, v.data());
+                form.scripts = traces::of_vmad_bytes(dir, v.data(), false);
             }
             if let Some(base) = raw_of(b"NAME").and_then(|r| lo.resolve(at, r).ok()) {
                 form.base_edid = edid_of(&lo, base);

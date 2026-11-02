@@ -215,62 +215,66 @@ fn in_cell(id: u32, why: &str) -> Step {
 /// a manual row saying why none is predicted (the unprobeable list of M4.T6).
 fn script_row(row: String, what: &str, ids: &[String], s: &Attached) -> Probe {
     let mut forms = ids.to_vec();
-    forms.push(s.looked_for.clone());
+    if !s.looked_for.is_empty() {
+        forms.push(s.looked_for.clone());
+    }
+    let on = if s.on_base {
+        format!("the base of {what}")
+    } else {
+        what.to_string()
+    };
+    let effect = format!("{} on {on}: its effect", s.script);
+    if let Some(e) = &s.error {
+        let reason = if s.found {
+            format!(
+                "the compiled script {} could not be read: {e}",
+                s.looked_for
+            )
+        } else {
+            format!("{}: {e}", s.script)
+        };
+        return manual(row, effect, forms, &reason);
+    }
     if !s.found {
         let reason = format!(
             "the compiled script is not next to the plugin ({}; `build` and `package` put it there), so its Papyrus log lines cannot be predicted",
             s.looked_for
         );
-        return manual(
-            row,
-            format!("{} on {what}: its effect", s.script),
-            forms,
-            &reason,
-        );
+        return manual(row, effect, forms, &reason);
     }
-    if let Some(e) = &s.error {
-        let reason = format!(
-            "the compiled script {} could not be read: {e}",
-            s.looked_for
-        );
-        return manual(
-            row,
-            format!("{} on {what}: its effect", s.script),
-            forms,
-            &reason,
-        );
-    }
+    let unchecked = s.unpredicted.join("; ");
     if s.traces.is_empty() {
-        let reason = if s.unpredicted > 0 {
-            format!("{} writes its Debug.Trace text only at run time ({} call(s)): no line to match; its effect needs a getter or a person", s.script, s.unpredicted)
-        } else {
+        let reason = if s.unpredicted.is_empty() {
             format!("{} has no Debug.Trace call: no Papyrus log line to match; its effect needs a getter or a person", s.script)
+        } else {
+            format!("{} writes no Papyrus log line this plan can predict ({unchecked}); its effect needs a getter or a person", s.script)
         };
-        return manual(
-            row,
-            format!("{} on {what}: its effect", s.script),
-            forms,
-            &reason,
-        );
+        return manual(row, effect, forms, &reason);
     }
     let steps: Vec<Step> = s
         .traces
         .iter()
-        .map(|(text, from)| Step {
+        .enumerate()
+        .map(|(i, (text, from))| Step {
             command: String::new(),
             matcher: Some(Matcher::PapyrusLog),
             expected: Some(text.clone()),
             tolerance: None,
             why: Some(format!(
-                "{from}; the log written so far in the session is read when this row runs (when the game writes the line is grade D)"
+                "{from}; the log written so far in the session is read when this row runs (when the game writes the line is grade D){}",
+                if i == 0 && !s.unpredicted.is_empty() {
+                    format!("; not checked: {unchecked}")
+                } else {
+                    String::new()
+                }
             )),
             wait_secs: None,
         })
         .collect();
     let title = match s.traces.as_slice() {
-        [(text, _)] => format!("Papyrus log: {} on {what} writes \"{text}\"", s.script),
+        [(text, _)] => format!("Papyrus log: {} on {on} writes \"{text}\"", s.script),
         many => format!(
-            "Papyrus log: {} on {what} writes {} lines",
+            "Papyrus log: {} on {on} writes {} lines",
             s.script,
             many.len()
         ),
