@@ -814,6 +814,16 @@ impl App {
                     }
                     Slot::CockpitGameStatus => self.cockpit.session.receive_status(env),
                     Slot::CockpitGameStop => self.cockpit.session.receive_stop(env),
+                    // Step 0 of sprint 2026-11-02: pipeline W's windows (M7.M2, M7.W1).
+                    Slot::DataLoad | Slot::DataDetails => {
+                        self.shell
+                            .data_dialog
+                            .receive_slot(slot, &reply.request, env)
+                    }
+                    Slot::ObjectCategories | Slot::ObjectList => self
+                        .shell
+                        .object_window
+                        .receive_slot(slot, &reply.request, env),
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.

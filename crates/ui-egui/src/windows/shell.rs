@@ -162,6 +162,9 @@ impl App {
             Some(Pending::UseInfo) => self.shell.use_info.receive(result),
             Some(Pending::CellView) => self.shell.cell_view.receive(result),
             Some(Pending::Schema(sig)) => self.shell.dialog.receive_schema(&sig, result),
+            // Step 0 of sprint 2026-11-02: pipeline W's windows (M7.W1, M7.M2).
+            Some(Pending::Object(t)) => self.shell.object_window.receive(&t, result),
+            Some(Pending::Data(t)) => self.shell.data_dialog.receive(&t, result),
             None => {}
         }
     }

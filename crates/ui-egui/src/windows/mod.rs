@@ -10,12 +10,18 @@
 //!   tab.
 //! - [`warnings`]: the Warnings window (M7.M4), `validate` findings and `load` problems.
 //! - [`use_info`]: the Use Info window (M7.W5), `refs --incoming` of the selected record.
+//! - [`object_window`], [`data_dialog`], [`preferences`]: the Object Window (M7.W1), the
+//!   Data dialog (M7.M2) and Preferences (M7.M3); stubs declared at step 0 of sprint
+//!   2026-11-02 for pipeline W.
 //! - `shell.rs` is the glue the window shell (`app.rs`) declares as its own child module,
 //!   so it can reach the tabs; everything else here is toolkit-light state.
 //!
 //! The edit dialog's framework lives in `crate::dialogs`.
 
 pub mod cell_view;
+pub mod data_dialog;
+pub mod object_window;
+pub mod preferences;
 pub mod use_info;
 pub mod warnings;
 
@@ -30,14 +36,24 @@ pub enum WindowKind {
     Warnings,
     UseInfo,
     EditDialog,
+    // Step 0 of sprint 2026-11-02: pipeline W's windows (M7.W1, M7.M2, M7.M3) and
+    // pipeline E's build spec (M7.E5); drawn by their owners from `shell.rs`.
+    ObjectWindow,
+    DataDialog,
+    Preferences,
+    BuildSpec,
 }
 
 impl WindowKind {
     /// Every window, in View-menu order.
-    pub const ALL: [WindowKind; 3] = [
+    pub const ALL: [WindowKind; 7] = [
         WindowKind::Warnings,
         WindowKind::UseInfo,
         WindowKind::EditDialog,
+        WindowKind::ObjectWindow,
+        WindowKind::DataDialog,
+        WindowKind::Preferences,
+        WindowKind::BuildSpec,
     ];
 
     /// Title and `ui.json` key.
@@ -46,6 +62,10 @@ impl WindowKind {
             WindowKind::Warnings => "Warnings",
             WindowKind::UseInfo => "Use Info",
             WindowKind::EditDialog => "Edit Dialog",
+            WindowKind::ObjectWindow => "Object Window",
+            WindowKind::DataDialog => "Data Dialog",
+            WindowKind::Preferences => "Preferences",
+            WindowKind::BuildSpec => "Build Spec",
         }
     }
 
@@ -55,6 +75,10 @@ impl WindowKind {
             WindowKind::Warnings => [24.0, 420.0],
             WindowKind::UseInfo => [520.0, 110.0],
             WindowKind::EditDialog => [700.0, 90.0],
+            WindowKind::ObjectWindow => [24.0, 90.0],
+            WindowKind::DataDialog => [320.0, 120.0],
+            WindowKind::Preferences => [360.0, 140.0],
+            WindowKind::BuildSpec => [420.0, 160.0],
         }
     }
 
@@ -64,6 +88,10 @@ impl WindowKind {
             WindowKind::Warnings => [760.0, 320.0],
             WindowKind::UseInfo => [640.0, 360.0],
             WindowKind::EditDialog => [620.0, 520.0],
+            WindowKind::ObjectWindow => [520.0, 560.0],
+            WindowKind::DataDialog => [640.0, 480.0],
+            WindowKind::Preferences => [560.0, 420.0],
+            WindowKind::BuildSpec => [600.0, 460.0],
         }
     }
 }
@@ -134,6 +162,10 @@ pub enum Pending {
     CellView,
     /// `schema` of a record type, for a default edit-dialog layout.
     Schema(String),
+    /// A request of the Object Window (M7.W1; step 0 of sprint 2026-11-02).
+    Object(object_window::ObjectTicket),
+    /// A request of the Data dialog (M7.M2; step 0 of sprint 2026-11-02).
+    Data(data_dialog::DataTicket),
 }
 
 /// The state of the CK-style shell: the windows, the floating tabs, and the requests
@@ -160,6 +192,10 @@ pub struct Shell {
     /// The Cell View was shown on this frame (docked or floating).
     pub cell_view_shown: bool,
     pub dialog: crate::dialogs::DialogState,
+    // Step 0 of sprint 2026-11-02: pipeline W's windows (M7.W1, M7.M2, M7.M3).
+    pub object_window: object_window::ObjectWindowState,
+    pub data_dialog: data_dialog::DataDialogState,
+    pub preferences: preferences::PreferencesState,
     /// The screenshot tour's own steps (after the tabs).
     pub tour_step: usize,
     pub tour_frames: u8,
