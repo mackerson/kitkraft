@@ -573,7 +573,9 @@ mod tests {
                 "{id}"
             );
             let spec = gate::find_command(id).unwrap();
-            if gate::permitted(id).is_none() {
+            // A guarded id runs (`target` lets it through), so only an id neither permitted
+            // nor guarded must be disabled (stub review M1: `build` enters `GUARDED`, M7.E5).
+            if gate::permitted(id).is_none() && !gate::GUARDED.iter().any(|g| g.id == id) {
                 let why = target(spec).unwrap_err();
                 assert!(why.starts_with("writes"), "{id}: {why}");
             }
