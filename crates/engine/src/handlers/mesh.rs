@@ -328,7 +328,7 @@ pub(super) fn bounds(session: &mut Session, args: &Value) -> Result<Outcome, Eng
             .map_or_else(|| wanted.clone(), |x| x.name.clone());
         if also_in.len() > 1 {
             limitations.push(format!(
-                "{} archives hold this model ({}); read {name}'s copy: a plugin's own archive over the base game's, a base Patch archive over the other base ones (the game's own archive order is not modelled)",
+                "{} archives hold this model ({}); read {name}'s copy: a plugin's own archive over the base game's, a base Patch archive over the other base ones, ties by archive name (our rule: the game's own archive order is not modelled); every archive in the Data folder is searched, whether or not its plugin is in a load order",
                 also_in.len(),
                 also_in.join(", ")
             ));

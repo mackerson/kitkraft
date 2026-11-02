@@ -217,6 +217,8 @@ fn a_plugins_own_archive_wins_and_every_holder_is_named() {
     assert_eq!(d["geometries"]["stored"], 1);
     assert_eq!(env["coverage"]["status"], "complete");
     assert!(has(&env, "3 archives hold this model"));
+    assert!(has(&env, "ties by archive name"));
+    assert!(has(&env, "whether or not its plugin is in a load order"));
     assert!(has(&env, OBND_NOTE));
     let ev = env["evidence"].as_array().unwrap();
     assert_eq!(ev.len(), 1);
