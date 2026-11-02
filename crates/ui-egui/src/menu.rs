@@ -460,7 +460,9 @@ mod tests {
             .flat_map(|m| m.items)
             .find(|i| i.id == "set")
             .unwrap();
-        assert!(set.target.is_err());
+        // M7.E2 (ADR 0007 Amendment 4): `set` is permitted, so Record > Set Field opens
+        // the edit dialog.
+        assert_eq!(set.target, Ok(Target::Window(WindowKind::EditDialog)));
         let ledger = menus()
             .into_iter()
             .flat_map(|m| m.items)

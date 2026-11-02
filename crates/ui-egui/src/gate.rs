@@ -87,10 +87,10 @@ pub struct Allowed {
 
 /// The commands the workbench runs as they are: none of them writes (the catalog's
 /// `writes` is false for each; a test holds this). Besides these, only the [`GUARDED`]
-/// entries run, in their non-writing form. Everything else in the catalog (`set`,
-/// `build`, `new`, `clone`, `place`, `package`, `deploy*`, `testplan`,
-/// `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`) is refused, writing or not,
-/// until a panel needs it.
+/// entries run, in their non-writing form, and the [`PERMITTED_WRITES`], each confirmed
+/// per click. Everything else in the catalog (`build`, `new`, `clone`, `place`,
+/// `package`, `deploy.enable`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`,
+/// `papyrus.*`) is refused, writing or not, until a panel needs it.
 pub const ALLOWLIST: &[Allowed] = &[
     Allowed {
         id: "load",
@@ -357,7 +357,8 @@ pub const LIVE_PROFILE: &str = "Default";
 
 /// The writes the window may make, each confirmed per click. They grow entry by entry
 /// with the ticket that implements them (M6.G3: `deploy`, `deploy.rollback`; M6.G4:
-/// `game.session`, `game.stop`; M6.G5: `game.probe`), always inside [`COCKPIT_SCOPE`].
+/// `game.session`, `game.stop`; M6.G5: `game.probe`; M7.E2: `set`), always inside
+/// [`COCKPIT_SCOPE`] and [`EDITOR_SCOPE`].
 pub const PERMITTED_WRITES: &[PermittedWrite] = &[
     PermittedWrite {
         id: "ledger",
@@ -425,6 +426,18 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         output: None,
         refuse_args: &[],
         why: "ends a started game session: remaining rows not-run, the game ended, logs copied, the profile files restored if changed, one ledger entry (Amendment 3, M6.G4)",
+    },
+    // ADR 0007 Amendment 4 (M7.E2): the edit dialog's changed fields, into the active file.
+    PermittedWrite {
+        id: "set",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "dialogs/set.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: true,
+        output: Some("into"),
+        refuse_args: &["overwrite"],
+        why: "writes the changed fields of one record into the active file (`into`), one confirmed write per OK click after its dry run (M7.S6: before and after, the paths changed, validate on the staged result); never an official master, never in the profile Default (Amendment 4, M7.E2)",
     },
 ];
 
@@ -867,8 +880,8 @@ mod tests {
         let permitted_ids: BTreeSet<&str> = ids.iter().copied().collect();
         assert_eq!(runnable_writes, permitted_ids);
         // M6.G3: the ledger and the dev deployment and its rollback; M6.G4 adds the game
-        // session's start and stop; M6.G5 adds `game.probe`, so the permitted writes are
-        // now the whole scope.
+        // session's start and stop; M6.G5 adds `game.probe`, so the cockpit's writes are
+        // its whole scope. Amendment 4: M7.E2 adds `set`, the editor's first write.
         assert_eq!(
             ids,
             [
@@ -877,9 +890,16 @@ mod tests {
                 "deploy.rollback",
                 "game.session",
                 "game.probe",
-                "game.stop"
+                "game.stop",
+                "set"
             ]
         );
+        let editor: Vec<&str> = ids
+            .iter()
+            .copied()
+            .filter(|id| EDITOR_SCOPE.contains(id))
+            .collect();
+        assert_eq!(editor, ["set"], "Amendment 3 plus exactly `set`");
         for p in PERMITTED_WRITES {
             assert!(
                 Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1223,7 +1243,8 @@ mod tests {
         }
         for (id, a) in [
             ("schema", json!({})),
-            ("set", json!({"form": "x", "fields": {}, "into": "y.esp"})),
+            ("new", json!({"type": "GLOB", "edid": "X", "into": "y.esp"})),
+            ("clone", json!({"form": "x", "edid": "Y", "into": "y.esp"})),
             ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
             ("testplan", json!({})),
         ] {
@@ -1572,6 +1593,201 @@ mod tests {
         assert!(stopped["data"]["report"].is_object(), "{stopped}");
         // The start launched the fake game once (the session thread is joined now).
         assert_eq!(fakes.launched(), 1);
+    }
+
+    /// `set` (ADR 0007 Amendment 4, M7.E2) through `check`: the dry run passes
+    /// unconfirmed; the writing form (no `dry_run`) only confirmed and only into a named
+    /// output; a confirmation changed afterwards is void; an official master, a path in
+    /// the profile `Default`, `profile: Default` and `overwrite` are refused in every
+    /// form, confirmed or not.
+    #[test]
+    fn set_previews_unconfirmed_and_writes_only_confirmed_into_the_active_file() {
+        let base = json!({"form": "Fixture.esm:000800", "fields": {"FLTV": 7.25},
+                          "into": r"C:\Modding\out\Patch.esp"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        // The preview passes unconfirmed.
+        assert!(check(&Request::new("set", with(json!({"dry_run": true})))).is_ok());
+        // The writing form: refused unconfirmed, passes confirmed.
+        for w in [base.clone(), with(json!({"dry_run": false}))] {
+            let e = check(&Request::new("set", w.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button") && m.contains("dialogs/set.rs")),
+                "{w}: {e:?}"
+            );
+            assert!(check(&Request::confirmed("set", w.clone())).is_ok(), "{w}");
+        }
+        // A confirmation covers only what it was made for: another output, other fields,
+        // or the preview flag dropped from a confirmed preview, are refused.
+        for change in [
+            json!({"into": r"C:\Modding\out\Other.esp"}),
+            json!({"fields": {"FLTV": 9.0}}),
+            json!({"form": "Fixture.esm:000801"}),
+        ] {
+            let mut r = Request::confirmed("set", base.clone());
+            for (k, v) in change.as_object().unwrap() {
+                r.args[k] = v.clone();
+            }
+            let e = check(&r);
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("changed after")),
+                "{change}: {e:?}"
+            );
+        }
+        let mut r = Request::confirmed("set", with(json!({"dry_run": true})));
+        r.args.as_object_mut().unwrap().remove("dry_run");
+        assert!(matches!(check(&r), Err(RunError::Refused(m)) if m.contains("changed after")));
+        // The writing form names its output.
+        let mut no_into = base.clone();
+        no_into.as_object_mut().unwrap().remove("into");
+        let e = check(&Request::confirmed("set", no_into));
+        assert!(
+            matches!(&e, Err(RunError::Refused(m)) if m.contains("named output")),
+            "{e:?}"
+        );
+        // Refused in every form, confirmed or not.
+        for (extra, why) in [
+            (json!({"into": "Starfield.esm"}), "official master"),
+            (
+                json!({"into": r"C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data\SFBGS003.esm"}),
+                "official master",
+            ),
+            (
+                json!({"into": "/data/ShatteredSpace.ESM"}),
+                "official master",
+            ),
+            (json!({"into": r"C:\Modding\out\Patch.txt"}), "not a plugin"),
+            (
+                json!({"into": r"C:\Modding\MO2-Starfield\profiles\Default\Patch.esp"}),
+                "live game",
+            ),
+            (json!({"profile": "Default"}), "live game"),
+            (json!({"profile": "DEFAULT "}), "live game"),
+            (json!({"overwrite": true}), "other than the active file"),
+        ] {
+            for dry in [None, Some(true)] {
+                let mut args = with(extra.clone());
+                if let Some(d) = dry {
+                    args["dry_run"] = json!(d);
+                }
+                for req in [
+                    Request::new("set", args.clone()),
+                    Request::confirmed("set", args.clone()),
+                ] {
+                    let e = check(&req);
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains(why)),
+                        "{args}: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A scratch folder under the OS temp dir for one test (never the game's Data).
+    fn scratch(tag: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("kitkraft-ui-gate-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// Through the gate and the engine on a scratch fixture (`Fixture.esm`, one GLOB, made
+    /// here; never the game's Data): the dry run writes nothing; the unconfirmed write is
+    /// refused and writes nothing; the confirmed write creates the active file, and
+    /// `inspect` reads the new value back from it; the engine refuses on its own an output
+    /// that is a plugin of the load order (the gate's checks bypassed), and with the
+    /// corpus present, `Starfield.esm` in the game's Data folder (as a dry run, so even a
+    /// broken guard would write nothing there).
+    #[test]
+    fn set_reaches_the_engine_only_confirmed_and_the_engine_refuses_a_master() {
+        use crate::dialogs::set;
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        let dir = scratch("set");
+        let fixture = dir.join("Fixture.esm");
+        let master = plugin_bytes(&[], 1, &[0x800], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
+        let patch = dir.join("Patch.esp");
+        let into = patch.display().to_string();
+        let engine = ReadOnlyEngine::new();
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
+            ))
+            .unwrap();
+        let mut fields = Map::new();
+        fields.insert("FLTV".into(), json!(7.25));
+        let preview = set::preview_request("Fixture.esm:000800", &fields, &into);
+        let env = engine.run(&preview).unwrap();
+        let data = &env["data"];
+        assert_eq!(data["dry_run"], json!(true), "{env}");
+        assert_eq!(data["would_write"], json!(true), "{env}");
+        assert_eq!(data["changed"][0]["path"], json!("FLTV"), "{env}");
+        assert!(!patch.exists(), "the dry run wrote {}", patch.display());
+        // The writing form unconfirmed: refused before the engine, nothing written.
+        let mut unconfirmed = preview.args.clone();
+        unconfirmed.as_object_mut().unwrap().remove("dry_run");
+        let e = engine.run(&Request::new("set", unconfirmed)).unwrap_err();
+        assert!(matches!(e, RunError::Refused(_)), "{e:?}");
+        assert!(!patch.exists(), "an unconfirmed request wrote");
+        // The confirm: the previewed arguments without `dry_run`, built by the dialog.
+        let write = set::write_request(&preview).unwrap();
+        let done = engine.run(&write).unwrap();
+        assert_eq!(done["data"]["created"], json!(true), "{done}");
+        assert!(patch.is_file());
+        // Read back from the active file alone.
+        let back = engine
+            .run(&set::readback_request(&done, &into).unwrap())
+            .unwrap();
+        // Single-plugin mode lists raw payloads: FLTV holds 7.25 as a little-endian f32.
+        let fltv = back["data"]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == json!("FLTV"))
+            .unwrap();
+        let hex: String = 7.25f32
+            .to_le_bytes()
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert_eq!(fltv["payload_hex"], json!(hex), "{back}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        // The engine refuses a load-order plugin as output on its own (the gate's
+        // checks are bypassed here on purpose).
+        let mut onto_master = preview.args.clone();
+        onto_master["into"] = json!(fixture.display().to_string());
+        let refused = engine.engine.execute("set", onto_master);
+        assert!(refused.is_err(), "{refused:?}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        // With the corpus: an official master in the game's Data folder, as a dry run.
+        if let Some(data_dir) = std::env::var_os("KITKRAFT_DATA_DIR") {
+            let official = Path::new(&data_dir).join("Starfield.esm");
+            if official.is_file() {
+                let mut onto = preview.args.clone();
+                onto["into"] = json!(official.display().to_string());
+                assert!(check(&Request::confirmed("set", onto.clone())).is_err());
+                let refused = engine.engine.execute("set", onto);
+                assert!(refused.is_err(), "{refused:?}");
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
