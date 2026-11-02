@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGDI, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WTHR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 86: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, WBAR, WTHR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         118 |   252,710 |    500,158 |   546,120 |  33,561 |
-| **Total**       |          186 |         181 | 7,490,102 | 47,055,679 | 2,623,613 | 740,269 |
+| container/other |          123 |         118 |   252,710 |    501,389 |   544,889 |  33,561 |
+| **Total**       |          186 |         181 | 7,490,102 | 47,056,910 | 2,622,382 | 740,269 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 87:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 181 record definitions, defs hash `fnv1a64:21c3e5227bd66f9d` (the hash named in
+- Schema: 181 record definitions, defs hash `fnv1a64:7694ae9740700813` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -164,7 +164,7 @@ Columns:
 | `SMBN`        | StoryManagerBranchNode         |       173 |          0 |     7 |     7 |      0 |       0 |
 | `AMMO`        | Ammunition                     |       154 |          0 |    16 |    16 |      0 |       0 |
 | `CPTH`        | CameraPath                     |       152 |          0 |     5 |     5 |      0 |       0 |
-| `LGDI`        | LegendaryItem                  |       147 |          0 |    20 |     1 |     19 |       0 |
+| `LGDI`        | LegendaryItem                  |       147 |          0 |    20 |    19 |      1 |       0 |
 | `ZOOM`        | Zoom                           |       141 |          0 |     2 |     2 |      0 |       0 |
 | `DLBR`        | DialogBranch                   |       135 |          0 |     5 |     1 |      4 |       0 |
 | `ENCH`        | Enchantment                    |       135 |          0 |    14 |    13 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,093 |    470 |     234 |
+| **186 types** | 181 defined                    | 7,490,102 |    136,741 | 2,797 | 2,111 |    452 |     234 |
 
-Subrecord occurrences: 50,419,561 in total; 47,055,679 typed (0 of them failed to decode), 2,623,613 opaque, 740,269 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,056,910 typed (0 of them failed to decode), 2,622,382 opaque, 740,269 unknown.
 
 ## Decoded through the definitions
 
@@ -361,7 +361,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `SMBN`    | StoryManagerBranchNode         |           173 |      1,243 |      0 |         0 |         0 |                   0 |      1,243 |       0 |        0 |
 | `AMMO`    | Ammunition                     |           154 |      2,298 |      0 |         0 |         0 |                   0 |      2,298 |       0 |        0 |
 | `CPTH`    | CameraPath                     |           152 |        793 |      0 |         0 |         0 |                   0 |        793 |       0 |        0 |
-| `LGDI`    | LegendaryItem                  |           147 |        147 |      0 |         0 |         0 |                   0 |        147 |       0 |        0 |
+| `LGDI`    | LegendaryItem                  |           147 |      1,378 |      0 |         0 |     1,014 |                   0 |        364 |       0 |        0 |
 | `ZOOM`    | Zoom                           |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |           135 |        135 |      0 |         0 |         0 |                   0 |        135 |       0 |        0 |
 | `ENCH`    | Enchantment                    |           135 |      1,967 |      0 |         0 |         0 |                   0 |      1,967 |       0 |        0 |
@@ -443,7 +443,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,485,267 | 47,055,679 |      0 |         0 |   231,862 |                   0 | 46,823,817 |       0 |        0 |
+| **Total** |                                |     7,485,267 | 47,056,910 |      0 |         0 |   232,876 |                   0 | 46,824,034 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -548,7 +548,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LCRT`    | LocationRefType                |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
 | `LCTN`    | Location                       |             71 |    66 |      5 |         8 |                   0 |     63 |       0 |        0 |
 | `LENS`    | LensFlare                      |             10 |     1 |      9 |         0 |                   0 |     10 |       0 |        0 |
-| `LGDI`    | LegendaryItem                  |             20 |     1 |     19 |         0 |                   0 |     20 |       0 |        0 |
+| `LGDI`    | LegendaryItem                  |             67 |    62 |      5 |        25 |                   0 |     42 |       0 |        0 |
 | `LGTM`    | LightingTemplateForm           |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `LIGH`    | Light                          |             69 |    64 |      5 |        16 |                   0 |     53 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,861 | 5,090 |    771 |       416 |                   2 |  5,443 |       0 |        0 |
+| **Total** |                                |          5,908 | 5,151 |    757 |       441 |                   2 |  5,465 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

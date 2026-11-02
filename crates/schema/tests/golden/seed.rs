@@ -43359,7 +43359,7 @@ pub struct LgdiRecord {
     /// Group `Model`, required.
     pub model: Option<Model>,
     /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+    pub name: Option<Sub<Bytes>>,
     /// `DATA`, required.
     pub data: Option<Sub<Empty>>,
     /// `ANAM`, optional.
@@ -43858,14 +43858,6 @@ impl Visit for LgdiRecord {
         visit_form_ids_mut(&mut self.quality_allowed_keyword, "LGDI.HNAM", out);
         visit_form_ids_mut(&mut self.quality_disallowed_keyword, "LGDI.INAM", out);
         visit_form_ids_mut(&mut self.quality_upgrade_costs, "LGDI.JNAM", out);
-    }
-
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "LGDI.FULL", out);
-    }
-
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "LGDI.FULL", out);
     }
 }
 

@@ -168,11 +168,15 @@ confidence = "reference"
 [[member]]
 sig = "FULL"
 name = "Name"
-type = "lstring"
+type = "opaque"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13669-L13669"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
-confidence = "reference"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 147 official LGDI records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13669-L13669",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+]
+confidence = "corpus"
+note = "kept raw: xEdit gives it a 4-byte string layout (wbFull), but the corpus lstring table classifies LGDI FULL as unclassified (2 of 147 records, below its 5-sample threshold); the member stays as typed in the inventory definition"
 
 [[member]]
 sig = "DATA"
