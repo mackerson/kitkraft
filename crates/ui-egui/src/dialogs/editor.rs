@@ -18,9 +18,20 @@
 //! dry run says it would write and the active file is still the preview's output; one
 //! click sends the confirmed `set` (`Slot::EditorWrite`, built in `dialogs/set.rs`),
 //! then the written record is read back from the active file alone. One write per OK.
+//!
+//! `set` starts from the load order's winner, and the active file is not in the load
+//! order (the engine refuses a load-order plugin as output), so a second edit of a record
+//! the active file already holds would drop the first (review finding H1). When the dry
+//! run says it would replace a record in the active file, the editor reads the active
+//! file's version (`inspect`, single-plugin, every byte), carries each subrecord that
+//! differs from the winner as `hex:` at its `set` path, puts the dialog's edits over
+//! them, and previews again: the confirm box shows the whole difference from the winner
+//! that will be written, with the kept paths named.
+
+use std::collections::BTreeMap;
 
 use eframe::egui::{self, ScrollArea};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::{edit, set};
 use crate::gate::{self, Request};
@@ -48,6 +59,16 @@ struct Write {
     into: String,
     /// The preview request as sent; its reply is matched against it.
     preview: Request,
+    /// The dialog's changed fields (field path -> value), which a rebased preview puts
+    /// over what the active file already holds.
+    edits: Map<String, Value>,
+    /// The read of the active file's version of the record, when the dry run said it
+    /// holds one (H1); its reply is matched against it.
+    held: Option<Request>,
+    /// The first dry run's envelope while the active file's version is read.
+    first: Option<Value>,
+    /// The paths carried from the active file's version (kept by this write).
+    kept: Vec<String>,
     /// The preview's envelope, once it came back.
     previewed: Option<Value>,
     /// The confirmed write's envelope, once it came back.
@@ -69,6 +90,8 @@ pub struct EditorState {
     awaiting: Option<Slot>,
     /// The last outcome or refusal, shown in the box until it is closed.
     note: Option<(Status, String)>,
+    /// The request the next frame sends (a reply cannot send one itself).
+    next: Option<(Slot, Request)>,
 }
 
 impl EditorState {
@@ -91,13 +114,58 @@ impl EditorState {
         };
         match (slot, request.id.as_str()) {
             (Slot::EditorPreview, "set") if *request == w.preview => {
-                w.previewed = Some(env.clone());
                 self.awaiting = None;
+                // The active file holds this record already: read its version before
+                // asking for the confirm (H1). Once per OK.
+                let held_id = (w.held.is_none()).then(|| replaced_form_id(env)).flatten();
+                match held_id.and_then(|id| set::held_request(&id, &w.into)) {
+                    Some(read) => {
+                        w.first = Some(env.clone());
+                        w.held = Some(read.clone());
+                        self.next = Some((Slot::EditorPreview, read));
+                    }
+                    None => w.previewed = Some(env.clone()),
+                }
+            }
+            (Slot::EditorPreview, "inspect") if w.held.as_ref() == Some(request) => {
+                self.awaiting = None;
+                let before = w
+                    .first
+                    .as_ref()
+                    .and_then(|f| f.pointer("/data/before"))
+                    .unwrap_or(&Value::Null);
+                match rebase(env, before, &w.edits) {
+                    Ok((_, kept)) if kept.is_empty() => {
+                        // Nothing to carry: the first dry run stands.
+                        w.previewed = w.first.take();
+                    }
+                    Ok((fields, kept)) => {
+                        let preview = set::preview_request(&w.form, &fields, &w.into);
+                        match gate::check(&preview) {
+                            Ok(()) => {
+                                w.kept = kept;
+                                w.preview = preview.clone();
+                                self.next = Some((Slot::EditorPreview, preview));
+                            }
+                            Err(e) => {
+                                self.write = None;
+                                self.note = Some((Status::Fail, e.to_string()));
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        self.write = None;
+                        self.note = Some((Status::Fail, e));
+                    }
+                }
             }
             (Slot::EditorWrite, "set") if w.written.is_none() => {
                 w.written = Some(env.clone());
                 w.readback_due = true;
                 self.awaiting = None;
+                if let Some(read) = set::readback_request(env, &w.into) {
+                    self.next = Some((Slot::EditorWrite, read));
+                }
                 let file = file_name(&w.into);
                 self.note = Some((
                     Status::Pass,
@@ -183,6 +251,86 @@ fn changed_line(env: &Value) -> String {
         .join(", ")
 }
 
+/// The FormID (as the active file stores it) of the record a `set` dry run says it would
+/// replace in the active file: the active file holds a version already. `None` when the
+/// record would be inserted (a new file, or a record new to it).
+fn replaced_form_id(env: &Value) -> Option<String> {
+    env.pointer("/data/records")?
+        .as_array()?
+        .iter()
+        .filter(|r| r.get("parent") != Some(&Value::Bool(true)))
+        .find(|r| {
+            matches!(
+                r.get("outcome").and_then(Value::as_str),
+                Some("replaced" | "moved")
+            )
+        })?
+        .get("form_id")?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// The `set` path of each subrecord of an envelope's list (signature, `[n]` for the n-th
+/// repeat) with its payload, `None` when the list cut it short.
+fn payloads(subrecords: Option<&Value>) -> BTreeMap<String, Option<String>> {
+    let mut seen: BTreeMap<String, usize> = BTreeMap::new();
+    let mut out = BTreeMap::new();
+    for s in subrecords.and_then(Value::as_array).into_iter().flatten() {
+        let Some(sig) = s.get("signature").and_then(Value::as_str) else {
+            continue;
+        };
+        let n = seen.entry(sig.to_string()).or_insert(0);
+        let path = if *n == 0 {
+            sig.to_string()
+        } else {
+            format!("{sig}[{n}]")
+        };
+        *n = n.saturating_add(1);
+        let whole = s.get("payload_truncated") != Some(&Value::Bool(true));
+        let hex = s
+            .get("payload_hex")
+            .and_then(Value::as_str)
+            .filter(|_| whole)
+            .map(str::to_string);
+        out.insert(path, hex);
+    }
+    out
+}
+
+/// The fields of a rebased `set` (H1): every subrecord the active file's version
+/// (`held`, a single-plugin `inspect` with every byte) holds differently from the load
+/// order's winner (`before`, the dry run's `before`), as `hex:` at its `set` path, with
+/// the dialog's `edits` over them; and the paths kept. `Err` when the active file's
+/// version could not be read whole.
+fn rebase(
+    held: &Value,
+    before: &Value,
+    edits: &Map<String, Value>,
+) -> Result<(Map<String, Value>, Vec<String>), String> {
+    let held = payloads(held.pointer("/data/subrecords"));
+    let winner = payloads(before.get("subrecords"));
+    let mut fields = Map::new();
+    let mut kept = Vec::new();
+    for (path, hex) in held {
+        if edits.contains_key(&path) {
+            continue;
+        }
+        let Some(hex) = hex else {
+            return Err(format!(
+                "the active file's {path} could not be read whole; edit this record with `kit set`"
+            ));
+        };
+        if winner.get(&path).and_then(Option::as_ref) != Some(&hex) {
+            fields.insert(path.clone(), Value::String(format!("hex:{hex}")));
+            kept.push(path);
+        }
+    }
+    for (k, v) in edits {
+        fields.insert(k.clone(), v.clone());
+    }
+    Ok((fields, kept))
+}
+
 /// Why the confirm button is disabled, or `None` when one click may write.
 fn confirm_blocked(
     w: &Write,
@@ -238,17 +386,16 @@ pub(crate) fn ui(
         start(ctx, state, &command, &form, active_file, &mut out);
     }
     if let Some(w) = state.write.as_mut() {
-        if w.readback_due && !busy {
+        if w.readback_due {
+            // Written: the dialog's edits are in the active file now.
             w.readback_due = false;
-            if let Some(req) = w
-                .written
-                .as_ref()
-                .and_then(|e| set::readback_request(e, &w.into))
-            {
-                edit::clear_edits(ctx, &w.form);
-                state.awaiting = Some(Slot::EditorWrite);
-                out.push(Action::Submit(Slot::EditorWrite, req));
-            }
+            edit::clear_edits(ctx, &w.form);
+        }
+    }
+    if state.awaiting.is_none() {
+        if let Some((slot, req)) = state.next.take() {
+            state.awaiting = Some(slot);
+            out.push(Action::Submit(slot, req));
         }
     }
     if state.write.is_some() || state.note.is_some() {
@@ -311,10 +458,15 @@ fn start(
         return;
     }
     state.note = None;
+    state.next = None;
     state.write = Some(Write {
         form: form.to_string(),
         into: into.to_string(),
         preview: preview.clone(),
+        edits: fields,
+        held: None,
+        first: None,
+        kept: Vec::new(),
         previewed: None,
         written: None,
         readback_due: false,
@@ -356,7 +508,20 @@ fn confirm_box(
                             ui.label("previewing: `set --dry-run` into a staged copy");
                         });
                     }
-                    Some(env) => preview_lines(ui, env),
+                    Some(env) => {
+                        if !w.kept.is_empty() {
+                            theme::status_line(
+                                ui,
+                                Status::Warn,
+                                &format!(
+                                    "kept from {}: {} (already written there; `set` starts from the load order's winner, so this write carries them)",
+                                    file_name(&w.into),
+                                    w.kept.join(", ")
+                                ),
+                            );
+                        }
+                        preview_lines(ui, env);
+                    }
                 }
                 if let Some(back) = &w.readback {
                     readback_lines(ui, back, &w.into);
@@ -501,11 +666,62 @@ mod tests {
             form: "Fixture.esm:000800".into(),
             into: into.into(),
             preview: Request::new("set", json!({"dry_run": true})),
+            edits: Map::new(),
+            held: None,
+            first: None,
+            kept: Vec::new(),
             previewed: None,
             written: None,
             readback_due: false,
             readback: None,
         }
+    }
+
+    /// H1: a rebase carries what the active file holds differently from the winner, as
+    /// `hex:` at its path (repeats by occurrence), lets the dialog's edits win, and
+    /// refuses a version it could not read whole.
+    #[test]
+    fn a_rebase_carries_what_the_active_file_holds_over_the_winner() {
+        let sub = |sig: &str, hex: &str| json!({"signature": sig, "payload_hex": hex});
+        let held = json!({"data": {"subrecords": [
+            sub("EDID", "4100"), sub("FULL", "5800"), sub("FULL", "5900"), sub("FLTV", "0000E840")
+        ]}});
+        let before = json!({"subrecords": [
+            sub("EDID", "4100"), sub("FULL", "5800"), sub("FULL", "5A00"), sub("FLTV", "0000C03F")
+        ]});
+        let mut edits = Map::new();
+        edits.insert("EDID".into(), json!("B"));
+        let (fields, kept) = rebase(&held, &before, &edits).unwrap();
+        assert_eq!(kept, ["FLTV", "FULL[1]"]);
+        assert_eq!(
+            Value::Object(fields),
+            json!({"EDID": "B", "FLTV": "hex:0000E840", "FULL[1]": "hex:5900"})
+        );
+        // Nothing differs: nothing kept.
+        let (_, kept) = rebase(
+            &held,
+            &json!({"subrecords": held["data"]["subrecords"]}),
+            &Map::new(),
+        )
+        .unwrap();
+        assert!(kept.is_empty());
+        // A cut payload cannot be carried.
+        let cut = json!({"data": {"subrecords": [
+            {"signature": "DATA", "payload_hex": "00", "payload_truncated": true}
+        ]}});
+        assert!(rebase(&cut, &before, &Map::new()).is_err());
+        // Only a replaced record is read back first.
+        let env = |outcome: &str| {
+            json!({"data": {"records": [
+                {"form_id": "00000801", "parent": true, "outcome": "replaced"},
+                {"form_id": "00000800", "parent": false, "outcome": outcome}
+            ]}})
+        };
+        assert_eq!(
+            replaced_form_id(&env("replaced")).as_deref(),
+            Some("00000800")
+        );
+        assert_eq!(replaced_form_id(&env("inserted")), None);
     }
 
     /// The confirm button waits for the preview, needs a dry run that would write and

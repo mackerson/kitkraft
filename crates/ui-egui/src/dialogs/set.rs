@@ -51,6 +51,17 @@ pub(crate) fn readback_request(written: &Value, into: &str) -> Option<Request> {
     ))
 }
 
+/// The active file's own version of the record stored there as `form_id`, every payload
+/// byte (`inspect` in single-plugin mode, `full`): what a rebased `set` carries (H1).
+pub(crate) fn held_request(form_id: &str, into: &str) -> Option<Request> {
+    (!form_id.trim().is_empty()).then(|| {
+        Request::new(
+            "inspect",
+            json!({"form": form_id, "plugin": into, "full": true}),
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -247,3 +247,57 @@ fn m7_e2_the_confirm_is_closed_when_the_active_file_changed_after_the_preview() 
     settle(&mut h);
     assert!(!Path::new(&patch).exists() && !Path::new(&other).exists());
 }
+
+/// The bytes of `sig` in GLOB 000800 as `path` alone holds them (raw, single-plugin).
+fn payload_in(path: &str, sig: &str) -> Value {
+    let engine = ReadOnlyEngine::new();
+    let env = engine
+        .run(&Request::new(
+            "inspect",
+            json!({"form": "00000800", "plugin": path, "full": true}),
+        ))
+        .unwrap();
+    env["data"]["subrecords"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["signature"] == json!(sig))
+        .map(|s| s["payload_hex"].clone())
+        .unwrap()
+}
+
+/// Review finding H1 (probe R-P6): a second edit of the same record keeps the first.
+/// `set` starts from the load order's winner, so the editor reads the active file's
+/// version of the record and carries what it already holds into the next write; the
+/// confirm box shows the whole difference that will be written. Two sequential edits
+/// on one record, both read back.
+#[test]
+fn m7_e2_a_second_edit_of_the_same_record_keeps_the_first() {
+    let s = Scratch::new("twice");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    retype(&mut h, "1.5", "7.25");
+    press(&mut h, "OK");
+    press(&mut h, "Write to Patch.esp");
+    assert_eq!(fltv_in(&patch), hex(7.25));
+    press(&mut h, "Close");
+    retype(&mut h, "Glob800", "Glob800x");
+    press(&mut h, "OK");
+    // The full difference: the kept FLTV and the new EditorID.
+    assert_in_view(&h, "kept from Patch.esp: FLTV");
+    assert_in_view(&h, "Glob800x");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    press(&mut h, "Write to Patch.esp");
+    assert_eq!(
+        payload_in(&patch, "FLTV"),
+        hex(7.25),
+        "the first edit was lost"
+    );
+    assert_eq!(
+        payload_in(&patch, "EDID"),
+        json!("476C6F623830307800"),
+        "EDID Glob800x"
+    );
+}
