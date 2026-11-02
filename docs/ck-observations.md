@@ -316,10 +316,13 @@ Data: `Starfield.esm` only, no active file, as in F29. Steps S1-01 to S1-03 were
 Data as in sitting 1. Each step does the same thing for its form: the Object Window's Text
 Filter set to the EditorID, the row double-clicked, then in the dialog every tab selected in
 turn, with the dialog's subtree dumped and a screenshot taken for each, and finally Cancel.
-OK is never pressed (observation only). After Cancel the title bar is read. If it shows the
-unsaved mark (`*`), that is a finding: the sitting stops, and at File > Exit the save prompt
-is answered No, which saves nothing. A control without a label in the tree (a Win32 property
-grid) is read from its screenshot, or left `inconclusive`. M7.K4 then maps each field to a
+OK is never pressed (observation only). The main window's title is read before the dialog
+opens and again after Cancel. Any difference is recorded as a finding, and the sitting
+stops. Any prompt that appears, at Cancel or at File > Exit, is captured (dump and
+screenshot) and left unanswered. `Close-Ck` then stops the CK after 90 s, which saves
+nothing. No save step is taken unless the sitting names a fixture the owner OK'd
+(`-SaveAllowed`). A control without a label in the tree (a Win32 property grid) is read
+from its screenshot, or left `inconclusive`. M7.K4 then maps each field to a
 schema member path, or to `gap:` with a `docs/gaps.md` row.
 
 | Step | Type | Form | EditorID | Parity row filled |
