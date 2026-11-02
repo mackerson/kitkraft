@@ -16,7 +16,10 @@
 //! runtime ID for the two cells that proof is not possible, and the row's `why` says so.
 //! A step with
 //! no console getter (an exterior cell, a reference without a runtime ID) is
-//! `matcher = "manual"` with the reason.
+//! `matcher = "manual"` with the reason. A reference's attached scripts (M4.T6,
+//! [`super::traces`]) each get a row after its `getpos` row: a `papyrus-log` step per
+//! `Debug.Trace` line the compiled script next to the plugin is known to write, or a
+//! manual row naming why none is predicted.
 //!
 //! What the console does, observed on Starfield 1.16.244 (game-20261101-T1):
 //!
@@ -45,6 +48,7 @@
 
 use kitkraft_game::probes::{Matcher, Probe, ProbeFile, Step, FORMAT};
 
+use super::traces::Attached;
 use super::{hex, Form, IdBasis, DEV_PROFILE, ITEMS};
 
 #[cfg(test)]
@@ -207,6 +211,73 @@ fn in_cell(id: u32, why: &str) -> Step {
     )
 }
 
+/// The row for one attached script: a `papyrus-log` step per line it is known to write, or
+/// a manual row saying why none is predicted (the unprobeable list of M4.T6).
+fn script_row(row: String, what: &str, ids: &[String], s: &Attached) -> Probe {
+    let mut forms = ids.to_vec();
+    forms.push(s.looked_for.clone());
+    if !s.found {
+        let reason = format!(
+            "the compiled script is not next to the plugin ({}; `build` and `package` put it there), so its Papyrus log lines cannot be predicted",
+            s.looked_for
+        );
+        return manual(
+            row,
+            format!("{} on {what}: its effect", s.script),
+            forms,
+            &reason,
+        );
+    }
+    if let Some(e) = &s.error {
+        let reason = format!(
+            "the compiled script {} could not be read: {e}",
+            s.looked_for
+        );
+        return manual(
+            row,
+            format!("{} on {what}: its effect", s.script),
+            forms,
+            &reason,
+        );
+    }
+    if s.traces.is_empty() {
+        let reason = if s.unpredicted > 0 {
+            format!("{} writes its Debug.Trace text only at run time ({} call(s)): no line to match; its effect needs a getter or a person", s.script, s.unpredicted)
+        } else {
+            format!("{} has no Debug.Trace call: no Papyrus log line to match; its effect needs a getter or a person", s.script)
+        };
+        return manual(
+            row,
+            format!("{} on {what}: its effect", s.script),
+            forms,
+            &reason,
+        );
+    }
+    let steps: Vec<Step> = s
+        .traces
+        .iter()
+        .map(|(text, from)| Step {
+            command: String::new(),
+            matcher: Some(Matcher::PapyrusLog),
+            expected: Some(text.clone()),
+            tolerance: None,
+            why: Some(format!(
+                "{from}; the log written so far in the session is read when this row runs (when the game writes the line is grade D)"
+            )),
+            wait_secs: None,
+        })
+        .collect();
+    let title = match s.traces.as_slice() {
+        [(text, _)] => format!("Papyrus log: {} on {what} writes \"{text}\"", s.script),
+        many => format!(
+            "Papyrus log: {} on {what} writes {} lines",
+            s.script,
+            many.len()
+        ),
+    };
+    probe(row, title, forms, false, steps)
+}
+
 /// The probes for `forms`, numbered as the checklist numbers its steps. `leave` is the
 /// runtime ID of [`LEAVE_CELL`] in the load order, when it is there, and `elsewhere` that
 /// of [`ELSEWHERE_CELL`].
@@ -363,6 +434,15 @@ pub(super) fn build(
                     ids.clone(),
                     "no position or no runtime ID for the reference",
                 )),
+            }
+            // M4.T6: what the reference's scripts write to the Papyrus log. The rows come
+            // after the cell was entered, so an OnLoad has had the settle pauses to run.
+            for s in &f.scripts {
+                if !s.found && !f.new {
+                    continue;
+                }
+                let row = next(&mut n);
+                probes.push(script_row(row, &what, &ids, s));
             }
         } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
             || f.signature == "ARMO"

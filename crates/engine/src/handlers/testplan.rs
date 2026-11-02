@@ -33,6 +33,7 @@
 //! All three are deterministic: no clock, sorted by FormID.
 
 mod probes;
+mod traces;
 
 use std::fmt::Write as _;
 use std::fs::File;
@@ -92,6 +93,9 @@ struct Form {
     base_runtime: Option<u32>,
     /// For a reference: the record's initially-disabled flag (0x800).
     disabled: bool,
+    /// For a reference: the scripts its `VMAD` attaches, with the Papyrus log lines they
+    /// write (M4.T6, [`traces`]).
+    scripts: Vec<traces::Attached>,
 }
 
 #[derive(Debug, Clone)]
@@ -336,6 +340,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             base_edid: None,
             base_runtime: None,
             disabled: is_ref && loc.flags & probes::FLAG_INITIALLY_DISABLED != 0,
+            scripts: Vec::new(),
         };
         if !is_ref && !tes4.is_localized() {
             let record = read_indexed(&mut file, loc, Some(&limits))
@@ -358,6 +363,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     .and_then(|b| <[u8; 4]>::try_from(b).ok())
                     .map(u32::from_le_bytes)
             };
+            if let Some(v) = subs.iter().find(|s| s.signature() == Signature(*b"VMAD")) {
+                let dir = plugin.parent().unwrap_or_else(|| Path::new(""));
+                form.scripts = traces::of_reference(dir, v.data());
+            }
             if let Some(base) = raw_of(b"NAME").and_then(|r| lo.resolve(at, r).ok()) {
                 form.base_edid = edid_of(&lo, base);
                 form.base_runtime = lo.runtime_id(base);
@@ -678,6 +687,23 @@ fn checklist(
                 "{n}. `prid {target}`, then `getpos x`, `getpos y`, `getpos z`.\n   **Expect:** `prid` selects the same object; the positions match {pos}. Screenshot it\n   (into `observe\\`).",
             );
             n = n.saturating_add(1);
+            // M4.T6: one step per attached script (the probe rows of the same numbers).
+            for a in f.scripts.iter().filter(|a| a.found || f.new) {
+                let expect = match a.traces.as_slice() {
+                    [] => "nothing this plan can check: watch for the script's effect".to_string(),
+                    t => t
+                        .iter()
+                        .map(|(text, _)| format!("the line `{text}`"))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                };
+                let _ = writeln!(
+                    s,
+                    "{n}. Its script `{}` (`{}` next to the plugin). **Expect:** the Papyrus log\n   (`Papyrus.0.log`) holds {expect}.",
+                    a.script, a.looked_for
+                );
+                n = n.saturating_add(1);
+            }
         } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
             || f.signature == "ARMO"
         {
