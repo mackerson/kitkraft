@@ -7,8 +7,9 @@
 //! selected plugin the active file and ticks it; OK loads; a master-flagged plugin cannot
 //! be the active file. Not observed (KitKraft's own until a sitting shows the CK's):
 //! the details pane's layout and labels, the check boxes as boxes (the CK ticks by
-//! double-click; how it draws a tick was not exposed), "No Active File", and the
-//! type-ahead selection (typing a name selects its row in the CK; not built).
+//! double-click; how it draws a tick was not exposed), "No Active File", "Cancel", the
+//! "Active file:" line above the list, and the type-ahead selection (typing a name
+//! selects its row in the CK; not built).
 //!
 //! The list is the session's load order (the Load tab's `load` result) and the plugins
 //! its profile lists but does not activate (these cannot be ticked: the engine reports

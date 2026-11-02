@@ -501,7 +501,8 @@ revisited once a sitting observes how the CK docks. Code:
   (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
-  the boxes, "No Active File"; the CK's type-ahead row selection is not built.
+  the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row
+  selection is not built.
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.
