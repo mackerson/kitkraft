@@ -694,6 +694,25 @@ mod tests {
         assert!(s.refusal.is_none());
     }
 
+    /// Review L1: Creations are refused by the engine's activation rule alone (names that
+    /// are not official, no master flag).
+    #[test]
+    fn creations_are_refused_by_the_engines_activation_rule() {
+        let mut v = view("plugins");
+        v.plugins = vec![
+            row("CoolCreation.esm", "", "Starfield.ccc"),
+            row("Companion.esm", "", "blueprint-companion-of:Mine.esm"),
+        ];
+        let mut s = DataDialogState::default();
+        s.sync(Some(&v), 1, None);
+        for i in 0..2 {
+            s.select(i);
+            let err = s.set_active().unwrap_err();
+            assert!(err.contains("official master or Creation"), "{i}: {err}");
+            assert_eq!(s.active, None);
+        }
+    }
+
     #[test]
     fn the_default_profile_is_never_a_target() {
         let dir = std::env::temp_dir().join("profiles").join("Default");
