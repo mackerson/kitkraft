@@ -551,3 +551,23 @@ fn m7_e6_a_failed_undo_needs_a_new_undo_and_a_new_dry_run() {
         [json!(0), json!(0), json!(0)]
     );
 }
+
+/// Review finding L3 of M7.E6: the undo assumes the active file is as the editor's write
+/// left it. Another front end changing the file in between (here: its bytes rewritten
+/// with one more byte) makes the undo refuse, and nothing is sent.
+#[test]
+fn m7_e6_an_undo_of_a_file_changed_since_the_write_is_refused() {
+    let s = Scratch::new("undo-changed");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    write_field(&mut h, "1.5", "6");
+    let mut bytes = std::fs::read(&patch).unwrap();
+    bytes.push(0);
+    std::fs::write(&patch, &bytes).unwrap();
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "changed since the editor's write");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(std::fs::read(&patch).unwrap(), bytes);
+}

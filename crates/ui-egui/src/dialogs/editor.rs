@@ -106,6 +106,15 @@ struct LastWrite {
     /// Whether dropping the override restores the file exactly ([`undoable`]), or why
     /// not.
     undo: Result<(), String>,
+    /// The active file's size and modification time right after the write, so an undo
+    /// refuses a file another front end changed since (M7.E6 review L3).
+    stamp: Option<(u64, std::time::SystemTime)>,
+}
+
+/// The size and modification time of `path`, when it can be read.
+fn stamp_of(path: &str) -> Option<(u64, std::time::SystemTime)> {
+    let m = std::fs::metadata(path).ok()?;
+    Some((m.len(), m.modified().ok()?))
 }
 
 /// The editor's state (kept in `crate::windows::Shell`).
@@ -209,6 +218,7 @@ impl EditorState {
                     form: w.form.clone(),
                     into: w.into.clone(),
                     undo: undoable(env, &w.form, &w.into),
+                    stamp: stamp_of(&w.into),
                 });
             }
             (Slot::EditorPreview, "revert") if *request == w.preview => {
@@ -645,6 +655,15 @@ fn start_undo(state: &mut EditorState, form: &str, into: &str, out: &mut Vec<Act
     };
     if let Err(why) = &last.undo {
         state.note = Some((Status::Fail, format!("undo refused: {why}")));
+        return;
+    }
+    if last.stamp.is_none() || stamp_of(into) != last.stamp {
+        state.note = Some((
+            Status::Fail,
+            format!(
+                "undo refused: {file} changed since the editor's write (its size or time differs), so dropping the record could undo someone else's edit too; undo with `kit revert`"
+            ),
+        ));
         return;
     }
     let preview = revert::preview_request(into, form);
