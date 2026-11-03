@@ -530,3 +530,51 @@ Findings, one line each:
   re-run in X9 before it gets a grade.
 - O2-08's "once" has no probe. A count of the plugin's base in the cell after the reload would
   close it; no console getter for that was chosen (the session lane, `kit testplan`).
+
+### game-20261103-01: agent session 2026-11-03-T03 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-03-T03`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-03 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261103-03` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `C:\Modding\kitkraft-worktrees\x\out\rename-plan\probes.toml` SHA-256 `d84e011aab7bed95fb67a99e2d0e17eb1ad3debbe34429d5726afb4cfa55dc05` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-03-T03` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help "Old Soviet Marksman Rifle" 4` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help "Old Soviet Marksman Rifle" 4 -> help "Old Soviet Marksman Rifle" 4 | fail (`0021BBCD` not in `help "Old Soviet Marksman Rifle" 4`) | - |
+| T-02 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261103-03`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261103-03`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29; save KitKraftSession-20261103-03 -> save KitKraftSession-20261103-03 Command: save KitKraftSession... | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `player.getincell 0006BB29 Command: player.getincell 0006BB29`) | - |
+| T-03 | persistence 4: return and look | - | persistence 4: return and look | - | not-run (manual: the plugin places no new reference with a position and a runtime ID to check after the reload) | - |
+
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (c6fe5357313ff2a5e6967bd0b6430468e2ca6dfc95359bae9c7902d5b2f17dc2 -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-03-T03\backup\01-plugins.txt
+
+Writer's reading (2026-11-02, X5, M4.T4 V1; rulings R20 and R22). The controller graded T-01
+and T-02 `fail`. Each failed step got an answer that held only the echo
+(`help "Old Soviet Marksman Rifle" 4 -> help "Old Soviet Marksman Rifle" 4`, and
+`player.getincell 0006BB29` right after the `coc` and its 10 s settle). An echo-only answer
+is a timing anomaly, not a result, and other lanes were building at the time. Under R20 these
+rows read as **inconclusive**, never `fail`. The same echo-only answers came in the session
+before, `2026-11-03-T02`, on the same plugin and the same probes. Its ledger entry was not
+written because the ledger path was relative, which the controller refuses as an
+unauthorized write; `C:\Modding\kitkraft-observe\2026-11-03-T02\report.json` keeps it. That
+makes two attempts. Later steps of T-02 did answer: the `coc` to the apartment printed its
+script lines, and `player.getincell 0021966F` printed a result. So the console was live and
+only the first answer after a move, or the long `help` output, missed the tool's capture
+window (`iExecTimeout=100`, `game-20261101-T1` row l). The first try, `2026-11-03-T01`, never
+reached the game: MO2 could not start `sfse_loader.exe` ("Error 5 ERROR_ACCESS_DENIED", MO2's
+`mo_interface.log`). It had been launched from a restricted shell, and it is `not-run` with
+nothing sent. The `player.additem` part of V1 is **not-run**, because testplan writes no
+additem row for an override of a vanilla WEAP (R22). V1 is therefore not closed.
+
+Request (session lane, `crates/game`): treat an echo-only answer as `inconclusive` in the
+matcher, as the probe file's notes already say. Then retry once with a longer wait, or a
+second `help` after a pause, before a row is graded. Compare V1 again with the owner's
+`game-20261014-01` once T-01 has a real answer.
