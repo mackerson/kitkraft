@@ -897,9 +897,6 @@ mod tests {
         }
     }
 
-    /// R17: the active-file field takes a new or existing plugin outside the load order,
-    /// outside the Data folders and MO2; everything else is refused, and the choice
-    /// survives OK because no listed row names it.
     /// W2 review M1: the whole `Documents\My Games\Starfield` tree is the owner's live
     /// game (INIs, saves; AGENTS.md "Owner's live game is off limits"), not only its
     /// `Data` folder; so is any folder holding the game's INIs.
@@ -980,6 +977,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// R17: the active-file field takes a new or existing plugin outside the load order,
+    /// outside the Data folders and MO2; everything else is refused, and the choice
+    /// survives OK because no listed row names it.
     #[test]
     fn the_path_field_takes_a_plugin_outside_data_and_mo2() {
         let base = std::env::temp_dir().join(format!("kitkraft-ui-r17-{}", std::process::id()));

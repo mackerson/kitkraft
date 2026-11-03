@@ -416,7 +416,7 @@ mod tests {
         json!({"data": {"records": [
             {"type": "WEAP", "name": "Weapon", "category": "Other"},
             {"type": "GLOB", "name": "Global", "category": "Other"},
-            {"type": "AMMO", "name": "Ammo", "category": "Items"},
+            {"type": "AMMO", "name": "Ammo", "category": "Observed A"},
         ]}, "limitations": ["definitions only", "Object Window categories: only *All"]})
     }
 
@@ -431,7 +431,7 @@ mod tests {
         assert!(s.take_request().is_none(), "asked once");
         s.receive(&ObjectTicket::Categories, Ok(&schema_env()));
         let names: Vec<&str> = s.categories.iter().map(|c| c.name.as_str()).collect();
-        assert_eq!(names, ["Items", "Other"]);
+        assert_eq!(names, ["Observed A", "Other"]);
         assert_eq!(s.categories[1].types.len(), 2);
         assert_eq!(s.limitations.len(), 1, "the unobserved tree is said");
     }
