@@ -768,6 +768,21 @@ fn the_catalog_shortcuts_open_what_their_items_open() {
             other => panic!("`{id}`: {other:?}"),
         }
     }
+    // Extra modifiers do not fire a binding (W6 review L1): Shift+Enter does not inspect,
+    // Ctrl+Alt+O (AltGr+O on Windows) does not load, Ctrl+Shift+F does not query.
+    for (mods, key) in [
+        (Modifiers::SHIFT, Key::Enter),
+        (Modifiers::COMMAND | Modifiers::ALT, Key::O),
+        (Modifiers::COMMAND | Modifiers::SHIFT, Key::F),
+        (Modifiers::SHIFT, Key::F7),
+    ] {
+        open_tab(&mut h, Tab::Start);
+        let before = shown(&h);
+        h.key_press_modifiers(mods, key);
+        h.run_steps(3);
+        assert_eq!(shown(&h), before, "{mods:?}+{key:?} fires nothing");
+        assert_eq!(h.state().app.tab, Tab::Start);
+    }
     // Ctrl+B is `build`'s: enabled only when the gate permits it.
     open_tab(&mut h, Tab::Start);
     let before = shown(&h);

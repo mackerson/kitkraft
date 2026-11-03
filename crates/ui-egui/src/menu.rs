@@ -541,9 +541,10 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
 }
 
 /// Keys the window keeps for itself, which no catalog shortcut may take (M7.M5's conflict
-/// check): egui's text editing (copy, cut, paste, select all, undo, redo) and its zoom keys,
-/// and the Render Window's fly keys (`crate::viewport::BINDINGS`: W A S D while it has
-/// focus).
+/// check): egui's text editing in a field (copy, cut, paste, select all, undo, redo, and its
+/// Ctrl keys for deleting and moving by word or line: Ctrl+H, K, U, W, Backspace, Delete,
+/// the arrows, Home and End; W6 review L2) and its zoom keys, and the Render Window's fly
+/// keys (`crate::viewport::BINDINGS`: W A S D while it has focus).
 pub const RESERVED_KEYS: &[&str] = &[
     "Ctrl+C",
     "Ctrl+X",
@@ -556,6 +557,18 @@ pub const RESERVED_KEYS: &[&str] = &[
     "Ctrl+Equals",
     "Ctrl+Minus",
     "Ctrl+0",
+    "Ctrl+H",
+    "Ctrl+K",
+    "Ctrl+U",
+    "Ctrl+W",
+    "Ctrl+Backspace",
+    "Ctrl+Delete",
+    "Ctrl+ArrowLeft",
+    "Ctrl+ArrowRight",
+    "Ctrl+ArrowUp",
+    "Ctrl+ArrowDown",
+    "Ctrl+Home",
+    "Ctrl+End",
     "W",
     "A",
     "S",
@@ -608,6 +621,12 @@ pub fn pressed(ctx: &egui::Context, menus: &[Menu]) -> Option<MenuPick> {
         };
         let bare = !sc.modifiers.command && !sc.modifiers.ctrl && !sc.modifiers.alt;
         if bare && typing {
+            continue;
+        }
+        // Exactly the modifiers the shortcut names (W6 review L1): egui's own match ignores
+        // an extra Shift or Alt, so Shift+Enter would inspect and Ctrl+Alt+O (AltGr+O on
+        // Windows) would load.
+        if !ctx.input(|i| i.modifiers.matches_exact(sc.modifiers)) {
             continue;
         }
         if ctx.input_mut(|i| i.consume_shortcut(&sc)) {
