@@ -460,3 +460,46 @@ fn m7_e6_the_undo_confirm_follows_the_active_file() {
     settle(&mut h);
     assert_eq!(std::fs::read(&patch).unwrap(), before);
 }
+
+/// Review finding M1 of M7.E6 (the reviewer's engine probe, here in the window's own
+/// frame; needs the corpus, skipped without KITKRAFT_DATA_DIR). Editing a placed
+/// reference copies its parents into the active file: the exterior CELL and its WRLD,
+/// both `inserted`. `revert` drops only the REFR, so an undo would leave about 0.9 MB of
+/// copied parents behind (diff against the original: 2 added). The undo is refused,
+/// with the reason, and nothing is sent.
+#[test]
+fn m7_e6_an_undo_that_would_leave_copied_parents_behind_is_refused() {
+    let Some(data) = std::env::var_os("KITKRAFT_DATA_DIR") else {
+        eprintln!("skipped: KITKRAFT_DATA_DIR is not set");
+        return;
+    };
+    if !Path::new(&data).join("Starfield.esm").is_file() {
+        eprintln!("skipped: no Starfield.esm in KITKRAFT_DATA_DIR");
+        return;
+    }
+    let s = Scratch::new("undo-refr");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = workbench() else {
+        return;
+    };
+    let load = Request::new("load", json!({"plugins": ["Starfield.esm"]}));
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    let app = &mut h.state_mut().app;
+    app.apply(vec![Action::Inspect("Starfield.esm:000807".to_string())]);
+    app.shell.set_open(WindowKind::EditDialog, true);
+    app.active_file = Some(patch.clone());
+    settle(&mut h);
+    // XSCL (Scale) 2 -> 3, previewed and written: the REFR and its two parents.
+    retype(&mut h, "2.0", "3");
+    press(&mut h, "OK");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "written:");
+    press(&mut h, "Close");
+    let before = std::fs::read(&patch).unwrap();
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "undo refused");
+    assert_in_view(&h, "CELL");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(std::fs::read(&patch).unwrap(), before);
+}

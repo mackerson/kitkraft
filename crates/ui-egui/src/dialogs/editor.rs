@@ -103,9 +103,9 @@ struct Write {
 struct LastWrite {
     form: String,
     into: String,
-    /// The write added the record to the active file (`outcome: inserted`), so dropping
-    /// the override restores the file exactly.
-    inserted: bool,
+    /// Whether dropping the override restores the file exactly ([`undoable`]), or why
+    /// not.
+    undo: Result<(), String>,
 }
 
 /// The editor's state (kept in `crate::windows::Shell`).
@@ -208,7 +208,7 @@ impl EditorState {
                 self.last = Some(LastWrite {
                     form: w.form.clone(),
                     into: w.into.clone(),
-                    inserted: write_outcome(env) == Some("inserted"),
+                    undo: undoable(env, &w.form, &w.into),
                 });
             }
             (Slot::EditorPreview, "revert") if *request == w.preview => {
@@ -325,15 +325,52 @@ fn changed_line(env: &Value) -> String {
         .join(", ")
 }
 
-/// What a `set` envelope says it did to the record in the active file: `inserted`,
-/// `replaced` or `moved`.
-fn write_outcome(env: &Value) -> Option<&str> {
-    env.pointer("/data/records")?
-        .as_array()?
+/// Whether undoing a `set` write (`env`, its envelope) with `revert --to remove`
+/// restores the active file exactly, or why not. It does when the write inserted the
+/// record and inserted nothing else. A record the file already held (`replaced`, a second
+/// edit) would lose that earlier version too. A parent the write copied in to hold the
+/// record (a placed reference's CELL and WRLD, an INFO's DIAL: `parent: true`,
+/// `inserted`) stays after `revert`, which drops only the record (M7.E6 review M1).
+fn undoable(env: &Value, form: &str, into: &str) -> Result<(), String> {
+    let file = file_name(into);
+    let records = env
+        .pointer("/data/records")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let outcome = |r: &Value| {
+        r.get("outcome")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string()
+    };
+    let is_parent = |r: &Value| r.get("parent") == Some(&Value::Bool(true));
+    let Some(own) = records.iter().find(|r| !is_parent(r)) else {
+        return Err(format!("the write's envelope names no record in {file}"));
+    };
+    if outcome(own) != "inserted" {
+        return Err(format!(
+            "{file} already held {form} before the last write, and `revert` would drop that earlier version too (it would undo more than one write); `kit revert` drops the whole override"
+        ));
+    }
+    let copied: Vec<String> = records
         .iter()
-        .find(|r| r.get("parent") != Some(&Value::Bool(true)))?
-        .get("outcome")?
-        .as_str()
+        .filter(|r| is_parent(r) && outcome(r) == "inserted")
+        .map(|r| {
+            format!(
+                "{} {}",
+                r.get("signature").and_then(Value::as_str).unwrap_or("?"),
+                r.get("form").and_then(Value::as_str).unwrap_or("?")
+            )
+        })
+        .collect();
+    if !copied.is_empty() {
+        return Err(format!(
+            "the write also copied {} into {file} to hold the record; `revert` keeps those, so the undo would not restore the file; `kit revert` the record and its parents",
+            copied.join(" and ")
+        ));
+    }
+    Ok(())
 }
 
 /// A `revert` envelope's diff of the file in one line.
@@ -603,13 +640,8 @@ fn start_undo(state: &mut EditorState, form: &str, into: &str, out: &mut Vec<Act
         ));
         return;
     };
-    if !last.inserted {
-        state.note = Some((
-            Status::Fail,
-            format!(
-                "undo refused: {file} already held {form} before the last write, and `revert` would drop that earlier version too (it would undo more than one write); `kit revert` drops the whole override"
-            ),
-        ));
+    if let Err(why) = &last.undo {
+        state.note = Some((Status::Fail, format!("undo refused: {why}")));
         return;
     }
     let preview = revert::preview_request(into, form);
@@ -933,6 +965,39 @@ mod tests {
             Some("00000800")
         );
         assert_eq!(replaced_form_id(&env("inserted")), None);
+    }
+
+    /// M7.E6 review M1: a write is undoable only when it inserted the record and nothing
+    /// else; a parent copied in to hold it (CELL, WRLD) or a record already held refuses
+    /// the undo with the reason; a parent the file already held does not.
+    #[test]
+    fn an_undo_needs_a_write_that_inserted_only_the_record() {
+        let env = |records: Value| json!({"data": {"records": records}});
+        let rec = |sig: &str, form: &str, parent: bool, outcome: &str| json!({"signature": sig, "form": form, "parent": parent, "outcome": outcome});
+        let refr = rec("REFR", "Starfield.esm:000807", false, "inserted");
+        assert_eq!(undoable(&env(json!([refr.clone()])), "f", "P.esp"), Ok(()));
+        let parents = env(json!([
+            rec("WRLD", "Starfield.esm:27CFA2", true, "inserted"),
+            rec("CELL", "Starfield.esm:27F1A0", true, "inserted"),
+            refr.clone()
+        ]));
+        let why = undoable(&parents, "f", r"C:\out\P.esp").unwrap_err();
+        assert!(
+            why.contains("WRLD Starfield.esm:27CFA2 and CELL Starfield.esm:27F1A0")
+                && why.contains("P.esp"),
+            "{why}"
+        );
+        // The file already held the parent: dropping the REFR restores it.
+        let held_parent = env(json!([
+            rec("CELL", "Starfield.esm:27F1A0", true, "replaced"),
+            refr
+        ]));
+        assert_eq!(undoable(&held_parent, "f", "P.esp"), Ok(()));
+        let replaced = env(json!([rec("GLOB", "F.esm:000800", false, "replaced")]));
+        assert!(undoable(&replaced, "f", "P.esp")
+            .unwrap_err()
+            .contains("already held"));
+        assert!(undoable(&env(json!([])), "f", "P.esp").is_err());
     }
 
     /// The confirm button waits for the preview, needs a dry run that would write and
