@@ -1,191 +1,313 @@
-# LVLB: LeveledBaseForm, inventory definition (KK-102).
+# LVLB: Leveled Base Form, a leveled list whose entries are base forms (GBFM) or other
+# leveled base form lists (LVLB). Base-form spawn points and the object palette pick an
+# entry by the player's level, the chance values and the entry conditions.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-102 scan of every official LVLB record (373 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LVLB definition of wbDefinitionsSF1.pas at the pinned revision (L13952-L14010),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13952-L14010 - member order, the record flags,
+#     LVLD/LVLM/LVLF/LVLG/LLCT, the entry group (LVLO, COED, conditions), LLKC and the
+#     model block. Helpers: EDID (L3182), script data (L3393-L3411, kept opaque), object
+#     bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962),
+#     PTT2 (L3965-L3974), SNTP (L3919), SNBH (L3920), DEFL (L3963), XALG (L3230), the base
+#     form component block (L5984-L6832), LLCT (L2250), LVLD (L2252), the conditions
+#     (L4750-L4840, common/Condition.toml), the leveled entry (wbDefinitionsCommon.pas
+#     L9062-L9084), COED (L2294-L2302), LLKC (L7791-L7803), the generic model (L7008-L7029).
+#   corpus: the 373 LVLB records of the 14 official ESMs, 2026-10-28 inventory scan: EDID,
+#     OBND, ODTY, LVLD, LVLM, LVLF and FLLD in all 373; LLCT and the LeveledListEntry group
+#     (LVLO 12 bytes, up to 17 per record) in 350; CTDA (32 bytes) in 7, up to 12 per
+#     record: 37 after the entries of their records, 2 list-level, before the first
+#     LVLO (lvlb_types_full, 2026-11-03); VMAD in 1; MODL in 1.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw. The level entries (LVLO, each with its own CTDA conditions)
-# repeat as one group, because the corpus interleaves their two runs in orders a flat
-# member list cannot express.
+# The entry count LLCT is a separate subrecord, stored, not derived: an edit that adds or
+# removes an Entry must update EntryCount too. The unused byte runs of LVLO stay raw.
+# Members no official LVLB has stay at `reference` until the typed check prints them.
 signature = "LVLB"
 name = "LeveledBaseForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVLB record (373) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13952-L14010",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13952-L14010"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["CalculateAll", 0x8000],
+  ["HasCurrents", 0x80000],
+  ["Obstacle", 0x2000000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+  ["MustBeUnique", 0x80000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-102): corpus order and cardinality; EDID typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 11..70 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13972-L13972"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13972-L13972",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
-name = "Vmad"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 373 official LVLB records (1 occurrence), 36 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13973-L13973",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13973-L13973"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 24 bytes"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13974-L13974"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13974-L13974",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: lvlb_types_full 2026-11-03: OBND in all 373 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13975-L13975"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13975-L13975",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: lvlb_types_full 2026-11-03: ODTY in all 373 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13976-L13976"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13977-L13977"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3974"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+card = "optional"
+targets = ["STMP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13978-L13978"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+card = "optional"
+targets = ["STBH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13979-L13979"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13980-L13980"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13981-L13981"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer; not present in the official LVLB records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13982-L13982"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official LVLB records"
 
 [[member]]
 sig = "LVLD"
-name = "Lvld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+name = "ChanceNone"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13983-L13983"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13983-L13983",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2252-L2252",
+  "corpus: lvlb_types_full 2026-11-03: LVLD in all 373 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "LVLM"
-name = "Lvlm"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 1 byte"
+name = "MaxCount"
+type = "u8"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13984-L13984"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13984-L13984",
+  "corpus: lvlb_types_full 2026-11-03: LVLM in all 373 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "LVLF"
-name = "Lvlf"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 2 bytes"
+name = "Flags"
+type = "flags"
+base = "u16"
+bits = [
+  ["CalculateFromAllLevels", 0x1],
+  ["CalculateForEachItemInCount", 0x2],
+  ["CalculateAll", 0x4],
+  ["DisableIfDoesNotResolve1", 0x8],
+  ["DisableIfDoesNotResolve2", 0x10],
+  ["AllowShiftUp", 0x40],
+  ["DoAllBeforeRepeating", 0x100],
+  ["ContainsOnlySpaceshipBaseForms", 0x200],
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13985-L13996"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13985-L13985",
+  "corpus: lvlb_types_full 2026-11-03: LVLF in all 373 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 373 official LVLB records (39 occurrences, up to 12 per record), 32 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13997-L13997"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13997-L13997",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: lvlb_types_full 2026-11-03: CTDA in 7 LVLB records, 2 of them before the first LVLO (list-level); every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "conditions on the whole list; the corpus has 2, before the first LVLO of their records"
+
+[[member]]
+sig = "LVLG"
+name = "UseGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13998-L13998"
+confidence = "reference"
+note = "not present in the official LVLB records"
 
 [[member]]
 sig = "LLCT"
-name = "Llct"
-type = "opaque"
+name = "EntryCount"
+type = "u8"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (350 occurrences), 1 byte"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13999-L13999"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13999-L13999",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2250-L2250",
+  "corpus: lvlb_types_full 2026-11-03: LLCT in 350 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "number of Entries that follow; stored, not derived: an edit that adds or removes an entry must update it"
 
 [[member]]
 group = "LeveledListEntry"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (350 occurrences), up to 17 LVLO per record, each entry 12 bytes with 0..12 of the record's 32-byte CTDA after it"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14000-L14007",
-]
-confidence = "corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14000-L14007"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084"]
+confidence = "reference"
 
 [[member.member]]
 sig = "LVLO"
-name = "Lvlo"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 350 of 373 official LVLB records (1329 occurrences, up to 17 per record), 12 bytes"
+name = "Data"
+type = "struct"
+size = 12
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14002-L14002",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084",
+  "corpus: lvlb_types_full 2026-11-03: LVLO in 350 LVLB records, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "xEdit lets the payload end after the base form (fields from Count on are optional); every official LVLO is 12 bytes"
+field = [
+  { name = "Level", type = "u16" },
+  { name = "Unused1", type = "opaque", size = 2 },
+  { name = "BaseForm", type = "formid", targets = ["GBFM", "LVLB"] },
+  { name = "Count", type = "u16" },
+  { name = "ChanceNone", type = "u8" },
+  { name = "Unused2", type = "opaque", size = 1 },
+]
 
 [[member.member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 373 official LVLB records (39 occurrences, up to 12 per record), 32 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14004-L14004",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
-
-[[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+sig = "COED"
+name = "ExtraData"
+type = "struct"
+size = 12
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 373 official LVLB records (1 occurrence), 39 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2294-L2302"
+confidence = "reference"
+note = "owner, a union of global or required rank, and item condition; not present in the official LVLB records"
+field = [
+  { name = "Owner", type = "formid", targets = ["NPC_", "FACT"] },
+  { name = "OwnerData", type = "opaque", size = 4 },
+  { name = "ItemCondition", type = "f32" },
+]
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14009-L14009",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: lvlb_types_full 2026-11-03: CTDA in 7 LVLB records, 37 of them after the first LVLO (entry-level); every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "conditions of this entry, without a CITC count"
 
 [[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 373 of 373 official LVLB records (373 occurrences), 4 bytes"
+sig = "LLKC"
+name = "FilterKeywordChances"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14008-L14008"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7791-L7803"]
+confidence = "reference"
+note = "not present in the official LVLB records"
+field = [
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
+  { name = "Chance", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4 },
+]
+
+[[member]]
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14009-L14009"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14008-L14008",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: lvlb_types_full 2026-11-03: the block's FLLD in all 373 LVLB records and MODL in 1, every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "xEdit marks the block required; its file name is optional"
