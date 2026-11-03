@@ -178,7 +178,10 @@ fn refused_location(path: &Path) -> Option<String> {
             ));
         }
     }
-    None
+    // The engine's own location guard last (W2 review L1): what the name rules miss, such
+    // as a junction or an 8.3 short name into one of these folders, is refused here too.
+    path.parent()
+        .and_then(|dir| crate::gate::guard_output_dir(dir).err())
 }
 
 /// The text of a NUL-terminated string given as hex (up to the first NUL; a pair that is
@@ -919,6 +922,42 @@ mod tests {
             let why = s.refusal.clone().unwrap_or_default();
             assert!(why.contains("My Games"), "{}: {why}", path.display());
         }
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// W2 review L1: the UI ends with the engine's own location guard, so what the name
+    /// rules miss (a junction into an MO2 instance) is refused before OK too.
+    #[cfg(windows)]
+    #[test]
+    fn the_engine_guard_has_the_last_word_in_the_dialog() {
+        let base = std::env::temp_dir().join(format!("kitkraft-ui-jlink-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let mods = base.join("fake-mo2").join("mods");
+        std::fs::create_dir_all(mods.join("A")).unwrap();
+        std::fs::write(base.join("fake-mo2").join("ModOrganizer.ini"), b"[General]").unwrap();
+        let link = base.join("jlink");
+        let made = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&mods)
+            .output()
+            .is_ok_and(|o| o.status.success());
+        if !made {
+            eprintln!("skipped: no junction (mklink /J failed)");
+            let _ = std::fs::remove_dir_all(&base);
+            return;
+        }
+        let mut s = opened("plugins");
+        s.path_field = link
+            .join("A")
+            .join("ReviewScratch.esp")
+            .display()
+            .to_string();
+        assert!(s.use_path().is_none());
+        assert_eq!(s.active, None);
+        let why = s.refusal.clone().unwrap_or_default();
+        assert!(why.contains("link or junction"), "{why}");
+        let _ = std::fs::remove_dir(&link);
         let _ = std::fs::remove_dir_all(&base);
     }
 
