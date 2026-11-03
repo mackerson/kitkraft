@@ -189,7 +189,7 @@
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
 // - SCOL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: every official SCOL record (15) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SDLT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically; corpus)
-// - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; reference)
+// - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
 // - SFPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SFPC record (62) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)

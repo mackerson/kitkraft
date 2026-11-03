@@ -13,10 +13,20 @@
 #     common/SoundReference.toml), the boolean enumeration (wbDefinitionsCommon.pas
 #     L7514-L7521, common/Bool8.toml), conditions (CITC L2251, L4750-L4840,
 #     common/Condition.toml).
+#   corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03 - the 32 SECH
+#     records of the 14 official ESMs: 15 signatures, 100 echoes; ANAM, BNAM, CNAM, DNAM,
+#     ENAM and ECHE 100 times (one per echo), ECHO 68, ECHD 32, ECTE 67 (16 bytes), ECSH
+#     67 (40 bytes), NNAM 2 (37 to 128 bytes, both the record's description before the
+#     first echo; none inside the echoes), XALG 1 (8 bytes). No VMAD, OPDS, PTT2,
+#     SNTP, SNBH, DEFL, ECHL, BFCB, CITC or CTDA occurs. Every record decodes and
+#     re-encodes identically.
 signature = "SECH"
 name = "SoundEchoMarker"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523"
-confidence = "reference"
+confidence = "corpus"
+evidence = [
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records of the 14 official ESMs decode with nothing left unnamed and re-encode identically",
+]
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -37,7 +47,11 @@ flags = [
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17487-L17487"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17487-L17487",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records of the 14 official ESMs hold an EDID of 23 to 47 bytes",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
@@ -45,19 +59,28 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, so kept raw"
+confidence = "reference"
+note = "script data; its property values are unions by property type, so kept raw; not present in the official SECH records"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records hold a 24-byte OBND",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records hold a 4-byte ODTY",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
@@ -65,6 +88,8 @@ name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "PTT2"
@@ -72,6 +97,8 @@ name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "SNTP"
@@ -80,6 +107,8 @@ type = "formid"
 targets = ["STMP"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "SNBH"
@@ -88,6 +117,8 @@ type = "formid"
 targets = ["STBH"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "DEFL"
@@ -96,27 +127,38 @@ type = "formid"
 targets = ["LAYR"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "XALG"
 name = "XalgFlags"
 type = "u64"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 1 of the 32 SECH records holds an 8-byte XALG",
+]
+confidence = "corpus"
 note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-note = "base form components"
+confidence = "reference"
+note = "base form components; not present in the official SECH records"
 
 [[member]]
 sig = "NNAM"
 name = "Description"
 type = "zstring"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17498-L17498"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17498-L17498",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 2 of the 32 SECH records hold an NNAM before the first echo, 37 to 128 bytes",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ECHL"
@@ -124,18 +166,28 @@ name = "LoopingSound"
 type = "ref:SoundReference"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17499-L17499"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 group = "Echos"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17522"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17522",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: the 32 SECH records hold 100 echoes: 68 begin with an ECHO, 32 with an ECHD, and all 100 end with an empty ECHE",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "ECHO"
 name = "EchoStart"
 type = "empty"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17503-L17503"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17503-L17503",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 68 of the 100 echoes begin with an empty ECHO, 32 with an ECHD: one start marker per echo",
+]
+confidence = "corpus"
 note = "start marker; an echo carries one of this and EchoDefaultStart"
 
 [[member.member]]
@@ -143,7 +195,11 @@ sig = "ECHD"
 name = "EchoDefaultStart"
 type = "empty"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17504-L17504"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17504-L17504",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 32 of the 100 echoes begin with an empty ECHD, 68 with an ECHO: one start marker per echo",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "ECTE"
@@ -151,7 +207,11 @@ name = "Event"
 type = "opaque"
 size = 16
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17506-L17506"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17506-L17506",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 67 of the 100 echoes hold a 16-byte ECTE, in 31 records",
+]
+confidence = "corpus"
 note = "Wwise event GUID; upstream gives it no field layout, so kept raw"
 
 [[member.member]]
@@ -159,19 +219,31 @@ sig = "ECSH"
 name = "Sound"
 type = "ref:SoundReference"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17507-L17507"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17507-L17507",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 67 of the 100 echoes hold a 40-byte ECSH, in 31 records",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "ANAM"
 name = "VoiceCount"
 type = "u32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17508-L17508"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17508-L17508",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 4-byte ANAM",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "BNAM"
 name = "Duration"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17509-L17509"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17509-L17509",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 4-byte BNAM",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "CNAM"
@@ -182,7 +254,11 @@ values = [
   ["Steal", 0],
   ["Skip", 1],
 ]
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17510-L17513"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17510-L17513",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte CNAM",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "DNAM"
@@ -193,13 +269,21 @@ values = [
   ["OnEachPlayback", 0],
   ["OnLimitReached", 1],
 ]
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17514-L17517"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17514-L17517",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte DNAM",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "ENAM"
 name = "TriggerRelease"
 type = "ref:Bool8"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte ENAM",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "NNAM"
@@ -207,7 +291,8 @@ name = "EchoDescription"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17519-L17519"]
-note = "the echo's own description; a second NNAM, distinct from the record-level one"
+confidence = "reference"
+note = "the echo's own description; a second NNAM, distinct from the record-level one; not present in the official SECH records"
 
 [[member.member]]
 sig = "CITC"
@@ -215,16 +300,23 @@ name = "ConditionCount"
 type = "u32"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
-note = "number of Conditions that follow; stored, not derived"
+confidence = "reference"
+note = "number of Conditions that follow; stored, not derived; not present in the official SECH records"
 
 [[member.member]]
 group_ref = "Condition"
 name = "Conditions"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member.member]]
 sig = "ECHE"
 name = "EchoEnd"
 type = "empty"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17521-L17521"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17521-L17521",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes end with an empty ECHE",
+]
+confidence = "corpus"

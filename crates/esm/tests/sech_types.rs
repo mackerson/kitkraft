@@ -10,7 +10,9 @@
 //!   `XXXX`).
 //!
 //! It prints `sech SECH: <n> records, <m> identical` (plain integers) and, per
-//! signature, how many records have it, how often it occurs and its payload sizes.
+//! signature, how many records have it, how often it occurs and its payload sizes,
+//! plus the two NNAMs by position (the record's description before the first echo
+//! start marker, the echo's own description inside the echoes).
 //!
 //! `sech_types_full` (ignored) runs all 14 files, every record; run it in release:
 //! `cargo test -p kitkraft-esm --release --test sech_types -- --ignored --nocapture`
@@ -47,6 +49,14 @@ struct SigStats {
     sizes: BTreeMap<usize, u64>,
 }
 
+/// How many records (or echoes) hold the NNAM, how often it occurs and its payload sizes.
+#[derive(Default)]
+struct NnamStats {
+    holders: u64,
+    times: u64,
+    sizes: BTreeMap<usize, u64>,
+}
+
 #[derive(Default)]
 struct TypeStats {
     records: u64,
@@ -55,6 +65,12 @@ struct TypeStats {
     failed: BTreeMap<String, u64>,
     failures: Vec<String>,
     sigs: BTreeMap<String, SigStats>,
+    /// The NNAM before the first echo start marker: the record's own description.
+    nnam_record: NnamStats,
+    /// The NNAM inside the echoes: the echo's own description.
+    nnam_echo: NnamStats,
+    /// Echoes, one per ECHE.
+    echoes: u64,
 }
 
 fn key(sig: [u8; 4]) -> String {
@@ -73,7 +89,12 @@ fn check_record(
         panic!("{name} {form_id:08X}: no definition for {}", key(sig));
     };
     // Per-signature stats over every subrecord of the record, echo members included.
+    // The two NNAMs count by position: before the first echo start marker the NNAM is
+    // the record's description, inside the echoes the echo's own.
     let mut seen = BTreeSet::new();
+    let mut in_echo = false;
+    let mut echo_nnam = false;
+    let mut record_nnam = false;
     for sub in subs {
         let s = t.sigs.entry(key(sub.signature)).or_default();
         s.times += 1;
@@ -81,6 +102,31 @@ fn check_record(
         if seen.insert(key(sub.signature)) {
             s.records += 1;
         }
+        if sub.signature == *b"ECHO" || sub.signature == *b"ECHD" {
+            in_echo = true;
+            echo_nnam = false;
+        } else if sub.signature == *b"NNAM" {
+            let n = if in_echo {
+                &mut t.nnam_echo
+            } else {
+                &mut t.nnam_record
+            };
+            n.times += 1;
+            *n.sizes.entry(sub.data.len()).or_insert(0) += 1;
+            if in_echo {
+                echo_nnam = true;
+            } else {
+                record_nnam = true;
+            }
+        } else if sub.signature == *b"ECHE" && in_echo {
+            t.echoes += 1;
+            if echo_nnam {
+                t.nnam_echo.holders += 1;
+            }
+        }
+    }
+    if record_nnam {
+        t.nnam_record.holders += 1;
     }
     let members = RECORDS
         .iter()
@@ -156,6 +202,15 @@ fn sizes(sizes: &BTreeMap<usize, u64>) -> String {
     }
 }
 
+/// The payload sizes of a signature: one value, a range, or none at all.
+fn sizes_or_none(all: &BTreeMap<usize, u64>) -> String {
+    if all.is_empty() {
+        "no payload".into()
+    } else {
+        sizes(all)
+    }
+}
+
 fn report(t: &TypeStats) {
     println!(
         "sech SECH: {} records, {} identical",
@@ -175,6 +230,20 @@ fn report(t: &TypeStats) {
             sizes(&s.sizes)
         );
     }
+    println!(
+        "   NNAM before the first echo: {} of {} records have it, {} times, {}",
+        t.nnam_record.holders,
+        t.records,
+        t.nnam_record.times,
+        sizes_or_none(&t.nnam_record.sizes)
+    );
+    println!(
+        "   NNAM in the echoes: {} of {} echoes have it, {} times, {}",
+        t.nnam_echo.holders,
+        t.echoes,
+        t.nnam_echo.times,
+        sizes_or_none(&t.nnam_echo.sizes)
+    );
 }
 
 fn assert_clean(t: &TypeStats) {
