@@ -34,9 +34,10 @@ use serde_json::{json, Value};
 use crate::authorized::Authorized;
 use crate::backup::{self, Backup, Change, Digest};
 use crate::console::{Console, ConsoleError};
+use crate::correlate::{Correlator, Routed};
 use crate::host::{is_running, Host, Launched};
 use crate::ledger::{self, Entry, RowReport};
-use crate::probes::{clip, console_failure, echo_only, judge, Matcher, Probe, ProbeFile, Verdict};
+use crate::probes::{clip, console_failure, judge, Matcher, Probe, ProbeFile, Verdict};
 use crate::profile::{fill, GameProfile, Timeouts};
 
 /// Commands the controller never sends: a batch file would bypass the save rules, and the
@@ -405,6 +406,24 @@ struct Run<'a> {
     start: Instant,
     papyrus: Option<(PathBuf, u64)>,
     findings: Vec<String>,
+    /// Every request sent, and the reply lines that name each (ruling R28).
+    corr: Correlator,
+    /// Rows with a step that had no correlated reply, to judge again when one arrives late.
+    waiting: Vec<Waiting>,
+    /// The last row's parts, for `waiting` once the row has its place.
+    last: Option<Waiting>,
+}
+
+/// A row with steps that had no correlated reply (ruling R28).
+struct Waiting {
+    /// The row's index in the session's rows (set when it is pushed).
+    slot: usize,
+    /// Each part's verdict, as combined for the row.
+    parts: Vec<Verdict>,
+    /// The row's console failure, which no late answer changes.
+    failed: Option<Verdict>,
+    /// `(part, request, step)`: the parts still waiting.
+    steps: Vec<(usize, usize, crate::probes::Step)>,
 }
 
 fn secs(n: u64) -> Duration {
@@ -579,6 +598,8 @@ impl Run<'_> {
         // the later matchers say (2026-11-01-T03: a `load` that found no save, then a
         // getter that passed on the state the load never left).
         let mut failed: Option<Verdict> = None;
+        // `(part, request, step)`: steps with no correlated reply (ruling R28).
+        let mut waiting: Vec<(usize, usize, crate::probes::Step)> = Vec::new();
         for (n, step) in probe.steps.iter().enumerate() {
             let cmd = self.plan.fill(&step.command);
             if cmd.trim().is_empty() {
@@ -600,13 +621,28 @@ impl Run<'_> {
             report.commands.push(cmd.clone());
             match self.deps.console.run(&cmd, left) {
                 Ok(first) => {
-                    // An answer with only the echo has no result to judge: wait and send
-                    // the getter again, at most twice; still only the echo is
-                    // inconclusive, never a fail (ruling R20; 2026-11-03-T02/T03).
+                    // Each reply line goes to the request it names, never by arrival order
+                    // (ruling R28, 2026-11-03-T05: `help` answers came requests late, after
+                    // the echo of another request). A getter whose replies hold nothing of
+                    // its own (only its echo, or other requests' lines) is sent again after
+                    // a pause, at most twice (R20); still nothing is inconclusive, never a
+                    // fail, and the row is judged again if its line arrives later.
                     let checks = step.matcher.is_some_and(|m| m != Matcher::PapyrusLog);
+                    let id = self.corr.open(&probe.row, n, &cmd);
+                    let keyed = checks && self.corr.request(id).is_some_and(|r| r.keyed());
                     let mut out = first;
+                    let mut routed = self.corr.route(id, &out);
+                    self.requeued(&routed, &mut seen);
+                    let mut all_echo = routed.echo_only;
+                    let unanswered = |c: &Correlator, r: &Routed| {
+                        if keyed {
+                            !r.empty && c.request(id).is_some_and(|q| q.lines.is_empty())
+                        } else {
+                            r.echo_only
+                        }
+                    };
                     let mut tries = 1u32;
-                    while checks && echo_only(&cmd, &out) && tries < 3 {
+                    while checks && unanswered(&self.corr, &routed) && tries < 3 {
                         // Never more than a quarter of what is left of the row's deadline.
                         let left = deadline.saturating_sub(started.elapsed());
                         let pause = ECHO_RETRY_PAUSE
@@ -616,7 +652,12 @@ impl Run<'_> {
                             break;
                         }
                         seen.push(format!(
-                            "{cmd} -> (only the echo; again in {} ms)",
+                            "{cmd} -> ({}; again in {} ms)",
+                            if routed.echo_only {
+                                "only the echo".to_string()
+                            } else {
+                                format!("no line of its own: {}", clip(&out, 100))
+                            },
                             pause.as_millis()
                         ));
                         std::thread::sleep(pause);
@@ -625,17 +666,43 @@ impl Run<'_> {
                             Ok(again) => out = again,
                             Err(_) => break,
                         }
+                        routed = self.corr.route(id, &out);
+                        self.requeued(&routed, &mut seen);
+                        all_echo = all_echo && routed.echo_only;
                         tries = tries.saturating_add(1);
                     }
-                    if checks && echo_only(&cmd, &out) {
+                    if checks && unanswered(&self.corr, &routed) {
                         seen.push(format!("{cmd} -> {}", clip(&out, 120)));
+                        let why = if all_echo {
+                            format!("`{cmd}` answered with only its echo, {tries} time(s): no correlated reply")
+                        } else {
+                            format!("`{cmd}`: no correlated reply in {tries} answer(s) (only its echo or other requests' lines)")
+                        };
+                        if keyed {
+                            waiting.push((verdicts.len(), id, step.clone()));
+                        }
                         verdicts.push(Verdict::Inconclusive(format!(
-                            "`{cmd}` answered with only its echo, {tries} time(s): no result to judge (a timing anomaly, R20)"
+                            "{why}: no result to judge (a timing anomaly, R20, R28)"
                         )));
                         continue;
                     }
                     seen.push(format!("{cmd} -> {}", clip(&out, 120)));
-                    let failure = console_failure(&cmd, &out);
+                    // The text judged: the lines naming this request (some may have come in
+                    // an earlier reply), or, for a command whose answer names nothing, the
+                    // reply without the lines re-queued elsewhere.
+                    let kept = routed.kept();
+                    let judged = if keyed {
+                        self.corr
+                            .request(id)
+                            .map(|r| r.lines.join("\n"))
+                            .unwrap_or_default()
+                    } else if routed.requeued.is_empty() {
+                        out.clone()
+                    } else {
+                        kept.clone()
+                    };
+                    let out = judged;
+                    let failure = console_failure(&cmd, if keyed { &kept } else { &out });
                     if let Some(line) = &failure {
                         failed.get_or_insert_with(|| {
                             Verdict::Fail(format!(
@@ -695,6 +762,12 @@ impl Run<'_> {
         report.seen = seen.join("; ");
         report.verdict = Verdict::combine(&verdicts);
         let timed_out = is_timeout(&report.verdict);
+        self.last = (!waiting.is_empty()).then(|| Waiting {
+            slot: usize::MAX,
+            parts: verdicts.clone(),
+            failed: failed.clone(),
+            steps: waiting,
+        });
         if let Some(Verdict::Fail(why)) = failed {
             // A timeout after the failure still ends the session (`probes`), and says so.
             report.verdict = Verdict::Fail(if timed_out {
@@ -704,6 +777,94 @@ impl Run<'_> {
             });
         }
         (report, timed_out)
+    }
+
+    /// Notes, in the row's `seen`, each line of this reply that names another request.
+    fn requeued(&self, routed: &Routed, seen: &mut Vec<String>) {
+        for (to, line) in &routed.requeued {
+            if let Some(r) = self.corr.request(*to) {
+                seen.push(format!(
+                    "(a line for row {} `{}` re-queued to it: {})",
+                    r.row,
+                    r.command,
+                    clip(line, 100)
+                ));
+            }
+        }
+    }
+
+    /// Judges again each waiting step whose line has arrived since, in a later reply
+    /// (ruling R28): a pass on that line is a pass; anything else stays inconclusive, since
+    /// a late line may be only part of the answer (R20).
+    fn regrade(&mut self, rows: &mut [RowReport]) {
+        let papyrus = self.papyrus_text();
+        let mut changed = Vec::new();
+        for w in &mut self.waiting {
+            let mut notes = Vec::new();
+            let corr = &self.corr;
+            w.steps.retain(|(part, id, step)| {
+                let Some(r) = corr.request(*id) else {
+                    return false;
+                };
+                if r.lines.is_empty() {
+                    return true;
+                }
+                let text = r.lines.join("\n");
+                let via = r
+                    .late
+                    .iter()
+                    .map(|(c, _)| format!("`{c}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let v = judge(step, Some(&text), papyrus.as_deref());
+                notes.push(format!(
+                    "(late) {} -> {} (in the reply to {via})",
+                    r.command,
+                    clip(&text, 120)
+                ));
+                if let Some(slot) = w.parts.get_mut(*part) {
+                    *slot = match v {
+                        Verdict::Pass => Verdict::Pass,
+                        other => Verdict::Inconclusive(format!(
+                            "`{}` answered late, in the reply to {via}: {} (a late answer is not graded fail, R20, R28)",
+                            r.command,
+                            other.text()
+                        )),
+                    };
+                }
+                false
+            });
+            if notes.is_empty() {
+                continue;
+            }
+            let Some(row) = rows.get_mut(w.slot) else {
+                continue;
+            };
+            row.verdict = match &w.failed {
+                Some(f) => f.clone(),
+                None => Verdict::combine(&w.parts),
+            };
+            for n in notes {
+                if !row.seen.is_empty() {
+                    row.seen.push_str("; ");
+                }
+                row.seen.push_str(&n);
+            }
+            changed.push((w.slot, row.clone()));
+        }
+        self.waiting.retain(|w| !w.steps.is_empty());
+        for (slot, row) in changed {
+            self.shared.event(format!(
+                "row {} judged again on a late answer: {}",
+                row.row,
+                row.verdict.text()
+            ));
+            self.shared.with(|s| {
+                if let Some(r) = s.rows.get_mut(slot) {
+                    *r = row;
+                }
+            });
+        }
     }
 
     fn not_run(&self, from: usize, why: &str) -> Vec<RowReport> {
@@ -760,6 +921,11 @@ impl Run<'_> {
             self.shared
                 .event(format!("row {}: {}", r.row, r.verdict.text()));
             self.push_row(rows, r);
+            if let Some(mut w) = self.last.take() {
+                w.slot = rows.len().saturating_sub(1);
+                self.waiting.push(w);
+            }
+            self.regrade(rows);
             if timed_out {
                 let why = format!("timeout at row {}", probe.row);
                 self.findings
@@ -913,6 +1079,9 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
         start: Instant::now(),
         papyrus,
         findings: Vec::new(),
+        corr: Correlator::default(),
+        waiting: Vec::new(),
+        last: None,
     };
     let mut rows: Vec<RowReport> = Vec::new();
     let mut reruns = Vec::new();

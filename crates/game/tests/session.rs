@@ -754,3 +754,93 @@ fn an_echo_only_answer_is_retried_then_inconclusive() {
     assert_eq!(sent.iter().filter(|x| x.as_str() == "getpos x").count(), 2);
     std::fs::remove_dir_all(&f.root).unwrap();
 }
+
+/// Ruling R28 (game-20261103-03, 2026-11-03-T05): the console's answers to `help` came one
+/// or more requests late, each with the echo of the request it was sent for. A reply line
+/// goes to the request it names (the `help` term, the getter's function), never to the
+/// request whose reply it arrived in; a line for an earlier request is re-queued to it and
+/// that row is judged again; a request with no line of its own after the retries is
+/// `inconclusive` ("no correlated reply"), never `fail`. The transcript is T05's: T-03's
+/// reply held T-01's `KYWD`, T-04's held T-02's `TMLM`, T-07's held T-03's `TERM`.
+#[test]
+fn a_reply_goes_to_the_request_it_names_not_the_one_it_arrived_in() {
+    let f = fixture("correlate");
+    let c = console();
+    let echo = |cmd: &str| cmd.to_string();
+    let with = |cmd: &str, line: &str| format!("{cmd}\n{line}");
+    let t01 = "help KitKraftLocTypeMiniSite 4";
+    let t02 = "help \"KitKraft Mini Site Menu\" 4";
+    let t03 = "help \"KitKraft Site Terminal\" 4";
+    let t04 = "help KitKraftMiniSitePackIn 4";
+    let t06 = "help \"KitKraft Mini Site Crew\" 4";
+    let t07 = "help \"KitKraft Mini Site\" 4";
+    let kywd = "KYWD: KitKraftLocTypeMiniSite (09001000) ''";
+    let tmlm = "TMLM:  (09001001) 'KitKraft Mini Site Menu'";
+    let term = "TERM:  (09001002) 'KitKraft Site Terminal'";
+    let lctn = "LCTN: KitKraftMiniSiteLocation (09001006) 'KitKraft Mini Site'";
+    c.answer(t01, &echo(t01));
+    c.answer(t02, &echo(t02));
+    c.answer_in_turn(t03, &[&echo(t03), &with(t03, kywd), &echo(t03)]);
+    c.answer_in_turn(t04, &[&echo(t04), &echo(t04), &with(t04, tmlm)]);
+    c.answer(
+        "getpos x",
+        "getpos x\nCommand: getpos x\nGetPos: X >> -17.00",
+    );
+    c.answer(t06, &echo(t06));
+    c.answer_in_turn(t07, &[&with(t07, term), &with(t07, lctn)]);
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T12");
+    let help = |row: &str, cmd: &str, id: &str| {
+        probe(
+            row,
+            false,
+            vec![step(cmd, Some(Matcher::Contains), id, None)],
+        )
+    };
+    p.probes.probes = vec![
+        help("T-01", t01, "09001000"),
+        help("T-02", t02, "09001001"),
+        help("T-03", t03, "09001002"),
+        help("T-04", t04, "09001003"),
+        probe(
+            "T-05",
+            false,
+            vec![step("getpos x", Some(Matcher::Number), "-17", Some(0.5))],
+        ),
+        help("T-06", t06, "09001005"),
+        help("T-07", t07, "09001006"),
+    ];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    // Late, but correlated: judged on the line that names them.
+    assert_eq!(v[0], "pass", "T-01 {v:?}");
+    assert_eq!(v[1], "pass", "T-02 {v:?}");
+    assert_eq!(v[2], "pass", "T-03 {v:?}");
+    // T-04 never got its own line: inconclusive, not the fail T05 recorded.
+    assert!(
+        v[3].starts_with("inconclusive (`help KitKraftMiniSitePackIn 4`: no correlated reply"),
+        "T-04 {v:?}"
+    );
+    // An answer in order is judged as before.
+    assert_eq!(v[4], "pass", "T-05 {v:?}");
+    // Only the echo, three times.
+    assert!(
+        v[5].starts_with(
+            "inconclusive (`help \"KitKraft Mini Site Crew\" 4` answered with only its echo, 3 time(s): no correlated reply"
+        ),
+        "T-06 {v:?}"
+    );
+    // T-07's first reply held T-03's line; its own came on the retry.
+    assert_eq!(v[6], "pass", "T-07 {v:?}");
+    assert!(
+        report.rows[0].seen.contains("09001000"),
+        "{}",
+        report.rows[0].seen
+    );
+    assert!(
+        report.rows[2].seen.contains("re-queued"),
+        "{}",
+        report.rows[2].seen
+    );
+    assert!(!v.iter().any(|x| x.starts_with("fail")), "{v:?}");
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
