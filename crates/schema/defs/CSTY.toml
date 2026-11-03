@@ -16,7 +16,7 @@
 # the official CSTY records carry none.
 signature = "CSTY"
 name = "CombatStyleForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11052-L11233",
 ]
@@ -30,7 +30,7 @@ sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 9..46 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 9..46 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11056-L11056",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -42,7 +42,7 @@ confidence = "corpus"
 sig = "CSGD"
 name = "General"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 60 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 60 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11057-L11073",
 ]
@@ -69,7 +69,7 @@ field = [
 sig = "CSME"
 name = "Melee"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11074-L11086",
 ]
@@ -91,7 +91,7 @@ field = [
 sig = "CSRA"
 name = "Ranged"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 24 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11087-L11094",
 ]
@@ -109,7 +109,7 @@ field = [
 sig = "CSCR"
 name = "CloseRange"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 52 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 52 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11095-L11109",
 ]
@@ -134,7 +134,7 @@ field = [
 sig = "CSLR"
 name = "LongRange"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 36 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 36 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11110-L11121",
 ]
@@ -155,7 +155,7 @@ field = [
 sig = "CSCV"
 name = "CoverSearch"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 8 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 8 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11122-L11125",
 ]
@@ -169,7 +169,7 @@ field = [
 sig = "CSFL"
 name = "Flight"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11126-L11135",
 ]
@@ -189,7 +189,7 @@ field = [
 sig = "CSTN"
 name = "Tunnel"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11136-L11145",
 ]
@@ -209,7 +209,7 @@ field = [
 sig = "CSSG"
 name = "SpaceGeneral"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 120 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 120 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11146-L11177",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
@@ -266,7 +266,7 @@ field = [
 sig = "CSSM"
 name = "SpaceManeuverTypes"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 64 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 64 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11178-L11181",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7173-L7184",
@@ -299,7 +299,7 @@ field = [
 sig = "CSSR"
 name = "SpaceRepair"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 84 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 84 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11182-L11192",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
@@ -345,7 +345,7 @@ field = [
 sig = "CSSA"
 name = "SpaceApproaching"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11193-L11196",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
@@ -374,7 +374,7 @@ field = [
 sig = "CSSD"
 name = "SpaceDetection"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 12 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 12 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11197-L11201",
 ]
@@ -390,7 +390,7 @@ sig = "DATA"
 name = "Flags"
 type = "flags"
 base = "u32"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11202-L11211",
 ]
@@ -411,7 +411,7 @@ sig = "FNAM"
 name = "Unknown"
 type = "opaque"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11212-L11212",
 ]
@@ -424,7 +424,7 @@ name = "TemplateDefaultCombatStyle"
 type = "formid"
 targets = ["CSTY"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 115 of 177 official CSTY records (115 occurrences), 4 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 115 of 177 official CSTY records (115 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11213-L11213",
 ]
@@ -434,7 +434,7 @@ confidence = "corpus"
 sig = "UNAM"
 name = "Templates"
 type = "struct"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 68 bytes"
+source = "corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: in 177 of 177 official CSTY records (177 occurrences), 68 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11214-L11232",
 ]

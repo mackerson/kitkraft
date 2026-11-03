@@ -80,7 +80,7 @@
 // - COLL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official COLL record (62) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CONT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10982-L11028; corpus)
 // - CPTH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11031-L11049; corpus)
-// - CSTY (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically; corpus)
+// - CSTY (corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CUR3 (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CUR3 record (36) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CURV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official CURV record (29) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DEBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DEBR record (3) decodes with every subrecord placed and re-encodes identically; corpus)
