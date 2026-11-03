@@ -697,16 +697,24 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
 
 **T-12, the switch's base-form script (`papyrus-log`).**
 
-- At row time the log held only its header lines, so the row read **inconclusive**: the game
-  writes the line later.
-- The same session's copied log (`2026-11-03-T05\logs\papyrus-Papyrus.0.log`, lines 194 and
-  268) holds `KitKraft: mini site switch loaded` at 23:21:44 and 23:22:05. Those are two
-  loads of the switch's cell, with the `Text` the VMAD sets.
+- The line was not written late. T05's log (`2026-11-03-T05\logs\papyrus-Papyrus.0.log`):
+  the base save loads at 23:19:28 to 23:19:36, into the apartment; no Trace through T-08,
+  T-13 and T-18 (each a `coc` into the apartment the player is already in); `Saving game` at
+  23:21:34 (T-22, in the Lodge); the Trace at 23:21:44 (line 194, T-22's `coc` back to the
+  apartment); `Loading game` at 23:21:57 (T-22's load, into the Lodge); the Trace at
+  23:22:05 (line 268, T-23's `coc` to the apartment). T04's log has the same pattern: lines
+  195 and 269, at 22:55:13 after the save at 22:55:03 and at 22:55:33 after the load at
+  22:55:27. The re-grade T10 again: lines 194 and 268, 00:20:21 and 00:20:42.
+- T-12 read the log between 23:20:39 (`T-11-1.png`) and 23:21:02 (`T-16-1.png`), before any
+  fresh load of the switch's cell, so it is **inconclusive** (R20) in T04, T05 and T10.
+- Finding: the switch's OnLoad Trace followed each fresh load of its cell after a trip to
+  the Lodge, and neither the base-save load into the cell nor a `coc` into the occupied
+  cell (the scripts recipe in T06 shows the same, `game-20261103-04`).
 - So the script compiled by kit, attached to the cloned ACTI base, ran on OnLoad and wrote its
   Trace. That is Gate K0's "fires" evidence for OnLoad (M5.B3, OnLoad half), from a log, not
   from the row.
-- Request (session lane): read the Papyrus log again at the end of the session for any
-  `papyrus-log` step that was inconclusive at row time.
+- Request (testplan and session lane): run a `papyrus-log` row after a leave-and-return of
+  the cell, or read the log again at session end and record which load preceded the line.
 
 **T-20 (pack-in reference) is a real `fail`; its cause is open.**
 
