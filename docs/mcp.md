@@ -957,12 +957,27 @@ read-only list); its menu item is Tools > Mesh Bounds.
 
 ### `mesh.geometry` (M7.S5; CLI `kit mesh geometry`)
 
-Deferred to M7.S5: `execute` refuses it with a `deferred` error (`kit help` and MCP
-`tools/list` show the reason). It will return a model's positions, indices and normals
-as base64 little-endian buffers (`f32` positions and normals, `u32` indices) inside the
-envelope, from loose files or a BA2, under a size budget with a limitation per skipped
-mesh (`plan/execution-plan.md`, M7.S5). Its arguments are those of `mesh.bounds`. The
-workbench does not run it (classified unused read-only in the gate).
+Arguments those of `mesh.bounds` (`model` or `form`, plus the load-order arguments);
+read-only. Returns `data {model, form, source, frame: "model root", encoding,
+vertex_count, index_count, raw_bytes, meshes[] {block, mesh, archive, vertex_offset,
+vertex_count, index_count}, positions, normals, indices, summary}`.
+
+- `positions` and `normals` are base64 of little-endian `f32` x, y, z per vertex.
+- `indices` is base64 of `u32`, three per triangle, joined across meshes.
+- Each geometry block's first slot names its `.mesh`, which is read from the archives
+  and placed in the model's root frame (`docs/research/mesh-layout-2026-11-02.md`).
+- Normals are grade B (statistical).
+- A block is skipped, each with a limitation line and coverage partial, when:
+  - it is skinned (it stores no box, so the frame of its positions is not shown);
+  - its slots do not read;
+  - its mesh would pass the 2,000,000-vertex or 6,000,000-index budget;
+  - its mesh is missing or refused;
+  - its slot's counts disagree with the mesh.
+
+  Unreached blocks are named too.
+- Evidence: each mesh's position bytes.
+
+The workbench does not run it yet (unused read-only in the gate).
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 

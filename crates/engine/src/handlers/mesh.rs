@@ -592,7 +592,6 @@ fn turn(m: &[[f64; 4]; 3], n: [f32; 3]) -> [f32; 3] {
 /// Dispatched once the catalog entry is `Implemented` and `handlers.rs` has its row (the
 /// integrator's A8 seam commit); `mesh_tests.rs` `mesh_geometry_through_the_catalog` holds
 /// in both states.
-#[allow(dead_code)] // Until A8's dispatch row: the seam commit applies r-A8-dead-code.patch.
 pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let started = std::time::Instant::now();
     let r = read_model(session, args, GEOMETRY_ID)?;

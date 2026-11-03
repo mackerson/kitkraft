@@ -963,7 +963,10 @@ mod tests {
         assert_eq!(top_of(bounds.menu_path), "Tools");
         assert_eq!(target(bounds), Ok(Target::Tab("Render Window")));
         let geometry = target(gate::find_command("mesh.geometry").unwrap()).unwrap_err();
-        assert!(geometry.starts_with("deferred to M7.S5"), "{geometry}");
+        assert!(
+            geometry.starts_with("not on the window's read-only list"),
+            "{geometry}"
+        );
     }
 
     /// M7.M1 rest: every `menu item` row of `docs/ck-parity.md` is one entry of

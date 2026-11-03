@@ -599,13 +599,10 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Mesh Geometry...",
         shortcut: None,
         aliases: &[],
-        summary: "A model's positions, indices and normals as base64 little-endian buffers, from loose files or a BA2, under a size budget; read-only",
+        summary: "A model's triangles in its root frame as base64 little-endian buffers (positions and normals f32, indices u32), read from the archives, under budgets of 2,000,000 vertices and 6,000,000 indices with a limitation per skipped mesh; skinned blocks are skipped (their frame is not shown); normals graded B; read-only",
         args_schema: r#"{"type":"object","properties":{"model":{"type":"string","description":"A model path as a base object's MODL names it (relative to the Data folder's Meshes folder), read from loose files or a BA2"},"form":{"type":"string","description":"A base object (Plugin.esm:XXXXXX or EditorID) whose model to read"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile, plugin and model names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         writes: false,
-        status: Status::Deferred {
-            reason: "the geometry layout study and the NIF reader come first (M7.S4)",
-            milestone: "M7.S5",
-        },
+        status: Status::Implemented,
     },
     // Lane T round 2 (M4.T10): a brief's spec to one report (docs/playbooks/mod-from-brief.md).
     CommandSpec {
