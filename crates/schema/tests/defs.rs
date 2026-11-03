@@ -695,7 +695,6 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "CNDF",
     "CURV",
     "DFOB",
-    "IPCT",
     "LMSW",
     "MRPH",
     "MTPT",
