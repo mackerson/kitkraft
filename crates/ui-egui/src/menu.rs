@@ -86,8 +86,10 @@ const fn ck(menu: &'static str, label: &'static str, mapping: CkMapping) -> CkIt
     }
 }
 
-/// File > Save Plugin: KitKraft writes each confirmed edit when it is made.
-const SAVED_AT_EACH_OK: &str = "no command: each confirmed edit is written into the active file when it is made (ADR 0007 Amendment 4, model A), so the CK's Save has nothing left to do";
+/// File > Save Plugin: KitKraft writes each confirmed edit when it is made. KitKraft's own
+/// note (ADR 0007 Amendment 4, model A: "saved at each OK"), not CK text, and a declared
+/// departure from "a command or its `gap:`": the row maps `set` and `build`.
+const SAVED_AT_EACH_OK: &str = "KitKraft: no command: each confirmed edit is written into the active file when it is made (ADR 0007 Amendment 4, model A), so the CK's Save has nothing left to do";
 
 /// The CK menus' items, in the order sitting `ck-20261101-01` observed (M7.K3, filed in
 /// `ck-20261102-01`), one per `menu item` row of `docs/ck-parity.md`; the reasons are the
@@ -538,6 +540,7 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
 
 /// A disabled item's reason in one or two words, shown beside it.
 pub fn short_reason(why: &str) -> &'static str {
+    let why = why.trim_start_matches("KitKraft: ");
     if why.starts_with("writes") {
         "writes"
     } else if why.starts_with("gap:") {
@@ -884,6 +887,7 @@ mod tests {
                 }
                 CkMapping::Note(_) => {
                     assert_eq!(element, "File > Save Plugin", "the one note");
+                    assert_eq!(first_id, Some("set"), "{element}: {maps}");
                     assert!(maps.contains("written when it is made"), "{maps}");
                 }
             }

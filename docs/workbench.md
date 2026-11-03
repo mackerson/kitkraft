@@ -496,7 +496,8 @@ revisited once a sitting observes how the CK docks. Code:
   an item its row maps to a command opens that command's tab or window and is enabled or
   disabled as the command is (File > Data... opens the Data dialog, View > Warnings the
   Warnings window); an item its row gives a `gap:` is drawn disabled with that reason
-  (File > Save Plugin says each confirmed edit is written when it is made). Below a
+  (File > Save Plugin, whose row maps `set` and `build`, is disabled with KitKraft's note instead,
+  model A: saved at each OK, each confirmed edit written when it is made). Below a
   "KitKraft" line come the catalog's own commands of that menu: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
   (bound by M7.M5); a command whose `menu_path` is an observed item is that item. An item
