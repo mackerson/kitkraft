@@ -911,3 +911,160 @@ fn m7_e3_two_news_in_one_session_both_write() {
         assert!(bytes.windows(edid.len()).any(|w| w == edid), "{edid:?}");
     }
 }
+
+// ---- M7.E4: Place into the Cell View's cell (`place`) -----------------------------------
+
+/// The base and the cell of the scratch world.
+const STAT: &str = "World.esp:001000";
+const CELL: &str = "World.esp:001001";
+
+/// Builds `World.esp` in the scratch folder through the gate's own confirmed `new`s (a
+/// STAT `KkStat`, World.esp:001000, and an interior CELL `KkCell`, World.esp:001001, over
+/// `Fixture.esm`), then the workbench with `World.esp` loaded and `active` as the active
+/// file.
+fn placing(s: &Scratch, active: Option<String>) -> Option<Bench> {
+    use crate::dialogs::new;
+    let engine = ReadOnlyEngine::new();
+    let fixture = s.fixture().display().to_string();
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [fixture], "no_cache": true}),
+        ))
+        .unwrap();
+    let world = s.path("World.esp");
+    if !Path::new(&world).exists() {
+        for (ty, edid) in [("STAT", "KkStat"), ("CELL", "KkCell")] {
+            let preview = new::preview_request(ty, edid, &world);
+            engine.run(&preview).unwrap();
+            engine.run(&new::write_request(&preview).unwrap()).unwrap();
+        }
+    }
+    let mut h = workbench()?;
+    let load = Request::new("load", json!({"plugins": [world], "no_cache": true}));
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    h.state_mut().app.active_file = active;
+    h.run_steps(2);
+    Some(h)
+}
+
+/// Asks to place `base` in `cell`, as the Cell View's place bar does
+/// (`Action::PlaceInCell`). The Cell View on ws/e is the stub's and its list comes from
+/// a real load; W's Cell View (M7.W2) is not merged, so the tests send its action.
+fn ask_place(h: &mut Bench, base: &str, cell: &str) {
+    h.state_mut().app.apply(vec![Action::PlaceInCell {
+        base: base.to_string(),
+        cell: cell.to_string(),
+    }]);
+    h.run_steps(3);
+}
+
+/// M7.E4's acceptance through the editor: a placement of KkStat in KkCell at a typed
+/// position is previewed (the reference and the cell it carries; nothing written), one
+/// confirm writes it into the active file, and the new reference is read back from there
+/// (its NAME is the base). Its undo is refused with the reason.
+#[test]
+fn m7_e4_place_previews_confirms_and_reads_back_the_reference() {
+    let s = Scratch::new("place");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let world = std::fs::read(s.path("World.esp")).unwrap();
+    ask_place(&mut h, STAT, CELL);
+    assert_in_view(&h, "Place Reference");
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    assert_in_view(
+        &h,
+        "place World.esp:001000 in World.esp:001001 into Patch.esp",
+    );
+    assert_in_view(&h, "Placed (dry run)");
+    assert_in_view(&h, "carries CELL");
+    assert!(!Path::new(&patch).exists(), "the preview wrote {patch}");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "placed: Patch.esp:");
+    assert_in_view(&h, "Read back from Patch.esp");
+    assert_in_view(&h, "NAME");
+    assert_eq!(
+        std::fs::read(s.path("World.esp")).unwrap(),
+        world,
+        "the master changed"
+    );
+    assert!(!enabled(&h, "Write to Patch.esp"), "one write per Preview");
+    // The undo of a placement is refused, with the reason (the copied CELL, and a new form
+    // of the active file).
+    let env = ReadOnlyEngine::new()
+        .run(&Request::new(
+            "inspect",
+            json!({"form": "01001000", "plugin": patch}),
+        ))
+        .unwrap();
+    assert_eq!(env["data"]["record"]["signature"], json!("REFR"), "{env}");
+    let before = std::fs::read(&patch).unwrap();
+    h.state_mut().app.apply(vec![Action::OpenEditor {
+        command: "revert".to_string(),
+        form: "Patch.esp:00001000".to_string(),
+    }]);
+    h.run_steps(3);
+    assert_in_view(&h, "undo refused");
+    assert_in_view(&h, "CELL");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(std::fs::read(&patch).unwrap(), before);
+}
+
+/// Place is refused before anything is sent without an active file, or into an official
+/// master or a `Default`-profile path; a position that is not a number keeps Preview
+/// disabled; the confirm closes when the active file changes after the preview. Nothing
+/// is written.
+#[test]
+fn m7_e4_place_is_refused_outside_the_active_file() {
+    let s = Scratch::new("place-refused");
+    std::fs::create_dir_all(s.0.join("profiles").join("Default")).unwrap();
+    let default =
+        s.0.join("profiles")
+            .join("Default")
+            .join("Patch.esp")
+            .display()
+            .to_string();
+    for (active, why) in [
+        (None, "no active file"),
+        (Some(s.path("Starfield.esm")), "official master"),
+        (Some(default.clone()), "live game"),
+    ] {
+        let Some(mut h) = placing(&s, active.clone()) else {
+            return;
+        };
+        ask_place(&mut h, STAT, CELL);
+        press(&mut h, "Preview");
+        assert_in_view(&h, why);
+        assert_absent(&h, "Write to");
+    }
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "Y", "north");
+    assert!(!enabled(&h, "Preview"), "a position that is not a number");
+    assert_in_view(&h, "position Y");
+    press(&mut h, "Close");
+    ask_place(&mut h, STAT, CELL);
+    press(&mut h, "Preview");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    h.state_mut().app.active_file = Some(s.path("Other.esp"));
+    h.run_steps(3);
+    assert!(!enabled(&h, "Write to Patch.esp"));
+    one(&h, "Write to Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    for f in [
+        &patch,
+        &default,
+        &s.path("Starfield.esm"),
+        &s.path("Other.esp"),
+    ] {
+        assert!(!Path::new(f).exists(), "{f} was written");
+    }
+}
