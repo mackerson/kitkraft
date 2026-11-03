@@ -1,19 +1,19 @@
-# CSTY: CombatStyleForm, inventory definition (KK-104).
+# CSTY (CombatStyleForm): the combat-style multipliers an AI actor follows in combat: the
+# general multipliers (CSGD), the melee, ranged, close-range and long-range tactics
+# (CSME, CSRA, CSCR, CSLR), the cover-search, flight and tunnel tactics (CSCV, CSFL,
+# CSTN), the space-combat data (CSSG, CSSM, CSSR, CSSA, CSSD), the style flags (DATA)
+# and the links to the template combat styles (TNAM, UNAM).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-104 scan of every official CSTY record (177 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the CSTY definition of wbDefinitionsSF1.pas at the pinned revision (L11052-L11233),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Transcribed from the CSTY definition of wbDefinitionsSF1.pas at the pinned revision
+# (L11052-L11233) and the helpers it names (the power-weighting struct L7155-L7169 and
+# the manoeuvre-timing struct L7173-L7184); each member cites the lines that give its
+# layout. The 177 official records carry every member in that order; the corpus lines
+# below record what the scan of them observed.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# FNAM is unknown upstream and stays opaque, kept raw.
+#
+# No subrecord of this type is an lstring (lane E's corpus lstring table, M3.B8), and
+# the official CSTY records carry none.
 signature = "CSTY"
 name = "CombatStyleForm"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically"
@@ -21,7 +21,9 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11052-L11233",
 ]
 confidence = "corpus"
-note = "inventory definition (KK-104): corpus order and cardinality; EDID typed, every other payload opaque"
+flags = [
+  ["AllowDualWielding", 0x80000],
+]
 
 [[member]]
 sig = "EDID"
@@ -38,175 +40,375 @@ confidence = "corpus"
 
 [[member]]
 sig = "CSGD"
-name = "Csgd"
-type = "opaque"
-card = "required"
+name = "General"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 60 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11057-L11057",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11057-L11073",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 60 bytes"
+field = [
+  { name = "OffensiveMult", type = "f32" },
+  { name = "DefensiveMult", type = "f32" },
+  { name = "GroupOffensiveMult", type = "f32" },
+  { name = "EquipmentScoreMultMelee", type = "f32" },
+  { name = "EquipmentScoreMultMagic", type = "f32" },
+  { name = "EquipmentScoreMultRanged", type = "f32" },
+  { name = "EquipmentScoreMultShout", type = "f32" },
+  { name = "EquipmentScoreMultUnarmed", type = "f32" },
+  { name = "EquipmentScoreMultStaff", type = "f32" },
+  { name = "AvoidThreatChance", type = "f32" },
+  { name = "DodgeThreatChance", type = "f32" },
+  { name = "EvadeThreatChance", type = "f32" },
+  { name = "HealAllyDistance", type = "f32" },
+  { name = "JumpCostMult", type = "f32" },
+  { name = "TauntDelayMult", type = "f32" },
+]
 
 [[member]]
 sig = "CSME"
-name = "Csme"
-type = "opaque"
-card = "required"
+name = "Melee"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11074-L11074",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11074-L11086",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 40 bytes"
+field = [
+  { name = "AttackStaggeredMult", type = "f32" },
+  { name = "PowerAttackStaggeredMult", type = "f32" },
+  { name = "PowerAttackBlockingMult", type = "f32" },
+  { name = "BashMult", type = "f32" },
+  { name = "BashRecoilMult", type = "f32" },
+  { name = "BashAttackMult", type = "f32" },
+  { name = "BashPowerAttackMult", type = "f32" },
+  { name = "SpecialAttackMult", type = "f32" },
+  { name = "BlockWhenStaggeredMult", type = "f32" },
+  { name = "AttackWhenStaggeredMult", type = "f32" },
+]
 
 [[member]]
 sig = "CSRA"
-name = "Csra"
-type = "opaque"
-card = "required"
+name = "Ranged"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 24 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11087-L11087",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11087-L11094",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 24 bytes"
+field = [
+  { name = "RangedAccuracyMult", type = "f32" },
+  { name = "ThrowMult", type = "f32" },
+  { name = "GrenadeAdvancedThrowingMult", type = "f32" },
+  { name = "GrenadeFlashTargetMult", type = "f32" },
+  { name = "GrenadeThrowAtGroupMult", type = "f32" },
+  { name = "GrenadeCloseRangeAttackChanceMult", type = "f32" },
+]
 
 [[member]]
 sig = "CSCR"
-name = "Cscr"
-type = "opaque"
-card = "required"
+name = "CloseRange"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 52 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11095-L11095",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11095-L11109",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 52 bytes"
+field = [
+  { name = "DuelingCircleMult", type = "f32" },
+  { name = "DuelingFallbackMult", type = "f32" },
+  { name = "FlankingFlankDistance", type = "f32" },
+  { name = "FlankingStalkTime", type = "f32" },
+  { name = "ChargingChargeDistance", type = "f32" },
+  { name = "ChargingThrowProbability", type = "f32" },
+  { name = "ChargingSprintFastProbability", type = "f32" },
+  { name = "ChargingSideswipeProbability", type = "f32" },
+  { name = "ChargingDisengageProbability", type = "f32" },
+  { name = "ChargingThrowMaxTargets", type = "u32" },
+  { name = "FlankingFlankVariance", type = "f32" },
+  { name = "RetreatChance", type = "f32" },
+  { name = "RetreatDistanceMult", type = "f32" },
+]
 
 [[member]]
 sig = "CSLR"
-name = "Cslr"
-type = "opaque"
-card = "required"
+name = "LongRange"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 36 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11110-L11110",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11110-L11121",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 36 bytes"
+field = [
+  { name = "StrafeMult", type = "f32" },
+  { name = "AdjustRangeMult", type = "f32" },
+  { name = "CrouchMult", type = "f32" },
+  { name = "WaitMult", type = "f32" },
+  { name = "RangeMult", type = "f32" },
+  { name = "ProvideSuppressiveFireMult", type = "f32" },
+  { name = "RetreatChance", type = "f32" },
+  { name = "RetreatHideTimeMult", type = "f32" },
+  { name = "RetreatDistanceMult", type = "f32" },
+]
 
 [[member]]
 sig = "CSCV"
-name = "Cscv"
-type = "opaque"
-card = "required"
+name = "CoverSearch"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11122-L11122",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11122-L11125",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 8 bytes"
+field = [
+  { name = "CoverSearchDistanceMult", type = "f32" },
+  { name = "SuppressionSensitivity", type = "f32" },
+]
 
 [[member]]
 sig = "CSFL"
-name = "Csfl"
-type = "opaque"
-card = "required"
+name = "Flight"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11126-L11126",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11126-L11135",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 32 bytes"
+field = [
+  { name = "HoverChance", type = "f32" },
+  { name = "DiveBombChance", type = "f32" },
+  { name = "GroundAttackChance", type = "f32" },
+  { name = "HoverTime", type = "f32" },
+  { name = "GroundAttackTime", type = "f32" },
+  { name = "PerchAttackChance", type = "f32" },
+  { name = "PerchAttackTime", type = "f32" },
+  { name = "FlyingAttackChance", type = "f32" },
+]
 
 [[member]]
 sig = "CSTN"
-name = "Cstn"
-type = "opaque"
-card = "required"
+name = "Tunnel"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 32 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11136-L11136",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11136-L11145",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 32 bytes"
+field = [
+  { name = "CostMult", type = "f32" },
+  { name = "Chance", type = "f32" },
+  { name = "MaxDistance", type = "f32" },
+  { name = "SpeedMult", type = "f32" },
+  { name = "MinTime", type = "f32" },
+  { name = "MaxTime", type = "f32" },
+  { name = "MaximumTime", type = "f32" },
+  { name = "Cooldown", type = "f32" },
+]
 
 [[member]]
 sig = "CSSG"
-name = "Cssg"
-type = "opaque"
-card = "required"
+name = "SpaceGeneral"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 120 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11146-L11146",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11146-L11177",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 120 bytes"
+field = [
+  { name = "PilotSkill", type = "f32" },
+  { name = "Accuracy", type = "f32" },
+  { name = "TargetShield", type = "f32" },
+  { name = "Adjustment", type = "f32" },
+  { name = "EngageManeuverChance", type = "struct", field = [
+    { name = "DirectAttack", type = "f32" },
+    { name = "Pass", type = "f32" },
+    { name = "LeadTurn", type = "f32" },
+    { name = "SlideTurn", type = "f32" },
+    { name = "BarrelRoll", type = "f32" },
+  ] },
+  { name = "EvadeManeuverChance", type = "struct", field = [
+    { name = "Break", type = "f32" },
+    { name = "Scissors", type = "f32" },
+    { name = "Cut", type = "f32" },
+    { name = "Boost", type = "f32" },
+  ] },
+  { name = "AcquireManeuverChance", type = "struct", field = [
+    { name = "Sliceback", type = "f32" },
+    { name = "StrafeTurn", type = "f32" },
+    { name = "Acquire", type = "f32" },
+    { name = "Turn", type = "f32" },
+  ] },
+  { name = "DisengageManeuverChance", type = "f32" },
+  { name = "MissileSeekingStrength", type = "f32" },
+  { name = "MinTimeBetweenBoosts", type = "f32" },
+  { name = "CombatStrafing", type = "ref:Bool8" },
+  { name = "RollsDuringBoost", type = "ref:Bool8" },
+  { name = "Padding", type = "opaque", size = 2 },
+  { name = "PowerWeighting", type = "struct", field = [
+    { name = "Engines", type = "f32" },
+    { name = "Shields", type = "f32" },
+    { name = "Guns", type = "f32" },
+    { name = "ShieldBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+    { name = "HullBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+  ] },
+]
 
 [[member]]
 sig = "CSSM"
-name = "Cssm"
-type = "opaque"
-card = "required"
+name = "SpaceManeuverTypes"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 64 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11178-L11178",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11178-L11181",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7173-L7184",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 64 bytes"
+field = [
+  { name = "MaxTime", type = "struct", field = [
+    { name = "Engage", type = "f32" },
+    { name = "Evade", type = "f32" },
+    { name = "Acquire", type = "f32" },
+    { name = "Pursue", type = "f32" },
+    { name = "Disengage", type = "f32" },
+    { name = "Surround", type = "f32" },
+    { name = "Unknown1", type = "opaque", size = 4 },
+    { name = "BreakStalemate", type = "f32" },
+  ] },
+  { name = "ReentryDelays", type = "struct", field = [
+    { name = "Engage", type = "f32" },
+    { name = "Evade", type = "f32" },
+    { name = "Acquire", type = "f32" },
+    { name = "Pursue", type = "f32" },
+    { name = "Disengage", type = "f32" },
+    { name = "Surround", type = "f32" },
+    { name = "Unknown1", type = "opaque", size = 4 },
+    { name = "BreakStalemate", type = "f32" },
+  ] },
+]
 
 [[member]]
 sig = "CSSR"
-name = "Cssr"
-type = "opaque"
-card = "required"
+name = "SpaceRepair"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 84 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11182-L11182",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11182-L11192",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 84 bytes"
+field = [
+  { name = "DamageThreshold", type = "f32" },
+  { name = "FarawayDistance", type = "f32" },
+  { name = "PowerToUse", type = "f32" },
+  { name = "InClosePowerWeighting", type = "struct", field = [
+    { name = "Engines", type = "f32" },
+    { name = "Shields", type = "f32" },
+    { name = "Guns", type = "f32" },
+    { name = "ShieldBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+    { name = "HullBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+  ] },
+  { name = "FarawayPowerWeighting", type = "struct", field = [
+    { name = "Engines", type = "f32" },
+    { name = "Shields", type = "f32" },
+    { name = "Guns", type = "f32" },
+    { name = "ShieldBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+    { name = "HullBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+  ] },
+]
 
 [[member]]
 sig = "CSSA"
-name = "Cssa"
-type = "opaque"
-card = "required"
+name = "SpaceApproaching"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 40 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11193-L11193",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11193-L11196",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7155-L7169",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 40 bytes"
+field = [
+  { name = "MinDistance", type = "f32" },
+  { name = "PowerWeighting", type = "struct", field = [
+    { name = "Engines", type = "f32" },
+    { name = "Shields", type = "f32" },
+    { name = "Guns", type = "f32" },
+    { name = "ShieldBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+    { name = "HullBasedGuns", type = "struct", field = [
+      { name = "EM", type = "f32" },
+      { name = "Hull", type = "f32" },
+      { name = "Shield", type = "f32" },
+    ] },
+  ] },
+]
 
 [[member]]
 sig = "CSSD"
-name = "Cssd"
-type = "opaque"
-card = "required"
+name = "SpaceDetection"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 12 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11197-L11197",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11197-L11201",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 12 bytes"
+field = [
+  { name = "DetectionRating1", type = "f32" },
+  { name = "DetectionRating2", type = "f32" },
+  { name = "DetectionRating3", type = "f32" },
+]
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
-card = "required"
+name = "Flags"
+type = "flags"
+base = "u32"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11202-L11202",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11202-L11211",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+bits = [
+  ["Dueling", 0x1],
+  ["Flanking", 0x2],
+  ["AllowDualWielding", 0x4],
+  ["Charging", 0x8],
+  ["RetargetAnyNearbyMeleeTarget", 0x10],
+  ["PreferWalkingWhileStrafing", 0x20],
+  ["UseGroupCohesion", 0x40],
+  ["MaintainAttackFromCoverUntilSuppressed", 0x80],
+]
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
+name = "Unknown"
 type = "opaque"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 4 bytes"
@@ -214,28 +416,45 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11212-L11212",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+note = "unknown upstream, kept raw"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
+name = "TemplateDefaultCombatStyle"
+type = "formid"
+targets = ["CSTY"]
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 115 of 177 official CSTY records (115 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11213-L11213",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
 
 [[member]]
 sig = "UNAM"
-name = "Unam"
-type = "opaque"
-card = "required"
+name = "Templates"
+type = "struct"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 177 of 177 official CSTY records (177 occurrences), 68 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11214-L11214",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11214-L11232",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 68 bytes"
+field = [
+  { name = "OffensiveDefensiveMults", type = "formid", targets = ["CSTY"] },
+  { name = "AvoidThreats", type = "formid", targets = ["CSTY"] },
+  { name = "EquipmentScoreMults", type = "formid", targets = ["CSTY"] },
+  { name = "Melee", type = "formid", targets = ["CSTY"] },
+  { name = "Ranged", type = "formid", targets = ["CSTY"] },
+  { name = "CloseRange", type = "formid", targets = ["CSTY"] },
+  { name = "LongRange", type = "formid", targets = ["CSTY"] },
+  { name = "Cover", type = "formid", targets = ["CSTY"] },
+  { name = "Flight", type = "formid", targets = ["CSTY"] },
+  { name = "Tunnel", type = "formid", targets = ["CSTY"] },
+  { name = "SpaceGeneral", type = "formid", targets = ["CSTY"] },
+  { name = "SpacePower", type = "formid", targets = ["CSTY"] },
+  { name = "SpaceRepair", type = "formid", targets = ["CSTY"] },
+  { name = "SpaceApproaching", type = "formid", targets = ["CSTY"] },
+  { name = "SpaceDetection", type = "formid", targets = ["CSTY"] },
+  { name = "Misc", type = "formid", targets = ["CSTY"] },
+  { name = "SpaceManeuverTypes", type = "formid", targets = ["CSTY"] },
+]
