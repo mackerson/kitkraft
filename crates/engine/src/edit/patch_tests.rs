@@ -596,6 +596,24 @@ fn refusals() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("user Data directory"), "{err}");
+    // W2 review M1 (ruling R23): the whole My Games\Starfield tree, not only its Data
+    // folder, and any folder holding the game's INIs; a sibling of it is fine.
+    let games = d.join("My Games").join("Starfield");
+    std::fs::create_dir_all(games.join("Saves")).unwrap();
+    for target in [games.join("P.esp"), games.join("Saves").join("P.esp")] {
+        let err = go(&target, rename("x")).unwrap_err().to_string();
+        assert!(err.contains("My Games folder"), "{err}");
+    }
+    let inis = d.join("Inis");
+    std::fs::create_dir_all(inis.join("sub")).unwrap();
+    std::fs::write(inis.join("StarfieldPrefs.ini"), b"[General]").unwrap();
+    let err = go(&inis.join("sub").join("P.esp"), rename("x"))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("My Games folder"), "{err}");
+    let other = d.join("My Games").join("Other");
+    std::fs::create_dir_all(&other).unwrap();
+    assert!(super::patch::guard_location(&other.join("P.esp")).is_ok());
     let mo2 = d.join("MO2");
     std::fs::create_dir_all(mo2.join("mods").join("New")).unwrap();
     std::fs::write(mo2.join("ModOrganizer.ini"), b"x").unwrap();
