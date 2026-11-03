@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CSTY, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    510,555 |   561,850 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,066,076 | 2,639,343 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    513,325 |   559,080 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,068,846 | 2,636,573 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:5106eaad84dc8719` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:fc98b328cbfc5a09` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -160,7 +160,7 @@ Columns:
 | `GRAS`        | Grass                          |       193 |          0 |    10 |     4 |      4 |       2 |
 | `WTHS`        | WeatherSettings                |       187 |          0 |     4 |     1 |      3 |       0 |
 | `STND`        | SnapTemplateNode               |       183 |          0 |    17 |     7 |      8 |       2 |
-| `CSTY`        | CombatStyleForm                |       177 |          0 |    18 |     1 |     17 |       0 |
+| `CSTY`        | CombatStyleForm                |       177 |          0 |    18 |    17 |      1 |       0 |
 | `SMBN`        | StoryManagerBranchNode         |       173 |          0 |     7 |     7 |      0 |       0 |
 | `AMMO`        | Ammunition                     |       154 |          0 |    16 |    16 |      0 |       0 |
 | `CPTH`        | CameraPath                     |       152 |          0 |     5 |     5 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,145 |    456 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,161 |    440 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,066,076 typed (0 of them failed to decode), 2,639,343 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,068,846 typed (0 of them failed to decode), 2,636,573 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -362,7 +362,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GRAS`    | Grass                          |           193 |        440 |      0 |         0 |         0 |                   0 |        440 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |           187 |        187 |      0 |         0 |         0 |                   0 |        187 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |           183 |        582 |      0 |         0 |         0 |                   0 |        582 |       0 |        0 |
-| `CSTY`    | CombatStyleForm                |           177 |        177 |      0 |         0 |         0 |                   0 |        177 |       0 |        0 |
+| `CSTY`    | CombatStyleForm                |           177 |      2,947 |      0 |         0 |         0 |                   0 |      2,947 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode         |           173 |      1,243 |      0 |         0 |         0 |                   0 |      1,243 |       0 |        0 |
 | `AMMO`    | Ammunition                     |           154 |      2,298 |      0 |         0 |         0 |                   0 |      2,298 |       0 |        0 |
 | `CPTH`    | CameraPath                     |           152 |        793 |      0 |         0 |         0 |                   0 |        793 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,066,076 |      0 |         0 |   232,876 |                   0 | 46,833,200 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,068,846 |      0 |         0 |   232,876 |                   0 | 46,835,970 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -503,7 +503,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `COLL`    | CollisionLayerForm             |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
 | `CONT`    | Container                      |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath                     |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
-| `CSTY`    | CombatStyleForm                |             18 |     1 |     17 |         0 |                   0 |     18 |       0 |        0 |
+| `CSTY`    | CombatStyleForm                |             18 |    17 |      1 |         0 |                   0 |     18 |       0 |        0 |
 | `CUR3`    | Curve3D                        |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CURV`    | CurveTable                     |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DEBR`    | Debris                         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,952 | 5,190 |    762 |       445 |                   2 |  5,505 |       0 |        0 |
+| **Total** |                                |          5,952 | 5,206 |    746 |       445 |                   2 |  5,505 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
