@@ -1309,6 +1309,16 @@ fn confirm_box(
                             format!("Build into {}", file_name(&w.into)),
                             "one confirmed `build`: the planned plugin, written as the active file",
                         )
+                    } else if w.command == "place" {
+                        (
+                            format!("Write to {}", file_name(&w.into)),
+                            "one confirmed `place`: the previewed reference (and the cell it carries), into the active file",
+                        )
+                    } else if w.command == "new" || w.command == "clone" {
+                        (
+                            format!("Write to {}", file_name(&w.into)),
+                            "one confirmed write: the previewed new form, into the active file",
+                        )
                     } else {
                         (
                             format!("Write to {}", file_name(&w.into)),
