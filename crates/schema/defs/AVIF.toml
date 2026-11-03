@@ -1,27 +1,39 @@
-# AVIF: ActorValueInformation, lstring-only definition (lane B round 3, M3.B8).
+# AVIF: ActorValueInformation: the definition of an actor value (attribute, skill,
+# resistance and the like) that actor records refer to by name: its name and
+# abbreviation, its default, its minimum and maximum, its type and its flags.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): ANAM, FULL are lstrings in every official AVIF record.
 #   xedit: the AVIF definition of wbDefinitionsSF1.pas at the pinned revision (L9877-L9953)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#     and the helpers it uses: EDID (L3182), script data (L3407-L3411, kept opaque),
+#     FULL (L3184), NLDT (L3183); the record-header flag bits (L9878-L9888) name the
+#     navmesh bits the same way HAZD and TRAV do.
+#   corpus: ANAM and FULL keep the lstring typing of the lstring-only definition
+#     (lane E's corpus lstring table, crates/engine/src/edit/lstrings.rs).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Every member xEdit gives a layout is typed here; the script data (VMAD) stays raw.
+# EDID, ANAM and FULL keep the lstring evidence they carried when the type was
+# lstring-only. The base form component block, which xEdit also lists, is not in any
+# official AVIF record, so no member takes it; a plugin that has one keeps it raw.
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "AVIF"
 name = "ActorValueInformation"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x2],
+  ["GroundPiece", 0x4],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -36,27 +48,14 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: ANAM, FULL in the official AVIF records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
-sig = "ANAM"
-name = "Abbreviation"
-type = "lstring"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9899-L9899"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official AVIF records every ANAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw"
 
-[[member.member]]
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -67,3 +66,91 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official AVIF records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "NLDT"
+name = "ContextNotes"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183"]
+note = "an editor note for translators"
+
+[[member]]
+sig = "ANAM"
+name = "Abbreviation"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9899-L9899"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official AVIF records every ANAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "NAM0"
+name = "DefaultValue"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9900-L9900"]
+
+[[member]]
+sig = "AVFL"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["Skill", 0x2],
+  ["UsesEnum", 0x4],
+  ["DontAllowScriptEdits", 0x8],
+  ["IsFullAVCached", 0x10],
+  ["IsPermanentAVCached", 0x20],
+  ["DefaultTo0", 0x400],
+  ["DefaultTo1", 0x800],
+  ["DefaultTo100", 0x1000],
+  ["ContainsList", 0x8000],
+  ["ValueLessThan1", 0x80000],
+  ["Minimum1", 0x100000],
+  ["Maximum10", 0x200000],
+  ["Maximum100", 0x400000],
+  ["MultiplyBy100", 0x800000],
+  ["Percentage", 0x1000000],
+  ["DamageIsPositive", 0x4000000],
+  ["GodModeImmune", 0x8000000],
+  ["Hardcoded", 0x80000000],
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9901-L9934"]
+note = "14 of the 32 bits are unnamed upstream and stay in the base value"
+
+[[member]]
+sig = "NAM1"
+name = "Type"
+type = "enum"
+base = "u32"
+card = "optional"
+values = [
+  ["DerivedAttribute", 0],
+  ["SpecialAttribute", 1],
+  ["Skill", 2],
+  ["AIAttribute", 3],
+  ["Resistance", 4],
+  ["Condition", 5],
+  ["Charge", 6],
+  ["IntValue", 7],
+  ["Variable", 8],
+  ["Resource", 9],
+  ["AnimGraphVariable", 10],
+]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9935-L9947"]
+
+[[member]]
+sig = "NAM2"
+name = "Min"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9948-L9948"]
+
+[[member]]
+sig = "NAM3"
+name = "Max"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9949-L9949"]
