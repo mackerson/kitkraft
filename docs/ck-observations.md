@@ -540,7 +540,8 @@ The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting2\`: `session
 Attempt 1 (`sitting2-attempt1`, 22:23 to 22:28) stopped at S2-04 on a false STOP: the
 dialog had closed, but the check looked after 0.8 s. The frame did its job: the CK and MO2
 were closed, the settings were restored, and the postflight was ok. Attempt 1's WEAP
-dialog was another form's, because the list had not filtered yet. Its data is not used.
+dialog was the same Keyword as in both attempts of the counted run (`x7-run1.out` 22:27:29;
+no EditorID check yet in that run). Its data is not used.
 
 | Field | Content |
 | ----- | ------- |
