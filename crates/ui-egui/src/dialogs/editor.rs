@@ -718,7 +718,10 @@ fn start(
         return;
     }
     if command == "new" || command == "clone" {
-        // The form opens on its source; nothing is sent until its Preview.
+        // The form opens on its source; nothing is sent until its Preview. The last
+        // write's note goes with its box, so the box does not cover the form (M7.E3
+        // review L2).
+        state.note = None;
         state.new_form = Some(new::NewForm::open(command, form));
         return;
     }

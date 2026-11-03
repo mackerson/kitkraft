@@ -887,3 +887,27 @@ fn m7_e3_new_and_duplicate_are_refused_outside_the_active_file() {
     settle(&mut h);
     assert!(!Path::new(&patch).exists() && !Path::new(&s.path("Other.esp")).exists());
 }
+
+/// Review finding L2 of M7.E3 (probe RV-E4-I): after a write, opening New again starts
+/// clean. The old confirm box (its "written:" note) no longer covers the form, so a
+/// second New in the same session previews and writes by mouse click.
+#[test]
+fn m7_e3_two_news_in_one_session_both_write() {
+    let s = Scratch::new("new-twice");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    for edid in ["KkFirstNew", "KkSecondNew"] {
+        open_new_form(&mut h, "new", "GLOB");
+        type_into(&mut h, "EditorID", edid);
+        press(&mut h, "Preview");
+        assert_in_view(&h, &format!("new GLOB as {edid} into Patch.esp"));
+        press(&mut h, "Write to Patch.esp");
+        assert_in_view(&h, "written: the new form");
+    }
+    let bytes = std::fs::read(&patch).unwrap();
+    for edid in [&b"KkFirstNew\0"[..], &b"KkSecondNew\0"[..]] {
+        assert!(bytes.windows(edid.len()).any(|w| w == edid), "{edid:?}");
+    }
+}
