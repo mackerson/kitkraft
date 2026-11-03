@@ -578,3 +578,146 @@ Request (session lane, `crates/game`): treat an echo-only answer as `inconclusiv
 matcher, as the probe file's notes already say. Then retry once with a longer wait, or a
 second `help` after a pause, before a row is graded. Compare V1 again with the owner's
 `game-20261014-01` once T-01 has a real answer.
+
+### game-20261103-02: agent session 2026-11-03-T04 (`kit game session`), KitKraftMiniSite.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-03-T04`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-03 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261103-04` |
+| Plugins | `KitKraftMiniSite.esm` SHA-256 `05aac03135515034e4efb8428d35bcaae3dfb9217d9a332141a802818d495d80` |
+| Probes | `C:\Modding\kitkraft-worktrees\x\out\minisite\plan-dev\probes.toml` SHA-256 `9c5b41cfbf868a515930b47a5fc83dddb2addd8611875628d46db7d906c8ce57` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-03-T04` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help KitKraftLocTypeMiniSite 4` | KitKraftMiniSite.esm:001000, KitKraftLocTypeMiniSite, 09001000 | contains 09001000 | help KitKraftLocTypeMiniSite 4 -> help KitKraftLocTypeMiniSite 4 | fail (`09001000` not in `help KitKraftLocTypeMiniSite 4`) | - |
+| T-02 | `help "KitKraft Mini Site Menu" 4` | KitKraftMiniSite.esm:001001, KitKraftMiniSiteMenu, 09001001 | contains 09001001 | help "KitKraft Mini Site Menu" 4 -> help "KitKraft Mini Site Menu" 4 | fail (`09001001` not in `help "KitKraft Mini Site Menu" 4`) | - |
+| T-03 | `help "KitKraft Site Terminal" 4` | KitKraftMiniSite.esm:001002, KitKraftMiniSiteTerminal, 09001002 | contains 09001002 | help "KitKraft Site Terminal" 4 -> help "KitKraft Site Terminal" 4 | fail (`09001002` not in `help "KitKraft Site Terminal" 4`) | - |
+| T-04 | `help KitKraftMiniSitePackIn 4` | KitKraftMiniSite.esm:001003, KitKraftMiniSitePackIn, 09001003 | contains 09001003 | help KitKraftMiniSitePackIn 4 -> help KitKraftMiniSitePackIn 4 | fail (`09001003` not in `help KitKraftMiniSitePackIn 4`) | - |
+| T-05 | `help "KitKraft Site Switch" 4` | KitKraftMiniSite.esm:001004, KitKraftMiniSiteSwitch, 09001004 | contains 09001004 | help "KitKraft Site Switch" 4 -> help "KitKraft Site Switch" 4 | fail (`09001004` not in `help "KitKraft Site Switch" 4`) | - |
+| T-06 | `help "KitKraft Mini Site Crew" 4` | KitKraftMiniSite.esm:001005, KitKraftMiniSiteFaction, 09001005 | contains 09001005 | help "KitKraft Mini Site Crew" 4 -> help "KitKraft Mini Site Crew" 4 | fail (`09001005` not in `help "KitKraft Mini Site Crew" 4`) | - |
+| T-07 | `help "KitKraft Mini Site" 4` | KitKraftMiniSite.esm:001006, KitKraftMiniSiteLocation, 09001006 | contains 09001006 | help "KitKraft Mini Site" 4 -> help "KitKraft Mini Site" 4 | fail (`09001006` not in `help "KitKraft Mini Site" 4`) | - |
+| T-08 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `player.getincell 0021966F Command: player.getincell 0021966F`) | - |
+| T-09 | `player.moveto 09001007`, `prid 09001007`, `getdistance player` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | number 0 +/- 500 | player.moveto 09001007 -> player.moveto 09001007 Command: player.moveto 09001007; (waited 10s); prid 09001007 -> prid 09001007 Command: prid 09001007; getdistance player -> getdistance player Command: getdistance player | inconclusive (no number after `>>` in `getdistance player Command: getdistance player`) | - |
+| T-10 | `prid 09001007`, `getisid 09001004` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001007 -> prid 09001007 Command: prid 09001007; getisid 09001004 -> getisid 09001004 Command: getisid 09001004 | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `getisid 09001004 Command: getisid 09001004`) | - |
+| T-11 | `prid 09001007`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | number -19 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001007 -> prid 09001007 Command: prid 09001007; getpos x -> getpos x Command: getpos x usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settings, 3-glob...; getpos y -> getpos y Command: getpos y; getpos z -> getpos z Command: getpos z | inconclusive (no number after `>>` in `getpos x Command: getpos x usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settings, 3-globals, 4-other forms form type is 4 charac...`) | T-11-1.png |
+| T-12 | Papyrus log: KitKraft:HelloOnLoad on the base of REFR `KitKraftMiniSiteSwitchRef` writes "KitKraft: mini site switch loaded" | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007, Scripts\KitKraft\HelloOnLoad.pex | papyrus-log KitKraft: mini site switch loaded | - | fail (`KitKraft: mini site switch loaded` not in `[22:52:29] Papyrus log opened (PC-64) [22:52:29] Update budget: 1.200000ms (Extra tasklet budget: 1.200000ms, Load screen budget: 500.000000ms) [22:52:29] Memor...`) | - |
+| T-13 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| T-14 | `player.moveto 09001008`, `prid 09001008`, `getdistance player` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | number 0 +/- 500 | player.moveto 09001008 -> player.moveto 09001008 Command: player.moveto 09001008; (waited 10s); prid 09001008 -> prid 09001008 Command: prid 09001008; getdistance player -> getdistance player Command: getdistance player GetDistance >> 0.84 | **pass** | - |
+| T-15 | `prid 09001008`, `getisid 09001002` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001008 -> prid 09001008 Command: prid 09001008; getisid 09001002 -> getisid 09001002 Command: getisid 09001002 GetIsID >> 1.00 | **pass** | - |
+| T-16 | `prid 09001008`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | number -21 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001008 -> prid 09001008 Command: prid 09001008; getpos x -> getpos x Command: getpos x GetPos: X >> -21.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-16-1.png |
+| T-17 | TerminalScript on the base of REFR `KitKraftMiniSiteTerminalRef`: its effect | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008, Scripts\TerminalScript.pex | TerminalScript on the base of REFR `KitKraftMiniSiteTerminalRef`: its effect | - | not-run (manual: the compiled script is not next to the plugin (Scripts\TerminalScript.pex; `build` and `package` put it there), so its Papyrus log lines cannot be predicted) | - |
+| T-18 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| T-19 | `player.moveto 09001009`, `prid 09001009`, `getdistance player` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | number 0 +/- 500 | player.moveto 09001009 -> player.moveto 09001009 Command: player.moveto 09001009; (waited 10s); prid 09001009 -> prid 09001009 Command: prid 09001009; getdistance player -> getdistance player Command: getdistance player GetDistance >> 0.25 | **pass** | - |
+| T-20 | `prid 09001009`, `getisid 09001003` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001009 -> prid 09001009 Command: prid 09001009; getisid 09001003 -> getisid 09001003 Command: getisid 09001003 GetIsID >> 0.00 | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `getisid 09001003 Command: getisid 09001003 GetIsID >> 0.00`) | - |
+| T-21 | `prid 09001009`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | number -23 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001009 -> prid 09001009 Command: prid 09001009; getpos x -> getpos x Command: getpos x GetPos: X >> -23.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-21-1.png |
+| T-22 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261103-04`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261103-04`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00; save KitKraftSession-... | **pass** | - |
+| T-23 | `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001007`, `getpos x`, `getpos y`, `getpos z`, `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001008`, `getpos x`, `getpos y`, `getpos z`, `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001009`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSiteSwitchRef, 09001007, KitKraftMiniSiteTerminalRef, 09001008, KitKraftMiniSitePackInRef, 09001009 | number -19 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5; number -21 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5; number -23 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); prid 09001007 -> prid 09001007 Command: prid 09001007; getpos x -> getpos x Command: getpos x GetPos: X >> -19.00; getpos... | **pass** | T-23-1.png |
+
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (273e2a7bfc0ca9aedaba9c3567a436eb2879d32fbe70cd2abf57beaefcce301c -> 3c65835703a6ac1ed1935d0a3cde08fe5d1d71a1540934e4c8617ffc21e00b4c): restored from C:\Modding\kitkraft-observe\2026-11-03-T04\backup\01-plugins.txt
+
+### game-20261103-03: agent session 2026-11-03-T05 (`kit game session`), KitKraftMiniSite.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-03-T05`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-03 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261103-05` |
+| Plugins | `KitKraftMiniSite.esm` SHA-256 `05aac03135515034e4efb8428d35bcaae3dfb9217d9a332141a802818d495d80` |
+| Probes | `C:\Modding\kitkraft-worktrees\x\out\minisite\plan-dev\probes.toml` SHA-256 `9c5b41cfbf868a515930b47a5fc83dddb2addd8611875628d46db7d906c8ce57` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-03-T05` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help KitKraftLocTypeMiniSite 4` | KitKraftMiniSite.esm:001000, KitKraftLocTypeMiniSite, 09001000 | contains 09001000 | help KitKraftLocTypeMiniSite 4 -> (only the echo; again in 2000 ms); help KitKraftLocTypeMiniSite 4 -> (only the echo; again in 4000 ms); help KitKraftLocTypeMiniSite 4 -> help KitKraftLocTypeMiniSite 4 | inconclusive (`help KitKraftLocTypeMiniSite 4` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-02 | `help "KitKraft Mini Site Menu" 4` | KitKraftMiniSite.esm:001001, KitKraftMiniSiteMenu, 09001001 | contains 09001001 | help "KitKraft Mini Site Menu" 4 -> (only the echo; again in 2000 ms); help "KitKraft Mini Site Menu" 4 -> (only the echo; again in 4000 ms); help "KitKraft Mini Site Menu" 4 -> help "KitKraft Mini Site Menu" 4 | inconclusive (`help "KitKraft Mini Site Menu" 4` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-03 | `help "KitKraft Site Terminal" 4` | KitKraftMiniSite.esm:001002, KitKraftMiniSiteTerminal, 09001002 | contains 09001002 | help "KitKraft Site Terminal" 4 -> (only the echo; again in 2000 ms); help "KitKraft Site Terminal" 4 -> help "KitKraft Site Terminal" 4 KYWD: KitKraftLocTypeMiniSite (09001000) '' | fail (`09001002` not in `help "KitKraft Site Terminal" 4 KYWD: KitKraftLocTypeMiniSite (09001000) ''`) | - |
+| T-04 | `help KitKraftMiniSitePackIn 4` | KitKraftMiniSite.esm:001003, KitKraftMiniSitePackIn, 09001003 | contains 09001003 | help KitKraftMiniSitePackIn 4 -> (only the echo; again in 2000 ms); help KitKraftMiniSitePackIn 4 -> (only the echo; again in 4000 ms); help KitKraftMiniSitePackIn 4 -> help KitKraftMiniSitePackIn 4 TMLM:  (09001001) 'KitKraft Mini Site Menu' | fail (`09001003` not in `help KitKraftMiniSitePackIn 4 TMLM:  (09001001) 'KitKraft Mini Site Menu'`) | - |
+| T-05 | `help "KitKraft Site Switch" 4` | KitKraftMiniSite.esm:001004, KitKraftMiniSiteSwitch, 09001004 | contains 09001004 | help "KitKraft Site Switch" 4 -> (only the echo; again in 2000 ms); help "KitKraft Site Switch" 4 -> (only the echo; again in 4000 ms); help "KitKraft Site Switch" 4 -> help "KitKraft Site Switch" 4 | inconclusive (`help "KitKraft Site Switch" 4` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-06 | `help "KitKraft Mini Site Crew" 4` | KitKraftMiniSite.esm:001005, KitKraftMiniSiteFaction, 09001005 | contains 09001005 | help "KitKraft Mini Site Crew" 4 -> (only the echo; again in 2000 ms); help "KitKraft Mini Site Crew" 4 -> (only the echo; again in 4000 ms); help "KitKraft Mini Site Crew" 4 -> help "KitKraft Mini Site Crew" 4 | inconclusive (`help "KitKraft Mini Site Crew" 4` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-07 | `help "KitKraft Mini Site" 4` | KitKraftMiniSite.esm:001006, KitKraftMiniSiteLocation, 09001006 | contains 09001006 | help "KitKraft Mini Site" 4 -> help "KitKraft Mini Site" 4 TERM:  (09001002) 'KitKraft Site Terminal' | fail (`09001006` not in `help "KitKraft Mini Site" 4 TERM:  (09001002) 'KitKraft Site Terminal'`) | - |
+| T-08 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE; (waited 10s); player.getincell 0021966F -> (only the echo; again in 2000 ms); player.getincell 0021966F -> (only the echo; again in 4000 ms); player.getincell 0021966F -> playe... | inconclusive (`player.getincell 0021966F` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-09 | `player.moveto 09001007`, `prid 09001007`, `getdistance player` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | number 0 +/- 500 | player.moveto 09001007 -> player.moveto 09001007 Command: player.moveto 09001007; (waited 10s); prid 09001007 -> prid 09001007 Command: prid 09001007; getdistance player -> (only the echo; again in 2000 ms); getdistance player -> (only the echo; again in 4000 ms); getdistance player -> getdistance p... | inconclusive (`getdistance player` answered with only its echo, 3 time(s): no result to judge (a timing anomaly, R20)) | - |
+| T-10 | `prid 09001007`, `getisid 09001004` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001007 -> prid 09001007 Command: prid 09001007; getisid 09001004 -> (only the echo; again in 2000 ms); getisid 09001004 -> getisid 09001004 Command: getisid 09001004 GetIsID >> 1.00 | **pass** | - |
+| T-11 | `prid 09001007`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007 | number -19 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001007 -> prid 09001007 Command: prid 09001007; getpos x -> getpos x Command: getpos x GetPos: X >> -19.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-11-1.png |
+| T-12 | Papyrus log: KitKraft:HelloOnLoad on the base of REFR `KitKraftMiniSiteSwitchRef` writes "KitKraft: mini site switch loaded" | KitKraftMiniSite.esm:001007, KitKraftMiniSiteSwitchRef, 09001007, Scripts\KitKraft\HelloOnLoad.pex | papyrus-log KitKraft: mini site switch loaded | - | fail (`KitKraft: mini site switch loaded` not in `[23:18:16] Papyrus log opened (PC-64) [23:18:16] Update budget: 1.200000ms (Extra tasklet budget: 1.200000ms, Load screen budget: 500.000000ms) [23:18:16] Memor...`) | - |
+| T-13 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| T-14 | `player.moveto 09001008`, `prid 09001008`, `getdistance player` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | number 0 +/- 500 | player.moveto 09001008 -> player.moveto 09001008 Command: player.moveto 09001008; (waited 10s); prid 09001008 -> prid 09001008 Command: prid 09001008; getdistance player -> getdistance player Command: getdistance player GetDistance >> 0.83 | **pass** | - |
+| T-15 | `prid 09001008`, `getisid 09001002` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001008 -> prid 09001008 Command: prid 09001008; getisid 09001002 -> getisid 09001002 Command: getisid 09001002 GetIsID >> 1.00 | **pass** | - |
+| T-16 | `prid 09001008`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008 | number -21 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001008 -> prid 09001008 Command: prid 09001008; getpos x -> getpos x Command: getpos x GetPos: X >> -21.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-16-1.png |
+| T-17 | TerminalScript on the base of REFR `KitKraftMiniSiteTerminalRef`: its effect | KitKraftMiniSite.esm:001008, KitKraftMiniSiteTerminalRef, 09001008, Scripts\TerminalScript.pex | TerminalScript on the base of REFR `KitKraftMiniSiteTerminalRef`: its effect | - | not-run (manual: the compiled script is not next to the plugin (Scripts\TerminalScript.pex; `build` and `package` put it there), so its Papyrus log lines cannot be predicted) | - |
+| T-18 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | Starfield.esm:21966F, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| T-19 | `player.moveto 09001009`, `prid 09001009`, `getdistance player` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | number 0 +/- 500 | player.moveto 09001009 -> player.moveto 09001009 Command: player.moveto 09001009; (waited 10s); prid 09001009 -> prid 09001009 Command: prid 09001009; getdistance player -> getdistance player Command: getdistance player GetDistance >> 0.25 | **pass** | - |
+| T-20 | `prid 09001009`, `getisid 09001003` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 09001009 -> prid 09001009 Command: prid 09001009; getisid 09001003 -> getisid 09001003 Command: getisid 09001003 GetIsID >> 0.00 | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `getisid 09001003 Command: getisid 09001003 GetIsID >> 0.00`) | - |
+| T-21 | `prid 09001009`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSite.esm:001009, KitKraftMiniSitePackInRef, 09001009 | number -23 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | prid 09001009 -> prid 09001009 Command: prid 09001009; getpos x -> getpos x Command: getpos x GetPos: X >> -23.00; getpos y -> getpos y Command: getpos y GetPos: Y >> -4.00; getpos z -> getpos z Command: getpos z GetPos: Z >> 4.63 | **pass** | T-21-1.png |
+| T-22 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261103-05`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261103-05`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00; save KitKraftSession-... | **pass** | - |
+| T-23 | `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001007`, `getpos x`, `getpos y`, `getpos z`, `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001008`, `getpos x`, `getpos y`, `getpos z`, `coc CityNewAtlantisApartmentTEMPLATE`, `prid 09001009`, `getpos x`, `getpos y`, `getpos z` | KitKraftMiniSiteSwitchRef, 09001007, KitKraftMiniSiteTerminalRef, 09001008, KitKraftMiniSitePackInRef, 09001009 | number -19 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5; number -21 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5; number -23 +/- 0.5; number -4 +/- 0.5; number 4.63 +/- 0.5 | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); prid 09001007 -> prid 09001007 Command: prid 09001007; getpos x -> getpos x Command: getpos x GetPos: X >> -19.00; getpos... | **pass** | T-23-1.png |
+
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (273e2a7bfc0ca9aedaba9c3567a436eb2879d32fbe70cd2abf57beaefcce301c -> 3c65835703a6ac1ed1935d0a3cde08fe5d1d71a1540934e4c8617ffc21e00b4c): restored from C:\Modding\kitkraft-observe\2026-11-03-T05\backup\01-plugins.txt
+
+Writer's reading of `game-20261103-02` (T04, old controller) and `game-20261103-03` (T05,
+the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22.
+
+**Persistence and the placed references.**
+
+- T-22 and T-23 **pass** in both sessions. The mini-site was saved in the Lodge and
+  reloaded, and the reload was proved by the cell. The terminal, switch and pack-in
+  references stood at their `DATA` positions afterwards.
+- T-13 to T-16, T-18, T-19 and T-21 **pass** in T05: each reference's cell, `player.moveto`
+  and `getpos`. T-10 and T-11 (the switch's reference) also pass in T05.
+- M5 row 2's game and save/reload rows are **filled** by these sessions (M5.D7 game half).
+
+**The `help` rows show a console-path lag, not missing forms.**
+
+- In T05 the answers to `help` come back late. T-03's answer holds T-01's result
+  (`KYWD: KitKraftLocTypeMiniSite (09001000)`). T-04's holds T-02's
+  (`TMLM: (09001001) 'KitKraft Mini Site Menu'`). T-07's holds T-03's
+  (`TERM: (09001002) 'KitKraft Site Terminal'`).
+- So the game does list the plugin's new forms under the predicted runtime IDs. The console
+  tool hands each `help` result to a later request.
+- The matcher's `fail` on T-03, T-04 and T-07 is that misattribution, so these rows are
+  **inconclusive** (R20). So are T-01, T-02, T-05, T-06, T-08 and T-09, where three sends
+  each got only the echo.
+- This is the console path more than build load: the retries waited 2 s and 4 s, and a
+  late answer still went to the next command.
+
+**T-12, the switch's base-form script (`papyrus-log`).**
+
+- At row time the log held only its header lines, so the row read **inconclusive**: the game
+  writes the line later.
+- The same session's copied log (`2026-11-03-T05\logs\papyrus-Papyrus.0.log`, lines 194 and
+  268) holds `KitKraft: mini site switch loaded` at 23:21:44 and 23:22:05. Those are two
+  loads of the switch's cell, with the `Text` the VMAD sets.
+- So the script compiled by kit, attached to the cloned ACTI base, ran on OnLoad and wrote its
+  Trace. That is Gate K0's "fires" evidence for OnLoad (M5.B3, OnLoad half), from a log, not
+  from the row.
+- Request (session lane): read the Papyrus log again at the end of the session for any
+  `papyrus-log` step that was inconclusive at row time.
+
+**T-20 (pack-in reference) is a real `fail` of the plan's expectation.**
+
+- `prid 09001009` with `getisid 09001003` answered `GetIsID >> 0.00` with a real number.
+  The placed PKIN reference does not report the PKIN as its base in game.
+- Finding for `kit testplan`: a pack-in reference needs another check than `getisid` on the
+  PKIN.
+
+**The rest.**
+
+- T-17 (the vanilla `TerminalScript` on the cloned terminal) is manual: its `.pex` is not
+  next to the plugin.
+- The dev mod `KitKraft Dev - KitKraftMiniSite` (a package: the plugin and its `.pex`) was
+  deployed, enabled for the sessions and disabled after. Only its lines changed.
