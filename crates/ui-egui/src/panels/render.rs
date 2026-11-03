@@ -122,6 +122,17 @@ pub fn cell_request(pick: &CellPick, cursor: Option<&str>) -> Request {
     Request::new("cell", Value::Object(args))
 }
 
+/// What identifies the session's load for the model-box cache: the loaded plugins and the
+/// `load` reply shown (its arguments and time), so a new load or a restart (which drops
+/// both) changes it.
+fn load_key(ctx: &TabCtx) -> String {
+    let load = ctx
+        .results
+        .get(&SlotKey::from(Slot::Load))
+        .map(|s| (s.request.args.to_string(), s.elapsed));
+    format!("{:?}|{load:?}", ctx.plugins)
+}
+
 /// The `mesh.bounds` request for a base form (M7.R3): its model's box, read by the engine
 /// through the session's load order.
 pub fn bounds_request(base: &str) -> Request {
@@ -293,6 +304,9 @@ pub struct RenderTab {
     bounds_queue: Vec<Request>,
     /// A reply changed a box: rebuild the markers without moving the camera.
     dirty: bool,
+    /// The load the boxes belong to ([`load_key`]): when it changes (another load, or
+    /// the engine restarted with none) the boxes and the asked bases are forgotten.
+    load_key: Option<String>,
 }
 
 /// A `mesh.bounds` reply as the tab keeps it: the model, its box in the model's root
@@ -365,6 +379,7 @@ impl Default for RenderTab {
             asked: BTreeSet::new(),
             bounds_queue: Vec::new(),
             dirty: false,
+            load_key: None,
         }
     }
 }
@@ -439,6 +454,23 @@ impl RenderTab {
                 self.bounds_queue.push(bounds_request(base));
             }
         }
+    }
+
+    /// Forgets the model boxes when the load they came from is gone (review M1 of M7.R3):
+    /// another load order, or an engine restart (the load is dropped with it). The cell's
+    /// references keep their `OBND`; the next cell asks its bases again.
+    fn follow_load(&mut self, key: String) {
+        if self.load_key.as_ref() == Some(&key) {
+            return;
+        }
+        if self.load_key.is_some() {
+            self.nif.clear();
+            self.asked.clear();
+            self.bounds_queue.clear();
+            self.apply_nif();
+            self.dirty = true;
+        }
+        self.load_key = Some(key);
     }
 
     /// Gives every reference its base's model box, from the replies so far.
@@ -548,6 +580,7 @@ impl RenderTab {
     }
 
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
+        self.follow_load(load_key(ctx));
         let palette = theme::palette(ui);
         if !self.loading && self.page.is_some() && (self.palette != Some(palette) || self.dirty) {
             // New data frames the camera; a theme change or a model box only redraws.

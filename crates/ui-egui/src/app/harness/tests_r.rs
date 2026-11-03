@@ -138,3 +138,60 @@ fn m7_r3_the_status_lines_fit_the_window() {
     assert_wholly_in_view(&h, "without a position");
     assert_wholly_in_view(&h, "model boxes: 0 of 2 bases answered");
 }
+
+/// A cell drawn with both bases answered (the crate with a model box).
+fn answered_cell(h: &mut Bench) {
+    // As the Load button does: the tab starts the cell (its old page dropped).
+    let req = h.state_mut().app.render.show_cell("RoomR3");
+    inject(h, Slot::RenderCell, req, Ok(cell_env()));
+    settle(h);
+    let render = &mut h.state_mut().app.render;
+    render.receive_bounds(&bounds_env(
+        "T.esm:000800",
+        "Test/Crate.nif",
+        json!({"min": [-2.0, -2.0, 0.0], "max": [2.0, 2.0, 3.0]}),
+        "the box is the union of the bounds ...",
+    ));
+    render.receive_bounds(&bounds_env(
+        "T.esm:000801",
+        "Markers/Idle.nif",
+        Value::Null,
+        "no bound in the model: it has no geometry block",
+    ));
+    h.run_steps(4);
+    assert_eq!(h.state().app.render.bounds_progress(), (2, 2));
+    assert_eq!(box_sources(&h.state().app.render.page_refs()).0, 2);
+}
+
+#[test]
+fn m7_r3_model_boxes_are_forgotten_on_a_new_load_and_on_an_engine_restart() {
+    // Review M1 of M7.R3: the boxes outlived the load order they came from, and after
+    // "Drop pending" restarted the engine the bases asked before were never asked again.
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    answered_cell(&mut h);
+
+    // A new load order: the boxes of the old one are dropped and OBND is drawn again.
+    let load = json!({"command": "load", "data": {"source": "plugins", "inactive": [],
+        "missing_active_plugins": [], "plugins": [
+            {"index": 0, "name": "Other.esm", "scale": "full", "flag_names": ["master"],
+             "active": "listed", "provider": "path", "records": 1, "runtime_slot": "00",
+             "cache": "built", "missing_masters": [], "late_masters": [], "error": null}]},
+        "coverage": {}, "limitations": []});
+    let req = Request::new("load", json!({"plugins": ["Other.esm"]}));
+    inject(&mut h, Slot::Load, req, Ok(load));
+    open_tab(&mut h, Tab::Render);
+    let render = &h.state().app.render;
+    assert_eq!(render.bounds_progress(), (0, 0));
+    assert_eq!(box_sources(&render.page_refs()), (0, 2, 1));
+
+    // The same cell under the new load asks both bases again.
+    answered_cell(&mut h);
+
+    // An engine restart forgets them too.
+    h.state_mut().app.drop_pending();
+    h.run_steps(4);
+    let render = &h.state().app.render;
+    assert_eq!(render.bounds_progress(), (0, 0));
+    assert_eq!(box_sources(&render.page_refs()), (0, 2, 1));
+}
