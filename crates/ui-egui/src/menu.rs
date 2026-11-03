@@ -469,18 +469,21 @@ mod tests {
         // M7.E2 (ADR 0007 Amendment 4): `set` is permitted, so Record > Set Field opens
         // the edit dialog.
         assert_eq!(set.target, Ok(Target::Window(WindowKind::EditDialog)));
-        // A writing command not yet permitted stays disabled and says why (review L3).
-        let new = menus()
+        // A writing command outside the window's write scope stays disabled and says why
+        // (E1 review L3; `testplan`, which Amendments 3 and 4 both keep out, so the
+        // sentinel does not move as the editor's writes land).
+        let testplan = menus()
             .into_iter()
             .flat_map(|m| m.items)
-            .find(|i| i.id == "new")
+            .find(|i| i.id == "testplan")
             .unwrap();
         assert!(
-            new.target
+            testplan
+                .target
                 .as_ref()
                 .is_err_and(|w| w.contains("write scope")),
             "{:?}",
-            new.target
+            testplan.target
         );
         let ledger = menus()
             .into_iter()
