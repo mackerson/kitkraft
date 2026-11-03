@@ -684,7 +684,8 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
   from T-19 to T-23 in T05 or from T-13 on in T04, and T-23's `getpos` answers come labelled
   X, Y, Z in order with each reference's own x. X9 added the negative control after a load
   (`game-20261103-07` H-01, `GetInCell >> 0.00` for the apartment after the load into the
-  Lodge: pass).
+  Lodge), but the re-grade on `e6028aaa` makes it inconclusive (ambiguous: an earlier
+  `getincell` send had no answer), so it is still to be run.
 - T-13 to T-16, T-18, T-19 and T-21 **pass** in T05: each reference's cell, `player.moveto`
   and `getpos`. T-10 and T-11 (the switch's reference) also pass in T05.
 - M5 row 2's game and save/reload rows are **filled** by these sessions (M5.D7 game half).
@@ -1021,3 +1022,37 @@ replace it for one session. O5-16 not-run with it.
 - O4-01, O4-02 (ownership UI), the actors' look (screenshot and a person), T-17-style rows on
   vanilla scripts with no `.pex` beside the plugin (`testplan/traces.rs` reasons), and the
   manual "return and look" rows of plugins that place nothing.
+
+Re-grade of `game-20261103-04` to `-09` (review `reviews/x-controller-R27-R28.md`, NOT
+MERGEABLE on `aa31a9c9`; corrected controller `e6028aaa`). These six sessions were graded by
+`aa31a9c9`, which could give a getter's line to a request when another request of the same
+getter was still waiting for an answer (H1), and could lose a failure line on a retry (H2).
+The re-grade is offline, from each session's saved transcript (`2026-11-03-T06` to `-T11`,
+`report.json`, the `seen` of every row: each send, its retries and every re-queued line),
+applying `e6028aaa`'s rules; no session was re-run. No reply in these sessions holds a console
+failure line, so H2 and M2 change nothing. H1 changes every row whose getter line could also
+belong to an earlier getter of the same function (same axis for `getpos`) that had more sends
+than answers:
+
+| Entry | Row | `aa31a9c9` | Re-graded (`e6028aaa`) | Why |
+| ----- | --- | ---------- | ---------------------- | --- |
+| `-04` (T06) | T-06 persistence | pass | **inconclusive (ambiguous reply)** | T-01's `player.getincell 00017307` was sent twice and answered once; each later `GetInCell >> 1.00` could be that late answer (`GetInCell` names no argument) |
+| `-07` (T09) | T-01 persistence | pass | **inconclusive (ambiguous reply)** | its first `player.getincell 0006BB29` was sent twice, answered once (review probe P2's shape) |
+| `-07` (T09) | H-01 negative control | pass | **inconclusive (ambiguous reply)** | the same outstanding send; the `0.00` may be its answer or the apartment's |
+| `-08` (T10) | T-16, T-21, T-23 | pass | **inconclusive (ambiguous reply)** | T-11's `getpos x` was sent twice and answered once; each later `GetPos: X` line could be its late answer |
+| `-09` (T11) | T-02 persistence | pass | **inconclusive (ambiguous reply)** | its first `player.getincell 0006BB29` was sent three times, answered once |
+
+Every other pass stands: its getter had no other waiting request of the same function and axis
+when its line came (T06 T-01 to T-05 and T-07; T07 all six; T08 T-01, T-02, T-03, T-05; T10
+T-01, T-08 to T-11, T-13 to T-15, T-18, T-19, T-22, where T-08's and T-09's three sends each
+got their three late answers before any other getter of their function was sent). The fails
+stand (T08 T-04, T-06; T10 T-20: own labelled answers). Totals after the re-grade: T06 6 pass,
+1 inconclusive; T07 6 pass, 1 inconclusive; T08 4 pass, 2 fail; T09 0 pass, 2 inconclusive,
+1 not-run; T10 11 pass, 10 inconclusive (with T-12 as read above), 1 fail, 1 not-run; T11 0
+pass, 2 inconclusive, 1 not-run.
+
+So the reloads proved by the cell in X9 (T06 T-06, T09 T-01, T11 T-02) and L6's negative
+control are **not** evidence any more; T10's T-22 (the mini-site's save in the Lodge and
+reload) is. Request (session lane): before the next getter of a function that still has
+sends without answers, wait for those answers (bounded), so a persistence row is not left
+ambiguous by a retry earlier in the session.
