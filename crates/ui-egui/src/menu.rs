@@ -872,7 +872,11 @@ mod tests {
             match item.mapping {
                 CkMapping::Gap(why) => {
                     assert!(maps.starts_with("`gap:`"), "{element}: {maps}");
-                    assert!(maps.ends_with(why), "{element}: the row's own reason");
+                    assert_eq!(
+                        maps,
+                        &format!("`gap:` {why}"),
+                        "{element}: the row's own reason"
+                    );
                 }
                 CkMapping::Command(id) | CkMapping::CommandIn(id, _) => {
                     assert_eq!(first_id, Some(id), "{element}: {maps}");
