@@ -315,6 +315,12 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
             Err(e) => return Err(format!("block {i}: {e}")),
         };
         g1.blocks += 1;
+        // The crate's reader must read the same slots (M7.S5 code, ask A8).
+        let read = nif
+            .slots(i)
+            .map_err(|e| format!("block {i}: kitkraft-nif slots: {e}"))?
+            .unwrap_or_default();
+        let first_out = out.len();
         let mut pattern = String::new();
         let block = nif.blocks[i];
         let end = block.offset + block.len;
@@ -351,6 +357,16 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
             ));
         }
         *g1.patterns.entry(pattern).or_default() += 1;
+        let walked = out.get(first_out..).unwrap_or(&[]);
+        let same = read.len() == walked.len()
+            && read.iter().zip(walked).all(|(r, (k, w))| {
+                r.index_count == w.first
+                    && r.vertex_count == w.second
+                    && r.mesh_entry().as_deref() == Some(k.as_str())
+            });
+        if !same {
+            return Err(format!("block {i}: kitkraft-nif reads other slots"));
+        }
         if p != end {
             return Err(format!(
                 "block {i}: {} bytes after the four slots",
@@ -580,6 +596,16 @@ fn every_official_mesh_matches_the_layout_study() {
                     continue;
                 }
             };
+            // The crate's reader must read the same mesh (M7.S5 code, ask A8).
+            match kitkraft_nif::Mesh::parse(&bytes) {
+                Ok(m)
+                    if m.indices == w.indices
+                        && m.quantized == w.positions
+                        && m.section_4 == w.sections[3]
+                        && m.scale.to_bits() == w.scale.to_bits() => {}
+                Ok(_) => failures.push(format!("{}: kitkraft-nif reads another mesh", e.name)),
+                Err(why) => failures.push(format!("{}: kitkraft-nif: {why}", e.name)),
+            }
             let nv = w.positions.len();
             t.indices += w.indices.len() as u64;
             t.index_out_of_range +=
