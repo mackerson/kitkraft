@@ -584,3 +584,32 @@ fn preferences_change_the_zoom_theme_and_checkout() {
     click_button(&mut h, "Use This Checkout");
     assert_eq!(h.state().app.prefs.repo_dir.as_deref(), Some(repo.as_str()));
 }
+
+// ---- E's ask B1: File > Build Patch opens the build form ------------------------------------
+
+/// E's ask B1 (M7.E5): the `build` item targets the editor, and the shell sends
+/// `Action::OpenEditor { command: "build" }` for it (the item is enabled once the gate
+/// permits `build`, with E5's merge).
+#[test]
+fn file_build_patch_sends_open_editor_for_build() {
+    let menus = crate::menu::build(crate::gate::catalog());
+    let item = menus
+        .iter()
+        .flat_map(|m| m.items.iter())
+        .find(|i| i.id == "build" && i.catalog)
+        .expect("the build item");
+    assert_eq!(
+        crate::gate::find_command("build").unwrap().menu_path,
+        "File/Build Patch..."
+    );
+    match &item.target {
+        Ok(t) => assert_eq!(*t, crate::menu::Target::Editor("build")),
+        Err(why) => assert!(why.contains("editor's write scope"), "{why}"),
+    }
+    match super::super::ck_shell::editor_action("build") {
+        Action::OpenEditor { command, form } => {
+            assert_eq!((command.as_str(), form.as_str()), ("build", ""))
+        }
+        _ => panic!("OpenEditor"),
+    }
+}

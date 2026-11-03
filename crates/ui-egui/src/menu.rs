@@ -238,6 +238,9 @@ pub enum Target {
     Tab(&'static str),
     /// One of the CK-style windows (`crate::windows`).
     Window(crate::windows::WindowKind),
+    /// Pipeline E's form for this editor write (the shell sends `Action::OpenEditor`;
+    /// E's ask B1: File > Build Patch opens the build spec form, M7.E5).
+    Editor(&'static str),
 }
 
 /// One menu item.
@@ -287,18 +290,14 @@ fn panel_of(id: &str) -> Option<Target> {
         // Step 0 of sprint 2026-11-02: pipeline E's writes open the editor in the Edit
         // dialog (M7.E2 to M7.E6) once the gate permits each; until then `target`
         // disables them before this match is asked.
-        "set" | "new" | "clone" | "place" | "build" | "revert" => {
-            Target::Window(WindowKind::EditDialog)
-        }
+        "set" | "new" | "clone" | "place" | "revert" => Target::Window(WindowKind::EditDialog),
+        // E's ask B1 (M7.E5): `build` opens its spec form through the editor.
+        "build" => Target::Editor("build"),
         // Pipeline R's NIF bounds (M7.S4, M7.R3) belong to the Render Window.
         "mesh.bounds" => Target::Tab("Render Window"),
         _ => return None,
     })
 }
-
-/// The editor's six writes (ADR 0007 Amendment 4; the ids E1 gives `gate::EDITOR_SCOPE`,
-/// which this list follows until that constant is on this branch).
-const EDITOR_IDS: [&str; 6] = ["set", "new", "clone", "place", "build", "revert"];
 
 /// The text a scope write gets while the gate does not permit it in the window yet.
 fn scope_not_yet_permitted() -> String {
@@ -318,7 +317,7 @@ pub fn target(spec: &CommandSpec) -> Result<Target, String> {
             true
         } else if gate::COCKPIT_SCOPE.contains(&id) {
             return Err(scope_not_yet_permitted());
-        } else if EDITOR_IDS.contains(&id) {
+        } else if gate::EDITOR_SCOPE.contains(&id) {
             return Err(
                 "writes: in the editor's write scope (ADR 0007 Amendment 4); permitted with its M7.E ticket"
                     .to_string(),
@@ -844,11 +843,12 @@ mod tests {
     #[test]
     fn the_editor_writes_wait_on_the_gate_and_mesh_bounds_opens_the_render_window() {
         for id in ["set", "new", "clone", "place", "build", "revert"] {
-            assert_eq!(
-                panel_of(id),
-                Some(Target::Window(WindowKind::EditDialog)),
-                "{id}"
-            );
+            let want = if id == "build" {
+                Target::Editor("build")
+            } else {
+                Target::Window(WindowKind::EditDialog)
+            };
+            assert_eq!(panel_of(id), Some(want), "{id}");
             let spec = gate::find_command(id).unwrap();
             // A guarded id runs (`target` lets it through), so only an id neither permitted
             // nor guarded must be disabled (stub review M1: `build` enters `GUARDED`, M7.E5).

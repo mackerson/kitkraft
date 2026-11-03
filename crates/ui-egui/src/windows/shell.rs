@@ -106,6 +106,9 @@ impl App {
         match pick {
             Some(MenuPick::Open(Target::Tab(label))) => self.ck_open_tab(label),
             Some(MenuPick::Open(Target::Window(kind))) => self.shell.set_open(kind, true),
+            Some(MenuPick::Open(Target::Editor(command))) => {
+                self.apply(vec![editor_action(command)])
+            }
             Some(MenuPick::FloatTab(label)) => {
                 let float = !self.shell.is_floating(label);
                 let docked = TABS
@@ -736,6 +739,15 @@ impl App {
             _ => {}
         }
         self.shell.tour_frames = 1;
+    }
+}
+
+/// The action a menu item for editor write `command` sends (E's ask B1): the editor opens
+/// that command's form, on no record (a build spec names its own).
+pub(super) fn editor_action(command: &str) -> Action {
+    Action::OpenEditor {
+        command: command.to_string(),
+        form: String::new(),
     }
 }
 
