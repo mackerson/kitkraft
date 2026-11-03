@@ -720,8 +720,7 @@ pub(crate) fn ui(
     active_file: Option<&str>,
     _selected: Option<&str>,
 ) -> Vec<Action> {
-    // The edit dialog's actions, until the shell takes them from it directly.
-    let mut out = edit::take_dialog_actions(ctx);
+    let mut out = Vec::new();
     // A reply the editor waits for never came (the window applies only an envelope
     // here; a refusal or engine error stays in the slot's result).
     if let Some(slot) = state.awaiting {

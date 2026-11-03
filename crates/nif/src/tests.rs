@@ -420,3 +420,30 @@ fn a_box_beyond_f32_is_no_box_not_infinite_numbers() {
     assert!(b.box_overflow);
     assert_eq!(b.counts(), [1, 0, 0, 0]);
 }
+
+#[test]
+fn another_value_at_offsets_43_and_44_is_refused() {
+    // Review L1 of M7.R3: the study says every single-value field is refused; the u8 at
+    // 43 (always 1) and the u32 at 44 (always 12) were kept but not refused.
+    let good = model(vec![node(&Transform::IDENTITY, &[])]).bytes();
+    let mut at43 = good.clone();
+    at43[43] = 2;
+    assert!(matches!(
+        Nif::parse(&at43),
+        Err(Error::Unsupported {
+            what: "u8 at offset 43",
+            offset: 43,
+            value: 2
+        })
+    ));
+    let mut at44 = good;
+    at44[44] = 13;
+    assert!(matches!(
+        Nif::parse(&at44),
+        Err(Error::Unsupported {
+            what: "u32 at offset 44",
+            offset: 44,
+            value: 13
+        })
+    ));
+}

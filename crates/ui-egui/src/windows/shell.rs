@@ -1,12 +1,12 @@
-//! The CK-style shell's glue (M7.M0, M7.M1, M7.M4, M7.W3, M7.W5): a child module of
+//! The CK-style shell's glue (M7.M0, M7.M1, M7.M2, M7.M4, M7.W3, M7.W5): a child module of
 //! `app.rs` (declared there with `#[path]`, so it can reach the shell's tabs and
 //! state), holding everything `app.rs` calls through its one-line hooks:
 //!
 //! - `ck_menu_bar`: the menu bar from the catalog, above the tabs;
 //! - `ck_after_top_bar`: a floating tab is never drawn twice (the central panel falls
 //!   back to the last docked tab and the window comes to the front);
-//! - `ck_windows`: the Warnings, Use Info and Edit Dialog windows and the floating tabs,
-//!   then `ui.json` when the layout changed;
+//! - `ck_windows`: the Warnings, Use Info, Edit Dialog and Data dialog (M7.M2) windows
+//!   and the floating tabs, then `ui.json` when the layout changed;
 //! - `ck_receive`: replies to the requests those windows sent;
 //! - `ck_tour`: the screenshot tour's CK-shell images, after the tab images.
 //!
@@ -24,6 +24,7 @@ use crate::menu::{self, MenuPick, Target};
 use crate::panels::cockpit::CockpitEnv;
 use crate::panels::common::{Action, Slot, TabCtx};
 use crate::windows::cell_view::CellViewAsk;
+use crate::windows::data_dialog::{DataAsk, DataTicket};
 use crate::windows::use_info::UseInfoAsk;
 use crate::windows::warnings::{self, WarningsAsk};
 use crate::windows::{self, Pending, WinSpec, WindowKind};
@@ -337,13 +338,15 @@ impl App {
             None => {}
         }
 
-        // The edit dialog (M7.W3), read-only.
+        // The edit dialog (M7.W3; its field edits, M7.E2): what its buttons ask for, and
+        // the `schema` request a type without a layout needs, once.
+        let mut dialog_actions = Vec::new();
         let mut schema_req = None;
         if self.shell.is_open(WindowKind::EditDialog) {
             let kind = WindowKind::EditDialog;
             let title = match self.records.record_view.as_ref() {
                 Some(r) if !r.signature.is_empty() => {
-                    format!("{} {} (read-only)", r.signature, r.editor_id)
+                    format!("{} {}", r.signature, r.editor_id)
                 }
                 _ => kind.title().to_string(),
             };
@@ -365,9 +368,17 @@ impl App {
                     default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
-                |ui| schema_req = d.ui(ui, record),
+                |ui| dialog_actions = d.ui(ui, record),
             );
+            schema_req = self
+                .records
+                .record_view
+                .as_ref()
+                .map(|r| r.signature.clone())
+                .filter(|s| !s.is_empty())
+                .and_then(|sig| self.shell.dialog.schema_request(&sig));
         }
+        actions.append(&mut dialog_actions);
         if let Some(req) = schema_req {
             let sig = req
                 .args
@@ -376,6 +387,54 @@ impl App {
                 .unwrap_or_default()
                 .to_string();
             self.ck_submit(Pending::Schema(sig), req);
+        }
+
+        // The Data dialog (M7.M2): the session's load order, the active file.
+        let mut data_ask = None;
+        if self.shell.is_open(WindowKind::DataDialog) {
+            let kind = WindowKind::DataDialog;
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let d = &mut self.shell.data_dialog;
+            d.sync(
+                self.load.view.as_ref(),
+                self.load.data,
+                self.active_file.as_deref(),
+            );
+            let active = self.active_file.as_deref();
+            let session = self.session.as_ref();
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| data_ask = d.ui(ui, busy, active, session),
+            );
+        } else {
+            self.shell.data_dialog.closed();
+        }
+        match data_ask {
+            Some(DataAsk::Details(path, req)) => {
+                self.ck_submit(Pending::Data(DataTicket::Details(path)), req);
+            }
+            Some(DataAsk::Accept { load, active }) => {
+                if let Some(req) = load {
+                    actions.push(Action::Submit(Slot::Load, req));
+                }
+                actions.push(Action::SetActiveFile(active));
+                self.shell.set_open(WindowKind::DataDialog, false);
+            }
+            Some(DataAsk::Cancel) => self.shell.set_open(WindowKind::DataDialog, false),
+            None => {}
         }
 
         // Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02): its

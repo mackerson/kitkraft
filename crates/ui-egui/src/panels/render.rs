@@ -20,6 +20,7 @@
 use eframe::egui::{self, Color32, Rect, TextEdit};
 use serde_json::{json, Map, Value};
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::ops::{Add, Sub};
 
 use crate::gate::Request;
@@ -121,6 +122,23 @@ pub fn cell_request(pick: &CellPick, cursor: Option<&str>) -> Request {
     Request::new("cell", Value::Object(args))
 }
 
+/// What identifies the session's load for the model-box cache: the loaded plugins and the
+/// `load` reply shown (its arguments and time), so a new load or a restart (which drops
+/// both) changes it.
+fn load_key(ctx: &TabCtx) -> String {
+    let load = ctx
+        .results
+        .get(&SlotKey::from(Slot::Load))
+        .map(|s| (s.request.args.to_string(), s.elapsed));
+    format!("{:?}|{load:?}", ctx.plugins)
+}
+
+/// The `mesh.bounds` request for a base form (M7.R3): its model's box, read by the engine
+/// through the session's load order.
+pub fn bounds_request(base: &str) -> Request {
+    Request::new("mesh.bounds", json!({ "form": base }))
+}
+
 /// The overlay's lines: frame time (CPU: preparing the frame and issuing GL calls; GPU
 /// from a timer query when the context has one) and its median, 95th percentile and
 /// maximum over the recent frames, draw calls and marker instances, frames drawn since
@@ -198,10 +216,13 @@ pub fn selection_lines(r: &CellRef) -> Vec<String> {
             r.scale
                 .map_or_else(|| "1 (none stored)".to_string(), |s| format!("{s}"))
         ),
-        match r.bounds {
-            Some((lo, hi)) => format!("box       OBND {} .. {}", v(lo), v(hi)),
-            None => format!(
-                "box       none: the base has no OBND the schema reads ({} shape)",
+        match r.drawn_box() {
+            (Some((lo, hi)), cell::BoxSource::Nif) => {
+                format!("box       model {} .. {}", v(lo), v(hi))
+            }
+            (Some((lo, hi)), _) => format!("box       OBND {} .. {} (no model box)", v(lo), v(hi)),
+            (None, _) => format!(
+                "box       none: no model box and no OBND the schema reads ({} shape)",
                 r.category().label()
             ),
         },
@@ -276,14 +297,24 @@ pub struct RenderTab {
     stress: usize,
     /// The draw cap in use.
     cap: usize,
-    /// The last `mesh.bounds` reply ([`RenderTab::receive_bounds`]); M7.R3 draws it.
-    mesh_bounds: Option<MeshBounds>,
+    /// `mesh.bounds` replies by base form (M7.R3): the model's box or none.
+    nif: BTreeMap<String, MeshBounds>,
+    /// Bases asked for (once per session), and the requests not yet handed to the shell.
+    asked: BTreeSet<String>,
+    bounds_queue: Vec<Request>,
+    /// A reply changed a box: rebuild the markers without moving the camera.
+    dirty: bool,
+    /// The load the boxes belong to ([`load_key`]): when it changes (another load, or
+    /// the engine restarted with none) the boxes and the asked bases are forgotten.
+    load_key: Option<String>,
 }
 
 /// A `mesh.bounds` reply as the tab keeps it: the model, its box in the model's root
 /// frame (`None` when the model stores none) and the engine's limitations, shown as is.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct MeshBounds {
+    /// The base form the model was found from (`data.form`), when one was given.
+    pub form: Option<String>,
     pub model: String,
     pub aabb: Option<([f32; 3], [f32; 3])>,
     pub limitations: Vec<String>,
@@ -294,9 +325,16 @@ impl MeshBounds {
     fn from_envelope(env: &Value) -> Option<Self> {
         let data = env.get("data")?;
         let model = data.get("model")?.as_str()?.to_string();
+        let form = data.get("form").and_then(Value::as_str).map(str::to_string);
         let corner = |k: &str| -> Option<[f32; 3]> {
             let a = data.get("bounds")?.get(k)?.as_array()?;
-            let v = |i: usize| a.get(i).and_then(Value::as_f64).map(|x| x as f32);
+            // A corner must be finite as f32 too (1e39 is finite in JSON).
+            let v = |i: usize| {
+                a.get(i)
+                    .and_then(Value::as_f64)
+                    .map(|x| x as f32)
+                    .filter(|x| x.is_finite())
+            };
             Some([v(0)?, v(1)?, v(2)?])
         };
         let aabb = match (corner("min"), corner("max")) {
@@ -314,6 +352,7 @@ impl MeshBounds {
             })
             .unwrap_or_default();
         Some(Self {
+            form,
             model,
             aabb,
             limitations,
@@ -342,7 +381,11 @@ impl Default for RenderTab {
             error: None,
             stress,
             cap: DRAW_CAP,
-            mesh_bounds: None,
+            nif: BTreeMap::new(),
+            asked: BTreeSet::new(),
+            bounds_queue: Vec::new(),
+            dirty: false,
+            load_key: None,
         }
     }
 }
@@ -397,7 +440,59 @@ impl RenderTab {
         self.loading = false;
         self.palette = None;
         self.seen_inspected = None;
+        self.apply_nif();
+        self.queue_bounds();
         None
+    }
+
+    /// One `mesh.bounds` request per distinct base of the drawn references not asked yet
+    /// in this session (M7.R3); the shell submits them from [`RenderTab::ui`].
+    fn queue_bounds(&mut self) {
+        let Some(page) = &self.page else { return };
+        for base in page
+            .refs
+            .iter()
+            .take(self.cap)
+            .filter(|r| r.position.is_some())
+            .filter_map(|r| r.base.as_ref())
+        {
+            if self.asked.insert(base.clone()) {
+                self.bounds_queue.push(bounds_request(base));
+            }
+        }
+    }
+
+    /// Forgets the model boxes when the load they came from is gone (review M1 of M7.R3):
+    /// another load order, or an engine restart (the load is dropped with it). The cell's
+    /// references keep their `OBND`; the next cell asks its bases again.
+    fn follow_load(&mut self, key: String) {
+        if self.load_key.as_ref() == Some(&key) {
+            return;
+        }
+        if self.load_key.is_some() {
+            self.nif.clear();
+            self.asked.clear();
+            self.bounds_queue.clear();
+            self.apply_nif();
+            self.dirty = true;
+        }
+        self.load_key = Some(key);
+    }
+
+    /// Gives every reference its base's model box, from the replies so far.
+    fn apply_nif(&mut self) {
+        let Some(page) = &mut self.page else { return };
+        for r in &mut page.refs {
+            r.nif_bounds = r
+                .base
+                .as_ref()
+                .and_then(|b| self.nif.get(b))
+                .and_then(|m| m.aabb)
+                .map(|(lo, hi)| {
+                    let (lo, hi) = (glam::Vec3::from(lo), glam::Vec3::from(hi));
+                    (lo.min(hi), lo.max(hi))
+                });
+        }
     }
 
     /// The screenshot tour's seed (`crate::shots`): the cell named by [`TOUR_CELL_ENV`],
@@ -423,10 +518,37 @@ impl RenderTab {
         out
     }
 
-    /// A `mesh.bounds` reply (`Slot::MeshBounds`): kept for the viewport (M7.R3). Routed
-    /// from `app.rs` `receive` (step-0 residual, R13).
+    /// A `mesh.bounds` reply (`Slot::MeshBounds`): the base's model box, drawn instead of
+    /// its `OBND` (M7.R3). Routed from `app.rs` `receive` (ask A3, step-0 residual R13).
     pub(crate) fn receive_bounds(&mut self, env: &Value) {
-        self.mesh_bounds = MeshBounds::from_envelope(env);
+        let Some(m) = MeshBounds::from_envelope(env) else {
+            return;
+        };
+        let Some(form) = m.form.clone() else { return };
+        self.nif.insert(form, m);
+        self.apply_nif();
+        self.dirty = true;
+    }
+
+    /// A `mesh.bounds` request failed (a base with no `MODL`, a model in no archive, a
+    /// model the reader refuses): the base is answered with no model box, so it falls back
+    /// to its `OBND` and the error is its reason. Routed from `app.rs` with ask A3.
+    #[allow(dead_code)]
+    pub(crate) fn bounds_failed(&mut self, request: &Request, error: &str) {
+        let Some(form) = request.args.get("form").and_then(Value::as_str) else {
+            return;
+        };
+        self.nif.insert(
+            form.to_string(),
+            MeshBounds {
+                form: Some(form.to_string()),
+                model: String::new(),
+                aabb: None,
+                limitations: vec![format!("no bound in the model: {error}")],
+            },
+        );
+        self.apply_nif();
+        self.dirty = true;
     }
 
     /// The request failed (the shell keeps its error in the results).
@@ -462,11 +584,16 @@ impl RenderTab {
     }
 
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
+        self.follow_load(load_key(ctx));
         let palette = theme::palette(ui);
-        if !self.loading && self.page.is_some() && self.palette != Some(palette) {
-            // New data frames the camera; a theme change only recolors.
+        if !self.loading && self.page.is_some() && (self.palette != Some(palette) || self.dirty) {
+            // New data frames the camera; a theme change or a model box only redraws.
             let fresh = self.palette.is_none();
             self.rebuild(&palette, fresh);
+            self.dirty = false;
+        }
+        for req in self.bounds_queue.drain(..) {
+            ctx.actions.push(Action::Submit(Slot::MeshBounds, req));
         }
         self.follow_inspector();
         self.toolbar(ui, ctx);
@@ -599,6 +726,10 @@ impl RenderTab {
     /// and the selected reference's links.
     fn status(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
         let busy = ctx.busy;
+        // The limitation lines, each drawn on its own row under the summary row so none
+        // runs past the window's edge (review M2 of M7.R3).
+        let mut lines: Vec<(theme::Status, String)> = Vec::new();
+        let mut hovers: Vec<(String, String)> = Vec::new();
         ui.horizontal_wrapped(|ui| {
             if let Some(e) = &self.error {
                 theme::status(ui, theme::Status::Fail, e);
@@ -631,9 +762,9 @@ impl RenderTab {
             }
             let drawn = self.index.len();
             let placed = page.refs.iter().filter(|r| r.position.is_some()).count();
-            let boxes = page.refs.iter().filter(|r| r.bounds.is_some()).count();
+            let (nif, obnd, none) = cell::box_sources(&page.refs);
             ui.label(format!(
-                "{} {}{}: {drawn} of {} references drawn, {boxes} as OBND boxes",
+                "{} {}{}: {drawn} of {} references drawn; boxes: {nif} model, {obnd} OBND, {none} none",
                 page.cell,
                 page.cell_editor_id.as_deref().unwrap_or("(no EditorID)"),
                 page.world
@@ -642,26 +773,62 @@ impl RenderTab {
                 page.total
             ));
             if page.total > self.cap {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Warn,
-                    &format!(
+                    format!(
                         "draw cap: {} of {} references fetched and drawn (DRAW_CAP, docs/design/workbench-performance.md)",
                         self.cap, page.total
                     ),
-                );
+                ));
+            }
+            let (asked, answered) = (self.asked.len(), self.nif.len());
+            if answered < asked {
+                lines.push((
+                    theme::Status::Unknown,
+                    format!(
+                        "model boxes: {answered} of {asked} bases answered (mesh.bounds); OBND until then"
+                    ),
+                ));
+            }
+            if none > 0 {
+                lines.push((
+                    theme::Status::Unknown,
+                    format!(
+                        "{none} without a bound: neither their model nor OBND gives a box; drawn as their type's shape"
+                    ),
+                ));
+            }
+            let no_model: Vec<String> = self
+                .nif
+                .values()
+                .filter(|m| m.aabb.is_none())
+                .map(|m| {
+                    let why = m
+                        .limitations
+                        .iter()
+                        .find(|l| l.starts_with("no bound in the model"))
+                        .map_or("no bound", String::as_str);
+                    format!("{}: {why}", m.form.as_deref().unwrap_or(&m.model))
+                })
+                .collect();
+            if !no_model.is_empty() {
+                hovers.push((
+                    format!("{} base(s) without a model box", no_model.len()),
+                    no_model.join("\n"),
+                ));
             }
             let unplaced = page.refs.len().saturating_sub(placed);
             if unplaced > 0 {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Unknown,
-                    &format!("{unplaced} without a position: not drawn"),
-                );
+                    format!("{unplaced} without a position: not drawn"),
+                ));
             }
             if !page.limitations.is_empty() {
-                ui.weak(format!("{} limitations", page.limitations.len()))
-                    .on_hover_text(page.limitations.join("\n\n"));
+                hovers.push((
+                    format!("{} limitations", page.limitations.len()),
+                    page.limitations.join("\n\n"),
+                ));
             }
             let selected = self.viewport.selected().and_then(|i| self.ref_of(i)).cloned();
             if let Some(r) = selected {
@@ -686,6 +853,16 @@ impl RenderTab {
                 }
             }
         });
+        for (status, text) in &lines {
+            theme::status(ui, *status, text);
+        }
+        if !hovers.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                for (text, hover) in &hovers {
+                    ui.weak(text).on_hover_text(hover);
+                }
+            });
+        }
     }
 }
 
@@ -753,6 +930,24 @@ fn glyph(painter: &egui::Painter, shape: Shape, c: egui::Pos2, r: f32, color: Co
     ));
 }
 
+// Test accessors, after the drawing part (the panel-frame scan reads the drawing part
+// up to its first `cfg(test)`).
+#[cfg(test)]
+impl RenderTab {
+    /// Bases asked for and bases answered (with a box or with none).
+    pub(crate) fn bounds_progress(&self) -> (usize, usize) {
+        (self.asked.len(), self.nif.len())
+    }
+
+    /// The shown cell's references.
+    pub(crate) fn page_refs(&self) -> Vec<CellRef> {
+        self.page
+            .as_ref()
+            .map(|p| p.refs.clone())
+            .unwrap_or_default()
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
@@ -761,26 +956,101 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn a_mesh_bounds_reply_is_kept_with_its_box_or_none() {
+    fn a_corner_beyond_f32_is_no_model_box() {
+        // Review L3 of M7.R3: 1e39 is finite in JSON but infinite as f32.
+        let env = json!({"data": {"form": "T.esm:000800", "model": "x.nif",
+            "bounds": {"min": [-1.0e39, 0.0, 0.0], "max": [1.0e39, 1.0, 1.0]}}});
+        let m = MeshBounds::from_envelope(&env).unwrap();
+        assert_eq!(m.aabb, None);
+    }
+
+    #[test]
+    fn a_refused_bounds_request_answers_its_base_with_obnd_kept() {
+        let obnd = json!({"min": [-1.0, -1.0, 0.0], "max": [1.0, 1.0, 1.0]});
+        let page = cell::parse_page(&json!({"data": {"mode": "cell", "cell": "T.esm:000900",
+            "items": [{"form": "T.esm:000901", "signature": "REFR",
+                       "base": {"kind": "formref", "form": "T.esm:000805"},
+                       "base_signature": "LIGH", "position": [0.0, 0.0, 0.0], "bounds": obnd}]}}));
         let mut tab = RenderTab::default();
+        tab.receive_page(page);
+        let req = tab.bounds_queue.first().cloned().unwrap();
+        tab.bounds_failed(
+            &req,
+            "failed: T.esm:000805 (LIGH) has no MODL: no model to read",
+        );
+        assert_eq!(tab.bounds_progress(), (1, 1));
+        let refs = tab.page_refs();
+        assert_eq!(cell::box_sources(&refs), (0, 1, 0));
+        assert!(tab.nif["T.esm:000805"].limitations[0].contains("has no MODL"));
+        // A request without a form is ignored.
+        tab.bounds_failed(&Request::new("mesh.bounds", json!({"model": "x.nif"})), "x");
+        assert_eq!(tab.nif.len(), 1);
+    }
+
+    #[test]
+    fn a_cell_asks_each_base_once_and_a_model_box_replaces_obnd() {
+        let item = |form: &str, base: &str, obnd: Value| {
+            json!({"form": form, "signature": "REFR",
+                   "base": {"kind": "formref", "form": base}, "base_signature": "STAT",
+                   "position": [0.0, 0.0, 0.0], "bounds": obnd})
+        };
+        let obnd = json!({"min": [-1.0, -1.0, 0.0], "max": [1.0, 1.0, 1.0]});
+        let page = cell::parse_page(&json!({"data": {
+            "mode": "cell", "cell": "T.esm:000900", "total": 3,
+            "items": [item("T.esm:000901", "T.esm:000800", obnd.clone()),
+                      item("T.esm:000902", "T.esm:000800", obnd),
+                      item("T.esm:000903", "T.esm:000801", Value::Null)]}}));
+        let mut tab = RenderTab::default();
+        assert_eq!(tab.receive_page(page), None);
+        // Two distinct bases: two requests, each once.
+        let asked: Vec<Value> = tab.bounds_queue.iter().map(|r| r.args.clone()).collect();
+        assert_eq!(
+            asked,
+            [
+                json!({"form": "T.esm:000800"}),
+                json!({"form": "T.esm:000801"})
+            ]
+        );
+        assert!(tab.bounds_queue.iter().all(|r| r.id == "mesh.bounds"));
+        let refs = |t: &RenderTab| t.page.as_ref().map(|p| p.refs.clone()).unwrap_or_default();
+        assert_eq!(cell::box_sources(&refs(&tab)), (0, 2, 1));
+        // The crate's model box replaces its OBND on both references; the other base's
+        // model stores none, so it stays without a bound.
         tab.receive_bounds(&json!({
-            "data": {"model": "Test/Crate.nif", "bounds": {"min": [0.0, 1.0, 2.0], "max": [3.0, 4.0, 5.0]}},
+            "data": {"form": "T.esm:000800", "model": "Test/Crate.nif",
+                     "bounds": {"min": [0.0, 1.0, 2.0], "max": [3.0, 4.0, 5.0]}},
             "limitations": ["a note"],
         }));
+        tab.receive_bounds(&json!({
+            "data": {"form": "T.esm:000801", "model": "Actor.nif", "bounds": null},
+            "limitations": ["no bound in the model: all 1 geometry block(s) are skinned"],
+        }));
+        let r = refs(&tab);
+        assert_eq!(cell::box_sources(&r), (2, 0, 1));
         assert_eq!(
-            tab.mesh_bounds,
-            Some(MeshBounds {
-                model: "Test/Crate.nif".into(),
-                aabb: Some(([0.0, 1.0, 2.0], [3.0, 4.0, 5.0])),
-                limitations: vec!["a note".into()],
-            })
+            r[0].nif_bounds,
+            Some((
+                glam::Vec3::new(0.0, 1.0, 2.0),
+                glam::Vec3::new(3.0, 4.0, 5.0)
+            ))
         );
-        tab.receive_bounds(
-            &json!({"data": {"model": "Actor.nif", "bounds": null}, "limitations": []}),
-        );
-        assert_eq!(tab.mesh_bounds.as_ref().and_then(|b| b.aabb), None);
+        assert!(tab.dirty);
+        assert_eq!(tab.nif.len(), 2);
+        // A reply without a form, or not an envelope, changes nothing.
+        tab.receive_bounds(&json!({"data": {"model": "x.nif", "bounds": null}}));
         tab.receive_bounds(&json!({"data": {}}));
-        assert_eq!(tab.mesh_bounds, None);
+        assert_eq!(tab.nif.len(), 2);
+        // The same cell again asks nothing new.
+        tab.bounds_queue.clear();
+        let again = cell::parse_page(&json!({"data": {"mode": "cell", "cell": "T.esm:000900",
+            "items": [item("T.esm:000904", "T.esm:000800", Value::Null)]}}));
+        tab.page = None;
+        assert_eq!(tab.receive_page(again), None);
+        assert!(tab.bounds_queue.is_empty());
+        assert_eq!(cell::box_sources(&refs(&tab)), (1, 0, 0));
+        assert!(selection_lines(&refs(&tab)[0])
+            .iter()
+            .any(|l| l.starts_with("box       model")));
     }
 
     #[test]

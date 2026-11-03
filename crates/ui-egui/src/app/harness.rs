@@ -291,6 +291,10 @@ mod tests;
 
 // Step 0 of sprint 2026-11-02: each pipeline's harness tests in a file of its own, so the
 // writers never share this one (pipeline E, W, R; X's live checks).
+// The integrator's end-to-end check across the pipelines (sprint 2026-11-02, wave 1).
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod e2e;
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod live;

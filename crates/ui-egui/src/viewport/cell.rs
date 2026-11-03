@@ -153,6 +153,9 @@ pub struct CellRef {
     pub scale: Option<f32>,
     /// The base's `OBND` corners (`with_bounds`), in the base's own space.
     pub bounds: Option<(Vec3, Vec3)>,
+    /// The box the base's model stores (`mesh.bounds`, M7.R3), in the model's root frame;
+    /// `None` until a reply gives one, or when the model stores none.
+    pub nif_bounds: Option<(Vec3, Vec3)>,
     pub persistent: bool,
     pub plugin: String,
 }
@@ -162,6 +165,16 @@ impl CellRef {
         Category::of(self.base_signature.as_deref(), self.signature.as_deref())
     }
 
+    /// The box it is drawn with and where that box came from: the model's (M7.R3) first,
+    /// else the base's `OBND`, else none (drawn as its group's shape).
+    pub fn drawn_box(&self) -> (Option<(Vec3, Vec3)>, BoxSource) {
+        match (self.nif_bounds, self.bounds) {
+            (Some(b), _) => (Some(b), BoxSource::Nif),
+            (None, Some(b)) => (Some(b), BoxSource::Obnd),
+            (None, None) => (None, BoxSource::None),
+        }
+    }
+
     /// The marker it is drawn as.
     pub fn marker(&self, palette: &Palette) -> Option<Marker> {
         let cat = self.category();
@@ -169,11 +182,35 @@ impl CellRef {
             self.position?,
             self.rotation,
             self.scale,
-            self.bounds,
+            self.drawn_box().0,
             cat.shape(),
             rgba(cat.color(palette)),
         ))
     }
+}
+
+/// Where a reference's box came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoxSource {
+    /// The base's model (`mesh.bounds`).
+    Nif,
+    /// The base's `OBND` (the fallback).
+    Obnd,
+    /// Neither: drawn as its group's shape, and counted as a limitation.
+    None,
+}
+
+/// How many placed references are drawn with each box source: model, `OBND`, none.
+pub fn box_sources(refs: &[CellRef]) -> (usize, usize, usize) {
+    let mut out = (0, 0, 0);
+    for r in refs.iter().filter(|r| r.position.is_some()) {
+        match r.drawn_box().1 {
+            BoxSource::Nif => out.0 = usize::saturating_add(out.0, 1),
+            BoxSource::Obnd => out.1 = usize::saturating_add(out.1, 1),
+            BoxSource::None => out.2 = usize::saturating_add(out.2, 1),
+        }
+    }
+    out
 }
 
 /// Three numbers of a JSON array as a vector (`None` unless all three are finite numbers).
@@ -261,6 +298,7 @@ fn parse_ref(item: &Value) -> Option<CellRef> {
             .map(|s| s as f32)
             .filter(|s| s.is_finite()),
         bounds,
+        nif_bounds: None,
         persistent: item.get("persistent").and_then(Value::as_bool) == Some(true),
         plugin: text(item, "plugin").unwrap_or_default(),
     })
@@ -384,6 +422,25 @@ mod tests {
                 (Category::Light, 1)
             ]
         );
+    }
+
+    #[test]
+    fn the_models_box_wins_then_obnd_then_the_shape() {
+        let mut p = parse_page(&envelope());
+        let pal = *workbench().palette(true);
+        assert_eq!(p.refs[0].drawn_box().1, BoxSource::Obnd);
+        assert_eq!(p.refs[1].drawn_box(), (None, BoxSource::None));
+        assert_eq!(box_sources(&p.refs), (0, 1, 1));
+        let nif = (Vec3::new(-1.0, -1.0, 0.0), Vec3::new(1.0, 1.0, 2.0));
+        p.refs[0].nif_bounds = Some(nif);
+        p.refs[1].nif_bounds = Some(nif);
+        assert_eq!(p.refs[0].drawn_box(), (Some(nif), BoxSource::Nif));
+        assert_eq!(box_sources(&p.refs), (2, 0, 0));
+        // The light is a box now, sized by its model.
+        let (m, _) = markers(&p.refs, &pal, 10);
+        assert_eq!(m[1].shape, Shape::Box);
+        assert_eq!(m[1].half_extents, Vec3::new(1.0, 1.0, 1.0));
+        assert_eq!(m[1].offset, Vec3::new(0.0, 0.0, 1.0));
     }
 
     #[test]
