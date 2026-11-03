@@ -14,7 +14,7 @@ use kitkraft_schema::{
 };
 use serde_json::{json, Map, Value};
 
-use super::failed;
+use super::{categories, failed};
 use crate::envelope::{Coverage, CoverageStatus, Outcome};
 use crate::exec::EngineError;
 
@@ -487,7 +487,14 @@ fn one_record(
     insert(&mut data, "confidence_counts", tally.confidence_json());
     let list: Vec<Value> = members.iter().map(|m| member_json(m, deep)).collect();
     insert(&mut data, "members", Value::Array(list));
-    Ok(outcome(Value::Object(data), limitations_for(&tally, deep)))
+    // M7.S2: the Object Window category.
+    let category = categories::category_of(record.signature.as_str());
+    insert(&mut data, "category", json!(category));
+    let mut limitations = limitations_for(&tally, deep);
+    if category == categories::OTHER {
+        limitations.push(categories::UNOBSERVED.to_string());
+    }
+    Ok(outcome(Value::Object(data), limitations))
 }
 
 fn one_header(header: &HeaderDef, deep: bool) -> Outcome {
@@ -591,6 +598,8 @@ fn listing(schema: &Schema) -> Outcome {
             "typed": tally.typed,
             "opaque": tally.opaque,
             "confidence_counts": tally.confidence_json(),
+            // M7.S2: the Object Window category.
+            "category": categories::category_of(record.signature.as_str()),
         }));
         total.add(&tally);
     }
@@ -631,6 +640,12 @@ fn listing(schema: &Schema) -> Outcome {
         summary.push_str(&l);
     }
     let mut limitations = limitations_for(&total, true);
+    if schema
+        .records()
+        .any(|r| categories::category_of(r.signature.as_str()) == categories::OTHER)
+    {
+        limitations.push(categories::UNOBSERVED.to_string());
+    }
     limitations.push(
         "record types without a definition are not listed: their subrecords are unknown to the \
          schema"
@@ -706,6 +721,32 @@ mod tests {
             .any(|h| h["type"] == "GRUP"));
         assert_eq!(result["evidence"], json!([]));
         assert_eq!(result["coverage"]["status"], "complete");
+    }
+
+    /// M7.S2: every listed type and every record result carries its Object Window
+    /// category; while a type is in "Other" the result says no sitting observed it.
+    #[test]
+    fn every_type_carries_its_object_window_category() {
+        let result = execute("schema", json!({})).unwrap();
+        let records = result["data"]["records"].as_array().unwrap();
+        assert!(!records.is_empty());
+        for r in records {
+            let c = r["category"].as_str().unwrap();
+            assert!(!c.is_empty(), "{r}");
+        }
+        let marked = |env: &Value| {
+            env["limitations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|l| l.as_str().unwrap().contains("\"*All\""))
+        };
+        assert!(marked(&result), "the listing says the tree is unobserved");
+        let weap = execute("schema", json!({"type": "WEAP"})).unwrap();
+        assert_eq!(weap["data"]["category"], "Other");
+        assert!(marked(&weap));
+        assert_eq!(crate::shapes::check_envelope(&result), Vec::<String>::new());
+        assert_eq!(crate::shapes::check_envelope(&weap), Vec::<String>::new());
     }
 
     #[test]
