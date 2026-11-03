@@ -568,3 +568,26 @@ no EditorID check yet in that run). Its data is not used.
 | Postflight | `ok`. The settings were restored and their hashes checked; no game process was left; the list files and `Default` were unchanged; no plugin was written |
 | Counts | Observed 7 dialogs, inconclusive 1 (WEAP), not-run 1 (Undo) |
 | Filed | `docs/ck-parity.md`: the rows "Edit dialog: AMMO", "COBJ", "LCTN", "TERM", "CONT", "STAT" and "KYWD" become `observed`; "Edit dialog: WEAP" stays as it was. M7.K4 maps the fields to schema members (E6 and K4 next) |
+
+### ck-20261103-01: X11, CK fixture F28 (a vanilla outpost object duplicated), agent-run, save allowed for F28 only
+
+The sitting ran `ck-run.ps1 -SaveAllowed F28` with `steps-F28.ps1` (not observe-only; the owner
+OK'd F28's save, Q3), through MO2 on `Kitkraft Dev`, 2026-11-03 from 01:05 to 02:13 local, in
+seven attempts. **No plugin was saved**: `overwrite\` is empty after every attempt, and every
+postflight but attempt 1's is `ok`. The records are in
+`C:\Modding\kitkraft-observe\ck-2026-11-03\F28-attempt1` to `-attempt7` (`session.md`,
+`preflight.json`, `lists-before\`, `settings-before\`, `shots\`, the dumps), with the runner's
+output in `x11-f28-attempt<n>.out`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261103-01` |
+| CK version | 1.16.244.0, from the title |
+| Data | `Starfield.esm` only, no active file; loaded in 115 to 132 s |
+| The object | STAT `CoffeeBrewingMachine01` (`Starfield.esm:136FDF`), the object of the outpost recipe `co_Outpost_Decor_CoffeeMaker01`. The Text Filter lists it and `Outpost_CoffeeBrewingMachine01` (TRNS); the first row's dialog holds the EditorID `CoffeeBrewingMachine01` (`f28-02-original.txt`) and was closed with Cancel |
+| Duplicate | Reached in attempts 5 to 7. The Object Window's context menu (Shift+F10, then a right-click on the row) shows Edit, Duplicate, Delete, Rename, Duplicate and Rename, and more in the screenshot (`F28-attempt3\shots\f28-03-context.png`), but **none of its items is in the UI Automation tree**, so they are not counted (Amendment 2 decision 2). Duplicate was clicked by its place in the menu; the list then had 3 rows instead of 2 (`LVM_GETITEMCOUNT`) and the title gained `*` |
+| Save | **inconclusive** after three attempts (5, 6, 7). File > Save Plugin opens "Select Target Plugin" (a Windows save dialog on `Starfield\Data`, type "TES Plugin Files (*.esp)"; `f28-05-save-dialog.png`), but its File name box (`*.esp`, shown focused in the screenshot) is not found under the dialog's UI Automation element, nor as the focused element. Nothing was typed and nothing saved; the frame's close met the unsaved-changes state and stopped the CK after 90 s (a finding; the duplicate was discarded) |
+| Driver faults fixed between attempts | 1: floating docks covered the list (clicks are now posted to the list's window); 2: a posted right-click opens no menu (Shift+F10 and a real right-click instead); 4: a screenshot crop of a file not yet written |
+| List files | MO2 prunes `plugins.txt` and `loadorder.txt` at launch (lines of disabled dev mods). Attempt 1's were restored by hand from the last `kit deploy disable` backup to their preflight hashes (`513953f7...`, `29043dc1...`); from attempt 2 on, the frame copies them to `lists-before\` and restores them, hashes checked. `modlist.txt` and `Default` unchanged throughout |
+| Counts | Observed: nothing new counted (the menu items are screenshot only). Inconclusive: F28's save. Not-run: F23, F20, F27 (no steps file written in time; the Cell View's rows and the render window are not exposed, `ck-20261101-03`) |
+| Requests | (1) The owner saves F28 by hand (Object Window > the coffee maker > Duplicate > File > Save Plugin, `KC_F28.esp`), or allows a sitting to type into the focused file box without a UI Automation element. (2) The CK's context-menu items by an owner sitting or screenshot reading |
