@@ -559,6 +559,22 @@ fn changed_line(env: &Value) -> String {
         .join(", ")
 }
 
+/// Whether two names of a form are the same form: formrefs compare by plugin (any case)
+/// and object id as a number, so `Patch.esp:001001` and `Patch.esp:00001001` match (the
+/// dialog's spelling and the write envelope's); anything else (an EditorID) compares
+/// without case. Integration wave 2, e2e test 2.
+fn same_form(a: &str, b: &str) -> bool {
+    fn parts(f: &str) -> Option<(String, u32)> {
+        let (plugin, id) = f.trim().rsplit_once(':')?;
+        let id = u32::from_str_radix(id.trim(), 16).ok()?;
+        Some((plugin.trim().to_ascii_lowercase(), id & 0x00FF_FFFF))
+    }
+    match (parts(a), parts(b)) {
+        (Some(x), Some(y)) => x == y,
+        _ => a.trim().eq_ignore_ascii_case(b.trim()),
+    }
+}
+
 /// The formref of the record a write's envelope wrote (its first non-parent record).
 fn own_record_form(env: &Value) -> String {
     env.pointer("/data/records")
@@ -1231,7 +1247,7 @@ fn start_undo(state: &mut EditorState, form: &str, into: &str, out: &mut Vec<Act
     let Some(last) = state
         .last
         .as_ref()
-        .filter(|l| l.form == form && l.into == into)
+        .filter(|l| same_form(&l.form, form) && l.into == into)
     else {
         state.note = Some((
             Status::NotRun,
@@ -1712,6 +1728,38 @@ mod tests {
             .unwrap_err()
             .contains("already held"));
         assert!(undoable(&env(json!([])), "f", "P.esp").is_err());
+    }
+
+    /// Integration wave 2: the undo finds the last write whichever spelling of the formref
+    /// asks for it (the dialog's `Patch.esp:001001`, the envelope's `Patch.esp:00001001`);
+    /// different forms, plugins and EditorIDs stay different.
+    #[test]
+    fn a_formref_matches_in_either_spelling() {
+        assert!(same_form("Patch.esp:001001", "Patch.esp:00001001"));
+        assert!(same_form("patch.ESP:1001", " Patch.esp:00001001 "));
+        assert!(!same_form("Patch.esp:001001", "Patch.esp:001002"));
+        assert!(!same_form("Patch.esp:001001", "Other.esp:001001"));
+        assert!(same_form("KkStat", "kkstat"));
+        assert!(!same_form("KkStat", "Patch.esp:001001"));
+        // The lookup itself: a placement's last write, asked for in the dialog's spelling,
+        // gives E5's refusal (the copied cell), not "nothing to undo".
+        let mut s = EditorState {
+            last: Some(LastWrite {
+                form: "Patch.esp:00001001".into(),
+                into: "Patch.esp".into(),
+                undo: Err("the write also copied CELL World.esp:00001001 into Patch.esp".into()),
+                stamp: None,
+            }),
+            ..EditorState::default()
+        };
+        let mut out = Vec::new();
+        start_undo(&mut s, "Patch.esp:001001", "Patch.esp", &mut out);
+        let note = s.note.clone().unwrap().1;
+        assert!(
+            note.starts_with("undo refused: the write also copied CELL"),
+            "{note}"
+        );
+        assert!(out.is_empty());
     }
 
     /// M7.W4 review L2: a Place action while a reply is awaited keeps the open form (it
