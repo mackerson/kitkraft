@@ -123,7 +123,7 @@ pub const CK_ITEMS: &[CkItem] = &[
     ck("Edit", "Picking Preferences", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
     ck("View", "Toggle Render Features", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
     ck("View", "Refresh Render Window", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
-    ck("View", "Object Windows", CkMapping::Command("query")),
+    ck("View", "Object Windows", CkMapping::CommandIn("query", Target::Window(WindowKind::ObjectWindow))),
     ck("View", "Render Windows", CkMapping::CommandIn("cell", Target::Tab("Render Window"))),
     ck("View", "Packin", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
     ck("View", "Toolbar", CkMapping::Gap("no command: KitKraft has no toolbar")),
@@ -941,6 +941,10 @@ mod tests {
         assert_eq!(
             item("View", "Cell View").target,
             Ok(Target::Tab("Cell View"))
+        );
+        assert_eq!(
+            item("View", "Object Windows").target,
+            Ok(Target::Window(WindowKind::ObjectWindow))
         );
         assert_eq!(item("Edit", "Find Text").target, Ok(Target::Tab("Records")));
         let exit = item("File", "Exit");

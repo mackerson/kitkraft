@@ -310,3 +310,96 @@ fn a_typed_scratch_path_becomes_the_active_file() {
         "nothing is written"
     );
 }
+
+// ---- the Object Window (M7.W1) -------------------------------------------------------------
+
+/// M7.W1 over the real engine: the tree is `schema`'s ("*All" at the top as observed, every
+/// type in "Other", marked unobserved), a type's node lists its records from `query`, and
+/// the Text Filter narrows them through the engine.
+#[test]
+fn the_object_window_lists_a_types_records_and_filters_them() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("ow");
+    let mine = dir.write(
+        "Mine.esm",
+        &plugin_bytes(&[], 1, &[0x800, 0x801, 0x802], 1.0),
+    );
+    let load = Request::new("load", json!({"plugins": [mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::ObjectWindow)]);
+    h.run_steps(3);
+    settle(&mut h);
+    assert_in_view(&h, "*All");
+    assert_in_view(&h, "Other (unobserved)");
+    assert_in_view(&h, "Object Window categories");
+    // The tree is long (every defined type is in "Other"): wheel it until GLOB is in view.
+    let is_glob = |n: &egui_kittest::kittest::AccessKitNode<'_>| {
+        text_of(n).is_some_and(|t| t.starts_with("GLOB ")) && n.toggled().is_some()
+    };
+    for _ in 0..80 {
+        if h.query_all_by(is_glob).next().is_some_and(|n| in_view(&n)) {
+            break;
+        }
+        h.query_all_by(|n| text_of(n).as_deref() == Some("*All") || is_glob(n))
+            .next()
+            .unwrap()
+            .scroll_down();
+        h.run_steps(1);
+    }
+    // The wheel scrolls smoothly: let it come to rest before clicking.
+    h.run_steps(30);
+    let glob = h.query_all_by(is_glob).next().unwrap();
+    assert!(in_view(&glob), "GLOB node at {:?}", glob.rect());
+    glob.click();
+    h.run_steps(2);
+    settle(&mut h);
+    for id in ["Glob800", "Glob801", "Glob802"] {
+        assert_in_view(&h, id);
+    }
+    assert_in_view(&h, "3 row(s) on this page");
+    let input: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Text Filter")
+        })
+        .collect();
+    assert_eq!(input.len(), 1, "one Text Filter");
+    input[0].focus();
+    h.run_steps(1);
+    let input: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Text Filter")
+        })
+        .collect();
+    input[0].type_text("801");
+    h.run_steps(2);
+    click_button(&mut h, "Filter");
+    assert_in_view(&h, "1 row(s) on this page");
+    assert_in_view(&h, "Glob801");
+    assert_absent(&h, "Glob802");
+    // *All asks for a type (query takes one); wheel the tree back to its top first.
+    let is_all = |n: &egui_kittest::kittest::AccessKitNode<'_>| {
+        text_of(n).as_deref() == Some("*All") && n.toggled().is_some()
+    };
+    for _ in 0..80 {
+        if h.query_all_by(is_all).next().is_some_and(|n| in_view(&n)) {
+            break;
+        }
+        h.query_all_by(is_glob).next().unwrap().scroll_up();
+        h.run_steps(1);
+    }
+    h.run_steps(30);
+    let all = h
+        .query_all_by(|n| text_of(n).as_deref() == Some("*All") && n.toggled().is_some())
+        .next()
+        .unwrap();
+    all.click();
+    h.run_steps(2);
+    assert_in_view(&h, "pick one below *All");
+}

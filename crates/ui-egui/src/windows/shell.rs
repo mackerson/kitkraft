@@ -5,8 +5,8 @@
 //! - `ck_menu_bar`: the menu bar from the catalog, above the tabs;
 //! - `ck_after_top_bar`: a floating tab is never drawn twice (the central panel falls
 //!   back to the last docked tab and the window comes to the front);
-//! - `ck_windows`: the Warnings, Use Info, Edit Dialog and Data dialog (M7.M2) windows
-//!   and the floating tabs, then `ui.json` when the layout changed;
+//! - `ck_windows`: the Warnings, Use Info, Edit Dialog, Data dialog (M7.M2) and Object
+//!   Window (M7.W1) windows and the floating tabs, then `ui.json` when the layout changed;
 //! - `ck_receive`: replies to the requests those windows sent;
 //! - `ck_tour`: the screenshot tour's CK-shell images, after the tab images.
 //!
@@ -426,6 +426,36 @@ impl App {
             Some(DataAsk::Cancel) => self.shell.set_open(WindowKind::DataDialog, false),
             None => {}
         }
+
+        // The Object Window (M7.W1): the category tree from `schema`, a type's records.
+        let mut object_actions = Vec::new();
+        if self.shell.is_open(WindowKind::ObjectWindow) {
+            self.shell.object_window.shown();
+            let kind = WindowKind::ObjectWindow;
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let o = &mut self.shell.object_window;
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| object_actions = o.ui(ui, busy),
+            );
+        }
+        if let Some((ticket, req)) = self.shell.object_window.take_request() {
+            self.ck_submit(Pending::Object(ticket), req);
+        }
+        actions.extend(object_actions);
 
         // Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02): its
         // per-frame hook, with the active file and the shared selection.
