@@ -889,13 +889,18 @@ fn place_window(
 ) {
     let mut preview = false;
     let mut close = false;
+    // Locked while its preview awaits the confirm (M7.E4 review M1).
+    let locked = state
+        .write
+        .as_ref()
+        .is_some_and(|w| w.command == "place" && w.written.is_none() && !w.failed);
     if let Some(f) = state.place_form.as_mut() {
         egui::Window::new("Place Reference")
             .id(egui::Id::new("kitkraft-editor-place"))
             .collapsible(false)
             .default_width(480.0)
             .show(ctx, |ui| {
-                let ask = place::form_ui(ui, f, active_file);
+                let ask = place::form_ui(ui, f, active_file, locked);
                 preview = ask.preview;
                 close = ask.close;
             });
@@ -1246,6 +1251,10 @@ fn confirm_box(
                     ui.strong(what);
                     ui.weak(&w.into);
                 });
+                if w.command == "place" {
+                    // The exact position the confirmed request writes (M7.E4 review M1).
+                    ui.monospace(place::position_line(&w.preview));
+                }
                 match &w.previewed {
                     None => {
                         ui.horizontal(|ui| {

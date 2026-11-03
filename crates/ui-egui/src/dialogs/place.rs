@@ -106,9 +106,34 @@ pub(crate) struct FormAsk {
     pub close: bool,
 }
 
+/// The position a `place` request writes, as the confirm box shows it: "at (x, y, z)".
+pub(crate) fn position_line(request: &Request) -> String {
+    let axes: Vec<String> = request
+        .args
+        .get("position")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .map(|v| {
+                    v.as_f64()
+                        .map_or_else(|| "?".to_string(), |f| f.to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    format!("at ({})", axes.join(", "))
+}
+
 /// The Place form: the base, the cell, the position typed as X, Y and Z (game units),
 /// the active file it goes into, and Preview and Close. Nothing is sent from here.
-pub(crate) fn form_ui(ui: &mut egui::Ui, f: &mut PlaceForm, active_file: Option<&str>) -> FormAsk {
+/// `locked` while a preview of it awaits its confirm: the position cannot change under
+/// the confirm box (M7.E4 review M1); closing the box unlocks it.
+pub(crate) fn form_ui(
+    ui: &mut egui::Ui,
+    f: &mut PlaceForm,
+    active_file: Option<&str>,
+    locked: bool,
+) -> FormAsk {
     let mut ask = FormAsk::default();
     ui.horizontal(|ui| {
         ui.label("Base");
@@ -118,15 +143,17 @@ pub(crate) fn form_ui(ui: &mut egui::Ui, f: &mut PlaceForm, active_file: Option<
         ui.label("Cell");
         ui.monospace(&f.cell);
     });
-    ui.horizontal(|ui| {
-        for (axis, text) in ["X", "Y", "Z"].iter().zip(f.xyz.iter_mut()) {
-            let label = ui.label(*axis);
-            ui.add(
-                egui::TextEdit::singleline(text)
-                    .desired_width(theme::width(ui, theme::Field::Tiny)),
-            )
-            .labelled_by(label.id);
-        }
+    ui.add_enabled_ui(!locked, |ui| {
+        ui.horizontal(|ui| {
+            for (axis, text) in ["X", "Y", "Z"].iter().zip(f.xyz.iter_mut()) {
+                let label = ui.label(*axis);
+                ui.add(
+                    egui::TextEdit::singleline(text)
+                        .desired_width(theme::width(ui, theme::Field::Tiny)),
+                )
+                .labelled_by(label.id);
+            }
+        });
     });
     let position = f.position();
     if let Err(e) = &position {
@@ -146,7 +173,12 @@ pub(crate) fn form_ui(ui: &mut egui::Ui, f: &mut PlaceForm, active_file: Option<
     }
     ui.horizontal(|ui| {
         ask.preview = ui
-            .add_enabled(position.is_ok(), egui::Button::new("Preview"))
+            .add_enabled(position.is_ok() && !locked, egui::Button::new("Preview"))
+            .on_disabled_hover_text(if locked {
+                "previewed: close the confirm box to change the position"
+            } else {
+                "type a number for each of X, Y and Z"
+            })
             .on_hover_text(
                 "`place --dry-run`: the reference and the cell it carries, written and validated on a staged copy; nothing written",
             )

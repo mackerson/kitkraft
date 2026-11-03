@@ -1068,3 +1068,30 @@ fn m7_e4_place_is_refused_outside_the_active_file() {
         assert!(!Path::new(f).exists(), "{f} was written");
     }
 }
+
+/// Review finding M1 of M7.E4 (probe RV-E5-B): the confirm box shows the position it will
+/// write, and the Place form is locked after Preview: retyping X then changes nothing, and
+/// the one write holds the previewed position.
+#[test]
+fn m7_e4_the_confirm_shows_the_position_and_the_form_is_locked_after_preview() {
+    let s = Scratch::new("place-locked");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    assert_in_view(&h, "at (12.5, 0, 0)");
+    // Retyping after the preview does not reach the form.
+    type_into(&mut h, "X", "777");
+    assert!(
+        h.query_all_by(|n| n.value().as_deref() == Some("012.5777"))
+            .next()
+            .is_none(),
+        "the form took an edit after its preview"
+    );
+    assert!(enabled(&h, "Write to Patch.esp"));
+    press(&mut h, "Write to Patch.esp");
+    assert!(Path::new(&patch).is_file());
+}
