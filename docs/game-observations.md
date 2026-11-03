@@ -565,7 +565,9 @@ rows read as **inconclusive**, never `fail`. The same echo-only answers came in 
 before, `2026-11-03-T02`, on the same plugin and the same probes. Its ledger entry was not
 written because the ledger path was relative, which the controller refuses as an
 unauthorized write; `C:\Modding\kitkraft-observe\2026-11-03-T02\report.json` keeps it. That
-makes two attempts. Later steps of T-02 did answer: the `coc` to the apartment printed its
+makes two attempts. Later steps of T-02 did answer (though the later `GetInCell >> 1.00`
+lines may be the Lodge check's late answer, R28, so they show the console was live, not
+that the load happened): the `coc` to the apartment printed its
 script lines, and `player.getincell 0021966F` printed a result. So the console was live and
 only the first answer after a move, or the long `help` output, missed the tool's capture
 window (`iExecTimeout=100`, `game-20261101-T1` row l). The first try, `2026-11-03-T01`, never
