@@ -317,7 +317,9 @@ impl EditorState {
             _ => {}
         }
         let what = match (slot, command) {
+            (Slot::EditorPreview, "build") => "the plan (`build --plan`)".to_string(),
             (Slot::EditorPreview, c) => format!("the preview (`{c} --dry-run`)"),
+            (Slot::EditorWrite, "build") => "the build".to_string(),
             (Slot::EditorWrite, "revert") => "the undo".to_string(),
             (Slot::EditorWrite, _) => "the write".to_string(),
             _ => "the request".to_string(),
@@ -563,10 +565,12 @@ fn confirm_blocked(
         env.pointer("/data/would_write") == Some(&Value::Bool(true))
     };
     if !writable {
-        return Some(
+        return Some(if w.command == "build" {
+            "the plan's validate did not pass: a real build would be refused".to_string()
+        } else {
             "the dry run says a real write would be refused (validate finds errors on the written record)"
-                .to_string(),
-        );
+                .to_string()
+        });
     }
     if active_file != Some(w.into.as_str()) {
         return Some(format!(
@@ -1376,5 +1380,18 @@ mod tests {
         s.failed(Slot::EditorWrite, None);
         let note = s.note.clone().unwrap().1;
         assert!(note.starts_with("the undo:"), "{note}");
+        // A build says plan and build (L2 of M7.E5).
+        let mut b = write("Patch.esp");
+        b.command = "build";
+        s.write = Some(b.clone());
+        s.awaiting = Some(Slot::EditorPreview);
+        s.failed(Slot::EditorPreview, None);
+        let note = s.note.clone().unwrap().1;
+        assert!(note.starts_with("the plan (`build --plan`)"), "{note}");
+        s.write = Some(b);
+        s.awaiting = Some(Slot::EditorWrite);
+        s.failed(Slot::EditorWrite, None);
+        let note = s.note.clone().unwrap().1;
+        assert!(note.starts_with("the build:"), "{note}");
     }
 }
