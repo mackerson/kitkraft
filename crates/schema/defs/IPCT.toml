@@ -13,10 +13,10 @@
 #     (L13179-L13180), and the footstep particle distance and the decal lifetime
 #     (L13181-L13182).
 #   corpus: 1459 official IPCT records in the 14 official ESMs (inventory scan of
-#     2026-10-29, crates/esm/tests/inventory_types.rs); the ipct_types scan in
-#     crates/esm/tests/ipct_types.rs checks this definition against them: every
-#     subrecord is placed in a member, every placed subrecord decodes, and the
-#     re-encoding reproduces every record.
+#     2026-10-29, crates/esm/tests/inventory_types.rs); ipct_types_full (crates/esm/tests/ipct_types.rs),
+#     2026-11-03, checks this definition against them: every subrecord is placed in a
+#     member, every placed subrecord decodes, and the re-encoding reproduces every
+#     record (1459 records, 1459 identical).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared
 #     BfcbBlock, Model and SoundReference blocks keep their own provenance.
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
@@ -27,8 +27,10 @@ name = "Impact"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13147-L13183"
 evidence = [
   "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official IPCT record (1459) decodes with every subrecord placed and re-encodes identically",
+  "corpus: ipct_types_full (crates/esm/tests/ipct_types.rs), 2026-11-03: all 1459 official IPCT records of the 14 official ESMs decode with every subrecord placed and re-encode identically",
 ]
 confidence = "corpus"
+note = "KK-230: transcribed from the pinned xEdit file, checked by ipct_types_full; NAM3, NAM2 and INAM are absent from the official records and stay at reference confidence"
 
 [[member]]
 sig = "EDID"
