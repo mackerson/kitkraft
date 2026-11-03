@@ -672,7 +672,9 @@ Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed duri
 Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (273e2a7bfc0ca9aedaba9c3567a436eb2879d32fbe70cd2abf57beaefcce301c -> 3c65835703a6ac1ed1935d0a3cde08fe5d1d71a1540934e4c8617ffc21e00b4c): restored from C:\Modding\kitkraft-observe\2026-11-03-T05\backup\01-plugins.txt
 
 Writer's reading of `game-20261103-02` (T04, old controller) and `game-20261103-03` (T05,
-the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22.
+the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22. The
+entries' dates and session ids are UTC; the sessions ran 2026-11-02 22:39 to 23:22 local
+(EST). T04 (22:52) ran before `ad3602d4` (22:59), so before the retry R27 asked for.
 
 **Persistence and the placed references.**
 
@@ -749,7 +751,9 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
 - T-17 (the vanilla `TerminalScript` on the cloned terminal) is manual: its `.pex` is not
   next to the plugin.
 - The dev mod `KitKraft Dev - KitKraftMiniSite` (a package: the plugin and its `.pex`) was
-  deployed, enabled for the sessions and disabled after. Only its lines changed.
+  deployed, enabled for the sessions and disabled after. Only its lines changed, per
+  `deploy enable` and `disable`'s printed edits (not kept; each edit's profile backup is under
+  `%LOCALAPPDATA%\kitkraft\profile-backups\`).
 
 ### game-20261103-04: agent session 2026-11-03-T06 (`kit game session`), KitKraftScripts.esm
 
