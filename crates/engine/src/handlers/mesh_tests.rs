@@ -779,3 +779,32 @@ fn geometry_names_unreached_blocks_and_stays_partial() {
         crate::envelope::CoverageStatus::Partial
     ));
 }
+
+#[test]
+fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
+    // Review L2 (M7.S5 code): one bad slot failed the whole reply.
+    let data = dir("mesh-geometry-bad-slot").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    let mut model = nif([0.0; 3], &[BOXED, BOXED]);
+    let at = model
+        .windows(12)
+        .rposition(|w| w == [3, 0, 0, 0, 3, 0, 0, 0, 64, 0, 0, 0])
+        .unwrap();
+    model[at + 8] = 65;
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let l = out.limitations.join("\n");
+    assert!(l.contains("block 2: its slots do not read"), "{l}");
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}

@@ -624,10 +624,16 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
             skipped = skipped.saturating_add(1);
             continue;
         }
-        let slots = nif
-            .slots(block)
-            .map_err(|e| failed(GEOMETRY_ID, format!("{}: block {block}: {e}", r.file)))?
-            .unwrap_or_default();
+        let slots = match nif.slots(block) {
+            Ok(s) => s.unwrap_or_default(),
+            Err(e) => {
+                limitations.push(format!(
+                    "block {block}: its slots do not read ({e}): skipped"
+                ));
+                skipped = skipped.saturating_add(1);
+                continue;
+            }
+        };
         let Some(first) = slots.into_iter().find(|s| s.slot == 0) else {
             limitations.push(format!("block {block}: no first slot: no mesh read"));
             skipped = skipped.saturating_add(1);
