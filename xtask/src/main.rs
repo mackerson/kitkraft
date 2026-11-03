@@ -231,7 +231,7 @@ fn print_help() {
     println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff;");
     println!("           `oracle ck <fixture-dir>... [--out DIR] [--check]`: kitkraft.esm vs the");
     println!("           CK's ck.esm, every difference classed (lane A, M5.A2)");
-    println!("  game-regress  replay the recorded game sessions (M4.T7): not built yet");
+    println!("  game-regress  replay recorded game sessions at the desk: rebuild, testplan, compare (M4.T7; the live half not built)");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
