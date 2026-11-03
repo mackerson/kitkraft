@@ -687,8 +687,9 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
   (`KYWD: KitKraftLocTypeMiniSite (09001000)`). T-04's holds T-02's
   (`TMLM: (09001001) 'KitKraft Mini Site Menu'`). T-07's holds T-03's
   (`TERM: (09001002) 'KitKraft Site Terminal'`).
-- So the game does list the plugin's new forms under the predicted runtime IDs. The console
-  tool hands each `help` result to a later request.
+- So three of the seven new forms are listed under their predicted runtime IDs (the KYWD,
+  TMLM and TERM; T-10 and T-15 show the ACTI and the TERM as bases). The PKIN, FACT and
+  LCTN are not seen. The console tool hands each `help` result to a later request.
 - The matcher's `fail` on T-03, T-04 and T-07 is that misattribution, so these rows are
   **inconclusive** (R20). So are T-01, T-02, T-05, T-06, T-08 and T-09, where three sends
   each got only the echo.
