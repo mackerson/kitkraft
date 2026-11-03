@@ -509,7 +509,10 @@ revisited once a sitting observes how the CK docks. Code:
   "KitKraft" line come the catalog's own commands of that menu: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
   (bound by M7.M5); a command whose `menu_path` is an observed item is that item. An item
-  opens the tab or window that runs its command and runs nothing itself. Disabled items
+  opens the tab or window that runs its command and runs nothing itself; the editor's
+  writes open their forms through the editor (File > Build Patch, Record > New Form...,
+  Clone Form... and Edit > Duplicate send `OpenEditor` with `build`, `new` or `clone`; each is
+  enabled once the gate permits its command). Disabled items
   carry a word beside them and the reason on hover: `writes` (outside ADR 0007 Amendments
   3 and 4, or in the editor's scope and not yet permitted with its M7.E ticket), `gap`,
   `no command`, `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).

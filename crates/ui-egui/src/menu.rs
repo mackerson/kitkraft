@@ -290,9 +290,12 @@ fn panel_of(id: &str) -> Option<Target> {
         // Step 0 of sprint 2026-11-02: pipeline E's writes open the editor in the Edit
         // dialog (M7.E2 to M7.E6) once the gate permits each; until then `target`
         // disables them before this match is asked.
-        "set" | "new" | "clone" | "place" | "revert" => Target::Window(WindowKind::EditDialog),
-        // E's ask B1 (M7.E5): `build` opens its spec form through the editor.
+        "set" | "place" | "revert" => Target::Window(WindowKind::EditDialog),
+        // E's asks B1 (M7.E5) and C1 (M7.E3): `build`, `new` and `clone` open their forms
+        // through the editor (Record > New Form..., Clone Form..., Edit > Duplicate).
         "build" => Target::Editor("build"),
+        "new" => Target::Editor("new"),
+        "clone" => Target::Editor("clone"),
         // Pipeline R's NIF bounds (M7.S4, M7.R3) belong to the Render Window.
         "mesh.bounds" => Target::Tab("Render Window"),
         _ => return None,
@@ -843,8 +846,8 @@ mod tests {
     #[test]
     fn the_editor_writes_wait_on_the_gate_and_mesh_bounds_opens_the_render_window() {
         for id in ["set", "new", "clone", "place", "build", "revert"] {
-            let want = if id == "build" {
-                Target::Editor("build")
+            let want = if ["build", "new", "clone"].contains(&id) {
+                Target::Editor(id)
             } else {
                 Target::Window(WindowKind::EditDialog)
             };

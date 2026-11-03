@@ -645,10 +645,40 @@ fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) 
 #[test]
 fn file_build_patch_follows_the_gate_and_opens_the_build_form() {
     editor_item_follows_the_gate("build", "File", "Build Patch...");
-    match super::super::ck_shell::editor_action("build") {
+    match super::super::ck_shell::editor_action("build", Some("A.esm:000800"), Some("GLOB")) {
         Action::OpenEditor { command, form } => {
             assert_eq!((command.as_str(), form.as_str()), ("build", ""))
         }
         _ => panic!("OpenEditor"),
     }
+}
+
+/// E's ask C1 (M7.E3): Record > New Form..., Record > Clone Form... and Edit > Duplicate
+/// follow the gate and open the `new`/`clone` forms through the editor, not the plain Edit
+/// dialog; `clone` copies the inspected record, `new` starts from its type.
+#[test]
+fn new_clone_and_duplicate_open_the_editors_forms() {
+    editor_item_follows_the_gate("new", "Record", "New Form...");
+    editor_item_follows_the_gate("clone", "Record", "Clone Form...");
+    editor_item_follows_the_gate("clone", "Edit", "Duplicate");
+    let action =
+        |c: &str, f: Option<&str>, t: Option<&str>| match super::super::ck_shell::editor_action(
+            c, f, t,
+        ) {
+            Action::OpenEditor { command, form } => (command, form),
+            _ => panic!("OpenEditor"),
+        };
+    let sel = Some("A.esm:000800");
+    assert_eq!(
+        action("clone", sel, Some("GLOB")),
+        ("clone".to_string(), "A.esm:000800".to_string())
+    );
+    assert_eq!(
+        action("new", sel, Some("GLOB")),
+        ("new".to_string(), "GLOB".to_string())
+    );
+    assert_eq!(
+        action("new", None, None),
+        ("new".to_string(), String::new())
+    );
 }

@@ -114,7 +114,16 @@ impl App {
         match pick {
             MenuPick::Open(Target::Tab(label)) => self.ck_open_tab(label),
             MenuPick::Open(Target::Window(kind)) => self.shell.set_open(kind, true),
-            MenuPick::Open(Target::Editor(command)) => self.apply(vec![editor_action(command)]),
+            MenuPick::Open(Target::Editor(command)) => {
+                let form = self.ck_selected();
+                let ty = self
+                    .records
+                    .record_view
+                    .as_ref()
+                    .map(|r| r.signature.clone())
+                    .filter(|s| !s.is_empty());
+                self.apply(vec![editor_action(command, form.as_deref(), ty.as_deref())])
+            }
             MenuPick::FloatTab(label) => {
                 let float = !self.shell.is_floating(label);
                 let docked = TABS
@@ -747,12 +756,19 @@ impl App {
     }
 }
 
-/// The action a menu item for editor write `command` sends (E's ask B1): the editor opens
-/// that command's form, on no record (a build spec names its own).
-pub(super) fn editor_action(command: &str) -> Action {
+/// The action a menu item for editor write `command` sends (E's asks B1 and C1): the editor
+/// opens that command's form. `clone` (Clone Form..., Edit > Duplicate) copies the
+/// inspected record `form`; `new` starts from the inspected record's type `ty`, or none;
+/// `build` names no record (its spec names its own).
+pub(super) fn editor_action(command: &str, form: Option<&str>, ty: Option<&str>) -> Action {
+    let on = match command {
+        "clone" => form,
+        "new" => ty,
+        _ => None,
+    };
     Action::OpenEditor {
         command: command.to_string(),
-        form: String::new(),
+        form: on.unwrap_or_default().to_string(),
     }
 }
 
