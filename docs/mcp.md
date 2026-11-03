@@ -652,6 +652,9 @@ has, their types, and how far each is checked before it writes a `query` predica
   `opaque`, `confidence_counts {reference, container-reference, corpus, ck-diff, verified}`), `headers[]`,
   `common[]` (shared groups and types), the same totals over every definition, `summary`
   (one line per record type in text mode).
+- `category` (M7.S2), on each `records[]` entry and on a record result: the record type's
+  Object Window category: an observed CK category, or "Other" while no sitting has
+  observed one (stated in `limitations`).
 - With `type` (a record definition): `defined: true`, `kind: "record"`, `name`,
   `confidence`, `source`, `evidence`, `note`, `header_flags`, the counts above for the
   type, and `members[]` in definition order, **top level only** unless `deep`: a subrecord
