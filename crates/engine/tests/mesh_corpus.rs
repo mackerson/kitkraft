@@ -13,7 +13,8 @@
     clippy::expect_used,
     clippy::panic,
     clippy::indexing_slicing,
-    clippy::arithmetic_side_effects
+    clippy::arithmetic_side_effects,
+    clippy::chunks_exact_to_as_chunks
 )]
 
 use std::path::{Path, PathBuf};
@@ -267,4 +268,383 @@ fn v3_mesh_bounds_for_the_bases_of_a_cell() {
         );
         assert_eq!(boxed + unbounded + failed, bases.len());
     }
+}
+
+// ---- M7.S5 study: the `.mesh` layout (`docs/research/mesh-layout-2026-11-02.md`)
+
+/// One `BSGeometry` slot (study G1): its three `u32` and, for the first slot of a
+/// geometry whose box is stored, that box (centre, half extents).
+struct Slot {
+    first: u32,
+    second: u32,
+    third: u32,
+    stored_box: Option<([f32; 3], [f32; 3])>,
+}
+
+/// The archive entry a slot path names (G2): `Geometries\a\b.mesh`, or `a\b` for
+/// `geometries\a\b.mesh`.
+fn mesh_entry(path: &str) -> String {
+    let n = kitkraft_ba2::normalize(path);
+    let n = if n.starts_with("geometries/") {
+        n
+    } else {
+        format!("geometries/{n}")
+    };
+    if n.ends_with(".mesh") {
+        n
+    } else {
+        format!("{n}.mesh")
+    }
+}
+
+fn u32_at(b: &[u8], p: usize) -> Option<u32> {
+    b.get(p..p + 4)
+        .map(|s| u32::from_le_bytes([s[0], s[1], s[2], s[3]]))
+}
+
+/// The slots of every geometry block of a model (G1: after the three references, four
+/// slots, each a `u8` 0 or 1, and when 1 three `u32` and a `u32`-length path), or
+/// why the block's bytes do not fit.
+fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
+    let nif = Nif::parse(bytes).map_err(|e| e.to_string())?;
+    for i in 0..nif.blocks.len() {
+        let Ok(Some(g)) = nif.geometry(i) else {
+            continue;
+        };
+        let block = nif.blocks[i];
+        let end = block.offset + block.len;
+        let mut p = g.bound_offset + 52;
+        let stored_box = match g.bound {
+            Bound::Stored { aabb, .. } => Some((aabb.center, aabb.half_extent)),
+            _ => None,
+        };
+        for slot in 0..4 {
+            let flag = *bytes.get(p).ok_or("the block ends in a slot flag")?;
+            p += 1;
+            match flag {
+                0 => continue,
+                1 => {}
+                f => return Err(format!("block {i}: slot flag {f}")),
+            }
+            let first = u32_at(bytes, p).ok_or("short slot")?;
+            let second = u32_at(bytes, p + 4).ok_or("short slot")?;
+            let third = u32_at(bytes, p + 8).ok_or("short slot")?;
+            let len = u32_at(bytes, p + 12).ok_or("short slot")? as usize;
+            p += 16;
+            let path = bytes.get(p..p + len).ok_or("short path")?;
+            p += len;
+            out.push((
+                mesh_entry(&String::from_utf8_lossy(path)),
+                Slot {
+                    first,
+                    second,
+                    third,
+                    stored_box: if slot == 0 { stored_box } else { None },
+                },
+            ));
+        }
+        if p != end {
+            return Err(format!(
+                "block {i}: {} bytes after the four slots",
+                end as i64 - p as i64
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// A `.mesh` walked as claims M1 to M6 describe it.
+struct Walked {
+    indices: Vec<u16>,
+    scale: f32,
+    positions: Vec<[i16; 3]>,
+    /// The five four-byte-per-vertex sections (M3); the fourth holds the normals (M4).
+    sections: [Vec<u32>; 5],
+    weights: usize,
+    lists: usize,
+    /// `None` when the file ends after the extra lists (M6).
+    forty_byte_entries: Option<usize>,
+}
+
+/// Walks a `.mesh`; `Err` names the first claim that does not hold.
+fn walk_mesh(b: &[u8]) -> Result<Walked, String> {
+    let mut p = 0usize;
+    let rd = |p: &mut usize| -> Result<u32, String> {
+        let v = u32_at(b, *p).ok_or(format!("ends at {p}"))?;
+        *p += 4;
+        Ok(v)
+    };
+    if rd(&mut p)? != 2 {
+        return Err("M1: the first u32 is not 2".into());
+    }
+    let ni = rd(&mut p)? as usize;
+    let raw = b.get(p..p + 2 * ni).ok_or("M1: indices past the end")?;
+    let indices: Vec<u16> = raw
+        .chunks_exact(2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .collect();
+    p += 2 * ni;
+    let scale = f32::from_bits(rd(&mut p)?);
+    let per_vertex = rd(&mut p)? as usize;
+    let nv = rd(&mut p)? as usize;
+    let raw = b.get(p..p + 6 * nv).ok_or("M2: positions past the end")?;
+    let positions: Vec<[i16; 3]> = raw
+        .chunks_exact(6)
+        .map(|c| {
+            [
+                i16::from_le_bytes([c[0], c[1]]),
+                i16::from_le_bytes([c[2], c[3]]),
+                i16::from_le_bytes([c[4], c[5]]),
+            ]
+        })
+        .collect();
+    p += 6 * nv;
+    let mut sections: [Vec<u32>; 5] = Default::default();
+    for (k, s) in sections.iter_mut().enumerate() {
+        let n = rd(&mut p)? as usize;
+        let allowed = match k {
+            0 | 3 | 4 => n == nv,
+            _ => n == 0 || n == nv,
+        };
+        if !allowed {
+            return Err(format!(
+                "M3: section {} has {n} entries for {nv} vertices",
+                k + 1
+            ));
+        }
+        let raw = b.get(p..p + 4 * n).ok_or("M3: a section past the end")?;
+        *s = raw
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        p += 4 * n;
+    }
+    let weights = rd(&mut p)? as usize;
+    if weights != nv * per_vertex {
+        return Err("M5: the 4-byte entries are not vertices times the u32 after the scale".into());
+    }
+    p = p
+        .checked_add(4 * weights)
+        .filter(|e| *e <= b.len())
+        .ok_or("M5: entries past the end")?;
+    let lists = rd(&mut p)? as usize;
+    for _ in 0..lists {
+        let c = rd(&mut p)? as usize;
+        let raw = b.get(p..p + 2 * c).ok_or("M5: a list past the end")?;
+        if raw
+            .chunks_exact(2)
+            .any(|x| usize::from(u16::from_le_bytes([x[0], x[1]])) >= nv)
+        {
+            return Err("M5: a list value is not below the vertex count".into());
+        }
+        p += 2 * c;
+    }
+    let forty_byte_entries = if p == b.len() {
+        None
+    } else {
+        let m = rd(&mut p)? as usize;
+        p = p
+            .checked_add(40 * m)
+            .filter(|e| *e <= b.len())
+            .ok_or("M6: entries past the end")?;
+        // M6: four more bytes close the file (their meaning is not shown).
+        p = p
+            .checked_add(4)
+            .filter(|e| *e <= b.len())
+            .ok_or("M6: the four closing bytes are missing")?;
+        Some(m)
+    };
+    if p != b.len() {
+        return Err(format!("{} bytes left at the end", b.len() - p));
+    }
+    Ok(Walked {
+        indices,
+        scale,
+        positions,
+        sections,
+        weights,
+        lists,
+        forty_byte_entries,
+    })
+}
+
+/// A word of the fourth section as a vector (M4: three 10-bit unsigned fields, low bits
+/// first, each mapped from 0..1023 to -1..1).
+fn unpack10(w: u32) -> [f64; 3] {
+    let f = |s: u32| f64::from((w >> s) & 0x3FF) / 1023.0 * 2.0 - 1.0;
+    [f(0), f(10), f(20)]
+}
+
+#[derive(Default, Debug)]
+struct MeshTally {
+    meshes: u64,
+    slots: u64,
+    third_not_64: u64,
+    counts_ok: u64,
+    counts_bad: u64,
+    box_checked: u64,
+    box_ok: u64,
+    normals: u64,
+    unit: u64,
+    agree: u64,
+    compared: u64,
+    indices: u64,
+    index_out_of_range: u64,
+    not_triples: u64,
+    ends_after_lists: u64,
+    with_lists: u64,
+    weighted: u64,
+    present: [u64; 5],
+}
+
+#[test]
+#[ignore = "decodes every official .mesh (about 19 GB) and .nif; run in release"]
+fn every_official_mesh_matches_the_layout_study() {
+    let Some(data) = data_dir() else {
+        eprintln!("skipped: KITKRAFT_DATA_DIR is not set");
+        return;
+    };
+    let mut archives: Vec<PathBuf> = std::fs::read_dir(&data)
+        .unwrap()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("ba2")))
+        .collect();
+    archives.sort();
+    let mut t = MeshTally::default();
+    let mut failures: Vec<String> = Vec::new();
+
+    // G1: the slots every geometry block names.
+    let mut slots: std::collections::HashMap<String, Vec<Slot>> = Default::default();
+    for path in &archives {
+        let (archive, mut file) = Archive::open(path).unwrap();
+        for (i, e) in archive.entries.iter().enumerate() {
+            if !e.name.to_ascii_lowercase().ends_with(".nif") {
+                continue;
+            }
+            let bytes = archive.extract_vec(&mut file, i, 64 << 20).unwrap();
+            let mut out = Vec::new();
+            if let Err(why) = slots_of(&bytes, &mut out) {
+                failures.push(format!("G1 {}: {why}", e.name));
+            }
+            for (k, s) in out {
+                t.slots += 1;
+                t.third_not_64 += u64::from(s.third != 64);
+                slots.entry(k).or_default().push(s);
+            }
+        }
+    }
+
+    // M1 to M6 on every mesh, and G2/M2/M4 against the slots that name it.
+    let mut named = std::collections::HashSet::new();
+    let mut kinds: std::collections::BTreeMap<String, u64> = Default::default();
+    for path in &archives {
+        let (archive, mut file) = Archive::open(path).unwrap();
+        for (i, e) in archive.entries.iter().enumerate() {
+            let key = kitkraft_ba2::normalize(&e.name);
+            if !key.ends_with(".mesh") {
+                continue;
+            }
+            t.meshes += 1;
+            if slots.contains_key(&key) {
+                named.insert(key.clone());
+            }
+            let bytes = archive.extract_vec(&mut file, i, 1 << 30).unwrap();
+            let w = match walk_mesh(&bytes) {
+                Ok(w) => w,
+                Err(why) => {
+                    *kinds
+                        .entry(why.split(':').next().unwrap_or("").to_string())
+                        .or_default() += 1;
+                    failures.push(format!("{}: {why}", e.name));
+                    continue;
+                }
+            };
+            let nv = w.positions.len();
+            t.indices += w.indices.len() as u64;
+            t.index_out_of_range +=
+                w.indices.iter().filter(|x| usize::from(**x) >= nv).count() as u64;
+            t.not_triples += u64::from(w.indices.len() % 3 != 0);
+            t.ends_after_lists += u64::from(w.forty_byte_entries.is_none());
+            t.with_lists += u64::from(w.lists > 0);
+            t.weighted += u64::from(w.weights > 0);
+            for (k, s) in w.sections.iter().enumerate() {
+                t.present[k] += u64::from(!s.is_empty());
+            }
+            // M4: the fourth section's vectors are unit length and face the way the
+            // triangles' winding does.
+            let mut acc = vec![[0f64; 3]; nv];
+            for tri in w.indices.chunks_exact(3) {
+                let [a, b2, c] = [tri[0], tri[1], tri[2]].map(usize::from);
+                if a >= nv || b2 >= nv || c >= nv {
+                    continue;
+                }
+                let pa = w.positions[a].map(f64::from);
+                let pb = w.positions[b2].map(f64::from);
+                let pc = w.positions[c].map(f64::from);
+                let u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+                let v = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
+                let n = [
+                    u[1] * v[2] - u[2] * v[1],
+                    u[2] * v[0] - u[0] * v[2],
+                    u[0] * v[1] - u[1] * v[0],
+                ];
+                for k in [a, b2, c] {
+                    for d in 0..3 {
+                        acc[k][d] += n[d];
+                    }
+                }
+            }
+            for (k, word) in w.sections[3].iter().enumerate() {
+                let n = unpack10(*word);
+                t.normals += 1;
+                let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+                t.unit += u64::from((len - 1.0).abs() < 0.02);
+                let f = acc[k];
+                if f.iter().any(|x| *x != 0.0) {
+                    t.compared += 1;
+                    t.agree += u64::from(f[0] * n[0] + f[1] * n[1] + f[2] * n[2] > 0.0);
+                }
+            }
+            // G2: every slot naming this mesh agrees on the counts; M2: a first slot's
+            // stored box is the positions' box, dequantized by scale / 32767.
+            if let Some(list) = slots.get(&key) {
+                let (mut lo, mut hi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+                let q = f64::from(w.scale) / 32767.0;
+                for p in &w.positions {
+                    for d in 0..3 {
+                        let v = f64::from(p[d]) * q;
+                        lo[d] = lo[d].min(v);
+                        hi[d] = hi[d].max(v);
+                    }
+                }
+                for s in list {
+                    if s.first as usize == w.indices.len() && s.second as usize == nv {
+                        t.counts_ok += 1;
+                    } else {
+                        t.counts_bad += 1;
+                    }
+                    if let (Some((c, h)), true) = (s.stored_box, nv > 0) {
+                        t.box_checked += 1;
+                        let tol = 2.0 * q.abs() + 1e-4;
+                        let fits = (0..3).all(|d| {
+                            (f64::from(c[d] - h[d]) - lo[d]).abs() <= tol
+                                && (f64::from(c[d] + h[d]) - hi[d]).abs() <= tol
+                        });
+                        t.box_ok += u64::from(fits);
+                    }
+                }
+            }
+        }
+    }
+    let unresolved = slots.keys().filter(|k| !named.contains(*k)).count();
+    eprintln!(
+        "M7.S5: {t:?}; distinct meshes named {}, unresolved {unresolved}; {} failures {kinds:?}",
+        slots.len(),
+        failures.len()
+    );
+    for f in failures.iter().take(20) {
+        eprintln!("  {f}");
+    }
+    assert!(failures.is_empty());
 }
