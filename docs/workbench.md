@@ -467,7 +467,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W2, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W1, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -505,6 +505,17 @@ revisited once a sitting observes how the CK docks. Code:
   carry a word beside them and the reason on hover: `writes` (outside ADR 0007 Amendments
   3 and 4, or in the editor's scope and not yet permitted with its M7.E ticket), `gap`,
   `no command`, `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
+- **Object Window (M7.W1, M7.S2)**: View > Object Windows (or View > Object Window). The
+  category tree from `schema`: "*All" at the top, as the CK's (observed,
+  `ck-20261101-03`), then each category with its record types; a sitting has observed no
+  category below "*All" yet, so every type is in "Other (unobserved)", KitKraft's own name,
+  and the window says so (sitting 1's step S1-09 records the tree; `schema` carries each
+  type's `category`). A type's node lists its records with `query` (EditorID, FormID, type,
+  plugin; virtual rows, 1,000 a page); the "Text Filter" asks the engine for the type's
+  records whose EditorID contains the text; a double-click inspects the record and opens
+  the Edit dialog. Observed and not built: "*All" listing every form (`query` takes one
+  type, so "*All" asks for one), the use count column, and dragging a row into the Render
+  Window (M7.E4).
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
