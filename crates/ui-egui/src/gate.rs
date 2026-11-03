@@ -191,19 +191,28 @@ pub const ALLOWLIST: &[Allowed] = &[
         id: "mesh.bounds",
         refuse_args: &[],
         require_true: &[],
-        why: "reads a model's bounds from its NIF, loose or in a BA2 (not built yet: bounds null until M7.S4)",
+        why: "reads a model's box from its NIF, loose or in a BA2 (M7.S4)",
     },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
 /// would write is refused and the read-only mode is required. Each id is also in
 /// [`WRITING`]; a test holds that every entry refuses at least one argument.
-pub const GUARDED: &[Allowed] = &[Allowed {
-    id: "roundtrip",
-    refuse_args: &["out", "overwrite"],
-    require_true: &["verify"],
-    why: "verify only: rewrites in memory and compares; `out` is refused",
-}];
+pub const GUARDED: &[Allowed] = &[
+    Allowed {
+        id: "roundtrip",
+        refuse_args: &["out", "overwrite"],
+        require_true: &["verify"],
+        why: "verify only: rewrites in memory and compares; `out` is refused",
+    },
+    // M7.E5, step one (M4.W6's note): the build spec's plan only, which writes nothing.
+    Allowed {
+        id: "build",
+        refuse_args: &["overwrite"],
+        require_true: &["plan"],
+        why: "plan only: lists every change, the new forms and the validation result of a build spec and writes nothing; `out` names the plugin a confirmed build would write",
+    },
+];
 
 /// Catalog commands that can write a file or into MO2: exactly the catalog's `writes`
 /// set (a test holds this). Never on [`ALLOWLIST`]; on [`GUARDED`] only with their
@@ -2023,6 +2032,83 @@ mod tests {
                 assert!(refused.is_err(), "{refused:?}");
             }
         }
+    }
+
+    /// `build` in its plan-only form (M7.E5, step one): `plan: true` passes like a read;
+    /// without it, with `plan: false` or `plan: "yes"`, or with `overwrite`, it is refused,
+    /// and no request of it takes a confirmation yet.
+    #[test]
+    fn build_runs_only_as_a_plan() {
+        let base =
+            json!({"spec": r"C:\Modding\work\spec.toml", "out": r"C:\Modding\out\Patch.esp"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        assert!(check(&Request::new("build", with(json!({"plan": true})))).is_ok());
+        for bad in [
+            base.clone(),
+            with(json!({"plan": false})),
+            with(json!({"plan": "yes"})),
+            with(json!({"plan": true, "overwrite": true})),
+        ] {
+            let e = check(&Request::new("build", bad.clone()));
+            assert!(matches!(e, Err(RunError::Refused(_))), "{bad}: {e:?}");
+        }
+        for args in [base.clone(), with(json!({"plan": true}))] {
+            let e = check(&Request::confirmed("build", args.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirmed write")),
+                "{args}: {e:?}"
+            );
+        }
+    }
+
+    /// Through the gate and the engine on a scratch fixture: a `build` plan of a one-`set`
+    /// spec reaches the engine, lists the change and writes nothing; the building form is
+    /// refused before the engine and writes nothing.
+    #[test]
+    fn a_build_plan_reaches_the_engine_and_writes_nothing() {
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        let scratch = scratch("build-plan");
+        let dir = &scratch.0;
+        let fixture = dir.join("Fixture.esm");
+        std::fs::write(&fixture, plugin_bytes(&[], 1, &[0x800], 1.5)).unwrap();
+        let spec = dir.join("spec.toml");
+        std::fs::write(
+            &spec,
+            "version = 1
+
+[plugin]
+localized = false
+
+[[set]]
+form = \"Fixture.esm:000800\"
+fields = { FLTV = 7.25 }
+",
+        )
+        .unwrap();
+        let out = dir.join("Patch.esp");
+        let engine = ReadOnlyEngine::new();
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
+            ))
+            .unwrap();
+        let args = json!({"spec": spec.display().to_string(), "out": out.display().to_string()});
+        let mut plan = args.clone();
+        plan["plan"] = json!(true);
+        let env = engine.run(&Request::new("build", plan)).unwrap();
+        assert!(env.to_string().contains("FLTV"), "{env}");
+        assert!(!out.exists(), "the plan wrote {}", out.display());
+        let e = engine.run(&Request::new("build", args)).unwrap_err();
+        assert!(matches!(e, RunError::Refused(_)), "{e:?}");
+        assert!(!out.exists());
     }
 
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
