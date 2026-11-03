@@ -503,3 +503,51 @@ fn m7_e6_an_undo_that_would_leave_copied_parents_behind_is_refused() {
     assert_absent(&h, "Undo in Patch.esp");
     assert_eq!(std::fs::read(&patch).unwrap(), before);
 }
+
+/// Review finding L1 of M7.E6 (the M1 shape for `revert`): an undo that failed spends its
+/// confirm. A folder stands where the active file is, so the undo fails. With the file
+/// back, the old preview's button stays disabled and a click changes nothing. A new
+/// Undo last write runs a new dry run, and its one undo restores the original.
+#[test]
+fn m7_e6_a_failed_undo_needs_a_new_undo_and_a_new_dry_run() {
+    let s = Scratch::new("undo-failed");
+    let patch = s.path("Patch.esp");
+    let original = s.path("Original.esp");
+    let aside = s.path("Patch.esp.aside");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    show(&mut h, "Fixture.esm:000801");
+    write_field(&mut h, "2.5", "9");
+    std::fs::copy(&patch, &original).unwrap();
+    show(&mut h, FORM);
+    write_field(&mut h, "1.5", "7.25");
+    press(&mut h, "Undo last write");
+    assert!(enabled(&h, "Undo in Patch.esp"));
+    std::fs::rename(&patch, &aside).unwrap();
+    std::fs::create_dir_all(&patch).unwrap();
+    press(&mut h, "Undo in Patch.esp");
+    assert_in_view(&h, "the undo:");
+    assert!(
+        !enabled(&h, "Undo in Patch.esp"),
+        "re-armed on the old preview"
+    );
+    std::fs::remove_dir_all(&patch).unwrap();
+    std::fs::rename(&aside, &patch).unwrap();
+    one(&h, "Undo in Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert_eq!(
+        diff_counts(&original, &patch),
+        [json!(1), json!(0), json!(0)],
+        "a second undo from one Undo"
+    );
+    press(&mut h, "Close");
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "Diff of the file (dry run): 1 removed");
+    press(&mut h, "Undo in Patch.esp");
+    assert_eq!(
+        diff_counts(&original, &patch),
+        [json!(0), json!(0), json!(0)]
+    );
+}
