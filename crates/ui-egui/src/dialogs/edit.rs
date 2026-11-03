@@ -355,6 +355,31 @@ fn header(ui: &mut egui::Ui, layout: &Layout, record: &RecordView) {
             );
         }
         ui.weak(&layout.source);
+        // M7.W4: what CK sitting 2 recorded of this dialog.
+        match super::layouts::observation(&layout.record_type) {
+            Some(o) if o.status == "observed" => {
+                theme::status(ui, Status::Pass, &format!("CK labels observed ({})", o.sitting))
+                    .on_hover_text(format!(
+                        "{} labels recorded at {} on {}: {}. Tabs and groups here are KitKraft's; M7.K4 maps each label to its field.",
+                        o.labels.len(),
+                        o.step,
+                        o.form,
+                        o.labels.join(", ")
+                    ));
+            }
+            Some(o) => {
+                theme::status(
+                    ui,
+                    Status::Inconclusive,
+                    &format!("unobserved ({} {})", o.sitting, o.status),
+                )
+                .on_hover_text(format!(
+                    "the sitting could not open {} at {}; this layout is KitKraft's placeholder",
+                    o.form, o.step
+                ));
+            }
+            None => {}
+        }
         theme::status(ui, Status::NotRun, "edits go to the active file").on_hover_text(
             "numbers and plain text edit in place; OK previews them with `set` into the active file (File > Data...) and a confirm box writes them",
         );

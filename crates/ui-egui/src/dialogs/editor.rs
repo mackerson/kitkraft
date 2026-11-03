@@ -124,16 +124,73 @@ struct Write {
     failed: bool,
     /// A build's spec file as it was when planned: the confirm covers its content, not
     /// only its path (M7.E5 review M1). `None` for the other commands.
-    spec_bytes: Option<Vec<u8>>,
+    spec_bytes: Option<SpecSnapshot>,
 }
 
-/// Why a build's spec no longer matches its plan: `spec` is the path, `planned` its
-/// bytes at plan time.
-fn spec_changed(spec: &str, planned: &[u8]) -> Option<String> {
-    match std::fs::read(spec) {
-        Ok(now) if now == planned => None,
+/// The largest build spec the window reads (a TOML spec is a few KiB; a path that names
+/// a plugin by mistake would otherwise be read whole on the UI thread; wave-1 adversarial
+/// review M1).
+const MAX_SPEC_BYTES: u64 = 4 * 1024 * 1024;
+
+/// A build spec as planned: its bytes, read once per Plan, and the size and modification
+/// time they were read at.
+#[derive(Debug, Clone, PartialEq)]
+struct SpecSnapshot {
+    bytes: Vec<u8>,
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
+/// Reads the spec at `path` once, after its metadata says it is a file of at most
+/// [`MAX_SPEC_BYTES`]; the read itself stops one byte past the cap.
+fn read_spec(path: &str) -> Result<SpecSnapshot, String> {
+    use std::io::Read;
+    let too_big = |len: u64| {
+        format!(
+            "the spec is {len} bytes: a build spec is at most 4 MiB (is it a plugin?), so it is not read"
+        )
+    };
+    let meta = std::fs::metadata(path).map_err(|e| format!("cannot read the spec {path}: {e}"))?;
+    if !meta.is_file() {
+        return Err(format!("the spec {path} is not a file"));
+    }
+    if meta.len() > MAX_SPEC_BYTES {
+        return Err(too_big(meta.len()));
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|f| {
+            f.take(MAX_SPEC_BYTES.saturating_add(1))
+                .read_to_end(&mut bytes)
+        })
+        .map_err(|e| format!("cannot read the spec {path}: {e}"))?;
+    let len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    if len > MAX_SPEC_BYTES {
+        return Err(too_big(len));
+    }
+    Ok(SpecSnapshot {
+        bytes,
+        len,
+        modified: meta.modified().ok(),
+    })
+}
+
+/// Per repaint: whether the spec's size or modification time moved since the plan (its
+/// metadata only; nothing is read).
+fn spec_moved(spec: &str, planned: &SpecSnapshot) -> Option<String> {
+    match std::fs::metadata(spec) {
+        Ok(m) if m.len() == planned.len && m.modified().ok() == planned.modified => None,
         Ok(_) => Some("the spec changed since the plan: Plan again to preview it".to_string()),
         Err(e) => Some(format!("the spec cannot be read now ({e}): Plan again")),
+    }
+}
+
+/// At the click: one bounded read of the spec, compared byte for byte with the plan's.
+fn spec_changed(spec: &str, planned: &SpecSnapshot) -> Option<String> {
+    match read_spec(spec) {
+        Ok(now) if now.bytes == planned.bytes => None,
+        Ok(_) => Some("the spec changed since the plan: Plan again to preview it".to_string()),
+        Err(e) => Some(format!("{e}: Plan again")),
     }
 }
 
@@ -189,11 +246,18 @@ impl EditorState {
     /// opens on them; nothing is sent until its Preview. The last write's note goes with
     /// its box, so the box does not cover the form.
     pub fn place(&mut self, base: &str, cell: &str) {
-        self.note = None;
-        // The last write's box goes too, unless a reply is still awaited (M7.E4 review L1).
-        if self.awaiting.is_none() {
-            self.write = None;
+        // While a reply is awaited the open form stays, so it keeps matching the confirm
+        // box beside it (M7.W4 review L2); place again once the engine has answered.
+        if self.awaiting.is_some() {
+            self.note = Some((
+                Status::Warn,
+                "the editor is waiting for the engine; place again when it has answered"
+                    .to_string(),
+            ));
+            return;
         }
+        self.note = None;
+        self.write = None;
         self.place_form = Some(place::PlaceForm::open(base, cell));
     }
 
@@ -691,8 +755,8 @@ fn confirm_blocked(
         // What the box shows is what is built (M7.E5 review M1), into a fresh file (L1).
         if let Some(why) = w
             .spec_bytes
-            .as_deref()
-            .and_then(|planned| spec_changed(&w.form, planned))
+            .as_ref()
+            .and_then(|planned| spec_moved(&w.form, planned))
         {
             return Some(why);
         }
@@ -1122,10 +1186,11 @@ fn start_build(
         ));
         return;
     }
-    let spec_bytes = match std::fs::read(spec) {
+    // Read once per Plan, after the metadata check (never per repaint).
+    let spec_bytes = match read_spec(spec) {
         Ok(b) => b,
         Err(e) => {
-            state.note = Some((Status::Fail, format!("cannot read the spec {spec}: {e}")));
+            state.note = Some((Status::Fail, e));
             return;
         }
     };
@@ -1255,8 +1320,9 @@ fn confirm_box(
                     ui.weak(&w.into);
                 });
                 if w.command == "place" {
-                    // The exact position the confirmed request writes (M7.E4 review M1).
-                    ui.monospace(place::position_line(&w.preview));
+                    // The position as it will be stored (the dry run's own account, f32),
+                    // and the typed one beside it when they differ (M7.W4 review L1).
+                    ui.monospace(place::position_line(&w.preview, w.previewed.as_ref()));
                 }
                 match &w.previewed {
                     None => {
@@ -1281,7 +1347,7 @@ fn confirm_box(
                                 ),
                             );
                         }
-                        preview_lines(ui, env, w.command);
+                        preview_lines(ui, env, w.command, &w.edits);
                     }
                 }
                 if let (Some(done), "revert") = (&w.written, w.command) {
@@ -1342,7 +1408,7 @@ fn confirm_box(
         if let Some(w) = state.write.as_mut() {
             if let Some(why) = w
                 .spec_bytes
-                .as_deref()
+                .as_ref()
                 .and_then(|planned| spec_changed(&w.form, planned))
             {
                 state.note = Some((Status::Fail, why));
@@ -1378,9 +1444,20 @@ fn confirm_box(
     }
 }
 
+/// The typed value of a field, when the stored `after` (as the preview shows it) is not
+/// the same number or text (an f32 rounding 16777217 to 16777216, say).
+fn stored_differs(typed: Option<&Value>, after: &str) -> Option<String> {
+    let typed = typed?;
+    let same = match (typed.as_f64(), after.trim().parse::<f64>()) {
+        (Some(t), Ok(a)) => t == a,
+        _ => typed.as_str().is_some_and(|t| t == after) || fmt_value(typed) == after,
+    };
+    (!same).then(|| fmt_value(typed))
+}
+
 /// The preview's changes (`set`: the fields; `revert`: the diff of the file), its
 /// `validate` on the staged result, and its limitations.
-fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
+fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str, typed: &Map<String, Value>) {
     let data = env.get("data").unwrap_or(&Value::Null);
     if command == "place" {
         ui.label(theme::subheading(ui, "Placed (dry run)"));
@@ -1446,7 +1523,14 @@ fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
                     ui.monospace(path);
                     ui.monospace(before);
                     ui.label("->");
-                    ui.monospace(after);
+                    // `after` is the value as stored (the dry run read it back from the
+                    // staged file); say so when it is not what was typed (M7.W4 review L1).
+                    match stored_differs(typed.get(path.as_str()), after) {
+                        Some(t) => {
+                            ui.monospace(format!("{after} (typed {t}; stored as the field's type)"))
+                        }
+                        None => ui.monospace(after),
+                    };
                     ui.end_row();
                 }
             });
@@ -1628,6 +1712,22 @@ mod tests {
             .unwrap_err()
             .contains("already held"));
         assert!(undoable(&env(json!([])), "f", "P.esp").is_err());
+    }
+
+    /// M7.W4 review L2: a Place action while a reply is awaited keeps the open form (it
+    /// matches the confirm box) and says to place again; once idle, it opens the new one.
+    #[test]
+    fn a_place_while_waiting_keeps_the_form_that_matches_the_box() {
+        let mut s = EditorState::default();
+        s.place("World.esp:001000", "World.esp:001001");
+        s.awaiting = Some(Slot::EditorPreview);
+        s.place("World.esp:00AAAA", "World.esp:00BBBB");
+        assert_eq!(s.place_form.as_ref().unwrap().base, "World.esp:001000");
+        assert!(s.note.as_ref().unwrap().1.contains("place again"));
+        s.awaiting = None;
+        s.place("World.esp:00AAAA", "World.esp:00BBBB");
+        assert_eq!(s.place_form.as_ref().unwrap().cell, "World.esp:00BBBB");
+        assert!(s.note.is_none());
     }
 
     /// A build's confirm needs a plan whose validate passed; its changes list each with

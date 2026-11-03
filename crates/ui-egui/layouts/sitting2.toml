@@ -1,0 +1,296 @@
+# CK interface sitting 2 (M7.O3, ck-20261102-03), as the edit dialog reads it (M7.W4).
+# One [[dialog]] per type of sitting 2, in the record's step order, copied from that
+# entry of docs/ck-observations.md (a test holds each label list equal to the record's
+# row). It records labels, not which field each label edits, and no tab names, so the
+# dialogs' tabs and groups stay KitKraft's (layouts/<TYPE>.toml, or the default layout
+# from the schema); M7.K4 maps each label to a schema member.
+#
+# M7.K4's mapping goes in each [[dialog]] as explicit pairs, one per label:
+#   map = [{ label = "ID", member = "EDID" }, ...]
+# where `member` is a `set` field path of the type (`SIG` or `SIG.Member`). A label
+# without a pair is a gap (dialogs::layouts::tests, the members check, pins the list).
+
+[[dialog]]
+type = "WEAP"
+sitting = "ck-20261102-03"
+step = "S2-01"
+form = "RussianHuntingRifle"
+status = "inconclusive"
+tab_control = "not recorded"
+buttons = []
+labels = []
+
+[[dialog]]
+type = "AMMO"
+sitting = "ck-20261102-03"
+step = "S2-02"
+form = "Ammo9x39mm"
+status = "observed"
+tab_control = "none"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Name",
+  "Short name",
+  "Value",
+  "Model",
+  "Edit",
+  "Pickup Sound",
+  "Putdown Sound",
+  "Projectile",
+  "Damage",
+  "Description",
+  "Keywords",
+  "Preview Transform",
+  "Shell Casing",
+  "Health",
+  "Weight",
+  "Flags (Playable, Has Count Based 3D)",
+  "Properties",
+  "Art",
+  "Sound",
+  "Add Destruction Data",
+]
+
+[[dialog]]
+type = "COBJ"
+sitting = "ck-20261102-03"
+step = "S2-03"
+form = "co_ammo_777mm"
+status = "observed"
+tab_control = "none"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Created Object",
+  "Created Object Count",
+  "Required Item List",
+  "List Contains Variants",
+  "Match Conditions",
+  "Workbench Keyword",
+  "Recipe Filters",
+  "Pickup Sound:",
+  "Putdown Sound:",
+  "Crafting Sound: (each with Select Audio Data)",
+  "Priority",
+  "Menu Art Object",
+  "Description",
+  "Learned From",
+  "Base Return Scale Table",
+  "Extra Scrapping Items",
+  "Workbench Repair Recipe",
+  "Required Perks",
+  "Max Build Count",
+  "Value",
+  "Exclude From Workshop LOD",
+  "New",
+]
+
+[[dialog]]
+type = "LCTN"
+sitting = "ck-20261102-03"
+step = "S2-04"
+form = "CityNewAtlantisLocation"
+status = "observed"
+tab_control = "3 tabs (names in the screenshots only)"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Name",
+  "Parent Location",
+  "Encounter Zone",
+  "World Location Marker Ref",
+  "Select Reference",
+  "Horse Marker Ref",
+  "Select Horse Marker",
+  "Music Type",
+  "Unreported Crime Faction",
+  "Actor Fade Mult",
+  "World Location Radius",
+  "Interior cells use ref location for world map player marker",
+  "Random Conversation Timer",
+  "Color (R, G, B, Select)",
+  "Keywords",
+  "Actor Value",
+  "Amount",
+  "Base Actor Values",
+  "Encounter Leveling Data",
+  "Match PC Below Minimum Level",
+  "Never Resets",
+  "Disable Combat Boundary",
+  "Workshop",
+  "Min Level:",
+  "Max Level:",
+  "Analyze Loot",
+  "Level",
+  "NPC",
+  "Faction",
+  "Required Rank",
+  "Ownership",
+  "Location Ref Type Filter",
+  "Use parent",
+  "Public Area",
+  "Off Limits",
+]
+
+[[dialog]]
+type = "TERM"
+sitting = "ck-20261102-03"
+step = "S2-05"
+form = "LC017_RobotTurretControl"
+status = "observed"
+tab_control = "not recorded"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Name",
+  "Model",
+  "Edit",
+  "Marker Model",
+  "Looping Sound (Select Audio Data)",
+  "Papyrus Scripts:",
+  "Keywords",
+  "Actor Values",
+  "Actor Value",
+  "Amount",
+  "Preview Transform",
+  "Forced Loc Ref Types:",
+  "Desktop Menu",
+  "Art Theme",
+  "Furniture Template",
+  "Animation Graph Component",
+  "Ignored By Sandbox",
+  "Active Markers",
+  "Make Wall Terminal",
+  "Make Desk Terminal",
+  "Random Anim Start",
+  "Add Destruction Data",
+  "Add",
+  "Remove",
+  "Properties",
+]
+
+[[dialog]]
+type = "CONT"
+sitting = "ck-20261102-03"
+step = "S2-06"
+form = "SQ_TreasureMap_SpaceCrate"
+status = "observed"
+tab_control = "not recorded"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Name",
+  "Model",
+  "Edit",
+  "Preview Level",
+  "Object",
+  "Count",
+  "Item List",
+  "Preview Calculated Result",
+  "NPC",
+  "Global Variable",
+  "Faction",
+  "Required Rank",
+  "Owner",
+  "Health %",
+  "Sounds (Open, Close, Select Audio Data)",
+  "Collision Geometry",
+  "Bounding Box",
+  "Filter",
+  "Only Cut",
+  "NavMesh Generation Import Option",
+  "Ground",
+  "Collect From 3D",
+  "Scripts",
+  "Papyrus Scripts:",
+  "Take All",
+  "Keywords",
+  "Preview Transform",
+  "Native Terminal",
+  "Contains Only",
+  "Actor Value",
+  "Amount",
+  "Actor Values",
+  "Forced Loc Ref Types:",
+  "Attach Parent Slots",
+  "Mod Data",
+  "Snap Template",
+  "Display Slots",
+  "Object Template",
+  "Random Anim Start",
+  "Respawns",
+  "Obstacle",
+  "Show Owner",
+  "Add Destruction Data",
+  "Add",
+  "Remove",
+  "Properties",
+]
+
+[[dialog]]
+type = "STAT"
+sitting = "ck-20261102-03"
+step = "S2-07"
+form = "Crate_MilitarySupply_01"
+status = "observed"
+tab_control = "not recorded"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Display Name",
+  "Model",
+  "Edit",
+  "Collision Geometry",
+  "Bounding Box",
+  "Filter",
+  "Only Cut",
+  "Ignore Erosion",
+  "Ground",
+  "NavMesh Generation Import Option",
+  "Object Palette Defaults",
+  "Actor Value",
+  "Amount",
+  "Actor Values",
+  "Preview Transform",
+  "Pack-In Use Only",
+  "Leaf Amplitude",
+  "Leaf Frequency",
+  "Flutter Data",
+  "Used As Platform",
+  "Default Layer",
+  "Snap Template",
+  "Snap Behavior",
+  "Forced Loc Ref Type",
+  "Keywords",
+  "High cost Path",
+  "Looping Sound (Select Audio Data)",
+  "On Local Map",
+  "Obstacle",
+  "Is Marker",
+  "Headtrack Marker",
+  "Has Platform/Language Specific Textures",
+  "Non Occluder",
+  "Heading Marker",
+  "Show in world map (ref must be in sky cell)",
+  "Has Currents",
+]
+
+[[dialog]]
+type = "KYWD"
+sitting = "ck-20261102-03"
+step = "S2-08"
+form = "WeaponTypeRifle"
+status = "observed"
+tab_control = "not recorded"
+buttons = ["OK", "Cancel"]
+labels = [
+  "ID",
+  "Display Name",
+  "Type",
+  "Rule",
+  "Linkage Name",
+  "Notes",
+  "Editor Color (R, G, B, Select Color)",
+  "Restricted",
+]
