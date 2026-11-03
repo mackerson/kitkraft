@@ -859,6 +859,11 @@ impl App {
             }
         } else if slot == Slot::RenderCell {
             self.render.failed();
+        } else if slot == Slot::MeshBounds {
+            // Pipeline R (M7.R3, ask A7): a refused base keeps its `OBND`, with the reason.
+            if let Some(e) = reply.result.as_ref().err() {
+                self.render.bounds_failed(&reply.request, &e.to_string());
+            }
         } else if matches!(
             slot,
             Slot::CockpitSession | Slot::CockpitGameStatus | Slot::CockpitGameStop

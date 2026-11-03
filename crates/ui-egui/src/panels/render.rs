@@ -532,8 +532,7 @@ impl RenderTab {
 
     /// A `mesh.bounds` request failed (a base with no `MODL`, a model in no archive, a
     /// model the reader refuses): the base is answered with no model box, so it falls back
-    /// to its `OBND` and the error is its reason. Routed from `app.rs` with ask A3.
-    #[allow(dead_code)]
+    /// to its `OBND` and the error is its reason. Routed from `app.rs` (ask A7).
     pub(crate) fn bounds_failed(&mut self, request: &Request, error: &str) {
         let Some(form) = request.args.get("form").and_then(Value::as_str) else {
             return;
