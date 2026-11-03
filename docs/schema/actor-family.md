@@ -134,6 +134,25 @@ How the types link, by member path:
   strings, `SkinToneIndex`, `Pronoun`). KitKraft cannot generate face data; copy it from an
   existing actor.
 
+## Actor value information
+
+AVIF (KK-225) defines the actor values the family's records refer to by name: an NPC_'s
+`PRPS` properties and a MGEF's magic skill and resist values all name an AVIF. The
+definition is typed in xEdit member order: `EditorId` (EDID), `Scripts` (VMAD, opaque),
+`Name` (FULL, lstring), `ContextNotes` (NLDT), `Abbreviation` (ANAM, lstring),
+`DefaultValue` (NAM0, a float), `Flags` (AVFL, 18 of the 32 bits named upstream),
+`Type` (NAM1, an enum of 11 values: derived and special attributes, skill, AI
+attribute, resistance, condition, charge, int value, variable, resource and animation
+graph variable), and `Min` and `Max` (NAM2 and NAM3, floats).
+
+The corpus check (`crates/esm/tests/avif_types.rs` `avif_types_full`, 2026-11-03) places
+and decodes every subrecord of all 1,267 official AVIF records and re-encodes each
+identically: `EditorId`, `DefaultValue` and `Flags` in all 1,267, `Type` in 1,185,
+`ContextNotes` in 387, `Name` in 181, `Abbreviation` in 61 and `Min` and `Max` in 35.
+What stays raw: `Scripts` (VMAD, unions by property type; absent from every official
+record) and, in a plugin, the base form component block xEdit lists but no official
+record carries.
+
 ## Opaque members, and why
 
 - **VMAD** (every type): script property values are unions by property type; PERK's adds
