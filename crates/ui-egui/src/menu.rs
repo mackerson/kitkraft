@@ -123,7 +123,7 @@ pub const CK_ITEMS: &[CkItem] = &[
     ck("Edit", "Picking Preferences", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
     ck("View", "Toggle Render Features", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
     ck("View", "Refresh Render Window", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
-    ck("View", "Object Windows", CkMapping::Command("query")),
+    ck("View", "Object Windows", CkMapping::CommandIn("query", Target::Window(WindowKind::ObjectWindow))),
     ck("View", "Render Windows", CkMapping::CommandIn("cell", Target::Tab("Render Window"))),
     ck("View", "Packin", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
     ck("View", "Toolbar", CkMapping::Gap("no command: KitKraft has no toolbar")),
@@ -238,6 +238,9 @@ pub enum Target {
     Tab(&'static str),
     /// One of the CK-style windows (`crate::windows`).
     Window(crate::windows::WindowKind),
+    /// Pipeline E's form for this editor write (the shell sends `Action::OpenEditor`;
+    /// E's ask B1: File > Build Patch opens the build spec form, M7.E5).
+    Editor(&'static str),
 }
 
 /// One menu item.
@@ -287,18 +290,17 @@ fn panel_of(id: &str) -> Option<Target> {
         // Step 0 of sprint 2026-11-02: pipeline E's writes open the editor in the Edit
         // dialog (M7.E2 to M7.E6) once the gate permits each; until then `target`
         // disables them before this match is asked.
-        "set" | "new" | "clone" | "place" | "build" | "revert" => {
-            Target::Window(WindowKind::EditDialog)
-        }
+        "set" | "place" | "revert" => Target::Window(WindowKind::EditDialog),
+        // E's asks B1 (M7.E5) and C1 (M7.E3): `build`, `new` and `clone` open their forms
+        // through the editor (Record > New Form..., Clone Form..., Edit > Duplicate).
+        "build" => Target::Editor("build"),
+        "new" => Target::Editor("new"),
+        "clone" => Target::Editor("clone"),
         // Pipeline R's NIF bounds (M7.S4, M7.R3) belong to the Render Window.
         "mesh.bounds" => Target::Tab("Render Window"),
         _ => return None,
     })
 }
-
-/// The editor's six writes (ADR 0007 Amendment 4; the ids E1 gives `gate::EDITOR_SCOPE`,
-/// which this list follows until that constant is on this branch).
-const EDITOR_IDS: [&str; 6] = ["set", "new", "clone", "place", "build", "revert"];
 
 /// The text a scope write gets while the gate does not permit it in the window yet.
 fn scope_not_yet_permitted() -> String {
@@ -318,7 +320,7 @@ pub fn target(spec: &CommandSpec) -> Result<Target, String> {
             true
         } else if gate::COCKPIT_SCOPE.contains(&id) {
             return Err(scope_not_yet_permitted());
-        } else if EDITOR_IDS.contains(&id) {
+        } else if gate::EDITOR_SCOPE.contains(&id) {
             return Err(
                 "writes: in the editor's write scope (ADR 0007 Amendment 4); permitted with its M7.E ticket"
                     .to_string(),
@@ -536,6 +538,102 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
             None
         }
     }
+}
+
+/// Keys the window keeps for itself, which no catalog shortcut may take (M7.M5's conflict
+/// check): egui's text editing in a field (copy, cut, paste, select all, undo, redo, and its
+/// Ctrl keys for deleting and moving by word or line: Ctrl+H, K, U, W, Backspace, Delete,
+/// the arrows, Home and End; W6 review L2) and its zoom keys, and the Render Window's fly
+/// keys (`crate::viewport::BINDINGS`: W A S D while it has focus).
+pub const RESERVED_KEYS: &[&str] = &[
+    "Ctrl+C",
+    "Ctrl+X",
+    "Ctrl+V",
+    "Ctrl+A",
+    "Ctrl+Z",
+    "Ctrl+Y",
+    "Ctrl+Shift+Z",
+    "Ctrl+Plus",
+    "Ctrl+Equals",
+    "Ctrl+Minus",
+    "Ctrl+0",
+    "Ctrl+H",
+    "Ctrl+K",
+    "Ctrl+U",
+    "Ctrl+W",
+    "Ctrl+Backspace",
+    "Ctrl+Delete",
+    "Ctrl+ArrowLeft",
+    "Ctrl+ArrowRight",
+    "Ctrl+ArrowUp",
+    "Ctrl+ArrowDown",
+    "Ctrl+Home",
+    "Ctrl+End",
+    "W",
+    "A",
+    "S",
+    "D",
+];
+
+/// A catalog shortcut (`Ctrl+O`, `Ctrl+Shift+S`, `Enter`, `F7`) as egui's shortcut:
+/// `Ctrl` is the platform's command key; `None` for a text it cannot read.
+pub fn parse_shortcut(text: &str) -> Option<egui::KeyboardShortcut> {
+    let mut modifiers = egui::Modifiers::NONE;
+    let mut parts: Vec<&str> = text.split('+').map(str::trim).collect();
+    let key = parts.pop().filter(|k| !k.is_empty())?;
+    for m in parts {
+        match m.to_ascii_lowercase().as_str() {
+            "ctrl" | "cmd" => modifiers |= egui::Modifiers::COMMAND,
+            "shift" => modifiers |= egui::Modifiers::SHIFT,
+            "alt" => modifiers |= egui::Modifiers::ALT,
+            _ => return None,
+        }
+    }
+    let key = match key {
+        "Plus" => egui::Key::Plus,
+        "Equals" => egui::Key::Equals,
+        "Minus" => egui::Key::Minus,
+        k => egui::Key::from_name(k)?,
+    };
+    Some(egui::KeyboardShortcut::new(modifiers, key))
+}
+
+/// The catalog's shortcuts as the window binds them (M7.M5, mechanism first): each catalog
+/// item that has one, with what it opens or why it is disabled. These are KitKraft's own
+/// keys; the CK's accelerator keys are not observed yet (sitting 1, S1-06).
+pub fn bindings(menus: &[Menu]) -> Vec<(egui::KeyboardShortcut, &MenuItem)> {
+    menus
+        .iter()
+        .flat_map(|m| m.items.iter())
+        .filter(|i| i.catalog)
+        .filter_map(|i| Some((parse_shortcut(i.shortcut?)?, i)))
+        .collect()
+}
+
+/// The pick a pressed catalog shortcut asks for, consuming the key: only an enabled item's
+/// (a disabled one leaves the key alone), and a key without Ctrl or Alt only while no
+/// widget has the keyboard (so Enter in a text field stays the field's). Never in the tour.
+pub fn pressed(ctx: &egui::Context, menus: &[Menu]) -> Option<MenuPick> {
+    let typing = ctx.memory(|m| m.focused().is_some());
+    for (sc, item) in bindings(menus) {
+        let Ok(target) = &item.target else {
+            continue;
+        };
+        let bare = !sc.modifiers.command && !sc.modifiers.ctrl && !sc.modifiers.alt;
+        if bare && typing {
+            continue;
+        }
+        // Exactly the modifiers the shortcut names (W6 review L1): egui's own match ignores
+        // an extra Shift or Alt, so Shift+Enter would inspect and Ctrl+Alt+O (AltGr+O on
+        // Windows) would load.
+        if !ctx.input(|i| i.modifiers.matches_exact(sc.modifiers)) {
+            continue;
+        }
+        if ctx.input_mut(|i| i.consume_shortcut(&sc)) {
+            return Some(MenuPick::Open(*target));
+        }
+    }
+    None
 }
 
 /// A disabled item's reason in one or two words, shown beside it.
@@ -847,11 +945,12 @@ mod tests {
     #[test]
     fn the_editor_writes_wait_on_the_gate_and_mesh_bounds_opens_the_render_window() {
         for id in ["set", "new", "clone", "place", "build", "revert"] {
-            assert_eq!(
-                panel_of(id),
-                Some(Target::Window(WindowKind::EditDialog)),
-                "{id}"
-            );
+            let want = if ["build", "new", "clone"].contains(&id) {
+                Target::Editor(id)
+            } else {
+                Target::Window(WindowKind::EditDialog)
+            };
+            assert_eq!(panel_of(id), Some(want), "{id}");
             let spec = gate::find_command(id).unwrap();
             // A guarded id runs (`target` lets it through), so only an id neither permitted
             // nor guarded must be disabled (stub review M1: `build` enters `GUARDED`, M7.E5).
@@ -864,7 +963,10 @@ mod tests {
         assert_eq!(top_of(bounds.menu_path), "Tools");
         assert_eq!(target(bounds), Ok(Target::Tab("Render Window")));
         let geometry = target(gate::find_command("mesh.geometry").unwrap()).unwrap_err();
-        assert!(geometry.starts_with("deferred to M7.S5"), "{geometry}");
+        assert!(
+            geometry.starts_with("not on the window's read-only list"),
+            "{geometry}"
+        );
     }
 
     /// M7.M1 rest: every `menu item` row of `docs/ck-parity.md` is one entry of
@@ -959,6 +1061,10 @@ mod tests {
         assert_eq!(
             item("View", "Cell View").target,
             Ok(Target::Tab("Cell View"))
+        );
+        assert_eq!(
+            item("View", "Object Windows").target,
+            Ok(Target::Window(WindowKind::ObjectWindow))
         );
         assert_eq!(item("Edit", "Find Text").target, Ok(Target::Tab("Records")));
         let exit = item("File", "Exit");
@@ -1063,5 +1169,438 @@ mod tests {
             pack,
             "writes: not in the window's write scope (ADR 0007 Amendments 3 and 4)"
         );
+    }
+
+    // ---- M7.K5: the parity check ---------------------------------------------------------
+
+    /// The statuses of ADR 0012 section 4 and its Amendment 1 (`built, unobserved`).
+    const STATUSES: [&str; 5] = [
+        "unresearched",
+        "built, unobserved",
+        "observed",
+        "reproduced",
+        "improved",
+    ];
+
+    /// One "Interface parity" row: kind, element, maps to, status, source, evidence.
+    #[derive(Debug)]
+    struct Row {
+        kind: String,
+        element: String,
+        maps: String,
+        status: String,
+        source: String,
+        evidence: String,
+    }
+
+    /// The rows of the "Interface parity" table of a `docs/ck-parity.md` text.
+    fn interface_rows(parity: &str) -> Vec<Row> {
+        let Some(section) = parity.split("## Interface parity").nth(1) else {
+            return Vec::new();
+        };
+        let section = section.split("\n## ").next().unwrap_or(section);
+        section
+            .lines()
+            .filter(|l| l.starts_with('|'))
+            .map(|l| {
+                l.trim()
+                    .trim_matches('|')
+                    .split('|')
+                    .map(|c| c.trim().to_string())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|c| c.len() >= 6 && c[0] != "Kind" && !c[0].starts_with('-'))
+            .map(|c| Row {
+                kind: c[0].clone(),
+                element: c[1].clone(),
+                maps: c[2].clone(),
+                status: c[3].clone(),
+                source: c[4].clone(),
+                evidence: c[5..].join("|"),
+            })
+            .collect()
+    }
+
+    /// The backticked tokens of a cell.
+    fn ticked(cell: &str) -> Vec<&str> {
+        cell.split('`').skip(1).step_by(2).collect()
+    }
+
+    /// Every full sitting id (`ck-YYYYMMDD-NN`) a cell names.
+    fn sitting_ids(cell: &str) -> Vec<String> {
+        let b = cell.as_bytes();
+        let mut out = Vec::new();
+        for (at, _) in cell.match_indices("ck-") {
+            let id = b
+                .get(at..at.saturating_add(14))
+                .and_then(|w| std::str::from_utf8(w).ok());
+            if let Some(id) = id.filter(|id| {
+                let d = id.as_bytes();
+                d[3..11].iter().all(u8::is_ascii_digit)
+                    && d[11] == b'-'
+                    && d[12..14].iter().all(u8::is_ascii_digit)
+            }) {
+                out.push(id.to_string());
+            }
+        }
+        out
+    }
+
+    /// The kinds of row the Interface parity table uses (W3 review L4).
+    const KINDS: [&str; 7] = [
+        "menu",
+        "menu item",
+        "window",
+        "dialog",
+        "workflow",
+        "shortcut",
+        "control",
+    ];
+
+    /// The text of ledger entry `### <id>` of `observations`, up to the next heading.
+    fn entry<'a>(observations: &'a str, id: &str) -> Option<&'a str> {
+        let head = format!("### {id}");
+        let at = observations.find(&head)?;
+        let rest = observations.get(at..)?;
+        let end = rest
+            .get(4..)
+            .and_then(|r| r.find("\n### ").or_else(|| r.find("\n## ")))
+            .map_or(rest.len(), |e| e.saturating_add(4));
+        rest.get(..end)
+    }
+
+    /// A desk entry (no CK run): its heading or first lines say so.
+    fn is_desk(entry: &str) -> bool {
+        let head: String = entry.lines().take(3).collect::<Vec<_>>().join(" ");
+        head.contains("desk entry") || head.contains("no CK run") || head.contains("Desk work")
+    }
+
+    /// Whether `id` may stand as a Source (ruling R24): a recorded sitting, or a desk entry
+    /// whose heading names the recorded sitting it was filed from (a mention elsewhere in
+    /// its text, "not filed from ...", does not count: W5 review L2).
+    fn source_ok(observations: &str, id: &str) -> bool {
+        let Some(e) = entry(observations, id) else {
+            return false;
+        };
+        if !is_desk(e) {
+            return true;
+        }
+        let heading = e.lines().next().unwrap_or_default();
+        sitting_ids(heading)
+            .iter()
+            .any(|other| other != id && entry(observations, other).is_some_and(|o| !is_desk(o)))
+    }
+
+    /// The item labels a ledger entry records for menu `menu` (its `| <menu> | ... |` row,
+    /// split on " / " and ", ", the `*(...)*` marks dropped).
+    fn ledger_items(entry: &str, menu: &str) -> Vec<String> {
+        let head = format!("| {menu} |");
+        let Some(line) = entry.lines().find(|l| l.starts_with(&head)) else {
+            return Vec::new();
+        };
+        let mut cell = line
+            .trim_start_matches(&head)
+            .trim_end()
+            .trim_end_matches('|')
+            .to_string();
+        while let Some(a) = cell.find(" *(") {
+            match cell[a..].find(")*") {
+                Some(b) => cell.replace_range(a..a.saturating_add(b).saturating_add(2), ""),
+                None => break,
+            }
+        }
+        cell.split(" / ")
+            .flat_map(|g| g.split(", "))
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect()
+    }
+
+    /// What is wrong with the "Interface parity" rows of `parity`, judged against the
+    /// sittings `observations` records (its `### ck-...` ledger entries), the catalog, and
+    /// `test_exists` (whether a cited test function exists): ADR 0012 section 4 and the
+    /// parity text contract.
+    fn parity_problems(
+        parity: &str,
+        observations: &str,
+        test_exists: &dyn Fn(&str) -> bool,
+    ) -> Vec<String> {
+        let mut out = Vec::new();
+        let rows = interface_rows(parity);
+        if rows.is_empty() {
+            out.push("no Interface parity rows".to_string());
+        }
+        for r in &rows {
+            let at = format!("`{}` row \"{}\"", r.kind, r.element);
+            if !KINDS.contains(&r.kind.as_str()) {
+                out.push(format!("{at}: kind `{}` is none of {KINDS:?}", r.kind));
+            }
+            if !STATUSES.contains(&r.status.as_str()) {
+                out.push(format!(
+                    "{at}: status `{}` is none of {STATUSES:?}",
+                    r.status
+                ));
+            }
+            if r.kind == "menu item" {
+                let ids: Vec<&str> = ticked(&r.maps)
+                    .into_iter()
+                    .filter(|t| !t.ends_with(':'))
+                    .collect();
+                for id in &ids {
+                    if gate::find_command(id).is_none() {
+                        out.push(format!("{at}: `{id}` is no catalog command"));
+                    }
+                }
+                if ids.is_empty() && !r.maps.contains("`gap:`") {
+                    out.push(format!("{at}: maps to no catalog id and no `gap:`"));
+                }
+            }
+            if ["observed", "reproduced", "improved"].contains(&r.status.as_str()) {
+                let ids = sitting_ids(&r.source);
+                if ids.is_empty() {
+                    out.push(format!(
+                        "{at}: `{}` but its Source names no sitting",
+                        r.status
+                    ));
+                }
+                for id in &ids {
+                    if entry(observations, id).is_none() {
+                        out.push(format!("{at}: Source names `{id}`, which docs/ck-observations.md does not record"));
+                    }
+                }
+                if !ids.is_empty() && !ids.iter().any(|id| source_ok(observations, id)) {
+                    out.push(format!(
+                        "{at}: Source names only desk entries with no sitting behind them (R24)"
+                    ));
+                }
+                // The label as a sitting recorded it (W3 review L1): a `menu item` row's
+                // label is one of its menu's items in a cited ledger entry.
+                if r.kind == "menu item" {
+                    if let Some((menu, label)) = r.element.split_once(" > ") {
+                        let found = ids
+                            .iter()
+                            .filter_map(|id| entry(observations, id))
+                            .any(|e| ledger_items(e, menu).iter().any(|l| l == label));
+                        if !found {
+                            out.push(format!(
+                                "{at}: no cited ledger entry records `{label}` among the {menu} items"
+                            ));
+                        }
+                    }
+                }
+            }
+            if ["built, unobserved", "reproduced", "improved"].contains(&r.status.as_str()) {
+                let tokens = ticked(&r.evidence);
+                let tests: Vec<&str> = tokens
+                    .iter()
+                    .copied()
+                    .filter(|t| t.contains("::"))
+                    .collect();
+                let images = tokens.iter().any(|t| t.ends_with(".png"));
+                if tests.is_empty() && !images {
+                    out.push(format!("{at}: `{}` names no test or tour image", r.status));
+                }
+                for t in tests {
+                    let name = t.rsplit("::").next().unwrap_or(t);
+                    if !test_exists(name) {
+                        out.push(format!("{at}: its test `{t}` does not exist"));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Whether a test function `name` exists in the workspace: `fn <name>(` under
+    /// `#[test]` (attributes such as `#[ignore]` may sit between) in `crates/*/src` or
+    /// `crates/*/tests` (W3 review L3).
+    fn workspace_has_test(name: &str) -> bool {
+        let want = format!("fn {name}(");
+        let mut stack: Vec<PathBuf> = std::fs::read_dir(repo().join("crates"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .flat_map(|c| [c.path().join("src"), c.path().join("tests")])
+            .collect();
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for e in entries {
+                let path = e.unwrap().path();
+                if path.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if path.extension().and_then(|x| x.to_str()) != Some("rs") {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                let lines: Vec<&str> = text.lines().collect();
+                for (i, l) in lines.iter().enumerate() {
+                    if l.trim_start().starts_with(&want) {
+                        let above = lines[i.saturating_sub(4)..i]
+                            .iter()
+                            .any(|a| a.trim() == "#[test]");
+                        if above {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    const FIXTURE_HEAD: &str = "# CK parity\n\n## Interface parity\n\n| Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |\n| ---- | ---- | ---- | ---- | ---- | ---- |\n";
+    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n\nAgent-run.\n\n| File | Data..., Save / Exit |\n\n### ck-20261102-01: the menus of `ck-20261101-01` (desk entry; no CK run)\n\n| File | Data... *(off)* / Exit |\n\n### ck-20261102-02: a desk note (desk entry; no CK run)\n\nNo sitting.\n\n### ck-20261102-03: a desk note (desk entry; no CK run)\n\nNothing was observed; not filed from ck-20261101-01.\n";
+    const FIXTURE_GOOD: &str = "| menu item | File > Data... | `load` (the Data dialog) | observed | `ck-20261101-01` | - |\n| menu item | File > Exit | `gap:` no command | observed | `ck-20261101-01` | - |\n| menu | Edit menu, every item | per item | unresearched | - | - |\n| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |\n";
+
+    fn fixture(rows: &str) -> String {
+        format!(
+            "{FIXTURE_HEAD}{FIXTURE_GOOD}{rows}\n## Next section\n\n| a | b | c | d | e | f |\n"
+        )
+    }
+
+    /// M7.K5 (ROADMAP M7 exit, ADR 0012 section 4): the real `docs/ck-parity.md` passes the
+    /// parity check, and each kind of bad row planted into a small fixture fails it.
+    #[test]
+    fn the_parity_doc_passes_the_parity_check() {
+        let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
+        let observations =
+            std::fs::read_to_string(repo().join("docs").join("ck-observations.md")).unwrap();
+        let problems = parity_problems(&parity, &observations, &workspace_has_test);
+        assert!(problems.is_empty(), "{problems:#?}");
+        assert!(
+            interface_rows(&parity).len() >= 150,
+            "the whole table is read"
+        );
+
+        let has = |name: &str| name == "the_parity_doc_passes_the_parity_check";
+        assert_eq!(
+            parity_problems(&fixture(""), FIXTURE_OBSERVATIONS, &has),
+            Vec::<String>::new(),
+            "the good fixture passes"
+        );
+        // Each planted row, and what the check must say about it.
+        let planted = [
+            // A status ADR 0012 does not define.
+            ("| menu item | File > Exit | `gap:` no command | observd | `ck-20261101-01` | - |", "none of"),
+            ("| window | Warnings window | `validate` | reproduced (layout unobserved) | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |", "none of"),
+            // A menu item that maps to no command that exists, or to nothing.
+            ("| menu item | File > Data... | `no.such.command` | observed | `ck-20261101-01` | - |", "no catalog command"),
+            ("| menu item | File > Exit | closes the window | observed | `ck-20261101-01` | - |", "no `gap:`"),
+            // Observed with no sitting, or a sitting no ledger entry records.
+            ("| menu item | File > Exit | `gap:` no command | observed | owner, 2026-10-16 (recollection) | - |", "names no sitting"),
+            ("| window | Object Window | `query` | observed | `ck-20991231-99` | - |", "does not record"),
+            // Reproduced with no evidence, or with a test that does not exist.
+            ("| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | - |", "no test or tour image"),
+            ("| dialog | Data dialog | `load` | improved | `ck-20261101-01` | test `menu::tests::no_such_test` |", "does not exist"),
+            // W3 review: a kind typo, a built row with no evidence, an image only in prose.
+            ("| menu-item | File > Data... | `no.such.command` | observed | `ck-20261101-01` | - |", "kind `menu-item`"),
+            ("| window | Warnings window | `validate` | built, unobserved | - | - |", "no test or tour image"),
+            ("| dialog | Data dialog | `load` | improved | `ck-20261101-01` | no .png yet |", "no test or tour image"),
+            // A label no cited ledger entry records (renamed in the doc and the table both).
+            ("| menu item | File > Exit Now | `gap:` no command | observed | `ck-20261101-01` | - |", "records `Exit Now`"),
+            // R24: a desk entry with no sitting behind it is no Source.
+            ("| window | Object Window | `query` | observed | `ck-20261102-02` | - |", "no sitting behind"),
+            // W5 review L2: a desk entry that only mentions a sitting in its text.
+            ("| window | Object Window | `query` | observed | `ck-20261102-03` | - |", "no sitting behind"),
+        ];
+        for (row, want) in planted {
+            let problems = parity_problems(&fixture(row), FIXTURE_OBSERVATIONS, &has);
+            assert!(
+                problems.iter().any(|p| p.contains(want)),
+                "planted {row}\n  wanted `{want}`, got {problems:#?}"
+            );
+        }
+        // A desk entry filed from a recorded sitting is a Source, its labels included (R24).
+        let chained =
+            "| menu item | File > Exit | `gap:` no command | observed | `ck-20261102-01` | - |";
+        assert_eq!(
+            parity_problems(&fixture(chained), FIXTURE_OBSERVATIONS, &has),
+            Vec::<String>::new()
+        );
+        // The rows of the next section are not read; an empty table is a problem.
+        assert_eq!(interface_rows(&fixture("")).len(), 4);
+        assert!(!parity_problems("# no table", FIXTURE_OBSERVATIONS, &has).is_empty());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod shortcut_tests {
+    use super::*;
+
+    #[test]
+    fn shortcuts_parse_as_egui_reads_them() {
+        let o = parse_shortcut("Ctrl+O").unwrap();
+        assert_eq!(
+            (o.modifiers, o.logical_key),
+            (egui::Modifiers::COMMAND, egui::Key::O)
+        );
+        let s = parse_shortcut("Ctrl+Shift+S").unwrap();
+        assert!(s.modifiers.command && s.modifiers.shift);
+        assert_eq!(
+            parse_shortcut("Enter").unwrap().logical_key,
+            egui::Key::Enter
+        );
+        assert_eq!(parse_shortcut("F7").unwrap().logical_key, egui::Key::F7);
+        for bad in ["", "Ctrl+", "Hyper+K", "Ctrl+Nope"] {
+            assert!(parse_shortcut(bad).is_none(), "{bad}");
+        }
+        for r in RESERVED_KEYS {
+            assert!(parse_shortcut(r).is_some(), "{r}");
+        }
+    }
+
+    /// M7.M5 (mechanism first): every catalog shortcut is bound (it parses and its item is
+    /// the binding), one test row per binding.
+    #[test]
+    fn every_catalog_shortcut_is_bound() {
+        let menus = build(gate::catalog());
+        let bound = bindings(&menus);
+        for spec in gate::catalog().iter().filter(|s| s.shortcut.is_some()) {
+            let text = spec.shortcut.unwrap();
+            let sc = parse_shortcut(text).unwrap_or_else(|| panic!("{}: `{text}`", spec.id));
+            let hits: Vec<&str> = bound
+                .iter()
+                .filter(|(b, _)| *b == sc)
+                .map(|(_, i)| i.id)
+                .collect();
+            assert_eq!(hits, [spec.id], "{} ({text})", spec.id);
+        }
+        assert_eq!(
+            bound.len(),
+            gate::catalog()
+                .iter()
+                .filter(|s| s.shortcut.is_some())
+                .count()
+        );
+    }
+
+    /// M7.M5's conflict check: no two catalog commands share a key, and none takes a key
+    /// the window keeps (text editing, zoom, the Render Window's fly keys).
+    #[test]
+    fn no_shortcut_conflicts() {
+        let keys: Vec<(egui::KeyboardShortcut, &str)> = gate::catalog()
+            .iter()
+            .filter_map(|s| Some((parse_shortcut(s.shortcut?)?, s.id)))
+            .collect();
+        for (i, (a, id)) in keys.iter().enumerate() {
+            for (b, other) in keys.iter().skip(i + 1) {
+                assert_ne!(a, b, "`{id}` and `{other}` share a key");
+            }
+            for r in RESERVED_KEYS {
+                assert_ne!(
+                    *a,
+                    parse_shortcut(r).unwrap(),
+                    "`{id}` takes the window's {r}"
+                );
+            }
+        }
+        // The fly keys are the viewport's, as it lists them.
+        assert!(crate::viewport::BINDINGS
+            .iter()
+            .any(|(what, keys)| *what == "fly" && keys.starts_with("W A S D")));
     }
 }

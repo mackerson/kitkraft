@@ -611,6 +611,16 @@ fn refusals() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("My Games folder"), "{err}");
+    // An MO2 profile with profile-local INIs is refused as MO2's, not as My Games.
+    let profile = d.join("profiles").join("Dev");
+    std::fs::create_dir_all(&profile).unwrap();
+    for f in ["modlist.txt", "plugins.txt", "StarfieldCustom.ini"] {
+        std::fs::write(profile.join(f), b"x").unwrap();
+    }
+    let err = go(&profile.join("P.esp"), rename("x"))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("Mod Organizer"), "{err}");
     let other = d.join("My Games").join("Other");
     std::fs::create_dir_all(&other).unwrap();
     assert!(super::patch::guard_location(&other.join("P.esp")).is_ok());

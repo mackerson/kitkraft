@@ -212,6 +212,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("mod.run", Box::new(modrun::run)),
         // Step 0 of sprint 2026-11-02 (prepares M7.S4, lane R): a stub until the NIF reader.
         ("mesh.bounds", Box::new(mesh::bounds)),
+        ("mesh.geometry", Box::new(mesh::geometry)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

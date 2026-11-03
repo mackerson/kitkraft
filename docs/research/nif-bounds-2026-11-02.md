@@ -14,7 +14,7 @@ place (`u8_43`, `u32_44`, `u32_52`, `after_extra`, `opaque`), never by a descrip
 Every field the reader reads that the corpus shows as one constant value (H2's `u8_43`
 and `u32_44`, H4's `u32` after the string table, H6's `u32` 1, B2's `after_extra`) is read
 as that value, and any other value is refused as a layout we do not read
-(`Error::Unsupported`, with offset). B6's byte (always 1) is not read by the reader. A fact we could not show from the bytes is
+(`Error::Unsupported`, with offset). B6's byte is the first slot flag of the mesh study's G1, read by `Nif::slots`. A fact we could not show from the bytes is
 not claimed.
 
 ## Corpus and method
@@ -71,7 +71,7 @@ blocks each (BSFaceGenNiNode 1,552 down to BSValueNode 10). Only the types below
 | B3 | 72 + 4*k* | Nodes: `u32` child count and the child references. A `NiNode` ends there (175,169 of 175,169); the other node types carry more bytes after the list (`BSFaceGenNiNode` and `NiBillboardNode` 2, `BSBlastNode` 3, `BSValueNode` 5, `NiSwitchNode` 6, `BSOrderedNode` 17, `BSWeakReferenceNode` 96 to 781,644 in 5,378 distinct lengths; an earlier draft said 96 to 180, from a truncated listing), not decoded | every node; 3 null children in all, all in `NiNode`s |
 | B4 | 72 + 4*k* | Geometry: 10 `f32`, a sphere (centre, radius) then a box (centre, half extents). Example: block 2 at 0x21c, bound at 0x268: sphere (2.0, 0.35, 0.002) radius 2.03, box centre (2.0, 0.35, 0.002) half extents (2.0, 0.35, 0.0000003): a flat decal 4 by 0.7 | every geometry block |
 | B5 | same | Exactly one of three patterns. **Stored**: finite values, box half extents not negative, the two centres equal, and the radius between the largest half extent and the half diagonal (each within 0.1%): 461,059. **Sphere only**: a sphere and all six box values `f32::MAX` (`ff ff 7f 7f`): 556, mostly ship modules (307) and architecture, 53 in LOD models. **Not stored**: a zero sphere and the six `f32::MAX`: 23,209, which are exactly the geometry blocks with a skin reference (next row) | 461,059 + 556 + 23,209 = 484,824; none outside the three |
-| B6 | 112 + 4*k* | Three references: skin (a `BSSkin::Instance` or none), shader (always set: `BSLightingShaderProperty` 483,841, `BSEffectShaderProperty` 983), alpha (none, or an `NiAlphaProperty`: 1,077); then a byte that is 1 in every block. The rest (the mesh list; loose models keep their geometry inline) is M7.S5's | every geometry block |
+| B6 | 112 + 4*k* | Three references: skin (a `BSSkin::Instance` or none), shader (always set: `BSLightingShaderProperty` 483,841, `BSEffectShaderProperty` 983), alpha (none, or an `NiAlphaProperty`: 1,077); then a byte that is 1 in every block. The rest (the mesh list; loose models keep their geometry inline) is M7.S5's: `docs/research/mesh-layout-2026-11-02.md` G1 shows that byte is the first of four slot flags | every geometry block |
 
 ## The model's box (claim C1)
 

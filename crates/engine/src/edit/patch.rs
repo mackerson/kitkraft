@@ -1622,18 +1622,20 @@ pub fn guard_location(target: &Path) -> Result<(), PatchError> {
                 d.display()
             )));
         }
-        if is_user_game_dir(d) {
-            return Err(refused(format!(
-                "{} is inside the game's My Games folder ({}), where the game keeps its INIs and saves; write the patch elsewhere",
-                target.display(),
-                d.display()
-            )));
-        }
         if d.join("ModOrganizer.ini").is_file()
             || (d.join("modlist.txt").is_file() && d.join("plugins.txt").is_file())
         {
             return Err(refused(format!(
                 "{} is inside a Mod Organizer instance or profile ({}), which this tool never writes",
+                target.display(),
+                d.display()
+            )));
+        }
+        // After the MO2 check: an MO2 profile with profile-local INIs is named as MO2's
+        // (W3/W4 review L7).
+        if is_user_game_dir(d) {
+            return Err(refused(format!(
+                "{} is inside the game's My Games folder ({}), where the game keeps its INIs and saves; write the patch elsewhere",
                 target.display(),
                 d.display()
             )));

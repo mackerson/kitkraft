@@ -36,9 +36,11 @@ pub enum Error {
         /// The value found.
         value: u64,
     },
-    /// Bytes after the footer.
-    #[error("{len} bytes after the footer, at offset {offset}")]
+    /// Bytes after the end of a part: the footer, a geometry block's fourth slot, a mesh.
+    #[error("{len} bytes after the {what}, at offset {offset}")]
     Trailing {
+        /// The part they follow.
+        what: &'static str,
         /// File offset of the first extra byte.
         offset: u64,
         /// How many extra bytes.

@@ -5,8 +5,8 @@
 //! - `ck_menu_bar`: the menu bar from the catalog, above the tabs;
 //! - `ck_after_top_bar`: a floating tab is never drawn twice (the central panel falls
 //!   back to the last docked tab and the window comes to the front);
-//! - `ck_windows`: the Warnings, Use Info, Edit Dialog and Data dialog (M7.M2) windows
-//!   and the floating tabs, then `ui.json` when the layout changed;
+//! - `ck_windows`: the Warnings, Use Info, Edit Dialog, Data dialog (M7.M2), Object
+//!   Window (M7.W1) and Preferences (M7.M3) windows and the floating tabs, then `ui.json` when the layout changed;
 //! - `ck_receive`: replies to the requests those windows sent;
 //! - `ck_tour`: the screenshot tour's CK-shell images, after the tab images.
 //!
@@ -25,6 +25,7 @@ use crate::panels::cockpit::CockpitEnv;
 use crate::panels::common::{Action, Slot, TabCtx};
 use crate::windows::cell_view::CellViewAsk;
 use crate::windows::data_dialog::{DataAsk, DataTicket};
+use crate::windows::preferences::{PrefsAsk, PrefsView};
 use crate::windows::use_info::UseInfoAsk;
 use crate::windows::warnings::{self, WarningsAsk};
 use crate::windows::{self, Pending, WinSpec, WindowKind};
@@ -84,6 +85,10 @@ impl App {
             // what a user left open.
             if self.tour.is_none() {
                 self.shell.layout = windows::layout_from_json(self.prefs.ck_windows.as_ref());
+                // M7.M3: the zoom Preferences keeps.
+                if let Some(z) = self.prefs.zoom {
+                    ui.ctx().set_zoom_factor(z);
+                }
             }
         }
         if let Some(name) = self.shell.tour_menu.clone() {
@@ -98,10 +103,34 @@ impl App {
             (!r.signature.is_empty()).then(|| s.trim().to_string())
         });
         let pick = menu::menu_bar(ui, &menus, &mut self.shell, &labels, selected.as_deref());
+        if let Some(p) = pick {
+            self.ck_pick(p);
+        }
+        // M7.M5: the catalog's shortcuts (KitKraft's own keys; the CK's are unobserved).
+        if self.tour.is_none() {
+            if let Some(p) = menu::pressed(ui.ctx(), &menus) {
+                self.ck_pick(p);
+            }
+        }
+    }
+
+    /// What a menu pick does: a tab, a window, the editor's form for a write, or a tab
+    /// floated or docked.
+    pub(super) fn ck_pick(&mut self, pick: MenuPick) {
         match pick {
-            Some(MenuPick::Open(Target::Tab(label))) => self.ck_open_tab(label),
-            Some(MenuPick::Open(Target::Window(kind))) => self.shell.set_open(kind, true),
-            Some(MenuPick::FloatTab(label)) => {
+            MenuPick::Open(Target::Tab(label)) => self.ck_open_tab(label),
+            MenuPick::Open(Target::Window(kind)) => self.shell.set_open(kind, true),
+            MenuPick::Open(Target::Editor(command)) => {
+                let form = self.ck_selected();
+                let ty = self
+                    .records
+                    .record_view
+                    .as_ref()
+                    .map(|r| r.signature.clone())
+                    .filter(|s| !s.is_empty());
+                self.apply(vec![editor_action(command, form.as_deref(), ty.as_deref())])
+            }
+            MenuPick::FloatTab(label) => {
                 let float = !self.shell.is_floating(label);
                 let docked = TABS
                     .iter()
@@ -118,7 +147,6 @@ impl App {
                     }
                 }
             }
-            None => {}
         }
     }
 
@@ -186,6 +214,11 @@ impl App {
             if let Some(req) = self.shell.cell_view.worlds() {
                 self.ck_submit(Pending::CellView, req);
             }
+        }
+        // E's ask D2: a new load (the active file written, then loaded) refreshes the
+        // shown cell's references, so a placed reference shows.
+        if let Some(req) = self.shell.cell_view.reload_on(self.load.data) {
+            self.ck_submit(Pending::CellView, req);
         }
     }
 
@@ -437,6 +470,84 @@ impl App {
             None => {}
         }
 
+        // The Object Window (M7.W1): the category tree from `schema`, a type's records.
+        let mut object_actions = Vec::new();
+        if self.shell.is_open(WindowKind::ObjectWindow) {
+            self.shell.object_window.shown();
+            let kind = WindowKind::ObjectWindow;
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let o = &mut self.shell.object_window;
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| object_actions = o.ui(ui, busy),
+            );
+        }
+        if let Some((ticket, req)) = self.shell.object_window.take_request() {
+            self.ck_submit(Pending::Object(ticket), req);
+        }
+        actions.extend(object_actions);
+
+        // Preferences (M7.M3): the workbench's settings, kept in `ui.json`.
+        let mut pref_asks = Vec::new();
+        if self.shell.is_open(WindowKind::Preferences) {
+            let kind = WindowKind::Preferences;
+            let view = PrefsView {
+                theme: self.theme,
+                theme_source: self.theme_source,
+                zoom: ctx.zoom_factor(),
+                instance: self.prefs.instance.as_deref(),
+                profile: self.prefs.profile.as_deref(),
+                checkout: self.prefs.repo_dir.as_deref(),
+                prefs_path: self.prefs_path.as_deref(),
+                catalog: crate::gate::catalog(),
+            };
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let p = &mut self.shell.preferences;
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| pref_asks = p.ui(ui, &view),
+            );
+        } else {
+            self.shell.preferences.closed();
+        }
+        for ask in pref_asks {
+            match ask {
+                PrefsAsk::Theme(choice) => actions.push(Action::SetTheme(choice)),
+                PrefsAsk::Checkout(dir) => actions.push(Action::UseCheckout(dir)),
+                PrefsAsk::Zoom(z) => {
+                    ctx.set_zoom_factor(z);
+                    self.prefs.zoom = Some(z);
+                    self.save_prefs();
+                }
+            }
+        }
+
         // Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02): its
         // per-frame hook, with the active file and the shared selection.
         actions.extend(crate::dialogs::editor::ui(
@@ -663,6 +774,22 @@ impl App {
             _ => {}
         }
         self.shell.tour_frames = 1;
+    }
+}
+
+/// The action a menu item for editor write `command` sends (E's asks B1 and C1): the editor
+/// opens that command's form. `clone` (Clone Form..., Edit > Duplicate) copies the
+/// inspected record `form`; `new` starts from the inspected record's type `ty`, or none;
+/// `build` names no record (its spec names its own).
+pub(super) fn editor_action(command: &str, form: Option<&str>, ty: Option<&str>) -> Action {
+    let on = match command {
+        "clone" => form,
+        "new" => ty,
+        _ => None,
+    };
+    Action::OpenEditor {
+        command: command.to_string(),
+        form: on.unwrap_or_default().to_string(),
     }
 }
 

@@ -44,6 +44,19 @@ fn bounds_env(form: &str, model: &str, bounds: Value, limitation: &str) -> Value
            "limitations": [limitation]})
 }
 
+/// Shows `env` as the Render Window's cell without sending its `mesh.bounds` requests:
+/// the test files the replies it means to test, whatever `App::receive` does with a
+/// refused one (ask A7). Returns how many bases were asked.
+fn quiet_cell(h: &mut Bench, env: &Value) -> usize {
+    let render = &mut h.state_mut().app.render;
+    let _ = render.show_cell("RoomR3");
+    let none = render.receive_page(crate::viewport::cell::parse_page(env));
+    assert!(none.is_none(), "one page");
+    let asked = render.take_bounds_queue().len();
+    h.run_steps(4);
+    asked
+}
+
 fn status_has(h: &Bench, text: &str) -> bool {
     h.query_all_by_label_contains(text).next().is_some()
 }
@@ -52,9 +65,7 @@ fn status_has(h: &Bench, text: &str) -> bool {
 fn m7_r3_model_boxes_replace_obnd_and_a_base_without_a_bound_is_a_limitation() {
     let Some(mut h) = workbench() else { return };
     open_tab(&mut h, Tab::Render);
-    let req = cell_request(&CellPick::Cell("RoomR3".into()), None);
-    inject(&mut h, Slot::RenderCell, req, Ok(cell_env()));
-    settle(&mut h);
+    assert_eq!(quiet_cell(&mut h, &cell_env()), 2);
 
     // Before any reply: each distinct base asked once, OBND drawn meanwhile.
     let render = &h.state().app.render;
@@ -131,9 +142,7 @@ fn m7_r3_the_status_lines_fit_the_window() {
                      "base_signature": "STAT", "position": null}),
     );
     env["data"]["total"] = json!(4);
-    let req = cell_request(&CellPick::Cell("RoomR3".into()), None);
-    inject(&mut h, Slot::RenderCell, req, Ok(env));
-    settle(&mut h);
+    assert_eq!(quiet_cell(&mut h, &env), 2);
     assert_wholly_in_view(&h, "without a bound: neither");
     assert_wholly_in_view(&h, "without a position");
     assert_wholly_in_view(&h, "model boxes: 0 of 2 bases answered");
@@ -194,4 +203,21 @@ fn m7_r3_model_boxes_are_forgotten_on_a_new_load_and_on_an_engine_restart() {
     let render = &h.state().app.render;
     assert_eq!(render.bounds_progress(), (0, 0));
     assert_eq!(box_sources(&render.page_refs()), (0, 2, 1));
+}
+
+#[test]
+fn m7_r3_a_refused_mesh_bounds_request_answers_its_base() {
+    // The requests go to the harness's engine, which has no load order and refuses
+    // both. With A7 each refusal answers its base with no model box: both bases are
+    // answered, their references keep OBND (or their shape), and the reasons are listed.
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    let req = cell_request(&CellPick::Cell("RoomR3".into()), None);
+    inject(&mut h, Slot::RenderCell, req, Ok(cell_env()));
+    settle(&mut h);
+    let render = &h.state().app.render;
+    assert_eq!(render.bounds_progress(), (2, 2), "both refusals answered");
+    assert_eq!(box_sources(&render.page_refs()), (0, 2, 1));
+    assert!(!status_has(&h, "bases answered"));
+    assert_wholly_in_view(&h, "2 base(s) without a model box");
 }

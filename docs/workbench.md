@@ -112,6 +112,8 @@ M6.G1 and M6.G3):
   | `game.probe` | none | confirmed | Cockpit (`panels/cockpit/probes.rs`) |
   | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
   | `set` (M7.E2, Amendment 4) | `dry_run: true` | no `dry_run`, confirmed, `into` named | Edit dialog (`dialogs/set.rs`, `dialogs/editor.rs`) |
+  | `build` (M7.E5, Amendment 4; lands with E's `ws/e` merge) | `plan: true` | no `plan`, confirmed, `out` named, no `overwrite` | Build Spec form (`dialogs/build.rs`, `dialogs/editor.rs`; File > Build Patch) |
+  | `revert` (M7.E6, Amendment 4; lands with E's `ws/e` merge) | `dry_run: true` | no `dry_run`, confirmed, `plugin` named | Edit dialog, Undo last write (`dialogs/revert.rs`, `dialogs/editor.rs`) |
 
   `set` is the editor's first write (ADR 0007 Amendment 4, accepted 2026-11-01 with
   model A: one confirmed write per OK click; `gate::EDITOR_SCOPE` holds the six editor
@@ -126,6 +128,12 @@ M6.G1 and M6.G3):
   disabled unless the dry run would write and the active file is still the preview's
   output. The engine's output guard refuses load-order plugins, the game and user Data
   folders, MO2 and links on its own.
+
+  The `build` and `revert` rows land with E's branch (M7.E5, M7.E6): until it merges, both
+  are refused here. `build` writes a fresh plugin: the window builds only into an active
+  file that does not exist yet. The editor undoes only its last write of a record, and only
+  when that write added the record to the active file; `revert` drops the override (`to:
+  remove`).
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
   refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
@@ -467,7 +475,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W2, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M3, M7.M4, M7.W1, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -501,10 +509,51 @@ revisited once a sitting observes how the CK docks. Code:
   "KitKraft" line come the catalog's own commands of that menu: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
   (bound by M7.M5); a command whose `menu_path` is an observed item is that item. An item
-  opens the tab or window that runs its command and runs nothing itself. Disabled items
+  opens the tab or window that runs its command and runs nothing itself; the editor's
+  writes open their forms through the editor (File > Build Patch, Record > New Form...,
+  Clone Form... and Edit > Duplicate send `OpenEditor` with `build`, `new` or `clone`; each is
+  enabled once the gate permits its command). Disabled items
   carry a word beside them and the reason on hover: `writes` (outside ADR 0007 Amendments
   3 and 4, or in the editor's scope and not yet permitted with its M7.E ticket), `gap`,
   `no command`, `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
+- **Object Window (M7.W1, M7.S2)**: View > Object Windows (or View > Object Window). The
+  category tree from `schema`: "*All" at the top, as the CK's (observed,
+  `ck-20261101-03`), then each category with its record types; a sitting has observed no
+  category below "*All" yet, so every type is in "Other (unobserved)", KitKraft's own name,
+  and the window says so (sitting 1's step S1-09 records the tree; `schema` carries each
+  type's `category`). A type's node lists its records with `query` (EditorID, FormID, type,
+  plugin; virtual rows, 1,000 a page); the "Text Filter" asks the engine for the type's
+  records whose EditorID contains the text; a double-click inspects the record and opens
+  the Edit dialog. Observed and not built: "*All" listing every form (`query` takes one
+  type, so "*All" asks for one), the use count column, and dragging a row into the Render
+  Window (M7.E4).
+  T1 (2026-11-02, release, `app::harness::tests_w::t1_object_window_on_the_largest_type`,
+  `#[ignore]`d, `Starfield.esm` from the Data folder, warm index cache): REFR, the type with
+  the most records (3,291,860), first 1,000-row page 146 to 180 ms cold (the first query
+  of the session) and 143 to 162 ms warm; STAT (20,607 winners) 728 to 1,455 ms cold and
+  68 to 97 ms warm; frames while the wheel scrolls the page, 300 frames, p50 1.0 to 1.5 ms,
+  p95 1.7 to 2.0 ms, max 2.4 to 2.8 ms over three runs (budget p95 under 16 ms, max under
+  50 ms). The frames are the headless harness's (egui layout and tessellation, no GPU), a
+  lower bound on the window's; the window itself on the dev profile is not measured yet.
+- **Preferences (M7.M3)**: View > Preferences. The workbench's settings, kept only in
+  `ui.json`: the theme (preset, and light, dark or system; the Start tab's picker writes the
+  same), the zoom (Zoom out, Zoom in by a tenth between 50 % and 200 %, Reset zoom; applied
+  on the next start too), the paths it remembers (the MO2 instance and the profile, set from
+  the Start tab; the KitKraft checkout the Help tab reads, with "Use This Checkout"), and the
+  catalog's shortcuts (bound in the window: M7.M5, below). The layout and labels are KitKraft's own:
+  the CK's Preferences dialog is not observed yet (its parity row is `unresearched`; sitting
+  1's step S1-08), and the window says so; it is laid out as the CK's where the settings
+  correspond once a sitting has seen it. File > Preferences... stays disabled until its
+  parity row maps to this window.
+- **Shortcuts (M7.M5, mechanism first)**: the catalog's own keys are bound in the window
+  (Ctrl+O, Ctrl+F, Ctrl+B, F7, Enter): a key does what its menu item does, and only when the
+  item is enabled (so Ctrl+B waits on the gate permitting `build`); a key without Ctrl or Alt
+  (Enter) waits while a text field has the keyboard; none is bound in the screenshot tour. No
+  catalog key takes one the window keeps (egui's text editing and zoom keys, the Render
+  Window's W A S D), and no two commands share one (`menu::shortcut_tests`). These are
+  KitKraft's keys, not the CK's: the CK's accelerator keys were not observed (they were not
+  exposed to UI Automation; sitting 1, S1-06), so no binding claims CK parity and the parity
+  rows are unchanged.
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,

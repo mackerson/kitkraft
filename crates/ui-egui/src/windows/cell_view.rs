@@ -90,6 +90,9 @@ pub struct CellViewState {
     pub error: Option<String>,
     /// The limitations of the last filed reply.
     pub limitations: Vec<String>,
+    /// The load (`LoadTab::data`) the shown cell's references were last asked under (E's
+    /// ask D2).
+    pub seen_load: Option<u64>,
 }
 
 impl CellViewState {
@@ -141,6 +144,26 @@ impl CellViewState {
             return None;
         }
         self.begin_refs(form);
+        let req = self.refs_request(None)?;
+        self.refs_pending = true;
+        Some(req)
+    }
+
+    /// E's ask D2: after a new load (an editor write into the active file, then the active
+    /// file loaded), the shown cell's references are asked again from their first page, so
+    /// a placed reference shows. `generation` is the Load tab's data key; the first call
+    /// only records it, and nothing is asked while a references request is in flight.
+    pub fn reload_on(&mut self, generation: u64) -> Option<Request> {
+        if self.seen_load == Some(generation) || self.refs_pending {
+            return None;
+        }
+        let first = self.seen_load.is_none();
+        self.seen_load = Some(generation);
+        if first {
+            return None;
+        }
+        let form = self.cell.clone()?;
+        self.begin_refs(&form);
         let req = self.refs_request(None)?;
         self.refs_pending = true;
         Some(req)
@@ -1011,5 +1034,30 @@ mod tests {
         // A form not in the list, and no selection, mark nothing.
         assert_eq!(s.selected_row(Some("Starfield.esm:0A6F09")), None);
         assert_eq!(s.selected_row(None), None);
+    }
+}
+
+#[cfg(test)]
+mod reload_tests {
+    use super::*;
+
+    /// E's ask D2: a new load asks the shown cell's references again; the same load, no
+    /// cell, or a request in flight ask nothing.
+    #[test]
+    fn a_new_load_asks_the_shown_cells_references_again() {
+        let mut s = CellViewState::default();
+        assert!(s.reload_on(1).is_none(), "the first load is only recorded");
+        assert!(s.reload_on(2).is_none(), "no cell shown");
+        let first = s
+            .cell("Starfield.esm:00021966")
+            .expect("the cell's first page");
+        assert!(s.reload_on(3).is_none(), "its first page is in flight");
+        s.refs_pending = false;
+        let again = s.reload_on(3).expect("asked again");
+        assert_eq!(again.id, "cell");
+        assert_eq!(again.args, first.args, "the same cell, from its first page");
+        crate::gate::check(&again).unwrap();
+        s.refs_pending = false;
+        assert!(s.reload_on(3).is_none(), "the same load: nothing");
     }
 }
