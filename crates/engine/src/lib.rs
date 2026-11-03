@@ -129,7 +129,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "load",
         label: "Load Order...",
-        menu_path: "File/Load Order...",
+        menu_path: "File/Data...",
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
         summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
@@ -151,7 +151,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "query",
         label: "Query Records...",
-        menu_path: "Record/Query...",
+        menu_path: "Edit/Find Text",
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
         summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
@@ -239,7 +239,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "clone",
         label: "Clone Form...",
-        menu_path: "Record/Clone Form...",
+        menu_path: "Edit/Duplicate",
         shortcut: None,
         aliases: &[],
         summary: "Copy the winning version of a base form into a full-scale patch plugin as a new form (new FormID and EditorID), fields applied; lstrings inlined, FormIDs copied as stored; validated",
@@ -294,7 +294,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "validate",
         label: "Validate Plugin",
-        menu_path: "Tools/Validate",
+        menu_path: "File/Validate Loaded Data",
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
@@ -360,7 +360,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "ba2.pack",
         label: "Pack Archive...",
-        menu_path: "Archive/Pack...",
+        menu_path: "File/Create Archive",
         shortcut: None,
         aliases: &[],
         summary: "Pack a directory (as the Data root) into a .ba2 archive; deterministic",
@@ -382,7 +382,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "papyrus.compile",
         label: "Compile Script...",
-        menu_path: "Papyrus/Compile...",
+        menu_path: "Gameplay/Compile Papyrus Scripts...",
         shortcut: None,
         aliases: &[],
         summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs or Tools/ContentResources.zip (never -release)",
@@ -527,7 +527,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "revert",
         label: "Revert Record...",
-        menu_path: "Edit/Revert Record...",
+        menu_path: "Edit/Undo",
         shortcut: None,
         aliases: &[],
         summary: "Undo an edit to the active plugin: remove its override of a form (the version before it in the load order wins again) or replace the override with a copy of that version; dry_run previews it; the envelope carries the diff of the file before and after and the validate findings",
@@ -571,7 +571,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "cell",
         label: "Cell View...",
-        menu_path: "View/Cell View...",
+        menu_path: "View/Cell View",
         shortcut: None,
         aliases: &["cells"],
         summary: "Worldspaces, cells (interior, or a world's exterior cells with their grid) and the references of one cell (base form and type, EditorID, position, rotation, scale, persistence, flags; with_bounds: the base's OBND), from the winning versions, paged, with evidence; read-only",

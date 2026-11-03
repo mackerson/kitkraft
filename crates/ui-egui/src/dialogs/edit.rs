@@ -12,13 +12,11 @@
 //! saved.
 
 use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
 
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
 use super::{place, DialogState, Layout};
-use crate::gate::Request;
 use crate::panels::common::Action;
 use crate::panels::records::{RecordView, SubRow, VersionView};
 use crate::panels::MAX_CELL;
@@ -134,61 +132,11 @@ fn field_paths(version: &VersionView) -> Vec<String> {
         .collect()
 }
 
-/// Where the dialog's actions wait for the editor's per-frame hook, which the shell
-/// already applies (see [`DialogState::ui`]).
-#[derive(Clone, Default)]
-struct Outbox(Arc<Mutex<Vec<Action>>>);
-
-fn outbox_id() -> egui::Id {
-    egui::Id::new("kitkraft-edit-dialog-outbox")
-}
-
-/// The actions the dialog asked for since the last call (taken by `editor::ui`).
-pub(crate) fn take_dialog_actions(ctx: &egui::Context) -> Vec<Action> {
-    let Some(outbox) = ctx.data(|d| d.get_temp::<Outbox>(outbox_id())) else {
-        return Vec::new();
-    };
-    let Ok(mut queue) = outbox.0.lock() else {
-        return Vec::new();
-    };
-    std::mem::take(&mut *queue)
-}
-
-fn post(ctx: &egui::Context, actions: Vec<Action>) {
-    if actions.is_empty() {
-        return;
-    }
-    let outbox = ctx.data_mut(|d| d.get_temp_mut_or_default::<Outbox>(outbox_id()).clone());
-    let Ok(mut queue) = outbox.0.lock() else {
-        return;
-    };
-    queue.extend(actions);
-}
-
 impl DialogState {
-    /// The shell's call (`windows/shell.rs`): draws the dialog with [`Self::ui_actions`],
-    /// hands its actions to the editor's per-frame hook (which the shell applies), and
-    /// returns the `schema` request a type without a layout needs, once.
-    ///
-    /// Until the shell takes the dialog's actions itself (the M7.E2 report's ask:
-    /// `ui_actions` straight into the shell's actions, the `schema` request asked by the
-    /// shell), this keeps the shell's call unchanged.
-    pub fn ui(&mut self, ui: &mut egui::Ui, record: Option<&RecordView>) -> Option<Request> {
-        let actions = self.ui_actions(ui, record);
-        post(ui.ctx(), actions);
-        let sig = record
-            .map(|r| r.signature.clone())
-            .filter(|s| !s.is_empty())?;
-        self.schema_request(&sig)
-    }
-
     /// Draws the dialog for `record` and returns what its buttons ask for: OK asks the
-    /// editor to preview the changed fields with `set` (`Action::OpenEditor`).
-    pub(crate) fn ui_actions(
-        &mut self,
-        ui: &mut egui::Ui,
-        record: Option<&RecordView>,
-    ) -> Vec<Action> {
+    /// editor to preview the changed fields with `set` (`Action::OpenEditor`). The shell
+    /// asks for the `schema` a type without a layout needs (`DialogState::schema_request`).
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, record: Option<&RecordView>) -> Vec<Action> {
         let mut actions = Vec::new();
         let Some(record) = record.filter(|r| !r.signature.is_empty()) else {
             theme::status_line(
@@ -333,6 +281,19 @@ impl DialogState {
                 .clicked()
             {
                 edits.0.clear();
+            }
+            // M7.E6: the editor's undo of its last write of this record.
+            if ui
+                .button("Undo last write")
+                .on_hover_text(
+                    "undoes the editor's last write of this record into the active file: `revert --dry-run` first, then a confirm",
+                )
+                .clicked()
+            {
+                actions.push(Action::OpenEditor {
+                    command: "revert".to_string(),
+                    form: record.global.clone(),
+                });
             }
             ui.weak(format!(
                 "{changed} changed; version: {}{}",

@@ -88,8 +88,24 @@ impl<'a> Nif<'a> {
                 value: u64::from(version),
             });
         }
+        // Two fields with one value in every official model (claim H2), refused otherwise
+        // like the other single-value fields.
         let u8_43 = c.u8("u8 at offset 43")?;
+        if u8_43 != 1 {
+            return Err(Error::Unsupported {
+                what: "u8 at offset 43",
+                offset: 43,
+                value: u64::from(u8_43),
+            });
+        }
         let u32_44 = c.u32("u32 at offset 44")?;
+        if u32_44 != 12 {
+            return Err(Error::Unsupported {
+                what: "u32 at offset 44",
+                offset: 44,
+                value: u64::from(u32_44),
+            });
+        }
         let block_count = c.u32("block count")?;
         let u32_52 = c.u32("u32 at offset 52")?;
         let short_a = c.short_string("header short string a")?;

@@ -11,8 +11,10 @@ format family from training, which may come in part from sources the registry fo
 such source was opened in this work. Every claim is grounded only in the counts below, and
 the field names are ours: a field whose meaning the bytes do not show is named by its
 place (`u8_43`, `u32_44`, `u32_52`, `after_extra`, `opaque`), never by a description.
-A field the corpus shows only as one constant value is read as that value, and any
-other value is refused as a layout we do not read (`Error::Unsupported`, with offset). A fact we could not show from the bytes is
+Every field the reader reads that the corpus shows as one constant value (H2's `u8_43`
+and `u32_44`, H4's `u32` after the string table, H6's `u32` 1, B2's `after_extra`) is read
+as that value, and any other value is refused as a layout we do not read
+(`Error::Unsupported`, with offset). B6's byte (always 1) is not read by the reader. A fact we could not show from the bytes is
 not claimed.
 
 ## Corpus and method
@@ -65,7 +67,7 @@ blocks each (BSFaceGenNiNode 1,552 down to BSValueNode 10). Only the types below
 | Claim | Block offset | Content | Evidence |
 | ----- | ------------ | ------- | -------- |
 | B1 | - | The node family is `NiNode`, `BSFaceGenNiNode`, `BSWeakReferenceNode`, `NiBillboardNode`, `NiSwitchNode`, `BSBlastNode`, `BSOrderedNode`, `BSValueNode`; `BSGeometry` is the only type with a bound | 196,103 node blocks and 484,824 geometry blocks decode as below |
-| B2 | 0 | The shared prefix: `u32` name (an index into the string table, or `0xFFFFFFFF`); `u32` count *k* and *k* references to extra-data blocks; a `u32` that is `0xFFFFFFFF` in every block (`after_extra`; the reader refuses any other value); a `u32` not interpreted (`opaque`: values such as `0x0000000E`, `0x0400000E`, `0x2000000F`); 3 `f32` translation; 9 `f32` rotation, row by row; `f32` scale; a reference to the collision block or none. 72 + 4*k* bytes | every node and geometry block: names in range, every extra reference is a `*ExtraData`, `BSXFlags`, `BSBound`, `BoneTranslations`, `SkinAttach` or `BSConnectPoint::*` block, every collision reference (62,705) is a `bhkNPCollisionObject`, every value finite, every scale positive, every rotation's determinant within 0.01 of 1 |
+| B2 | 0 | The shared prefix: `u32` name (an index into the string table, or `0xFFFFFFFF`); `u32` count *k* and *k* references to extra-data blocks; a `u32` that is `0xFFFFFFFF` in every block (`after_extra`; the reader refuses any other value); a `u32` not interpreted (`opaque`: values such as `0x0000000E`, `0x0400000E`, `0x2000000F`); 3 `f32` translation; 9 `f32` rotation, row by row; `f32` scale; a reference to the collision block or none. 72 + 4*k* bytes | every node and geometry block: names in range, every extra reference is a `*ExtraData`, `BSXFlags`, `BSBound`, `BoneTranslations`, `SkinAttach` or `BSConnectPoint::*` block, every collision reference (62,705) is a `bhkNPCollisionObject`, and (grade B, for the name) the root block's `name` string equals its model's file stem, ignoring case, in 49,931 of the 120,543 archived models and contains it or is contained in it in 63,200 more (113,131, 94%), every value finite, every scale positive, every rotation's determinant within 0.01 of 1 |
 | B3 | 72 + 4*k* | Nodes: `u32` child count and the child references. A `NiNode` ends there (175,169 of 175,169); the other node types carry more bytes after the list (`BSFaceGenNiNode` and `NiBillboardNode` 2, `BSBlastNode` 3, `BSValueNode` 5, `NiSwitchNode` 6, `BSOrderedNode` 17, `BSWeakReferenceNode` 96 to 781,644 in 5,378 distinct lengths; an earlier draft said 96 to 180, from a truncated listing), not decoded | every node; 3 null children in all, all in `NiNode`s |
 | B4 | 72 + 4*k* | Geometry: 10 `f32`, a sphere (centre, radius) then a box (centre, half extents). Example: block 2 at 0x21c, bound at 0x268: sphere (2.0, 0.35, 0.002) radius 2.03, box centre (2.0, 0.35, 0.002) half extents (2.0, 0.35, 0.0000003): a flat decal 4 by 0.7 | every geometry block |
 | B5 | same | Exactly one of three patterns. **Stored**: finite values, box half extents not negative, the two centres equal, and the radius between the largest half extent and the half diagonal (each within 0.1%): 461,059. **Sphere only**: a sphere and all six box values `f32::MAX` (`ff ff 7f 7f`): 556, mostly ship modules (307) and architecture, 53 in LOD models. **Not stored**: a zero sphere and the six `f32::MAX`: 23,209, which are exactly the geometry blocks with a skin reference (next row) | 461,059 + 556 + 23,209 = 484,824; none outside the three |
@@ -106,6 +108,21 @@ once. Unit tests feed synthetic models (built by the test from this layout, no g
 every truncation, a trailing byte, another version, out-of-range types, roots and
 children, a cycle, huge counts, and a value other than the observed constant in each of
 the three single-value fields (H4's `u32`, H6's `u32`, B2's `after_extra`).
+
+## Use in the viewport (M7.R3, 2026-11-02)
+
+The Render Window draws each reference with its base's model box (`mesh.bounds`, claim
+C1) in place of the base's `OBND`. Both are in the base's own frame, in the same units
+(C1b, median extent ratio 1.0000). When the model gives no box, the window falls back to
+`OBND`; when neither gives one, it uses the type's shape, with a limitation. No new layout
+fact is used: the viewport reads only the engine's envelope. On two official cells
+(`tests/mesh_corpus.rs` `v3_mesh_bounds_for_the_bases_of_a_cell`, grade B: two cells, not
+the corpus):
+
+- `CityNewAtlantisApartmentTEMPLATE`: of 183 distinct bases, 170 have a model box (135 of
+  them within 1 cm of `OBND`), and 13 are refused for no `MODL`.
+- NewAtlantis 2,1: of 249 bases, 202 have a model box (178 within 1 cm), and 47 are
+  refused for no `MODL`.
 
 ## Not known (limitations)
 
