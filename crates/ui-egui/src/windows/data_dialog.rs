@@ -897,9 +897,6 @@ mod tests {
         }
     }
 
-    /// W2 review M1: the whole `Documents\My Games\Starfield` tree is the owner's live
-    /// game (INIs, saves; AGENTS.md "Owner's live game is off limits"), not only its
-    /// `Data` folder; so is any folder holding the game's INIs.
     /// W3 review L7: an MO2 profile with profile-local INIs is refused as MO2's.
     #[test]
     fn a_profile_with_its_own_inis_is_named_as_mo2s() {
@@ -918,6 +915,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// W2 review M1: the whole `Documents\My Games\Starfield` tree is the owner's live
+    /// game (INIs, saves; AGENTS.md "Owner's live game is off limits"), not only its
+    /// `Data` folder; so is any folder holding the game's INIs.
     #[test]
     fn the_users_my_games_starfield_tree_is_never_the_active_file() {
         let base = std::env::temp_dir().join(format!("kitkraft-ui-mygames-{}", std::process::id()));

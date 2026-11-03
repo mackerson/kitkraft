@@ -214,7 +214,8 @@ impl Prefs {
         if let Some(n) = self
             .zoom
             .filter(|z| ZOOM_RANGE.contains(z))
-            .and_then(|v| serde_json::Number::from_f64(f64::from(v)))
+            // Two decimals, so the file reads 1.1, not the f32's 1.100000023841858.
+            .and_then(|v| serde_json::Number::from_f64((f64::from(v) * 100.0).round() / 100.0))
         {
             map.insert("zoom".into(), Value::Number(n));
         }
@@ -282,6 +283,9 @@ mod tests {
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);
+        assert!(std::fs::read_to_string(&path)
+            .unwrap()
+            .contains("\"zoom\": 1.25"));
         assert!(!path.with_extension("json.tmp").exists());
         assert!(!std::fs::read_to_string(&path).unwrap().contains("repo_dir"));
         std::fs::write(&path, "{not json").unwrap();
