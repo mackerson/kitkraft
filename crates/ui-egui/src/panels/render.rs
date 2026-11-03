@@ -328,7 +328,13 @@ impl MeshBounds {
         let form = data.get("form").and_then(Value::as_str).map(str::to_string);
         let corner = |k: &str| -> Option<[f32; 3]> {
             let a = data.get("bounds")?.get(k)?.as_array()?;
-            let v = |i: usize| a.get(i).and_then(Value::as_f64).map(|x| x as f32);
+            // A corner must be finite as f32 too (1e39 is finite in JSON).
+            let v = |i: usize| {
+                a.get(i)
+                    .and_then(Value::as_f64)
+                    .map(|x| x as f32)
+                    .filter(|x| x.is_finite())
+            };
             Some([v(0)?, v(1)?, v(2)?])
         };
         let aabb = match (corner("min"), corner("max")) {
@@ -950,6 +956,15 @@ mod tests {
     use super::*;
     use crate::viewport::DrawStats;
     use std::time::Duration;
+
+    #[test]
+    fn a_corner_beyond_f32_is_no_model_box() {
+        // Review L3 of M7.R3: 1e39 is finite in JSON but infinite as f32.
+        let env = json!({"data": {"form": "T.esm:000800", "model": "x.nif",
+            "bounds": {"min": [-1.0e39, 0.0, 0.0], "max": [1.0e39, 1.0, 1.0]}}});
+        let m = MeshBounds::from_envelope(&env).unwrap();
+        assert_eq!(m.aabb, None);
+    }
 
     #[test]
     fn a_refused_bounds_request_answers_its_base_with_obnd_kept() {
