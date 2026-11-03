@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    506,379 |   561,850 |  11,610 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,061,900 | 2,639,343 | 718,318 |
+| container/other |          123 |         123 |   252,710 |    510,555 |   561,850 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,066,076 | 2,639,343 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 90:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:9121c598eb3d0bd6` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:5106eaad84dc8719` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -101,7 +101,7 @@ Columns:
 | `BOOK`        | Book                           |     1,368 |          0 |    26 |    25 |      1 |       0 |
 | `IDLE`        | IdleAnimation                  |     1,302 |          0 |     9 |     9 |      0 |       0 |
 | `DFOB`        | DefaultObject                  |     1,273 |          0 |     3 |     1 |      2 |       0 |
-| `AVIF`        | ActorValueInformation          |     1,267 |          0 |     9 |     3 |      0 |       6 |
+| `AVIF`        | ActorValueInformation          |     1,267 |          0 |     9 |     9 |      0 |       0 |
 | `ARMA`        | ArmorAddon                     |     1,238 |          0 |    39 |    36 |      1 |       2 |
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | MorphableObject                |     1,145 |          0 |     4 |     1 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,139 |    456 |     202 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,145 |    456 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,061,900 typed (0 of them failed to decode), 2,639,343 opaque, 718,318 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,066,076 typed (0 of them failed to decode), 2,639,343 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -303,7 +303,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `BOOK`    | Book                           |         1,368 |     25,168 |      0 |         0 |         0 |                   0 |     25,168 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |         1,302 |      7,626 |      0 |         0 |         0 |                   0 |      7,626 |       0 |        0 |
 | `DFOB`    | DefaultObject                  |         1,273 |      1,273 |      0 |         0 |         0 |                   0 |      1,273 |       0 |        0 |
-| `AVIF`    | ActorValueInformation          |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
+| `AVIF`    | ActorValueInformation          |         1,267 |      5,685 |      0 |         0 |         0 |                   0 |      5,685 |       0 |        0 |
 | `ARMA`    | ArmorAddon                     |         1,238 |     27,776 |      0 |         0 |    18,000 |                   0 |      9,776 |       0 |        0 |
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
 | `MRPH`    | MorphableObject                |         1,145 |      1,145 |      0 |         0 |         0 |                   0 |      1,145 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,061,900 |      0 |         0 |   232,876 |                   0 | 46,829,024 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,066,076 |      0 |         0 |   232,876 |                   0 | 46,833,200 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -483,7 +483,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ARTO`    | ArtObject                      |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
 | `ASPC`    | AcousticSpace                  |             16 |     1 |     15 |         0 |                   0 |     16 |       0 |        0 |
 | `ATMO`    | Atmosphere                     |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `AVIF`    | ActorValueInformation          |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `AVIF`    | ActorValueInformation          |             10 |     9 |      1 |         1 |                   0 |      9 |       0 |        0 |
 | `AVMD`    | AvmsData                       |             43 |    31 |     12 |         0 |                   0 |     43 |       0 |        0 |
 | `BIOM`    | Biome                          |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
 | `BMMO`    | BiomeMarker                    |             45 |    33 |     12 |         0 |                   0 |     45 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,945 | 5,184 |    761 |       444 |                   2 |  5,499 |       0 |        0 |
+| **Total** |                                |          5,952 | 5,190 |    762 |       445 |                   2 |  5,505 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -678,7 +678,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `LIGH`: `FLTR` (1,053), `INTV` (1,053)
 - `SFTR`: `DAT2` (33)
 - `FLST`: `FLTR` (44), `INTV` (44)
-- `AVIF`: `AVFL` (1,267), `NAM0` (1,267), `NAM1` (1,185), `NAM2` (35), `NAM3` (35), `NLDT` (387)
 - `ARMA`: `KSIZ` (1), `KWDA` (1)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `PDCL`: `KSIZ` (62), `KWDA` (62)

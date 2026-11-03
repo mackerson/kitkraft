@@ -60,7 +60,7 @@
 // - ARTO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804; corpus)
 // - ASPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official ASPC record (814) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ATMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically; corpus)
-// - AVIF (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - AVIF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953; corpus)
 // - AVMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
 // - BMMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -17859,81 +17859,137 @@ impl AtmoRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct AvifLocalizedStrings {
-    /// `ANAM`, optional.
-    pub abbreviation: Option<Sub<LString>>,
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct AvifFlags(pub u32);
+
+impl AvifFlags {
+    pub const SKILL: u32 = 0x2;
+    pub const USES_ENUM: u32 = 0x4;
+    pub const DONT_ALLOW_SCRIPT_EDITS: u32 = 0x8;
+    pub const IS_FULL_AV_CACHED: u32 = 0x10;
+    pub const IS_PERMANENT_AV_CACHED: u32 = 0x20;
+    pub const DEFAULT_TO0: u32 = 0x400;
+    pub const DEFAULT_TO1: u32 = 0x800;
+    pub const DEFAULT_TO100: u32 = 0x1000;
+    pub const CONTAINS_LIST: u32 = 0x8000;
+    pub const VALUE_LESS_THAN1: u32 = 0x80000;
+    pub const MINIMUM1: u32 = 0x100000;
+    pub const MAXIMUM10: u32 = 0x200000;
+    pub const MAXIMUM100: u32 = 0x400000;
+    pub const MULTIPLY_BY100: u32 = 0x800000;
+    pub const PERCENTAGE: u32 = 0x1000000;
+    pub const DAMAGE_IS_POSITIVE: u32 = 0x4000000;
+    pub const GOD_MODE_IMMUNE: u32 = 0x8000000;
+    pub const HARDCODED: u32 = 0x80000000;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
 }
 
-impl AvifLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"ANAM",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FULL",
-            card: Card::Optional,
-        },
-    ];
+impl Field for AvifFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
 
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.abbreviation,
-                    subs,
-                    *index,
-                    "AVIF.LocalizedStrings.ANAM",
-                    ctx,
-                    extra,
-                ),
-                Hit::Sub { member: 1, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "AVIF.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AvifFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AvifType {
+    DerivedAttribute,
+    SpecialAttribute,
+    Skill,
+    AIAttribute,
+    Resistance,
+    Condition,
+    Charge,
+    IntValue,
+    Variable,
+    Resource,
+    AnimGraphVariable,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl AvifType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::DerivedAttribute,
+            1 => Self::SpecialAttribute,
+            2 => Self::Skill,
+            3 => Self::AIAttribute,
+            4 => Self::Resistance,
+            5 => Self::Condition,
+            6 => Self::Charge,
+            7 => Self::IntValue,
+            8 => Self::Variable,
+            9 => Self::Resource,
+            10 => Self::AnimGraphVariable,
+            other => Self::Other(other),
         }
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"ANAM", self.abbreviation.as_ref());
-        emit(out, *b"FULL", self.name.as_ref());
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::DerivedAttribute => 0,
+            Self::SpecialAttribute => 1,
+            Self::Skill => 2,
+            Self::AIAttribute => 3,
+            Self::Resistance => 4,
+            Self::Condition => 5,
+            Self::Charge => 6,
+            Self::IntValue => 7,
+            Self::Variable => 8,
+            Self::Resource => 9,
+            Self::AnimGraphVariable => 10,
+            Self::Other(raw) => raw,
+        }
     }
 }
 
-impl Visit for AvifLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.abbreviation, "AVIF.LocalizedStrings.ANAM", out);
-        visit_lstrings(&self.name, "AVIF.LocalizedStrings.FULL", out);
+impl Field for AvifType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.abbreviation, "AVIF.LocalizedStrings.ANAM", out);
-        visit_lstrings_mut(&mut self.name, "AVIF.LocalizedStrings.FULL", out);
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
     }
 }
+
+impl Visit for AvifType {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AvifRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<AvifLocalizedStrings>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `NLDT`, optional.
+    pub context_notes: Option<Sub<ZString>>,
+    /// `ANAM`, optional.
+    pub abbreviation: Option<Sub<LString>>,
+    /// `NAM0`, required.
+    pub default_value: Option<Sub<f32>>,
+    /// `AVFL`, required.
+    pub flags: Option<Sub<AvifFlags>>,
+    /// `NAM1`, optional.
+    pub type_: Option<Sub<AvifType>>,
+    /// `NAM2`, optional.
+    pub min: Option<Sub<f32>>,
+    /// `NAM3`, optional.
+    pub max: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -17948,9 +18004,41 @@ impl AvifRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
-        MemberDesc::Group {
-            card: Card::Repeated,
-            members: AvifLocalizedStrings::MEMBERS,
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NLDT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM0",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"AVFL",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Optional,
         },
     ];
 
@@ -17966,10 +18054,47 @@ impl AvifRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "AVIF.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = AvifLocalizedStrings::default();
-                    group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "AVIF.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.name, subs, *index, "AVIF.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.context_notes,
+                    subs,
+                    *index,
+                    "AVIF.NLDT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.abbreviation,
+                    subs,
+                    *index,
+                    "AVIF.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.default_value,
+                    subs,
+                    *index,
+                    "AVIF.NAM0",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.flags, subs, *index, "AVIF.AVFL", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.type_, subs, *index, "AVIF.NAM1", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.min, subs, *index, "AVIF.NAM2", ctx, extra)
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.max, subs, *index, "AVIF.NAM3", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -17978,25 +18103,53 @@ impl AvifRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
-            group.emit(out);
-        }
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"NLDT", self.context_notes.as_ref());
+        emit(out, *b"ANAM", self.abbreviation.as_ref());
+        emit(out, *b"NAM0", self.default_value.as_ref());
+        emit(out, *b"AVFL", self.flags.as_ref());
+        emit(out, *b"NAM1", self.type_.as_ref());
+        emit(out, *b"NAM2", self.min.as_ref());
+        emit(out, *b"NAM3", self.max.as_ref());
     }
 }
 
 impl Visit for AvifRecord {
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "AVIF.LocalizedStrings", out);
+        visit_lstrings(&self.name, "AVIF.FULL", out);
+        visit_lstrings(&self.abbreviation, "AVIF.ANAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "AVIF.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "AVIF.FULL", out);
+        visit_lstrings_mut(&mut self.abbreviation, "AVIF.ANAM", out);
     }
 }
 
 impl AvifRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"AVIF";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x2;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
