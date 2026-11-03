@@ -5,8 +5,8 @@
 //! - `ck_menu_bar`: the menu bar from the catalog, above the tabs;
 //! - `ck_after_top_bar`: a floating tab is never drawn twice (the central panel falls
 //!   back to the last docked tab and the window comes to the front);
-//! - `ck_windows`: the Warnings, Use Info, Edit Dialog, Data dialog (M7.M2) and Object
-//!   Window (M7.W1) windows and the floating tabs, then `ui.json` when the layout changed;
+//! - `ck_windows`: the Warnings, Use Info, Edit Dialog, Data dialog (M7.M2), Object
+//!   Window (M7.W1) and Preferences (M7.M3) windows and the floating tabs, then `ui.json` when the layout changed;
 //! - `ck_receive`: replies to the requests those windows sent;
 //! - `ck_tour`: the screenshot tour's CK-shell images, after the tab images.
 //!
@@ -25,6 +25,7 @@ use crate::panels::cockpit::CockpitEnv;
 use crate::panels::common::{Action, Slot, TabCtx};
 use crate::windows::cell_view::CellViewAsk;
 use crate::windows::data_dialog::{DataAsk, DataTicket};
+use crate::windows::preferences::{PrefsAsk, PrefsView};
 use crate::windows::use_info::UseInfoAsk;
 use crate::windows::warnings::{self, WarningsAsk};
 use crate::windows::{self, Pending, WinSpec, WindowKind};
@@ -84,6 +85,10 @@ impl App {
             // what a user left open.
             if self.tour.is_none() {
                 self.shell.layout = windows::layout_from_json(self.prefs.ck_windows.as_ref());
+                // M7.M3: the zoom Preferences keeps.
+                if let Some(z) = self.prefs.zoom {
+                    ui.ctx().set_zoom_factor(z);
+                }
             }
         }
         if let Some(name) = self.shell.tour_menu.clone() {
@@ -456,6 +461,54 @@ impl App {
             self.ck_submit(Pending::Object(ticket), req);
         }
         actions.extend(object_actions);
+
+        // Preferences (M7.M3): the workbench's settings, kept in `ui.json`.
+        let mut pref_asks = Vec::new();
+        if self.shell.is_open(WindowKind::Preferences) {
+            let kind = WindowKind::Preferences;
+            let view = PrefsView {
+                theme: self.theme,
+                theme_source: self.theme_source,
+                zoom: ctx.zoom_factor(),
+                instance: self.prefs.instance.as_deref(),
+                profile: self.prefs.profile.as_deref(),
+                checkout: self.prefs.repo_dir.as_deref(),
+                prefs_path: self.prefs_path.as_deref(),
+                catalog: crate::gate::catalog(),
+            };
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let p = &mut self.shell.preferences;
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| pref_asks = p.ui(ui, &view),
+            );
+        } else {
+            self.shell.preferences.closed();
+        }
+        for ask in pref_asks {
+            match ask {
+                PrefsAsk::Theme(choice) => actions.push(Action::SetTheme(choice)),
+                PrefsAsk::Checkout(dir) => actions.push(Action::UseCheckout(dir)),
+                PrefsAsk::Zoom(z) => {
+                    ctx.set_zoom_factor(z);
+                    self.prefs.zoom = Some(z);
+                    self.save_prefs();
+                }
+            }
+        }
 
         // Pipeline E's editor (M7.E2 to M7.E6; step 0 of sprint 2026-11-02): its
         // per-frame hook, with the active file and the shared selection.

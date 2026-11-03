@@ -44,7 +44,13 @@ pub struct Prefs {
     /// The CK-style windows (M7.M0): open or closed, position and size, per window and
     /// per floating tab (`crate::windows`, which reads and writes the object).
     pub ck_windows: Option<Value>,
+    /// The window's zoom (egui's zoom factor, [`ZOOM_RANGE`]), set in Preferences (M7.M3)
+    /// and applied on the first frame.
+    pub zoom: Option<f32>,
 }
+
+/// The zoom factors Preferences offers and `ui.json` keeps (others are ignored).
+pub const ZOOM_RANGE: std::ops::RangeInclusive<f32> = 0.5..=2.0;
 
 /// The window's place, in points (egui's logical pixels, so a DPI change does not
 /// change them).
@@ -172,6 +178,11 @@ impl Prefs {
             records_split,
             window: map.get("window").and_then(WindowPrefs::from_value),
             ck_windows: map.get("ck_windows").filter(|v| v.is_object()).cloned(),
+            zoom: map
+                .get("zoom")
+                .and_then(Value::as_f64)
+                .map(|v| v as f32)
+                .filter(|v| ZOOM_RANGE.contains(v)),
         }
     }
 
@@ -199,6 +210,13 @@ impl Prefs {
         }
         if let Some(w) = &self.ck_windows {
             map.insert("ck_windows".into(), w.clone());
+        }
+        if let Some(n) = self
+            .zoom
+            .filter(|z| ZOOM_RANGE.contains(z))
+            .and_then(|v| serde_json::Number::from_f64(f64::from(v)))
+        {
+            map.insert("zoom".into(), Value::Number(n));
         }
         serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_else(|_| "{}".to_string())
     }
@@ -260,6 +278,7 @@ mod tests {
                 monitor: Some([1920.0, 1080.0]),
             }),
             ck_windows: Some(serde_json::json!({"Warnings": {"open": true}})),
+            zoom: Some(1.25),
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);
@@ -267,6 +286,9 @@ mod tests {
         assert!(!std::fs::read_to_string(&path).unwrap().contains("repo_dir"));
         std::fs::write(&path, "{not json").unwrap();
         assert_eq!(Prefs::load(&path), Prefs::default());
+        // A zoom outside ZOOM_RANGE is ignored (M7.M3).
+        assert_eq!(Prefs::from_json(r#"{"zoom": 9.0}"#), Prefs::default());
+        assert_eq!(Prefs::from_json(r#"{"zoom": "big"}"#), Prefs::default());
         // A share outside 0.2 to 0.8 is ignored.
         assert_eq!(
             Prefs::from_json(r#"{"records_split": 0.95}"#),

@@ -509,3 +509,78 @@ fn t1_object_window_on_the_largest_type() {
         );
     }
 }
+
+// ---- Preferences (M7.M3) -------------------------------------------------------------------
+
+/// M7.M3: Preferences shows the theme, the zoom, the paths and the shortcuts, says its
+/// layout is KitKraft's own (the CK's dialog is unobserved), and its changes reach the
+/// window and the prefs (`ui.json`; the harness has no prefs file, so nothing is written).
+#[test]
+fn preferences_change_the_zoom_theme_and_checkout() {
+    let Some(mut h) = workbench() else { return };
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::Preferences)]);
+    h.run_steps(3);
+    assert_in_view(&h, "KitKraft's own layout");
+    assert_in_view(&h, "Zoom");
+    assert_in_view(&h, "Shortcuts");
+    assert_in_view(&h, "Ctrl+O");
+    assert_in_view(&h, "not kept: no %LOCALAPPDATA%");
+    click_button(&mut h, "Zoom in");
+    assert_eq!(h.state().app.prefs.zoom, Some(1.1));
+    assert!((h.ctx.zoom_factor() - 1.1).abs() < 1e-4);
+    click_button(&mut h, "Reset zoom");
+    assert_eq!(h.state().app.prefs.zoom, Some(1.0));
+    // The theme: the window's "dark" radio (not the Start tab's, behind it) sends
+    // Action::SetTheme, which the window applies.
+    let left = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("KitKraft's own layout")))
+        .map(|n| n.rect().min.x)
+        .fold(f32::MAX, f32::min);
+    let dark: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            text_of(n).as_deref() == Some("dark") && n.role() == egui::accesskit::Role::RadioButton
+        })
+        .filter(|n| n.rect().min.x >= left - 1.0)
+        .collect();
+    assert_eq!(dark.len(), 1, "the window's dark radio");
+    dark[0].click();
+    h.run_steps(3);
+    assert_eq!(h.state().app.theme.mode, crate::theme::Mode::Dark);
+    assert_eq!(
+        h.state()
+            .app
+            .prefs
+            .theme
+            .as_deref()
+            .map(|t| t.ends_with("-dark")),
+        Some(true)
+    );
+    // The checkout: this repository.
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .display()
+        .to_string();
+    let field: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("KitKraft checkout:")
+        })
+        .collect();
+    assert_eq!(field.len(), 1);
+    field[0].focus();
+    h.run_steps(1);
+    let field: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("KitKraft checkout:")
+        })
+        .collect();
+    field[0].type_text(&repo);
+    h.run_steps(2);
+    click_button(&mut h, "Use This Checkout");
+    assert_eq!(h.state().app.prefs.repo_dir.as_deref(), Some(repo.as_str()));
+}
