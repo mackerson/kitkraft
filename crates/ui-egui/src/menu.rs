@@ -1046,4 +1046,228 @@ mod tests {
             "writes: not in the window's write scope (ADR 0007 Amendments 3 and 4)"
         );
     }
+
+    // ---- M7.K5: the parity check ---------------------------------------------------------
+
+    /// The statuses of ADR 0012 section 4 and its Amendment 1 (`built, unobserved`).
+    const STATUSES: [&str; 5] = [
+        "unresearched",
+        "built, unobserved",
+        "observed",
+        "reproduced",
+        "improved",
+    ];
+
+    /// One "Interface parity" row: kind, element, maps to, status, source, evidence.
+    #[derive(Debug)]
+    struct Row {
+        kind: String,
+        element: String,
+        maps: String,
+        status: String,
+        source: String,
+        evidence: String,
+    }
+
+    /// The rows of the "Interface parity" table of a `docs/ck-parity.md` text.
+    fn interface_rows(parity: &str) -> Vec<Row> {
+        let Some(section) = parity.split("## Interface parity").nth(1) else {
+            return Vec::new();
+        };
+        let section = section.split("\n## ").next().unwrap_or(section);
+        section
+            .lines()
+            .filter(|l| l.starts_with('|'))
+            .map(|l| {
+                l.trim()
+                    .trim_matches('|')
+                    .split('|')
+                    .map(|c| c.trim().to_string())
+                    .collect::<Vec<_>>()
+            })
+            .filter(|c| c.len() >= 6 && c[0] != "Kind" && !c[0].starts_with('-'))
+            .map(|c| Row {
+                kind: c[0].clone(),
+                element: c[1].clone(),
+                maps: c[2].clone(),
+                status: c[3].clone(),
+                source: c[4].clone(),
+                evidence: c[5..].join("|"),
+            })
+            .collect()
+    }
+
+    /// The backticked tokens of a cell.
+    fn ticked(cell: &str) -> Vec<&str> {
+        cell.split('`').skip(1).step_by(2).collect()
+    }
+
+    /// Every full sitting id (`ck-YYYYMMDD-NN`) a cell names.
+    fn sitting_ids(cell: &str) -> Vec<String> {
+        let b = cell.as_bytes();
+        let mut out = Vec::new();
+        for (at, _) in cell.match_indices("ck-") {
+            let id = b
+                .get(at..at.saturating_add(14))
+                .and_then(|w| std::str::from_utf8(w).ok());
+            if let Some(id) = id.filter(|id| {
+                let d = id.as_bytes();
+                d[3..11].iter().all(u8::is_ascii_digit)
+                    && d[11] == b'-'
+                    && d[12..14].iter().all(u8::is_ascii_digit)
+            }) {
+                out.push(id.to_string());
+            }
+        }
+        out
+    }
+
+    /// What is wrong with the "Interface parity" rows of `parity`, judged against the
+    /// sittings `observations` records (its `### ck-...` ledger entries), the catalog, and
+    /// `test_exists` (whether a cited test function exists): ADR 0012 section 4 and the
+    /// parity text contract.
+    fn parity_problems(
+        parity: &str,
+        observations: &str,
+        test_exists: &dyn Fn(&str) -> bool,
+    ) -> Vec<String> {
+        let mut out = Vec::new();
+        let rows = interface_rows(parity);
+        if rows.is_empty() {
+            out.push("no Interface parity rows".to_string());
+        }
+        for r in &rows {
+            let at = format!("`{}` row \"{}\"", r.kind, r.element);
+            if !STATUSES.contains(&r.status.as_str()) {
+                out.push(format!(
+                    "{at}: status `{}` is none of {STATUSES:?}",
+                    r.status
+                ));
+            }
+            if r.kind == "menu item" {
+                let ids: Vec<&str> = ticked(&r.maps)
+                    .into_iter()
+                    .filter(|t| !t.ends_with(':'))
+                    .collect();
+                for id in &ids {
+                    if gate::find_command(id).is_none() {
+                        out.push(format!("{at}: `{id}` is no catalog command"));
+                    }
+                }
+                if ids.is_empty() && !r.maps.contains("`gap:`") {
+                    out.push(format!("{at}: maps to no catalog id and no `gap:`"));
+                }
+            }
+            if ["observed", "reproduced", "improved"].contains(&r.status.as_str()) {
+                let ids = sitting_ids(&r.source);
+                if ids.is_empty() {
+                    out.push(format!(
+                        "{at}: `{}` but its Source names no sitting",
+                        r.status
+                    ));
+                }
+                for id in ids {
+                    if !observations.contains(&format!("### {id}")) {
+                        out.push(format!("{at}: Source names `{id}`, which docs/ck-observations.md does not record"));
+                    }
+                }
+            }
+            if ["reproduced", "improved"].contains(&r.status.as_str()) {
+                let tokens = ticked(&r.evidence);
+                let tests: Vec<&str> = tokens
+                    .iter()
+                    .copied()
+                    .filter(|t| t.contains("::"))
+                    .collect();
+                let images =
+                    tokens.iter().any(|t| t.ends_with(".png")) || r.evidence.contains(".png");
+                if tests.is_empty() && !images {
+                    out.push(format!("{at}: `{}` names no test or tour image", r.status));
+                }
+                for t in tests {
+                    let name = t.rsplit("::").next().unwrap_or(t);
+                    if !test_exists(name) {
+                        out.push(format!("{at}: its test `{t}` does not exist"));
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// Whether `fn <name>` appears in this crate's sources.
+    fn crate_has_fn(name: &str) -> bool {
+        let want = format!("fn {name}(");
+        let mut stack = vec![repo().join("crates").join("ui-egui").join("src")];
+        while let Some(dir) = stack.pop() {
+            for e in std::fs::read_dir(&dir).unwrap() {
+                let path = e.unwrap().path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|x| x.to_str()) == Some("rs")
+                    && std::fs::read_to_string(&path).unwrap().contains(&want)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    const FIXTURE_HEAD: &str = "# CK parity\n\n## Interface parity\n\n| Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |\n| ---- | ---- | ---- | ---- | ---- | ---- |\n";
+    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n";
+    const FIXTURE_GOOD: &str = "| menu item | File > Data... | `load` (the Data dialog) | observed | `ck-20261101-01` | - |\n| menu item | File > Exit | `gap:` no command | observed | `ck-20261101-01` | - |\n| menu | Edit menu, every item | per item | unresearched | - | - |\n| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |\n";
+
+    fn fixture(rows: &str) -> String {
+        format!(
+            "{FIXTURE_HEAD}{FIXTURE_GOOD}{rows}\n## Next section\n\n| a | b | c | d | e | f |\n"
+        )
+    }
+
+    /// M7.K5 (ROADMAP M7 exit, ADR 0012 section 4): the real `docs/ck-parity.md` passes the
+    /// parity check, and each kind of bad row planted into a small fixture fails it.
+    #[test]
+    fn the_parity_doc_passes_the_parity_check() {
+        let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
+        let observations =
+            std::fs::read_to_string(repo().join("docs").join("ck-observations.md")).unwrap();
+        let problems = parity_problems(&parity, &observations, &crate_has_fn);
+        assert!(problems.is_empty(), "{problems:#?}");
+        assert!(
+            interface_rows(&parity).len() >= 150,
+            "the whole table is read"
+        );
+
+        let has = |name: &str| name == "the_parity_doc_passes_the_parity_check";
+        assert_eq!(
+            parity_problems(&fixture(""), FIXTURE_OBSERVATIONS, &has),
+            Vec::<String>::new(),
+            "the good fixture passes"
+        );
+        // Each planted row, and what the check must say about it.
+        let planted = [
+            // A status ADR 0012 does not define.
+            ("| menu item | File > Exit | `gap:` no command | observd | `ck-20261101-01` | - |", "none of"),
+            ("| window | Warnings window | `validate` | reproduced (layout unobserved) | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |", "none of"),
+            // A menu item that maps to no command that exists, or to nothing.
+            ("| menu item | File > Data... | `no.such.command` | observed | `ck-20261101-01` | - |", "no catalog command"),
+            ("| menu item | File > Exit | closes the window | observed | `ck-20261101-01` | - |", "no `gap:`"),
+            // Observed with no sitting, or a sitting no ledger entry records.
+            ("| menu item | File > Exit | `gap:` no command | observed | owner, 2026-10-16 (recollection) | - |", "names no sitting"),
+            ("| window | Object Window | `query` | observed | `ck-20991231-99` | - |", "does not record"),
+            // Reproduced with no evidence, or with a test that does not exist.
+            ("| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | - |", "no test or tour image"),
+            ("| dialog | Data dialog | `load` | improved | `ck-20261101-01` | test `menu::tests::no_such_test` |", "does not exist"),
+        ];
+        for (row, want) in planted {
+            let problems = parity_problems(&fixture(row), FIXTURE_OBSERVATIONS, &has);
+            assert!(
+                problems.iter().any(|p| p.contains(want)),
+                "planted {row}\n  wanted `{want}`, got {problems:#?}"
+            );
+        }
+        // The rows of the next section are not read; an empty table is a problem.
+        assert_eq!(interface_rows(&fixture("")).len(), 4);
+        assert!(!parity_problems("# no table", FIXTURE_OBSERVATIONS, &has).is_empty());
+    }
 }
