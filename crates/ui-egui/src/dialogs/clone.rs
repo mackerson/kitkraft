@@ -14,7 +14,6 @@ use crate::gate::Request;
 
 /// The preview of copying `form` into `into` (the active file) as a new form with the
 /// EditorID `edid`: a dry run, which the gate passes like a read.
-#[allow(dead_code)] // the editor's Duplicate form sends it from the next commit (M7.E3)
 pub(crate) fn preview_request(form: &str, edid: &str, into: &str) -> Request {
     Request::new(
         "clone",
@@ -24,7 +23,6 @@ pub(crate) fn preview_request(form: &str, edid: &str, into: &str) -> Request {
 
 /// The confirmed copy of a previewed `clone`: the preview's arguments with `dry_run`
 /// dropped, built once per confirm click. `None` when `preview` is not a `clone` dry run.
-#[allow(dead_code)] // the confirm box sends it from the next commit (M7.E3)
 pub(crate) fn write_request(preview: &Request) -> Option<Request> {
     if preview.id != "clone" || preview.args.get("dry_run") != Some(&Value::Bool(true)) {
         return None;
