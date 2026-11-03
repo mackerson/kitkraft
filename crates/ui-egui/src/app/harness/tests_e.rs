@@ -1185,3 +1185,31 @@ fn m7_w4_a_sitting_two_type_opens_in_its_layout_and_says_what_was_observed() {
     assert_in_view(&h, "default layout from schema");
     assert_in_view(&h, "CK labels observed (ck-20261102-03)");
 }
+
+/// Wave-1 adversarial review M1: the Build Spec form never reads a large file as a spec.
+/// A 5 MiB file named as the spec (a plugin, say) is refused from its metadata with the
+/// reason shown, nothing is sent, and the form stays usable: the right spec then plans.
+#[test]
+fn m7_e5_a_spec_over_the_cap_is_refused_without_reading_it() {
+    let s = Scratch::new("build-big-spec");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let big = s.path("Huge.esm");
+    std::fs::write(&big, vec![0u8; 5 * 1024 * 1024]).unwrap();
+    plan_build(&mut h, &big);
+    assert_in_view(&h, "at most 4 MiB");
+    assert_absent(&h, "Changes (plan; nothing written)");
+    assert!(!Path::new(&patch).exists());
+    // The form still works: the right spec typed over the big one plans.
+    let small = spec_file(&s);
+    spec_box(&h).focus();
+    h.run_steps(2);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run_steps(1);
+    spec_box(&h).type_text(&small);
+    h.run_steps(3);
+    press(&mut h, "Plan");
+    assert_in_view(&h, "Changes (plan; nothing written)");
+}

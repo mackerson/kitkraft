@@ -124,16 +124,73 @@ struct Write {
     failed: bool,
     /// A build's spec file as it was when planned: the confirm covers its content, not
     /// only its path (M7.E5 review M1). `None` for the other commands.
-    spec_bytes: Option<Vec<u8>>,
+    spec_bytes: Option<SpecSnapshot>,
 }
 
-/// Why a build's spec no longer matches its plan: `spec` is the path, `planned` its
-/// bytes at plan time.
-fn spec_changed(spec: &str, planned: &[u8]) -> Option<String> {
-    match std::fs::read(spec) {
-        Ok(now) if now == planned => None,
+/// The largest build spec the window reads (a TOML spec is a few KiB; a path that names
+/// a plugin by mistake would otherwise be read whole on the UI thread; wave-1 adversarial
+/// review M1).
+const MAX_SPEC_BYTES: u64 = 4 * 1024 * 1024;
+
+/// A build spec as planned: its bytes, read once per Plan, and the size and modification
+/// time they were read at.
+#[derive(Debug, Clone, PartialEq)]
+struct SpecSnapshot {
+    bytes: Vec<u8>,
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
+/// Reads the spec at `path` once, after its metadata says it is a file of at most
+/// [`MAX_SPEC_BYTES`]; the read itself stops one byte past the cap.
+fn read_spec(path: &str) -> Result<SpecSnapshot, String> {
+    use std::io::Read;
+    let too_big = |len: u64| {
+        format!(
+            "the spec is {len} bytes: a build spec is at most 4 MiB (is it a plugin?), so it is not read"
+        )
+    };
+    let meta = std::fs::metadata(path).map_err(|e| format!("cannot read the spec {path}: {e}"))?;
+    if !meta.is_file() {
+        return Err(format!("the spec {path} is not a file"));
+    }
+    if meta.len() > MAX_SPEC_BYTES {
+        return Err(too_big(meta.len()));
+    }
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|f| {
+            f.take(MAX_SPEC_BYTES.saturating_add(1))
+                .read_to_end(&mut bytes)
+        })
+        .map_err(|e| format!("cannot read the spec {path}: {e}"))?;
+    let len = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    if len > MAX_SPEC_BYTES {
+        return Err(too_big(len));
+    }
+    Ok(SpecSnapshot {
+        bytes,
+        len,
+        modified: meta.modified().ok(),
+    })
+}
+
+/// Per repaint: whether the spec's size or modification time moved since the plan (its
+/// metadata only; nothing is read).
+fn spec_moved(spec: &str, planned: &SpecSnapshot) -> Option<String> {
+    match std::fs::metadata(spec) {
+        Ok(m) if m.len() == planned.len && m.modified().ok() == planned.modified => None,
         Ok(_) => Some("the spec changed since the plan: Plan again to preview it".to_string()),
         Err(e) => Some(format!("the spec cannot be read now ({e}): Plan again")),
+    }
+}
+
+/// At the click: one bounded read of the spec, compared byte for byte with the plan's.
+fn spec_changed(spec: &str, planned: &SpecSnapshot) -> Option<String> {
+    match read_spec(spec) {
+        Ok(now) if now.bytes == planned.bytes => None,
+        Ok(_) => Some("the spec changed since the plan: Plan again to preview it".to_string()),
+        Err(e) => Some(format!("{e}: Plan again")),
     }
 }
 
@@ -691,8 +748,8 @@ fn confirm_blocked(
         // What the box shows is what is built (M7.E5 review M1), into a fresh file (L1).
         if let Some(why) = w
             .spec_bytes
-            .as_deref()
-            .and_then(|planned| spec_changed(&w.form, planned))
+            .as_ref()
+            .and_then(|planned| spec_moved(&w.form, planned))
         {
             return Some(why);
         }
@@ -1122,10 +1179,11 @@ fn start_build(
         ));
         return;
     }
-    let spec_bytes = match std::fs::read(spec) {
+    // Read once per Plan, after the metadata check (never per repaint).
+    let spec_bytes = match read_spec(spec) {
         Ok(b) => b,
         Err(e) => {
-            state.note = Some((Status::Fail, format!("cannot read the spec {spec}: {e}")));
+            state.note = Some((Status::Fail, e));
             return;
         }
     };
@@ -1342,7 +1400,7 @@ fn confirm_box(
         if let Some(w) = state.write.as_mut() {
             if let Some(why) = w
                 .spec_bytes
-                .as_deref()
+                .as_ref()
                 .and_then(|planned| spec_changed(&w.form, planned))
             {
                 state.note = Some((Status::Fail, why));
