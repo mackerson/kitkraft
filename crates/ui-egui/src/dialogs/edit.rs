@@ -334,6 +334,19 @@ impl DialogState {
             {
                 edits.0.clear();
             }
+            // M7.E6: the editor's undo of its last write of this record.
+            if ui
+                .button("Undo last write")
+                .on_hover_text(
+                    "undoes the editor's last write of this record into the active file: `revert --dry-run` first, then a confirm",
+                )
+                .clicked()
+            {
+                actions.push(Action::OpenEditor {
+                    command: "revert".to_string(),
+                    form: record.global.clone(),
+                });
+            }
             ui.weak(format!(
                 "{changed} changed; version: {}{}",
                 version.plugin,
