@@ -27,6 +27,17 @@
 //! For `game.probe` there is no preview form: the catalog gives it no dry run, so
 //! every request is a writing form and only a confirmed one passes (M6.G5).
 //!
+//! ADR 0007 Amendment 4 (accepted 2026-11-01 with model A, M7.O4): the editor's writes
+//! (`set`, `new`, `clone`, `place`, `build`, `revert`, [`EDITOR_SCOPE`]) join
+//! [`PERMITTED_WRITES`] one by one with their M7.E tickets, under the same mechanics. An
+//! editor entry names its output argument ([`PermittedWrite::output`]: `into`, `plugin`
+//! or `out`): the writing form must name it, and in any form a named output must have a
+//! plugin extension, must not be an official master by name ([`official_master`]) and
+//! must not lie in the MO2 profile `Default`; `overwrite` and the like are refused
+//! ([`PermittedWrite::refuse_args`]). The dialog compares the output with the window's
+//! active file; the engine's own output guard refuses the game and user Data folders,
+//! MO2 and links whatever the window sends.
+//!
 //! This is also the only file of the crate that names the engine crate at all: a test
 //! scans every other source file (and the integration tests) for the token, so neither a
 //! renamed import (`use <engine>::{execute as go}`) nor a glob import can reach the
@@ -76,10 +87,10 @@ pub struct Allowed {
 
 /// The commands the workbench runs as they are: none of them writes (the catalog's
 /// `writes` is false for each; a test holds this). Besides these, only the [`GUARDED`]
-/// entries run, in their non-writing form. Everything else in the catalog (`set`,
-/// `build`, `new`, `clone`, `place`, `package`, `deploy*`, `testplan`,
-/// `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`) is refused, writing or not,
-/// until a panel needs it.
+/// entries run, in their non-writing form, and the [`PERMITTED_WRITES`], each confirmed
+/// per click. Everything else in the catalog (`build`, `new`, `clone`, `place`,
+/// `package`, `deploy.enable`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`,
+/// `papyrus.*`) is refused, writing or not, until a panel needs it.
 pub const ALLOWLIST: &[Allowed] = &[
     Allowed {
         id: "load",
@@ -262,6 +273,15 @@ pub struct PermittedWrite {
     /// Refuse `profile` naming the live profile (any case, trimmed) in every form,
     /// without requiring `dev` or a profile (`game.session`: M6.G4).
     pub refuse_live_profile: bool,
+    /// The argument naming the file an editor write goes into (ADR 0007 Amendment 4:
+    /// `into` for `set`, `new`, `clone` and `place`, `plugin` for `revert`, `out` for
+    /// `build`). The writing form must name it; in every form a named output must have a
+    /// plugin extension, must not be an official master by name and must not lie in the
+    /// MO2 profile `Default` ([`output_refusal`]). `None` for the cockpit's writes.
+    pub output: Option<&'static str>,
+    /// Arguments refused in every form when given and not `false` (Amendment 4:
+    /// `overwrite` and the like, which would replace a file other than the active file).
+    pub refuse_args: &'static [&'static str],
     /// What it writes, and why it is allowed.
     pub why: &'static str,
 }
@@ -279,12 +299,78 @@ pub const COCKPIT_SCOPE: &[&str] = &[
     "game.stop",
 ];
 
+/// The editor write scope of ADR 0007 Amendment 4 (accepted by the owner 2026-11-01 with
+/// model A, M7.O4): the other ids [`PERMITTED_WRITES`] may hold, each only with the M7.E
+/// ticket that builds its dialog (M7.E2 `set`, M7.E3 `new` and `clone`, M7.E4 `place`,
+/// M7.E5 `build`, M7.E6 `revert`). It changes only with an accepted amendment to ADR 0007;
+/// the gate test fails on a permitted id outside [`COCKPIT_SCOPE`] and this list.
+pub const EDITOR_SCOPE: &[&str] = &["set", "new", "clone", "place", "build", "revert"];
+
+/// The official masters by name (ADR 0007 Amendment 4, "What the gate checks"): the
+/// engine's official order (`Starfield.esm`, `Constellation.esm`, `OldMars.esm`,
+/// `ShatteredSpace.esm`, `BlueprintShips-*.esm`, `SFBGS*.esm`), compared without case.
+/// An editor write never goes into one.
+pub fn official_master(file_name: &str) -> bool {
+    let n = file_name.trim().to_ascii_lowercase();
+    let esm = n.ends_with(".esm");
+    matches!(
+        n.as_str(),
+        "starfield.esm" | "constellation.esm" | "oldmars.esm" | "shatteredspace.esm"
+    ) || (esm && (n.starts_with("blueprintships-") || n.starts_with("sfbgs")))
+}
+
+/// Why `path`, named as an editor write's output, is refused (Amendment 4): no plugin
+/// extension, an official master by name, or a path in the MO2 profile `Default` (a
+/// `profiles` folder followed by `Default`, any case). Both separators count, so a Windows
+/// path is read the same on every system. `None` when the gate has nothing against it;
+/// the dialog and the engine check the rest.
+pub fn output_refusal(path: &str) -> Option<String> {
+    // Components as Windows resolves them: `.` dropped, `..` pops, trailing dots and
+    // spaces trimmed (`Default.` is `Default`; review finding L2).
+    let mut parts: Vec<&str> = Vec::new();
+    for raw in path.split(['/', '\\']) {
+        match raw.trim() {
+            "." => {}
+            ".." => {
+                parts.pop();
+            }
+            c => {
+                let c = c.trim_end_matches(['.', ' ']);
+                if !c.is_empty() {
+                    parts.push(c);
+                }
+            }
+        }
+    }
+    let name = parts.last().copied().unwrap_or_default();
+    let lower = name.to_ascii_lowercase();
+    if ![".esm", ".esp", ".esl"].iter().any(|e| lower.ends_with(e)) {
+        return Some(format!(
+            "`{path}` is not a plugin (.esm, .esp or .esl); the editor writes only into the active file"
+        ));
+    }
+    if official_master(name) {
+        return Some(format!(
+            "`{name}` is an official master; the editor never writes one (ADR 0007 Amendment 4)"
+        ));
+    }
+    if parts.windows(2).any(|w| {
+        matches!(w, [a, b] if a.eq_ignore_ascii_case("profiles") && b.eq_ignore_ascii_case(LIVE_PROFILE))
+    }) {
+        return Some(format!(
+            "`{path}` lies in the MO2 profile `{LIVE_PROFILE}`, the owner's live game, never a target"
+        ));
+    }
+    None
+}
+
 /// The MO2 profile that is the owner's live game: never a target (AGENTS.md).
 pub const LIVE_PROFILE: &str = "Default";
 
 /// The writes the window may make, each confirmed per click. They grow entry by entry
 /// with the ticket that implements them (M6.G3: `deploy`, `deploy.rollback`; M6.G4:
-/// `game.session`, `game.stop`; M6.G5: `game.probe`), always inside [`COCKPIT_SCOPE`].
+/// `game.session`, `game.stop`; M6.G5: `game.probe`; M7.E2: `set`), always inside
+/// [`COCKPIT_SCOPE`] and [`EDITOR_SCOPE`].
 pub const PERMITTED_WRITES: &[PermittedWrite] = &[
     PermittedWrite {
         id: "ledger",
@@ -293,6 +379,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: false,
         writing_requires: &[],
         refuse_live_profile: false,
+        output: None,
+        refuse_args: &[],
         why: "appends one dated row to docs/game-observations.md, a repo doc (not game data); the engine refuses any other path; one confirm click per row (Amendment 2)",
     },
     PermittedWrite {
@@ -302,6 +390,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: true,
         writing_requires: &[],
         refuse_live_profile: false,
+        output: None,
+        refuse_args: &[],
         why: "copies one plugin or package into the isolated MO2 mod `KitKraft Dev - <plugin>` (ADR 0009); the engine refuses Default, profiles, plugins.txt and every other mod (Amendment 3, M6.G3)",
     },
     PermittedWrite {
@@ -311,6 +401,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: true,
         writing_requires: &[],
         refuse_live_profile: false,
+        output: None,
+        refuse_args: &[],
         why: "swaps one dev mod's `.previous` deployment back in, keeping the replaced one as the new previous: the way back from a deploy (Amendment 3, M6.G3)",
     },
     // M6.G4: the game session's start and stop; M6.G5: its probe.
@@ -321,6 +413,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: false,
         writing_requires: &["start"],
         refuse_live_profile: true,
+        output: None,
+        refuse_args: &[],
         why: "starts an agent-driven game session on the dev profile (ADR 0010); the window starts it with `start: true` and follows it with `game.status` (Amendment 3, M6.G4)",
     },
     PermittedWrite {
@@ -330,6 +424,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: false,
         writing_requires: &[],
         refuse_live_profile: false,
+        output: None,
+        refuse_args: &[],
         why: "re-runs one probe row of a running session (its `row`), optionally taking a screenshot; the catalog has no dry run for it, so every form writes and only the confirmed form runs (Amendment 3, M6.G5)",
     },
     PermittedWrite {
@@ -339,7 +435,21 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         dev_profile: false,
         writing_requires: &[],
         refuse_live_profile: false,
+        output: None,
+        refuse_args: &[],
         why: "ends a started game session: remaining rows not-run, the game ended, logs copied, the profile files restored if changed, one ledger entry (Amendment 3, M6.G4)",
+    },
+    // ADR 0007 Amendment 4 (M7.E2): the edit dialog's changed fields, into the active file.
+    PermittedWrite {
+        id: "set",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "dialogs/set.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: true,
+        output: Some("into"),
+        refuse_args: &["overwrite"],
+        why: "writes the changed fields of one record into the active file (`into`), one confirmed write per OK click after its dry run (M7.S6: before and after, the paths changed, validate on the staged result); never an official master, never in the profile Default (Amendment 4, M7.E2)",
     },
 ];
 
@@ -510,6 +620,30 @@ fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError
             }
         }
     }
+    for name in p.refuse_args {
+        if on(args, name) {
+            return Err(RunError::Refused(format!(
+                "`{}` with `{name}` would replace a file other than the active file; the editor writes only into the active file (ADR 0007 Amendment 4)",
+                p.id
+            )));
+        }
+    }
+    if let Some(out) = p.output {
+        match args.and_then(|m| m.get(out)) {
+            Some(Value::String(path)) if !path.trim().is_empty() => {
+                if let Some(why) = output_refusal(path) {
+                    return Err(RunError::Refused(format!("`{}`: {why}", p.id)));
+                }
+            }
+            None | Some(Value::Null) if !writes => {}
+            _ => {
+                return Err(RunError::Refused(format!(
+                    "`{}` writes only into a named output (`{out}`: the active file; ADR 0007 Amendment 4)",
+                    p.id
+                )));
+            }
+        }
+    }
     if writes {
         for name in p.writing_requires {
             if args.and_then(|m| m.get(*name)) != Some(&Value::Bool(true)) {
@@ -521,7 +655,7 @@ fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError
         }
         if !request.is_confirmed() {
             return Err(RunError::Refused(format!(
-                "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendment 3)",
+                "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendments 3 and 4)",
                 p.id, p.panel
             )));
         }
@@ -650,10 +784,16 @@ mod tests {
     use std::collections::BTreeSet;
     use std::path::Path;
 
+    /// The scope [`PERMITTED_WRITES`] is checked against: [`COCKPIT_SCOPE`] and
+    /// [`EDITOR_SCOPE`] together (ADR 0007 Amendment 4, "The test that enforces it").
+    fn scope() -> Vec<&'static str> {
+        COCKPIT_SCOPE.iter().chain(EDITOR_SCOPE).copied().collect()
+    }
+
     /// Why `permitted` (the ids of a `PERMITTED_WRITES`) breaks the rule of ADR 0007
-    /// Amendment 3, "The test that enforces it": every id inside `scope`
-    /// ([`COCKPIT_SCOPE`]), in the catalog, marked `writes` and `Implemented`, listed
-    /// once, and neither allowed outright nor guarded.
+    /// Amendments 3 and 4, "The test that enforces it": every id inside `scope` (the union
+    /// of [`COCKPIT_SCOPE`] and [`EDITOR_SCOPE`]), in the catalog, marked `writes` and
+    /// `Implemented`, listed once, and neither allowed outright nor guarded.
     fn scope_violations(permitted: &[&str], scope: &[&str]) -> Vec<String> {
         let mut out = Vec::new();
         let mut seen = BTreeSet::new();
@@ -663,7 +803,7 @@ mod tests {
             }
             if !scope.contains(id) {
                 out.push(format!(
-                    "{id}: not in COCKPIT_SCOPE; a new write needs an accepted amendment to ADR 0007"
+                    "{id}: not in COCKPIT_SCOPE or EDITOR_SCOPE; a new write needs an accepted amendment to ADR 0007"
                 ));
             }
             match find_command(id) {
@@ -690,7 +830,7 @@ mod tests {
     /// holds no writing command, `WRITING` is exactly the writing set, a guarded entry is
     /// a writing command with its writing arguments refused, and the writing commands
     /// the window can run in a writing form are exactly the ids of `PERMITTED_WRITES`,
-    /// all inside `COCKPIT_SCOPE` (ADR 0007 Amendment 3).
+    /// all inside `COCKPIT_SCOPE` and `EDITOR_SCOPE` (ADR 0007 Amendments 3 and 4).
     #[test]
     fn allowlist_is_disjoint_from_writes_and_writing_equals_it() {
         let writes: BTreeSet<&str> = catalog()
@@ -732,8 +872,15 @@ mod tests {
                 "game.stop"
             ]
         );
+        // The editor's scope is Amendment 4's six commands, and changes only with an
+        // amendment; the two scopes do not overlap.
+        assert_eq!(
+            EDITOR_SCOPE,
+            ["set", "new", "clone", "place", "build", "revert"]
+        );
+        assert!(!COCKPIT_SCOPE.iter().any(|id| EDITOR_SCOPE.contains(id)));
         let ids: Vec<&str> = PERMITTED_WRITES.iter().map(|p| p.id).collect();
-        let bad = scope_violations(&ids, COCKPIT_SCOPE);
+        let bad = scope_violations(&ids, &scope());
         assert!(bad.is_empty(), "{bad:#?}");
         // What the window can run in a writing form: an allowed id that writes (none),
         // or a permitted one.
@@ -745,8 +892,8 @@ mod tests {
         let permitted_ids: BTreeSet<&str> = ids.iter().copied().collect();
         assert_eq!(runnable_writes, permitted_ids);
         // M6.G3: the ledger and the dev deployment and its rollback; M6.G4 adds the game
-        // session's start and stop; M6.G5 adds `game.probe`, so the permitted writes are
-        // now the whole scope.
+        // session's start and stop; M6.G5 adds `game.probe`, so the cockpit's writes are
+        // its whole scope. Amendment 4: M7.E2 adds `set`, the editor's first write.
         assert_eq!(
             ids,
             [
@@ -755,9 +902,16 @@ mod tests {
                 "deploy.rollback",
                 "game.session",
                 "game.probe",
-                "game.stop"
+                "game.stop",
+                "set"
             ]
         );
+        let editor: Vec<&str> = ids
+            .iter()
+            .copied()
+            .filter(|id| EDITOR_SCOPE.contains(id))
+            .collect();
+        assert_eq!(editor, ["set"], "Amendment 3 plus exactly `set`");
         for p in PERMITTED_WRITES {
             assert!(
                 Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -771,15 +925,17 @@ mod tests {
         }
     }
 
-    /// The test above fails when a permitted id is outside the scope: `revert` (M7,
-    /// Amendment 4), `testplan` (kept out by Amendment 3) or an id the catalog lacks.
+    /// The test above fails when a permitted id is outside both scopes: `testplan` (kept
+    /// out by Amendment 3), `package` and `mod.run` (kept out by Amendment 4),
+    /// `deploy.enable`, or an id the catalog lacks. An editor id is in scope only through
+    /// [`EDITOR_SCOPE`]: against the cockpit's scope alone it fails.
     #[test]
     fn a_permitted_write_outside_the_scope_fails_the_rule() {
         let mut ids: Vec<&str> = PERMITTED_WRITES.iter().map(|p| p.id).collect();
-        assert!(scope_violations(&ids, COCKPIT_SCOPE).is_empty());
-        for extra in ["testplan", "set", "package", "revert"] {
+        assert!(scope_violations(&ids, &scope()).is_empty());
+        for extra in ["testplan", "package", "mod.run", "deploy.enable"] {
             ids.push(extra);
-            let bad = scope_violations(&ids, COCKPIT_SCOPE);
+            let bad = scope_violations(&ids, &scope());
             assert!(
                 bad.iter()
                     .any(|b| b.starts_with(extra) && b.contains("COCKPIT_SCOPE")),
@@ -787,10 +943,198 @@ mod tests {
             );
             ids.pop();
         }
+        for editor in EDITOR_SCOPE {
+            let bad = scope_violations(&[editor], COCKPIT_SCOPE);
+            assert!(
+                bad.iter().any(|b| b.contains("COCKPIT_SCOPE")),
+                "{editor}: {bad:?}"
+            );
+        }
         // In scope but read-only, or twice: refused too.
         assert!(!scope_violations(&["ledger", "ledger"], COCKPIT_SCOPE).is_empty());
         assert!(!scope_violations(&["schema"], &["schema"]).is_empty());
         assert!(!scope_violations(&["no.such"], &["no.such"]).is_empty());
+    }
+
+    /// An editor entry as Amendment 4 shapes them (output `into`, `overwrite` refused,
+    /// `Default` refused as a profile), for the mechanics' tests before any editor id is
+    /// permitted.
+    const EDITOR_PROBE: PermittedWrite = PermittedWrite {
+        id: "set",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "dialogs/set.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: true,
+        output: Some("into"),
+        refuse_args: &["overwrite"],
+        why: "test",
+    };
+
+    /// The official masters by name: the engine's official order
+    /// (`kitkraft_io::plan::OFFICIAL_ORDER`, 14 files), any case; a user plugin whose
+    /// name only contains one is not one.
+    #[test]
+    fn the_official_masters_are_known_by_name() {
+        for name in [
+            "Starfield.esm",
+            "Constellation.esm",
+            "OldMars.esm",
+            "BlueprintShips-Starfield.esm",
+            "SFBGS004.esm",
+            "SFBGS007.esm",
+            "SFBGS008.esm",
+            "SFBGS003.esm",
+            "SFBGS006.esm",
+            "ShatteredSpace.esm",
+            "SFBGS00D.esm",
+            "SFBGS050.esm",
+            "BlueprintShips-SFBGS050.esm",
+            "SFBGS047.esm",
+        ] {
+            assert!(official_master(name), "{name}");
+            assert!(official_master(&name.to_ascii_uppercase()), "{name}");
+            assert!(official_master(&name.to_ascii_lowercase()), "{name}");
+        }
+        for name in [
+            "Patch.esp",
+            "MyStarfield.esm",
+            "Starfield.esp",
+            "SFBGS003.esp",
+            "KitKraftGunOverhaul.esm",
+        ] {
+            assert!(!official_master(name), "{name}");
+        }
+    }
+
+    /// The output check of Amendment 4: a plugin extension, never an official master,
+    /// never under the MO2 profile `Default`; read the same with either separator.
+    #[test]
+    fn an_editor_output_is_a_plugin_and_never_an_official_master_or_in_default() {
+        for ok in [
+            r"C:\Modding\out\Patch.esp",
+            "/tmp/out/Patch.ESM",
+            "Patch.esl",
+            r"C:\Modding\MO2-Starfield\profiles\KitKraft Dev\x.esp",
+        ] {
+            assert_eq!(output_refusal(ok), None, "{ok}");
+        }
+        for (bad, why) in [
+            ("Patch.txt", "not a plugin"),
+            (r"C:\out\", "not a plugin"),
+            ("", "not a plugin"),
+            ("Starfield.esm", "official master"),
+            (r"C:\Steam\Starfield\Data\SFBGS003.esm", "official master"),
+            ("/data/blueprintships-starfield.ESM", "official master"),
+            (
+                r"C:\Modding\MO2-Starfield\profiles\Default\Patch.esp",
+                "live game",
+            ),
+            ("mo2/Profiles/ default /Patch.esp", "live game"),
+            // Review finding L2: spellings Windows resolves into `Default`.
+            (r"C:\MO2\profiles\.\Default\P.esp", "live game"),
+            (r"C:\MO2\profiles\Default.\P.esp", "live game"),
+            (r"C:\MO2\profiles\Default. .\P.esp", "live game"),
+            (r"C:\MO2\profiles\Other\..\Default\P.esp", "live game"),
+            (r"C:\MO2\x\..\profiles\Default\P.esp", "live game"),
+            ("Starfield.esm.", "official master"),
+        ] {
+            let got = output_refusal(bad);
+            assert!(
+                got.as_deref().is_some_and(|m| m.contains(why)),
+                "{bad}: {got:?}"
+            );
+        }
+    }
+
+    /// An editor entry's checks (Amendment 4, "What the gate checks"): the preview passes
+    /// unconfirmed, the writing form only confirmed and only with its output named; an
+    /// official master, a `Default`-profile path or `profile: Default` is refused in every
+    /// form, confirmed or not; `overwrite` is refused in every form.
+    #[test]
+    fn an_editor_writes_checks_refuse_what_amendment_4_names() {
+        let p = &EDITOR_PROBE;
+        let base = json!({"form": "Fixture.esm:000800", "fields": {"FLTV": 2.0},
+                          "into": r"C:\out\Patch.esp"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        let preview = with(json!({"dry_run": true}));
+        // The preview passes unconfirmed; the writing form only confirmed.
+        assert!(check_permitted(p, &Request::new("set", preview)).is_ok());
+        for w in [base.clone(), with(json!({"dry_run": false}))] {
+            let e = check_permitted(p, &Request::new("set", w.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button")),
+                "{w}: {e:?}"
+            );
+            assert!(check_permitted(p, &Request::confirmed("set", w)).is_ok());
+        }
+        // The writing form names its output; the preview may leave it to the engine.
+        let mut no_into = base.clone();
+        no_into.as_object_mut().unwrap().remove("into");
+        for missing in [
+            no_into.clone(),
+            with(json!({"into": " "})),
+            with(json!({"into": 5})),
+        ] {
+            let e = check_permitted(p, &Request::confirmed("set", missing.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("named output")),
+                "{missing}: {e:?}"
+            );
+        }
+        let mut preview_no_into = no_into;
+        preview_no_into["dry_run"] = json!(true);
+        assert!(check_permitted(p, &Request::new("set", preview_no_into)).is_ok());
+        // Refused in every form, confirmed or not.
+        for (extra, why) in [
+            (json!({"into": "Starfield.esm"}), "official master"),
+            (json!({"into": r"D:\Data\sfbgs00d.ESM"}), "official master"),
+            (json!({"into": "Patch.ba2"}), "not a plugin"),
+            (
+                json!({"into": r"C:\Modding\MO2-Starfield\profiles\Default\P.esp"}),
+                "live game",
+            ),
+            (json!({"profile": "Default"}), "live game"),
+            (json!({"profile": " default "}), "live game"),
+            (json!({"overwrite": true}), "other than the active file"),
+        ] {
+            for form in [json!({}), json!({"dry_run": true})] {
+                let mut args = with(extra.clone());
+                for (k, v) in form.as_object().unwrap() {
+                    args[k] = v.clone();
+                }
+                for req in [
+                    Request::new("set", args.clone()),
+                    Request::confirmed("set", args.clone()),
+                ] {
+                    let e = check_permitted(p, &req);
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains(why)),
+                        "{args}: {e:?}"
+                    );
+                }
+            }
+        }
+        // `overwrite: false` says "no", which is allowed.
+        assert!(check_permitted(
+            p,
+            &Request::confirmed("set", with(json!({"overwrite": false})))
+        )
+        .is_ok());
+        // The cockpit's entries name no output and refuse nothing extra.
+        for c in PERMITTED_WRITES
+            .iter()
+            .filter(|w| COCKPIT_SCOPE.contains(&w.id))
+        {
+            assert_eq!(c.output, None, "{}", c.id);
+            assert!(c.refuse_args.is_empty(), "{}", c.id);
+        }
     }
 
     /// Where `text` builds a confirmed request: each `Request::confirmed(` with the id
@@ -918,7 +1262,8 @@ mod tests {
         }
         for (id, a) in [
             ("schema", json!({})),
-            ("set", json!({"form": "x", "fields": {}, "into": "y.esp"})),
+            ("new", json!({"type": "GLOB", "edid": "X", "into": "y.esp"})),
+            ("clone", json!({"form": "x", "edid": "Y", "into": "y.esp"})),
             ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
             ("testplan", json!({})),
         ] {
@@ -1267,6 +1612,211 @@ mod tests {
         assert!(stopped["data"]["report"].is_object(), "{stopped}");
         // The start launched the fake game once (the session thread is joined now).
         assert_eq!(fakes.launched(), 1);
+    }
+
+    /// `set` (ADR 0007 Amendment 4, M7.E2) through `check`: the dry run passes
+    /// unconfirmed; the writing form (no `dry_run`) only confirmed and only into a named
+    /// output; a confirmation changed afterwards is void; an official master, a path in
+    /// the profile `Default`, `profile: Default` and `overwrite` are refused in every
+    /// form, confirmed or not.
+    #[test]
+    fn set_previews_unconfirmed_and_writes_only_confirmed_into_the_active_file() {
+        let base = json!({"form": "Fixture.esm:000800", "fields": {"FLTV": 7.25},
+                          "into": r"C:\Modding\out\Patch.esp"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        // The preview passes unconfirmed.
+        assert!(check(&Request::new("set", with(json!({"dry_run": true})))).is_ok());
+        // The writing form: refused unconfirmed, passes confirmed.
+        for w in [base.clone(), with(json!({"dry_run": false}))] {
+            let e = check(&Request::new("set", w.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button") && m.contains("dialogs/set.rs")),
+                "{w}: {e:?}"
+            );
+            assert!(check(&Request::confirmed("set", w.clone())).is_ok(), "{w}");
+        }
+        // A confirmation covers only what it was made for: another output, other fields,
+        // or the preview flag dropped from a confirmed preview, are refused.
+        for change in [
+            json!({"into": r"C:\Modding\out\Other.esp"}),
+            json!({"fields": {"FLTV": 9.0}}),
+            json!({"form": "Fixture.esm:000801"}),
+        ] {
+            let mut r = Request::confirmed("set", base.clone());
+            for (k, v) in change.as_object().unwrap() {
+                r.args[k] = v.clone();
+            }
+            let e = check(&r);
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("changed after")),
+                "{change}: {e:?}"
+            );
+        }
+        let mut r = Request::confirmed("set", with(json!({"dry_run": true})));
+        r.args.as_object_mut().unwrap().remove("dry_run");
+        assert!(matches!(check(&r), Err(RunError::Refused(m)) if m.contains("changed after")));
+        // The writing form names its output.
+        let mut no_into = base.clone();
+        no_into.as_object_mut().unwrap().remove("into");
+        let e = check(&Request::confirmed("set", no_into));
+        assert!(
+            matches!(&e, Err(RunError::Refused(m)) if m.contains("named output")),
+            "{e:?}"
+        );
+        // Refused in every form, confirmed or not.
+        for (extra, why) in [
+            (json!({"into": "Starfield.esm"}), "official master"),
+            (
+                json!({"into": r"C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data\SFBGS003.esm"}),
+                "official master",
+            ),
+            (
+                json!({"into": "/data/ShatteredSpace.ESM"}),
+                "official master",
+            ),
+            (json!({"into": r"C:\Modding\out\Patch.txt"}), "not a plugin"),
+            (
+                json!({"into": r"C:\Modding\MO2-Starfield\profiles\Default\Patch.esp"}),
+                "live game",
+            ),
+            (json!({"profile": "Default"}), "live game"),
+            (json!({"profile": "DEFAULT "}), "live game"),
+            (json!({"overwrite": true}), "other than the active file"),
+        ] {
+            for dry in [None, Some(true)] {
+                let mut args = with(extra.clone());
+                if let Some(d) = dry {
+                    args["dry_run"] = json!(d);
+                }
+                for req in [
+                    Request::new("set", args.clone()),
+                    Request::confirmed("set", args.clone()),
+                ] {
+                    let e = check(&req);
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains(why)),
+                        "{args}: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A scratch folder under the OS temp dir for one test (never the game's Data).
+    /// Removed when dropped, so a test that fails midway leaves nothing behind (review
+    /// note I3).
+    fn scratch(tag: &str) -> Scratch {
+        let dir =
+            std::env::temp_dir().join(format!("kitkraft-ui-gate-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        Scratch(dir)
+    }
+
+    struct Scratch(std::path::PathBuf);
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    /// Through the gate and the engine on a scratch fixture (`Fixture.esm`, one GLOB, made
+    /// here; never the game's Data): the dry run writes nothing; the unconfirmed write is
+    /// refused and writes nothing; the confirmed write creates the active file, and
+    /// `inspect` reads the new value back from it; the engine refuses on its own an output
+    /// that is a plugin of the load order (the gate's checks bypassed), and with the
+    /// corpus present, `Starfield.esm` in the game's Data folder (as a dry run, so even a
+    /// broken guard would write nothing there).
+    #[test]
+    fn set_reaches_the_engine_only_confirmed_and_the_engine_refuses_a_master() {
+        use crate::dialogs::set;
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        let scratch = scratch("set");
+        let dir = &scratch.0;
+        let fixture = dir.join("Fixture.esm");
+        let master = plugin_bytes(&[], 1, &[0x800], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
+        let patch = dir.join("Patch.esp");
+        let into = patch.display().to_string();
+        let engine = ReadOnlyEngine::new();
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
+            ))
+            .unwrap();
+        let mut fields = Map::new();
+        fields.insert("FLTV".into(), json!(7.25));
+        let preview = set::preview_request("Fixture.esm:000800", &fields, &into);
+        let env = engine.run(&preview).unwrap();
+        let data = &env["data"];
+        assert_eq!(data["dry_run"], json!(true), "{env}");
+        assert_eq!(data["would_write"], json!(true), "{env}");
+        assert_eq!(data["changed"][0]["path"], json!("FLTV"), "{env}");
+        assert!(!patch.exists(), "the dry run wrote {}", patch.display());
+        // The writing form unconfirmed: refused before the engine, nothing written.
+        let mut unconfirmed = preview.args.clone();
+        unconfirmed.as_object_mut().unwrap().remove("dry_run");
+        let e = engine.run(&Request::new("set", unconfirmed)).unwrap_err();
+        assert!(matches!(e, RunError::Refused(_)), "{e:?}");
+        assert!(!patch.exists(), "an unconfirmed request wrote");
+        // The confirm: the previewed arguments without `dry_run`, built by the dialog.
+        let write = set::write_request(&preview).unwrap();
+        let done = engine.run(&write).unwrap();
+        assert_eq!(done["data"]["created"], json!(true), "{done}");
+        assert!(patch.is_file());
+        // Read back from the active file alone.
+        let back = engine
+            .run(&set::readback_request(&done, &into).unwrap())
+            .unwrap();
+        // Single-plugin mode lists raw payloads: FLTV holds 7.25 as a little-endian f32.
+        let fltv = back["data"]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == json!("FLTV"))
+            .unwrap();
+        let hex: String = 7.25f32
+            .to_le_bytes()
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert_eq!(fltv["payload_hex"], json!(hex), "{back}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        // The engine refuses a load-order plugin as output on its own (the gate's
+        // checks are bypassed here on purpose).
+        let mut onto_master = preview.args.clone();
+        onto_master["into"] = json!(fixture.display().to_string());
+        let refused = engine.engine.execute("set", onto_master);
+        assert!(refused.is_err(), "{refused:?}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        // With the corpus: an official master in the game's Data folder, as a dry run.
+        if let Some(data_dir) = std::env::var_os("KITKRAFT_DATA_DIR") {
+            let official = Path::new(&data_dir).join("Starfield.esm");
+            if official.is_file() {
+                let mut onto = preview.args.clone();
+                onto["into"] = json!(official.display().to_string());
+                assert!(check(&Request::confirmed("set", onto.clone())).is_err());
+                let refused = engine.engine.execute("set", onto);
+                assert!(refused.is_err(), "{refused:?}");
+            }
+        }
     }
 
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):

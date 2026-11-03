@@ -588,7 +588,7 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Mesh Bounds...",
         shortcut: None,
         aliases: &[],
-        summary: "A model's bounds from its NIF (loose or in a BA2), found from a base object's model or given as a path; read-only. Not built yet (M7.S4): bounds is null and a limitation says so",
+        summary: "A model's box from its NIF (the union of its geometry bounds, in the model's root frame), from the loose files or the archives, found from a base object's MODL or given as a path; read-only. A model with no geometry or only skinned geometry has bounds null and says why",
         args_schema: r#"{"type":"object","properties":{"model":{"type":"string","description":"A model path as a base object's MODL names it (relative to the Data folder's Meshes folder), read from loose files or a BA2"},"form":{"type":"string","description":"A base object (Plugin.esm:XXXXXX or EditorID) whose model to read"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile, plugin and model names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         writes: false,
         status: Status::Implemented,

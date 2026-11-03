@@ -267,6 +267,13 @@ fn live_profile_name(profile: &Path) -> bool {
         .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(LIVE_PROFILE))
 }
 
+/// A `load` view's `source` (`profile:<dir>` or `plugins`) is the owner's live profile?
+fn live_load_source(source: &str) -> bool {
+    source
+        .strip_prefix("profile:")
+        .is_some_and(|dir| live_profile_name(Path::new(dir.trim())))
+}
+
 /// M6.P3a: the `load` the window starts with, or `None` (the Start tab, as before).
 /// The launch arguments win: with `--profile` or plugins, the load form's request, as
 /// now. Otherwise, the last profile loaded from the Start tab (`prefs.profile`), from
@@ -721,6 +728,12 @@ impl App {
                 // starts at the top with fresh column widths (bumped on arrival, not on
                 // submit, so the old rows keep their place while the request runs).
                 View::Load(view) => {
+                    // M7.M2 review M1 (W's ask): a session from `Default` has no active
+                    // file. The Data dialog drops it on its next opening, but the editor
+                    // reads `active_file` directly.
+                    if live_load_source(&view.source) {
+                        self.active_file = None;
+                    }
                     self.load.view = Some(view);
                     self.load.data = self.load.data.wrapping_add(1);
                     self.session = Some(session_args(&reply.request.args));
@@ -833,8 +846,8 @@ impl App {
                     Slot::EditorPreview | Slot::EditorWrite | Slot::EditorValidate => {
                         self.shell.editor.receive_slot(slot, &reply.request, env)
                     }
-                    // `Slot::MeshBounds` (M7.R3) is not routed yet: the Render Window's
-                    // receive is in pipeline R's `panels/render.rs`, not a step-0 file.
+                    // Pipeline R's NIF box for the Render Window (M7.S4, M7.R3).
+                    Slot::MeshBounds => self.render.receive_bounds(env),
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.
@@ -856,6 +869,13 @@ impl App {
             self.cockpit
                 .session
                 .failed(&reply.request, reply.result.as_ref().err());
+        } else if matches!(
+            slot,
+            Slot::EditorPreview | Slot::EditorWrite | Slot::EditorValidate
+        ) {
+            // Pipeline E (M7.E2): the editor shows why its preview or write failed.
+            let why = reply.result.as_ref().err().map(ToString::to_string);
+            self.shell.editor.failed(slot, why.as_deref());
         }
         // Replies arrive in submission order, so the session now is the one this
         // request ran against.
@@ -1897,6 +1917,21 @@ mod tests {
         assert!(req.args.get("no_cache").is_none());
         crate::gate::check(&req).unwrap();
         let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// M7.M2 review M1 (W's ask): a `load` from the owner's live profile (in any case,
+    /// with or without a trailing separator) is recognised by its view's `source`, so
+    /// `receive` drops the active file; the dev profile and a plugin list are not.
+    #[test]
+    fn a_load_from_the_live_profile_is_recognised_by_its_source() {
+        let live = std::env::temp_dir().join("profiles").join("Default");
+        let dev = std::env::temp_dir().join("profiles").join("KitKraft Dev");
+        assert!(live_load_source(&format!("profile:{}", live.display())));
+        assert!(live_load_source(&format!("profile:{}/", live.display())));
+        assert!(live_load_source("profile:C:/MO2/profiles/default"));
+        assert!(!live_load_source(&format!("profile:{}", dev.display())));
+        assert!(!live_load_source("plugins"));
+        assert!(!live_load_source("Default"));
     }
 
     /// M6.P3a: no start-up load for the owner's live profile (in any case), a gone

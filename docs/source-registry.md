@@ -88,6 +88,11 @@ layout source is our own study of the official `.nif` and `.mesh` files in
 CORPUS-ARCHIVES (level 1, ADR 0006 §1), each fact validated on every occurrence; the rows
 below say what else may be consulted. M7.S4 starts from here.
 
+M7.S4 study (2026-11-02): `docs/research/nif-bounds-2026-11-02.md` records the block
+structure and the stored geometry bounds from that study alone, each claim checked on all
+120,547 official models (`crates/nif/tests/corpus.rs`). Cite it as `corpus:`; no row below
+was consulted for it.
+
 | Key | Source URL | License | Our status | Lanes it serves | Notes |
 | --- | ---------- | ------- | ---------- | --------------- | ----- |
 | NIFXML | <https://github.com/niftools/nifxml> | GPL-3.0 (repository `LICENSE`, 2026-10-16) | forbidden | - | A GPL description of a Bethesda format, like Mutagen's record XML: never read. The memo's disclosure (a fetch summary saw only that Starfield version entries exist) informs nothing |

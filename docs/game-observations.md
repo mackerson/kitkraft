@@ -108,7 +108,7 @@ from `docs/poi/first-poi.md` and `docs/packaging.md`.
 | O2-08 | **Persistence**, protocol steps 1-4 | the crate | The crate is where it was, once (PS-02) | | |
 | O2-09 | **Persistence**, protocol step 5 (long absence), then return | the crate; a vanilla item dropped in the apartment before leaving (note its base) | The crate is unchanged (persistent, PS-26); write down whether the dropped item is still there (answers PS-22/PS-26 for a temporary, player-made reference) | | |
 | O2-10 | Before leaving: `player.placeatme 1E4FBD 1`, note the new reference's ID (`prid`); then protocol steps 1-4, and after O2-09's long absence look again | base `Starfield.esm:1E4FBD` | Unknown (PS-09, grade D): present or gone after the save, and after the long absence | | |
-| O2-11 | `help KitKraftFirstPOICrate 4` | the crate | One line naming the reference and its runtime ID | | |
+| O2-11 | Find the crate by its runtime ID: `prid <the plan's runtime ID>` (`06001000` on Kitkraft Dev in `game-20261101-04`), then `getisid 001E4FBD`; as a control in the same session, `help Crate_MilitarySupply_01 4` (a base form's EditorID) | the crate; base STAT `Starfield.esm:1E4FBD` | `prid` selects the crate and `getisid` answers 1; the control lists the base form (so `help` answers within the console tool's capture window). A reference's own EditorID is not looked up: the console does not resolve it (`game-20261101-T1` row i). Corrected 2026-11-02 (ruling R19): the row first expected `help KitKraftFirstPOICrate 4` to name the reference | | |
 | O2-12 | Note whether the apartment's location (`help` on the cell's location, or the map) lists anything new; nothing to do if not visible | the crate's cell's location | Informational for PS-04 (no `ACPR` was written) | | |
 | O2-13 | Archive naming (M4.G4): only if a package with a `- Main.ba2` was installed | - | `n/a` for the POI and rename packages (neither has an archive) | | |
 
@@ -466,3 +466,67 @@ Director's reading (2026-11-01): **rows T-01 to T-04 and T-06 are real passes**,
 Finding: C:/Modding/MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (c61020098aa6d2c789186aa1daf8628dbcecf38c25fd4fc0db222ab985e9516f -> c7bacaacfa976b844dccec4ed93c3eca9ec913f0c1f7e81e6dc5ec0a454e76f2): restored from C:\Modding\kitcraft\observe\2026-11-01-T04\backup\01-plugins.txt
 
 Director's reading (2026-11-01): **all six rows are real passes**, unattended. Besides T-01 to T-04 as in `game-20261101-03`, the persistence row now proves a reload: in the Lodge (`0006BB29`) the session saved, moved to the apartment (`GetInCell 0021966F >> 1.00`), loaded the save and was back in the Lodge (`GetInCell 0006BB29 >> 1.00`); T-06, after that reload, found the crate at (-17.00, -4.00, 4.63) again. This closes the first POI's save/reload row (M4.O2, `plan/STATUS.md` row 2), which waited on the owner. The status reads inconclusive only because MO2 rewrites `plugins.txt` when it launches the game (restored by the controller; a follow-up should treat that rewrite as expected).
+
+### game-20261102-01: M4.T5, V2 read off `game-20261101-04` (desk entry; no game run)
+
+Desk work on 2026-11-02 (sprint pipeline X, ticket X4); no game was launched. M4.T5 (V2)
+asks for every O2 template row filled from a controller session, the manual rows named, the
+`fail`s filed, and PS-02, PS-09 and PS-26 graded. `game-20261101-04` is the first session
+whose six probe rows are all real passes (the director's reading under that entry). This
+entry maps each O2 row to that session's rows, or to the earlier entries where the session
+has none. Every result below cites the row it rests on; nothing is upgraded beyond what a
+row shows.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `game-20261102-01` |
+| Session read | `game-20261101-04` (agent session `2026-11-01-T04`, `Kitkraft Dev`, base save `KitKraftBase` SHA-256 `fbed2cc2...eb5ccf`, `KitKraftFirstPOI.esm` SHA-256 `13c22b48...57b5f1`, probes `observe/2026-11-01-poi-plan3/probes.toml` SHA-256 `61520851...13d35d8`); also `game-20261014-01`, `game-20261015-03` and `game-20261101-T1` |
+| Status of the session | `inconclusive` as written, from one profile-file finding only (MO2 rewrote `plugins.txt` at launch; restored). No row's evidence is affected: the six rows ran on the profile as the preflight found it |
+| Runtime ID | The crate is `06001000` in this load order (the plugin last after `kit deploy enable`, `game-20261101-T1` row e). The template's `04001000` was the owner's slot of 2026-10-15; the ID depends on the load order, not on the plugin |
+
+| Template row | Kind (`docs/game-sessions.md`) | Session rows | What they show | Result |
+| ------------ | ------------------------------ | ------------ | -------------- | ------ |
+| O2-01 | probe | - (not in the POI plan) | The rename in game, owner, `game-20261014-01` | **pass** (owner, 2026-10-14) |
+| O2-02 | manual | - | Installing a package through MO2 is the owner's; the session deploys with `kit deploy --dev`, not a package | not-run (owner, W12) |
+| O2-03 | manual | - | As O2-02; the session's copy was deployed by `kit deploy --dev`, and its SHA-256 matches the template's | not-run (owner) |
+| O2-04 | manual | - | The controller never sends `bat`; T-01 to T-04 send the batch's commands one by one | not-run (`bat` stays grade D) |
+| O2-05 | probe | T-01 | `coc CityNewAtlantisApartmentTEMPLATE`, then `player.getincell 0021966F` answered `GetInCell >> 1.00` | **pass** |
+| O2-06, moved to the crate | probe | T-02 | `player.moveto 06001000`, then `getdistance player` answered 0.86 | **pass** |
+| O2-06, the ID shown on a click | manual | - | Nothing was clicked: input injection is deferred (ADR 0010 Amendment 1 (b)). `prid` with the ID the plan predicted (T-03) does not show what a click shows. The slot is known from `game-20261101-T1` row e | not-run (regraded 2026-11-02, review L1: the row was graded pass from T-03, which checks another expectation) |
+| O2-07, position | probe | T-04 | `getpos x/y/z` answered -17.00, -4.00, 4.63, the plugin's `DATA` | **pass** |
+| O2-07, facing | probe (screenshot) | T-04 (`T-04-1.png`) | No rotation getter was sent. The facing is in the screenshot only, which nobody has looked at against the wall piece `Starfield.esm:1B21E0` | **inconclusive** (screenshot only, owner to look) |
+| O2-08, position after a reload | probe | T-05, T-06 | Step 1 (leave): `coc CityNewAtlantisLodgeInt`, `GetInCell 0006BB29 >> 1.00`. Step 3 (save and reload): `save KitKraftSession-20261101-04`, then `coc` to the apartment (`GetInCell 0021966F >> 1.00`), `load` of that save, and back in the Lodge (`GetInCell 0006BB29 >> 1.00`), so the load happened. Step 4 (return): T-06 `getpos` gave -17.00, -4.00, 4.63 again | **pass** |
+| O2-08, "once" | probe | - | A second copy of the crate would have another reference ID, which `prid 06001000` does not see; no row looks for one | **inconclusive** (no duplicate check) |
+| O2-08, protocol steps 2 and 3 as written | - | T-05 | Step 2 (`wait` one game hour) is not sent (no console command chosen, grade D). Step 3 loads from the world, not after quitting to the main menu | deviation, recorded |
+| O2-09 | manual | - | The long absence (168 game hours) has no chosen console route (FTH-EXP-07) | not-run |
+| O2-10 | manual | - | `placeatme` makes a reference whose ID is known only at run time | not-run |
+| O2-11, as written | probe | - (`game-20261101-T1` row i) | The template expects `help KitKraftFirstPOICrate 4` to name the reference. `game-20261101-T1` row i: `prid KitKraftFirstPOICrate` answered "Item ... not found for parameter ObjectReferenceID", and `help KitKraftFirstPOICrate 4` listed only its two empty section headers, within the console tool's 100 ms capture window. A reference's EditorID does not resolve in the console, so the expectation cannot hold: the template is wrong | **fail** (the template's expectation, not the plugin; ruling R19: the template is corrected and the row re-run in X9) |
+| O2-11, intent (find the reference) | probe | - | Not graded from T-03, which is O2-06's evidence (a runtime ID the plan predicted, not the lookup O2-11 asks for). Ruling R19: the corrected row runs in X9 before any grade | not-run (regraded 2026-11-02, review M2: was pass from T-03) |
+| O2-12 | manual | - | The map and location UI | not-run (PS-04 stays D) |
+| O2-13 | manual | - | Neither package has an archive | n/a |
+
+The persistence claims of `docs/design/persistence.md` that these rows test:
+
+| Claim | Grade before | What `game-20261101-04` shows | Grade after |
+| ----- | ------------ | ----------------------------- | ----------- |
+| PS-02 (`kit place` with `persistent = true` writes type 8 with `0x400`; the crate is so written) | A (corpus) | Its tests O2-07 and O2-08 pass for position. The persistent crate loads at its `DATA` position and is there after a save and reload. That it is there once is not checked | **A**, unchanged (a fact about the file). Its in-game test now has evidence: O2-07 position and O2-08 position after a reload pass; O2-08 "once" is inconclusive |
+| PS-09 (is a `PlaceAtMe` reference without `abForcePersist` cleaned up, and does it survive a save and reload?) | D | Nothing: O2-10 has no probe, and the session placed nothing at run time | **D**, unchanged; test O2-10 not-run (O4-11 needs a script) |
+| PS-26 (after a reset, does a persistent reference keep its plugin state while temporary ones return?) | D | Nothing: a save and reload is not a reset, and O2-09's long absence was not run | **D**, unchanged; tests O2-09 and O4-18 not-run |
+
+Findings, one line each:
+
+- O2-11's template expectation is wrong. `help <reference EditorID> 4` lists nothing
+  (`game-20261101-T1` row i). The row should say: find the reference by its runtime ID
+  (`prid`, `getisid`), as T-03 does. For the template's owner (pipeline X, `docs/game-observations.md`
+  "Template: session O2"); ruling R19 (18:10) has it corrected and re-run in X9.
+- O2-11's `help` result has no positive control: no `help <base form EditorID> 4` was sent
+  through the console tool in the same 100 ms capture window. X9 sends
+  `help Crate_MilitarySupply_01 4` beside the corrected row (review L4).
+- Regraded 2026-11-02 after review (rulings R19, review M2 and L1): O2-06 is split, its
+  click half not-run; O2-11 "intent" pass -> not-run. Nothing else changed.
+- Template corrected 2026-11-02 (ruling R19): "Template: session O2" row O2-11 now finds the
+  crate by its runtime ID with a `help <base EditorID> 4` control, instead of
+  `help KitKraftFirstPOICrate 4`. The fail above grades the old text; the corrected row is
+  re-run in X9 before it gets a grade.
+- O2-08's "once" has no probe. A count of the plugin's base in the cell after the reload would
+  close it; no console getter for that was chosen (the session lane, `kit testplan`).

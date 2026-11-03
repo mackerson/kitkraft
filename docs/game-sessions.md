@@ -302,7 +302,7 @@ complete.
 | O4-04 | probe | actors persistence rows (`save {save}`, `load {save}`, `getpos` within tolerance) |
 | O4-05 | manual | the outpost build menu is UI |
 | O4-06 | manual | the fabricator is UI |
-| O4-07 | manual | until the scripts recipe's testplan emits a `papyrus-log` probe for its `Debug.Trace` line (M4.T6); the matcher exists |
+| O4-07 | probe | scripts recipe `T-05` (M4.T6): a `papyrus-log` step expecting the `Text` value the reference's `VMAD` sets, which `HelloOnLoad`'s `Debug.Trace(Text)` writes on `OnLoad` (`testplan` reads the `.pex` next to the plugin); the notifications on screen stay a screenshot for the owner |
 | O4-08 | manual | a procedural landing (M4.E10) |
 | O4-10 | manual | needs the M4.E9 script recipe (PS-06) |
 | O4-11 | manual | needs M4.E9 (PS-09) |
