@@ -198,21 +198,12 @@ pub const ALLOWLIST: &[Allowed] = &[
 /// Writing commands the workbench runs only in a non-writing form: every argument that
 /// would write is refused and the read-only mode is required. Each id is also in
 /// [`WRITING`]; a test holds that every entry refuses at least one argument.
-pub const GUARDED: &[Allowed] = &[
-    Allowed {
-        id: "roundtrip",
-        refuse_args: &["out", "overwrite"],
-        require_true: &["verify"],
-        why: "verify only: rewrites in memory and compares; `out` is refused",
-    },
-    // M7.E5, step one (M4.W6's note): the build spec's plan only, which writes nothing.
-    Allowed {
-        id: "build",
-        refuse_args: &["overwrite"],
-        require_true: &["plan"],
-        why: "plan only: lists every change, the new forms and the validation result of a build spec and writes nothing; `out` names the plugin a confirmed build would write",
-    },
-];
+pub const GUARDED: &[Allowed] = &[Allowed {
+    id: "roundtrip",
+    refuse_args: &["out", "overwrite"],
+    require_true: &["verify"],
+    why: "verify only: rewrites in memory and compares; `out` is refused",
+}];
 
 /// Catalog commands that can write a file or into MO2: exactly the catalog's `writes`
 /// set (a test holds this). Never on [`ALLOWLIST`]; on [`GUARDED`] only with their
@@ -378,7 +369,8 @@ pub const LIVE_PROFILE: &str = "Default";
 
 /// The writes the window may make, each confirmed per click. They grow entry by entry
 /// with the ticket that implements them (M6.G3: `deploy`, `deploy.rollback`; M6.G4:
-/// `game.session`, `game.stop`; M6.G5: `game.probe`; M7.E2: `set`; M7.E6: `revert`),
+/// `game.session`, `game.stop`; M6.G5: `game.probe`; M7.E2: `set`; M7.E6: `revert`;
+/// M7.E5: `build`),
 /// always inside
 /// [`COCKPIT_SCOPE`] and [`EDITOR_SCOPE`].
 pub const PERMITTED_WRITES: &[PermittedWrite] = &[
@@ -472,6 +464,19 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         output: Some("plugin"),
         refuse_args: &["overwrite"],
         why: "undoes the editor's last confirmed write in the active file (`plugin`): drops the override it added, after its dry run (M7.S7: the diff of the file before and after, validate on the staged result); never an official master, never in the profile Default (Amendment 4, M7.E6)",
+    },
+    // ADR 0007 Amendment 4 (M7.E5): a build spec compiled into the active file. Its plan
+    // ran guarded first (19997f5a); now the confirmed build too.
+    PermittedWrite {
+        id: "build",
+        preview: Preview::PreviewWhen("plan"),
+        panel: "dialogs/build.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: true,
+        output: Some("out"),
+        refuse_args: &["overwrite"],
+        why: "compiles a build spec into the active file (`out`, a fresh plugin: `overwrite` refused), one confirmed build per click after its plan (every change, the new forms, validate); never an official master, never in the profile Default (Amendment 4, M7.E5)",
     },
 ];
 
@@ -926,10 +931,11 @@ mod tests {
                 "game.probe",
                 "game.stop",
                 "set",
-                "revert"
+                "revert",
+                "build"
             ]
         );
-        // M7.E6 adds `revert`, the editor's undo.
+        // M7.E6 adds `revert`, the editor's undo; M7.E5 adds `build`.
         let editor: Vec<&str> = ids
             .iter()
             .copied()
@@ -937,8 +943,8 @@ mod tests {
             .collect();
         assert_eq!(
             editor,
-            ["set", "revert"],
-            "Amendment 3 plus exactly `set` and `revert`"
+            ["set", "revert", "build"],
+            "Amendment 3 plus exactly `set`, `revert` and `build`"
         );
         for p in PERMITTED_WRITES {
             assert!(
@@ -2034,11 +2040,13 @@ mod tests {
         }
     }
 
-    /// `build` in its plan-only form (M7.E5, step one): `plan: true` passes like a read;
-    /// without it, with `plan: false` or `plan: "yes"`, or with `overwrite`, it is refused,
-    /// and no request of it takes a confirmation yet.
+    /// `build` (ADR 0007 Amendment 4, M7.E5) through `check`: the plan passes
+    /// unconfirmed; the building form (no `plan`, or `plan` not `true`) only confirmed and
+    /// only with `out` named; a confirmation changed afterwards is void; an official
+    /// master as `out`, a path in the profile `Default`, `profile: Default` and
+    /// `overwrite` are refused in every form, confirmed or not.
     #[test]
-    fn build_runs_only_as_a_plan() {
+    fn build_plans_unconfirmed_and_builds_only_confirmed_into_the_active_file() {
         let base =
             json!({"spec": r"C:\Modding\work\spec.toml", "out": r"C:\Modding\out\Patch.esp"});
         let with = |extra: Value| {
@@ -2049,50 +2057,103 @@ mod tests {
             a
         };
         assert!(check(&Request::new("build", with(json!({"plan": true})))).is_ok());
-        for bad in [
+        for w in [
             base.clone(),
             with(json!({"plan": false})),
             with(json!({"plan": "yes"})),
-            with(json!({"plan": true, "overwrite": true})),
         ] {
-            let e = check(&Request::new("build", bad.clone()));
-            assert!(matches!(e, Err(RunError::Refused(_))), "{bad}: {e:?}");
-        }
-        for args in [base.clone(), with(json!({"plan": true}))] {
-            let e = check(&Request::confirmed("build", args.clone()));
+            let e = check(&Request::new("build", w.clone()));
             assert!(
-                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirmed write")),
-                "{args}: {e:?}"
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button") && m.contains("dialogs/build.rs")),
+                "{w}: {e:?}"
             );
+            assert!(
+                check(&Request::confirmed("build", w.clone())).is_ok(),
+                "{w}"
+            );
+        }
+        for change in [
+            json!({"out": r"C:\Modding\out\Other.esp"}),
+            json!({"spec": r"C:\Modding\work\other.toml"}),
+        ] {
+            let mut r = Request::confirmed("build", base.clone());
+            for (k, v) in change.as_object().unwrap() {
+                r.args[k] = v.clone();
+            }
+            let e = check(&r);
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("changed after")),
+                "{change}: {e:?}"
+            );
+        }
+        let mut r = Request::confirmed("build", with(json!({"plan": true})));
+        r.args.as_object_mut().unwrap().remove("plan");
+        assert!(matches!(check(&r), Err(RunError::Refused(m)) if m.contains("changed after")));
+        let mut no_out = base.clone();
+        no_out.as_object_mut().unwrap().remove("out");
+        let e = check(&Request::confirmed("build", no_out));
+        assert!(
+            matches!(&e, Err(RunError::Refused(m)) if m.contains("named output")),
+            "{e:?}"
+        );
+        for (extra, why) in [
+            (json!({"out": "Starfield.esm"}), "official master"),
+            (
+                json!({"out": r"C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data\BlueprintShips-Starfield.esm"}),
+                "official master",
+            ),
+            (json!({"out": r"C:\Modding\out\Patch.ba2"}), "not a plugin"),
+            (
+                json!({"out": r"C:\Modding\MO2-Starfield\profiles\Default\Patch.esp"}),
+                "live game",
+            ),
+            (json!({"profile": "Default"}), "live game"),
+            (json!({"overwrite": true}), "other than the active file"),
+        ] {
+            for plan in [None, Some(true)] {
+                let mut args = with(extra.clone());
+                if let Some(p) = plan {
+                    args["plan"] = json!(p);
+                }
+                for req in [
+                    Request::new("build", args.clone()),
+                    Request::confirmed("build", args.clone()),
+                ] {
+                    let e = check(&req);
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains(why)),
+                        "{args}: {e:?}"
+                    );
+                }
+            }
         }
     }
 
-    /// Through the gate and the engine on a scratch fixture: a `build` plan of a one-`set`
-    /// spec reaches the engine, lists the change and writes nothing; the building form is
-    /// refused before the engine and writes nothing.
+    /// Through the gate and the engine on a scratch fixture, M7.E5's acceptance for the
+    /// plan-only and the confirmed forms: a one-`[[set]]` spec's plan lists the change and
+    /// writes nothing; the unconfirmed build is refused and writes nothing; the confirmed
+    /// build writes the active file, and `inspect` reads FLTV 7.25 back from it; a second
+    /// confirmed build into the now existing file is refused by the engine (no
+    /// `overwrite`); the engine refuses a load-order plugin as `out` on its own, and with
+    /// the corpus `Data\Starfield.esm` (as a plan).
     #[test]
-    fn a_build_plan_reaches_the_engine_and_writes_nothing() {
+    fn build_reaches_the_engine_only_confirmed_and_writes_the_active_file() {
+        use crate::dialogs::{build, set};
         use crate::panels::cockpit::fake_mo2::plugin_bytes;
 
-        let scratch = scratch("build-plan");
+        let scratch = scratch("build");
         let dir = &scratch.0;
         let fixture = dir.join("Fixture.esm");
-        std::fs::write(&fixture, plugin_bytes(&[], 1, &[0x800], 1.5)).unwrap();
+        let master = plugin_bytes(&[], 1, &[0x800], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
         let spec = dir.join("spec.toml");
         std::fs::write(
             &spec,
-            "version = 1
-
-[plugin]
-localized = false
-
-[[set]]
-form = \"Fixture.esm:000800\"
-fields = { FLTV = 7.25 }
-",
+            "version = 1\n\n[plugin]\nlocalized = false\n\n[[set]]\nform = \"Fixture.esm:000800\"\nfields = { FLTV = 7.25 }\n",
         )
         .unwrap();
         let out = dir.join("Patch.esp");
+        let into = out.display().to_string();
         let engine = ReadOnlyEngine::new();
         engine
             .run(&Request::new(
@@ -2100,15 +2161,61 @@ fields = { FLTV = 7.25 }
                 json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
             ))
             .unwrap();
-        let args = json!({"spec": spec.display().to_string(), "out": out.display().to_string()});
-        let mut plan = args.clone();
-        plan["plan"] = json!(true);
-        let env = engine.run(&Request::new("build", plan)).unwrap();
-        assert!(env.to_string().contains("FLTV"), "{env}");
-        assert!(!out.exists(), "the plan wrote {}", out.display());
-        let e = engine.run(&Request::new("build", args)).unwrap_err();
+        let plan = build::plan_request(&spec.display().to_string(), &into);
+        let env = engine.run(&plan).unwrap();
+        assert_eq!(env["data"]["plan"], json!(true), "{env}");
+        assert_eq!(env["data"]["passed"], json!(true), "{env}");
+        assert_eq!(env["data"]["changes"][0]["path"], json!("FLTV"), "{env}");
+        assert!(!out.exists(), "the plan wrote {into}");
+        let mut unconfirmed = plan.args.clone();
+        unconfirmed.as_object_mut().unwrap().remove("plan");
+        let e = engine.run(&Request::new("build", unconfirmed)).unwrap_err();
         assert!(matches!(e, RunError::Refused(_)), "{e:?}");
-        assert!(!out.exists());
+        assert!(!out.exists(), "an unconfirmed request wrote");
+        let done = engine.run(&build::build_request(&plan).unwrap()).unwrap();
+        assert!(out.is_file(), "{done}");
+        let back = engine
+            .run(&set::readback_request(&done, &into).unwrap())
+            .unwrap();
+        let fltv = back["data"]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == json!("FLTV"))
+            .unwrap();
+        let hex: String = 7.25f32
+            .to_le_bytes()
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect();
+        assert_eq!(fltv["payload_hex"], json!(hex), "{back}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        // The file exists now: without `overwrite` the engine refuses to replace it.
+        let written = std::fs::read(&out).unwrap();
+        assert!(engine.run(&build::build_request(&plan).unwrap()).is_err());
+        assert_eq!(std::fs::read(&out).unwrap(), written);
+        // The engine alone refuses a load-order plugin as `out` (the gate bypassed).
+        let mut onto = plan.args.clone();
+        onto["out"] = json!(fixture.display().to_string());
+        assert!(engine.engine.execute("build", onto).is_err());
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        if let Some(data_dir) = std::env::var_os("KITKRAFT_DATA_DIR") {
+            let official = Path::new(&data_dir).join("Starfield.esm");
+            if official.is_file() {
+                let mut onto = plan.args.clone();
+                onto["out"] = json!(official.display().to_string());
+                assert!(check(&Request::new("build", onto.clone())).is_err());
+                assert!(engine.engine.execute("build", onto).is_err());
+            }
+        }
     }
 
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
