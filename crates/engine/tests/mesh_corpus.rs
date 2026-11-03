@@ -180,3 +180,91 @@ fn every_official_model_reads_in_place_from_the_archives() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     assert_eq!(models, with_box + no_geometry + skinned_only);
 }
+
+/// V3 (M7.R3, NIF variant; `docs/design/workbench-performance.md`): the engine time of
+/// the Render Window's `mesh.bounds` calls for a cell, one per distinct base: cold (the
+/// session's first call builds the archive index) and warm (the same bases again).
+#[test]
+#[ignore = "release: indexes Starfield.esm; prints the V3 engine timings"]
+fn v3_mesh_bounds_for_the_bases_of_a_cell() {
+    let Some(data) = data_dir() else {
+        eprintln!("skipped: KITKRAFT_DATA_DIR is not set");
+        return;
+    };
+    let d = data.display().to_string();
+    for (label, pick) in [
+        (
+            "CityNewAtlantisApartmentTEMPLATE",
+            json!({"cell": "CityNewAtlantisApartmentTEMPLATE", "with_bounds": true, "limit": 1000}),
+        ),
+        (
+            "NewAtlantis 2,1",
+            json!({"world": "NewAtlantis", "x": 2, "y": 1, "with_bounds": true, "limit": 1000}),
+        ),
+    ] {
+        let engine = Engine::with_default_handlers();
+        engine
+            .execute("load", json!({"plugins": ["Starfield.esm"], "data_dir": d}))
+            .unwrap();
+        let cell = engine.execute("cell", pick).unwrap();
+        let items = cell["data"]["items"].as_array().unwrap();
+        let mut bases: Vec<(String, Value)> = Vec::new();
+        for i in items {
+            if let Some(b) = i["base"]["form"].as_str() {
+                if !bases.iter().any(|(f, _)| f == b) {
+                    bases.push((b.to_string(), i["bounds"].clone()));
+                }
+            }
+        }
+        let mut times = Vec::new();
+        let (mut boxed, mut unbounded, mut failed, mut agree) = (0, 0, 0, 0);
+        let mut reasons: std::collections::BTreeMap<String, usize> = Default::default();
+        for pass in 0..2 {
+            let start = std::time::Instant::now();
+            for (base, obnd) in &bases {
+                match engine.execute("mesh.bounds", json!({"form": base, "data_dir": d})) {
+                    Ok(env) if pass == 0 => {
+                        let b = &env["data"]["bounds"];
+                        if b.is_object() {
+                            boxed += 1;
+                            let close = |k: &str| {
+                                (0..3).all(|a| {
+                                    let (x, y) = (b[k][a].as_f64(), obnd[k][a].as_f64());
+                                    matches!((x, y), (Some(x), Some(y)) if (x - y).abs() <= 0.01)
+                                })
+                            };
+                            if close("min") && close("max") {
+                                agree += 1;
+                            }
+                        } else {
+                            unbounded += 1;
+                        }
+                    }
+                    Ok(_) => {}
+                    Err(e) if pass == 0 => {
+                        failed += 1;
+                        let m = e.to_string();
+                        let why = if m.contains("has no MODL") {
+                            "no MODL"
+                        } else if m.contains("in neither") {
+                            "model not found"
+                        } else {
+                            "other"
+                        };
+                        *reasons.entry(why.to_string()).or_default() += 1;
+                    }
+                    Err(_) => {}
+                }
+            }
+            times.push(start.elapsed());
+        }
+        eprintln!(
+            "V3 {label}: {} references, {} distinct bases; cold {:?}, warm {:?}; model box {boxed} (within 1 cm of OBND: {agree}), no model bound {unbounded}, refused {failed} {reasons:?}",
+            items.len(),
+            bases.len(),
+            times[0],
+            times[1]
+        );
+        assert_eq!(boxed + unbounded + failed, bases.len());
+    }
+}
