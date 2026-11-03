@@ -24,6 +24,11 @@ cache, default `%LOCALAPPDATA%\kitkraft\cache`), `KITKRAFT_SF1EDIT`, `KITKRAFT_S
 `KITKRAFT_KIT`, `KITKRAFT_PAPYRUS_COMPILER`, `KITKRAFT_UPDATE_GOLDEN` and the test-only
 ones named next to their tests.
 
+`KITKRAFT_NIF_DIR` (optional, M7.S4): a folder of `.nif` files extracted from the official
+archives (`kit ba2 extract`). `kitkraft-nif`'s corpus test (`crates/nif/tests/corpus.rs`)
+reads every `.nif` under it besides the loose models under `KITKRAFT_DATA_DIR`; the crate
+is L0 and cannot read archives itself. Without either variable the test is skipped.
+
 **Detected defaults (Lane F, 2026-10-15).** Commands no longer need `KITKRAFT_DATA_DIR`:
 with no `data_dir` argument and no variable, the Data dir is the one `kit doctor`
 detects (Steam's registry and libraries, the common install folders, then the MO2

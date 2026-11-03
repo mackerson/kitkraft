@@ -3,10 +3,8 @@
 //! without a window), then its drawing.
 //!
 //! Top-level order: the Creation Kit's menus in the order `docs/ck-parity.md` "Interface
-//! parity" records, which is the owner's recollection, not an observation: the bar built
-//! to it is **`built, unobserved`** (ADR 0012 Amendment 1, director decision 2026-10-16,
-//! pending owner) and is never counted as parity until CK sitting 1 (M7.O2) observes the
-//! CK's order; then KitKraft's own menus (Record, Tools, Archive, ...) in the
+//! parity" records, as sitting `ck-20261101-01` observed them (M7.K3, filed in
+//! `ck-20261102-01`); then KitKraft's own menus (Record, Tools, Archive, ...) in the
 //! order the catalog first names them, before Help (so the CK menus keep their relative
 //! order); a CK menu no command uses yet is still drawn, with a disabled line saying so.
 //!
@@ -18,29 +16,34 @@
 
 use crate::gate::{self, CommandSpec, CommandStatus};
 
-/// The CK's top-level menus as `docs/ck-parity.md` records them today (first
-/// "Interface parity" row): a recollection, not an observation (the row is
-/// `built, unobserved`, ADR 0012 Amendment 1). A test
-/// holds this list equal to that row, so a sitting that changes the row changes this.
+/// The CK's top-level menus as `docs/ck-parity.md` records them (first "Interface
+/// parity" row), in the order sitting `ck-20261101-01` observed (M7.K3). A test holds
+/// this list equal to that row, so a sitting that changes the row changes this.
 pub const CK_MENU_ORDER: &[&str] = &[
     "File",
     "Edit",
     "View",
+    "Docks",
+    "Galaxy",
     "World",
+    "Terrain",
     "NavMesh",
     "Character",
     "Gameplay",
+    "Audio",
     "Help",
 ];
 
-/// Why a CK menu has no KitKraft command yet, by menu (`None`: none of its items is
-/// known before sitting 1).
+/// Why a CK menu has no KitKraft command yet, by menu (its items are the `menu item`
+/// rows of `docs/ck-parity.md`).
 pub fn empty_menu_note(menu: &str) -> &'static str {
     match menu {
-        "NavMesh" => "gap: navmesh generation is out of scope (ROADMAP M7); items unresearched",
-        _ => {
-            "no KitKraft command here yet; the CK's items are unresearched until sitting 1 (M7.O2)"
-        }
+        "NavMesh" => "gap: navmesh generation is out of scope (ROADMAP M7)",
+        "Docks" => "no KitKraft command here: window layouts are workbench settings (ui.json)",
+        "Galaxy" => "gap: world generation, tests and exports are not in M7",
+        "Terrain" => "gap: terrain editing is not in M7",
+        "Audio" => "gap: audio tools (Wwise, FaceFX, voice files) are not in M7",
+        _ => "no KitKraft command here yet; the CK's items are listed in docs/ck-parity.md",
     }
 }
 
@@ -70,8 +73,7 @@ pub struct MenuItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Menu {
     pub name: String,
-    /// One of [`CK_MENU_ORDER`] (its place is the recorded CK order: a recollection,
-    /// `built, unobserved`).
+    /// One of [`CK_MENU_ORDER`] (its place is the observed CK order).
     pub ck: bool,
     pub items: Vec<MenuItem>,
 }
@@ -421,11 +423,15 @@ mod tests {
             .filter(|n| CK_MENU_ORDER.contains(n))
             .collect();
         assert_eq!(ck, CK_MENU_ORDER);
-        assert_eq!(&names[..7], &CK_MENU_ORDER[..7]);
+        let head = CK_MENU_ORDER.len().saturating_sub(1);
+        assert_eq!(&names[..head], &CK_MENU_ORDER[..head]);
         assert_eq!(names.last(), Some(&"Help"));
         for n in ["Record", "Tools", "Archive", "Papyrus", "Strings", "Game"] {
             let at = names.iter().position(|x| *x == n).unwrap();
-            assert!((7..names.len() - 1).contains(&at), "{n} at {at}: {names:?}");
+            assert!(
+                (head..names.len() - 1).contains(&at),
+                "{n} at {at}: {names:?}"
+            );
         }
     }
 
@@ -471,7 +477,7 @@ mod tests {
 
     /// The recorded CK menu order in `docs/ck-parity.md` is this file's order, and every
     /// `menu` row there names a menu the bar draws and maps to a catalog command that
-    /// exists, a documented `gap:`, or "per item" (items unresearched until sitting 1).
+    /// exists, a documented `gap:`, or "per item" (its items are `menu item` rows).
     #[test]
     fn every_ck_menu_row_in_the_parity_doc_maps_to_the_bar() {
         let rows = parity_rows();
@@ -481,16 +487,16 @@ mod tests {
             .iter()
             .find(|r| r.0 == "menu" && r.1.starts_with("Main menu bar"))
             .expect("the main menu bar row");
-        let recalled = order_row
+        let observed = order_row
             .1
-            .split("recalls")
+            .split("observed:")
             .nth(1)
             .unwrap()
             .trim_end_matches(')')
             .split(',')
             .map(|s| s.trim().trim_start_matches("and ").trim())
             .collect::<Vec<_>>();
-        assert_eq!(recalled, CK_MENU_ORDER, "update CK_MENU_ORDER with the row");
+        assert_eq!(observed, CK_MENU_ORDER, "update CK_MENU_ORDER with the row");
         let mut checked = 0;
         for (kind, element, maps, _status) in rows.iter().filter(|r| r.0 == "menu") {
             assert_eq!(kind, "menu");
@@ -573,7 +579,9 @@ mod tests {
                 "{id}"
             );
             let spec = gate::find_command(id).unwrap();
-            if gate::permitted(id).is_none() {
+            // A guarded id runs (`target` lets it through), so only an id neither permitted
+            // nor guarded must be disabled (stub review M1: `build` enters `GUARDED`, M7.E5).
+            if gate::permitted(id).is_none() && !gate::GUARDED.iter().any(|g| g.id == id) {
                 let why = target(spec).unwrap_err();
                 assert!(why.starts_with("writes"), "{id}: {why}");
             }

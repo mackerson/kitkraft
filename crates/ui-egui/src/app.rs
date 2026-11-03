@@ -1286,6 +1286,7 @@ impl App {
             theme_source: self.theme_source,
             last_profile: self.prefs.profile.as_deref(),
             prefs_path: self.prefs_path.as_deref(),
+            active_file: self.active_file.as_deref(),
         };
         let central = theme::central_frame(ui);
         let central_out = egui::CentralPanel::default_margins()

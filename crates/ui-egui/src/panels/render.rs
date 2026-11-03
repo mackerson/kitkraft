@@ -862,6 +862,7 @@ mod tests {
                 theme_source: "test",
                 last_profile: None,
                 prefs_path: None,
+                active_file: None,
             };
             tab.ui(ui, &mut tc);
             actions = tc.actions;

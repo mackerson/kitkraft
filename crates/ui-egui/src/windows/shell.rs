@@ -412,6 +412,7 @@ impl App {
                 theme_source: self.theme_source,
                 last_profile: self.prefs.profile.as_deref(),
                 prefs_path: self.prefs_path.as_deref(),
+                active_file: self.active_file.as_deref(),
             };
             let state = self.shell.layout.entry(key.clone()).or_default();
             let (load, records, links, planet) = (
