@@ -364,13 +364,6 @@ const FAILURE_LINES: &str = concat!(
     r#"|save\s+file\s+not\s+found[^\r\n]*)"#
 );
 
-/// The first console failure line in the answer `output` to `command`, trimmed: `Item
-/// 'X' not found for parameter ObjectReferenceID.`, `Script command "x" not found.`,
-/// `Save file not found.`. The command's own text (its echo and the `Command: <command>`
-/// line) is taken out first, so a command that spells such words is never read as its
-/// failure. A step whose answer has one failed, whatever its matcher says: a `load` that
-/// found no save leaves the game where it was, and a later getter would pass on the old
-/// state (2026-11-01-T03, row T-05).
 /// Whether `output` holds nothing but the console's echo of `command` (the command line, or
 /// `Command: <command>`): no result to judge (2026-11-03-T02/T03: `help ...` and
 /// `player.getincell` right after a `coc` answered so, under build load).
@@ -394,6 +387,13 @@ pub fn echo_only(command: &str, output: &str) -> bool {
         })
 }
 
+/// The first console failure line in the answer `output` to `command`, trimmed: `Item
+/// 'X' not found for parameter ObjectReferenceID.`, `Script command "x" not found.`,
+/// `Save file not found.`. The command's own text (its echo and the `Command: <command>`
+/// line) is taken out first, so a command that spells such words is never read as its
+/// failure. A step whose answer has one failed, whatever its matcher says: a `load` that
+/// found no save leaves the game where it was, and a later getter would pass on the old
+/// state (2026-11-01-T03, row T-05).
 pub fn console_failure(command: &str, output: &str) -> Option<String> {
     let re = Regex::new(FAILURE_LINES).ok()?;
     let command = command.trim();
