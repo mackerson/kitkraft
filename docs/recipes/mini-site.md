@@ -70,7 +70,11 @@ keyword slot, FormID 0). Spec SHA-256
 `901195d5a6387cb51dce3cdbe4eaf1fda91e389fbcaaab3302415dc37da2278e`. `HelloOnLoad.pex`
 compiled the same day: 911 bytes, SHA-256
 `dee45aa42fe9b7a6daac5093181299f44791b959a96cdfc020a6528b73969bb4` (the compiler's output
-differs from build to build; its disassembly is the same). The first build (M5.D7, at
+differs from build to build; its disassembly is the same). Since M4.T6 (2026-11-02) the
+shared `HelloOnLoad.psc` also writes its `Text` to the Papyrus log on `OnLoad`
+(`Debug.Trace`; 1,064 bytes compiled, `docs/recipes/scripts.md`), and `testplan` reads the
+switch's base form for it, so a mini-site plan built with that script gains a
+`papyrus-log` row for "KitKraft: mini site switch loaded". The first build (M5.D7, at
 `97dc5ee`: 4,927 bytes, SHA-256 `10f22dbc...76c36c26`) lacked the `LCPR`, `XLCN` and the
 switch's `KWDA`, and wrote `KWDA` as hex.
 `testplan` writes `checklist.md`, `kitkraft-test.txt` (7 commands) and `probes.toml` (21

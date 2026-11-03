@@ -326,6 +326,7 @@ fn the_persistence_row_goes_elsewhere_between_the_save_and_the_load() {
         base_edid: None,
         base_runtime: None,
         disabled: false,
+        scripts: Vec::new(),
     };
     let lodge = 0x0006_BB29;
     let apartment = 0x0021_966F;
@@ -434,4 +435,580 @@ fn every_template_row_maps_to_a_probe_or_a_manual_row() {
             "{id}: {line}"
         );
     }
+}
+
+/// What one synthetic `Debug` call passes as its text.
+enum Arg {
+    /// The backing variable of the `Text` property.
+    Prop,
+    /// A string literal.
+    Literal(&'static str),
+    /// A local (text built at run time).
+    Local,
+}
+
+/// A compiled script `KitKraft:Probe extends ObjectReference` with a `String` auto property
+/// `Text` (default `default`) and an `OnLoad` making the given `callstatic Debug <fn>`
+/// calls (the layout `kitkraft-pex` reads; see `scripts_tests::pex_with`).
+fn pex_calling(default: &str, calls: &[(&str, Arg)]) -> Vec<u8> {
+    let mut strings: Vec<String> = [
+        "",
+        "KitKraft:Probe",
+        "ObjectReference",
+        "Text",
+        "String",
+        "::Text_var",
+        default,
+        "OnLoad",
+        "None",
+        "Debug",
+        "::nonevar",
+        "loc",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let index = |s: &str, strings: &mut Vec<String>| -> u16 {
+        match strings.iter().position(|x| x == s) {
+            Some(i) => i as u16,
+            None => {
+                strings.push(s.to_string());
+                (strings.len() - 1) as u16
+            }
+        }
+    };
+    let callstatic = kitkraft_pex::OPCODES
+        .iter()
+        .position(|(n, _, _)| *n == "callstatic")
+        .unwrap() as u8;
+    let ident = |o: &mut Vec<u8>, i: u16| {
+        o.push(1);
+        o.extend(i.to_le_bytes());
+    };
+    // The object body.
+    let mut o = Vec::new();
+    o.extend(2u16.to_le_bytes()); // parent
+    o.extend(0u16.to_le_bytes()); // doc
+    o.push(0);
+    o.extend(0u32.to_le_bytes());
+    o.extend(0u16.to_le_bytes()); // auto state
+    o.extend(0u16.to_le_bytes()); // structs
+    o.extend(1u16.to_le_bytes()); // variables: String ::Text_var = default
+    o.extend(5u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(2);
+    o.extend(6u16.to_le_bytes());
+    o.push(0);
+    o.extend(0u16.to_le_bytes()); // guards
+    o.extend(1u16.to_le_bytes()); // properties: String Text, auto
+    o.extend(3u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(7);
+    o.extend(5u16.to_le_bytes());
+    o.extend(1u16.to_le_bytes()); // states: the default state
+    o.extend(0u16.to_le_bytes());
+    o.extend(1u16.to_le_bytes()); // one function: OnLoad
+    o.extend(7u16.to_le_bytes());
+    o.extend(8u16.to_le_bytes()); // returns None
+    o.extend(0u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(0);
+    o.extend(0u16.to_le_bytes()); // params
+    o.extend(1u16.to_le_bytes()); // locals: String loc
+    o.extend(11u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend((calls.len() as u16).to_le_bytes());
+    for (function, arg) in calls {
+        o.push(callstatic);
+        ident(&mut o, 9);
+        let f = index(function, &mut strings);
+        ident(&mut o, f);
+        ident(&mut o, 10);
+        o.push(3);
+        o.extend(1i32.to_le_bytes());
+        match arg {
+            Arg::Prop => ident(&mut o, 5),
+            Arg::Local => ident(&mut o, 11),
+            Arg::Literal(t) => {
+                let i = index(t, &mut strings);
+                o.push(2);
+                o.extend(i.to_le_bytes());
+            }
+        }
+    }
+    let ws = |b: &mut Vec<u8>, s: &str| {
+        b.extend((s.len() as u16).to_le_bytes());
+        b.extend(s.as_bytes());
+    };
+    let mut b = Vec::new();
+    b.extend(0xFA57_C0DEu32.to_le_bytes());
+    b.extend([3u8, 12]);
+    b.extend(2u16.to_le_bytes());
+    b.extend(0u64.to_le_bytes());
+    ws(&mut b, "Probe.psc");
+    ws(&mut b, "u");
+    ws(&mut b, "m");
+    b.extend((strings.len() as u16).to_le_bytes());
+    for s in &strings {
+        ws(&mut b, s);
+    }
+    b.push(0); // no debug info
+    b.extend(0u16.to_le_bytes()); // user flags
+    b.extend(1u16.to_le_bytes()); // objects
+    b.extend(1u16.to_le_bytes()); // object name
+    b.extend((o.len() as u32 + 4).to_le_bytes());
+    b.extend(o);
+    b
+}
+
+/// A plugin placing a crate with `KitKraft:Probe` attached (properties `props`), with the
+/// compiled script `pex` next to it (none: removed after the build); the probe file, the
+/// checklist's steps and the probe file's text.
+fn scripted(name: &str, pex: Option<Vec<u8>>, props: Value) -> (ProbeFile, Vec<String>, String) {
+    let d = dir(name);
+    let data = world_master(&d);
+    let scripts = d.join("Scripts").join("KitKraft");
+    std::fs::create_dir_all(&scripts).unwrap();
+    let path = scripts.join("Probe.pex");
+    // `place` checks the properties against the compiled script, so it is there while the
+    // plugin is built.
+    std::fs::write(&path, pex.clone().unwrap_or_else(|| pex_calling("d", &[]))).unwrap();
+    let plugin = d.join("KC_Scripted.esm");
+    place(
+        &data,
+        &plugin,
+        json!({"cell": "TestInterior", "edid": "KC_ScriptedCrate",
+               "scripts": [{"name": "KitKraft:Probe", "properties": props}]}),
+    );
+    if pex.is_none() {
+        std::fs::remove_file(&path).unwrap();
+    }
+    let out = d.join("plan");
+    testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, text) = read(&out);
+    let steps = checklist_steps(&out);
+    (p, steps, text)
+}
+
+fn script_probe(p: &ProbeFile) -> kitkraft_game::probes::Probe {
+    p.probes
+        .iter()
+        .find(|x| x.title.contains("KitKraft:Probe"))
+        .unwrap()
+        .clone()
+}
+
+/// M4.T6: a script that traces its `String` property gets a `papyrus-log` row expecting the
+/// value the reference's VMAD sets; a literal is expected as written.
+#[test]
+fn a_traced_property_becomes_a_papyrus_log_probe() {
+    let pex = pex_calling(
+        "the default",
+        &[
+            ("Trace", Arg::Prop),
+            ("Notification", Arg::Prop),
+            ("Trace", Arg::Literal("KitKraft: literal line")),
+        ],
+    );
+    let (p, steps, text) = scripted(
+        "probes-script-trace",
+        Some(pex),
+        json!({"Text": "KitKraft: set by VMAD"}),
+    );
+    assert_eq!(rows(&p), steps, "one probe per checklist step");
+    let s = script_probe(&p);
+    assert!(!s.is_manual(), "{s:?}");
+    assert_eq!(
+        s.steps.len(),
+        2,
+        "two Trace calls; the Notification is no log line"
+    );
+    for step in &s.steps {
+        assert_eq!(step.matcher, Some(Matcher::PapyrusLog));
+        assert!(step.command.is_empty());
+    }
+    assert_eq!(
+        s.steps[0].expected.as_deref(),
+        Some("KitKraft: set by VMAD")
+    );
+    assert!(s.steps[0].why.as_deref().unwrap().contains("VMAD sets it"));
+    assert_eq!(
+        s.steps[1].expected.as_deref(),
+        Some("KitKraft: literal line")
+    );
+    assert!(s.forms.iter().any(|f| f == "Scripts\\KitKraft\\Probe.pex"));
+    // After the reference's cell, moveto, click and getpos rows.
+    let at = p.probes.iter().position(|x| x.row == s.row).unwrap();
+    assert_eq!(at, 4, "{:?}", rows(&p));
+    // The file parses back for `kit game session`.
+    assert!(ProbeFile::parse(&text).is_ok());
+}
+
+/// A property the VMAD does not set is traced with the script's default.
+#[test]
+fn an_unset_property_is_traced_with_the_scripts_default() {
+    let pex = pex_calling("KitKraft: the default", &[("Trace", Arg::Prop)]);
+    let (p, _, _) = scripted("probes-script-default", Some(pex), json!({}));
+    let s = script_probe(&p);
+    assert_eq!(
+        s.steps[0].expected.as_deref(),
+        Some("KitKraft: the default")
+    );
+    assert!(s.steps[0].why.as_deref().unwrap().contains("default"));
+}
+
+/// The rows that cannot be probed say why (the unprobeable list of M4.T6): no Trace call,
+/// text built at run time, or no compiled script next to the plugin. None of them passes.
+#[test]
+fn a_script_with_nothing_to_match_is_a_manual_row_with_the_reason() {
+    let quiet = pex_calling("x", &[("Notification", Arg::Prop)]);
+    let (p, steps, _) = scripted("probes-script-quiet", Some(quiet), json!({}));
+    assert_eq!(rows(&p), steps);
+    let s = script_probe(&p);
+    assert!(s.is_manual() && s.steps.is_empty(), "{s:?}");
+    assert!(s.reason.as_deref().unwrap().contains("no Debug.Trace call"));
+
+    let local = pex_calling("x", &[("Trace", Arg::Local)]);
+    let (p, _, _) = scripted("probes-script-local", Some(local), json!({}));
+    let s = script_probe(&p);
+    assert!(s.is_manual());
+    assert!(s.reason.as_deref().unwrap().contains("built at run time"));
+
+    let (p, steps, _) = scripted("probes-script-missing", None, json!({}));
+    assert_eq!(rows(&p), steps);
+    let s = script_probe(&p);
+    assert!(s.is_manual());
+    assert!(s
+        .reason
+        .as_deref()
+        .unwrap()
+        .contains("not next to the plugin"));
+}
+
+/// A synthetic state: its name and its event handlers with their code.
+type StateCode<'a> = (&'a str, Vec<(&'a str, Vec<Ins>)>);
+
+/// One instruction of a synthetic event handler.
+enum Ins {
+    /// `callstatic Debug <function>(<arg>)`.
+    Call(&'static str, Arg),
+    /// `jmpf ::temp0 <offset>`: the start of an If or While.
+    Jmpf,
+}
+
+/// A compiled script `KitKraft:Probe` like [`pex_calling`], with any states and event
+/// handlers: `states` is (state name, [(event, code)]), `auto_state` the object's auto
+/// state ("" for none).
+fn pex_states(default: &str, auto_state: &str, states: &[StateCode]) -> Vec<u8> {
+    let mut strings: Vec<String> = [
+        "",
+        "KitKraft:Probe",
+        "ObjectReference",
+        "Text",
+        "String",
+        "::Text_var",
+        default,
+        "None",
+        "Debug",
+        "::nonevar",
+        "loc",
+        "::temp0",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    fn index(s: &str, strings: &mut Vec<String>) -> u16 {
+        match strings.iter().position(|x| x == s) {
+            Some(i) => i as u16,
+            None => {
+                strings.push(s.to_string());
+                (strings.len() - 1) as u16
+            }
+        }
+    }
+    let op = |name: &str| {
+        kitkraft_pex::OPCODES
+            .iter()
+            .position(|(n, _, _)| *n == name)
+            .unwrap() as u8
+    };
+    let ident = |o: &mut Vec<u8>, i: u16| {
+        o.push(1);
+        o.extend(i.to_le_bytes());
+    };
+    let auto = index(auto_state, &mut strings);
+    let mut o = Vec::new();
+    o.extend(2u16.to_le_bytes()); // parent
+    o.extend(0u16.to_le_bytes()); // doc
+    o.push(0);
+    o.extend(0u32.to_le_bytes());
+    o.extend(auto.to_le_bytes()); // auto state
+    o.extend(0u16.to_le_bytes()); // structs
+    o.extend(1u16.to_le_bytes()); // variables: String ::Text_var = default
+    o.extend(5u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(2);
+    o.extend(6u16.to_le_bytes());
+    o.push(0);
+    o.extend(0u16.to_le_bytes()); // guards
+    o.extend(1u16.to_le_bytes()); // properties: String Text, auto
+    o.extend(3u16.to_le_bytes());
+    o.extend(4u16.to_le_bytes());
+    o.extend(0u16.to_le_bytes());
+    o.extend(0u32.to_le_bytes());
+    o.push(7);
+    o.extend(5u16.to_le_bytes());
+    o.extend((states.len() as u16).to_le_bytes());
+    for (state, functions) in states {
+        let s = index(state, &mut strings);
+        o.extend(s.to_le_bytes());
+        o.extend((functions.len() as u16).to_le_bytes());
+        for (event, code) in functions {
+            let e = index(event, &mut strings);
+            o.extend(e.to_le_bytes());
+            o.extend(7u16.to_le_bytes()); // returns None
+            o.extend(0u16.to_le_bytes());
+            o.extend(0u32.to_le_bytes());
+            o.push(0);
+            o.extend(0u16.to_le_bytes()); // params
+            o.extend(1u16.to_le_bytes()); // locals: String loc
+            o.extend(10u16.to_le_bytes());
+            o.extend(4u16.to_le_bytes());
+            o.extend((code.len() as u16).to_le_bytes());
+            for ins in code {
+                match ins {
+                    Ins::Jmpf => {
+                        o.push(op("jmpf"));
+                        ident(&mut o, 11);
+                        o.push(3);
+                        o.extend(2i32.to_le_bytes());
+                    }
+                    Ins::Call(function, arg) => {
+                        o.push(op("callstatic"));
+                        ident(&mut o, 8);
+                        let f = index(function, &mut strings);
+                        ident(&mut o, f);
+                        ident(&mut o, 9);
+                        o.push(3);
+                        o.extend(1i32.to_le_bytes());
+                        match arg {
+                            Arg::Prop => ident(&mut o, 5),
+                            Arg::Local => ident(&mut o, 10),
+                            Arg::Literal(t) => {
+                                let i = index(t, &mut strings);
+                                o.push(2);
+                                o.extend(i.to_le_bytes());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let ws = |b: &mut Vec<u8>, s: &str| {
+        b.extend((s.len() as u16).to_le_bytes());
+        b.extend(s.as_bytes());
+    };
+    let mut b = Vec::new();
+    b.extend(0xFA57_C0DEu32.to_le_bytes());
+    b.extend([3u8, 12]);
+    b.extend(2u16.to_le_bytes());
+    b.extend(0u64.to_le_bytes());
+    ws(&mut b, "Probe.psc");
+    ws(&mut b, "u");
+    ws(&mut b, "m");
+    b.extend((strings.len() as u16).to_le_bytes());
+    for s in &strings {
+        ws(&mut b, s);
+    }
+    b.push(0); // no debug info
+    b.extend(0u16.to_le_bytes()); // user flags
+    b.extend(1u16.to_le_bytes()); // objects
+    b.extend(1u16.to_le_bytes()); // object name
+    b.extend((o.len() as u32 + 4).to_le_bytes());
+    b.extend(o);
+    b
+}
+
+/// Review H1, probe 1: a Trace after a branch in `OnLoad` (inside an If) may not run, so it
+/// is no expected line; the row says why.
+#[test]
+fn a_trace_inside_a_branch_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[(
+            "",
+            vec![(
+                "OnLoad",
+                vec![
+                    Ins::Jmpf,
+                    Ins::Call("Trace", Arg::Literal("only when Gate is 1")),
+                ],
+            )],
+        )],
+    );
+    let (p, steps, _) = scripted("probes-script-branch", Some(pex), json!({}));
+    assert_eq!(rows(&p), steps);
+    let s = script_probe(&p);
+    assert!(s.is_manual() && s.steps.is_empty(), "{s:?}");
+    assert!(
+        s.reason.as_deref().unwrap().contains("after a branch"),
+        "{s:?}"
+    );
+}
+
+/// Review H1, probe 2: a Trace in another event (`OnActivate`) is not run by entering the
+/// cell.
+#[test]
+fn a_trace_in_another_event_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[(
+            "",
+            vec![(
+                "OnActivate",
+                vec![Ins::Call("Trace", Arg::Literal("only on activate"))],
+            )],
+        )],
+    );
+    let (p, _, _) = scripted("probes-script-event", Some(pex), json!({}));
+    let s = script_probe(&p);
+    assert!(s.is_manual() && s.steps.is_empty(), "{s:?}");
+    assert!(s.reason.as_deref().unwrap().contains("OnActivate"), "{s:?}");
+}
+
+/// Review H1, probe 3: a Trace in `OnLoad` of a state that is not the auto state does not
+/// run; the auto state's `OnLoad` does.
+#[test]
+fn a_trace_in_another_state_is_not_expected() {
+    let pex = pex_states(
+        "x",
+        "",
+        &[
+            (
+                "",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("auto state line"))],
+                )],
+            ),
+            (
+                "Sleeping",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("only in state Sleeping"))],
+                )],
+            ),
+        ],
+    );
+    let (p, _, _) = scripted("probes-script-state", Some(pex), json!({}));
+    let s = script_probe(&p);
+    assert!(!s.is_manual(), "{s:?}");
+    let expected: Vec<_> = s
+        .steps
+        .iter()
+        .map(|x| x.expected.clone().unwrap())
+        .collect();
+    assert_eq!(expected, ["auto state line"]);
+    let why = s.steps[0].why.as_deref().unwrap();
+    assert!(
+        why.contains("state Sleeping"),
+        "the unchecked call is named: {why}"
+    );
+    // An auto state of its own replaces the default state's handler.
+    let pex = pex_states(
+        "x",
+        "Awake",
+        &[
+            (
+                "",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("default state line"))],
+                )],
+            ),
+            (
+                "Awake",
+                vec![(
+                    "OnLoad",
+                    vec![Ins::Call("Trace", Arg::Literal("awake line"))],
+                )],
+            ),
+        ],
+    );
+    let (p, _, _) = scripted("probes-script-auto", Some(pex), json!({}));
+    let s = script_probe(&p);
+    let expected: Vec<_> = s
+        .steps
+        .iter()
+        .map(|x| x.expected.clone().unwrap())
+        .collect();
+    assert_eq!(expected, ["awake line"]);
+}
+
+/// Review M1: a script on the placed reference's base form (the mini-site's switch, a
+/// cloned ACTI carrying HelloOnLoad) gets its row too, not silence.
+#[test]
+fn a_script_on_the_base_form_gets_its_row() {
+    let d = dir("probes-script-base");
+    let data = world_master(&d);
+    let scripts = d.join("Scripts").join("KitKraft");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::write(
+        scripts.join("Probe.pex"),
+        pex_calling("x", &[("Trace", Arg::Prop)]),
+    )
+    .unwrap();
+    let spec = d.join("site.toml");
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
+[[clone]]\nname = \"switch\"\nform = \"KC_Crate\"\nedid = \"KC_SiteSwitch\"\n\
+scripts = [{{ name = \"KitKraft:Probe\", properties = {{ Text = \"KitKraft: site switch loaded\" }} }}]\n\n\
+[[place]]\nbase = \"new:switch\"\ncell = \"TestInterior\"\nposition = [1, 2, 3]\nedid = \"KC_SiteSwitchRef\"\n",
+            data.display()
+        ),
+    )
+    .unwrap();
+    let plugin = d.join("KC_Site.esm");
+    execute(
+        "build",
+        json!({"spec": spec.display().to_string(), "out": plugin.display().to_string()}),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(rows(&p), checklist_steps(&out));
+    let s = script_probe(&p);
+    assert!(s.title.contains("base"), "{}", s.title);
+    assert_eq!(
+        s.steps[0].expected.as_deref(),
+        Some("KitKraft: site switch loaded")
+    );
+    assert!(s.steps[0].why.as_deref().unwrap().contains("base form"));
+}
+
+/// Review L2: a script name that would leave the plugin's folder is not looked up.
+#[test]
+fn a_script_name_with_dot_dot_is_not_looked_up() {
+    use super::super::traces::loose;
+    assert!(loose(Path::new("d"), "..:..:x").is_none());
+    assert!(loose(Path::new("d"), "A:.:B").is_none());
+    assert!(loose(Path::new("d"), "A::B").is_none());
+    assert!(loose(Path::new("d"), "A:B c").is_none());
+    let (path, rel) = loose(Path::new("d"), "KitKraft:HelloOnLoad").unwrap();
+    assert_eq!(rel, "Scripts\\KitKraft\\HelloOnLoad.pex");
+    assert!(path.ends_with(
+        Path::new("Scripts")
+            .join("KitKraft")
+            .join("HelloOnLoad.pex")
+    ));
 }
