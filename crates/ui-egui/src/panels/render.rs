@@ -276,6 +276,50 @@ pub struct RenderTab {
     stress: usize,
     /// The draw cap in use.
     cap: usize,
+    /// The last `mesh.bounds` reply ([`RenderTab::receive_bounds`]); M7.R3 draws it.
+    #[allow(dead_code)]
+    mesh_bounds: Option<MeshBounds>,
+}
+
+/// A `mesh.bounds` reply as the tab keeps it: the model, its box in the model's root
+/// frame (`None` when the model stores none) and the engine's limitations, shown as is.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct MeshBounds {
+    pub model: String,
+    pub aabb: Option<([f32; 3], [f32; 3])>,
+    pub limitations: Vec<String>,
+}
+
+impl MeshBounds {
+    /// Reads the envelope `mesh.bounds` returns (`docs/mcp.md`); `None` when it is not one.
+    fn from_envelope(env: &Value) -> Option<Self> {
+        let data = env.get("data")?;
+        let model = data.get("model")?.as_str()?.to_string();
+        let corner = |k: &str| -> Option<[f32; 3]> {
+            let a = data.get("bounds")?.get(k)?.as_array()?;
+            let v = |i: usize| a.get(i).and_then(Value::as_f64).map(|x| x as f32);
+            Some([v(0)?, v(1)?, v(2)?])
+        };
+        let aabb = match (corner("min"), corner("max")) {
+            (Some(min), Some(max)) => Some((min, max)),
+            _ => None,
+        };
+        let limitations = env
+            .get("limitations")
+            .and_then(Value::as_array)
+            .map(|l| {
+                l.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default();
+        Some(Self {
+            model,
+            aabb,
+            limitations,
+        })
+    }
 }
 
 impl Default for RenderTab {
@@ -299,6 +343,7 @@ impl Default for RenderTab {
             error: None,
             stress,
             cap: DRAW_CAP,
+            mesh_bounds: None,
         }
     }
 }
@@ -377,6 +422,14 @@ impl RenderTab {
             out.push(Action::Select(form));
         }
         out
+    }
+
+    /// A `mesh.bounds` reply (`Slot::MeshBounds`): kept for the viewport (M7.R3). Routed
+    /// from `app.rs` `receive` once the integrator lands that arm (step-0 residual, R13);
+    /// until then only the tests call it.
+    #[allow(dead_code)]
+    pub(crate) fn receive_bounds(&mut self, env: &Value) {
+        self.mesh_bounds = MeshBounds::from_envelope(env);
     }
 
     /// The request failed (the shell keeps its error in the results).
@@ -709,6 +762,29 @@ mod tests {
     use super::*;
     use crate::viewport::DrawStats;
     use std::time::Duration;
+
+    #[test]
+    fn a_mesh_bounds_reply_is_kept_with_its_box_or_none() {
+        let mut tab = RenderTab::default();
+        tab.receive_bounds(&json!({
+            "data": {"model": "Test/Crate.nif", "bounds": {"min": [0.0, 1.0, 2.0], "max": [3.0, 4.0, 5.0]}},
+            "limitations": ["a note"],
+        }));
+        assert_eq!(
+            tab.mesh_bounds,
+            Some(MeshBounds {
+                model: "Test/Crate.nif".into(),
+                aabb: Some(([0.0, 1.0, 2.0], [3.0, 4.0, 5.0])),
+                limitations: vec!["a note".into()],
+            })
+        );
+        tab.receive_bounds(
+            &json!({"data": {"model": "Actor.nif", "bounds": null}, "limitations": []}),
+        );
+        assert_eq!(tab.mesh_bounds.as_ref().and_then(|b| b.aabb), None);
+        tab.receive_bounds(&json!({"data": {}}));
+        assert_eq!(tab.mesh_bounds, None);
+    }
 
     #[test]
     fn stats_show_frame_time_draw_calls_and_frames() {
