@@ -23,6 +23,9 @@ pub struct GeometryBound {
     pub bound_offset: usize,
     /// What it holds.
     pub bound: Bound,
+    /// The block's frame to the root's, row by row: `p' = m * p + t` as `[m | t]`
+    /// (the block's own transform, then its ancestors'; claim C1).
+    pub to_root: [[f64; 4]; 3],
 }
 
 /// The box of a whole model, in the root block's frame, and what went into it.
@@ -154,10 +157,17 @@ impl Nif<'_> {
                         }
                     }
                 }
+                let [m0, m1, m2] = here.m;
+                let [t0, t1, t2] = here.t;
                 geometries.push(GeometryBound {
                     block: u32::try_from(index).unwrap_or(u32::MAX),
                     bound_offset: g.bound_offset,
                     bound: g.bound,
+                    to_root: [
+                        [m0[0], m0[1], m0[2], t0],
+                        [m1[0], m1[1], m1[2], t1],
+                        [m2[0], m2[1], m2[2], t2],
+                    ],
                 });
             }
         }

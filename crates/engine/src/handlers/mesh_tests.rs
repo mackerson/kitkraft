@@ -6,7 +6,8 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::indexing_slicing,
-    clippy::arithmetic_side_effects
+    clippy::arithmetic_side_effects,
+    clippy::chunks_exact_to_as_chunks
 )]
 
 use std::path::{Path, PathBuf};
@@ -17,7 +18,7 @@ use kitkraft_esm::tes4::FLAG_MASTER;
 use kitkraft_esm::Plugin;
 use serde_json::{json, Value};
 
-use super::mesh::{entry_path, rank, OBND_NOTE};
+use super::mesh::{base64, entry_path, geometry, rank, OBND_NOTE};
 use crate::edit::patch_tests::dir;
 use crate::handlers::place_tests::{rec, sub, zstr};
 use crate::{execute, find_command, Engine, Status};
@@ -47,6 +48,22 @@ fn prefix(out: &mut Vec<u8>, name: u32, t: [f32; 3]) {
 /// A model: block 0 an `NiNode` moved by `node_t` holding `geoms`, each a `BSGeometry`
 /// with a bound (sphere, box) and an optional skin (block types: `NiNode`, `BSGeometry`,
 /// `BSSkin::Instance`; a skin points at a trailing `BSSkin::Instance` block).
+/// [`nif`] with `n` boxed geometry blocks whose first slots claim `indices` and
+/// `vertices`.
+fn nif_with_counts(node_t: [f32; 3], n: usize, indices: u32, vertices: u32) -> Vec<u8> {
+    let mut out = nif(node_t, &vec![BOXED; n]);
+    // Every slot of `nif` says (3, 3, 64): rewrite the counts in place.
+    let pat = [3u8, 0, 0, 0, 3, 0, 0, 0, 64, 0, 0, 0];
+    let mut i = 0;
+    while let Some(p) = out[i..].windows(12).position(|w| w == pat) {
+        let at = i + p;
+        out[at..at + 4].copy_from_slice(&indices.to_le_bytes());
+        out[at + 4..at + 8].copy_from_slice(&vertices.to_le_bytes());
+        i = at + 12;
+    }
+    out
+}
+
 fn nif(node_t: [f32; 3], geoms: &[([f32; 4], [f32; 6], bool)]) -> Vec<u8> {
     let types = ["NiNode", "BSGeometry", "BSSkin::Instance"];
     let n = geoms.len() as u32;
@@ -57,7 +74,7 @@ fn nif(node_t: [f32; 3], geoms: &[([f32; 4], [f32; 6], bool)]) -> Vec<u8> {
     u32s(&mut node, &(1..=n).collect::<Vec<_>>());
     blocks.push((0, node));
     let mut skins = 0;
-    for (sphere, aabb, skinned) in geoms {
+    for (k, (sphere, aabb, skinned)) in geoms.iter().enumerate() {
         let mut g = Vec::new();
         prefix(&mut g, NULL, [0.0; 3]);
         f32s(&mut g, sphere);
@@ -69,7 +86,13 @@ fn nif(node_t: [f32; 3], geoms: &[([f32; 4], [f32; 6], bool)]) -> Vec<u8> {
             NULL
         };
         u32s(&mut g, &[skin, NULL, NULL]);
+        // The four slots (mesh study G1): the first names `geometries/test/mesh<k>.mesh`,
+        // a triangle (3 indices, 3 vertices); the other three are absent.
+        let path = format!("test/mesh{k}");
         g.push(1);
+        u32s(&mut g, &[3, 3, 64, path.len() as u32]);
+        g.extend_from_slice(path.as_bytes());
+        g.extend_from_slice(&[0, 0, 0]);
         blocks.push((1, g));
     }
     for _ in 0..skins {
@@ -375,4 +398,413 @@ fn a_model_path_leaving_meshes_is_refused_before_any_file_is_opened() {
             "{bad}: {err}"
         );
     }
+}
+
+// ---- mesh.geometry (M7.S5 code, ask A8): called directly, the catalog still says Deferred
+
+/// A triangle mesh as the M7.S5 study lays it out (M1 to M6): corners (0,0,0), (s,0,0),
+/// (0,s,0) at scale `s`, every normal +z.
+fn triangle_mesh(scale: f32) -> Vec<u8> {
+    let mut out = Vec::new();
+    u32s(&mut out, &[2, 3]);
+    for i in [0u16, 1, 2] {
+        out.extend_from_slice(&i.to_le_bytes());
+    }
+    out.extend_from_slice(&scale.to_le_bytes());
+    u32s(&mut out, &[0, 3]);
+    for p in [[0i16, 0, 0], [32767, 0, 0], [0, 32767, 0]] {
+        for v in p {
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+    }
+    let up: u32 = 512 | (512 << 10) | (1023 << 20);
+    for (k, n) in [3u32, 0, 0, 3, 3].into_iter().enumerate() {
+        u32s(&mut out, &[n]);
+        for _ in 0..n {
+            u32s(&mut out, &[if k == 3 { up } else { 0 }]);
+        }
+    }
+    u32s(&mut out, &[0, 0]);
+    out
+}
+
+fn f32s_of(b64: &str) -> Vec<f32> {
+    decode64(b64)
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
+fn u32s_of(b64: &str) -> Vec<u32> {
+    decode64(b64)
+        .chunks_exact(4)
+        .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect()
+}
+
+/// A test-side base64 decoder (standard alphabet, `=` padding).
+fn decode64(s: &str) -> Vec<u8> {
+    let val = |c: u8| -> u32 {
+        match c {
+            b'A'..=b'Z' => u32::from(c - b'A'),
+            b'a'..=b'z' => u32::from(c - b'a') + 26,
+            b'0'..=b'9' => u32::from(c - b'0') + 52,
+            b'+' => 62,
+            b'/' => 63,
+            _ => 0,
+        }
+    };
+    let mut out = Vec::new();
+    for q in s.as_bytes().chunks(4) {
+        let pad = q.iter().filter(|c| **c == b'=').count();
+        let n = q.iter().fold(0u32, |a, c| (a << 6) | val(*c));
+        let bytes = [(n >> 16) as u8, (n >> 8) as u8, n as u8];
+        out.extend_from_slice(&bytes[..3 - pad]);
+    }
+    out
+}
+
+/// A Data dir holding `Starfield - Meshes01.ba2` with a model of `geoms` triangles
+/// (the node moved by `node_t`) and the meshes in `meshes`.
+fn geometry_dir(name: &str, node_t: [f32; 3], geoms: usize, meshes: &[(&str, Vec<u8>)]) -> PathBuf {
+    geometry_dir_with(name, node_t, &vec![BOXED; geoms], meshes)
+}
+
+/// [`geometry_dir`] with the geometry blocks' bounds given (boxed, skinned, ...).
+fn geometry_dir_with(
+    name: &str,
+    node_t: [f32; 3],
+    geoms: &[([f32; 4], [f32; 6], bool)],
+    meshes: &[(&str, Vec<u8>)],
+) -> PathBuf {
+    let data = dir(name).join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    let model = nif(node_t, geoms);
+    let mut files: Vec<(&str, Vec<u8>)> = vec![("meshes\\test\\tri.nif", model)];
+    files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    data
+}
+
+fn run_geometry(data: &Path, model: &str) -> Result<Value, crate::EngineError> {
+    let mut session = crate::Session::default();
+    let args = json!({"model": model, "data_dir": data.display().to_string()});
+    geometry(&mut session, &args).map(|o| o.data)
+}
+
+#[test]
+fn base64_matches_the_rfc_4648_examples() {
+    let cases = [
+        ("", ""),
+        ("f", "Zg=="),
+        ("fo", "Zm8="),
+        ("foo", "Zm9v"),
+        ("foob", "Zm9vYg=="),
+        ("fooba", "Zm9vYmE="),
+        ("foobar", "Zm9vYmFy"),
+    ];
+    for (raw, enc) in cases {
+        assert_eq!(base64(raw.as_bytes()), enc);
+        assert_eq!(decode64(enc), raw.as_bytes());
+    }
+}
+
+#[test]
+fn geometry_places_each_mesh_in_the_model_root_and_joins_the_indices() {
+    let data = geometry_dir(
+        "mesh-geometry",
+        [10.0, 0.0, 0.0],
+        2,
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(2.0)),
+            ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+        ],
+    );
+    let d = run_geometry(&data, "Test\\Tri.nif").unwrap();
+    assert_eq!(d["vertex_count"], 6);
+    assert_eq!(d["index_count"], 6);
+    assert_eq!(d["frame"], "model root");
+    let p = f32s_of(d["positions"].as_str().unwrap());
+    // The node's +10 x applies to both; the first mesh is scaled 2, the second 1.
+    assert_eq!(&p[..9], &[10.0, 0.0, 0.0, 12.0, 0.0, 0.0, 10.0, 2.0, 0.0]);
+    assert_eq!(&p[9..], &[10.0, 0.0, 0.0, 11.0, 0.0, 0.0, 10.0, 1.0, 0.0]);
+    assert_eq!(u32s_of(d["indices"].as_str().unwrap()), [0, 1, 2, 3, 4, 5]);
+    let n = f32s_of(d["normals"].as_str().unwrap());
+    assert_eq!(n.len(), 18);
+    for v in n.chunks_exact(3) {
+        assert!(
+            v[0].abs() < 0.01 && v[1].abs() < 0.01 && (v[2] - 1.0).abs() < 1e-6,
+            "{v:?}"
+        );
+    }
+    assert_eq!(d["raw_bytes"], 6 * 12 * 2 + 6 * 4);
+    assert_eq!(d["meshes"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn geometry_skips_a_missing_or_broken_mesh_and_says_so() {
+    let mut broken = triangle_mesh(1.0);
+    broken.push(0);
+    let data = geometry_dir(
+        "mesh-geometry-skip",
+        [0.0; 3],
+        3,
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+            ("geometries\\test\\mesh1.mesh", broken),
+        ],
+    );
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let l = out.limitations.join("\n");
+    assert!(
+        l.contains("mesh1.mesh") && l.contains("M6 entry count"),
+        "{l}"
+    );
+    assert!(l.contains("mesh2.mesh is in no archive"), "{l}");
+    assert!(l.contains("2 geometry block(s) skipped"), "{l}");
+    assert!(l.contains("normals are grade B"), "{l}");
+}
+
+#[test]
+fn geometry_refuses_a_model_path_leaving_meshes_like_bounds() {
+    let data = geometry_dir("mesh-geometry-escape", [0.0; 3], 1, &[]);
+    let err = run_geometry(&data, "..\\Starfield.esm").unwrap_err();
+    assert!(
+        err.to_string().contains("not a path inside Meshes"),
+        "{err}"
+    );
+    assert!(err.to_string().contains("mesh.geometry"), "{err}");
+}
+
+/// V4 (M7.S5; `docs/design/workbench-performance.md`), engine side: `mesh.geometry` for
+/// every distinct model of a Starfield.esm cell's bases (the models `mesh.bounds` finds
+/// from their MODL), in one session: time to the first mesh, time to all of them, and the
+/// envelope size. Release only.
+#[test]
+#[ignore = "release: indexes Starfield.esm and reads every model of a cell"]
+fn v4_mesh_geometry_for_the_models_of_a_cell() {
+    let Some(data) = std::env::var_os("KITKRAFT_DATA_DIR").map(PathBuf::from) else {
+        eprintln!("skipped: KITKRAFT_DATA_DIR is not set");
+        return;
+    };
+    let d = data.display().to_string();
+    let engine = Engine::with_default_handlers();
+    engine
+        .execute("load", json!({"plugins": ["Starfield.esm"], "data_dir": d}))
+        .unwrap();
+    let cell = engine
+        .execute(
+            "cell",
+            json!({"world": "NewAtlantis", "x": 2, "y": 1, "limit": 1000}),
+        )
+        .unwrap();
+    let mut models: Vec<String> = Vec::new();
+    for item in cell["data"]["items"].as_array().unwrap() {
+        let Some(base) = item["base"]["form"].as_str() else {
+            continue;
+        };
+        if let Ok(env) = engine.execute("mesh.bounds", json!({"form": base, "data_dir": d})) {
+            if let Some(m) = env["data"]["model"].as_str() {
+                if !models.iter().any(|x| x == m) {
+                    models.push(m.to_string());
+                }
+            }
+        }
+    }
+    let mut session = crate::Session::default();
+    let start = std::time::Instant::now();
+    let mut first = None;
+    let (mut vertices, mut triangles, mut raw, mut json_bytes, mut skipped, mut failed) =
+        (0u64, 0u64, 0u64, 0u64, 0u64, 0u64);
+    for m in &models {
+        match geometry(&mut session, &json!({"model": m, "data_dir": d})) {
+            Ok(out) => {
+                first.get_or_insert(start.elapsed());
+                vertices += out.data["vertex_count"].as_u64().unwrap_or(0);
+                triangles += out.data["index_count"].as_u64().unwrap_or(0) / 3;
+                raw += out.data["raw_bytes"].as_u64().unwrap_or(0);
+                json_bytes += out.data.to_string().len() as u64;
+                skipped += out
+                    .limitations
+                    .iter()
+                    .filter(|l| l.ends_with(": skipped") || l.contains(" skipped: "))
+                    .count() as u64;
+            }
+            Err(_) => failed += 1,
+        }
+    }
+    let all = start.elapsed();
+    eprintln!(
+        "V4 NewAtlantis 2,1: {} models; first mesh {:?} (includes the archive and mesh index); all {all:?}; {vertices} vertices, {triangles} triangles; raw {raw} bytes, data JSON {json_bytes} bytes ({:.2}x raw); meshes skipped {skipped}; models refused {failed}",
+        models.len(),
+        first.unwrap_or_default(),
+        json_bytes as f64 / raw.max(1) as f64
+    );
+    assert!(!models.is_empty());
+}
+
+#[test]
+fn geometry_skips_skinned_blocks_whose_frame_the_study_does_not_show() {
+    // Review M1 (M7.S5 code): a skinned block stores no box (NIF study B5), so the
+    // mesh study's box check (M2) says nothing about the frame of its positions; it
+    // is skipped with a limitation, never placed in "model root".
+    let data = geometry_dir_with(
+        "mesh-geometry-skinned",
+        [5.0, 0.0, 0.0],
+        &[BOXED, SKINNED],
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+            ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+        ],
+    );
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert_eq!(out.data["meshes"].as_array().unwrap().len(), 1);
+    let l = out.limitations.join("\n");
+    assert!(
+        l.contains("block 2 is skinned or stores no recognised bound"),
+        "{l}"
+    );
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}
+
+/// A 3-vertex mesh whose index list repeats the triangle `n` times.
+fn repeated_triangle_mesh(n: usize) -> Vec<u8> {
+    let base = triangle_mesh(1.0);
+    let mut out = Vec::new();
+    u32s(&mut out, &[2, (3 * n) as u32]);
+    for _ in 0..n {
+        for i in [0u16, 1, 2] {
+            out.extend_from_slice(&i.to_le_bytes());
+        }
+    }
+    // The rest of the triangle mesh after its 3 indices (8 + 6 bytes).
+    out.extend_from_slice(&base[14..]);
+    out
+}
+
+#[test]
+fn geometry_budgets_indices_as_well_as_vertices() {
+    // Review M2 (M7.S5 code): 20 blocks naming a 3-vertex mesh of 300,000 indices made
+    // a 32 MB reply with coverage Complete. With the index budget, the 21st block of
+    // such a model is skipped and named, and coverage is Partial.
+    let names: Vec<String> = (0..21)
+        .map(|k| format!("geometries\\test\\mesh{k}.mesh"))
+        .collect();
+    let big = repeated_triangle_mesh(100_000);
+    let meshes: Vec<(&str, Vec<u8>)> = names.iter().map(|n| (n.as_str(), big.clone())).collect();
+    let data = dir("mesh-geometry-budget").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    // Each slot says 300,000 indices and 3 vertices, as the mesh holds.
+    let model = nif_with_counts([0.0; 3], 21, 300_000, 3);
+    let mut files: Vec<(&str, Vec<u8>)> = vec![("meshes\\test\\tri.nif", model)];
+    files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["index_count"], 6_000_000);
+    let l = out.limitations.join("\n");
+    assert!(l.contains("block 21") && l.contains("index budget"), "{l}");
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}
+
+#[test]
+fn geometry_skips_a_mesh_past_the_vertex_budget_and_one_whose_counts_disagree() {
+    // Review L6: the vertex budget and the count check, each with its own line.
+    let data = dir("mesh-geometry-counts").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    // Block 1 claims 2,000,001 vertices; block 2 claims 4 vertices of a 3-vertex mesh.
+    let mut model = nif_with_counts([0.0; 3], 2, 3, 2_000_001);
+    let at = model
+        .windows(12)
+        .rposition(|w| w == [3, 0, 0, 0, 0x81, 0x84, 0x1e, 0, 64, 0, 0, 0])
+        .unwrap();
+    model[at + 4..at + 8].copy_from_slice(&4u32.to_le_bytes());
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    let l = out.limitations.join("\n");
+    assert!(l.contains("vertex budget"), "{l}");
+    assert!(l.contains("are not the mesh's"), "{l}");
+    assert_eq!(out.data["vertex_count"], 0);
+}
+
+#[test]
+fn geometry_names_unreached_blocks_and_stays_partial() {
+    // Review L1 (M7.S5 code): block 2 is not reached from the root; it was dropped
+    // silently with coverage Complete.
+    let data = dir("mesh-geometry-unreached").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    let mut model = nif([0.0; 3], &[BOXED, BOXED]);
+    let at = model
+        .windows(12)
+        .position(|w| w == [2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0])
+        .unwrap();
+    model[at + 8..at + 12].copy_from_slice(&u32::MAX.to_le_bytes());
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let l = out.limitations.join("\n");
+    assert!(
+        l.contains("1 geometry block(s) are not reached from the root"),
+        "{l}"
+    );
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}
+
+#[test]
+fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
+    // Review L2 (M7.S5 code): one bad slot failed the whole reply.
+    let data = dir("mesh-geometry-bad-slot").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    let mut model = nif([0.0; 3], &[BOXED, BOXED]);
+    let at = model
+        .windows(12)
+        .rposition(|w| w == [3, 0, 0, 0, 3, 0, 0, 0, 64, 0, 0, 0])
+        .unwrap();
+    model[at + 8] = 65;
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let l = out.limitations.join("\n");
+    assert!(l.contains("block 2: its slots do not read"), "{l}");
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
 }
