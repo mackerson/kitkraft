@@ -89,8 +89,9 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
         let k = key(subs[*i].signature);
         *t.unplaced.entry(k.clone()).or_insert(0) += 1;
         if t.failures.len() < 20 {
-            t.failures
-                .push(format!("{name} {form_id:08X}: {k} at {i} matches no member"));
+            t.failures.push(format!(
+                "{name} {form_id:08X}: {k} at {i} matches no member"
+            ));
         }
     }
     for (i, sub) in typed.extra() {
@@ -113,7 +114,8 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
@@ -141,9 +143,15 @@ fn check_file(path: &Path, stats: &mut TypeStats) {
 }
 
 fn report(stats: &TypeStats) {
-    println!("csty CSTY: {} records, {} identical", stats.records, stats.identical);
+    println!(
+        "csty CSTY: {} records, {} identical",
+        stats.records, stats.identical
+    );
     if !stats.unplaced.is_empty() || !stats.failed.is_empty() {
-        println!("   unplaced: {:?} failed: {:#?}", stats.unplaced, stats.failed);
+        println!(
+            "   unplaced: {:?} failed: {:#?}",
+            stats.unplaced, stats.failed
+        );
     }
     for f in &stats.failures {
         println!("   ! {f}");
