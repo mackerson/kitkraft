@@ -44,15 +44,36 @@ pub const SITTING2_FILE: &str = include_str!(concat!(
     "/layouts/sitting2.toml"
 ));
 
-/// The sitting observation of `signature`'s edit dialog, when sitting 2 recorded one.
+/// The sitting observation of `signature`'s edit dialog, when sitting 2 recorded one. The
+/// file is parsed once per process (the dialog asks every frame; M7.W4 review L4).
 pub fn observation(signature: &str) -> Option<Observation> {
-    let table: toml::Table = SITTING2_FILE.parse().ok()?;
-    let o = table
-        .get("dialog")?
-        .as_array()?
+    static ALL: std::sync::OnceLock<Vec<(String, Observation)>> = std::sync::OnceLock::new();
+    ALL.get_or_init(parse_sitting2)
         .iter()
+        .find(|(t, _)| t == signature)
+        .map(|(_, o)| o.clone())
+}
+
+/// Every `[[dialog]]` of [`SITTING2_FILE`], by type.
+fn parse_sitting2() -> Vec<(String, Observation)> {
+    let Ok(table) = SITTING2_FILE.parse::<toml::Table>() else {
+        return Vec::new();
+    };
+    table
+        .get("dialog")
+        .and_then(toml::Value::as_array)
+        .into_iter()
+        .flatten()
         .filter_map(toml::Value::as_table)
-        .find(|d| d.get("type").and_then(toml::Value::as_str) == Some(signature))?;
+        .filter_map(|d| {
+            let t = d.get("type")?.as_str()?.to_string();
+            Some((t, dialog_of(d)?))
+        })
+        .collect()
+}
+
+/// One `[[dialog]]` as an [`Observation`].
+fn dialog_of(o: &toml::Table) -> Option<Observation> {
     let s = |k: &str| {
         o.get(k)
             .and_then(toml::Value::as_str)
