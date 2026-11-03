@@ -632,17 +632,22 @@ impl Run<'_> {
                     let keyed = checks && self.corr.request(id).is_some_and(|r| r.keyed());
                     let mut out = first;
                     let mut routed = self.corr.route(id, &out);
-                    self.requeued(&routed, &mut seen);
+                    let mut foreign = self.requeued(&routed, &mut seen);
                     let mut all_echo = routed.echo_only;
-                    let unanswered = |c: &Correlator, r: &Routed| {
-                        if keyed {
-                            !r.empty && c.request(id).is_some_and(|q| q.lines.is_empty())
-                        } else {
-                            r.echo_only
-                        }
+                    // A console failure line in any of this request's replies is its
+                    // answer: it is not re-sent, and no later line can make it a pass
+                    // (review H2).
+                    let mut fail_line = console_failure(&cmd, &routed.kept());
+                    let unanswered = |c: &Correlator, r: &Routed, f: &Option<String>| {
+                        f.is_none()
+                            && if keyed {
+                                !r.empty && c.request(id).is_some_and(|q| q.lines.is_empty())
+                            } else {
+                                r.echo_only
+                            }
                     };
                     let mut tries = 1u32;
-                    while checks && unanswered(&self.corr, &routed) && tries < 3 {
+                    while checks && unanswered(&self.corr, &routed, &fail_line) && tries < 3 {
                         // Never more than a quarter of what is left of the row's deadline.
                         let left = deadline.saturating_sub(started.elapsed());
                         let pause = ECHO_RETRY_PAUSE
@@ -662,18 +667,51 @@ impl Run<'_> {
                         ));
                         std::thread::sleep(pause);
                         let left = deadline.saturating_sub(started.elapsed());
+                        self.corr.resend(id);
                         match self.deps.console.run(&cmd, left) {
                             Ok(again) => out = again,
-                            Err(_) => break,
+                            Err(e) => {
+                                // Review L2: the error reaches the row's evidence.
+                                seen.push(format!("{cmd} -> ({e}) on retry {tries}"));
+                                break;
+                            }
                         }
                         routed = self.corr.route(id, &out);
-                        self.requeued(&routed, &mut seen);
+                        foreign = foreign.or(self.requeued(&routed, &mut seen));
                         all_echo = all_echo && routed.echo_only;
+                        fail_line = console_failure(&cmd, &routed.kept());
                         tries = tries.saturating_add(1);
                     }
-                    if checks && unanswered(&self.corr, &routed) {
+                    if checks {
+                        if let Some(line) = &fail_line {
+                            seen.push(format!("{cmd} -> {}", clip(&out, 120)));
+                            let v = Verdict::Fail(format!(
+                                "step {} `{cmd}`: the console answered `{line}`",
+                                n.saturating_add(1)
+                            ));
+                            failed.get_or_insert_with(|| v.clone());
+                            verdicts.push(v);
+                            continue;
+                        }
+                    }
+                    if checks && unanswered(&self.corr, &routed, &fail_line) {
                         seen.push(format!("{cmd} -> {}", clip(&out, 120)));
-                        let why = if all_echo {
+                        let ambiguous = self
+                            .corr
+                            .request(id)
+                            .and_then(|r| r.ambiguous.first().cloned());
+                        let why = if let Some((line, others)) = ambiguous {
+                            let names: Vec<String> = others
+                                .iter()
+                                .filter_map(|o| self.corr.request(*o))
+                                .map(|o| format!("`{}` (row {})", o.command, o.row))
+                                .collect();
+                            format!(
+                                "ambiguous reply: `{cmd}` and {} are the same getter still waiting for an answer, and the line `{}` names neither apart; the text cannot tell them apart",
+                                names.join(", "),
+                                clip(&line, 60)
+                            )
+                        } else if all_echo {
                             format!("`{cmd}` answered with only its echo, {tries} time(s): no correlated reply")
                         } else {
                             format!("`{cmd}`: no correlated reply in {tries} answer(s) (only its echo or other requests' lines)")
@@ -721,6 +759,12 @@ impl Run<'_> {
                         }
                     }
                     verdicts.push(judge(step, Some(&out), self.papyrus_text().as_deref()));
+                    if let Some(note) = foreign {
+                        // Review M2: another row's failure line arrived in this reply.
+                        verdicts.push(Verdict::Inconclusive(format!(
+                            "{note} (a timing anomaly, R20, R28)"
+                        )));
+                    }
                     if let Some(w) = step.wait_secs.filter(|w| *w > 0) {
                         // The game answers a move or a load before it has acted on it; a
                         // command sent meanwhile answers with only its echo
@@ -780,17 +824,57 @@ impl Run<'_> {
     }
 
     /// Notes, in the row's `seen`, each line of this reply that names another request.
-    fn requeued(&self, routed: &Routed, seen: &mut Vec<String>) {
+    /// Also notes ambiguous lines, `help` ties and surplus lines; returns a note when a
+    /// failure line for another row arrived (review M2).
+    fn requeued(&self, routed: &Routed, seen: &mut Vec<String>) -> Option<String> {
+        let name = |i: &usize| {
+            self.corr
+                .request(*i)
+                .map(|r| format!("row {} `{}`", r.row, r.command))
+                .unwrap_or_default()
+        };
         for (to, line) in &routed.requeued {
-            if let Some(r) = self.corr.request(*to) {
-                seen.push(format!(
-                    "(a line for row {} `{}` re-queued to it: {})",
-                    r.row,
-                    r.command,
-                    clip(line, 100)
-                ));
-            }
+            seen.push(format!(
+                "(a line for {} re-queued to it: {})",
+                name(to),
+                clip(line, 100)
+            ));
         }
+        for (all, line) in &routed.ambiguous {
+            let names: Vec<String> = all.iter().map(name).collect();
+            seen.push(format!(
+                "(ambiguous: {} could each claim `{}`; given to none)",
+                names.join(", "),
+                clip(line, 80)
+            ));
+        }
+        for (all, to, line) in &routed.ties {
+            let names: Vec<String> = all.iter().map(name).collect();
+            seen.push(format!(
+                "(tie between {}; went to {}: {})",
+                names.join(", "),
+                name(to),
+                clip(line, 80)
+            ));
+        }
+        for (to, line) in &routed.surplus {
+            seen.push(format!(
+                "(a line for {}, which had all its answers: {}; not graded)",
+                name(to),
+                clip(line, 80)
+            ));
+        }
+        let mut foreign = None;
+        for (to, line) in &routed.failures {
+            let note = format!(
+                "a failure line for {} arrived in this reply: `{}`",
+                name(to),
+                clip(line, 100)
+            );
+            seen.push(format!("({note})"));
+            foreign.get_or_insert(note);
+        }
+        foreign
     }
 
     /// Judges again each waiting step whose line has arrived since, in a later reply
@@ -853,6 +937,36 @@ impl Run<'_> {
             changed.push((w.slot, row.clone()));
         }
         self.waiting.retain(|w| !w.steps.is_empty());
+        // Failure lines re-queued to an earlier request fail its row (review M2); lines
+        // for a getter that already had its answers are noted on its row (review L5).
+        for (id, failures, surplus) in self.corr.take_notes() {
+            let Some(r) = self.corr.request(id) else {
+                continue;
+            };
+            let (row_name, command) = (r.row.clone(), r.command.clone());
+            let Some(slot) = rows.iter().rposition(|x| x.row == row_name) else {
+                continue;
+            };
+            let Some(row) = rows.get_mut(slot) else {
+                continue;
+            };
+            for (via, line) in &failures {
+                row.verdict = Verdict::Fail(format!(
+                    "`{command}`: the console answered `{}`, late, in the reply to `{via}`",
+                    clip(line, 100)
+                ));
+                row.seen.push_str(&format!(
+                    "; (late failure) {command} -> {line} (in the reply to `{via}`)"
+                ));
+            }
+            for (via, line) in &surplus {
+                row.seen.push_str(&format!(
+                    "; (late, after its answer) {command} -> {} (in the reply to `{via}`; not graded)",
+                    clip(line, 100)
+                ));
+            }
+            changed.push((slot, row.clone()));
+        }
         for (slot, row) in changed {
             self.shared.event(format!(
                 "row {} judged again on a late answer: {}",

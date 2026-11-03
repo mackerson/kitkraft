@@ -15,12 +15,22 @@
 //!   (`GetPos: X >> -17.00`, `GetInCell >> 1.00`), more strongly when it also names the
 //!   getter's arguments (`X`).
 //!
-//! Commands of any other kind name nothing: lines no request names stay with the reply they
-//! arrived in, and so do the console's failure lines ([`crate::probes::console_failure`]),
-//! whatever they name. When the reply's own request and another one name a line equally (the same
-//! getter sent twice), the line stays with the reply's own request: the text cannot tell
-//! them apart. Between other requests, the oldest one still without a line takes it
-//! (T05's late answers came in the order the requests were sent).
+//! A getter's line goes to the one request still waiting for an answer (fewer lines than
+//! sends) that can claim it. When two or more can (the same getter sent twice, or
+//! `GetInCell`, whose answer names no argument), the line is **ambiguous**: it goes to none,
+//! and a step left with no line of its own is `inconclusive (ambiguous reply)` (review H1).
+//! A getter with an axis argument (`getpos x`) claims no line naming another axis. A line
+//! for a getter that already has all its answers is noted, not graded.
+//!
+//! A `help` line holding the reply's own term is its own, even when a longer term also
+//! names it; the longer term's request gets a copy when it has no line yet (review M1).
+//! Between other `help` requests the longest term wins, then the oldest one still without
+//! a line (T05's late answers came in the order the requests were sent).
+//!
+//! Commands of any other kind name nothing: lines no request names stay with the reply
+//! they arrived in. So do the console's failure lines ([`crate::probes::console_failure`]),
+//! unless the item they quote is in another request's command and not in this one; then
+//! they are re-queued to that request (review M2).
 
 /// What a request's answer names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,6 +96,19 @@ impl Subject {
                 if w.first() != Some(function) {
                     return None;
                 }
+                // An axis argument (`getpos x`) claims no line naming another axis
+                // (`GetPos: Z >> ...`, review H1).
+                let axes = ["x", "y", "z"];
+                let named_axes: Vec<&String> = w
+                    .iter()
+                    .skip(1)
+                    .filter(|x| axes.contains(&x.as_str()))
+                    .collect();
+                if args.iter().any(|a| {
+                    axes.contains(&a.as_str()) && !named_axes.is_empty() && !named_axes.contains(&a)
+                }) {
+                    return None;
+                }
                 let named = args
                     .iter()
                     .filter(|a| w.iter().skip(1).any(|x| x == *a))
@@ -132,6 +155,9 @@ fn strip_echo<'a>(line: &'a str, command: &str) -> Option<&'a str> {
     stripped.then_some(rest)
 }
 
+/// `(command, line)`: a line, and the command whose reply it came in.
+pub type Via = (String, String);
+
 /// One request: a command sent for a row's step (its retries are the same request).
 #[derive(Debug, Clone)]
 pub struct Request {
@@ -142,17 +168,37 @@ pub struct Request {
     /// The command.
     pub command: String,
     subject: Option<Subject>,
+    /// How many times it was sent (each send may bring one answer, late or not).
+    pub sent: usize,
     /// The lines that answer it, in the order they arrived.
     pub lines: Vec<String>,
     /// `(command, line)`: each line that came in another request's reply, with that
     /// request's command.
     pub late: Vec<(String, String)>,
+    /// `(line, other requests)`: lines it could claim but so could another request still
+    /// waiting for an answer; given to none (ruling R28, review H1).
+    pub ambiguous: Vec<(String, Vec<usize>)>,
+    /// `(command, line)`: console failure lines naming this request's item that came in
+    /// another request's reply (review M2).
+    pub failures: Vec<(String, String)>,
+    /// `(command, line)`: lines naming it that came after it had all its answers, in
+    /// another request's reply (noted, never graded; review L5).
+    pub surplus: Vec<(String, String)>,
 }
 
 impl Request {
     /// Whether its answer lines name it (`help`, a getter).
     pub fn keyed(&self) -> bool {
         self.subject.is_some()
+    }
+
+    fn is_getter(&self) -> bool {
+        matches!(self.subject, Some(Subject::Getter { .. }))
+    }
+
+    /// A getter still waiting for an answer to one of its sends.
+    fn waiting(&self) -> bool {
+        self.lines.len() < self.sent
     }
 }
 
@@ -165,6 +211,14 @@ pub struct Routed {
     pub unclaimed: Vec<String>,
     /// `(request, line)`: lines naming another request, re-queued to it.
     pub requeued: Vec<(usize, String)>,
+    /// `(requests, line)`: getter lines more than one waiting request could claim.
+    pub ambiguous: Vec<(Vec<usize>, String)>,
+    /// `(request, line)`: failure lines naming another request's item, re-queued to it.
+    pub failures: Vec<(usize, String)>,
+    /// `(requests, chosen, line)`: `help` lines several terms name equally.
+    pub ties: Vec<(Vec<usize>, usize, String)>,
+    /// `(request, line)`: lines for a getter that already had all its answers.
+    pub surplus: Vec<(usize, String)>,
     /// The reply had text and all of it was echo.
     pub echo_only: bool,
     /// The reply had no text at all.
@@ -183,6 +237,20 @@ impl Routed {
     }
 }
 
+/// The item a console failure line quotes (`Item 'X' not found ...`, `Script command "x"
+/// not found`), lowercased.
+fn failure_item(line: &str) -> Option<String> {
+    let l = line.to_ascii_lowercase();
+    let quoted = |after: &str, q: char| -> Option<String> {
+        let at = l.find(after)?;
+        let rest = l.get(at.saturating_add(after.len())..)?;
+        let rest = rest.strip_prefix(q)?;
+        let end = rest.find(q)?;
+        rest.get(..end).map(str::to_string)
+    };
+    quoted("item ", '\'').or_else(|| quoted("script command ", '"'))
+}
+
 /// Every request of a session, and the lines that answer each.
 #[derive(Debug, Clone, Default)]
 pub struct Correlator {
@@ -190,22 +258,55 @@ pub struct Correlator {
 }
 
 impl Correlator {
-    /// Opens a request; returns its id.
+    /// Opens a request (sent once); returns its id.
     pub fn open(&mut self, row: &str, step: usize, command: &str) -> usize {
         self.requests.push(Request {
             row: row.to_string(),
             step,
             command: command.trim().to_string(),
             subject: subject(command),
+            sent: 1,
             lines: Vec::new(),
             late: Vec::new(),
+            ambiguous: Vec::new(),
+            failures: Vec::new(),
+            surplus: Vec::new(),
         });
         self.requests.len().saturating_sub(1)
+    }
+
+    /// Request `id` was sent again.
+    pub fn resend(&mut self, id: usize) {
+        if let Some(r) = self.requests.get_mut(id) {
+            r.sent = r.sent.saturating_add(1);
+        }
     }
 
     /// Request `id`.
     pub fn request(&self, id: usize) -> Option<&Request> {
         self.requests.get(id)
+    }
+
+    /// Every request, in the order opened.
+    pub fn requests(&self) -> &[Request] {
+        &self.requests
+    }
+
+    /// Takes the failure lines and surplus lines re-queued so far: `(request, failures,
+    /// surplus)`.
+    pub fn take_notes(&mut self) -> Vec<(usize, Vec<Via>, Vec<Via>)> {
+        self.requests
+            .iter_mut()
+            .enumerate()
+            .filter(|(_, r)| !r.failures.is_empty() || !r.surplus.is_empty())
+            .map(|(i, r)| {
+                (
+                    i,
+                    std::mem::take(&mut r.failures),
+                    std::mem::take(&mut r.surplus),
+                )
+            })
+            .collect()
     }
 
     /// `line` without the echoes: the reply's own first, then any other command's.
@@ -227,6 +328,18 @@ impl Correlator {
         rest
     }
 
+    fn give(&mut self, to: usize, id: usize, command: &str, line: &str, routed: &mut Routed) {
+        if let Some(r) = self.requests.get_mut(to) {
+            r.lines.push(line.to_string());
+            if to == id {
+                routed.own.push(line.to_string());
+            } else {
+                r.late.push((command.to_string(), line.to_string()));
+                routed.requeued.push((to, line.to_string()));
+            }
+        }
+    }
+
     /// Routes a reply to request `id`.
     pub fn route(&mut self, id: usize, reply: &str) -> Routed {
         let mut routed = Routed::default();
@@ -246,9 +359,24 @@ impl Correlator {
                 continue;
             }
             if crate::probes::console_failure("", &line).is_some() {
-                // A failure line is the reply's own request's (`Item 'X' not found for
-                // parameter` after `prid X`, not after a `help X` sent earlier).
-                routed.unclaimed.push(line);
+                // A failure line is the reply's own request's, unless the item it quotes
+                // is in another request's command and not in this one (review M2).
+                let item = failure_item(&line);
+                let other = item.as_ref().and_then(|item| {
+                    if command.to_ascii_lowercase().contains(item.as_str()) {
+                        return None;
+                    }
+                    self.requests
+                        .iter()
+                        .rposition(|r| r.command.to_ascii_lowercase().contains(item.as_str()))
+                });
+                match other.and_then(|o| self.requests.get_mut(o).map(|r| (o, r))) {
+                    Some((o, r)) => {
+                        r.failures.push((command.clone(), line.clone()));
+                        routed.failures.push((o, line));
+                    }
+                    None => routed.unclaimed.push(line),
+                }
                 continue;
             }
             let scores: Vec<(usize, usize)> = self
@@ -257,38 +385,90 @@ impl Correlator {
                 .enumerate()
                 .filter_map(|(i, r)| Some((i, r.subject.as_ref()?.claims(&line)?)))
                 .collect();
-            let top = scores.iter().map(|(_, s)| *s).max();
+            let Some(top) = scores.iter().map(|(_, s)| *s).max() else {
+                routed.unclaimed.push(line);
+                continue;
+            };
             let tied: Vec<usize> = scores
                 .iter()
-                .filter(|(_, s)| Some(*s) == top)
+                .filter(|(_, s)| *s == top)
                 .map(|(i, _)| *i)
                 .collect();
-            let owner = if tied.contains(&id) {
-                Some(id)
+            let getter = tied
+                .first()
+                .and_then(|i| self.requests.get(*i))
+                .is_some_and(Request::is_getter);
+            if getter {
+                // A getter's line goes to the one request still waiting that can claim
+                // it; with two or more, it is ambiguous and goes to none (review H1); with
+                // none, it is a surplus answer, noted only (review L5).
+                let waiting: Vec<usize> = tied
+                    .iter()
+                    .copied()
+                    .filter(|i| self.requests.get(*i).is_some_and(Request::waiting))
+                    .collect();
+                match waiting.as_slice() {
+                    [one] => self.give(*one, id, &command, &line, &mut routed),
+                    [] => {
+                        let to = tied.last().copied().unwrap_or(id);
+                        if let Some(r) = self.requests.get_mut(to) {
+                            if to != id {
+                                r.surplus.push((command.clone(), line.clone()));
+                            }
+                        }
+                        routed.surplus.push((to, line));
+                    }
+                    many => {
+                        for i in many {
+                            let others: Vec<usize> =
+                                many.iter().copied().filter(|j| j != i).collect();
+                            if let Some(r) = self.requests.get_mut(*i) {
+                                r.ambiguous.push((line.clone(), others));
+                            }
+                        }
+                        routed.ambiguous.push((many.to_vec(), line));
+                    }
+                }
+                continue;
+            }
+            // `help`: a line holding the own request's term is its own (`help T` lists
+            // every form whose name holds T), even when a longer term also names it; that
+            // request, if it has no line yet, gets a copy (review M1).
+            let own_claims = scores.iter().any(|(i, _)| *i == id);
+            let longest = if tied.contains(&id) {
+                id
             } else {
                 tied.iter()
                     .copied()
                     .find(|i| self.requests.get(*i).is_some_and(|r| r.lines.is_empty()))
                     .or_else(|| tied.last().copied())
+                    .unwrap_or(id)
             };
-            match owner.and_then(|o| self.requests.get_mut(o).map(|r| (o, r))) {
-                Some((o, r)) => {
-                    r.lines.push(line.clone());
-                    if o == id {
-                        routed.own.push(line);
-                    } else {
-                        r.late.push((command.clone(), line.clone()));
-                        routed.requeued.push((o, line));
-                    }
+            if tied.len() > 1 {
+                routed.ties.push((tied.clone(), longest, line.clone()));
+            }
+            if own_claims {
+                self.give(id, id, &command, &line, &mut routed);
+                if longest != id
+                    && self
+                        .requests
+                        .get(longest)
+                        .is_some_and(|r| r.lines.is_empty())
+                {
+                    self.give(longest, id, &command, &line, &mut routed);
                 }
-                None => routed.unclaimed.push(line),
+            } else {
+                self.give(longest, id, &command, &line, &mut routed);
             }
         }
         routed.empty = !any;
         routed.echo_only = any
             && routed.own.is_empty()
             && routed.unclaimed.is_empty()
-            && routed.requeued.is_empty();
+            && routed.requeued.is_empty()
+            && routed.ambiguous.is_empty()
+            && routed.failures.is_empty()
+            && routed.surplus.is_empty();
         routed
     }
 }
@@ -363,11 +543,17 @@ mod tests {
             t07,
             "help \"KitKraft Mini Site\" 4\nTMLM:  (09001001) 'KitKraft Mini Site Menu'\nLCTN: KitKraftMiniSiteLocation (09001006) 'KitKraft Mini Site'",
         );
+        // The TMLM line holds T-07's own term: T-07 keeps it, and T-02 (no line yet) gets a
+        // copy (review M1).
         assert_eq!(r.requeued.first().map(|x| x.0), Some(t02));
         assert_eq!(
             r.own,
-            vec!["LCTN: KitKraftMiniSiteLocation (09001006) 'KitKraft Mini Site'".to_string()]
+            vec![
+                "TMLM:  (09001001) 'KitKraft Mini Site Menu'".to_string(),
+                "LCTN: KitKraftMiniSiteLocation (09001006) 'KitKraft Mini Site'".to_string()
+            ]
         );
+        assert_eq!(r.ties.len(), 0);
     }
 
     #[test]

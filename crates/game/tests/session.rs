@@ -844,3 +844,477 @@ fn a_reply_goes_to_the_request_it_names_not_the_one_it_arrived_in() {
     assert!(!v.iter().any(|x| x.starts_with("fail")), "{v:?}");
     std::fs::remove_dir_all(&f.root).unwrap();
 }
+
+// ------------------------------------------------- reviewer probes (rev-x5, reviews/x-controller-R27-R28.md)
+// P1 to P8 as the review wrote them, each with the grade the review calls the only
+// defensible one (H1, H2, M1, M2); then one test per routing rule that survived mutation
+// (M3).
+
+fn rx_run(tag: &str, c: &FakeConsole, rows: Vec<Probe>) -> (Vec<String>, Vec<String>) {
+    let f = fixture(tag);
+    let mut p = plan(&f, c, &f.root.join("p.log"), "2026-10-16-T13");
+    p.probes.probes = rows;
+    let report = run(&p, deps(&host(), c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    let seen: Vec<String> = report.rows.iter().map(|r| r.seen.clone()).collect();
+    let ledger = std::fs::read_to_string(&f.ledger).unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&f.root);
+    eprintln!("VERDICTS {tag}: {v:#?}");
+    eprintln!("SEEN {tag}: {seen:#?}");
+    eprintln!(
+        "LEDGER-HAS-AMBIG {tag}: {}",
+        ledger.to_ascii_lowercase().contains("ambig") || ledger.contains("cannot tell")
+    );
+    (v, seen)
+}
+
+fn one(row: &str, cmd: &str, m: Matcher, exp: &str, tol: Option<f64>) -> Probe {
+    probe(row, false, vec![step(cmd, Some(m), exp, tol)])
+}
+
+/// P1: the same getter twice. T-04's three sends answer only the echo; T-06 (same command)
+/// gets one `GetPos` line, which may be the late answer to any of T-04's three sends.
+#[test]
+fn rx_p1_same_getter_twice_ambiguous_line() {
+    let c = console();
+    c.answer_in_turn(
+        "getpos x",
+        &[
+            "getpos x",
+            "getpos x",
+            "getpos x",
+            "getpos x\nGetPos: X >> -17.00",
+        ],
+    );
+    let (v, seen) = rx_run(
+        "rx-p1",
+        &c,
+        vec![
+            one("T-04", "getpos x", Matcher::Number, "-17", Some(0.5)),
+            one("T-06", "getpos x", Matcher::Number, "-17", Some(0.5)),
+        ],
+    );
+    assert!(
+        v[1].starts_with("inconclusive (ambiguous reply"),
+        "P1 {v:?}"
+    );
+    assert!(seen[1].contains("ambiguous"), "P1 {seen:?}");
+}
+
+/// P2: the persistence row (testplan `in_cell` x3). `GetInCell` names no argument, so
+/// every getincell claims every GetInCell line equally. Step 2 is sent twice and answered
+/// once: one send is outstanding when steps 5 and 7 take a line each.
+#[test]
+fn rx_p2_save_reload_row_shifted_getincell() {
+    let c = console();
+    let l = "player.getincell 0006BB29";
+    let a = "player.getincell 0021966F";
+    let one_line = |cmd: &str| format!("{cmd}\nGetInCell >> 1.00");
+    let l1 = one_line(l);
+    c.answer_in_turn(l, &[l, &l1, &l1]);
+    c.answer(a, &one_line(a));
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "rx-p2",
+        &c,
+        vec![probe(
+            "T-08",
+            false,
+            vec![
+                step("coc CityNewAtlantisLodgeInt", None, "", None),
+                step(l, Some(Matcher::Regex), re, None),
+                step("save {save}", None, "", None),
+                step("coc CityNewAtlantisApartmentTEMPLATE", None, "", None),
+                step(a, Some(Matcher::Regex), re, None),
+                step("load {save}", None, "", None),
+                step(l, Some(Matcher::Regex), re, None),
+            ],
+        )],
+    );
+    assert!(
+        v[0].starts_with("inconclusive (ambiguous reply"),
+        "P2 {v:?}"
+    );
+}
+
+/// P3a: different args; the late line names the earlier getter's args.
+#[test]
+fn rx_p3a_late_line_names_the_other_args() {
+    let c = console();
+    c.answer("getpos y", "getpos y");
+    c.answer("getpos x", "getpos x\nGetPos: Y >> -4.00");
+    let (v, _) = rx_run(
+        "rx-p3a",
+        &c,
+        vec![
+            one("T-04", "getpos y", Matcher::Number, "-4", Some(0.5)),
+            one("T-05", "getpos x", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_eq!(v[0], "pass", "P3a {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "P3a {v:?}");
+}
+
+/// P3b: the line names args no request of this session has (`Z`); the reply's own
+/// request is `getpos x` and still takes it (first word matches, args named: 0).
+#[test]
+fn rx_p3b_line_names_args_the_request_does_not_have() {
+    let c = console();
+    c.answer("getpos x", "getpos x\nGetPos: Z >> -4.00");
+    let (v, _) = rx_run(
+        "rx-p3b",
+        &c,
+        vec![one("T-05", "getpos x", Matcher::Number, "-4", Some(0.5))],
+    );
+    assert!(v[0].starts_with("inconclusive"), "P3b {v:?}");
+}
+
+/// P4a: two help terms of equal length (9) in one line, the reply's own one of them.
+#[test]
+fn rx_p4a_help_equal_length_tie_with_own() {
+    let c = console();
+    let t1 = "help \"Mini Site\" 4";
+    let t2 = "help \"Site Menu\" 4";
+    c.answer(t1, t1);
+    c.answer(
+        t2,
+        &format!("{t2}\nTMLM:  (09001001) 'KitKraft Mini Site Menu'"),
+    );
+    let (v, _) = rx_run(
+        "rx-p4a",
+        &c,
+        vec![
+            one("T-01", t1, Matcher::Contains, "09001001", None),
+            one("T-02", t2, Matcher::Contains, "09001001", None),
+        ],
+    );
+    assert_eq!(v[1], "pass", "P4a {v:?}");
+}
+
+/// P4b: equal-length tie, neither is the reply's own (arrives in a prid reply).
+#[test]
+fn rx_p4b_help_equal_length_tie_without_own() {
+    let c = console();
+    let t1 = "help \"Mini Site\" 4";
+    let t2 = "help \"Site Menu\" 4";
+    c.answer(t1, t1);
+    c.answer(t2, t2);
+    c.answer(
+        "prid 09001001",
+        "prid 09001001\nTMLM:  (09001001) 'KitKraft Mini Site Menu'",
+    );
+    let (v, seen) = rx_run(
+        "rx-p4b",
+        &c,
+        vec![
+            one("T-01", t1, Matcher::Contains, "09001001", None),
+            one("T-02", t2, Matcher::Contains, "09001001", None),
+            probe("T-03", false, vec![step("prid 09001001", None, "", None)]),
+        ],
+    );
+    assert_eq!(v[0], "pass", "P4b {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "P4b {v:?}");
+    assert!(seen[2].contains("(tie between"), "P4b {seen:?}");
+}
+
+/// P4c: a longer earlier term steals the reply's own line, which holds the own term.
+#[test]
+fn rx_p4c_longer_term_steals_own_line() {
+    let c = console();
+    let t2 = "help \"KitKraft Mini Site Menu\" 4";
+    let t7 = "help \"KitKraft Mini Site\" 4";
+    c.answer(
+        t2,
+        &format!("{t2}\nTMLM:  (09001001) 'KitKraft Mini Site Menu'"),
+    );
+    c.answer(
+        t7,
+        &format!("{t7}\nTMLM:  (09001001) 'KitKraft Mini Site Menu'\nLCTN: KitKraftMiniSiteLocation (09001006) 'KitKraft Mini Site'"),
+    );
+    let (v, _) = rx_run(
+        "rx-p4c",
+        &c,
+        vec![
+            one("T-02", t2, Matcher::Contains, "09001001", None),
+            one("T-07", t7, Matcher::Contains, "09001001", None),
+        ],
+    );
+    assert_eq!(v[0], "pass", "P4c {v:?}");
+    assert_eq!(v[1], "pass", "P4c {v:?}");
+}
+
+/// P5a: a getter answered with a console failure line only (game-20261101-T1 row d:
+/// `GetInCell <EDID>` answered "Item ... not found for parameter Cell").
+#[test]
+fn rx_p5a_getter_failure_line_only() {
+    let c = console();
+    let cmd = "player.getincell CityNewAtlantisApartmentTEMPLATE";
+    c.answer(
+        cmd,
+        &format!("{cmd}\nItem 'CityNewAtlantisApartmentTEMPLATE' not found for parameter Cell."),
+    );
+    let (v, _) = rx_run(
+        "rx-p5a",
+        &c,
+        vec![one(
+            "T-01",
+            cmd,
+            Matcher::Regex,
+            r"(?m)>>\s*1(\.0+)?\s*$",
+            None,
+        )],
+    );
+    assert!(v[0].starts_with("fail"), "P5a {v:?}");
+}
+
+/// P5b: failure line in the first reply, a getter line on the retry.
+#[test]
+fn rx_p5b_failure_then_line_on_retry() {
+    let c = console();
+    let cmd = "player.getitemcount 06001000";
+    let r1 = format!("{cmd}\nItem '06001000' not found for parameter InventoryObject.");
+    let r2 = format!("{cmd}\nGetItemCount >> 1.00");
+    c.answer_in_turn(cmd, &[&r1, &r2]);
+    let (v, _) = rx_run(
+        "rx-p5b",
+        &c,
+        vec![one(
+            "T-01",
+            cmd,
+            Matcher::Regex,
+            r"(?m)>>\s*1(\.0+)?\s*$",
+            None,
+        )],
+    );
+    assert!(v[0].starts_with("fail"), "P5b {v:?}");
+}
+
+/// P5c: a failure line starting with a getter's name, plus the getter's own line.
+#[test]
+fn rx_p5c_failure_line_starting_with_getter_name() {
+    let c = console();
+    c.answer(
+        "getpos x",
+        "getpos x\nGetPos: Item 'Q' not found for parameter Axis.\nGetPos: X >> -17.00",
+    );
+    let (v, _) = rx_run(
+        "rx-p5c",
+        &c,
+        vec![one("T-01", "getpos x", Matcher::Number, "-17", Some(0.5))],
+    );
+    assert!(v[0].starts_with("fail"), "P5c {v:?}");
+}
+
+/// P5d: an earlier row's late failure line (naming that row's item) lands in a later
+/// getter reply that also holds its own line.
+#[test]
+fn rx_p5d_late_failure_line_of_another_row() {
+    let c = console();
+    c.answer("prid KitKraftFoo", "prid KitKraftFoo");
+    c.answer(
+        "getpos x",
+        "getpos x\nItem 'KitKraftFoo' not found for parameter ObjectReferenceID.\nGetPos: X >> -17.00",
+    );
+    let (v, _) = rx_run(
+        "rx-p5d",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![step("prid KitKraftFoo", None, "", None)],
+            ),
+            one("T-02", "getpos x", Matcher::Number, "-17", Some(0.5)),
+        ],
+    );
+    assert!(v[0].starts_with("fail"), "P5d {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "P5d {v:?}");
+}
+
+/// P6: one reply holds lines for two earlier requests and its own.
+#[test]
+fn rx_p6_two_late_lines_in_one_reply() {
+    let c = console();
+    let a = "help KitKraftAlpha 4";
+    let b = "help KitKraftBravo 4";
+    c.answer(a, a);
+    c.answer(b, b);
+    c.answer(
+        "getpos x",
+        "getpos x\nKYWD: KitKraftAlpha (09001000) ''\nGetPos: X >> -17.00\nKYWD: KitKraftBravo (09001001) ''",
+    );
+    let (v, _) = rx_run(
+        "rx-p6",
+        &c,
+        vec![
+            one("T-01", a, Matcher::Contains, "09001000", None),
+            one("T-02", b, Matcher::Contains, "09001001", None),
+            one("T-03", "getpos x", Matcher::Number, "-17", Some(0.5)),
+        ],
+    );
+    assert_eq!(v, vec!["pass", "pass", "pass"], "P6");
+}
+
+/// P7: late lines arrive after their rows were graded inconclusive and the session moved
+/// on; one with a passing value, one with a failing value.
+#[test]
+fn rx_p7_late_line_after_moving_on() {
+    let c = console();
+    c.answer("getpos y", "getpos y");
+    c.answer("getpos z", "getpos z");
+    c.answer(
+        "help KitKraftAlpha 4",
+        "help KitKraftAlpha 4\nGetPos: Y >> -4.00\nGetPos: Z >> 300.00\nKYWD: KitKraftAlpha (09001000) ''",
+    );
+    let (v, _) = rx_run(
+        "rx-p7",
+        &c,
+        vec![
+            one("T-01", "getpos y", Matcher::Number, "-4", Some(0.5)),
+            one("T-02", "getpos z", Matcher::Number, "4.63", Some(0.5)),
+            one(
+                "T-03",
+                "help KitKraftAlpha 4",
+                Matcher::Contains,
+                "09001000",
+                None,
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "P7 {v:?}");
+    assert!(
+        v[1].starts_with("inconclusive") && v[1].contains("answered late"),
+        "P7 {v:?}"
+    );
+    assert_eq!(v[2], "pass", "P7 {v:?}");
+}
+
+/// P8: the console never answers anything but the echo; the session ends, bounded.
+#[test]
+fn rx_p8_console_only_echoes_bounded() {
+    let c = console();
+    for cmd in ["getpos x", "getpos y", "getpos z", "help A 4", "help B 4"] {
+        c.answer(cmd, cmd);
+    }
+    let t = std::time::Instant::now();
+    let (v, _) = rx_run(
+        "rx-p8",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("getpos x", Some(Matcher::Number), "1", Some(0.5)),
+                    step("getpos y", Some(Matcher::Number), "1", Some(0.5)),
+                    step("getpos z", Some(Matcher::Number), "1", Some(0.5)),
+                ],
+            ),
+            one("T-02", "help A 4", Matcher::Contains, "x", None),
+            one("T-03", "help B 4", Matcher::Contains, "x", None),
+        ],
+    );
+    let sent = c.received();
+    eprintln!(
+        "P8 observed: {v:?}; elapsed {:?}; sends {}",
+        t.elapsed(),
+        sent.len()
+    );
+    assert!(v.iter().all(|x| x.starts_with("inconclusive")), "P8 {v:?}");
+    for cmd in ["getpos x", "getpos y", "getpos z", "help A 4", "help B 4"] {
+        assert_eq!(
+            sent.iter().filter(|s| s.as_str() == cmd).count(),
+            3,
+            "P8 {cmd}"
+        );
+    }
+}
+
+/// M3: a keyed step is judged on its correlated lines only: another request's line that
+/// carries the expected text does not make it pass.
+#[test]
+fn rx_m3_judged_on_correlated_lines_only() {
+    let c = console();
+    c.answer("help KitKraftAlpha 4", "help KitKraftAlpha 4");
+    c.answer(
+        "help KitKraftBravo 4",
+        "help KitKraftBravo 4
+KYWD: KitKraftBravo (09001001) ''
+KYWD: KitKraftAlpha (09001000) ''",
+    );
+    let (v, _) = rx_run(
+        "rx-m3a",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "help KitKraftAlpha 4",
+                Matcher::Contains,
+                "09001000",
+                None,
+            ),
+            one(
+                "T-02",
+                "help KitKraftBravo 4",
+                Matcher::Contains,
+                "09001000",
+                None,
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+    assert!(v[1].starts_with("fail"), "{v:?}");
+}
+
+/// M3: a getter claims a line only when the line's first word is its function.
+#[test]
+fn rx_m3_function_must_be_the_first_word() {
+    let c = console();
+    c.answer(
+        "getglobalvalue KitKraftGlobal",
+        "getglobalvalue KitKraftGlobal
+IsInSpace >> 0.00 GetGlobalValue >> 1.00",
+    );
+    let (v, _) = rx_run(
+        "rx-m3b",
+        &c,
+        vec![one(
+            "T-01",
+            "getglobalvalue KitKraftGlobal",
+            Matcher::Regex,
+            r"(?m)>>\s*1(\.0+)?\s*$",
+            None,
+        )],
+    );
+    assert!(v[0].starts_with("inconclusive"), "{v:?}");
+}
+
+/// M3: lines nobody names stay with their reply, so a failure line beside a re-queued
+/// line still fails the step it arrived for.
+#[test]
+fn rx_m3_unclaimed_lines_are_kept() {
+    let c = console();
+    c.answer("help KitKraftAlpha 4", "help KitKraftAlpha 4");
+    c.answer(
+        "load KitKraftSession",
+        "load x
+KYWD: KitKraftAlpha (09001000) ''
+Save file not found.",
+    );
+    let (v, _) = rx_run(
+        "rx-m3c",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "help KitKraftAlpha 4",
+                Matcher::Contains,
+                "09001000",
+                None,
+            ),
+            probe("T-02", false, vec![step("load {save}", None, "", None)]),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+    assert!(v[1].starts_with("fail"), "{v:?}");
+}
