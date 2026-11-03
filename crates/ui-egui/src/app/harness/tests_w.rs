@@ -813,3 +813,32 @@ fn the_catalog_shortcuts_open_what_their_items_open() {
         "Enter in a text field is the field's"
     );
 }
+
+// ---- E's asks D1, D2: the Cell View's place bar and its refresh -----------------------------
+
+/// E's ask D1: the Cell View's place bar answer (E's `PlaceAsk`: the inspected base and the
+/// shown cell) becomes `Action::PlaceInCell` with the same base and cell, and nothing else;
+/// E's Place form takes the position from there (on `ws/e`).
+#[test]
+fn the_place_bar_answer_becomes_place_in_cell() {
+    use crate::windows::cell_view::CellViewAsk;
+    let Some(mut h) = workbench() else { return };
+    let mut actions = Vec::new();
+    let ask = CellViewAsk::Place(crate::dialogs::place::PlaceAsk {
+        base: "Starfield.esm:001E4FBD".into(),
+        cell: "Starfield.esm:0021966F".into(),
+    });
+    h.state_mut().app.ck_cell_view_ask(Some(ask), &mut actions);
+    assert_eq!(actions.len(), 1, "one action");
+    match &actions[0] {
+        Action::PlaceInCell { base, cell } => assert_eq!(
+            (base.as_str(), cell.as_str()),
+            ("Starfield.esm:001E4FBD", "Starfield.esm:0021966F")
+        ),
+        _ => panic!("PlaceInCell"),
+    }
+    assert!(
+        h.state().app.shell.tickets.is_empty(),
+        "no request of its own"
+    );
+}
