@@ -484,3 +484,46 @@ rows are one per menu, one per item, and the order row reworded as observed.
 | Not observed | The submenus' contents (none was opened in this sitting; Convert Active File to ... was, in `ck-20261101-03`); what any item does (none was invoked); the menus in other states (no data loaded beyond the probe's bar, an active file set) |
 | Result | Every item has a row in the ask below, as `observed` with this sitting as its source. The rows are the order row, reworded as observed; the eight existing menu rows, `unresearched` to `observed`; four new menu rows (Docks, Galaxy, Terrain, Audio); and 133 `menu item` rows, each mapped to a catalog id or to `gap:` with its reason |
 | Filed | The parity rows and `CK_MENU_ORDER` are an ask to the integrator's menu-sync seam commit (sprint 2026-11-02, report `x-M7.K3`). Then M7.M1 (the bar's items mapped) and M7.K5 (the test over the `menu item` rows) build on them |
+
+### ck-20261102-02: M7.O2, CK interface sitting 1 rest, agent-run (observation only)
+
+This is the first sitting run by the frame and steps file of "Interface sittings (M7.K2)":
+`ck-run.ps1` with `steps-sitting1-rest.ps1`, `-SaveAllowed` not given. It ran on
+2026-11-02, from 21:57 to 22:19, through MO2 on `Kitkraft Dev`. I checked the foreground
+first: the owner's game had exited at 21:56.
+
+The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting1-rest\` (D9):
+`session.md`, `preflight.json`, `ck-title.txt`, `shots\`, one dump per state, and
+`settings-before\`. It is gitignored and outside the repo.
+
+**Earlier attempts.** Attempts 1 to 4 sit beside it, in `sitting1-rest-attempt1` to
+`-attempt4`. They stopped on faults in the driver, not in the CK:
+
+1. A reader held the log, and the runner died before its clean-up.
+2. ExpandCollapse is not offered on a menu-bar item.
+3. The Data dialog was not found among the desktop's children.
+4. Every probe passed, but the menu dumps were empty: their items were looked for in the
+   wrong place.
+
+Each fault was fixed in the scripts before the next attempt. After each attempt the CK and
+MO2 were gone and the settings files were restored and their hashes checked. After attempt 1
+I restored them by hand.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261102-02` |
+| CK version | 1.16.244.0, read from the main window's title after the load (`ck-title.txt`); nothing was read from the exe |
+| Data | File > Data...: `Starfield.esm` ticked by type-ahead and a double-click (the row found in a screenshot of the list), no active file, OK. Loaded in about 127 s (attempt 5), 129 s (attempt 4) |
+| Postflight | `ok` in attempts 2 to 5. The settings files were restored with their hashes checked. The dev profile's list files and the `Default` profile's are unchanged, and nothing was written into `overwrite\` or a dev mod. Finding: MO2 rewrote `ModOrganizer.ini` (hash `44c936e8...` before attempt 1, different after it), which is MO2's own settings file and recorded only |
+| S1-04 submenus (12) | **inconclusive** after two attempts (attempts 4 and 5). The hovered item's submenu opens in the screenshots (`shots\s1-04-01..12.png`), but neither the hovered item's subtree nor any top-level popup holds a menu item in the UI Automation tree. Not counted (Amendment 2 decision 2). Request: an owner sitting, or reading the screenshots, for the submenus' items |
+| S1-05 Docks | **observed** (`s1-05-docks.txt`, `a1d84df3...b359bc1a`). The open menu's tree lists Save Current Layout, Save Layout as..., Recent Layouts, Manage Layouts..., Galaxy View, Picking Preferences. The screenshot shows these and a list of window entries with check marks (Object Windows, Render Windows, Warnings, Show/Hide, Cell View, Layers, Material Palette, Properties, Reflection Probe). The tree does not list those entries, so they are not counted. The entries differ from the 2026-11-01 screenshot's, so the list depends on which windows are open |
+| S1-06 accelerators | The 12 menus were dumped open (`s1-06-<menu>.txt`; File `f2ddfc7c...54898d2a`). Their items match `ck-20261102-01`: File 13, View 31, World 16, Terrain 8, NavMesh 8, Character 15, Gameplay 12, Audio 5, Help 4. The tree's Edit has 11 items and Galaxy 4, where `ck-20261101-01` had 12 and 5. Edit's Picking Preferences and Galaxy's Galaxy View are listed under Docks instead, so the two menus share those actions. **No item has an accelerator key in the tree (0 of 133), so the shortcuts are not observed.** The screenshots show them, as on 2026-11-01. Request: an owner sitting, or reading the screenshots, for the shortcuts |
+| S1-06 Render Window Hotkeys | **observed in part** (`s1-06-hotkeys-notabs.txt`, `fdc0df55...373cd6c8`). Edit > Render Window Hotkeys opens a dialog titled "Render Window Hotkeys (RenderWindow[0])". It has a list of bindings, whose rows are not exposed (a Win32 list), a combo box (disabled), buttons Assign, Alt, Control, Shift, Revert (disabled until a row is chosen), and a Filter box. The dialog was closed through its window; no prompt appeared and the title was unchanged. The bindings themselves are **inconclusive**: the rows are not in the tree |
+| S1-07 camera | **not-run**. The unattended steps file does not attempt it, because the Cell View's rows are not exposed (`ck-20261101-03`). A Request for an agent-driven or owner run |
+| S1-08 Preferences | **observed in part**. File > Preferences... opens "Preferences", with buttons Apply and Close and a tab control whose tab names show in the screenshot only (the tree does not expose them: not counted). Two pages were dumped. **The page shown on opening** (attempt 4, `effeac6c...c2b165ff`) holds camera and movement settings: Snap To Grid, Snap To Angle, World Gizmo Orientation, Select Snap Reference, Allow Single Axis Snap, Invert X, Invert Y, Zoom with 'V' key, Rotate camera around previous selection, Match slope when dragging, LH Mouse, Sensitivity Multiplier, Rotation Speed, Movement Speed, Zoom Speed, Pan Speed, Reference Movement, Camera Movement, Landscape Movement, Snap To Reference, Zoom Speed (Orthographic), Gizmo Size, Primitive Scale Speed, Arrow Speed, Indoor Cell Distance, Outdoor Cell Distance, Bendable Splines, Slackness Delta, Snap Distance, Snap Values, Space Overrides, Focus Multiplier, Angle Snaps, Volume Gizmo Handle Size. **The page a click on the first tab selects** (attempt 5, `2cb11427...61e574ca`) holds Enable Shadows, Debug Mode, Texture debug, and the groups Enlighten and Visualize: Use Directional Irradiance, Use Albedo Map, UVs Checkerboard, Disable Enlighten Duster Visibility, Light Probes and Probes Explorer (Radiosity, Env. Visibility, None), Cubemaps Spheres, Cubemaps Boxes, Dusters. Ctrl+Tab did not change the page, so the other pages are **inconclusive**. The dialog was closed through its window (Apply was never pressed), with no prompt and an unchanged title |
+| S1-09 Object Window tree | **inconclusive** after two attempts. The category tree exposes no tree items (the screenshot shows it, as on 2026-11-01). A Request for the categories by screenshot or an owner sitting |
+| S1-10 Warnings | Dumped (`s1-10-warnings.txt`). Only the dock containers are in the tree to depth 6; the controls in the screenshot (Filter, Filter By: Current User, Current Plugin, columns Time/Type/Form, Export, Clear) are not counted. Nothing beyond `ck-20261101-01`'s columns is observed |
+| S1-11 context menu | **inconclusive** after two attempts. The Object Window's list exposes no rows to right-click |
+| S1-12 | The frame closed the CK through its window, with no prompt, then MO2 |
+| Counts | Observed: Docks (6 items), the 12 menus' items again (no accelerators), the Render Window Hotkeys dialog's controls, two Preferences pages. Inconclusive: 12 submenus, shortcuts, hotkey bindings, the other Preferences pages, the category tree, the context menu. Not-run: the camera (S1-07) |
+| Filed | `docs/ck-parity.md` rows "Preferences" and "Keyboard shortcuts, every one observed", in this change. The rest are Requests in the X6 hand-off: screenshot reading or an owner sitting for the submenus, shortcuts, hotkey bindings, the category tree and the camera |
