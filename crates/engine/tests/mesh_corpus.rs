@@ -279,6 +279,8 @@ struct Slot {
     second: u32,
     third: u32,
     stored_box: Option<([f32; 3], [f32; 3])>,
+    /// For the first slot of a geometry that stores only a sphere: centre and radius.
+    stored_sphere: Option<([f32; 3], f32)>,
 }
 
 /// The archive entry a slot path names (G2): `Geometries\a\b.mesh`, or `a\b` for
@@ -329,6 +331,10 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
             Bound::Stored { aabb, .. } => Some((aabb.center, aabb.half_extent)),
             _ => None,
         };
+        let stored_sphere = match g.bound {
+            Bound::SphereOnly(sp) => Some((sp.center, sp.radius)),
+            _ => None,
+        };
         for slot in 0..4 {
             let flag = *bytes.get(p).ok_or("the block ends in a slot flag")?;
             p += 1;
@@ -353,6 +359,7 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
                     second,
                     third,
                     stored_box: if slot == 0 { stored_box } else { None },
+                    stored_sphere: if slot == 0 { stored_sphere } else { None },
                 },
             ));
         }
@@ -530,6 +537,9 @@ struct MeshTally {
     with_lists: u64,
     with_m5_entries: u64,
     present: [u64; 5],
+    sphere_checked: u64,
+    sphere_ok: u64,
+    scale_bad: u64,
 }
 
 #[test]
@@ -607,6 +617,7 @@ fn every_official_mesh_matches_the_layout_study() {
                 Err(why) => failures.push(format!("{}: kitkraft-nif: {why}", e.name)),
             }
             let nv = w.positions.len();
+            t.scale_bad += u64::from(!(w.scale.is_finite() && w.scale > 0.0));
             t.indices += w.indices.len() as u64;
             t.index_out_of_range +=
                 w.indices.iter().filter(|x| usize::from(**x) >= nv).count() as u64;
@@ -678,6 +689,17 @@ fn every_official_mesh_matches_the_layout_study() {
                         t.counts_ok += 1;
                     } else {
                         t.counts_bad += 1;
+                    }
+                    if let (Some((c, r)), true) = (s.stored_sphere, nv > 0) {
+                        t.sphere_checked += 1;
+                        let tol = 2.0 * q.abs() + 1e-4;
+                        let inside = w.positions.iter().all(|p| {
+                            let d: f64 = (0..3)
+                                .map(|k| (f64::from(p[k]) * q - f64::from(c[k])).powi(2))
+                                .sum();
+                            d.sqrt() <= f64::from(r) + tol
+                        });
+                        t.sphere_ok += u64::from(inside);
                     }
                     if let (Some((c, h)), true) = (s.stored_box, nv > 0) {
                         t.box_checked += 1;
@@ -754,6 +776,11 @@ fn every_official_mesh_matches_the_layout_study() {
         (t.with_m5_entries, t.with_lists, t.ends_after_lists),
         (17_544, 1_744, 6_470),
         "M5, M6"
+    );
+    assert_eq!(t.scale_bad, 0, "M2: every scale finite and positive");
+    assert_eq!(
+        t.sphere_ok, t.sphere_checked,
+        "M2: a sphere-only geometry's first mesh lies inside its sphere"
     );
     // M4 (normals) is grade B: its counts (unit length, facing the winding) are printed
     // above and are not asserted; they are evidence, not a proof.

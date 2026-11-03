@@ -609,6 +609,15 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
     let mut skipped = 0usize;
     for g in &mb.geometries {
         let block = usize::try_from(g.block).unwrap_or(usize::MAX);
+        // A skinned block stores no box (NIF study B5), so the mesh study's box check
+        // (M2) does not show the frame of its positions: skipped, not guessed (review M1).
+        if matches!(g.bound, Bound::NotStored | Bound::Unrecognised) {
+            limitations.push(format!(
+                "block {block} is skinned or stores no recognised bound (NIF study B5): the mesh study does not show the frame of its positions, so its mesh is skipped"
+            ));
+            skipped = skipped.saturating_add(1);
+            continue;
+        }
         let slots = nif
             .slots(block)
             .map_err(|e| failed(GEOMETRY_ID, format!("{}: block {block}: {e}", r.file)))?

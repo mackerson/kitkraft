@@ -451,9 +451,19 @@ fn decode64(s: &str) -> Vec<u8> {
 /// A Data dir holding `Starfield - Meshes01.ba2` with a model of `geoms` triangles
 /// (the node moved by `node_t`) and the meshes in `meshes`.
 fn geometry_dir(name: &str, node_t: [f32; 3], geoms: usize, meshes: &[(&str, Vec<u8>)]) -> PathBuf {
+    geometry_dir_with(name, node_t, &vec![BOXED; geoms], meshes)
+}
+
+/// [`geometry_dir`] with the geometry blocks' bounds given (boxed, skinned, ...).
+fn geometry_dir_with(
+    name: &str,
+    node_t: [f32; 3],
+    geoms: &[([f32; 4], [f32; 6], bool)],
+    meshes: &[(&str, Vec<u8>)],
+) -> PathBuf {
     let data = dir(name).join("Data");
     std::fs::create_dir_all(&data).unwrap();
-    let model = nif(node_t, &vec![BOXED; geoms]);
+    let model = nif(node_t, geoms);
     let mut files: Vec<(&str, Vec<u8>)> = vec![("meshes\\test\\tri.nif", model)];
     files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
     archive(&data, "Starfield - Meshes01.ba2", &files);
@@ -618,4 +628,34 @@ fn v4_mesh_geometry_for_the_models_of_a_cell() {
         json_bytes as f64 / raw.max(1) as f64
     );
     assert!(!models.is_empty());
+}
+
+#[test]
+fn geometry_skips_skinned_blocks_whose_frame_the_study_does_not_show() {
+    // Review M1 (M7.S5 code): a skinned block stores no box (NIF study B5), so the
+    // mesh study's box check (M2) says nothing about the frame of its positions; it
+    // is skipped with a limitation, never placed in "model root".
+    let data = geometry_dir_with(
+        "mesh-geometry-skinned",
+        [5.0, 0.0, 0.0],
+        &[BOXED, SKINNED],
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+            ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+        ],
+    );
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert_eq!(out.data["meshes"].as_array().unwrap().len(), 1);
+    let l = out.limitations.join("\n");
+    assert!(
+        l.contains("block 2 is skinned or stores no recognised bound"),
+        "{l}"
+    );
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
 }
