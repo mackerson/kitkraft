@@ -694,6 +694,11 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
   each got only the echo.
 - This is the console path more than build load: the retries waited 2 s and 4 s, and a
   late answer still went to the next command.
+- In T04 (`game-20261103-02`, the controller before `ad3602d4`) T-01 to T-08 and T-10 got
+  only the echo, and T-12 read before a fresh load: all **inconclusive** (R20, R27), not the
+  `fail` the controller wrote. T-11's `getpos x` got a late `help` usage text (R28):
+  inconclusive. T04's passes T-13 to T-16, T-18, T-19 and T-21 to T-23 stand: from T-13 on
+  every answer carries its own command's label, in order.
 
 **T-12, the switch's base-form script (`papyrus-log`).**
 
