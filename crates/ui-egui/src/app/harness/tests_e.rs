@@ -1095,3 +1095,37 @@ fn m7_e4_the_confirm_shows_the_position_and_the_form_is_locked_after_preview() {
     press(&mut h, "Write to Patch.esp");
     assert!(Path::new(&patch).is_file());
 }
+
+/// Review finding L1 of M7.E4 (probe RV-E5-A): a second placement in the same session.
+/// The first write's box no longer covers the Place form, so both placements preview and
+/// write by mouse click, and both references read back (01001000, 01001001).
+#[test]
+fn m7_e4_two_placements_in_one_session_both_write() {
+    let s = Scratch::new("place-twice");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    for x in ["1", "5"] {
+        ask_place(&mut h, STAT, CELL);
+        type_into(&mut h, "X", x);
+        press(&mut h, "Preview");
+        assert_in_view(&h, &format!("at ({x}, 0, 0)"));
+        press(&mut h, "Write to Patch.esp");
+        assert_in_view(&h, "placed: Patch.esp:");
+    }
+    let engine = ReadOnlyEngine::new();
+    for id in ["01001000", "01001001"] {
+        let env = engine
+            .run(&Request::new(
+                "inspect",
+                json!({"form": id, "plugin": patch}),
+            ))
+            .unwrap();
+        assert_eq!(
+            env["data"]["record"]["signature"],
+            json!("REFR"),
+            "{id}: {env}"
+        );
+    }
+}

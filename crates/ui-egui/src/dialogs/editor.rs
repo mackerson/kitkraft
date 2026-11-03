@@ -190,6 +190,10 @@ impl EditorState {
     /// its box, so the box does not cover the form.
     pub fn place(&mut self, base: &str, cell: &str) {
         self.note = None;
+        // The last write's box goes too, unless a reply is still awaited (M7.E4 review L1).
+        if self.awaiting.is_none() {
+            self.write = None;
+        }
         self.place_form = Some(place::PlaceForm::open(base, cell));
     }
 
