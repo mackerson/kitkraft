@@ -248,6 +248,8 @@ impl EditorState {
             return;
         }
         self.awaiting = None;
+        // Named after the command in progress (review finding L2 of M7.E6).
+        let command = self.write.as_ref().map_or("set", |w| w.command);
         match slot {
             Slot::EditorWrite => {
                 if let Some(w) = self.write.as_mut() {
@@ -261,10 +263,11 @@ impl EditorState {
             Slot::EditorPreview => self.write = None,
             _ => {}
         }
-        let what = match slot {
-            Slot::EditorPreview => "the preview (`set --dry-run`)",
-            Slot::EditorWrite => "the write",
-            _ => "the request",
+        let what = match (slot, command) {
+            (Slot::EditorPreview, c) => format!("the preview (`{c} --dry-run`)"),
+            (Slot::EditorWrite, "revert") => "the undo".to_string(),
+            (Slot::EditorWrite, _) => "the write".to_string(),
+            _ => "the request".to_string(),
         };
         let why = error.unwrap_or("refused or failed; nothing came back");
         self.note = Some((Status::Fail, format!("{what}: {why}")));
@@ -1088,8 +1091,25 @@ mod tests {
         );
         assert!(s
             .note
+            .clone()
             .unwrap()
             .1
             .contains("refused by the read-only workbench"));
+        // The note names the command in progress (L2 of M7.E6).
+        let mut u = write("Patch.esp");
+        u.command = "revert";
+        s.write = Some(u.clone());
+        s.awaiting = Some(Slot::EditorPreview);
+        s.failed(Slot::EditorPreview, None);
+        let note = s.note.clone().unwrap().1;
+        assert!(
+            note.starts_with("the preview (`revert --dry-run`)"),
+            "{note}"
+        );
+        s.write = Some(u);
+        s.awaiting = Some(Slot::EditorWrite);
+        s.failed(Slot::EditorWrite, None);
+        let note = s.note.clone().unwrap().1;
+        assert!(note.starts_with("the undo:"), "{note}");
     }
 }
