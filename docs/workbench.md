@@ -467,7 +467,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W1, M7.W2, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M3, M7.M4, M7.W1, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -524,6 +524,16 @@ revisited once a sitting observes how the CK docks. Code:
   p95 1.7 to 2.0 ms, max 2.4 to 2.8 ms over three runs (budget p95 under 16 ms, max under
   50 ms). The frames are the headless harness's (egui layout and tessellation, no GPU), a
   lower bound on the window's; the window itself on the dev profile is not measured yet.
+- **Preferences (M7.M3)**: View > Preferences. The workbench's settings, kept only in
+  `ui.json`: the theme (preset, and light, dark or system; the Start tab's picker writes the
+  same), the zoom (Zoom out, Zoom in by a tenth between 50 % and 200 %, Reset zoom; applied
+  on the next start too), the paths it remembers (the MO2 instance and the profile, set from
+  the Start tab; the KitKraft checkout the Help tab reads, with "Use This Checkout"), and the
+  catalog's shortcuts (shown, not bound: M7.M5). The layout and labels are KitKraft's own:
+  the CK's Preferences dialog is not observed yet (its parity row is `unresearched`; sitting
+  1's step S1-08), and the window says so; it is laid out as the CK's where the settings
+  correspond once a sitting has seen it. File > Preferences... stays disabled until its
+  parity row maps to this window.
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
