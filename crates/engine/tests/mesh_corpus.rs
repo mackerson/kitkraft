@@ -305,12 +305,17 @@ fn u32_at(b: &[u8], p: usize) -> Option<u32> {
 /// The slots of every geometry block of a model (G1: after the three references, four
 /// slots, each a `u8` 0 or 1, and when 1 three `u32` and a `u32`-length path), or
 /// why the block's bytes do not fit.
-fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
+fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Result<(), String> {
     let nif = Nif::parse(bytes).map_err(|e| e.to_string())?;
     for i in 0..nif.blocks.len() {
-        let Ok(Some(g)) = nif.geometry(i) else {
-            continue;
+        // A geometry block that does not decode is a failure, never skipped (review L1).
+        let g = match nif.geometry(i) {
+            Ok(Some(g)) => g,
+            Ok(None) => continue,
+            Err(e) => return Err(format!("block {i}: {e}")),
         };
+        g1.blocks += 1;
+        let mut pattern = String::new();
         let block = nif.blocks[i];
         let end = block.offset + block.len;
         let mut p = g.bound_offset + 52;
@@ -321,6 +326,7 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
         for slot in 0..4 {
             let flag = *bytes.get(p).ok_or("the block ends in a slot flag")?;
             p += 1;
+            pattern.push(if flag == 0 { '0' } else { '1' });
             match flag {
                 0 => continue,
                 1 => {}
@@ -333,6 +339,7 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
             p += 16;
             let path = bytes.get(p..p + len).ok_or("short path")?;
             p += len;
+            *g1.path_lengths.entry(len).or_default() += 1;
             out.push((
                 mesh_entry(&String::from_utf8_lossy(path)),
                 Slot {
@@ -343,6 +350,7 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
                 },
             ));
         }
+        *g1.patterns.entry(pattern).or_default() += 1;
         if p != end {
             return Err(format!(
                 "block {i}: {} bytes after the four slots",
@@ -351,6 +359,14 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// G1's counts over every geometry block.
+#[derive(Default, Debug)]
+struct G1Tally {
+    blocks: u64,
+    patterns: std::collections::BTreeMap<String, u64>,
+    path_lengths: std::collections::BTreeMap<usize, u64>,
 }
 
 /// A `.mesh` walked as claims M1 to M6 describe it.
@@ -516,6 +532,7 @@ fn every_official_mesh_matches_the_layout_study() {
 
     // G1: the slots every geometry block names.
     let mut slots: std::collections::HashMap<String, Vec<Slot>> = Default::default();
+    let mut g1 = G1Tally::default();
     for path in &archives {
         let (archive, mut file) = Archive::open(path).unwrap();
         for (i, e) in archive.entries.iter().enumerate() {
@@ -524,7 +541,7 @@ fn every_official_mesh_matches_the_layout_study() {
             }
             let bytes = archive.extract_vec(&mut file, i, 64 << 20).unwrap();
             let mut out = Vec::new();
-            if let Err(why) = slots_of(&bytes, &mut out) {
+            if let Err(why) = slots_of(&bytes, &mut out, &mut g1) {
                 failures.push(format!("G1 {}: {why}", e.name));
             }
             for (k, s) in out {
@@ -646,5 +663,20 @@ fn every_official_mesh_matches_the_layout_study() {
     for f in failures.iter().take(20) {
         eprintln!("  {f}");
     }
+    eprintln!("G1: {g1:?}");
     assert!(failures.is_empty());
+    // G1 (study table): every archived geometry block, its slot patterns and path lengths.
+    assert_eq!(g1.blocks, 484_820);
+    let patterns: Vec<(&str, u64)> = g1.patterns.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+    assert_eq!(
+        patterns,
+        [
+            ("1000", 263_524),
+            ("1100", 59_304),
+            ("1110", 48_812),
+            ("1111", 113_180)
+        ]
+    );
+    let lengths: Vec<(usize, u64)> = g1.path_lengths.iter().map(|(k, v)| (*k, *v)).collect();
+    assert_eq!(lengths, [(41, 964_697), (57, 16_591)]);
 }
