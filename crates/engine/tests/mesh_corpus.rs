@@ -360,7 +360,7 @@ struct Walked {
     positions: Vec<[i16; 3]>,
     /// The five four-byte-per-vertex sections (M3); the fourth holds the normals (M4).
     sections: [Vec<u32>; 5],
-    weights: usize,
+    m5_entries: usize,
     lists: usize,
     /// `None` when the file ends after the extra lists (M6).
     forty_byte_entries: Option<usize>,
@@ -385,7 +385,7 @@ fn walk_mesh(b: &[u8]) -> Result<Walked, String> {
         .collect();
     p += 2 * ni;
     let scale = f32::from_bits(rd(&mut p)?);
-    let per_vertex = rd(&mut p)? as usize;
+    let u32_after_scale = rd(&mut p)? as usize;
     let nv = rd(&mut p)? as usize;
     let raw = b.get(p..p + 6 * nv).ok_or("M2: positions past the end")?;
     let positions: Vec<[i16; 3]> = raw
@@ -419,12 +419,12 @@ fn walk_mesh(b: &[u8]) -> Result<Walked, String> {
             .collect();
         p += 4 * n;
     }
-    let weights = rd(&mut p)? as usize;
-    if weights != nv * per_vertex {
+    let m5_entries = rd(&mut p)? as usize;
+    if m5_entries != nv * u32_after_scale {
         return Err("M5: the 4-byte entries are not vertices times the u32 after the scale".into());
     }
     p = p
-        .checked_add(4 * weights)
+        .checked_add(4 * m5_entries)
         .filter(|e| *e <= b.len())
         .ok_or("M5: entries past the end")?;
     let lists = rd(&mut p)? as usize;
@@ -462,7 +462,7 @@ fn walk_mesh(b: &[u8]) -> Result<Walked, String> {
         scale,
         positions,
         sections,
-        weights,
+        m5_entries,
         lists,
         forty_byte_entries,
     })
@@ -493,7 +493,7 @@ struct MeshTally {
     not_triples: u64,
     ends_after_lists: u64,
     with_lists: u64,
-    weighted: u64,
+    with_m5_entries: u64,
     present: [u64; 5],
 }
 
@@ -567,7 +567,7 @@ fn every_official_mesh_matches_the_layout_study() {
             t.not_triples += u64::from(w.indices.len() % 3 != 0);
             t.ends_after_lists += u64::from(w.forty_byte_entries.is_none());
             t.with_lists += u64::from(w.lists > 0);
-            t.weighted += u64::from(w.weights > 0);
+            t.with_m5_entries += u64::from(w.m5_entries > 0);
             for (k, s) in w.sections.iter().enumerate() {
                 t.present[k] += u64::from(!s.is_empty());
             }
