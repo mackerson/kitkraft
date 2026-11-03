@@ -4,9 +4,9 @@
 //! The box is what `kitkraft-nif` reads: the union of the bounds the model's geometry
 //! blocks store, carried up the node tree to the model's root frame
 //! (`docs/research/nif-bounds-2026-11-02.md`, claims B5 and C1). It is not the base's
-//! `OBND` (`cell` with `with_bounds` reads that). `mesh.geometry` (M7.S5) stays `Deferred`
-//! in the catalog; its handler, [`geometry`], is built and tested but not dispatched
-//! until the integrator flips the catalog entry (ask A8).
+//! `OBND` (`cell` with `with_bounds` reads that). `mesh.geometry` (M7.S5) is [`geometry`];
+//! the integrator's A8 seam commit flips the catalog from `Deferred` to `Implemented` and
+//! adds its dispatch row.
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -589,9 +589,10 @@ fn turn(m: &[[f64; 4]; 3], n: [f32; 3]) -> [f32; 3] {
 /// `docs/research/mesh-layout-2026-11-02.md`), placed by the block's own transform and
 /// its ancestors' (claim C1 of the NIF study). Normals are grade B (claim M4).
 ///
-/// Not in the catalog yet: `mesh.geometry` is `Deferred` there (a seam, ask A8), so only
-/// the tests call this until the integrator flips the entry and adds the dispatch row.
-#[allow(dead_code)]
+/// Dispatched once the catalog entry is `Implemented` and `handlers.rs` has its row (the
+/// integrator's A8 seam commit); `mesh_tests.rs` `mesh_geometry_through_the_catalog` holds
+/// in both states.
+#[allow(dead_code)] // Until A8's dispatch row: the seam commit applies r-A8-dead-code.patch.
 pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let started = std::time::Instant::now();
     let r = read_model(session, args, GEOMETRY_ID)?;
