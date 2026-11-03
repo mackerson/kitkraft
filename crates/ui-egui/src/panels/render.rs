@@ -689,6 +689,10 @@ impl RenderTab {
     /// and the selected reference's links.
     fn status(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
         let busy = ctx.busy;
+        // The limitation lines, each drawn on its own row under the summary row so none
+        // runs past the window's edge (review M2 of M7.R3).
+        let mut lines: Vec<(theme::Status, String)> = Vec::new();
+        let mut hovers: Vec<(String, String)> = Vec::new();
         ui.horizontal_wrapped(|ui| {
             if let Some(e) = &self.error {
                 theme::status(ui, theme::Status::Fail, e);
@@ -723,7 +727,7 @@ impl RenderTab {
             let placed = page.refs.iter().filter(|r| r.position.is_some()).count();
             let (nif, obnd, none) = cell::box_sources(&page.refs);
             ui.label(format!(
-                "{} {}{}: {drawn} of {} references drawn: {nif} with their model's box, {obnd} with OBND (no model box), {none} without a bound",
+                "{} {}{}: {drawn} of {} references drawn; boxes: {nif} model, {obnd} OBND, {none} none",
                 page.cell,
                 page.cell_editor_id.as_deref().unwrap_or("(no EditorID)"),
                 page.world
@@ -732,33 +736,30 @@ impl RenderTab {
                 page.total
             ));
             if page.total > self.cap {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Warn,
-                    &format!(
+                    format!(
                         "draw cap: {} of {} references fetched and drawn (DRAW_CAP, docs/design/workbench-performance.md)",
                         self.cap, page.total
                     ),
-                );
+                ));
             }
             let (asked, answered) = (self.asked.len(), self.nif.len());
             if answered < asked {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Unknown,
-                    &format!(
+                    format!(
                         "model boxes: {answered} of {asked} bases answered (mesh.bounds); OBND until then"
                     ),
-                );
+                ));
             }
             if none > 0 {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Unknown,
-                    &format!(
+                    format!(
                         "{none} without a bound: neither their model nor OBND gives a box; drawn as their type's shape"
                     ),
-                );
+                ));
             }
             let no_model: Vec<String> = self
                 .nif
@@ -774,20 +775,23 @@ impl RenderTab {
                 })
                 .collect();
             if !no_model.is_empty() {
-                ui.weak(format!("{} base(s) without a model box", no_model.len()))
-                    .on_hover_text(no_model.join("\n"));
+                hovers.push((
+                    format!("{} base(s) without a model box", no_model.len()),
+                    no_model.join("\n"),
+                ));
             }
             let unplaced = page.refs.len().saturating_sub(placed);
             if unplaced > 0 {
-                theme::status(
-                    ui,
+                lines.push((
                     theme::Status::Unknown,
-                    &format!("{unplaced} without a position: not drawn"),
-                );
+                    format!("{unplaced} without a position: not drawn"),
+                ));
             }
             if !page.limitations.is_empty() {
-                ui.weak(format!("{} limitations", page.limitations.len()))
-                    .on_hover_text(page.limitations.join("\n\n"));
+                hovers.push((
+                    format!("{} limitations", page.limitations.len()),
+                    page.limitations.join("\n\n"),
+                ));
             }
             let selected = self.viewport.selected().and_then(|i| self.ref_of(i)).cloned();
             if let Some(r) = selected {
@@ -812,6 +816,16 @@ impl RenderTab {
                 }
             }
         });
+        for (status, text) in &lines {
+            theme::status(ui, *status, text);
+        }
+        if !hovers.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                for (text, hover) in &hovers {
+                    ui.weak(text).on_hover_text(hover);
+                }
+            });
+        }
     }
 }
 

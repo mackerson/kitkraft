@@ -62,7 +62,7 @@ fn m7_r3_model_boxes_replace_obnd_and_a_base_without_a_bound_is_a_limitation() {
     let crate_box = render.viewport.markers()[0];
     assert_eq!(crate_box.shape, Shape::Box);
     assert_eq!(crate_box.half_extents, Vec3::new(1.0, 1.0, 0.5));
-    assert!(status_has(&h, "0 with their model's box, 2 with OBND"));
+    assert!(status_has(&h, "boxes: 0 model, 2 OBND, 1 none"));
     assert!(status_has(&h, "model boxes: 0 of 2 bases answered"));
 
     // The replies, as the app.rs arm (ask A3) will file them.
@@ -96,8 +96,45 @@ fn m7_r3_model_boxes_replace_obnd_and_a_base_without_a_bound_is_a_limitation() {
     // The marker base: no model box, no OBND: its type's shape, never a box.
     assert_ne!(m[2].shape, Shape::Box);
     assert_eq!(box_sources(&render.page_refs()), (2, 0, 1));
-    assert!(status_has(&h, "2 with their model's box, 0 with OBND"));
+    assert!(status_has(&h, "boxes: 2 model, 0 OBND, 1 none"));
     assert!(status_has(&h, "1 without a bound"));
     assert!(status_has(&h, "1 base(s) without a model box"));
     assert!(!status_has(&h, "bases answered"));
+}
+
+/// Each limitation line of the status row lies wholly inside the window (review M2 of
+/// M7.R3: at 1400 points the "without a bound" and "without a position" lines ran past
+/// the right edge).
+fn assert_wholly_in_view(h: &Bench, text: &str) {
+    let nodes: Vec<_> = h.query_all_by_label_contains(text).collect();
+    assert!(!nodes.is_empty(), "no `{text}`");
+    let fits = nodes.iter().any(|n| {
+        let r = n.rect();
+        in_view(n) && r.max.x <= SIZE[0] && r.min.x >= 0.0
+    });
+    assert!(
+        fits,
+        "`{text}` is not wholly inside the {SIZE:?} window: {:?}",
+        nodes.iter().map(|n| n.rect()).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn m7_r3_the_status_lines_fit_the_window() {
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    let mut env = cell_env();
+    // A fourth reference without a position.
+    env["data"]["items"].as_array_mut().unwrap().push(
+        json!({"form": "T.esm:000904", "signature": "REFR",
+                     "base": {"kind": "formref", "form": "T.esm:000800"},
+                     "base_signature": "STAT", "position": null}),
+    );
+    env["data"]["total"] = json!(4);
+    let req = cell_request(&CellPick::Cell("RoomR3".into()), None);
+    inject(&mut h, Slot::RenderCell, req, Ok(env));
+    settle(&mut h);
+    assert_wholly_in_view(&h, "without a bound: neither");
+    assert_wholly_in_view(&h, "without a position");
+    assert_wholly_in_view(&h, "model boxes: 0 of 2 bases answered");
 }
