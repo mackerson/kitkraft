@@ -318,13 +318,7 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
         .ok_or_else(|| failed(id, "no Data dir: pass `data_dir` or set KITKRAFT_DATA_DIR"))?;
     let wanted = entry_path_in(id, &model)?;
     let rel: PathBuf = wanted.split('/').collect();
-    // `wanted` is the normalized archive-entry name; on disk the loose tree
-    // sits under the game's own `Meshes` folder, which that lowercases away.
-    let sub: PathBuf = wanted
-        .strip_prefix("meshes/")
-        .map(|rest| rest.split('/').collect())
-        .unwrap_or_default();
-    let loose = data_dir.join("Meshes").join(&sub);
+    let loose = data_dir.join(&rel);
 
     if session
         .get::<MeshIndex>()
