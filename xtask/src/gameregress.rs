@@ -210,6 +210,14 @@ pub(crate) fn replay_desk(
     std::fs::create_dir_all(work).with_context(|| format!("{}", work.display()))?;
     let cache = work.join("cache");
     let plugin = work.join(&r.plugin);
+    // A rerun starts clean: the writers refuse to overwrite, and an old plan must not stand
+    // in for a new one.
+    let plan = work.join("plan");
+    for old in [&plugin, &plan.join("probes.toml")] {
+        if old.exists() {
+            std::fs::remove_file(old).with_context(|| format!("{}", old.display()))?;
+        }
+    }
     let out = plugin.display().to_string();
     let args: Vec<String> = r
         .build
@@ -233,7 +241,6 @@ pub(crate) fn replay_desk(
             r.plugin, r.session, r.plugin_sha256
         ));
     }
-    let plan = work.join("plan");
     let mut targs = vec!["testplan".to_string(), out, plan.display().to_string()];
     targs.extend(r.testplan.iter().cloned());
     let tp = kit.kit(&targs, &cache)?;
@@ -297,6 +304,7 @@ pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<O
 /// `cargo xtask game-regress [--replays <dir>] [--dry-run]`.
 pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     let mut replays = root.join("observe").join("replays");
+    let mut dry = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -306,9 +314,10 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
                         .ok_or_else(|| anyhow!("--replays needs a folder"))?,
                 )
             }
-            "--dry-run" => {}
+            "--dry-run" => dry = true,
             "--help" | "-h" => {
                 println!("cargo xtask game-regress [--replays <dir>] [--dry-run]");
+                println!("  --dry-run prints each replay's commands and runs nothing.");
                 println!(
                     "  Rebuilds each replay's plugin, reruns kit testplan, and fails on a changed"
                 );
@@ -322,6 +331,18 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
             }
             other => bail!("game-regress: unknown argument `{other}`"),
         }
+    }
+    if dry {
+        for (r, _) in read_all(&replays)? {
+            println!("{}: kit {}", r.name, r.build.join(" "));
+            println!(
+                "  then kit testplan <plugin> <plan> {}",
+                r.testplan.join(" ")
+            );
+            println!("  compared with {} ({})", r.session, r.plugin_sha256);
+        }
+        println!("game-regress: dry run, nothing rebuilt or run");
+        return Ok(());
     }
     let kit = KitBinary::from_env(root);
     let outcomes = run_all(root, &replays, &kit)?;
@@ -379,6 +400,13 @@ mod tests {
             };
             match args.first().map(String::as_str) {
                 Some("set") => {
+                    // As the real writers: an existing output is refused.
+                    if Path::new(&args[3]).exists() {
+                        return Ok(KitOut {
+                            code: Some(2),
+                            json: serde_json::json!({"error": {"message": "exists; pass overwrite"}}),
+                        });
+                    }
                     std::fs::write(&args[3], args[2].as_bytes())?;
                     Ok(ok)
                 }
@@ -438,6 +466,21 @@ mod tests {
         assert!(out[0].failures.is_empty(), "{:?}", out[0]);
         assert!(out[0].notes.iter().any(|n| n.contains("every probe row")));
         assert_eq!(fake.calls.borrow().len(), 2, "one rebuild, one testplan");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A second run over the same work folder starts clean (the writers refuse to overwrite).
+    #[test]
+    fn a_rerun_over_the_same_work_folder_passes_again() {
+        let root = tmp("rerun");
+        replay(&root.join("replays"), "Old Soviet Marksman Rifle");
+        let fake = Fake {
+            calls: RefCell::new(Vec::new()),
+        };
+        for _ in 0..2 {
+            let out = run_all(&root, &root.join("replays"), &fake).unwrap();
+            assert!(out[0].failures.is_empty(), "{:?}", out[0]);
+        }
         let _ = std::fs::remove_dir_all(&root);
     }
 
