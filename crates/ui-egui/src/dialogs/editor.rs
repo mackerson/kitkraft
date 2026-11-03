@@ -575,13 +575,19 @@ fn confirm_blocked(
         ));
     }
     if w.command == "build" {
-        // What the box shows is what is built (M7.E5 review M1).
+        // What the box shows is what is built (M7.E5 review M1), into a fresh file (L1).
         if let Some(why) = w
             .spec_bytes
             .as_deref()
             .and_then(|planned| spec_changed(&w.form, planned))
         {
             return Some(why);
+        }
+        if std::path::Path::new(&w.into).exists() {
+            return Some(format!(
+                "{} exists now: `build` writes a fresh plugin and the window never overwrites one",
+                file_name(&w.into)
+            ));
         }
     }
     if busy || awaiting {

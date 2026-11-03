@@ -727,3 +727,24 @@ fn m7_e5_a_spec_changed_after_the_plan_is_not_built() {
     press(&mut h, "Build into Patch.esp");
     assert_eq!(fltv_in(&patch), hex(99.5));
 }
+
+/// Review finding L1 of M7.E5 (probe RV-E5-C): an active file that appears between the
+/// plan and the click (another writer) closes the confirm with the reason, and the file
+/// stays as that writer left it.
+#[test]
+fn m7_e5_an_active_file_created_after_the_plan_closes_the_confirm() {
+    let s = Scratch::new("build-appeared");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    plan_build(&mut h, &spec_file(&s));
+    assert!(enabled(&h, "Build into Patch.esp"));
+    std::fs::write(&patch, b"another writer's file").unwrap();
+    h.run_steps(3);
+    assert!(!enabled(&h, "Build into Patch.esp"));
+    one(&h, "Build into Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert_eq!(std::fs::read(&patch).unwrap(), b"another writer's file");
+}
