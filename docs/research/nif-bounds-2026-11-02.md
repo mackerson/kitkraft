@@ -107,6 +107,21 @@ every truncation, a trailing byte, another version, out-of-range types, roots an
 children, a cycle, huge counts, and a value other than the observed constant in each of
 the three single-value fields (H4's `u32`, H6's `u32`, B2's `after_extra`).
 
+## Use in the viewport (M7.R3, 2026-11-02)
+
+The Render Window draws each reference with its base's model box (`mesh.bounds`, claim
+C1) in place of the base's `OBND`. Both are in the base's own frame, in the same units
+(C1b, median extent ratio 1.0000). When the model gives no box, the window falls back to
+`OBND`; when neither gives one, it uses the type's shape, with a limitation. No new layout
+fact is used: the viewport reads only the engine's envelope. On two official cells
+(`tests/mesh_corpus.rs` `v3_mesh_bounds_for_the_bases_of_a_cell`, grade B: two cells, not
+the corpus):
+
+- `CityNewAtlantisApartmentTEMPLATE`: of 183 distinct bases, 170 have a model box (135 of
+  them within 1 cm of `OBND`), and 13 are refused for no `MODL`.
+- NewAtlantis 2,1: of 249 bases, 202 have a model box (178 within 1 cm), and 47 are
+  refused for no `MODL`.
+
 ## Not known (limitations)
 
 - The meaning of H2's `u8_43`, `u32_44` and `u32_52`, H3's strings, H4's `u32` after the
