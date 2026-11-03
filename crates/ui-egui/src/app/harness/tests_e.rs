@@ -1151,3 +1151,37 @@ fn m7_e4_two_placements_in_one_session_both_write() {
         );
     }
 }
+
+// ---- M7.W4: the sitting-2 layouts --------------------------------------------------------
+
+/// M7.W4 in the window's own frame: a KYWD record opens in its dialog (the default layout
+/// from the schema: the tabs are ours), and the dialog says its labels were observed in
+/// CK sitting 2. The KYWD is made here through the gate's confirmed `new`.
+#[test]
+fn m7_w4_a_sitting_two_type_opens_in_its_layout_and_says_what_was_observed() {
+    use crate::dialogs::new;
+    let s = Scratch::new("w4");
+    let kw = s.path("Kw.esp");
+    let engine = ReadOnlyEngine::new();
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [s.fixture().display().to_string()], "no_cache": true}),
+        ))
+        .unwrap();
+    let preview = new::preview_request("KYWD", "KkKeyword", &kw);
+    engine.run(&preview).unwrap();
+    engine.run(&new::write_request(&preview).unwrap()).unwrap();
+    let Some(mut h) = workbench() else {
+        return;
+    };
+    let load = Request::new("load", json!({"plugins": [kw], "no_cache": true}));
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    let app = &mut h.state_mut().app;
+    app.apply(vec![Action::Inspect("KkKeyword".to_string())]);
+    app.shell.set_open(WindowKind::EditDialog, true);
+    settle(&mut h);
+    assert_in_view(&h, "default layout from schema");
+    assert_in_view(&h, "CK labels observed (ck-20261102-03)");
+}
