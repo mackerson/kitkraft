@@ -134,9 +134,10 @@ impl Details {
 }
 
 /// Why `path` lies where KitKraft never writes (R17; the engine's
-/// `edit::patch::guard_location` checks the same on its own): a folder named `Data` in a
+/// `edit::patch::guard_location` checks most of it on its own): a folder named `Data` in a
 /// folder named `Starfield` (the game's and the user's Data folders), a folder holding
-/// `Starfield.esm`, an MO2 instance or profile, or `MO2-Starfield`.
+/// `Starfield.esm`, `My Games\Starfield` or a folder holding the game's INIs, an MO2
+/// instance or profile, or `MO2-Starfield`.
 fn refused_location(path: &Path) -> Option<String> {
     let named = |d: &Path, want: &str| {
         d.file_name()
@@ -148,6 +149,20 @@ fn refused_location(path: &Path) -> Option<String> {
         if data {
             return Some(format!(
                 "{} is inside a Starfield Data folder ({}): the game loads from there; choose a folder of your own",
+                path.display(),
+                d.display()
+            ));
+        }
+        // The owner's live game keeps its INIs and saves in `My Games\Starfield` (AGENTS.md
+        // "Owner's live game is off limits"): the whole tree, not only its `Data` folder
+        // (W2 review M1).
+        let my_games = (named(d, "Starfield") && d.parent().is_some_and(|p| named(p, "My Games")))
+            || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
+                .iter()
+                .any(|ini| d.join(ini).is_file());
+        if my_games {
+            return Some(format!(
+                "{} is inside the game's My Games folder ({}), where the live game keeps its INIs and saves: KitKraft never writes there",
                 path.display(),
                 d.display()
             ));
@@ -881,6 +896,32 @@ mod tests {
     /// R17: the active-file field takes a new or existing plugin outside the load order,
     /// outside the Data folders and MO2; everything else is refused, and the choice
     /// survives OK because no listed row names it.
+    /// W2 review M1: the whole `Documents\My Games\Starfield` tree is the owner's live
+    /// game (INIs, saves; AGENTS.md "Owner's live game is off limits"), not only its
+    /// `Data` folder; so is any folder holding the game's INIs.
+    #[test]
+    fn the_users_my_games_starfield_tree_is_never_the_active_file() {
+        let base = std::env::temp_dir().join(format!("kitkraft-ui-mygames-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let games = base.join("Documents").join("My Games").join("Starfield");
+        let ini = base.join("Elsewhere");
+        std::fs::create_dir_all(&ini).unwrap();
+        std::fs::write(ini.join("StarfieldPrefs.ini"), b"[General]").unwrap();
+        let mut s = opened("plugins");
+        for path in [
+            games.join("ReviewScratch.esp"),
+            games.join("Saves").join("ReviewScratch.esp"),
+            ini.join("Sub").join("P.esp"),
+        ] {
+            s.path_field = path.display().to_string();
+            assert!(s.use_path().is_none());
+            assert_eq!(s.active, None, "{}", path.display());
+            let why = s.refusal.clone().unwrap_or_default();
+            assert!(why.contains("My Games"), "{}: {why}", path.display());
+        }
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     #[test]
     fn the_path_field_takes_a_plugin_outside_data_and_mo2() {
         let base = std::env::temp_dir().join(format!("kitkraft-ui-r17-{}", std::process::id()));
