@@ -10,6 +10,11 @@
 //!
 //! Step 0 of sprint 2026-11-02 declared this file and the Object Window's one call to
 //! [`object_window_actions`] (`windows/object_window.rs`).
+//!
+//! Labels: "Duplicate" is the CK's observed Edit menu item (`docs/ck-parity.md` row 132).
+//! "New" and the form's own labels (the "New Form" and "Duplicate" titles, "Copy of",
+//! "Record type", "EditorID", "Preview") are KitKraft's, not observed: the Object
+//! Window's context menu is still open as sitting step S1-11.
 
 use eframe::egui;
 use serde_json::{json, Value};
