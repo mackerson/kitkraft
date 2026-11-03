@@ -361,16 +361,96 @@ fn mesh_bounds_refuses_arguments_it_does_not_know() {
 }
 
 #[test]
-fn mesh_geometry_is_deferred_to_m7_s5_and_refused() {
+fn mesh_geometry_through_the_catalog() {
+    // Ask A8: once the catalog entry is Implemented and dispatched, `execute` runs the
+    // handler; until then it refuses the command as deferred. The test holds in both
+    // states, so it needs no change at the flip (the integrator's seam commit).
     let spec = find_command("mesh.geometry").unwrap();
     assert!(!spec.writes);
-    assert!(
-        matches!(spec.status, Status::Deferred { milestone, .. } if milestone == "M7.S5"),
-        "{:?}",
-        spec.status
+    if let Status::Deferred { milestone, .. } = spec.status {
+        assert_eq!(milestone, "M7.S5");
+        let err =
+            execute("mesh.geometry", json!({"model": "Meshes\\Test\\Crate.nif"})).unwrap_err();
+        assert_eq!(err.kind(), "deferred");
+        return;
+    }
+    assert_eq!(spec.status, Status::Implemented);
+
+    // Real buffers on a fixture: two triangles placed by the node (+10 x).
+    let data = geometry_dir(
+        "mesh-geometry-execute",
+        [10.0, 0.0, 0.0],
+        2,
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(2.0)),
+            ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+        ],
     );
-    let err = execute("mesh.geometry", json!({"model": "Meshes\\Test\\Crate.nif"})).unwrap_err();
-    assert_eq!(err.kind(), "deferred");
+    let d = data.display().to_string();
+    let env = execute(
+        "mesh.geometry",
+        json!({"model": "Test\\Tri.nif", "data_dir": d}),
+    )
+    .unwrap();
+    assert_eq!(env["command"], "mesh.geometry");
+    assert_eq!(env["coverage"]["status"], "complete");
+    assert_eq!(env["data"]["vertex_count"], 6);
+    let p = f32s_of(env["data"]["positions"].as_str().unwrap());
+    assert_eq!(&p[..9], &[10.0, 0.0, 0.0, 12.0, 0.0, 0.0, 10.0, 2.0, 0.0]);
+    assert_eq!(
+        u32s_of(env["data"]["indices"].as_str().unwrap()),
+        [0, 1, 2, 3, 4, 5]
+    );
+    assert!(has(&env, "normals are grade B"));
+
+    // A skinned block is skipped with its line, and coverage is partial.
+    let skinned = geometry_dir_with(
+        "mesh-geometry-execute-skinned",
+        [0.0; 3],
+        &[BOXED, SKINNED],
+        &[
+            ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+            ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+        ],
+    );
+    let env = execute(
+        "mesh.geometry",
+        json!({"model": "Test\\Tri.nif", "data_dir": skinned.display().to_string()}),
+    )
+    .unwrap();
+    assert_eq!(env["coverage"]["status"], "partial");
+    assert!(has(&env, "block 2 is skinned"));
+
+    // Over the vertex budget: skipped, named, partial.
+    let over = dir("mesh-geometry-execute-budget").join("Data");
+    std::fs::create_dir_all(&over).unwrap();
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        (
+            "meshes\\test\\tri.nif",
+            nif_with_counts([0.0; 3], 1, 3, 2_000_001),
+        ),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&over, "Starfield - Meshes01.ba2", &files);
+    let env = execute(
+        "mesh.geometry",
+        json!({"model": "Test\\Tri.nif", "data_dir": over.display().to_string()}),
+    )
+    .unwrap();
+    assert_eq!(env["coverage"]["status"], "partial");
+    assert!(has(&env, "vertex budget"));
+
+    // Paths leaving Meshes are refused before any file is opened, naming the command.
+    for bad in [r"..\Starfield.esm", r"C:\x.nif", ""] {
+        let err = execute("mesh.geometry", json!({"model": bad, "data_dir": d})).unwrap_err();
+        assert!(
+            err.to_string().contains("not a path inside Meshes"),
+            "{bad}: {err}"
+        );
+        assert!(err.to_string().contains("mesh.geometry"), "{bad}: {err}");
+    }
+    let err = execute("mesh.geometry", json!({"out": "x"})).unwrap_err();
+    assert_eq!(err.kind(), "invalid_args");
 }
 
 #[test]
