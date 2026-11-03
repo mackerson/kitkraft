@@ -123,6 +123,7 @@ impl Nif<'_> {
         }
         if c.remaining() != 0 {
             return Err(Error::Trailing {
+                what: "geometry block's fourth slot",
                 offset: c.offset(),
                 len: c.remaining(),
             });
@@ -280,6 +281,7 @@ impl Mesh {
         }
         if c.remaining() != 0 {
             return Err(Error::Trailing {
+                what: "mesh",
                 offset: c.offset(),
                 len: c.remaining(),
             });

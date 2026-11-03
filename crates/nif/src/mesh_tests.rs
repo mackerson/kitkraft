@@ -352,3 +352,20 @@ fn slots_the_study_did_not_see_are_refused() {
         .unwrap();
     assert_eq!(empty[0].mesh_entry(), None);
 }
+
+#[test]
+fn trailing_bytes_say_what_they_follow() {
+    // Review L4 (M7.S5 code): a geometry block's and a mesh's extra bytes were
+    // reported as "after the footer".
+    let bytes = model(&[Some((3, 3, 64, "a/b")), None, None, None], &[0]);
+    let nif = Nif::parse(&bytes).unwrap();
+    let e = nif.slots(1).unwrap_err().to_string();
+    assert!(
+        e.contains("1 bytes after the geometry block's fourth slot"),
+        "{e}"
+    );
+    let mut mesh = M::triangle().bytes();
+    mesh.push(0);
+    let e = Mesh::parse(&mesh).unwrap_err().to_string();
+    assert!(e.contains("after the mesh"), "{e}");
+}

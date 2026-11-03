@@ -210,6 +210,7 @@ impl<'a> Nif<'a> {
         }
         if c.pos != bytes.len() {
             return Err(Error::Trailing {
+                what: "footer",
                 offset: c.offset(),
                 len: bytes.len().saturating_sub(c.pos),
             });
