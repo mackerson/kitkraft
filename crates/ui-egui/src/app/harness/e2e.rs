@@ -334,7 +334,6 @@ fn choose_active_file(h: &mut Bench, path: &str) {
 /// its reason (the placement copied the CELL parent; M7.E4's design) and the file is
 /// unchanged -> the fixtures are unchanged.
 #[test]
-#[ignore = "integration finding (wave 2): steps 1-5 pass; step 6's Undo last write on the placed reference says `nothing to undo` because the edit dialog sends Patch.esp:001001 and the editor kept Patch.esp:00001001 (editor.rs start_undo compares the strings); un-ignore when pipeline E matches the two"]
 fn e2e_object_window_duplicate_cell_view_place_and_refused_undo() {
     let s = Scratch::new("place");
     let (world, seed) = world(&s);
