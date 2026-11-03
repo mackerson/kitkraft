@@ -112,6 +112,8 @@ M6.G1 and M6.G3):
   | `game.probe` | none | confirmed | Cockpit (`panels/cockpit/probes.rs`) |
   | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
   | `set` (M7.E2, Amendment 4) | `dry_run: true` | no `dry_run`, confirmed, `into` named | Edit dialog (`dialogs/set.rs`, `dialogs/editor.rs`) |
+  | `build` (M7.E5, Amendment 4; lands with E's `ws/e` merge) | `plan: true` | no `plan`, confirmed, `out` named, no `overwrite` | Build Spec form (`dialogs/build.rs`, `dialogs/editor.rs`; File > Build Patch) |
+  | `revert` (M7.E6, Amendment 4; lands with E's `ws/e` merge) | `dry_run: true` | no `dry_run`, confirmed, `plugin` named | Edit dialog, Undo last write (`dialogs/revert.rs`, `dialogs/editor.rs`) |
 
   `set` is the editor's first write (ADR 0007 Amendment 4, accepted 2026-11-01 with
   model A: one confirmed write per OK click; `gate::EDITOR_SCOPE` holds the six editor
@@ -126,6 +128,12 @@ M6.G1 and M6.G3):
   disabled unless the dry run would write and the active file is still the preview's
   output. The engine's output guard refuses load-order plugins, the game and user Data
   folders, MO2 and links on its own.
+
+  The `build` and `revert` rows land with E's branch (M7.E5, M7.E6): until it merges, both
+  are refused here. `build` writes a fresh plugin: the window builds only into an active
+  file that does not exist yet. The editor undoes only its last write of a record, and only
+  when that write added the record to the active file; `revert` drops the override (`to:
+  remove`).
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
   refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
