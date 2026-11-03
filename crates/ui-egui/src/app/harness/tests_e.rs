@@ -748,3 +748,406 @@ fn m7_e5_an_active_file_created_after_the_plan_closes_the_confirm() {
     settle(&mut h);
     assert_eq!(std::fs::read(&patch).unwrap(), b"another writer's file");
 }
+
+// ---- M7.E3: New and Duplicate (`new`, `clone`) ------------------------------------------
+
+/// The one text box labelled `label`.
+fn labelled_box<'a>(h: &'a Bench, label: &'a str) -> Node<'a> {
+    let all: Vec<Node<'a>> = h
+        .query_all_by(move |n| {
+            n.role() == egui::accesskit::Role::TextInput && n.label().as_deref() == Some(label)
+        })
+        .collect();
+    assert_eq!(all.len(), 1, "one `{label}` box\n{}", visible_text(h));
+    all.into_iter().next().expect("checked above")
+}
+
+/// Types `text` into the box labelled `label`.
+fn type_into(h: &mut Bench, label: &str, text: &str) {
+    labelled_box(h, label).focus();
+    h.run_steps(2);
+    labelled_box(h, label).type_text(text);
+    h.run_steps(3);
+}
+
+/// Opens the New Form form for `command` on `form`, as the Object Window's New and
+/// Duplicate (and the menu's Edit > Duplicate) ask for it: `Action::OpenEditor`. The
+/// Object Window itself is W's (M7.W1) and not merged into ws/e yet, so the tests send
+/// the action its buttons send.
+fn open_new_form(h: &mut Bench, command: &str, form: &str) {
+    h.state_mut().app.apply(vec![Action::OpenEditor {
+        command: command.to_string(),
+        form: form.to_string(),
+    }]);
+    h.run_steps(3);
+}
+
+/// M7.E3's Duplicate (`clone`), through the editor: the copy of GLOB 000800 is previewed
+/// (nothing written), one confirm writes it into the active file as a new form, and its
+/// EditorID is read back from there; the master is untouched.
+#[test]
+fn m7_e3_duplicate_previews_confirms_and_reads_back_the_copy() {
+    let s = Scratch::new("clone");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let master = std::fs::read(s.fixture()).unwrap();
+    open_new_form(&mut h, "clone", FORM);
+    assert_in_view(&h, "Copy of");
+    assert!(!enabled(&h, "Preview"), "Preview waits for an EditorID");
+    type_into(&mut h, "EditorID", "Glob800Copy");
+    press(&mut h, "Preview");
+    assert_in_view(
+        &h,
+        "duplicate Fixture.esm:000800 as Glob800Copy into Patch.esp",
+    );
+    assert!(!Path::new(&patch).exists(), "the preview wrote {patch}");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "written: the new form");
+    assert_in_view(&h, "Read back from Patch.esp");
+    assert_eq!(
+        std::fs::read(s.fixture()).unwrap(),
+        master,
+        "the master changed"
+    );
+    assert!(!enabled(&h, "Write to Patch.esp"), "one write per Preview");
+    // The copy is a form of its own, read back by the FormID the write reports.
+    let back = std::fs::read(&patch).unwrap();
+    assert!(
+        back.windows(12).any(|w| w == b"Glob800Copy\0"),
+        "the copy's EditorID is not in the active file"
+    );
+}
+
+/// M7.E3's New (`new`): a new GLOB of the typed type is previewed, one confirm writes it,
+/// and it reads back from the active file.
+#[test]
+fn m7_e3_new_previews_confirms_and_reads_back_the_new_form() {
+    let s = Scratch::new("new");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    open_new_form(&mut h, "new", "GLOB");
+    type_into(&mut h, "EditorID", "KkNewGlobal");
+    press(&mut h, "Preview");
+    assert_in_view(&h, "new GLOB as KkNewGlobal into Patch.esp");
+    assert!(!Path::new(&patch).exists(), "the preview wrote {patch}");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "written: the new form");
+    assert_in_view(&h, "Read back from Patch.esp");
+    let back = std::fs::read(&patch).unwrap();
+    assert!(back.windows(12).any(|w| w == b"KkNewGlobal\0"));
+}
+
+/// New and Duplicate are refused before anything is sent without an active file, or into
+/// an official master or a `Default`-profile path; the confirm closes when the active
+/// file changes after the preview. Nothing is written.
+#[test]
+fn m7_e3_new_and_duplicate_are_refused_outside_the_active_file() {
+    let s = Scratch::new("new-refused");
+    std::fs::create_dir_all(s.0.join("profiles").join("Default")).unwrap();
+    let default =
+        s.0.join("profiles")
+            .join("Default")
+            .join("Patch.esp")
+            .display()
+            .to_string();
+    for (command, form) in [("clone", FORM), ("new", "GLOB")] {
+        for (active, why) in [
+            (None, "no active file"),
+            (Some(s.path("SFBGS003.esm")), "official master"),
+            (Some(default.clone()), "live game"),
+        ] {
+            let Some(mut h) = editing(&s, active.clone()) else {
+                return;
+            };
+            open_new_form(&mut h, command, form);
+            type_into(&mut h, "EditorID", "KkRefused");
+            press(&mut h, "Preview");
+            assert_in_view(&h, why);
+            assert_absent(&h, "Write to");
+        }
+    }
+    assert!(!Path::new(&default).exists() && !Path::new(&s.path("SFBGS003.esm")).exists());
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    open_new_form(&mut h, "clone", FORM);
+    type_into(&mut h, "EditorID", "Glob800Moved");
+    press(&mut h, "Preview");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    h.state_mut().app.active_file = Some(s.path("Other.esp"));
+    h.run_steps(3);
+    assert!(!enabled(&h, "Write to Patch.esp"));
+    one(&h, "Write to Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert!(!Path::new(&patch).exists() && !Path::new(&s.path("Other.esp")).exists());
+}
+
+/// Review finding L2 of M7.E3 (probe RV-E4-I): after a write, opening New again starts
+/// clean. The old confirm box (its "written:" note) no longer covers the form, so a
+/// second New in the same session previews and writes by mouse click.
+#[test]
+fn m7_e3_two_news_in_one_session_both_write() {
+    let s = Scratch::new("new-twice");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    for edid in ["KkFirstNew", "KkSecondNew"] {
+        open_new_form(&mut h, "new", "GLOB");
+        type_into(&mut h, "EditorID", edid);
+        press(&mut h, "Preview");
+        assert_in_view(&h, &format!("new GLOB as {edid} into Patch.esp"));
+        press(&mut h, "Write to Patch.esp");
+        assert_in_view(&h, "written: the new form");
+    }
+    let bytes = std::fs::read(&patch).unwrap();
+    for edid in [&b"KkFirstNew\0"[..], &b"KkSecondNew\0"[..]] {
+        assert!(bytes.windows(edid.len()).any(|w| w == edid), "{edid:?}");
+    }
+}
+
+// ---- M7.E4: Place into the Cell View's cell (`place`) -----------------------------------
+
+/// The base and the cell of the scratch world.
+const STAT: &str = "World.esp:001000";
+const CELL: &str = "World.esp:001001";
+
+/// Builds `World.esp` in the scratch folder through the gate's own confirmed `new`s (a
+/// STAT `KkStat`, World.esp:001000, and an interior CELL `KkCell`, World.esp:001001, over
+/// `Fixture.esm`), then the workbench with `World.esp` loaded and `active` as the active
+/// file.
+fn placing(s: &Scratch, active: Option<String>) -> Option<Bench> {
+    use crate::dialogs::new;
+    let engine = ReadOnlyEngine::new();
+    let fixture = s.fixture().display().to_string();
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [fixture], "no_cache": true}),
+        ))
+        .unwrap();
+    let world = s.path("World.esp");
+    if !Path::new(&world).exists() {
+        for (ty, edid) in [("STAT", "KkStat"), ("CELL", "KkCell")] {
+            let preview = new::preview_request(ty, edid, &world);
+            engine.run(&preview).unwrap();
+            engine.run(&new::write_request(&preview).unwrap()).unwrap();
+        }
+    }
+    let mut h = workbench()?;
+    let load = Request::new("load", json!({"plugins": [world], "no_cache": true}));
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    h.state_mut().app.active_file = active;
+    h.run_steps(2);
+    Some(h)
+}
+
+/// Asks to place `base` in `cell`, as the Cell View's place bar does
+/// (`Action::PlaceInCell`). The Cell View on ws/e is the stub's and its list comes from
+/// a real load; W's Cell View (M7.W2) is not merged, so the tests send its action.
+fn ask_place(h: &mut Bench, base: &str, cell: &str) {
+    h.state_mut().app.apply(vec![Action::PlaceInCell {
+        base: base.to_string(),
+        cell: cell.to_string(),
+    }]);
+    h.run_steps(3);
+}
+
+/// M7.E4's acceptance through the editor: a placement of KkStat in KkCell at a typed
+/// position is previewed (the reference and the cell it carries; nothing written), one
+/// confirm writes it into the active file, and the new reference is read back from there
+/// (its NAME is the base). Its undo is refused with the reason.
+#[test]
+fn m7_e4_place_previews_confirms_and_reads_back_the_reference() {
+    let s = Scratch::new("place");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let world = std::fs::read(s.path("World.esp")).unwrap();
+    ask_place(&mut h, STAT, CELL);
+    assert_in_view(&h, "Place Reference");
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    assert_in_view(
+        &h,
+        "place World.esp:001000 in World.esp:001001 into Patch.esp",
+    );
+    assert_in_view(&h, "Placed (dry run)");
+    assert_in_view(&h, "carries CELL");
+    assert!(!Path::new(&patch).exists(), "the preview wrote {patch}");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "placed: Patch.esp:");
+    assert_in_view(&h, "Read back from Patch.esp");
+    assert_in_view(&h, "NAME");
+    // The typed position is what is written (review finding L3 of M7.E4): DATA starts with
+    // X, Y, Z as little-endian f32.
+    let back = ReadOnlyEngine::new()
+        .run(&Request::new(
+            "inspect",
+            json!({"form": "01001000", "plugin": patch, "full": true}),
+        ))
+        .unwrap();
+    let data = back["data"]["subrecords"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["signature"] == json!("DATA"))
+        .and_then(|s| s["payload_hex"].as_str())
+        .unwrap()
+        .to_string();
+    let xyz: String = [12.5f32, 0.0, 0.0]
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .map(|b| format!("{b:02X}"))
+        .collect();
+    assert!(data.starts_with(&xyz), "DATA {data}");
+    assert_eq!(
+        std::fs::read(s.path("World.esp")).unwrap(),
+        world,
+        "the master changed"
+    );
+    assert!(!enabled(&h, "Write to Patch.esp"), "one write per Preview");
+    // The undo of a placement is refused, with the reason (the copied CELL, and a new form
+    // of the active file).
+    let env = ReadOnlyEngine::new()
+        .run(&Request::new(
+            "inspect",
+            json!({"form": "01001000", "plugin": patch}),
+        ))
+        .unwrap();
+    assert_eq!(env["data"]["record"]["signature"], json!("REFR"), "{env}");
+    let before = std::fs::read(&patch).unwrap();
+    h.state_mut().app.apply(vec![Action::OpenEditor {
+        command: "revert".to_string(),
+        form: "Patch.esp:00001000".to_string(),
+    }]);
+    h.run_steps(3);
+    assert_in_view(&h, "undo refused");
+    assert_in_view(&h, "CELL");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(std::fs::read(&patch).unwrap(), before);
+}
+
+/// Place is refused before anything is sent without an active file, or into an official
+/// master or a `Default`-profile path; a position that is not a number keeps Preview
+/// disabled; the confirm closes when the active file changes after the preview. Nothing
+/// is written.
+#[test]
+fn m7_e4_place_is_refused_outside_the_active_file() {
+    let s = Scratch::new("place-refused");
+    std::fs::create_dir_all(s.0.join("profiles").join("Default")).unwrap();
+    let default =
+        s.0.join("profiles")
+            .join("Default")
+            .join("Patch.esp")
+            .display()
+            .to_string();
+    for (active, why) in [
+        (None, "no active file"),
+        (Some(s.path("Starfield.esm")), "official master"),
+        (Some(default.clone()), "live game"),
+    ] {
+        let Some(mut h) = placing(&s, active.clone()) else {
+            return;
+        };
+        ask_place(&mut h, STAT, CELL);
+        press(&mut h, "Preview");
+        assert_in_view(&h, why);
+        assert_absent(&h, "Write to");
+    }
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "Y", "north");
+    assert!(!enabled(&h, "Preview"), "a position that is not a number");
+    assert_in_view(&h, "position Y");
+    press(&mut h, "Close");
+    ask_place(&mut h, STAT, CELL);
+    press(&mut h, "Preview");
+    assert!(enabled(&h, "Write to Patch.esp"));
+    h.state_mut().app.active_file = Some(s.path("Other.esp"));
+    h.run_steps(3);
+    assert!(!enabled(&h, "Write to Patch.esp"));
+    one(&h, "Write to Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    for f in [
+        &patch,
+        &default,
+        &s.path("Starfield.esm"),
+        &s.path("Other.esp"),
+    ] {
+        assert!(!Path::new(f).exists(), "{f} was written");
+    }
+}
+
+/// Review finding M1 of M7.E4 (probe RV-E5-B): the confirm box shows the position it will
+/// write, and the Place form is locked after Preview: retyping X then changes nothing, and
+/// the one write holds the previewed position.
+#[test]
+fn m7_e4_the_confirm_shows_the_position_and_the_form_is_locked_after_preview() {
+    let s = Scratch::new("place-locked");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    assert_in_view(&h, "at (12.5, 0, 0)");
+    // Retyping after the preview does not reach the form.
+    type_into(&mut h, "X", "777");
+    assert!(
+        h.query_all_by(|n| n.value().as_deref() == Some("012.5777"))
+            .next()
+            .is_none(),
+        "the form took an edit after its preview"
+    );
+    assert!(enabled(&h, "Write to Patch.esp"));
+    press(&mut h, "Write to Patch.esp");
+    assert!(Path::new(&patch).is_file());
+}
+
+/// Review finding L1 of M7.E4 (probe RV-E5-A): a second placement in the same session.
+/// The first write's box no longer covers the Place form, so both placements preview and
+/// write by mouse click, and both references read back (01001000, 01001001).
+#[test]
+fn m7_e4_two_placements_in_one_session_both_write() {
+    let s = Scratch::new("place-twice");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    for x in ["1", "5"] {
+        ask_place(&mut h, STAT, CELL);
+        type_into(&mut h, "X", x);
+        press(&mut h, "Preview");
+        assert_in_view(&h, &format!("at ({x}, 0, 0)"));
+        press(&mut h, "Write to Patch.esp");
+        assert_in_view(&h, "placed: Patch.esp:");
+    }
+    let engine = ReadOnlyEngine::new();
+    for id in ["01001000", "01001001"] {
+        let env = engine
+            .run(&Request::new(
+                "inspect",
+                json!({"form": id, "plugin": patch}),
+            ))
+            .unwrap();
+        assert_eq!(
+            env["data"]["record"]["signature"],
+            json!("REFR"),
+            "{id}: {env}"
+        );
+    }
+}

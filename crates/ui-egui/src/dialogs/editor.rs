@@ -45,13 +45,31 @@
 //! confirmed `build`, then reads the first written record back from the active file.
 //! `build` writes a fresh plugin and the window never sends `overwrite`, so the form
 //! refuses an active file that already exists (the engine refuses it too).
+//!
+//! M7.E3 (`new`, `clone`): `OpenEditor { command: "new", form: <type> }` (the Object
+//! Window's New) and `OpenEditor { command: "clone", form: <record> }` (Edit > Duplicate)
+//! open the New Form form (`dialogs/new.rs` draws it): the record type or the record
+//! copied, and the new EditorID. "Preview" sends `new --dry-run` or `clone --dry-run`
+//! into the active file; the confirm box's one "Write to <file>" click sends the
+//! confirmed write (built in `dialogs/new.rs` or `dialogs/clone.rs`), then reads the new
+//! form back from the active file. A new form is not the undo's to drop (`revert` refuses
+//! a form the plugin defines), so it is not offered there.
+//!
+//! M7.E4 (`place`): `Action::PlaceInCell { base, cell }` (the Cell View's place bar,
+//! `dialogs/place.rs` `cell_view_bar`) opens the Place form: the base, the cell and the
+//! typed position. "Preview" sends `place --dry-run` into the active file (the reference
+//! and the cell it carries, validate); the confirm box's one click sends the confirmed
+//! `place`, then reads the new reference back from the active file. Its undo is refused
+//! with the reason: the reference is a new form the active file defines, which `revert`
+//! does not drop, and a first placement in a cell also copies the cell (the E2 review's
+//! parent rule).
 
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
-use super::{build, edit, revert, set};
+use super::{build, clone, edit, new, place, revert, set};
 use crate::gate::{self, Request};
 use crate::panels::common::{Action, Slot};
 use crate::panels::fmt_value;
@@ -145,6 +163,10 @@ pub struct EditorState {
     last: Option<LastWrite>,
     /// The Build Spec form, while it is open: the spec file's path.
     build_form: Option<String>,
+    /// The New Form form (`new` or `clone`), while it is open.
+    new_form: Option<new::NewForm>,
+    /// The Place form, while it is open.
+    place_form: Option<place::PlaceForm>,
     /// A dialog's OK, taken up by the next frame (which knows the active file).
     opening: Option<(String, String)>,
     /// The write in progress, shown in the confirm box.
@@ -163,8 +185,17 @@ impl EditorState {
         self.opening = Some((command.to_string(), form.to_string()));
     }
 
-    /// `Action::PlaceInCell`: start placing `base` into `cell` (formrefs).
-    pub fn place(&mut self, _base: &str, _cell: &str) {}
+    /// `Action::PlaceInCell`: start placing `base` into `cell` (formrefs). The Place form
+    /// opens on them; nothing is sent until its Preview. The last write's note goes with
+    /// its box, so the box does not cover the form.
+    pub fn place(&mut self, base: &str, cell: &str) {
+        self.note = None;
+        // The last write's box goes too, unless a reply is still awaited (M7.E4 review L1).
+        if self.awaiting.is_none() {
+            self.write = None;
+        }
+        self.place_form = Some(place::PlaceForm::open(base, cell));
+    }
 
     /// Takes the reply to a request sent with `Pending::Editor(ticket)`.
     pub fn receive(&mut self, _ticket: &EditorTicket, _result: Result<&Value, String>) {}
@@ -243,6 +274,70 @@ impl EditorState {
                     undo: undoable(env, &w.form, &w.into),
                     stamp: stamp_of(&w.into),
                 });
+            }
+            (Slot::EditorPreview, "place") if *request == w.preview => {
+                self.awaiting = None;
+                w.previewed = Some(env.clone());
+            }
+            (Slot::EditorWrite, "place")
+                if w.written.is_none() && w.write_req.as_ref() == Some(request) =>
+            {
+                w.written = Some(env.clone());
+                self.awaiting = None;
+                if let Some(read) = set::readback_request(env, &w.into) {
+                    w.readback_req = Some(read.clone());
+                    self.next = Some((Slot::EditorWrite, read));
+                }
+                let reference = own_record_form(env);
+                let file = file_name(&w.into);
+                self.note = Some((
+                    Status::Pass,
+                    format!("placed: {reference} ({}) into {file}", w.form),
+                ));
+                // The undo of a placement is refused, with the reason: the reference is a
+                // new form of the active file, which `revert` does not drop; a first
+                // placement in a cell also copies the cell (`undoable`).
+                let why = match undoable(env, &reference, &w.into) {
+                    Err(e) => format!("{e}; and the reference is a new form {file} defines, which `revert` does not drop"),
+                    Ok(()) => format!("the reference is a new form {file} defines, which `revert` does not drop (it undoes overrides only)"),
+                };
+                self.last = Some(LastWrite {
+                    form: reference,
+                    into: w.into.clone(),
+                    undo: Err(why),
+                    stamp: stamp_of(&w.into),
+                });
+            }
+            (Slot::EditorPreview, "new" | "clone") if *request == w.preview => {
+                self.awaiting = None;
+                w.previewed = Some(env.clone());
+            }
+            (Slot::EditorWrite, "new" | "clone")
+                if w.written.is_none() && w.write_req.as_ref() == Some(request) =>
+            {
+                w.written = Some(env.clone());
+                self.awaiting = None;
+                // A form the active file defines is not `revert`'s to drop.
+                self.last = None;
+                if let Some(read) = set::readback_request(env, &w.into) {
+                    w.readback_req = Some(read.clone());
+                    self.next = Some((Slot::EditorWrite, read));
+                }
+                let form = env
+                    .pointer("/data/records")
+                    .and_then(Value::as_array)
+                    .and_then(|a| {
+                        a.iter()
+                            .find(|r| r.get("parent") != Some(&Value::Bool(true)))
+                    })
+                    .and_then(|r| r.get("form"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("?")
+                    .to_string();
+                self.note = Some((
+                    Status::Pass,
+                    format!("written: the new form {form} into {}", file_name(&w.into)),
+                ));
             }
             (Slot::EditorPreview, "build") if *request == w.preview => {
                 self.awaiting = None;
@@ -398,6 +493,20 @@ fn changed_line(env: &Value) -> String {
         .map(|(p, b, a)| format!("{p} {b} -> {a}"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// The formref of the record a write's envelope wrote (its first non-parent record).
+fn own_record_form(env: &Value) -> String {
+    env.pointer("/data/records")
+        .and_then(Value::as_array)
+        .and_then(|a| {
+            a.iter()
+                .find(|r| r.get("parent") != Some(&Value::Bool(true)))
+        })
+        .and_then(|r| r.get("form"))
+        .and_then(Value::as_str)
+        .unwrap_or("?")
+        .to_string()
 }
 
 /// Whether undoing a `set` write (`env`, its envelope) with `revert --to remove`
@@ -638,6 +747,12 @@ pub(crate) fn ui(
     if state.build_form.is_some() {
         build_window(ctx, state, active_file, &mut out);
     }
+    if state.new_form.is_some() {
+        new_window(ctx, state, active_file, &mut out);
+    }
+    if state.place_form.is_some() {
+        place_window(ctx, state, active_file, &mut out);
+    }
     if state.write.is_some() || state.note.is_some() {
         confirm_box(ctx, state, busy, active_file, &mut out);
     }
@@ -669,6 +784,14 @@ fn start(
     if command == "build" {
         // The form opens; nothing is sent until its Plan.
         state.build_form.get_or_insert_with(String::new);
+        return;
+    }
+    if command == "new" || command == "clone" {
+        // The form opens on its source; nothing is sent until its Preview. The last
+        // write's note goes with its box, so the box does not cover the form (M7.E3
+        // review L2).
+        state.note = None;
+        state.new_form = Some(new::NewForm::open(command, form));
         return;
     }
     if command != "set" && command != "revert" {
@@ -758,6 +881,203 @@ fn build_window(
         let spec = state.build_form.clone().unwrap_or_default();
         start_build(state, &spec, active_file, out);
     }
+}
+
+/// The Place form (`place::form_ui`) in its own window; its Preview starts the write.
+fn place_window(
+    ctx: &egui::Context,
+    state: &mut EditorState,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    let mut preview = false;
+    let mut close = false;
+    // Locked while its preview awaits the confirm (M7.E4 review M1).
+    let locked = state
+        .write
+        .as_ref()
+        .is_some_and(|w| w.command == "place" && w.written.is_none() && !w.failed);
+    if let Some(f) = state.place_form.as_mut() {
+        egui::Window::new("Place Reference")
+            .id(egui::Id::new("kitkraft-editor-place"))
+            .collapsible(false)
+            .default_width(480.0)
+            .show(ctx, |ui| {
+                let ask = place::form_ui(ui, f, active_file, locked);
+                preview = ask.preview;
+                close = ask.close;
+            });
+    }
+    if close {
+        state.place_form = None;
+        return;
+    }
+    if preview {
+        if let Some(f) = state.place_form.clone() {
+            start_place(state, &f, active_file, out);
+        }
+    }
+}
+
+/// Takes up the Place form's Preview: `place --dry-run` into the active file, or the
+/// reason there is none.
+fn start_place(
+    state: &mut EditorState,
+    f: &place::PlaceForm,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    if state.awaiting.is_some() {
+        state.note = Some((
+            Status::Warn,
+            "the editor is waiting for the engine; Preview again when it has answered".to_string(),
+        ));
+        return;
+    }
+    state.write = None;
+    let Some(into) = active_file.map(str::trim).filter(|f| !f.is_empty()) else {
+        state.note = Some((
+            Status::Fail,
+            "no active file: choose one in File > Data... (Set as Active File); the editor writes only into it"
+                .to_string(),
+        ));
+        return;
+    };
+    let position = match f.position() {
+        Ok(p) => p,
+        Err(e) => {
+            state.note = Some((Status::Fail, e));
+            return;
+        }
+    };
+    let preview = place::preview_request(&f.base, &f.cell, position, into);
+    if let Err(e) = gate::check(&preview) {
+        state.note = Some((Status::Fail, e.to_string()));
+        return;
+    }
+    state.note = None;
+    state.next = None;
+    state.write = Some(Write {
+        command: "place",
+        form: format!("{} in {}", f.base, f.cell),
+        into: into.to_string(),
+        preview: preview.clone(),
+        edits: Map::new(),
+        held: None,
+        first: None,
+        kept: Vec::new(),
+        previewed: None,
+        written: None,
+        readback_due: false,
+        write_req: None,
+        readback_req: None,
+        readback: None,
+        failed: false,
+        spec_bytes: None,
+    });
+    state.awaiting = Some(Slot::EditorPreview);
+    out.push(Action::Submit(Slot::EditorPreview, preview));
+}
+
+/// The New Form form (`new::form_ui`) in its own window; its Preview starts the write.
+fn new_window(
+    ctx: &egui::Context,
+    state: &mut EditorState,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    let mut preview = false;
+    let mut close = false;
+    if let Some(f) = state.new_form.as_mut() {
+        let title = if f.command == "clone" {
+            "Duplicate"
+        } else {
+            "New Form"
+        };
+        egui::Window::new(title)
+            .id(egui::Id::new("kitkraft-editor-new"))
+            .collapsible(false)
+            .default_width(480.0)
+            .show(ctx, |ui| {
+                let ask = new::form_ui(ui, f, active_file);
+                preview = ask.preview;
+                close = ask.close;
+            });
+    }
+    if close {
+        state.new_form = None;
+        return;
+    }
+    if preview {
+        if let Some(f) = state.new_form.clone() {
+            start_new(state, &f, active_file, out);
+        }
+    }
+}
+
+/// Takes up the New Form form's Preview: `new --dry-run` or `clone --dry-run` into the
+/// active file, or the reason there is none.
+fn start_new(
+    state: &mut EditorState,
+    f: &new::NewForm,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    if state.awaiting.is_some() {
+        state.note = Some((
+            Status::Warn,
+            "the editor is waiting for the engine; Preview again when it has answered".to_string(),
+        ));
+        return;
+    }
+    state.write = None;
+    let Some(into) = active_file.map(str::trim).filter(|f| !f.is_empty()) else {
+        state.note = Some((
+            Status::Fail,
+            "no active file: choose one in File > Data... (Set as Active File); the editor writes only into it"
+                .to_string(),
+        ));
+        return;
+    };
+    let (source, edid) = (f.source.trim(), f.edid.trim());
+    if source.is_empty() || edid.is_empty() {
+        state.note = Some((
+            Status::NotRun,
+            "name the record type (or the record to copy) and the new EditorID".to_string(),
+        ));
+        return;
+    }
+    let (command, preview) = if f.command == "clone" {
+        ("clone", clone::preview_request(source, edid, into))
+    } else {
+        ("new", new::preview_request(source, edid, into))
+    };
+    if let Err(e) = gate::check(&preview) {
+        state.note = Some((Status::Fail, e.to_string()));
+        return;
+    }
+    state.note = None;
+    state.next = None;
+    state.write = Some(Write {
+        command,
+        form: format!("{source} as {edid}"),
+        into: into.to_string(),
+        preview: preview.clone(),
+        edits: Map::new(),
+        held: None,
+        first: None,
+        kept: Vec::new(),
+        previewed: None,
+        written: None,
+        readback_due: false,
+        write_req: None,
+        readback_req: None,
+        readback: None,
+        failed: false,
+        spec_bytes: None,
+    });
+    state.awaiting = Some(Slot::EditorPreview);
+    out.push(Action::Submit(Slot::EditorPreview, preview));
 }
 
 /// Takes up the Build Spec form's Plan: `build --plan` of `spec` into the active file, or
@@ -923,12 +1243,21 @@ fn confirm_box(
                         format!("undo: revert {} in {}", w.form, file_name(&w.into))
                     } else if w.command == "build" {
                         format!("build {} into {}", file_name(&w.form), file_name(&w.into))
+                    } else if w.command == "place" {
+                        format!("place {} into {}", w.form, file_name(&w.into))
+                    } else if w.command == "new" || w.command == "clone" {
+                        let verb = if w.command == "clone" { "duplicate" } else { "new" };
+                        format!("{verb} {} into {}", w.form, file_name(&w.into))
                     } else {
                         format!("set {} into {}", w.form, file_name(&w.into))
                     };
                     ui.strong(what);
                     ui.weak(&w.into);
                 });
+                if w.command == "place" {
+                    // The exact position the confirmed request writes (M7.E4 review M1).
+                    ui.monospace(place::position_line(&w.preview));
+                }
                 match &w.previewed {
                     None => {
                         ui.horizontal(|ui| {
@@ -979,6 +1308,16 @@ fn confirm_box(
                             format!("Build into {}", file_name(&w.into)),
                             "one confirmed `build`: the planned plugin, written as the active file",
                         )
+                    } else if w.command == "place" {
+                        (
+                            format!("Write to {}", file_name(&w.into)),
+                            "one confirmed `place`: the previewed reference (and the cell it carries), into the active file",
+                        )
+                    } else if w.command == "new" || w.command == "clone" {
+                        (
+                            format!("Write to {}", file_name(&w.into)),
+                            "one confirmed write: the previewed new form, into the active file",
+                        )
                     } else {
                         (
                             format!("Write to {}", file_name(&w.into)),
@@ -1013,6 +1352,12 @@ fn confirm_box(
                 revert::write_request(&w.preview)
             } else if w.command == "build" {
                 build::build_request(&w.preview)
+            } else if w.command == "place" {
+                place::write_request(&w.preview)
+            } else if w.command == "new" {
+                new::write_request(&w.preview)
+            } else if w.command == "clone" {
+                clone::write_request(&w.preview)
             } else {
                 set::write_request(&w.preview)
             };
@@ -1037,7 +1382,38 @@ fn confirm_box(
 /// `validate` on the staged result, and its limitations.
 fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
     let data = env.get("data").unwrap_or(&Value::Null);
-    if command == "revert" {
+    if command == "place" {
+        ui.label(theme::subheading(ui, "Placed (dry run)"));
+        for p in data
+            .get("placed")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let text = |ptr: &str| p.pointer(ptr).map(fmt_value).unwrap_or_default();
+            ui.monospace(format!(
+                "{} of {} in {} ({})",
+                text("/form"),
+                text("/base/form"),
+                text("/cell/form"),
+                text("/cell/kind")
+            ));
+        }
+        for c in data
+            .get("carried")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let text = |k: &str| c.get(k).map(fmt_value).unwrap_or_default();
+            ui.weak(format!(
+                "carries {} {} ({}) to hold it",
+                text("signature"),
+                text("form"),
+                text("outcome")
+            ));
+        }
+    } else if command == "revert" {
         ui.label(theme::subheading(
             ui,
             format!("Diff of the file (dry run): {}", diff_line(env)),
