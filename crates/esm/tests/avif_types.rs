@@ -90,7 +90,11 @@ fn check_record(
         seen.insert(key(sub.signature));
         if SIZED.contains(&&sub.signature) {
             let k = key(sub.signature);
-            *t.sizes.entry(k).or_default().entry(sub.data.len()).or_insert(0) += 1;
+            *t.sizes
+                .entry(k)
+                .or_default()
+                .entry(sub.data.len())
+                .or_insert(0) += 1;
         }
     }
     for k in seen {
@@ -169,7 +173,10 @@ fn size_line(sizes: &BTreeMap<usize, u64>) -> String {
 }
 
 fn report(t: &Stats) {
-    println!("avif AVIF: {} records, {} identical", t.records, t.identical);
+    println!(
+        "avif AVIF: {} records, {} identical",
+        t.records, t.identical
+    );
     if !t.unplaced.is_empty() || !t.failed.is_empty() {
         println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
     }
