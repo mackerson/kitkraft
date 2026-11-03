@@ -481,16 +481,16 @@ fields = [\"OBTE\", \"FULL\", \"OBTF\"]",
     fn a_type_without_a_file_gets_a_default_layout_from_its_schema() {
         let engine = ReadOnlyEngine::new();
         let env = engine
-            .run(&Request::new("schema", json!({"type": "KYWD"})))
+            .run(&Request::new("schema", json!({"type": "GLOB"})))
             .unwrap();
         let mut state = DialogState::default();
-        assert!(state.layout("KYWD").is_none());
-        let req = state.schema_request("KYWD").unwrap();
+        assert!(state.layout("GLOB").is_none());
+        let req = state.schema_request("GLOB").unwrap();
         assert!(check(&req).is_ok());
-        assert!(state.schema_request("KYWD").is_none(), "asked once");
+        assert!(state.schema_request("GLOB").is_none(), "asked once");
         assert!(state.schema_request("WEAP").is_none(), "WEAP has a file");
-        state.receive_schema("KYWD", Ok(&env));
-        let layout = state.layout("KYWD").unwrap().unwrap();
+        state.receive_schema("GLOB", Ok(&env));
+        let layout = state.layout("GLOB").unwrap().unwrap();
         assert_eq!(layout.source, "default layout from schema");
         assert!(!layout.observed);
         assert_eq!(layout.tabs[0].groups[0].name, "Record");
