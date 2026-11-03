@@ -62,7 +62,6 @@ pub(crate) enum Slot {
     #[allow(dead_code)]
     DataLoad,
     /// The Data dialog's details of one plugin (`inspect` of its `TES4`; M7.M2).
-    #[allow(dead_code)]
     DataDetails,
     /// The Object Window's category tree (`schema` categories; M7.S2, M7.W1, pipeline W).
     #[allow(dead_code)]
@@ -71,16 +70,13 @@ pub(crate) enum Slot {
     #[allow(dead_code)]
     ObjectList,
     /// An editor write's preview (M7.E2 to M7.E6, pipeline E).
-    #[allow(dead_code)]
     EditorPreview,
     /// An editor write's confirmed form (one write per OK click; ADR 0007 Amendment 4).
-    #[allow(dead_code)]
     EditorWrite,
     /// The `validate` an editor preview shows before the confirm (M7.E2).
     #[allow(dead_code)]
     EditorValidate,
     /// The Render Window's NIF bounds (`mesh.bounds`; M7.S4, M7.R3, pipeline R).
-    #[allow(dead_code)]
     MeshBounds,
 }
 
@@ -150,7 +146,6 @@ pub(crate) enum Action {
     /// Open the editor for `command` (a catalog id: `set`, `new`, `clone`, `place`,
     /// `build`, `revert`) on `form` (M7.E2 to M7.E6; the Object Window's double-click and
     /// Edit > Duplicate, M7.W1, M7.E3).
-    #[allow(dead_code)]
     OpenEditor {
         command: String,
         form: String,
