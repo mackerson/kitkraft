@@ -490,6 +490,18 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         refuse_args: &["overwrite"],
         why: "a new form of one record type, with its EditorID, in the active file (`into`), one confirmed write per OK click after its dry run (M7.S6); never an official master, never in the profile Default (Amendment 4, M7.E3)",
     },
+    // ADR 0007 Amendment 4 (M7.E3): a copy of a record (Edit > Duplicate) into the active file.
+    PermittedWrite {
+        id: "clone",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "dialogs/clone.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: true,
+        output: Some("into"),
+        refuse_args: &["overwrite"],
+        why: "a copy of one record as a new form (Edit > Duplicate), with its EditorID, in the active file (`into`), one confirmed write per OK click after its dry run (M7.S6); never an official master, never in the profile Default (Amendment 4, M7.E3)",
+    },
 ];
 
 /// The permitted write for canonical id `id`.
@@ -945,7 +957,8 @@ mod tests {
                 "set",
                 "revert",
                 "build",
-                "new"
+                "new",
+                "clone"
             ]
         );
         // M7.E6 adds `revert`, the editor's undo; M7.E5 adds `build`.
@@ -956,8 +969,8 @@ mod tests {
             .collect();
         assert_eq!(
             editor,
-            ["set", "revert", "build", "new"],
-            "Amendment 3 plus exactly `set`, `revert`, `build` and `new`"
+            ["set", "revert", "build", "new", "clone"],
+            "Amendment 3 plus exactly `set`, `revert`, `build`, `new` and `clone`"
         );
         for p in PERMITTED_WRITES {
             assert!(
@@ -1309,7 +1322,7 @@ mod tests {
         }
         for (id, a) in [
             ("schema", json!({})),
-            ("clone", json!({"form": "x", "edid": "Y", "into": "y.esp"})),
+            ("place", json!({"base": "x", "cell": "y", "into": "y.esp"})),
             ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
             ("testplan", json!({})),
         ] {
@@ -2383,6 +2396,167 @@ mod tests {
                 onto["into"] = json!(official.display().to_string());
                 assert!(check(&Request::new("new", onto.clone())).is_err());
                 assert!(engine.engine.execute("new", onto).is_err());
+            }
+        }
+    }
+
+    /// `clone` (ADR 0007 Amendment 4, M7.E3) through `check`: the dry run passes
+    /// unconfirmed; the writing form only confirmed and only into a named output; a
+    /// confirmation changed afterwards is void; an official master, a path in the profile
+    /// `Default`, `profile: Default` and `overwrite` are refused in every form, confirmed
+    /// or not.
+    #[test]
+    fn clone_previews_unconfirmed_and_writes_only_confirmed_into_the_active_file() {
+        let base = json!({"form": "Fixture.esm:000800", "edid": "Glob800Copy", "into": r"C:\Modding\out\Patch.esp"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        assert!(check(&Request::new("clone", with(json!({"dry_run": true})))).is_ok());
+        for w in [base.clone(), with(json!({"dry_run": false}))] {
+            let e = check(&Request::new("clone", w.clone()));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button") && m.contains("dialogs/clone.rs")),
+                "{w}: {e:?}"
+            );
+            assert!(
+                check(&Request::confirmed("clone", w.clone())).is_ok(),
+                "{w}"
+            );
+        }
+        for change in [
+            json!({"into": r"C:\Modding\out\Other.esp"}),
+            json!({"edid": "KkOther"}),
+            json!({"form": "Fixture.esm:000801"}),
+        ] {
+            let mut r = Request::confirmed("clone", base.clone());
+            for (k, v) in change.as_object().unwrap() {
+                r.args[k] = v.clone();
+            }
+            let e = check(&r);
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("changed after")),
+                "{change}: {e:?}"
+            );
+        }
+        let mut r = Request::confirmed("clone", with(json!({"dry_run": true})));
+        r.args.as_object_mut().unwrap().remove("dry_run");
+        assert!(matches!(check(&r), Err(RunError::Refused(m)) if m.contains("changed after")));
+        let mut no_into = base.clone();
+        no_into.as_object_mut().unwrap().remove("into");
+        let e = check(&Request::confirmed("clone", no_into));
+        assert!(
+            matches!(&e, Err(RunError::Refused(m)) if m.contains("named output")),
+            "{e:?}"
+        );
+        for (extra, why) in [
+            (json!({"into": "Starfield.esm"}), "official master"),
+            (
+                json!({"into": r"C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data\OldMars.esm"}),
+                "official master",
+            ),
+            (json!({"into": r"C:\Modding\out\Patch.txt"}), "not a plugin"),
+            (
+                json!({"into": r"C:\Modding\MO2-Starfield\profiles\Default\Patch.esp"}),
+                "live game",
+            ),
+            (json!({"profile": "Default"}), "live game"),
+            (json!({"overwrite": true}), "other than the active file"),
+        ] {
+            for dry in [None, Some(true)] {
+                let mut args = with(extra.clone());
+                if let Some(d) = dry {
+                    args["dry_run"] = json!(d);
+                }
+                for req in [
+                    Request::new("clone", args.clone()),
+                    Request::confirmed("clone", args.clone()),
+                ] {
+                    let e = check(&req);
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains(why)),
+                        "{args}: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Through the gate and the engine on a scratch fixture (never the game's Data):
+    /// a copy of GLOB 000800, the dry run writes nothing; the unconfirmed write is refused and
+    /// writes nothing; the confirmed write creates the active file, and `inspect` reads the
+    /// new form's EditorID back from it; the engine refuses a load-order plugin as `into`
+    /// on its own, and with the corpus `Data\Starfield.esm` (as a dry run).
+    #[test]
+    fn clone_reaches_the_engine_only_confirmed_and_writes_the_active_file() {
+        use crate::dialogs::{clone, set};
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        let scratch = scratch("clone");
+        let dir = &scratch.0;
+        let fixture = dir.join("Fixture.esm");
+        let master = plugin_bytes(&[], 1, &[0x800, 0x801], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
+        let patch = dir.join("Patch.esp");
+        let into = patch.display().to_string();
+        let engine = ReadOnlyEngine::new();
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
+            ))
+            .unwrap();
+        let preview = clone::preview_request("Fixture.esm:000800", "Glob800Copy", &into);
+        let env = engine.run(&preview).unwrap();
+        assert_eq!(env["data"]["dry_run"], json!(true), "{env}");
+        assert_eq!(env["data"]["would_write"], json!(true), "{env}");
+        assert!(!patch.exists(), "the dry run wrote {into}");
+        let mut unconfirmed = preview.args.clone();
+        unconfirmed.as_object_mut().unwrap().remove("dry_run");
+        let e = engine.run(&Request::new("clone", unconfirmed)).unwrap_err();
+        assert!(matches!(e, RunError::Refused(_)), "{e:?}");
+        assert!(!patch.exists(), "an unconfirmed request wrote");
+        let done = engine
+            .run(&clone::write_request(&preview).unwrap())
+            .unwrap();
+        assert!(patch.is_file(), "{done}");
+        let back = engine
+            .run(&set::readback_request(&done, &into).unwrap())
+            .unwrap();
+        let edid = back["data"]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == json!("EDID"))
+            .unwrap();
+        assert_eq!(
+            edid["payload_hex"],
+            json!("476C6F62383030436F707900"),
+            "{back}"
+        );
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        let mut onto = preview.args.clone();
+        onto["into"] = json!(fixture.display().to_string());
+        assert!(engine.engine.execute("clone", onto).is_err());
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+        if let Some(data_dir) = std::env::var_os("KITKRAFT_DATA_DIR") {
+            let official = Path::new(&data_dir).join("Starfield.esm");
+            if official.is_file() {
+                let mut onto = preview.args.clone();
+                onto["into"] = json!(official.display().to_string());
+                assert!(check(&Request::new("clone", onto.clone())).is_err());
+                assert!(engine.engine.execute("clone", onto).is_err());
             }
         }
     }
