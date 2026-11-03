@@ -677,6 +677,12 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
 - T-22 and T-23 **pass** in both sessions. The mini-site was saved in the Lodge and
   reloaded, and the reload was proved by the cell. The terminal, switch and pack-in
   references stood at their `DATA` positions afterwards.
+- Every `getincell` answer in T-22 is `GetInCell >> 1.00`, so a reply shifted by one request
+  would also pass. The pass stands because the stream is aligned there: no echo-only answer
+  from T-19 to T-23 in T05 or from T-13 on in T04, and T-23's `getpos` answers come labelled
+  X, Y, Z in order with each reference's own x. X9 added the negative control after a load
+  (`game-20261103-07` H-01, `GetInCell >> 0.00` for the apartment after the load into the
+  Lodge: pass).
 - T-13 to T-16, T-18, T-19 and T-21 **pass** in T05: each reference's cell, `player.moveto`
   and `getpos`. T-10 and T-11 (the switch's reference) also pass in T05.
 - M5 row 2's game and save/reload rows are **filled** by these sessions (M5.D7 game half).
