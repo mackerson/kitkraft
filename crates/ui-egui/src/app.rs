@@ -833,8 +833,8 @@ impl App {
                     Slot::EditorPreview | Slot::EditorWrite | Slot::EditorValidate => {
                         self.shell.editor.receive_slot(slot, &reply.request, env)
                     }
-                    // `Slot::MeshBounds` (M7.R3) is not routed yet: the Render Window's
-                    // receive is in pipeline R's `panels/render.rs`, not a step-0 file.
+                    // Pipeline R's NIF box for the Render Window (M7.S4, M7.R3).
+                    Slot::MeshBounds => self.render.receive_bounds(env),
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.

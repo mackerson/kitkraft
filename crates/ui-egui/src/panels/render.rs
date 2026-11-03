@@ -277,7 +277,6 @@ pub struct RenderTab {
     /// The draw cap in use.
     cap: usize,
     /// The last `mesh.bounds` reply ([`RenderTab::receive_bounds`]); M7.R3 draws it.
-    #[allow(dead_code)]
     mesh_bounds: Option<MeshBounds>,
 }
 
@@ -425,9 +424,7 @@ impl RenderTab {
     }
 
     /// A `mesh.bounds` reply (`Slot::MeshBounds`): kept for the viewport (M7.R3). Routed
-    /// from `app.rs` `receive` once the integrator lands that arm (step-0 residual, R13);
-    /// until then only the tests call it.
-    #[allow(dead_code)]
+    /// from `app.rs` `receive` (step-0 residual, R13).
     pub(crate) fn receive_bounds(&mut self, env: &Value) {
         self.mesh_bounds = MeshBounds::from_envelope(env);
     }
