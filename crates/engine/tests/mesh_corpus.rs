@@ -504,6 +504,9 @@ struct MeshTally {
     unit: u64,
     agree: u64,
     compared: u64,
+    /// Section 5 under the same reading, for the comparison M4 makes (grade B).
+    s5_unit: u64,
+    s5_agree: u64,
     indices: u64,
     index_out_of_range: u64,
     not_triples: u64,
@@ -621,6 +624,15 @@ fn every_official_mesh_matches_the_layout_study() {
                 if f.iter().any(|x| *x != 0.0) {
                     t.compared += 1;
                     t.agree += u64::from(f[0] * n[0] + f[1] * n[1] + f[2] * n[2] > 0.0);
+                }
+            }
+            for (k, word) in w.sections[4].iter().enumerate() {
+                let n = unpack10(*word);
+                let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+                t.s5_unit += u64::from((len - 1.0).abs() < 0.02);
+                let f = acc[k];
+                if f.iter().any(|x| *x != 0.0) {
+                    t.s5_agree += u64::from(f[0] * n[0] + f[1] * n[1] + f[2] * n[2] > 0.0);
                 }
             }
             // G2: every slot naming this mesh agrees on the counts; M2: a first slot's
