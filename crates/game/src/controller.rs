@@ -951,10 +951,14 @@ impl Run<'_> {
                 continue;
             };
             for (via, line) in &failures {
-                row.verdict = Verdict::Fail(format!(
-                    "`{command}`: the console answered `{}`, late, in the reply to `{via}`",
-                    clip(line, 100)
-                ));
+                // Review H3: a failure routed by the item it quotes re-opens the row; it is
+                // never graded fail on that routing alone, and a pass cannot stand.
+                if !matches!(row.verdict, Verdict::Fail(_)) {
+                    row.verdict = Verdict::Inconclusive(format!(
+                        "late failure: `{command}`: the console answered `{}`, late, in the reply to `{via}` (R20, R28)",
+                        clip(line, 100)
+                    ));
+                }
                 row.seen.push_str(&format!(
                     "; (late failure) {command} -> {line} (in the reply to `{via}`)"
                 ));

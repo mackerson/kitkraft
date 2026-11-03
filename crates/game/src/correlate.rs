@@ -29,8 +29,9 @@
 //!
 //! Commands of any other kind name nothing: lines no request names stay with the reply
 //! they arrived in. So do the console's failure lines ([`crate::probes::console_failure`]),
-//! unless the item they quote is in another request's command and not in this one; then
-//! they are re-queued to that request (review M2).
+//! unless the item they quote is a word of another request's command and not of this one;
+//! then they are re-queued to the earliest such request (review M2, H3), whose row cannot
+//! keep a `pass`: it becomes `inconclusive (late failure)`.
 
 /// What a request's answer names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -251,6 +252,14 @@ fn failure_item(line: &str) -> Option<String> {
     quoted("item ", '\'').or_else(|| quoted("script command ", '"'))
 }
 
+/// Whether `command` names `item` (lowercased) as a whole word or as its quoted text.
+fn names_item(command: &str, item: &str) -> bool {
+    let c = command.to_ascii_lowercase();
+    c.split('"').skip(1).step_by(2).any(|q| q.trim() == item)
+        || c.split(|ch: char| ch.is_whitespace() || ch == '"')
+            .any(|w| w == item)
+}
+
 /// Every request of a session, and the lines that answer each.
 #[derive(Debug, Clone, Default)]
 pub struct Correlator {
@@ -361,14 +370,25 @@ impl Correlator {
             if crate::probes::console_failure("", &line).is_some() {
                 // A failure line is the reply's own request's, unless the item it quotes
                 // is in another request's command and not in this one (review M2).
+                // The item must be a whole word of the command (or its quoted text), and
+                // the earliest such request without a failure yet takes it (review H3).
                 let item = failure_item(&line);
                 let other = item.as_ref().and_then(|item| {
-                    if command.to_ascii_lowercase().contains(item.as_str()) {
+                    if names_item(&command, item) {
                         return None;
                     }
-                    self.requests
+                    let named: Vec<usize> = self
+                        .requests
                         .iter()
-                        .rposition(|r| r.command.to_ascii_lowercase().contains(item.as_str()))
+                        .enumerate()
+                        .filter(|(i, r)| *i != id && names_item(&r.command, item))
+                        .map(|(i, _)| i)
+                        .collect();
+                    named
+                        .iter()
+                        .copied()
+                        .find(|i| self.requests.get(*i).is_some_and(|r| r.failures.is_empty()))
+                        .or_else(|| named.first().copied())
                 });
                 match other.and_then(|o| self.requests.get_mut(o).map(|r| (o, r))) {
                     Some((o, r)) => {

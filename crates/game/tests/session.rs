@@ -1127,7 +1127,8 @@ fn rx_p5d_late_failure_line_of_another_row() {
             one("T-02", "getpos x", Matcher::Number, "-17", Some(0.5)),
         ],
     );
-    assert!(v[0].starts_with("fail"), "P5d {v:?}");
+    // Review H3: a failure routed by its item re-opens the row, inconclusive, not fail.
+    assert!(v[0].starts_with("inconclusive (late failure"), "P5d {v:?}");
     assert!(v[1].starts_with("inconclusive"), "P5d {v:?}");
 }
 
@@ -1317,4 +1318,69 @@ Save file not found.",
     );
     assert_eq!(v[0], "pass", "{v:?}");
     assert!(v[1].starts_with("fail"), "{v:?}");
+}
+
+/// Review H3 (re-review probe PB4): T-01's own `prid` failure arrives late, in T-03's reply;
+/// T-02 (`help`) spells the same item. The earliest request naming the item takes it, and
+/// T-01's pass is re-opened; T-02 keeps its pass.
+#[test]
+fn rx_pb4_a_late_failure_goes_to_the_earliest_request_naming_its_item() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "getpos y",
+        "getpos y
+Item 'KitKraftCrate' not found for parameter ObjectReferenceID.
+GetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "rx-pb4",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one(
+                "T-02",
+                "help KitKraftCrate 4",
+                Matcher::Contains,
+                "04001000",
+                None,
+            ),
+            one("T-03", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive (late failure"), "PB4 {v:?}");
+    assert_eq!(v[1], "pass", "PB4 {v:?}");
+    assert!(v[2].starts_with("inconclusive"), "PB4 {v:?}");
+}
+
+/// PB3: a one-letter item matches only a whole word, and never fails a passed row.
+#[test]
+fn rx_pb3_a_short_item_matches_a_whole_word_and_never_fails_a_pass() {
+    let c = console();
+    c.answer(
+        "getpos y",
+        "getpos y
+Item 'X' not found for parameter Axis.
+GetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "rx-pb3",
+        &c,
+        vec![
+            one("T-01", "getpos x", Matcher::Number, "-17.1", Some(0.5)),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert!(
+        !v[0].starts_with("fail") && !v[0].starts_with("pass"),
+        "PB3 {v:?}"
+    );
+    assert!(v[1].starts_with("inconclusive"), "PB3 {v:?}");
 }
