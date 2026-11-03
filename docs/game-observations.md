@@ -708,12 +708,16 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
 - Request (session lane): read the Papyrus log again at the end of the session for any
   `papyrus-log` step that was inconclusive at row time.
 
-**T-20 (pack-in reference) is a real `fail` of the plan's expectation.**
+**T-20 (pack-in reference) is a real `fail`; its cause is open.**
 
 - `prid 09001009` with `getisid 09001003` answered `GetIsID >> 0.00` with a real number.
-  The placed PKIN reference does not report the PKIN as its base in game.
-- Finding for `kit testplan`: a pack-in reference needs another check than `getisid` on the
-  PKIN.
+  The reference was selected (T-19's `GetDistance >> 0.25`, T-21's x -23.00), and the
+  answer is its own, labelled. The same in T04 and in the re-grade T10 (`game-20261103-08`).
+- Request (testplan, `handlers/testplan.rs`): nothing observed separates two causes:
+  testplan expects the wrong base for a placed PKIN reference, or the game does not base a
+  placed PKIN reference on the PKIN as KitKraft wrote it. A check that tells them apart
+  (for example `getisid` on the PKIN's contents, or `help` on the reference's base) is
+  needed before the row is fixed. M5.D7 is blocked on it.
 
 **The rest.**
 
