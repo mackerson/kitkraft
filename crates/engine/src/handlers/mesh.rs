@@ -540,6 +540,11 @@ const GEOMETRY_ID: &str = "mesh.geometry";
 /// with a limitation line (V5). The largest official model's first slots hold fewer.
 pub(crate) const MAX_GEOMETRY_VERTICES: usize = 2_000_000;
 
+/// Most indices one reply carries (review M2): with [`MAX_GEOMETRY_VERTICES`] this bounds
+/// the raw buffers at 72 MB (24 bytes a vertex, 4 an index). The largest official model's
+/// first slots hold 3,647,352 indices and 1,485,580 vertices (study test, 2026-11-02).
+pub(crate) const MAX_GEOMETRY_INDICES: usize = 6_000_000;
+
 /// Largest `.mesh` read, in bytes (the largest official one is under 64 MiB).
 const MAX_MESH_BYTES: u64 = 256 << 20;
 
@@ -605,6 +610,7 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
     let mut normals: Vec<u8> = Vec::new();
     let mut indices: Vec<u8> = Vec::new();
     let mut vertices = 0usize;
+    let mut index_total = 0usize;
     let mut parts = Vec::new();
     let mut skipped = 0usize;
     for g in &mb.geometries {
@@ -635,6 +641,14 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
             continue;
         };
         let nv = usize::try_from(first.vertex_count).unwrap_or(usize::MAX);
+        let ni = usize::try_from(first.index_count).unwrap_or(usize::MAX);
+        if index_total.saturating_add(ni) > MAX_GEOMETRY_INDICES {
+            limitations.push(format!(
+                "block {block}: {entry} skipped: its {ni} indices would pass the {MAX_GEOMETRY_INDICES}-index budget"
+            ));
+            skipped = skipped.saturating_add(1);
+            continue;
+        }
         if vertices.saturating_add(nv) > MAX_GEOMETRY_VERTICES {
             limitations.push(format!(
                 "block {block}: {entry} skipped: its {nv} vertices would pass the {MAX_GEOMETRY_VERTICES}-vertex budget"
@@ -697,6 +711,7 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
             "index_count": mesh.indices.len(),
         }));
         vertices = vertices.saturating_add(nv);
+        index_total = index_total.saturating_add(mesh.indices.len());
     }
     if mb.geometries.is_empty() {
         limitations.push("the model has no geometry block: no triangles".to_string());

@@ -48,6 +48,22 @@ fn prefix(out: &mut Vec<u8>, name: u32, t: [f32; 3]) {
 /// A model: block 0 an `NiNode` moved by `node_t` holding `geoms`, each a `BSGeometry`
 /// with a bound (sphere, box) and an optional skin (block types: `NiNode`, `BSGeometry`,
 /// `BSSkin::Instance`; a skin points at a trailing `BSSkin::Instance` block).
+/// [`nif`] with `n` boxed geometry blocks whose first slots claim `indices` and
+/// `vertices`.
+fn nif_with_counts(node_t: [f32; 3], n: usize, indices: u32, vertices: u32) -> Vec<u8> {
+    let mut out = nif(node_t, &vec![BOXED; n]);
+    // Every slot of `nif` says (3, 3, 64): rewrite the counts in place.
+    let pat = [3u8, 0, 0, 0, 3, 0, 0, 0, 64, 0, 0, 0];
+    let mut i = 0;
+    while let Some(p) = out[i..].windows(12).position(|w| w == pat) {
+        let at = i + p;
+        out[at..at + 4].copy_from_slice(&indices.to_le_bytes());
+        out[at + 4..at + 8].copy_from_slice(&vertices.to_le_bytes());
+        i = at + 12;
+    }
+    out
+}
+
 fn nif(node_t: [f32; 3], geoms: &[([f32; 4], [f32; 6], bool)]) -> Vec<u8> {
     let types = ["NiNode", "BSGeometry", "BSSkin::Instance"];
     let n = geoms.len() as u32;
@@ -658,4 +674,75 @@ fn geometry_skips_skinned_blocks_whose_frame_the_study_does_not_show() {
         out.coverage.status,
         crate::envelope::CoverageStatus::Partial
     ));
+}
+
+/// A 3-vertex mesh whose index list repeats the triangle `n` times.
+fn repeated_triangle_mesh(n: usize) -> Vec<u8> {
+    let base = triangle_mesh(1.0);
+    let mut out = Vec::new();
+    u32s(&mut out, &[2, (3 * n) as u32]);
+    for _ in 0..n {
+        for i in [0u16, 1, 2] {
+            out.extend_from_slice(&i.to_le_bytes());
+        }
+    }
+    // The rest of the triangle mesh after its 3 indices (8 + 6 bytes).
+    out.extend_from_slice(&base[14..]);
+    out
+}
+
+#[test]
+fn geometry_budgets_indices_as_well_as_vertices() {
+    // Review M2 (M7.S5 code): 20 blocks naming a 3-vertex mesh of 300,000 indices made
+    // a 32 MB reply with coverage Complete. With the index budget, the 21st block of
+    // such a model is skipped and named, and coverage is Partial.
+    let names: Vec<String> = (0..21)
+        .map(|k| format!("geometries\\test\\mesh{k}.mesh"))
+        .collect();
+    let big = repeated_triangle_mesh(100_000);
+    let meshes: Vec<(&str, Vec<u8>)> = names.iter().map(|n| (n.as_str(), big.clone())).collect();
+    let data = dir("mesh-geometry-budget").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    // Each slot says 300,000 indices and 3 vertices, as the mesh holds.
+    let model = nif_with_counts([0.0; 3], 21, 300_000, 3);
+    let mut files: Vec<(&str, Vec<u8>)> = vec![("meshes\\test\\tri.nif", model)];
+    files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["index_count"], 6_000_000);
+    let l = out.limitations.join("\n");
+    assert!(l.contains("block 21") && l.contains("index budget"), "{l}");
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}
+
+#[test]
+fn geometry_skips_a_mesh_past_the_vertex_budget_and_one_whose_counts_disagree() {
+    // Review L6: the vertex budget and the count check, each with its own line.
+    let data = dir("mesh-geometry-counts").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    // Block 1 claims 2,000,001 vertices; block 2 claims 4 vertices of a 3-vertex mesh.
+    let mut model = nif_with_counts([0.0; 3], 2, 3, 2_000_001);
+    let at = model
+        .windows(12)
+        .rposition(|w| w == [3, 0, 0, 0, 0x81, 0x84, 0x1e, 0, 64, 0, 0, 0])
+        .unwrap();
+    model[at + 4..at + 8].copy_from_slice(&4u32.to_le_bytes());
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    let l = out.limitations.join("\n");
+    assert!(l.contains("vertex budget"), "{l}");
+    assert!(l.contains("are not the mesh's"), "{l}");
+    assert_eq!(out.data["vertex_count"], 0);
 }

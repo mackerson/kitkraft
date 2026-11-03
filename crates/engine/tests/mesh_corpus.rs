@@ -309,6 +309,7 @@ fn u32_at(b: &[u8], p: usize) -> Option<u32> {
 /// why the block's bytes do not fit.
 fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Result<(), String> {
     let nif = Nif::parse(bytes).map_err(|e| e.to_string())?;
+    let (mut model_indices, mut model_vertices) = (0u64, 0u64);
     for i in 0..nif.blocks.len() {
         // A geometry block that does not decode is a failure, never skipped (review L1).
         let g = match nif.geometry(i) {
@@ -352,6 +353,10 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
             let path = bytes.get(p..p + len).ok_or("short path")?;
             p += len;
             *g1.path_lengths.entry(len).or_default() += 1;
+            if slot == 0 {
+                model_indices += u64::from(first);
+                model_vertices += u64::from(second);
+            }
             out.push((
                 mesh_entry(&String::from_utf8_lossy(path)),
                 Slot {
@@ -381,6 +386,8 @@ fn slots_of(bytes: &[u8], out: &mut Vec<(String, Slot)>, g1: &mut G1Tally) -> Re
             ));
         }
     }
+    g1.max_model_indices = g1.max_model_indices.max(model_indices);
+    g1.max_model_vertices = g1.max_model_vertices.max(model_vertices);
     Ok(())
 }
 
@@ -390,6 +397,10 @@ struct G1Tally {
     blocks: u64,
     patterns: std::collections::BTreeMap<String, u64>,
     path_lengths: std::collections::BTreeMap<usize, u64>,
+    /// The largest per-model sums of the first slots' counts (for `mesh.geometry`'s
+    /// budgets).
+    max_model_indices: u64,
+    max_model_vertices: u64,
 }
 
 /// A `.mesh` walked as claims M1 to M6 describe it.
@@ -778,6 +789,12 @@ fn every_official_mesh_matches_the_layout_study() {
         "M5, M6"
     );
     assert_eq!(t.scale_bad, 0, "M2: every scale finite and positive");
+    // No official model is cut by mesh.geometry's budgets (MAX_GEOMETRY_INDICES and
+    // MAX_GEOMETRY_VERTICES in handlers/mesh.rs: 6,000,000 and 2,000,000).
+    assert_eq!(
+        (g1.max_model_indices, g1.max_model_vertices),
+        (3_647_352, 1_485_580)
+    );
     assert_eq!(
         t.sphere_ok, t.sphere_checked,
         "M2: a sphere-only geometry's first mesh lies inside its sphere"
