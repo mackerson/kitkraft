@@ -338,13 +338,15 @@ impl App {
             None => {}
         }
 
-        // The edit dialog (M7.W3), read-only.
+        // The edit dialog (M7.W3; its field edits, M7.E2): what its buttons ask for, and
+        // the `schema` request a type without a layout needs, once.
+        let mut dialog_actions = Vec::new();
         let mut schema_req = None;
         if self.shell.is_open(WindowKind::EditDialog) {
             let kind = WindowKind::EditDialog;
             let title = match self.records.record_view.as_ref() {
                 Some(r) if !r.signature.is_empty() => {
-                    format!("{} {} (read-only)", r.signature, r.editor_id)
+                    format!("{} {}", r.signature, r.editor_id)
                 }
                 _ => kind.title().to_string(),
             };
@@ -366,9 +368,17 @@ impl App {
                     default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
-                |ui| schema_req = d.ui(ui, record),
+                |ui| dialog_actions = d.ui(ui, record),
             );
+            schema_req = self
+                .records
+                .record_view
+                .as_ref()
+                .map(|r| r.signature.clone())
+                .filter(|s| !s.is_empty())
+                .and_then(|sig| self.shell.dialog.schema_request(&sig));
         }
+        actions.append(&mut dialog_actions);
         if let Some(req) = schema_req {
             let sig = req
                 .args
