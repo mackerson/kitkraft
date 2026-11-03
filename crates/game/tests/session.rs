@@ -698,3 +698,59 @@ fn the_ready_deadline_covers_the_window_and_the_settle() {
     );
     std::fs::remove_dir_all(&f.root).unwrap();
 }
+
+/// Ruling R20 (2026-11-03-T02/T03): a getter that answers with only its echo is sent again
+/// after a pause; still only the echo after three tries is inconclusive, never a fail. An
+/// answer that arrives on a retry is judged as usual.
+#[test]
+fn an_echo_only_answer_is_retried_then_inconclusive() {
+    let f = fixture("echo");
+    let c = console();
+    c.answer(
+        "help KitKraftEcho",
+        "help KitKraftEcho 4\nCommand: help KitKraftEcho 4",
+    );
+    c.answer_in_turn(
+        "getpos x",
+        &[
+            "getpos x\nCommand: getpos x",
+            "getpos x\nCommand: getpos x\nGetPos: X >> -17.10",
+        ],
+    );
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T11");
+    p.probes.probes = vec![
+        probe(
+            "T-01",
+            false,
+            vec![step(
+                "help KitKraftEcho 4",
+                Some(Matcher::Contains),
+                "04001000",
+                None,
+            )],
+        ),
+        probe(
+            "T-02",
+            false,
+            vec![step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5))],
+        ),
+    ];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    assert!(
+        v[0].starts_with(
+            "inconclusive (`help KitKraftEcho 4` answered with only its echo, 3 time(s)"
+        ),
+        "{v:?}"
+    );
+    assert_eq!(v[1], "pass", "{v:?}");
+    let sent = c.received();
+    assert_eq!(
+        sent.iter()
+            .filter(|x| x.starts_with("help KitKraftEcho"))
+            .count(),
+        3
+    );
+    assert_eq!(sent.iter().filter(|x| x.as_str() == "getpos x").count(), 2);
+    std::fs::remove_dir_all(&f.root).unwrap();
+}

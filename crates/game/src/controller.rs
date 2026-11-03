@@ -36,12 +36,16 @@ use crate::backup::{self, Backup, Change, Digest};
 use crate::console::{Console, ConsoleError};
 use crate::host::{is_running, Host, Launched};
 use crate::ledger::{self, Entry, RowReport};
-use crate::probes::{clip, console_failure, judge, Probe, ProbeFile, Verdict};
+use crate::probes::{clip, console_failure, echo_only, judge, Matcher, Probe, ProbeFile, Verdict};
 use crate::profile::{fill, GameProfile, Timeouts};
 
 /// Commands the controller never sends: a batch file would bypass the save rules, and the
 /// others write the INIs or quit on their own.
 pub const REFUSED_COMMANDS: &[&str] = &["bat", "saveini", "qqq", "quitgame"];
+
+/// The pause before a getter that answered with only its echo is sent again (doubled on
+/// the second retry).
+pub const ECHO_RETRY_PAUSE: Duration = Duration::from_secs(2);
 
 /// Everything one session needs, decided before it starts (the dry run prints it).
 #[derive(Debug, Clone)]
@@ -595,7 +599,41 @@ impl Run<'_> {
             }
             report.commands.push(cmd.clone());
             match self.deps.console.run(&cmd, left) {
-                Ok(out) => {
+                Ok(first) => {
+                    // An answer with only the echo has no result to judge: wait and send
+                    // the getter again, at most twice; still only the echo is
+                    // inconclusive, never a fail (ruling R20; 2026-11-03-T02/T03).
+                    let checks = step.matcher.is_some_and(|m| m != Matcher::PapyrusLog);
+                    let mut out = first;
+                    let mut tries = 1u32;
+                    while checks && echo_only(&cmd, &out) && tries < 3 {
+                        // Never more than a quarter of what is left of the row's deadline.
+                        let left = deadline.saturating_sub(started.elapsed());
+                        let pause = ECHO_RETRY_PAUSE
+                            .saturating_mul(tries)
+                            .min(left.checked_div(4).unwrap_or_default());
+                        if pause < Duration::from_millis(50) || self.shared.stop_requested() {
+                            break;
+                        }
+                        seen.push(format!(
+                            "{cmd} -> (only the echo; again in {} ms)",
+                            pause.as_millis()
+                        ));
+                        std::thread::sleep(pause);
+                        let left = deadline.saturating_sub(started.elapsed());
+                        match self.deps.console.run(&cmd, left) {
+                            Ok(again) => out = again,
+                            Err(_) => break,
+                        }
+                        tries = tries.saturating_add(1);
+                    }
+                    if checks && echo_only(&cmd, &out) {
+                        seen.push(format!("{cmd} -> {}", clip(&out, 120)));
+                        verdicts.push(Verdict::Inconclusive(format!(
+                            "`{cmd}` answered with only its echo, {tries} time(s): no result to judge (a timing anomaly, R20)"
+                        )));
+                        continue;
+                    }
                     seen.push(format!("{cmd} -> {}", clip(&out, 120)));
                     let failure = console_failure(&cmd, &out);
                     if let Some(line) = &failure {
