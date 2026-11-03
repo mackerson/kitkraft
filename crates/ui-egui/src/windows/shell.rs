@@ -106,6 +106,12 @@ impl App {
         if let Some(p) = pick {
             self.ck_pick(p);
         }
+        // M7.M5: the catalog's shortcuts (KitKraft's own keys; the CK's are unobserved).
+        if self.tour.is_none() {
+            if let Some(p) = menu::pressed(ui.ctx(), &menus) {
+                self.ck_pick(p);
+            }
+        }
     }
 
     /// What a menu pick does: a tab, a window, the editor's form for a write, or a tab

@@ -540,6 +540,83 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
     }
 }
 
+/// Keys the window keeps for itself, which no catalog shortcut may take (M7.M5's conflict
+/// check): egui's text editing (copy, cut, paste, select all, undo, redo) and its zoom keys,
+/// and the Render Window's fly keys (`crate::viewport::BINDINGS`: W A S D while it has
+/// focus).
+pub const RESERVED_KEYS: &[&str] = &[
+    "Ctrl+C",
+    "Ctrl+X",
+    "Ctrl+V",
+    "Ctrl+A",
+    "Ctrl+Z",
+    "Ctrl+Y",
+    "Ctrl+Shift+Z",
+    "Ctrl+Plus",
+    "Ctrl+Equals",
+    "Ctrl+Minus",
+    "Ctrl+0",
+    "W",
+    "A",
+    "S",
+    "D",
+];
+
+/// A catalog shortcut (`Ctrl+O`, `Ctrl+Shift+S`, `Enter`, `F7`) as egui's shortcut:
+/// `Ctrl` is the platform's command key; `None` for a text it cannot read.
+pub fn parse_shortcut(text: &str) -> Option<egui::KeyboardShortcut> {
+    let mut modifiers = egui::Modifiers::NONE;
+    let mut parts: Vec<&str> = text.split('+').map(str::trim).collect();
+    let key = parts.pop().filter(|k| !k.is_empty())?;
+    for m in parts {
+        match m.to_ascii_lowercase().as_str() {
+            "ctrl" | "cmd" => modifiers |= egui::Modifiers::COMMAND,
+            "shift" => modifiers |= egui::Modifiers::SHIFT,
+            "alt" => modifiers |= egui::Modifiers::ALT,
+            _ => return None,
+        }
+    }
+    let key = match key {
+        "Plus" => egui::Key::Plus,
+        "Equals" => egui::Key::Equals,
+        "Minus" => egui::Key::Minus,
+        k => egui::Key::from_name(k)?,
+    };
+    Some(egui::KeyboardShortcut::new(modifiers, key))
+}
+
+/// The catalog's shortcuts as the window binds them (M7.M5, mechanism first): each catalog
+/// item that has one, with what it opens or why it is disabled. These are KitKraft's own
+/// keys; the CK's accelerator keys are not observed yet (sitting 1, S1-06).
+pub fn bindings(menus: &[Menu]) -> Vec<(egui::KeyboardShortcut, &MenuItem)> {
+    menus
+        .iter()
+        .flat_map(|m| m.items.iter())
+        .filter(|i| i.catalog)
+        .filter_map(|i| Some((parse_shortcut(i.shortcut?)?, i)))
+        .collect()
+}
+
+/// The pick a pressed catalog shortcut asks for, consuming the key: only an enabled item's
+/// (a disabled one leaves the key alone), and a key without Ctrl or Alt only while no
+/// widget has the keyboard (so Enter in a text field stays the field's). Never in the tour.
+pub fn pressed(ctx: &egui::Context, menus: &[Menu]) -> Option<MenuPick> {
+    let typing = ctx.memory(|m| m.focused().is_some());
+    for (sc, item) in bindings(menus) {
+        let Ok(target) = &item.target else {
+            continue;
+        };
+        let bare = !sc.modifiers.command && !sc.modifiers.ctrl && !sc.modifiers.alt;
+        if bare && typing {
+            continue;
+        }
+        if ctx.input_mut(|i| i.consume_shortcut(&sc)) {
+            return Some(MenuPick::Open(*target));
+        }
+    }
+    None
+}
+
 /// A disabled item's reason in one or two words, shown beside it.
 pub fn short_reason(why: &str) -> &'static str {
     let why = why.trim_start_matches("KitKraft: ");
@@ -1421,5 +1498,84 @@ mod tests {
         // The rows of the next section are not read; an empty table is a problem.
         assert_eq!(interface_rows(&fixture("")).len(), 4);
         assert!(!parity_problems("# no table", FIXTURE_OBSERVATIONS, &has).is_empty());
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod shortcut_tests {
+    use super::*;
+
+    #[test]
+    fn shortcuts_parse_as_egui_reads_them() {
+        let o = parse_shortcut("Ctrl+O").unwrap();
+        assert_eq!(
+            (o.modifiers, o.logical_key),
+            (egui::Modifiers::COMMAND, egui::Key::O)
+        );
+        let s = parse_shortcut("Ctrl+Shift+S").unwrap();
+        assert!(s.modifiers.command && s.modifiers.shift);
+        assert_eq!(
+            parse_shortcut("Enter").unwrap().logical_key,
+            egui::Key::Enter
+        );
+        assert_eq!(parse_shortcut("F7").unwrap().logical_key, egui::Key::F7);
+        for bad in ["", "Ctrl+", "Hyper+K", "Ctrl+Nope"] {
+            assert!(parse_shortcut(bad).is_none(), "{bad}");
+        }
+        for r in RESERVED_KEYS {
+            assert!(parse_shortcut(r).is_some(), "{r}");
+        }
+    }
+
+    /// M7.M5 (mechanism first): every catalog shortcut is bound (it parses and its item is
+    /// the binding), one test row per binding.
+    #[test]
+    fn every_catalog_shortcut_is_bound() {
+        let menus = build(gate::catalog());
+        let bound = bindings(&menus);
+        for spec in gate::catalog().iter().filter(|s| s.shortcut.is_some()) {
+            let text = spec.shortcut.unwrap();
+            let sc = parse_shortcut(text).unwrap_or_else(|| panic!("{}: `{text}`", spec.id));
+            let hits: Vec<&str> = bound
+                .iter()
+                .filter(|(b, _)| *b == sc)
+                .map(|(_, i)| i.id)
+                .collect();
+            assert_eq!(hits, [spec.id], "{} ({text})", spec.id);
+        }
+        assert_eq!(
+            bound.len(),
+            gate::catalog()
+                .iter()
+                .filter(|s| s.shortcut.is_some())
+                .count()
+        );
+    }
+
+    /// M7.M5's conflict check: no two catalog commands share a key, and none takes a key
+    /// the window keeps (text editing, zoom, the Render Window's fly keys).
+    #[test]
+    fn no_shortcut_conflicts() {
+        let keys: Vec<(egui::KeyboardShortcut, &str)> = gate::catalog()
+            .iter()
+            .filter_map(|s| Some((parse_shortcut(s.shortcut?)?, s.id)))
+            .collect();
+        for (i, (a, id)) in keys.iter().enumerate() {
+            for (b, other) in keys.iter().skip(i + 1) {
+                assert_ne!(a, b, "`{id}` and `{other}` share a key");
+            }
+            for r in RESERVED_KEYS {
+                assert_ne!(
+                    *a,
+                    parse_shortcut(r).unwrap(),
+                    "`{id}` takes the window's {r}"
+                );
+            }
+        }
+        // The fly keys are the viewport's, as it lists them.
+        assert!(crate::viewport::BINDINGS
+            .iter()
+            .any(|(what, keys)| *what == "fly" && keys.starts_with("W A S D")));
     }
 }

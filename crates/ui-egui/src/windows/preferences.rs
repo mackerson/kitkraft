@@ -9,7 +9,8 @@
 //! labels here are KitKraft's own until that sitting, and the window says so. It will be laid
 //! out as the CK's dialog where the settings correspond. File > Preferences... (an observed
 //! item whose row is a `gap:`) stays disabled until its row maps to this window. The shortcuts
-//! are the catalog's, shown and not bound (M7.M5).
+//! are the catalog's own, bound by the shell (M7.M5, mechanism first); the CK's keys are
+//! not observed (sitting 1's S1-06: the accelerators were not exposed to UI Automation).
 
 use eframe::egui::{self, ScrollArea};
 
@@ -168,7 +169,9 @@ impl PreferencesState {
         theme::gap(ui);
 
         ui.strong("Shortcuts");
-        ui.weak("the catalog's, shown in the menus; not bound yet (M7.M5)");
+        ui.weak(
+            "the catalog's own, shown in the menus and bound in the window (M7.M5, mechanism first); the CK's keys are not observed yet, so none of these claims to be the CK's",
+        );
         ScrollArea::vertical()
             .id_salt("preferences-shortcuts")
             .max_height(theme::view_height(ui, View::Short))

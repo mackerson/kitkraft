@@ -682,3 +682,85 @@ fn new_clone_and_duplicate_open_the_editors_forms() {
         ("new".to_string(), String::new())
     );
 }
+
+// ---- the catalog's shortcuts (M7.M5, mechanism first) ---------------------------------------
+
+/// M7.M5: each catalog shortcut does what its menu item does (the item's own target, so it
+/// follows the menu and the gate); a disabled item's key does nothing; a bare key (Enter)
+/// waits while a text field has the keyboard.
+#[test]
+fn the_catalog_shortcuts_open_what_their_items_open() {
+    use egui::{Key, Modifiers};
+    let Some(mut h) = workbench() else { return };
+    let menus = crate::menu::build(crate::gate::catalog());
+    let target = |id: &str| {
+        menus
+            .iter()
+            .flat_map(|m| m.items.iter())
+            .find(|i| i.catalog && i.id == id)
+            .map(|i| i.target.clone())
+            .unwrap()
+    };
+    let shown = |h: &Bench| {
+        (
+            h.state().app.tab,
+            h.state().app.shell.is_open(WindowKind::DataDialog),
+        )
+    };
+    for (id, mods, key) in [
+        ("query", Modifiers::COMMAND, Key::F),
+        ("validate", Modifiers::NONE, Key::F7),
+        ("load", Modifiers::COMMAND, Key::O),
+        ("inspect", Modifiers::NONE, Key::Enter),
+    ] {
+        open_tab(&mut h, Tab::Start);
+        h.key_press_modifiers(mods, key);
+        h.run_steps(3);
+        match target(id) {
+            Ok(crate::menu::Target::Tab(label)) => {
+                assert_eq!(
+                    h.state().app.tab.name(),
+                    label,
+                    "`{id}`'s key shows {label}"
+                )
+            }
+            Ok(crate::menu::Target::Window(kind)) => {
+                assert!(
+                    h.state().app.shell.is_open(kind),
+                    "`{id}`'s key opens {kind:?}"
+                );
+                h.state_mut().app.shell.set_open(kind, false);
+            }
+            other => panic!("`{id}`: {other:?}"),
+        }
+    }
+    // Ctrl+B is `build`'s: enabled only when the gate permits it.
+    open_tab(&mut h, Tab::Start);
+    let before = shown(&h);
+    h.key_press_modifiers(Modifiers::COMMAND, Key::B);
+    h.run_steps(3);
+    if crate::gate::permitted("build").is_none() {
+        assert_eq!(shown(&h), before, "a disabled item's key does nothing");
+        assert!(!visible_text(&h).contains("`build`"));
+    }
+    // Enter while a text field has the keyboard stays the field's.
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::Preferences)]);
+    h.run_steps(3);
+    let field: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("KitKraft checkout:")
+        })
+        .collect();
+    field[0].focus();
+    h.run_steps(2);
+    h.key_press(Key::Enter);
+    h.run_steps(3);
+    assert_eq!(
+        h.state().app.tab,
+        Tab::Start,
+        "Enter in a text field is the field's"
+    );
+}

@@ -540,11 +540,20 @@ revisited once a sitting observes how the CK docks. Code:
   same), the zoom (Zoom out, Zoom in by a tenth between 50 % and 200 %, Reset zoom; applied
   on the next start too), the paths it remembers (the MO2 instance and the profile, set from
   the Start tab; the KitKraft checkout the Help tab reads, with "Use This Checkout"), and the
-  catalog's shortcuts (shown, not bound: M7.M5). The layout and labels are KitKraft's own:
+  catalog's shortcuts (bound in the window: M7.M5, below). The layout and labels are KitKraft's own:
   the CK's Preferences dialog is not observed yet (its parity row is `unresearched`; sitting
   1's step S1-08), and the window says so; it is laid out as the CK's where the settings
   correspond once a sitting has seen it. File > Preferences... stays disabled until its
   parity row maps to this window.
+- **Shortcuts (M7.M5, mechanism first)**: the catalog's own keys are bound in the window
+  (Ctrl+O, Ctrl+F, Ctrl+B, F7, Enter): a key does what its menu item does, and only when the
+  item is enabled (so Ctrl+B waits on the gate permitting `build`); a key without Ctrl or Alt
+  (Enter) waits while a text field has the keyboard; none is bound in the screenshot tour. No
+  catalog key takes one the window keeps (egui's text editing and zoom keys, the Render
+  Window's W A S D), and no two commands share one (`menu::shortcut_tests`). These are
+  KitKraft's keys, not the CK's: the CK's accelerator keys were not observed (they were not
+  exposed to UI Automation; sitting 1, S1-06), so no binding claims CK parity and the parity
+  rows are unchanged.
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
