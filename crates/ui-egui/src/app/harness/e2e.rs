@@ -22,8 +22,9 @@ use crate::windows::WindowKind;
 struct Scratch(PathBuf);
 
 impl Scratch {
-    fn new() -> Self {
-        let dir = std::env::temp_dir().join(format!("kitkraft-ui-e2e-{}", std::process::id()));
+    fn new(tag: &str) -> Self {
+        let dir =
+            std::env::temp_dir().join(format!("kitkraft-ui-e2e-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
@@ -144,7 +145,7 @@ fn diff_counts(a: &str, b: &str) -> [Value; 3] {
 /// 0/0/0; the fixture's bytes are the same at the end.
 #[test]
 fn e2e_data_dialog_active_file_set_confirm_read_back_undo_and_diff() {
-    let s = Scratch::new();
+    let s = Scratch::new("set");
     let fixture = s.path("Fixture.esm");
     let fixture_bytes = std::fs::read(&fixture).unwrap();
     let patch = s.0.join("out").join("Patch.esp").display().to_string();
@@ -232,4 +233,313 @@ fn e2e_data_dialog_active_file_set_confirm_read_back_undo_and_diff() {
         fixture_bytes,
         "the fixture changed"
     );
+}
+
+// ---- wave 2: Duplicate from the Object Window, Place into the Cell View's cell, Undo -----
+
+/// Builds `World.esp` beside the fixture through the engine's own confirmed writes, as
+/// pipeline E's place tests do: a STAT `KkStat` (World.esp:001000) and an interior CELL
+/// `KkCell` (World.esp:001001) over `Fixture.esm`, and `Seed.esp` with one reference of
+/// KkStat in KkCell (so the Cell View lists the cell) and a STAT `KkSeedStat`. Returns
+/// (World.esp, Seed.esp).
+fn world(s: &Scratch) -> (String, String) {
+    use crate::dialogs::new;
+    let engine = ReadOnlyEngine::new();
+    let fixture = s.path("Fixture.esm");
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [fixture], "no_cache": true}),
+        ))
+        .unwrap();
+    let world = s.path("World.esp");
+    for (ty, edid) in [("STAT", "KkStat"), ("CELL", "KkCell")] {
+        let preview = new::preview_request(ty, edid, &world);
+        engine.run(&preview).unwrap();
+        engine.run(&new::write_request(&preview).unwrap()).unwrap();
+    }
+    // One reference in KkCell, so the Cell View lists the cell (its list comes from the
+    // cells' child records; a cell with none is not listed, `cell`'s limitation).
+    use crate::dialogs::place;
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [world], "no_cache": true}),
+        ))
+        .unwrap();
+    let seed = s.path("Seed.esp");
+    let preview = place::preview_request(STAT, CELL, [0.0, 0.0, 0.0], &seed);
+    engine.run(&preview).unwrap();
+    engine
+        .run(&place::write_request(&preview).unwrap())
+        .unwrap();
+    // A STAT of Seed.esp's own (KkSeedStat), the record the test duplicates: the active
+    // file then has Seed.esp, which holds KkCell's winning version, among its masters
+    // before the placement (`place` refuses to add a master to a file that has records
+    // of its own).
+    let preview = new::preview_request("STAT", "KkSeedStat", &seed);
+    engine.run(&preview).unwrap();
+    engine.run(&new::write_request(&preview).unwrap()).unwrap();
+    (world, seed)
+}
+
+/// The fixture world's base (KkStat) and its interior cell (KkCell).
+const STAT: &str = "World.esp:001000";
+const CELL: &str = "World.esp:001001";
+
+/// Types `text` into the box labelled `label`.
+fn type_into(h: &mut Bench, label: &str, text: &str) {
+    input(h, label, false).focus();
+    h.run_steps(2);
+    input(h, label, false).type_text(text);
+    h.run_steps(3);
+}
+
+/// Clicks the first node whose text is `text` (a list row).
+fn click_text(h: &mut Bench, text: &str) {
+    let count = h
+        .query_all_by(|n| text_of(n).as_deref() == Some(text))
+        .count();
+    assert!(count > 0, "no `{text}`\n{}", visible_text(h));
+    h.query_all_by(|n| text_of(n).as_deref() == Some(text))
+        .next()
+        .expect("checked above")
+        .click();
+    h.run_steps(2);
+    settle(h);
+}
+
+/// The Data dialog's active file, typed and used, as in the wave-1 check.
+fn choose_active_file(h: &mut Bench, path: &str) {
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::DataDialog)]);
+    h.run_steps(3);
+    settle(h);
+    input(h, "Active file path:", false).focus();
+    h.run_steps(1);
+    input(h, "Active file path:", false).type_text(path);
+    h.run_steps(2);
+    press(h, "Use This File");
+    press(h, "OK");
+    assert_eq!(h.state().app.active_file.as_deref(), Some(path));
+}
+
+/// The wave-2 end-to-end check (TRACK "Merge order per wave", wave 2): the Data dialog's
+/// active file -> the Object Window lists STAT -> Duplicate on KkStat (`clone`: Preview,
+/// confirm, the copy's EditorID read back) -> the Cell View shows KkCell and its place bar
+/// asks to place the inspected base there (`Action::PlaceInCell`) -> the Place form (a
+/// typed position, Preview with the carried CELL and "at (x, y, z)", confirm, the REFR's
+/// NAME and DATA read back) -> "Undo last write" on the placed reference is refused with
+/// its reason (the placement copied the CELL parent; M7.E4's design) and the file is
+/// unchanged -> the fixtures are unchanged.
+#[test]
+#[ignore = "integration finding (wave 2): steps 1-5 pass; step 6's Undo last write on the placed reference says `nothing to undo` because the edit dialog sends Patch.esp:001001 and the editor kept Patch.esp:00001001 (editor.rs start_undo compares the strings); un-ignore when pipeline E matches the two"]
+fn e2e_object_window_duplicate_cell_view_place_and_refused_undo() {
+    let s = Scratch::new("place");
+    let (world, seed) = world(&s);
+    let fixture = s.path("Fixture.esm");
+    let fixtures = [
+        (fixture.clone(), std::fs::read(&fixture).unwrap()),
+        (world.clone(), std::fs::read(&world).unwrap()),
+        (seed.clone(), std::fs::read(&seed).unwrap()),
+    ];
+    let patch = s.0.join("out").join("Patch.esp").display().to_string();
+    let Some(mut h) = workbench() else { return };
+    let load = Request::new("load", json!({"plugins": [world, seed], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+
+    // 1. The active file from the Data dialog.
+    choose_active_file(&mut h, &patch);
+
+    // 2. The Object Window lists STAT (its tree node, wheeled into view), and KkStat is
+    //    selected in its list.
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::ObjectWindow)]);
+    h.run_steps(3);
+    settle(&mut h);
+    let is_stat = |n: &egui_kittest::kittest::AccessKitNode<'_>| {
+        text_of(n).is_some_and(|t| t.starts_with("STAT ")) && n.toggled().is_some()
+    };
+    // Wheel the tree until the node lies inside the tree's own scroll area (below the
+    // category note, above the window's bottom edge), not only inside the viewport.
+    let inside = |r: egui::Rect| r.min.y > 300.0 && r.max.y < 560.0;
+    for _ in 0..200 {
+        let at = h
+            .query_all_by(is_stat)
+            .next()
+            .map(|n| n.rect())
+            .filter(|r| r.min.y.is_finite());
+        match at {
+            Some(r) if inside(r) => break,
+            Some(r) if r.min.y <= 300.0 => {
+                h.query_all_by(is_stat).next().unwrap().scroll_up();
+            }
+            _ => {
+                h.query_all_by(|n| text_of(n).as_deref() == Some("*All") || is_stat(n))
+                    .next()
+                    .unwrap()
+                    .scroll_down();
+            }
+        }
+        h.run_steps(10);
+    }
+    h.run_steps(30);
+    let stat = h.query_all_by(is_stat).next().unwrap();
+    assert!(inside(stat.rect()), "STAT node at {:?}", stat.rect());
+    stat.click();
+    h.run_steps(2);
+    settle(&mut h);
+    assert_in_view(&h, "KkSeedStat");
+    click_text(&mut h, "KkSeedStat");
+
+    // 3. Duplicate (`clone`): Preview writes nothing, the confirm writes the copy, and its
+    //    EditorID is read back from the active file.
+    press(&mut h, "Duplicate");
+    assert_in_view(&h, "Copy of");
+    type_into(&mut h, "EditorID", "KkSeedStatCopy");
+    press(&mut h, "Preview");
+    assert_in_view(&h, "as KkSeedStatCopy into Patch.esp");
+    assert!(!Path::new(&patch).exists(), "the preview wrote {patch}");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "written: the new form");
+    assert_in_view(&h, "Read back from Patch.esp");
+    let copy = std::fs::read(&patch).unwrap();
+    assert!(
+        copy.windows(15).any(|w| w == b"KkSeedStatCopy\0"),
+        "the copy's EditorID is not in the active file"
+    );
+
+    // The Duplicate form and its confirm box are closed (they float over the Cell View).
+    for _ in 0..3 {
+        let Some(close) = h
+            .query_all_by_label("Close")
+            .find(|n| n.accesskit_node().role() == egui::accesskit::Role::Button)
+        else {
+            break;
+        };
+        close.click();
+        h.run_steps(3);
+        settle(&mut h);
+    }
+    assert_absent(&h, "Copy of");
+
+    // 4. The Cell View shows KkCell; with KkStat inspected, its place bar asks to place it
+    //    there. The Object Window is closed first: it floats over the Cell View's list.
+    h.state_mut()
+        .app
+        .shell
+        .set_open(WindowKind::ObjectWindow, false);
+    h.run_steps(2);
+    // KkStat is inspected first (Records), the shared selection the place bar reads.
+    h.state_mut()
+        .app
+        .apply(vec![Action::Inspect(STAT.to_string())]);
+    settle(&mut h);
+    open_tab(&mut h, Tab::CellView);
+    click_text(&mut h, "Interior");
+    click_text(&mut h, "KkCell");
+    let bar: Vec<String> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::Button
+                && text_of(n).is_some_and(|t| t.starts_with("Place ") && t.ends_with(" here"))
+        })
+        .filter_map(|n| text_of(&n.accesskit_node()))
+        .collect();
+    assert_eq!(bar.len(), 1, "one place bar button\n{}", visible_text(&h));
+    let bar = bar.into_iter().next().expect("checked above");
+    press(&mut h, &bar);
+
+    // 5. The Place form: a typed position; Preview shows the carried CELL and the
+    //    position and writes nothing; the confirm writes the REFR, read back.
+    assert_in_view(&h, "Place Reference");
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    assert_in_view(&h, "Placed (dry run)");
+    assert_in_view(&h, "carries CELL");
+    assert_in_view(&h, "at (12.5, 0, 0)");
+    assert_eq!(std::fs::read(&patch).unwrap(), copy, "the preview wrote");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "placed: Patch.esp:");
+    assert_in_view(&h, "Read back from Patch.esp");
+    let placed = visible_text(&h)
+        .lines()
+        .find_map(|l| {
+            let at = l.find("placed: Patch.esp:")?;
+            l.get(at + "placed: ".len()..)?
+                .split(|c: char| c.is_whitespace() || c == ',' || c == ';' || c == ')')
+                .next()
+                .map(str::to_string)
+        })
+        .expect("the placed reference's formref");
+    let env = ReadOnlyEngine::new()
+        .run(&Request::new(
+            "inspect",
+            json!({"form": placed, "plugins": [world, seed, patch], "no_cache": true, "full": true}),
+        ))
+        .unwrap();
+    assert_eq!(env["data"]["signature"], json!("REFR"), "{env}");
+    let winner = &env["data"]["versions"][0];
+    assert_eq!(winner["plugin"], json!("Patch.esp"), "{env}");
+    let sub = |sig: &str| {
+        winner["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == json!(sig))
+            .cloned()
+            .unwrap_or_else(|| panic!("no {sig} in {env}"))
+    };
+    // NAME is the base, KkStat; DATA starts with the typed position (X, Y, Z as f32).
+    assert_eq!(sub("NAME")["value"]["form"], json!(STAT), "{env}");
+    let xyz: String = [12.5f32, 0.0, 0.0]
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .map(|b| format!("{b:02X}"))
+        .collect();
+    let data = sub("DATA")["payload_hex"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(data.starts_with(&xyz), "DATA {data}");
+
+    // 6. "Undo last write" on the placed reference is refused with its reason, and the
+    //    active file is unchanged.
+    let before = std::fs::read(&patch).unwrap();
+    // The placed reference lives only in the active file: load it too, so the Records
+    // inspector (and the edit dialog) can show it.
+    let load = Request::new(
+        "load",
+        json!({"plugins": [world, seed, patch], "no_cache": true}),
+    );
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    h.state_mut()
+        .app
+        .apply(vec![Action::Inspect(placed.clone())]);
+    h.state_mut()
+        .app
+        .shell
+        .set_open(WindowKind::EditDialog, true);
+    settle(&mut h);
+    press(&mut h, "Undo last write");
+    assert_in_view(&h, "undo refused");
+    assert_in_view(&h, "CELL");
+    assert_absent(&h, "Undo in Patch.esp");
+    assert_eq!(
+        std::fs::read(&patch).unwrap(),
+        before,
+        "the refused undo wrote"
+    );
+
+    // The fixtures are untouched.
+    for (path, bytes) in &fixtures {
+        assert_eq!(&std::fs::read(path).unwrap(), bytes, "{path} changed");
+    }
 }
