@@ -26,6 +26,7 @@ pub mod authorized;
 pub mod backup;
 pub mod console;
 pub mod controller;
+pub mod correlate;
 mod error;
 pub mod host;
 pub mod ledger;

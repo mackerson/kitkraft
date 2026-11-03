@@ -364,6 +364,29 @@ const FAILURE_LINES: &str = concat!(
     r#"|save\s+file\s+not\s+found[^\r\n]*)"#
 );
 
+/// Whether `output` holds nothing but the console's echo of `command` (the command line, or
+/// `Command: <command>`): no result to judge (2026-11-03-T02/T03: `help ...` and
+/// `player.getincell` right after a `coc` answered so, under build load).
+pub fn echo_only(command: &str, output: &str) -> bool {
+    let command = command.trim();
+    // An empty answer is no output at all, judged as such, not an echo.
+    output.lines().any(|l| !l.trim().is_empty())
+        && output.lines().map(str::trim).all(|line| {
+            line.is_empty()
+                || line.eq_ignore_ascii_case(command)
+                || line
+                    .strip_prefix("Command:")
+                    .is_some_and(|rest| rest.trim().eq_ignore_ascii_case(command))
+                || line.strip_prefix(command).is_some_and(|rest| {
+                    let rest = rest.trim();
+                    rest.is_empty()
+                        || rest
+                            .strip_prefix("Command:")
+                            .is_some_and(|r| r.trim().eq_ignore_ascii_case(command))
+                })
+        })
+}
+
 /// The first console failure line in the answer `output` to `command`, trimmed: `Item
 /// 'X' not found for parameter ObjectReferenceID.`, `Script command "x" not found.`,
 /// `Save file not found.`. The command's own text (its echo and the `Command: <command>`
@@ -575,6 +598,41 @@ mod tests {
         bad_regex.probes[0].steps[1].matcher = Some(Matcher::Regex);
         bad_regex.probes[0].steps[1].expected = Some("(".into());
         assert!(bad_regex.check().is_err());
+    }
+
+    /// The echo-only answers of 2026-11-03-T02 and -T03, and answers that hold a result.
+    #[test]
+    fn an_answer_with_only_the_echo_is_told_apart() {
+        assert!(echo_only(
+            "help \"Old Soviet Marksman Rifle\" 4",
+            "help \"Old Soviet Marksman Rifle\" 4"
+        ));
+        assert!(echo_only(
+            "player.getincell 0006BB29",
+            "player.getincell 0006BB29
+Command: player.getincell 0006BB29
+"
+        ));
+        assert!(echo_only(
+            "player.getincell 0006BB29",
+            "player.getincell 0006BB29 Command: player.getincell 0006BB29"
+        ));
+        assert!(!echo_only("getpos x", ""), "no output is not an echo");
+        assert!(!echo_only(
+            "player.getincell 0006BB29",
+            "player.getincell 0006BB29
+Command: player.getincell 0006BB29
+GetInCell >> 1.00"
+        ));
+        assert!(!echo_only(
+            "getpos x",
+            "getpos x
+GetPos: X >> -17.00"
+        ));
+        assert!(!echo_only(
+            "help KitKraftCrate 4",
+            "REFR: KitKraftCrate (04001000)"
+        ));
     }
 
     #[test]

@@ -484,3 +484,110 @@ rows are one per menu, one per item, and the order row reworded as observed.
 | Not observed | The submenus' contents (none was opened in this sitting; Convert Active File to ... was, in `ck-20261101-03`); what any item does (none was invoked); the menus in other states (no data loaded beyond the probe's bar, an active file set) |
 | Result | Every item has a row in the ask below, as `observed` with this sitting as its source. The rows are the order row, reworded as observed; the eight existing menu rows, `unresearched` to `observed`; four new menu rows (Docks, Galaxy, Terrain, Audio); and 133 `menu item` rows, each mapped to a catalog id or to `gap:` with its reason |
 | Filed | The parity rows and `CK_MENU_ORDER` are an ask to the integrator's menu-sync seam commit (sprint 2026-11-02, report `x-M7.K3`). Then M7.M1 (the bar's items mapped) and M7.K5 (the test over the `menu item` rows) build on them |
+
+### ck-20261102-02: M7.O2, CK interface sitting 1 rest, agent-run (observation only)
+
+This is the first sitting run by the frame and steps file of "Interface sittings (M7.K2)":
+`ck-run.ps1` with `steps-sitting1-rest.ps1`, `-SaveAllowed` not given. It ran on
+2026-11-02, from 21:57 to 22:19, through MO2 on `Kitkraft Dev`. I checked the foreground
+first: the owner's game had exited at 21:56.
+
+The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting1-rest\` (D9):
+`session.md`, `preflight.json`, `ck-title.txt`, `shots\`, one dump per state, and
+`settings-before\`. It is gitignored and outside the repo.
+
+**Earlier attempts.** Attempts 1 to 4 sit beside it, in `sitting1-rest-attempt1` to
+`-attempt4`. They stopped on faults in the driver, not in the CK:
+
+1. A reader held the log, and the runner died before its clean-up.
+2. ExpandCollapse is not offered on a menu-bar item.
+3. The Data dialog was not found among the desktop's children.
+4. Every probe passed, but the menu dumps were empty: their items were looked for in the
+   wrong place.
+
+Each fault was fixed in the scripts before the next attempt. After attempts 2 to 4 the frame
+closed the CK and MO2 and restored the settings files with their hashes checked. Attempt 1's
+`session.md` stops at the launch line (the runner died on the locked log, `x6-run.err`): it
+left the CK's two settings files rewritten. When I found the runner dead the CK and MO2 were
+no longer running (process list checked; how they ended is not recorded), and I restored the
+files by hand. Attempt 2's backup hashes equal attempt 1's (`2c25a70f`, `3fbea763`), so the
+restore was exact.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261102-02` |
+| CK version | 1.16.244.0, read from the main window's title after the load (`ck-title.txt`). The exe's SHA-256 is in `preflight.json`; no version resource or content of it was read |
+| Data | File > Data...: `Starfield.esm` ticked by type-ahead and a double-click (the row found in a screenshot of the list), no active file, OK. Loaded in about 134 s (attempt 5), 127 s (attempt 4), per each `session.md` |
+| Postflight | `ok` in attempts 2 to 5. The settings files were restored with their hashes checked. The dev profile's list files and the `Default` profile's are unchanged, and nothing was written into `overwrite\` or a dev mod. Finding: MO2 rewrote `ModOrganizer.ini` (hash `44c936e8...` before attempt 1, different after it), which is MO2's own settings file and recorded only |
+| S1-04 submenus (12) | **inconclusive** after two attempts (attempts 4 and 5). The hovered item's submenu opens in the screenshots (`shots\s1-04-01..12.png`), but neither the hovered item's subtree nor any top-level popup holds a menu item in the UI Automation tree. Not counted (Amendment 2 decision 2). Request: an owner sitting, or reading the screenshots, for the submenus' items |
+| S1-05 Docks | **observed** (`s1-05-docks.txt`, `a1d84df3...b359bc1a`). The open menu's tree lists Save Current Layout, Save Layout as..., Recent Layouts, Manage Layouts..., Galaxy View, Picking Preferences. The screenshot shows these and a list of window entries with check marks (Object Windows, Render Windows, Warnings, Show/Hide, Cell View, Layers, Material Palette, Properties, Reflection Probe). The tree does not list those entries, so they are not counted. The entries differ from the 2026-11-01 screenshot's, so the list depends on which windows are open |
+| S1-06 accelerators | The 12 menus were dumped open (`s1-06-<menu>.txt`; File `f2ddfc7c...54898d2a`). Their items match `ck-20261102-01`: File 13, View 31, World 16, Terrain 8, NavMesh 8, Character 15, Gameplay 12, Audio 5, Help 4. The tree's Edit has 11 items and Galaxy 4, where `ck-20261101-01` had 12 and 5. Edit's Picking Preferences and Galaxy's Galaxy View are listed under Docks instead, so the two menus share those actions. The screenshot `shots\s1-06-Edit.png` still shows Picking Preferences at the foot of Edit, so the menu-sync rows for Edit stay backed. **No item has an accelerator key in the tree (0 of 133), so the shortcuts are not observed.** The screenshots show them, as on 2026-11-01. Request: an owner sitting, or reading the screenshots, for the shortcuts |
+| S1-06 Render Window Hotkeys | **observed in part** (`s1-06-hotkeys-notabs.txt`, `fdc0df55...373cd6c8`). Edit > Render Window Hotkeys opens a dialog titled "Render Window Hotkeys (RenderWindow[0])". It has a list of bindings, whose rows are not exposed (a Win32 list), a combo box (disabled), buttons Assign, Alt, Control, Shift, Revert (disabled until a row is chosen), and a Filter box. The dialog was closed through its window; no prompt appeared and the title was unchanged. The bindings themselves are **inconclusive**: the rows are not in the tree |
+| S1-07 camera | **not-run**. The unattended steps file does not attempt it, because the Cell View's rows are not exposed (`ck-20261101-03`). A Request for an agent-driven or owner run |
+| S1-08 Preferences | **observed in part**. File > Preferences... opens "Preferences", with buttons Apply and Close and a tab control whose tab names show in the screenshot only (the tree does not expose them: not counted). Two pages were dumped. **The page shown on opening** (attempt 4, `sitting1-rest-attempt4\s1-08-prefs-notabs.txt` `effeac6c...c2b165ff`, with its `.png`) holds camera and movement settings: Snap To Grid, Snap To Angle, World Gizmo Orientation, Select Snap Reference, Allow Single Axis Snap, Invert X, Invert Y, Zoom with 'V' key, Rotate camera around previous selection, Match slope when dragging, LH Mouse, Sensitivity Multiplier, Rotation Speed, Movement Speed, Zoom Speed, Pan Speed, Reference Movement, Camera Movement, Landscape Movement, Snap To Reference, Zoom Speed (Orthographic), Gizmo Size, Primitive Scale Speed, Arrow Speed, Indoor Cell Distance, Outdoor Cell Distance, Bendable Splines, Slackness Delta, Snap Distance, Snap Values, Space Overrides, Focus Multiplier, Angle Snaps, Volume Gizmo Handle Size. **The page a click on the first tab selects** (attempt 5, `sitting1-rest\s1-08-prefs-page01.txt` `2cb11427...61e574ca`, with its `.png`) holds Enable Shadows, Debug Mode, Texture debug, and the groups Enlighten and Visualize: Use Directional Irradiance, Use Albedo Map, UVs Checkerboard, Disable Enlighten Duster Visibility, Light Probes and Probes Explorer (Radiosity, Env. Visibility, None), Cubemaps Spheres, Cubemaps Boxes, Dusters. Ctrl+Tab did not change the page, so the other pages are **inconclusive**. The dialog was closed through its window (Apply was never pressed), with no prompt and an unchanged title |
+| S1-09 Object Window tree | **inconclusive** after two attempts. The category tree exposes no tree items (the screenshot shows it, as on 2026-11-01). A Request for the categories by screenshot or an owner sitting |
+| S1-10 Warnings | Dumped (`s1-10-warnings.txt`). Only the dock containers are in the tree to depth 6; the controls in the screenshot (Filter, Filter By: Current User, Current Plugin, columns Time/Type/Form, Export, Clear) are not counted. Nothing beyond `ck-20261101-01`'s columns is observed |
+| S1-11 context menu | **inconclusive** after two attempts. The Object Window's list exposes no rows to right-click |
+| S1-12 | The frame closed the CK through its window, with no prompt, then MO2 |
+| Counts | Observed: Docks (6 items), the 12 menus' items again (no accelerators), the Render Window Hotkeys dialog's controls, two Preferences pages. Inconclusive: 12 submenus, shortcuts, hotkey bindings, the other Preferences pages, the category tree, the context menu. Not-run: the camera (S1-07) |
+| Filed | `docs/ck-parity.md` rows "Preferences" and "Keyboard shortcuts, every one observed", in this change. The rest are Requests in the X6 hand-off: screenshot reading or an owner sitting for the submenus, shortcuts, hotkey bindings, the category tree and the camera |
+
+### ck-20261102-03: M7.O3, CK interface sitting 2, agent-run (observation only)
+
+The sitting ran `ck-run.ps1` with `steps-sitting2.ps1` (`# OBSERVE-ONLY`), through MO2 on
+`Kitkraft Dev`, 2026-11-02 from 22:29 to 22:37. Every dialog was closed with Cancel and none
+with OK. Nothing was saved.
+
+The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting2\`: `session.md`,
+`shots\`, one dump per dialog, and `settings-before\`.
+
+Attempt 1 (`sitting2-attempt1`, 22:23 to 22:28) stopped at S2-04 on a false STOP: the
+dialog had closed, but the check looked after 0.8 s. The frame did its job: the CK and MO2
+were closed, the settings were restored, and the postflight was ok. Attempt 1's WEAP
+dialog was the same Keyword as in both attempts of the counted run (`x7-run1.out` 22:27:29;
+no EditorID check yet in that run). Its data is not used.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261102-03` |
+| CK version | 1.16.244.0, from the title |
+| Data | `Starfield.esm` only, no active file; loaded in about 130 s |
+| How each dialog was opened | Object Window category "*All": a click into its tree, then End. The Text Filter box and the list were found as the Object Window's Win32 child windows, because UI Automation stops at its legacy host. The EditorID was typed into the Text Filter, and the list's first row double-clicked. A dialog counts only if its EditorID box shows the form's EditorID; otherwise it is closed and the attempt fails |
+| Dialog titles | AMMO "Ammo", COBJ "Constructible Object", LCTN "Location", TERM "Terminal", CONT "Container", STAT "Static", KYWD "Keyword" |
+| S2-01 WEAP `RussianHuntingRifle` | **inconclusive** after two attempts. The filter's first row was a Keyword, not the weapon, so the dialog that opened failed the EditorID check and was closed. Request: open the weapon by its own row, for example with the Weapon category selected |
+| S2-02 AMMO `Ammo9x39mm` (`s2-02-AMMO-notabs.txt` `3aeb46c6...27b8e2ab`, `shots\s2-02-AMMO-notabs.png`) | **observed**. Labels: ID, Name, Short name, Value, Model, Edit, Pickup Sound, Putdown Sound, Projectile, Damage, Description, Keywords, Preview Transform, Shell Casing, Health, Weight, Flags (Playable, Has Count Based 3D), Properties, Art, Sound, Add Destruction Data; OK, Cancel. No tab control |
+| S2-03 COBJ `co_ammo_777mm` (`s2-03-COBJ-notabs.txt` `f781b3c1...d9aa63d2`, `shots\s2-03-COBJ-notabs.png`) | **observed**. Labels: ID, Created Object, Created Object Count, Required Item List, List Contains Variants, Match Conditions, Workbench Keyword, Recipe Filters, Pickup Sound:, Putdown Sound:, Crafting Sound: (each with Select Audio Data), Priority, Menu Art Object, Description, Learned From, Base Return Scale Table, Extra Scrapping Items, Workbench Repair Recipe, Required Perks, Max Build Count, Value, Exclude From Workshop LOD, New; OK, Cancel. No tab control |
+| S2-04 LCTN `CityNewAtlantisLocation` (`s2-04-LCTN-page01.txt` `bb9d38db...14021870`, `-page02.txt`, `-page03.txt`; `shots\s2-04-LCTN-page01.png` to `-page03.png`) | **observed**. A three-tab control in the right pane, not page tabs of the dialog (`shots\s2-04-LCTN-page03.png`; the count is from the screenshot, `TCM_GETITEMCOUNT` only agreed with it; the tab names are in the screenshots only). The dump holds every page's controls on each page. Labels: ID, Name, Parent Location, Encounter Zone, World Location Marker Ref, Select Reference, Horse Marker Ref, Select Horse Marker, Music Type, Unreported Crime Faction, Actor Fade Mult, World Location Radius, Interior cells use ref location for world map player marker, Random Conversation Timer, Color (R, G, B, Select), Keywords, Actor Value, Amount, Base Actor Values, Encounter Leveling Data, Match PC Below Minimum Level, Never Resets, Disable Combat Boundary, Workshop, Min Level:, Max Level:, Analyze Loot, Level, NPC, Faction, Required Rank, Ownership, Location Ref Type Filter, Use parent, Public Area, Off Limits; OK, Cancel |
+| S2-05 TERM `LC017_RobotTurretControl` (`s2-05-TERM-notabs.txt` `15695200...1bbe4e13`, `shots\s2-05-TERM-notabs.png`) | **observed**. Labels: ID, Name, Model, Edit, Marker Model, Looping Sound (Select Audio Data), Papyrus Scripts:, Keywords, Actor Values, Actor Value, Amount, Preview Transform, Forced Loc Ref Types:, Desktop Menu, Art Theme, Furniture Template, Animation Graph Component, Ignored By Sandbox, Active Markers, Make Wall Terminal, Make Desk Terminal, Random Anim Start, Add Destruction Data, Add, Remove, Properties; OK, Cancel |
+| S2-06 CONT `SQ_TreasureMap_SpaceCrate` (`s2-06-CONT-notabs.txt` `2d98596c...efe246dc`, `shots\s2-06-CONT-notabs.png`) | **observed**. Labels: ID, Name, Model, Edit, Preview Level, Object, Count, Item List, Preview Calculated Result, NPC, Global Variable, Faction, Required Rank, Owner, Health %, Sounds (Open, Close, Select Audio Data), Collision Geometry, Bounding Box, Filter, Only Cut, NavMesh Generation Import Option, Ground, Collect From 3D, Scripts, Papyrus Scripts:, Take All, Keywords, Preview Transform, Native Terminal, Contains Only, Actor Value, Amount, Actor Values, Forced Loc Ref Types:, Attach Parent Slots, Mod Data, Snap Template, Display Slots, Object Template, Random Anim Start, Respawns, Obstacle, Show Owner, Add Destruction Data, Add, Remove, Properties; OK, Cancel |
+| S2-07 STAT `Crate_MilitarySupply_01` (`s2-07-STAT-notabs.txt` `09a13342...e2a56a5c`, `shots\s2-07-STAT-notabs.png`) | **observed**. Labels: ID, Display Name, Model, Edit, Collision Geometry, Bounding Box, Filter, Only Cut, Ignore Erosion, Ground, NavMesh Generation Import Option, Object Palette Defaults, Actor Value, Amount, Actor Values, Preview Transform, Pack-In Use Only, Leaf Amplitude, Leaf Frequency, Flutter Data, Used As Platform, Default Layer, Snap Template, Snap Behavior, Forced Loc Ref Type, Keywords, High cost Path, Looping Sound (Select Audio Data), On Local Map, Obstacle, Is Marker, Headtrack Marker, Has Platform/Language Specific Textures, Non Occluder, Heading Marker, Show in world map (ref must be in sky cell), Has Currents; OK, Cancel |
+| S2-08 KYWD `WeaponTypeRifle` (`s2-08-KYWD-notabs.txt` `6483c5a7...6ca2793d`, `shots\s2-08-KYWD-notabs.png`) | **observed**. Labels: ID, Display Name, Type, Rule, Linkage Name, Notes, Editor Color (R, G, B, Select Color), Restricted; OK, Cancel |
+| Not counted | Values shown in the boxes (EditorIDs, sounds, models) are data, not labels, and are left out. Tab names are in the screenshots only |
+| Edit > Undo (E's ask) | **not-run**. No step invokes Undo, and with nothing edited there was nothing to undo. Request: a sitting with a disposable edit, which needs a save-free design or an owner's OK |
+| Data dialog | Nothing new beyond `ck-20261101-01..03`. The list's rows are still not exposed; the screenshots show the statuses "Master File (Light)" and "Master File (Mid)" beside "Master File" (screenshot only, not counted) |
+| Postflight | `ok`. The settings were restored and their hashes checked; no game process was left; the list files and `Default` were unchanged; no plugin was written |
+| Counts | Observed 7 dialogs, inconclusive 1 (WEAP), not-run 1 (Undo) |
+| Filed | `docs/ck-parity.md`: the rows "Edit dialog: AMMO", "COBJ", "LCTN", "TERM", "CONT", "STAT" and "KYWD" become `observed`; "Edit dialog: WEAP" stays as it was. M7.K4 maps the fields to schema members (E6 and K4 next) |
+
+### ck-20261103-01: X11, CK fixture F28 (a vanilla outpost object duplicated), agent-run, save allowed for F28 only
+
+The sitting ran `ck-run.ps1 -SaveAllowed F28` with `steps-F28.ps1` (not observe-only; the owner
+OK'd F28's save, Q3), through MO2 on `Kitkraft Dev`, 2026-11-03 from 01:05 to 02:13 local, in
+seven attempts. **No plugin was saved**: `overwrite\` is empty after every attempt, and every
+postflight but attempt 1's is `ok`. The records are in
+`C:\Modding\kitkraft-observe\ck-2026-11-03\F28-attempt1` to `-attempt7` (`session.md`,
+`preflight.json`, `lists-before\`, `settings-before\`, `shots\`, the dumps), with the runner's
+output in `x11-f28-attempt<n>.out`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261103-01` |
+| CK version | 1.16.244.0, from the title |
+| Data | `Starfield.esm` only, no active file; loaded in 115 to 132 s |
+| The object | STAT `CoffeeBrewingMachine01` (`Starfield.esm:136FDF`), the object of the outpost recipe `co_Outpost_Decor_CoffeeMaker01`. The Text Filter lists it and `Outpost_CoffeeBrewingMachine01` (TRNS); the first row's dialog holds the EditorID `CoffeeBrewingMachine01` (`f28-02-original.txt`) and was closed with Cancel |
+| Duplicate | Reached in attempts 5 to 7. The Object Window's context menu (Shift+F10, then a right-click on the row) shows Edit, Duplicate, Delete, Rename, Duplicate and Rename, and more in the screenshot (`F28-attempt3\shots\f28-03-context.png`), but **none of its items is in the UI Automation tree**, so they are not counted (Amendment 2 decision 2). Duplicate was clicked by its place in the menu; the list then had 3 rows instead of 2 (`LVM_GETITEMCOUNT`) and the title gained `*` |
+| Save | **inconclusive** after three attempts (5, 6, 7). File > Save Plugin opens "Select Target Plugin" (a Windows save dialog on `Starfield\Data`, type "TES Plugin Files (*.esp)"; `f28-05-save-dialog.png`), but its File name box (`*.esp`, shown focused in the screenshot) is not found under the dialog's UI Automation element, nor as the focused element. Nothing was typed and nothing saved; the frame's close met the unsaved-changes state and stopped the CK after 90 s (a finding; the duplicate was discarded) |
+| Driver faults fixed between attempts | 1: floating docks covered the list (clicks are now posted to the list's window); 2: a posted right-click opens no menu (Shift+F10 and a real right-click instead); 4: a screenshot crop of a file not yet written |
+| List files | MO2 prunes `plugins.txt` and `loadorder.txt` at launch (lines of disabled dev mods). Attempt 1's were restored by hand from the last `kit deploy disable` backup to their preflight hashes (`513953f7...`, `29043dc1...`); from attempt 2 on, the frame copies them to `lists-before\` and restores them, hashes checked. `modlist.txt` and `Default` unchanged throughout |
+| Counts | Observed: nothing new counted (the menu items are screenshot only). Inconclusive: F28's save. Not-run: F23, F20, F27 (no steps file written in time; the Cell View's rows and the render window are not exposed, `ck-20261101-03`) |
+| Requests | (1) The owner saves F28 by hand (Object Window > the coffee maker > Duplicate > File > Save Plugin, `KC_F28.esp`), or allows a sitting to type into the focused file box without a UI Automation element. (2) The CK's context-menu items by an owner sitting or screenshot reading |
