@@ -599,18 +599,51 @@ fn menu_item<'a>(h: &'a Bench, label: &'a str) -> Node<'a> {
     all.into_iter().next().expect("checked above")
 }
 
-/// An editor write's menu item, `command` under `menu` > `label`: enabled exactly when the
-/// gate permits `command`; a click sends the editor `Action::OpenEditor { command }` when it
-/// is enabled, and nothing when it is not. Then the pick itself, as the shell takes it,
-/// reaches the editor (`ck_pick`), whichever the gate says.
-fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) {
-    let Some(mut h) = workbench() else { return };
-    let editor_says = |h: &Bench| {
-        visible_text(h)
-            .lines()
-            .any(|l| l.contains(&format!("`{command}`")) && !l.contains(label))
+/// Where the menu bar draws `command`'s own item: its top-level menu and label, read from
+/// the menu model (so a `menu_path` move, such as M7.S1's, moves the test with it).
+fn item_of(command: &str) -> (String, &'static str) {
+    let menus = crate::menu::build(crate::gate::catalog());
+    menus
+        .iter()
+        .find_map(|m| {
+            m.items
+                .iter()
+                .find(|i| i.catalog && i.id == command)
+                .map(|i| (m.name.clone(), i.label))
+        })
+        .unwrap_or_else(|| panic!("`{command}` has no item"))
+}
+
+/// What the editor shows once it has `command`'s form open: the form's title (E's: "Build
+/// Spec", "New Form", "Duplicate"), or, for a command the editor does not have yet, its note
+/// naming `` `command` ``.
+fn editor_shows(h: &Bench, command: &str, label: &str) -> bool {
+    let title = match command {
+        "build" => "Build Spec",
+        "new" => "New Form",
+        "clone" => "Copy of",
+        _ => "\u{0}",
     };
-    h.state_mut().app.shell.tour_menu = Some(menu.to_string());
+    visible_text(h).lines().any(|l| {
+        let text = l.get(15..).unwrap_or_default().trim();
+        text != label
+            && !text.starts_with(label)
+            && (text.contains(title) || text.contains(&format!("`{command}`")))
+    })
+}
+
+/// An editor write's own menu item (found through the menu model): enabled exactly when the
+/// gate permits `command`; a click opens its form in the editor exactly then, and does
+/// nothing when it is disabled. Then the pick itself, as the shell takes it (`ck_pick`),
+/// reaches the editor whichever the gate says.
+fn editor_item_follows_the_gate(command: &'static str) {
+    let Some(mut h) = workbench() else { return };
+    let (menu, label) = item_of(command);
+    assert!(
+        !editor_shows(&h, command, label),
+        "nothing open at the start"
+    );
+    h.state_mut().app.shell.tour_menu = Some(menu.clone());
     h.run_steps(3);
     let item = menu_item(&h, label);
     let permitted = crate::gate::permitted(command).is_some();
@@ -623,9 +656,10 @@ fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) 
     h.state_mut().app.shell.tour_menu = None;
     h.run_steps(4);
     assert_eq!(
-        editor_says(&h),
+        editor_shows(&h, command, label),
         permitted,
-        "{menu} > {label}: the editor heard of `{command}` exactly when it is permitted"
+        "{menu} > {label}: the editor opened `{command}`'s form exactly when it is permitted\n{}",
+        visible_text(&h)
     );
     h.state_mut()
         .app
@@ -634,7 +668,7 @@ fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) 
         )));
     h.run_steps(4);
     assert!(
-        editor_says(&h),
+        editor_shows(&h, command, label),
         "the pick reaches the editor:\n{}",
         visible_text(&h)
     );
@@ -644,7 +678,8 @@ fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) 
 /// build form through the editor.
 #[test]
 fn file_build_patch_follows_the_gate_and_opens_the_build_form() {
-    editor_item_follows_the_gate("build", "File", "Build Patch...");
+    assert_eq!(item_of("build"), ("File".to_string(), "Build Patch..."));
+    editor_item_follows_the_gate("build");
     match super::super::ck_shell::editor_action("build", Some("A.esm:000800"), Some("GLOB")) {
         Action::OpenEditor { command, form } => {
             assert_eq!((command.as_str(), form.as_str()), ("build", ""))
@@ -658,9 +693,8 @@ fn file_build_patch_follows_the_gate_and_opens_the_build_form() {
 /// dialog; `clone` copies the inspected record, `new` starts from its type.
 #[test]
 fn new_clone_and_duplicate_open_the_editors_forms() {
-    editor_item_follows_the_gate("new", "Record", "New Form...");
-    editor_item_follows_the_gate("clone", "Record", "Clone Form...");
-    editor_item_follows_the_gate("clone", "Edit", "Duplicate");
+    editor_item_follows_the_gate("new");
+    editor_item_follows_the_gate("clone");
     let action =
         |c: &str, f: Option<&str>, t: Option<&str>| match super::super::ck_shell::editor_action(
             c, f, t,
