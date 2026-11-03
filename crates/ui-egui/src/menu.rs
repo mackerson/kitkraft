@@ -993,6 +993,44 @@ mod tests {
         assert_eq!(data.target, Ok(Target::Window(WindowKind::DataDialog)));
     }
 
+    /// W2 review I1: a catalog command that sits at an observed item is the command that
+    /// item's row maps (checked for the catalog and for the eight M7.S1 moves).
+    #[test]
+    fn a_merged_item_is_the_command_its_row_maps() {
+        let moves = [
+            ("load", "File/Data..."),
+            ("validate", "File/Validate Loaded Data"),
+            ("ba2.pack", "File/Create Archive"),
+            ("revert", "Edit/Undo"),
+            ("clone", "Edit/Duplicate"),
+            ("query", "Edit/Find Text"),
+            ("cell", "View/Cell View"),
+            ("papyrus.compile", "Gameplay/Compile Papyrus Scripts..."),
+        ];
+        let mut moved: Vec<CommandSpec> = gate::catalog().to_vec();
+        for s in &mut moved {
+            if let Some((_, to)) = moves.iter().find(|(id, _)| *id == s.id) {
+                s.menu_path = to;
+            }
+        }
+        for specs in [gate::catalog().to_vec(), moved] {
+            for c in CK_ITEMS {
+                let Some(own) = specs
+                    .iter()
+                    .find(|s| s.menu_path.split_once('/') == Some((c.menu, c.label)))
+                else {
+                    continue;
+                };
+                match c.mapping {
+                    CkMapping::Command(id) | CkMapping::CommandIn(id, _) => {
+                        assert_eq!(own.id, id, "{} > {}", c.menu, c.label)
+                    }
+                    other => panic!("{} > {}: {other:?} at a command", c.menu, c.label),
+                }
+            }
+        }
+    }
+
     /// E1 ask A3: the reasons a not-yet-permitted write gives name Amendment 4 as decided.
     #[test]
     fn write_reasons_name_amendment_4_as_decided() {
