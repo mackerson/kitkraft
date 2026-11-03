@@ -730,6 +730,8 @@ the retrying controller of `ad3602d4`). X8, M5.D7 game half; rulings R20 and R22
   from the row.
 - Request (testplan and session lane): run a `papyrus-log` row after a leave-and-return of
   the cell, or read the log again at session end and record which load preceded the line.
+- Request (session lane, R28): route each reply line to the request it names. Done in
+  `aa31a9c9` (corrected in `e6028aaa`); re-graded in `game-20261103-08`.
 
 **T-20 (pack-in reference) is a real `fail`; its cause is open.**
 
