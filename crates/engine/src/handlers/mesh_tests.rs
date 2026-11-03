@@ -746,3 +746,36 @@ fn geometry_skips_a_mesh_past_the_vertex_budget_and_one_whose_counts_disagree() 
     assert!(l.contains("are not the mesh's"), "{l}");
     assert_eq!(out.data["vertex_count"], 0);
 }
+
+#[test]
+fn geometry_names_unreached_blocks_and_stays_partial() {
+    // Review L1 (M7.S5 code): block 2 is not reached from the root; it was dropped
+    // silently with coverage Complete.
+    let data = dir("mesh-geometry-unreached").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    let mut model = nif([0.0; 3], &[BOXED, BOXED]);
+    let at = model
+        .windows(12)
+        .position(|w| w == [2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0])
+        .unwrap();
+    model[at + 8..at + 12].copy_from_slice(&u32::MAX.to_le_bytes());
+    let files: Vec<(&str, Vec<u8>)> = vec![
+        ("meshes\\test\\tri.nif", model),
+        ("geometries\\test\\mesh0.mesh", triangle_mesh(1.0)),
+        ("geometries\\test\\mesh1.mesh", triangle_mesh(1.0)),
+    ];
+    archive(&data, "Starfield - Meshes01.ba2", &files);
+    let mut session = crate::Session::default();
+    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let l = out.limitations.join("\n");
+    assert!(
+        l.contains("1 geometry block(s) are not reached from the root"),
+        "{l}"
+    );
+    assert!(matches!(
+        out.coverage.status,
+        crate::envelope::CoverageStatus::Partial
+    ));
+}

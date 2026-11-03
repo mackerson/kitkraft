@@ -716,6 +716,12 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
     if mb.geometries.is_empty() {
         limitations.push("the model has no geometry block: no triangles".to_string());
     }
+    if mb.unreached_geometries > 0 || mb.revisits > 0 {
+        limitations.push(format!(
+            "{} geometry block(s) are not reached from the root and {} child reference(s) repeat (none in the official models): their meshes are not read",
+            mb.unreached_geometries, mb.revisits
+        ));
+    }
     if skipped > 0 {
         limitations.push(format!(
             "{skipped} geometry block(s) skipped, each named above"
@@ -751,7 +757,11 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
             "summary": summary,
         }),
         coverage: Coverage {
-            status: if skipped == 0 && !mb.geometries.is_empty() {
+            status: if skipped == 0
+                && !mb.geometries.is_empty()
+                && mb.unreached_geometries == 0
+                && mb.revisits == 0
+            {
                 CoverageStatus::Complete
             } else {
                 CoverageStatus::Partial
