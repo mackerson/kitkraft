@@ -1126,6 +1126,74 @@ mod tests {
         out
     }
 
+    /// The kinds of row the Interface parity table uses (W3 review L4).
+    const KINDS: [&str; 7] = [
+        "menu",
+        "menu item",
+        "window",
+        "dialog",
+        "workflow",
+        "shortcut",
+        "control",
+    ];
+
+    /// The text of ledger entry `### <id>` of `observations`, up to the next heading.
+    fn entry<'a>(observations: &'a str, id: &str) -> Option<&'a str> {
+        let head = format!("### {id}");
+        let at = observations.find(&head)?;
+        let rest = observations.get(at..)?;
+        let end = rest
+            .get(4..)
+            .and_then(|r| r.find("\n### ").or_else(|| r.find("\n## ")))
+            .map_or(rest.len(), |e| e.saturating_add(4));
+        rest.get(..end)
+    }
+
+    /// A desk entry (no CK run): its heading or first lines say so.
+    fn is_desk(entry: &str) -> bool {
+        let head: String = entry.lines().take(3).collect::<Vec<_>>().join(" ");
+        head.contains("desk entry") || head.contains("no CK run") || head.contains("Desk work")
+    }
+
+    /// Whether `id` may stand as a Source (ruling R24): a recorded sitting, or a desk entry
+    /// that names the recorded sitting it was filed from.
+    fn source_ok(observations: &str, id: &str) -> bool {
+        let Some(e) = entry(observations, id) else {
+            return false;
+        };
+        if !is_desk(e) {
+            return true;
+        }
+        sitting_ids(e)
+            .iter()
+            .any(|other| other != id && entry(observations, other).is_some_and(|o| !is_desk(o)))
+    }
+
+    /// The item labels a ledger entry records for menu `menu` (its `| <menu> | ... |` row,
+    /// split on " / " and ", ", the `*(...)*` marks dropped).
+    fn ledger_items(entry: &str, menu: &str) -> Vec<String> {
+        let head = format!("| {menu} |");
+        let Some(line) = entry.lines().find(|l| l.starts_with(&head)) else {
+            return Vec::new();
+        };
+        let mut cell = line
+            .trim_start_matches(&head)
+            .trim_end()
+            .trim_end_matches('|')
+            .to_string();
+        while let Some(a) = cell.find(" *(") {
+            match cell[a..].find(")*") {
+                Some(b) => cell.replace_range(a..a.saturating_add(b).saturating_add(2), ""),
+                None => break,
+            }
+        }
+        cell.split(" / ")
+            .flat_map(|g| g.split(", "))
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect()
+    }
+
     /// What is wrong with the "Interface parity" rows of `parity`, judged against the
     /// sittings `observations` records (its `### ck-...` ledger entries), the catalog, and
     /// `test_exists` (whether a cited test function exists): ADR 0012 section 4 and the
@@ -1142,6 +1210,9 @@ mod tests {
         }
         for r in &rows {
             let at = format!("`{}` row \"{}\"", r.kind, r.element);
+            if !KINDS.contains(&r.kind.as_str()) {
+                out.push(format!("{at}: kind `{}` is none of {KINDS:?}", r.kind));
+            }
             if !STATUSES.contains(&r.status.as_str()) {
                 out.push(format!(
                     "{at}: status `{}` is none of {STATUSES:?}",
@@ -1170,21 +1241,40 @@ mod tests {
                         r.status
                     ));
                 }
-                for id in ids {
-                    if !observations.contains(&format!("### {id}")) {
+                for id in &ids {
+                    if entry(observations, id).is_none() {
                         out.push(format!("{at}: Source names `{id}`, which docs/ck-observations.md does not record"));
                     }
                 }
+                if !ids.is_empty() && !ids.iter().any(|id| source_ok(observations, id)) {
+                    out.push(format!(
+                        "{at}: Source names only desk entries with no sitting behind them (R24)"
+                    ));
+                }
+                // The label as a sitting recorded it (W3 review L1): a `menu item` row's
+                // label is one of its menu's items in a cited ledger entry.
+                if r.kind == "menu item" {
+                    if let Some((menu, label)) = r.element.split_once(" > ") {
+                        let found = ids
+                            .iter()
+                            .filter_map(|id| entry(observations, id))
+                            .any(|e| ledger_items(e, menu).iter().any(|l| l == label));
+                        if !found {
+                            out.push(format!(
+                                "{at}: no cited ledger entry records `{label}` among the {menu} items"
+                            ));
+                        }
+                    }
+                }
             }
-            if ["reproduced", "improved"].contains(&r.status.as_str()) {
+            if ["built, unobserved", "reproduced", "improved"].contains(&r.status.as_str()) {
                 let tokens = ticked(&r.evidence);
                 let tests: Vec<&str> = tokens
                     .iter()
                     .copied()
                     .filter(|t| t.contains("::"))
                     .collect();
-                let images =
-                    tokens.iter().any(|t| t.ends_with(".png")) || r.evidence.contains(".png");
+                let images = tokens.iter().any(|t| t.ends_with(".png"));
                 if tests.is_empty() && !images {
                     out.push(format!("{at}: `{}` names no test or tour image", r.status));
                 }
@@ -1199,19 +1289,40 @@ mod tests {
         out
     }
 
-    /// Whether `fn <name>` appears in this crate's sources.
-    fn crate_has_fn(name: &str) -> bool {
+    /// Whether a test function `name` exists in the workspace: `fn <name>(` under
+    /// `#[test]` (attributes such as `#[ignore]` may sit between) in `crates/*/src` or
+    /// `crates/*/tests` (W3 review L3).
+    fn workspace_has_test(name: &str) -> bool {
         let want = format!("fn {name}(");
-        let mut stack = vec![repo().join("crates").join("ui-egui").join("src")];
+        let mut stack: Vec<PathBuf> = std::fs::read_dir(repo().join("crates"))
+            .unwrap()
+            .filter_map(Result::ok)
+            .flat_map(|c| [c.path().join("src"), c.path().join("tests")])
+            .collect();
         while let Some(dir) = stack.pop() {
-            for e in std::fs::read_dir(&dir).unwrap() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for e in entries {
                 let path = e.unwrap().path();
                 if path.is_dir() {
                     stack.push(path);
-                } else if path.extension().and_then(|x| x.to_str()) == Some("rs")
-                    && std::fs::read_to_string(&path).unwrap().contains(&want)
-                {
-                    return true;
+                    continue;
+                }
+                if path.extension().and_then(|x| x.to_str()) != Some("rs") {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                let lines: Vec<&str> = text.lines().collect();
+                for (i, l) in lines.iter().enumerate() {
+                    if l.trim_start().starts_with(&want) {
+                        let above = lines[i.saturating_sub(4)..i]
+                            .iter()
+                            .any(|a| a.trim() == "#[test]");
+                        if above {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -1219,7 +1330,7 @@ mod tests {
     }
 
     const FIXTURE_HEAD: &str = "# CK parity\n\n## Interface parity\n\n| Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |\n| ---- | ---- | ---- | ---- | ---- | ---- |\n";
-    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n";
+    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n\nAgent-run.\n\n| File | Data..., Save / Exit |\n\n### ck-20261102-01: the menus of `ck-20261101-01` (desk entry; no CK run)\n\n| File | Data... *(off)* / Exit |\n\n### ck-20261102-02: a desk note (desk entry; no CK run)\n\nNo sitting.\n";
     const FIXTURE_GOOD: &str = "| menu item | File > Data... | `load` (the Data dialog) | observed | `ck-20261101-01` | - |\n| menu item | File > Exit | `gap:` no command | observed | `ck-20261101-01` | - |\n| menu | Edit menu, every item | per item | unresearched | - | - |\n| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |\n";
 
     fn fixture(rows: &str) -> String {
@@ -1235,7 +1346,7 @@ mod tests {
         let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
         let observations =
             std::fs::read_to_string(repo().join("docs").join("ck-observations.md")).unwrap();
-        let problems = parity_problems(&parity, &observations, &crate_has_fn);
+        let problems = parity_problems(&parity, &observations, &workspace_has_test);
         assert!(problems.is_empty(), "{problems:#?}");
         assert!(
             interface_rows(&parity).len() >= 150,
@@ -1262,6 +1373,14 @@ mod tests {
             // Reproduced with no evidence, or with a test that does not exist.
             ("| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | - |", "no test or tour image"),
             ("| dialog | Data dialog | `load` | improved | `ck-20261101-01` | test `menu::tests::no_such_test` |", "does not exist"),
+            // W3 review: a kind typo, a built row with no evidence, an image only in prose.
+            ("| menu-item | File > Data... | `no.such.command` | observed | `ck-20261101-01` | - |", "kind `menu-item`"),
+            ("| window | Warnings window | `validate` | built, unobserved | - | - |", "no test or tour image"),
+            ("| dialog | Data dialog | `load` | improved | `ck-20261101-01` | no .png yet |", "no test or tour image"),
+            // A label no cited ledger entry records (renamed in the doc and the table both).
+            ("| menu item | File > Exit Now | `gap:` no command | observed | `ck-20261101-01` | - |", "records `Exit Now`"),
+            // R24: a desk entry with no sitting behind it is no Source.
+            ("| window | Object Window | `query` | observed | `ck-20261102-02` | - |", "no sitting behind"),
         ];
         for (row, want) in planted {
             let problems = parity_problems(&fixture(row), FIXTURE_OBSERVATIONS, &has);
@@ -1270,6 +1389,13 @@ mod tests {
                 "planted {row}\n  wanted `{want}`, got {problems:#?}"
             );
         }
+        // A desk entry filed from a recorded sitting is a Source, its labels included (R24).
+        let chained =
+            "| menu item | File > Exit | `gap:` no command | observed | `ck-20261102-01` | - |";
+        assert_eq!(
+            parity_problems(&fixture(chained), FIXTURE_OBSERVATIONS, &has),
+            Vec::<String>::new()
+        );
         // The rows of the next section are not read; an empty table is a problem.
         assert_eq!(interface_rows(&fixture("")).len(), 4);
         assert!(!parity_problems("# no table", FIXTURE_OBSERVATIONS, &has).is_empty());
