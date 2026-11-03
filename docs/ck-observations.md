@@ -527,3 +527,39 @@ I restored them by hand.
 | S1-12 | The frame closed the CK through its window, with no prompt, then MO2 |
 | Counts | Observed: Docks (6 items), the 12 menus' items again (no accelerators), the Render Window Hotkeys dialog's controls, two Preferences pages. Inconclusive: 12 submenus, shortcuts, hotkey bindings, the other Preferences pages, the category tree, the context menu. Not-run: the camera (S1-07) |
 | Filed | `docs/ck-parity.md` rows "Preferences" and "Keyboard shortcuts, every one observed", in this change. The rest are Requests in the X6 hand-off: screenshot reading or an owner sitting for the submenus, shortcuts, hotkey bindings, the category tree and the camera |
+
+### ck-20261102-03: M7.O3, CK interface sitting 2, agent-run (observation only)
+
+The sitting ran `ck-run.ps1` with `steps-sitting2.ps1` (`# OBSERVE-ONLY`), through MO2 on
+`Kitkraft Dev`, 2026-11-02 from 22:29 to 22:37. Every dialog was closed with Cancel and none
+with OK. Nothing was saved.
+
+The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting2\`: `session.md`,
+`shots\`, one dump per dialog, and `settings-before\`.
+
+Attempt 1 (`sitting2-attempt1`, 22:23 to 22:28) stopped at S2-04 on a false STOP: the
+dialog had closed, but the check looked after 0.8 s. The frame did its job: the CK and MO2
+were closed, the settings were restored, and the postflight was ok. Attempt 1's WEAP
+dialog was another form's, because the list had not filtered yet. Its data is not used.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261102-03` |
+| CK version | 1.16.244.0, from the title |
+| Data | `Starfield.esm` only, no active file; loaded in about 130 s |
+| How each dialog was opened | Object Window category "*All": a click into its tree, then End. The Text Filter box and the list were found as the Object Window's Win32 child windows, because UI Automation stops at its legacy host. The EditorID was typed into the Text Filter, and the list's first row double-clicked. A dialog counts only if its EditorID box shows the form's EditorID; otherwise it is closed and the attempt fails |
+| Dialog titles | AMMO "Ammo", COBJ "Constructible Object", LCTN "Location", TERM "Terminal", CONT "Container", STAT "Static", KYWD "Keyword" |
+| S2-01 WEAP `RussianHuntingRifle` | **inconclusive** after two attempts. The filter's first row was a Keyword, not the weapon, so the dialog that opened failed the EditorID check and was closed. Request: open the weapon by its own row, for example with the Weapon category selected |
+| S2-02 AMMO `Ammo9x39mm` (`3aeb46c6...27b8e2ab`) | **observed**. Labels: ID, Name, Short name, Value, Model, Edit, Pickup Sound, Putdown Sound, Projectile, Damage, Description, Keywords, Preview Transform, Shell Casing, Health, Weight, Flags (Playable, Has Count Based 3D), Properties, Art, Sound, Add Destruction Data; OK, Cancel. No tab control |
+| S2-03 COBJ `co_ammo_777mm` (`f781b3c1...d9aa63d2`) | **observed**. Labels: ID, Created Object, Created Object Count, Required Item List, List Contains Variants, Match Conditions, Workbench Keyword, Recipe Filters, Pickup Sound:, Putdown Sound:, Crafting Sound: (each with Select Audio Data), Priority, Menu Art Object, Description, Learned From, Base Return Scale Table, Extra Scrapping Items, Workbench Repair Recipe, Required Perks, Max Build Count, Value, Exclude From Workshop LOD, New; OK, Cancel. No tab control |
+| S2-04 LCTN `CityNewAtlantisLocation` (`bb9d38db...14021870`) | **observed**. A tab control of 3 tabs (TCM_GETITEMCOUNT; the tab names are in the screenshots only). The dump holds every page's controls on each page. Labels: ID, Name, Parent Location, Encounter Zone, World Location Marker Ref, Select Reference, Horse Marker Ref, Select Horse Marker, Music Type, Unreported Crime Faction, Actor Fade Mult, World Location Radius, Interior cells use ref location for world map player marker, Random Conversation Timer, Color (R, G, B, Select), Keywords, Actor Value, Amount, Base Actor Values, Encounter Leveling Data, Match PC Below Minimum Level, Never Resets, Disable Combat Boundary, Workshop, Min Level:, Max Level:, Analyze Loot, Level, NPC, Faction, Required Rank, Ownership, Location Ref Type Filter, Use parent, Public Area, Off Limits; OK, Cancel |
+| S2-05 TERM `LC017_RobotTurretControl` (`15695200...1bbe4e13`) | **observed**. Labels: ID, Name, Model, Edit, Marker Model, Looping Sound (Select Audio Data), Papyrus Scripts:, Keywords, Actor Values, Actor Value, Amount, Preview Transform, Forced Loc Ref Types:, Desktop Menu, Art Theme, Furniture Template, Animation Graph Component, Ignored By Sandbox, Active Markers, Make Wall Terminal, Make Desk Terminal, Random Anim Start, Add Destruction Data, Add, Remove, Properties; OK, Cancel |
+| S2-06 CONT `SQ_TreasureMap_SpaceCrate` (`2d98596c...efe246dc`) | **observed**. Labels: ID, Name, Model, Edit, Preview Level, Object, Count, Item List, Preview Calculated Result, NPC, Global Variable, Faction, Required Rank, Owner, Health %, Sounds (Open, Close, Select Audio Data), Collision Geometry, Bounding Box, Filter, Only Cut, NavMesh Generation Import Option, Ground, Collect From 3D, Scripts, Papyrus Scripts:, Take All, Keywords, Preview Transform, Native Terminal, Contains Only, Actor Value, Amount, Actor Values, Forced Loc Ref Types:, Attach Parent Slots, Mod Data, Snap Template, Display Slots, Object Template, Random Anim Start, Respawns, Obstacle, Show Owner, Add Destruction Data, Add, Remove, Properties; OK, Cancel |
+| S2-07 STAT `Crate_MilitarySupply_01` (`09a13342...e2a56a5c`) | **observed**. Labels: ID, Display Name, Model, Edit, Collision Geometry, Bounding Box, Filter, Only Cut, Ignore Erosion, Ground, NavMesh Generation Import Option, Object Palette Defaults, Actor Value, Amount, Actor Values, Preview Transform, Pack-In Use Only, Leaf Amplitude, Leaf Frequency, Flutter Data, Used As Platform, Default Layer, Snap Template, Snap Behavior, Forced Loc Ref Type, Keywords, High cost Path, Looping Sound (Select Audio Data), On Local Map, Obstacle, Is Marker, Headtrack Marker, Has Platform/Language Specific Textures, Non Occluder, Heading Marker, Show in world map (ref must be in sky cell), Has Currents; OK, Cancel |
+| S2-08 KYWD `WeaponTypeRifle` (`6483c5a7...6ca2793d`) | **observed**. Labels: ID, Display Name, Type, Rule, Linkage Name, Notes, Editor Color (R, G, B, Select Color), Restricted; OK, Cancel |
+| Not counted | Values shown in the boxes (EditorIDs, sounds, models) are data, not labels, and are left out. Tab names are in the screenshots only |
+| Edit > Undo (E's ask) | **not-run**. No step invokes Undo, and with nothing edited there was nothing to undo. Request: a sitting with a disposable edit, which needs a save-free design or an owner's OK |
+| Data dialog | Nothing new beyond `ck-20261101-01..03`. The list's rows are still not exposed; the screenshots show the statuses "Master File (Light)" and "Master File (Mid)" beside "Master File" (screenshot only, not counted) |
+| Postflight | `ok`. The settings were restored and their hashes checked; no game process was left; the list files and `Default` were unchanged; no plugin was written |
+| Counts | Observed 7 dialogs, inconclusive 1 (WEAP), not-run 1 (Undo) |
+| Filed | `docs/ck-parity.md`: the rows "Edit dialog: AMMO", "COBJ", "LCTN", "TERM", "CONT", "STAT" and "KYWD" become `observed`; "Edit dialog: WEAP" stays as it was. M7.K4 maps the fields to schema members (E6 and K4 next) |
