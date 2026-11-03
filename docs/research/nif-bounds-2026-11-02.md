@@ -11,8 +11,10 @@ format family from training, which may come in part from sources the registry fo
 such source was opened in this work. Every claim is grounded only in the counts below, and
 the field names are ours: a field whose meaning the bytes do not show is named by its
 place (`u8_43`, `u32_44`, `u32_52`, `after_extra`, `opaque`), never by a description.
-A field the corpus shows only as one constant value is read as that value, and any
-other value is refused as a layout we do not read (`Error::Unsupported`, with offset). A fact we could not show from the bytes is
+Every field the reader reads that the corpus shows as one constant value (H2's `u8_43`
+and `u32_44`, H4's `u32` after the string table, H6's `u32` 1, B2's `after_extra`) is read
+as that value, and any other value is refused as a layout we do not read
+(`Error::Unsupported`, with offset). B6's byte (always 1) is not read by the reader. A fact we could not show from the bytes is
 not claimed.
 
 ## Corpus and method
