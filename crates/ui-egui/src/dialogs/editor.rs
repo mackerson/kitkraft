@@ -1313,8 +1313,9 @@ fn confirm_box(
                     ui.weak(&w.into);
                 });
                 if w.command == "place" {
-                    // The exact position the confirmed request writes (M7.E4 review M1).
-                    ui.monospace(place::position_line(&w.preview));
+                    // The position as it will be stored (the dry run's own account, f32),
+                    // and the typed one beside it when they differ (M7.W4 review L1).
+                    ui.monospace(place::position_line(&w.preview, w.previewed.as_ref()));
                 }
                 match &w.previewed {
                     None => {
@@ -1339,7 +1340,7 @@ fn confirm_box(
                                 ),
                             );
                         }
-                        preview_lines(ui, env, w.command);
+                        preview_lines(ui, env, w.command, &w.edits);
                     }
                 }
                 if let (Some(done), "revert") = (&w.written, w.command) {
@@ -1436,9 +1437,20 @@ fn confirm_box(
     }
 }
 
+/// The typed value of a field, when the stored `after` (as the preview shows it) is not
+/// the same number or text (an f32 rounding 16777217 to 16777216, say).
+fn stored_differs(typed: Option<&Value>, after: &str) -> Option<String> {
+    let typed = typed?;
+    let same = match (typed.as_f64(), after.trim().parse::<f64>()) {
+        (Some(t), Ok(a)) => t == a,
+        _ => typed.as_str().is_some_and(|t| t == after) || fmt_value(typed) == after,
+    };
+    (!same).then(|| fmt_value(typed))
+}
+
 /// The preview's changes (`set`: the fields; `revert`: the diff of the file), its
 /// `validate` on the staged result, and its limitations.
-fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
+fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str, typed: &Map<String, Value>) {
     let data = env.get("data").unwrap_or(&Value::Null);
     if command == "place" {
         ui.label(theme::subheading(ui, "Placed (dry run)"));
@@ -1504,7 +1516,14 @@ fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
                     ui.monospace(path);
                     ui.monospace(before);
                     ui.label("->");
-                    ui.monospace(after);
+                    // `after` is the value as stored (the dry run read it back from the
+                    // staged file); say so when it is not what was typed (M7.W4 review L1).
+                    match stored_differs(typed.get(path.as_str()), after) {
+                        Some(t) => {
+                            ui.monospace(format!("{after} (typed {t}; stored as the field's type)"))
+                        }
+                        None => ui.monospace(after),
+                    };
                     ui.end_row();
                 }
             });

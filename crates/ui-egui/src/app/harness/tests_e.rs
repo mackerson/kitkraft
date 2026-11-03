@@ -1213,3 +1213,70 @@ fn m7_e5_a_spec_over_the_cap_is_refused_without_reading_it() {
     press(&mut h, "Plan");
     assert_in_view(&h, "Changes (plan; nothing written)");
 }
+
+/// Review finding L1 of M7.W4 (probe RV-E6-D): the confirm shows each value as it will
+/// be stored, and the typed one beside it when they differ. 16777217 typed into an f32
+/// field (FLTV) shows as 16777216 with "typed 16777217"; a placement at X = 16777217
+/// shows "at (16777216, 0, 0), stored as 32-bit floats; typed (16777217, 0, 0)".
+#[test]
+fn m7_w4_the_confirm_shows_values_as_stored_and_the_typed_ones_beside() {
+    let s = Scratch::new("stored-values");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    retype(&mut h, "1.5", "16777217");
+    press(&mut h, "OK");
+    assert_in_view(
+        &h,
+        "16777216.0 (typed 16777217; stored as the field's type)",
+    );
+    let s2 = Scratch::new("stored-place");
+    let Some(mut h) = placing(&s2, Some(s2.path("Patch.esp"))) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "X", "16777217");
+    press(&mut h, "Preview");
+    assert_in_view(
+        &h,
+        "at (16777216, 0, 0), stored as 32-bit floats; typed (16777217, 0, 0)",
+    );
+}
+
+/// Review finding L1 of M7.W4: a value that does not fit an integer field (KYWD TNAM, a
+/// u32) is refused at the dry run, with the engine's reason in the box, and nothing is
+/// offered to write.
+#[test]
+fn m7_w4_a_value_that_does_not_fit_an_integer_field_is_refused() {
+    use crate::dialogs::new;
+    let s = Scratch::new("int-field");
+    let kw = s.path("Kw.esp");
+    let engine = ReadOnlyEngine::new();
+    engine
+        .run(&Request::new(
+            "load",
+            json!({"plugins": [s.fixture().display().to_string()], "no_cache": true}),
+        ))
+        .unwrap();
+    let preview = new::preview_request("KYWD", "KkKeyword", &kw);
+    engine.run(&preview).unwrap();
+    engine.run(&new::write_request(&preview).unwrap()).unwrap();
+    let Some(mut h) = workbench() else {
+        return;
+    };
+    let load = Request::new("load", json!({"plugins": [kw], "no_cache": true}));
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    let patch = s.path("Patch.esp");
+    let app = &mut h.state_mut().app;
+    app.apply(vec![Action::Inspect("KkKeyword".to_string())]);
+    app.shell.set_open(WindowKind::EditDialog, true);
+    app.active_file = Some(patch.clone());
+    settle(&mut h);
+    retype(&mut h, "0", "4294967296");
+    press(&mut h, "OK");
+    assert_in_view(&h, "the preview (`set --dry-run`)");
+    assert_absent(&h, "Write to Patch.esp");
+    assert!(!Path::new(&patch).exists());
+}

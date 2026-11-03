@@ -106,22 +106,34 @@ pub(crate) struct FormAsk {
     pub close: bool,
 }
 
-/// The position a `place` request writes, as the confirm box shows it: "at (x, y, z)".
-pub(crate) fn position_line(request: &Request) -> String {
-    let axes: Vec<String> = request
-        .args
-        .get("position")
-        .and_then(Value::as_array)
-        .map(|a| {
-            a.iter()
-                .map(|v| {
-                    v.as_f64()
-                        .map_or_else(|| "?".to_string(), |f| f.to_string())
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    format!("at ({})", axes.join(", "))
+/// The position a `place` writes, as the confirm box shows it: "at (x, y, z)", the values
+/// as stored (the dry run's `placed[0].position`, 32-bit floats), and the typed request's
+/// beside them when they differ (M7.W4 review L1). Before the dry run answers, the typed
+/// position.
+pub(crate) fn position_line(request: &Request, previewed: Option<&Value>) -> String {
+    let axes = |v: Option<&Value>| -> Vec<String> {
+        v.and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .map(|v| {
+                        v.as_f64()
+                            .map_or_else(|| "?".to_string(), |f| f.to_string())
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let typed = axes(request.args.get("position"));
+    let stored = axes(previewed.and_then(|e| e.pointer("/data/placed/0/position")));
+    if stored.is_empty() || stored == typed {
+        let shown = if stored.is_empty() { typed } else { stored };
+        return format!("at ({})", shown.join(", "));
+    }
+    format!(
+        "at ({}), stored as 32-bit floats; typed ({})",
+        stored.join(", "),
+        typed.join(", ")
+    )
 }
 
 /// The Place form: the base, the cell, the position typed as X, Y and Z (game units),
