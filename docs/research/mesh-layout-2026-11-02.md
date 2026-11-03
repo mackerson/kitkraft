@@ -32,7 +32,7 @@ official file, grade B when the evidence is statistical.
 - **Test of record.** `crates/engine/tests/mesh_corpus.rs`
   `every_official_mesh_matches_the_layout_study`, ignored by default; run it with
   `cargo test -p kitkraft-engine --release --test mesh_corpus -- --ignored`.
-  - Run 2026-11-02, about 90 s: **0 failures over 720,957 meshes**.
+  - Run 2026-11-02, about 90 to 106 s: **0 failures over 720,957 meshes** for the structural claims, each asserted at the count stated here; the normals are counted, not asserted.
   - It is written in the test, with no engine API, so `mesh.geometry` stays Deferred
     (a catalog seam).
 - **Worked example.** The NIF study's decal,
@@ -73,7 +73,7 @@ shown); M6's 40-byte entries and its 4 closing bytes.
 
 ## Go/no-go for M7.S5 code
 
-**GO for positions, indices and normals.**
+**GO for positions and indices (grade A); normals GO at grade B (statistical, not proven).**
 
 - Every structural claim (G1, G2, M1 to M3, M5, M6) holds on every official mesh and
   model.
