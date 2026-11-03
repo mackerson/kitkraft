@@ -679,4 +679,44 @@ fn every_official_mesh_matches_the_layout_study() {
     );
     let lengths: Vec<(usize, u64)> = g1.path_lengths.iter().map(|(k, v)| (*k, *v)).collect();
     assert_eq!(lengths, [(41, 964_697), (57, 16_591)]);
+    // The grade-A claims, at the counts the study states (review M1): the test goes red
+    // when any of them breaks, not only when a walk fails.
+    assert_eq!(t.meshes, 720_957, "M1-M6: every official mesh walked");
+    assert_eq!(
+        (t.slots, t.third_not_64),
+        (981_288, 0),
+        "G1: the third u32 is 64"
+    );
+    assert_eq!(
+        (slots.len(), unresolved),
+        (399_384, 0),
+        "G2: every slot names a mesh"
+    );
+    assert_eq!(
+        (t.counts_ok, t.counts_bad),
+        (1_888_804, 0),
+        "G2: the counts agree"
+    );
+    assert_eq!(
+        (t.indices, t.index_out_of_range, t.not_triples),
+        (1_676_933_949, 0, 0),
+        "M1: indices below the vertex count, three per triangle"
+    );
+    assert_eq!(
+        (t.box_checked, t.box_ok),
+        (864_598, 864_598),
+        "M2: the positions' box is the stored box"
+    );
+    assert_eq!(
+        t.present,
+        [720_957, 257_992, 343_029, 720_957, 720_957],
+        "M3: the sections present"
+    );
+    assert_eq!(
+        (t.with_m5_entries, t.with_lists, t.ends_after_lists),
+        (17_544, 1_744, 6_470),
+        "M5, M6"
+    );
+    // M4 (normals) is grade B: its counts (unit length, facing the winding) are printed
+    // above and are not asserted; they are evidence, not a proof.
 }
