@@ -519,9 +519,7 @@ impl RenderTab {
     }
 
     /// A `mesh.bounds` reply (`Slot::MeshBounds`): the base's model box, drawn instead of
-    /// its `OBND` (M7.R3). Routed from `app.rs` `receive` once the integrator lands that
-    /// arm (ask A3, step-0 residual R13); until then only the tests call it.
-    #[allow(dead_code)]
+    /// its `OBND` (M7.R3). Routed from `app.rs` `receive` (ask A3, step-0 residual R13).
     pub(crate) fn receive_bounds(&mut self, env: &Value) {
         let Some(m) = MeshBounds::from_envelope(env) else {
             return;
@@ -534,8 +532,7 @@ impl RenderTab {
 
     /// A `mesh.bounds` request failed (a base with no `MODL`, a model in no archive, a
     /// model the reader refuses): the base is answered with no model box, so it falls back
-    /// to its `OBND` and the error is its reason. Routed from `app.rs` with ask A3.
-    #[allow(dead_code)]
+    /// to its `OBND` and the error is its reason. Routed from `app.rs` (ask A7).
     pub(crate) fn bounds_failed(&mut self, request: &Request, error: &str) {
         let Some(form) = request.args.get("form").and_then(Value::as_str) else {
             return;
@@ -1213,6 +1210,7 @@ mod tests {
                 theme_source: "test",
                 last_profile: None,
                 prefs_path: None,
+                active_file: None,
             };
             tab.ui(ui, &mut tc);
             actions = tc.actions;

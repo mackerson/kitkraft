@@ -129,7 +129,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "load",
         label: "Load Order...",
-        menu_path: "File/Load Order...",
+        menu_path: "File/Data...",
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
         summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
@@ -151,7 +151,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "query",
         label: "Query Records...",
-        menu_path: "Record/Query...",
+        menu_path: "Edit/Find Text",
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
         summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
@@ -239,7 +239,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "clone",
         label: "Clone Form...",
-        menu_path: "Record/Clone Form...",
+        menu_path: "Edit/Duplicate",
         shortcut: None,
         aliases: &[],
         summary: "Copy the winning version of a base form into a full-scale patch plugin as a new form (new FormID and EditorID), fields applied; lstrings inlined, FormIDs copied as stored; validated",
@@ -294,7 +294,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "validate",
         label: "Validate Plugin",
-        menu_path: "Tools/Validate",
+        menu_path: "File/Validate Loaded Data",
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
@@ -360,7 +360,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "ba2.pack",
         label: "Pack Archive...",
-        menu_path: "Archive/Pack...",
+        menu_path: "File/Create Archive",
         shortcut: None,
         aliases: &[],
         summary: "Pack a directory (as the Data root) into a .ba2 archive; deterministic",
@@ -382,7 +382,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "papyrus.compile",
         label: "Compile Script...",
-        menu_path: "Papyrus/Compile...",
+        menu_path: "Gameplay/Compile Papyrus Scripts...",
         shortcut: None,
         aliases: &[],
         summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs or Tools/ContentResources.zip (never -release)",
@@ -527,7 +527,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "revert",
         label: "Revert Record...",
-        menu_path: "Edit/Revert Record...",
+        menu_path: "Edit/Undo",
         shortcut: None,
         aliases: &[],
         summary: "Undo an edit to the active plugin: remove its override of a form (the version before it in the load order wins again) or replace the override with a copy of that version; dry_run previews it; the envelope carries the diff of the file before and after and the validate findings",
@@ -571,7 +571,7 @@ static CATALOG: &[CommandSpec] = &[
     CommandSpec {
         id: "cell",
         label: "Cell View...",
-        menu_path: "View/Cell View...",
+        menu_path: "View/Cell View",
         shortcut: None,
         aliases: &["cells"],
         summary: "Worldspaces, cells (interior, or a world's exterior cells with their grid) and the references of one cell (base form and type, EditorID, position, rotation, scale, persistence, flags; with_bounds: the base's OBND), from the winning versions, paged, with evidence; read-only",
@@ -588,7 +588,7 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Mesh Bounds...",
         shortcut: None,
         aliases: &[],
-        summary: "A model's bounds from its NIF (loose or in a BA2), found from a base object's model or given as a path; read-only. Not built yet (M7.S4): bounds is null and a limitation says so",
+        summary: "A model's box from its NIF (the union of its geometry bounds, in the model's root frame), from the loose files or the archives, found from a base object's MODL or given as a path; read-only. A model with no geometry or only skinned geometry has bounds null and says why",
         args_schema: r#"{"type":"object","properties":{"model":{"type":"string","description":"A model path as a base object's MODL names it (relative to the Data folder's Meshes folder), read from loose files or a BA2"},"form":{"type":"string","description":"A base object (Plugin.esm:XXXXXX or EditorID) whose model to read"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile, plugin and model names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         writes: false,
         status: Status::Implemented,

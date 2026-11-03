@@ -56,8 +56,8 @@ pub(crate) enum Slot {
     // Lane R (M7.R2): the Render Window's cell, a page at a time.
     RenderCell,
     // Step 0 of sprint 2026-11-02: the slots the pipelines' windows reply to. Each is
-    // routed to its owner's `receive` in `app.rs`; the `allow` goes when the owner sends
-    // the first request.
+    // routed to its owner's `receive` in `app.rs`. This file is a seam, so the integrator
+    // removes each `allow` once the owner first sends the slot's request.
     /// The Data dialog's `load` (M7.M2, pipeline W).
     #[allow(dead_code)]
     DataLoad,
@@ -139,13 +139,13 @@ pub(crate) enum Action {
     /// inspector's record (inspected there) without leaving the tab.
     Select(String),
     // Step 0 of sprint 2026-11-02: the actions the pipelines' windows ask for, applied in
-    // `app.rs`; the `allow` goes when the owner first sends one.
+    // `app.rs`. This file is a seam, so the integrator removes each `allow` once the
+    // owner first sends the action.
     /// Open (and bring to the front) one of the CK-style windows.
     #[allow(dead_code)]
     OpenWindow(crate::windows::WindowKind),
     /// The Data dialog's "Set as Active File" (M7.M2): the file the editor writes into
     /// (UI state only, never saved to `ui.json`); `None` clears it.
-    #[allow(dead_code)]
     SetActiveFile(Option<String>),
     /// Open the editor for `command` (a catalog id: `set`, `new`, `clone`, `place`,
     /// `build`, `revert`) on `form` (M7.E2 to M7.E6; the Object Window's double-click and
@@ -179,6 +179,11 @@ pub(crate) struct TabCtx<'a> {
     /// The profile last loaded from the start screen (`ui.json`).
     pub last_profile: Option<&'a str>,
     pub prefs_path: Option<&'a Path>,
+    /// The active file (M7.M2: the Data dialog's "Set as Active File"; ADR 0007
+    /// Amendment 4), `None` until one is set. No tab reads it yet; the integrator removes
+    /// the `allow` once one does (step 0 of sprint 2026-11-02).
+    #[allow(dead_code)]
+    pub active_file: Option<&'a str>,
 }
 
 /// The window's title (the OS title bar).

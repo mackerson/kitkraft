@@ -2,11 +2,16 @@
 //! `menu_path`'s top-level menu, in catalog order. Toolkit-free model first (tested
 //! without a window), then its drawing.
 //!
+//! Items of a CK menu (M7.M1 rest): the `menu item` rows of `docs/ck-parity.md` first, in
+//! the observed order ([`CK_ITEMS`], a test holds it equal to the rows), each mapped to the
+//! command its row names (opening that command's panel, enabled or disabled as the command
+//! is) or drawn disabled with its `gap:`; then the catalog's own commands of that menu that
+//! no observed item names. A command whose `menu_path` is an observed item is that item,
+//! so each catalog command is still one item of its own.
+//!
 //! Top-level order: the Creation Kit's menus in the order `docs/ck-parity.md` "Interface
-//! parity" records, which is the owner's recollection, not an observation: the bar built
-//! to it is **`built, unobserved`** (ADR 0012 Amendment 1, director decision 2026-10-16,
-//! pending owner) and is never counted as parity until CK sitting 1 (M7.O2) observes the
-//! CK's order; then KitKraft's own menus (Record, Tools, Archive, ...) in the
+//! parity" records, as sitting `ck-20261101-01` observed them (M7.K3, filed in
+//! `ck-20261102-01`); then KitKraft's own menus (Record, Tools, Archive, ...) in the
 //! order the catalog first names them, before Help (so the CK menus keep their relative
 //! order); a CK menu no command uses yet is still drawn, with a disabled line saying so.
 //!
@@ -18,31 +23,213 @@
 
 use crate::gate::{self, CommandSpec, CommandStatus};
 
-/// The CK's top-level menus as `docs/ck-parity.md` records them today (first
-/// "Interface parity" row): a recollection, not an observation (the row is
-/// `built, unobserved`, ADR 0012 Amendment 1). A test
-/// holds this list equal to that row, so a sitting that changes the row changes this.
+/// The CK's top-level menus as `docs/ck-parity.md` records them (first "Interface
+/// parity" row), in the order sitting `ck-20261101-01` observed (M7.K3). A test holds
+/// this list equal to that row, so a sitting that changes the row changes this.
 pub const CK_MENU_ORDER: &[&str] = &[
     "File",
     "Edit",
     "View",
+    "Docks",
+    "Galaxy",
     "World",
+    "Terrain",
     "NavMesh",
     "Character",
     "Gameplay",
+    "Audio",
     "Help",
 ];
 
-/// Why a CK menu has no KitKraft command yet, by menu (`None`: none of its items is
-/// known before sitting 1).
+/// Why a CK menu has no KitKraft command yet, by menu (its items are the `menu item`
+/// rows of `docs/ck-parity.md`).
 pub fn empty_menu_note(menu: &str) -> &'static str {
     match menu {
-        "NavMesh" => "gap: navmesh generation is out of scope (ROADMAP M7); items unresearched",
-        _ => {
-            "no KitKraft command here yet; the CK's items are unresearched until sitting 1 (M7.O2)"
-        }
+        "NavMesh" => "gap: navmesh generation is out of scope (ROADMAP M7)",
+        "Docks" => "no KitKraft command here: window layouts are workbench settings (ui.json)",
+        "Galaxy" => "gap: world generation, tests and exports are not in M7",
+        "Terrain" => "gap: terrain editing is not in M7",
+        "Audio" => "gap: audio tools (Wwise, FaceFX, voice files) are not in M7",
+        _ => "no KitKraft command here yet; the CK's items are listed in docs/ck-parity.md",
     }
 }
+
+/// What an observed CK menu item does in KitKraft (its `docs/ck-parity.md` row's "Maps to").
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CkMapping {
+    /// The command's own panel, enabled or disabled as the command is.
+    Command(&'static str),
+    /// The command, opening this target instead of its panel (File > Data... opens the Data
+    /// dialog, M7.M2).
+    CommandIn(&'static str, Target),
+    /// No command: disabled, with the row's `gap:` reason.
+    Gap(&'static str),
+    /// No command of its own: disabled, with this note.
+    Note(&'static str),
+}
+
+/// One observed item of a CK menu.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CkItem {
+    /// One of [`CK_MENU_ORDER`].
+    pub menu: &'static str,
+    /// The label as the CK names it.
+    pub label: &'static str,
+    pub mapping: CkMapping,
+}
+
+const fn ck(menu: &'static str, label: &'static str, mapping: CkMapping) -> CkItem {
+    CkItem {
+        menu,
+        label,
+        mapping,
+    }
+}
+
+/// File > Save Plugin: KitKraft writes each confirmed edit when it is made. KitKraft's own
+/// note (ADR 0007 Amendment 4, model A: "saved at each OK"), not CK text, and a declared
+/// departure from "a command or its `gap:`": the row maps `set` and `build`.
+const SAVED_AT_EACH_OK: &str = "KitKraft: no command: each confirmed edit is written into the active file when it is made (ADR 0007 Amendment 4, model A), so the CK's Save has nothing left to do";
+
+/// The CK menus' items, in the order sitting `ck-20261101-01` observed (M7.K3, filed in
+/// `ck-20261102-01`), one per `menu item` row of `docs/ck-parity.md`; the reasons are the
+/// rows' own words (a test holds this table equal to the rows).
+#[rustfmt::skip]
+pub const CK_ITEMS: &[CkItem] = &[
+    ck("File", "Data...", CkMapping::CommandIn("load", Target::Window(WindowKind::DataDialog))),
+    ck("File", "Save Plugin", CkMapping::Note(SAVED_AT_EACH_OK)),
+    ck("File", "Import/Export", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("File", "Preferences...", CkMapping::Gap("no command: the Preferences window (M7.M3) keeps workbench settings in ui.json")),
+    ck("File", "Theme (experimental)", CkMapping::Gap("no command: the workbench theme is a UI setting (M6)")),
+    ck("File", "Validate Loaded Data", CkMapping::Command("validate")),
+    ck("File", "Compact Active File Form IDs for ...", CkMapping::Gap("no command compacts FormIDs")),
+    ck("File", "Convert Active File to ...", CkMapping::Gap("no command converts an existing file's header (see the row \"Convert the active file to a master\")")),
+    ck("File", "Create Archive", CkMapping::Command("ba2.pack")),
+    ck("File", "Upload Plugin and Archive to Bethesda.net", CkMapping::Gap("not offered: KitKraft has no Bethesda.net upload or login. Observed disabled (data loaded, no active file)")),
+    ck("File", "Login to Bethesda.net", CkMapping::Gap("not offered: KitKraft has no Bethesda.net upload or login")),
+    ck("File", "Logout", CkMapping::Gap("not offered: KitKraft has no Bethesda.net upload or login. Observed disabled (data loaded, no active file)")),
+    ck("File", "Exit", CkMapping::Gap("no command: closing the window")),
+    ck("Edit", "Undo", CkMapping::Command("revert")),
+    ck("Edit", "Redo", CkMapping::Gap("no redo (M7.E6 undoes the last edit only)")),
+    ck("Edit", "Cut Render", CkMapping::Gap("no command: moving and copying references in the Render Window is M8 (ROADMAP M7)")),
+    ck("Edit", "Copy Render", CkMapping::Gap("no command: moving and copying references in the Render Window is M8 (ROADMAP M7)")),
+    ck("Edit", "Paste Render", CkMapping::Gap("no command: moving and copying references in the Render Window is M8 (ROADMAP M7)")),
+    ck("Edit", "Paste in Place", CkMapping::Gap("no command: moving and copying references in the Render Window is M8 (ROADMAP M7)")),
+    ck("Edit", "Duplicate", CkMapping::Command("clone")),
+    ck("Edit", "Search & Replace...", CkMapping::Gap("no search-and-replace command")),
+    ck("Edit", "Find Text", CkMapping::Command("query")),
+    ck("Edit", "Find by Condition", CkMapping::Gap("no search by condition")),
+    ck("Edit", "Render Window Hotkeys", CkMapping::Gap("no command: the Render Window tab lists its own bindings (M7.R1)")),
+    ck("Edit", "Picking Preferences", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Toggle Render Features", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
+    ck("View", "Refresh Render Window", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
+    ck("View", "Object Windows", CkMapping::Command("query")),
+    ck("View", "Render Windows", CkMapping::CommandIn("cell", Target::Tab("Render Window"))),
+    ck("View", "Packin", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Toolbar", CkMapping::Gap("no command: KitKraft has no toolbar")),
+    ck("View", "Cell View", CkMapping::Command("cell")),
+    ck("View", "Statusbar", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("View", "Scene Info Window", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Open Windows...", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("View", "Preview Window", CkMapping::Gap("no command: no preview window yet")),
+    ck("View", "Preview Animations", CkMapping::Gap("no command: animation is not in M7")),
+    ck("View", "Show/Hide", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Reference Batch Action Window", CkMapping::Gap("no batch action over references")),
+    ck("View", "Layers", CkMapping::Gap("no command for editor layers")),
+    ck("View", "Default Layer Manager", CkMapping::Gap("no command for editor layers. Observed disabled (data loaded, no active file)")),
+    ck("View", "Object Window Layouts", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("View", "Material Editor", CkMapping::Gap("no command: materials are M8 (ROADMAP M7)")),
+    ck("View", "Material Palette", CkMapping::Gap("no command: materials are M8 (ROADMAP M7)")),
+    ck("View", "Material Swap Editor", CkMapping::Gap("no command: materials are M8 (ROADMAP M7)")),
+    ck("View", "AVMS", CkMapping::Gap("not known yet: grouped with the material items, its window not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Current Cell Only", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet. Observed disabled (data loaded, no active file)")),
+    ck("View", "Isometric", CkMapping::Gap("no command: the Render Window camera (M7.R1) has no fixed views yet")),
+    ck("View", "Top", CkMapping::Gap("no command: the Render Window camera (M7.R1) has no fixed views yet")),
+    ck("View", "Depth Biasing", CkMapping::Gap("no command: the Render Window tab is read-only (M7.R) and has no such view option yet")),
+    ck("View", "Warnings", CkMapping::CommandIn("validate", Target::Window(WindowKind::Warnings))),
+    ck("View", "Inspector", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Properties", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Particle Editor", CkMapping::Gap("no command: particle effects are not in M7")),
+    ck("View", "Volumes", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("View", "Reflection Probe", CkMapping::Gap("not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)")),
+    ck("Docks", "Save Current Layout", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("Docks", "Save Layout as...", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("Docks", "Recent Layouts", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("Docks", "Manage Layouts...", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("Galaxy", "Galaxy View", CkMapping::Gap("no command: no galaxy view (`planet` reads one planet's content)")),
+    ck("Galaxy", "Block Pattern Editor", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("Galaxy", "Generate Locations", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("Galaxy", "Gen Overlay Placement Data", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("Galaxy", "Generate Biome Placements", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "World Spaces...", CkMapping::Command("cell")),
+    ck("World", "Cells...", CkMapping::Command("cell")),
+    ck("World", "Go to Location", CkMapping::Gap("no command: the Render Window shows the cell chosen in the Cell View")),
+    ck("World", "World Testing And Reports", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "View Render Test Failures...", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "View BetaComment Data", CkMapping::Gap("no command")),
+    ck("World", "Run Havok Sim", CkMapping::Gap("no command: physics simulation is not in M7")),
+    ck("World", "Animate Lighting and Effects", CkMapping::Gap("no command: lighting is M8 (ROADMAP M7)")),
+    ck("World", "Create Local Maps", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "Validate Room/Portal Alignment", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "Align Tanget Space at NIF Intersection", CkMapping::Gap("no command: world generation, tests and exports are not in M7. Observed disabled (data loaded, no active file)")),
+    ck("World", "Generate LOS", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "Generate Max Height Data", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("World", "Force Weather", CkMapping::Gap("no command: the Render Window draws no weather")),
+    ck("World", "Toggle Wind", CkMapping::Gap("no command: the Render Window draws no weather")),
+    ck("World", "Export MapMarker Data", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
+    ck("Terrain", "Landscape Editing", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Landscape Cutting", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Object Palette Editing (Qt)", CkMapping::Gap("no command: object palettes are not in M7")),
+    ck("Terrain", "Heightmap Autopaint", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Heightmap Import", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Export Landscape...", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Reimport All Blocks", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("Terrain", "Cell Terrain Data Viewer", CkMapping::Gap("no command: terrain editing is not in M7")),
+    ck("NavMesh", "Generate Current Cell", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Generate Loaded Area", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Generate WorldSpace", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Cycle View Mode", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Draw Cover", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Draw Traversal", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Other Options", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("NavMesh", "Clean NavMesh Splines", CkMapping::Gap("navmesh generation is out of scope (ROADMAP M7)")),
+    ck("Character", "Filtered Dialogue...", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Export Relationship Data", CkMapping::Gap("no command: character data exports are not in M7")),
+    ck("Character", "Export Dialogue...", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Export Speech Challenge Scenes...", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Export Dialogue For Specific Voices", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Export Companion Affinity Event", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "List Neutral Emotion Dialogue", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "List Dialogue Needing Review", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Quest Voice Asset Totals", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Update NPC Body Tint Colors", CkMapping::Gap("no command: character appearance tools are not in M7")),
+    ck("Character", "Update FaceBones Model Availability", CkMapping::Gap("no command: character appearance tools are not in M7")),
+    ck("Character", "Export FaceGen Customization Textures", CkMapping::Gap("no command: character appearance tools are not in M7. Observed disabled (data loaded, no active file)")),
+    ck("Character", "Edit Player Dialogue", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Character", "Quest Aliases", CkMapping::Gap("no command for quest aliases")),
+    ck("Character", "Generate Player Address Lip Files", CkMapping::Gap("no command: dialogue and voice tools are not in M7")),
+    ck("Gameplay", "Settings...", CkMapping::Command("query")),
+    ck("Gameplay", "Papyrus Script Manager", CkMapping::Gap("no script list; `papyrus.disasm` reads one compiled script")),
+    ck("Gameplay", "Compile Papyrus Scripts...", CkMapping::Command("papyrus.compile")),
+    ck("Gameplay", "Migrate Papyrus Property Data...", CkMapping::Gap("no command")),
+    ck("Gameplay", "Export Papyrus Attach Data...", CkMapping::Gap("no command: no export of script attachments")),
+    ck("Gameplay", "Animations...", CkMapping::Gap("no command: animation is not in M7")),
+    ck("Gameplay", "Creature Creator", CkMapping::Gap("no command: creature tools are not in M7")),
+    ck("Gameplay", "Camera Paths...", CkMapping::Gap("no command")),
+    ck("Gameplay", "Default Objects...", CkMapping::Gap("no command for the default objects list")),
+    ck("Gameplay", "Validate Forms", CkMapping::Command("validate")),
+    ck("Gameplay", "Recipe Manager", CkMapping::Command("query")),
+    ck("Gameplay", "Workshop Editor", CkMapping::Gap("no command: workshop tools are not in M7")),
+    ck("Audio", "Animation Sound Tag Overrides...", CkMapping::Gap("no command: audio tools (Wwise, FaceFX, voice files) are not in M7")),
+    ck("Audio", "Process Local Voice WAVs", CkMapping::Gap("no command: audio tools (Wwise, FaceFX, voice files) are not in M7")),
+    ck("Audio", "Build Soundbank for Active File", CkMapping::Gap("no command: audio tools (Wwise, FaceFX, voice files) are not in M7")),
+    ck("Audio", "Reload Wwise Data", CkMapping::Gap("no command: audio tools (Wwise, FaceFX, voice files) are not in M7")),
+    ck("Audio", "Run FaceFX Compiler", CkMapping::Gap("no command: audio tools (Wwise, FaceFX, voice files) are not in M7")),
+    ck("Help", "Contents", CkMapping::Gap("no CK help text is reproduced; KitKraft's Help menu has its own (`schema`, `doctor`)")),
+    ck("Help", "Snap Windows", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
+    ck("Help", "Third-Party Software Licenses", CkMapping::Gap("no command: KitKraft lists its own in ATTRIBUTION.md")),
+    ck("Help", "About", CkMapping::Gap("no command yet")),
+];
 
 /// Where an enabled item takes the user.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -56,10 +243,14 @@ pub enum Target {
 /// One menu item.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MenuItem {
-    /// Canonical catalog id.
+    /// Canonical catalog id (empty for an observed CK item that maps to no command).
     pub id: &'static str,
-    /// The text after the last `/` of `menu_path`.
+    /// The text after the last `/` of `menu_path`, or the CK's label of an observed item.
     pub label: &'static str,
+    /// This is the catalog command's own item (its `menu_path`): each command has one.
+    pub catalog: bool,
+    /// An observed CK item ([`CK_ITEMS`]).
+    pub observed: bool,
     /// The catalog's default shortcut (shown; bound by M7.M5).
     pub shortcut: Option<&'static str>,
     /// Where it goes, or why it is disabled.
@@ -70,8 +261,7 @@ pub struct MenuItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Menu {
     pub name: String,
-    /// One of [`CK_MENU_ORDER`] (its place is the recorded CK order: a recollection,
-    /// `built, unobserved`).
+    /// One of [`CK_MENU_ORDER`] (its place is the observed CK order).
     pub ck: bool,
     pub items: Vec<MenuItem>,
 }
@@ -106,6 +296,10 @@ fn panel_of(id: &str) -> Option<Target> {
     })
 }
 
+/// The editor's six writes (ADR 0007 Amendment 4; the ids E1 gives `gate::EDITOR_SCOPE`,
+/// which this list follows until that constant is on this branch).
+const EDITOR_IDS: [&str; 6] = ["set", "new", "clone", "place", "build", "revert"];
+
 /// The text a scope write gets while the gate does not permit it in the window yet.
 fn scope_not_yet_permitted() -> String {
     "writes: in ADR 0007 Amendment 3's scope, not yet permitted in the window (M6.G4, M6.G5)"
@@ -124,10 +318,14 @@ pub fn target(spec: &CommandSpec) -> Result<Target, String> {
             true
         } else if gate::COCKPIT_SCOPE.contains(&id) {
             return Err(scope_not_yet_permitted());
+        } else if EDITOR_IDS.contains(&id) {
+            return Err(
+                "writes: in the editor's write scope (ADR 0007 Amendment 4); permitted with its M7.E ticket"
+                    .to_string(),
+            );
         } else {
             return Err(
-                "writes: not in the window's write scope (ADR 0007 Amendment 3); editing waits on Amendment 4 (M7.O4)"
-                    .to_string(),
+                "writes: not in the window's write scope (ADR 0007 Amendments 3 and 4)".to_string(),
             );
         }
     } else {
@@ -163,21 +361,63 @@ pub fn build(specs: &[CommandSpec]) -> Vec<Menu> {
         .chain(extra.iter().map(|n| (*n, false)))
         .chain(ck_tail.iter().map(|n| (*n, true)));
     names
-        .map(|(name, ck)| Menu {
-            name: name.to_string(),
-            ck,
-            items: specs
-                .iter()
-                .filter(|s| top_of(s.menu_path) == name)
-                .map(|s| MenuItem {
-                    id: s.id,
-                    label: s.menu_path.rsplit('/').next().unwrap_or(s.label),
-                    shortcut: s.shortcut,
-                    target: target(s),
-                })
-                .collect(),
+        .map(|(name, ck)| {
+            let mut items: Vec<MenuItem> = Vec::new();
+            let mut merged: Vec<&str> = Vec::new();
+            for c in CK_ITEMS.iter().filter(|c| ck && c.menu == name) {
+                // The catalog command whose `menu_path` is this item, if any, is this item.
+                let own = specs
+                    .iter()
+                    .find(|s| s.menu_path.split_once('/') == Some((c.menu, c.label)));
+                if let Some(s) = own {
+                    merged.push(s.id);
+                }
+                items.push(ck_item(c, own, specs));
+            }
+            items.extend(
+                specs
+                    .iter()
+                    .filter(|s| top_of(s.menu_path) == name && !merged.contains(&s.id))
+                    .map(|s| MenuItem {
+                        id: s.id,
+                        label: s.menu_path.rsplit('/').next().unwrap_or(s.label),
+                        catalog: true,
+                        observed: false,
+                        shortcut: s.shortcut,
+                        target: target(s),
+                    }),
+            );
+            Menu {
+                name: name.to_string(),
+                ck,
+                items,
+            }
         })
         .collect()
+}
+
+/// The item of observed CK item `c`; `own` is the catalog command whose `menu_path` it is.
+fn ck_item(c: &CkItem, own: Option<&CommandSpec>, specs: &[CommandSpec]) -> MenuItem {
+    let of = |id: &str| -> Result<&CommandSpec, String> {
+        specs
+            .iter()
+            .find(|s| s.id == id)
+            .ok_or_else(|| format!("`{id}` is not in the catalog"))
+    };
+    let (id, target) = match c.mapping {
+        CkMapping::Command(id) => (id, of(id).and_then(target)),
+        CkMapping::CommandIn(id, t) => (id, of(id).and_then(target).map(|_| t)),
+        CkMapping::Gap(why) => ("", Err(format!("gap: {why}"))),
+        CkMapping::Note(why) => ("", Err(why.to_string())),
+    };
+    MenuItem {
+        id: own.map_or(id, |s| s.id),
+        label: c.label,
+        catalog: own.is_some(),
+        observed: true,
+        shortcut: own.and_then(|s| s.shortcut),
+        target,
+    }
 }
 
 /// The top-level menu of a `menu_path` (`Record/Inspect` -> `Record`).
@@ -223,9 +463,7 @@ pub fn menu_bar(
                         egui::containers::menu::MenuButton::new(menu.name.as_str()).ui(ui, |ui| {
                             ui.set_min_width(theme::combo_width(ui));
                             if menu.ck {
-                                ui.weak(
-                                    "CK menu: built, unobserved; place and items wait on sitting 1",
-                                );
+                                ui.weak("CK menu, as observed (ck-20261101-01)");
                             } else {
                                 ui.weak("KitKraft menu");
                             }
@@ -236,7 +474,13 @@ pub fn menu_bar(
                                     egui::Button::new(empty_menu_note(&menu.name)),
                                 );
                             }
+                            let mut was_observed = false;
                             for item in &menu.items {
+                                if was_observed && !item.observed {
+                                    ui.separator();
+                                    ui.weak("KitKraft");
+                                }
+                                was_observed = item.observed;
                                 if let Some(p) = item_ui(ui, item) {
                                     pick = Some(p);
                                     ui.close();
@@ -264,7 +508,11 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
         Ok(t) => {
             let resp = ui.add(button).on_hover_text(format!(
                 "`{}`{}",
-                item.id,
+                if item.id.is_empty() {
+                    item.label
+                } else {
+                    item.id
+                },
                 if item.shortcut.is_some() {
                     "; the shortcut is the catalog's, shown only (bindings: M7.M5)"
                 } else {
@@ -278,8 +526,13 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
             if item.shortcut.is_none() {
                 button = button.right_text(short_reason(why));
             }
+            let what = if item.id.is_empty() {
+                item.label
+            } else {
+                item.id
+            };
             ui.add_enabled(false, button)
-                .on_disabled_hover_text(format!("`{}`: {why}", item.id));
+                .on_disabled_hover_text(format!("`{what}`: {why}"));
             None
         }
     }
@@ -287,8 +540,13 @@ fn item_ui(ui: &mut egui::Ui, item: &MenuItem) -> Option<MenuPick> {
 
 /// A disabled item's reason in one or two words, shown beside it.
 pub fn short_reason(why: &str) -> &'static str {
+    let why = why.trim_start_matches("KitKraft: ");
     if why.starts_with("writes") {
         "writes"
+    } else if why.starts_with("gap:") {
+        "gap"
+    } else if why.starts_with("no command") {
+        "no command"
     } else if why.starts_with("deferred") {
         "deferred"
     } else if why.starts_with("planned") {
@@ -389,7 +647,7 @@ mod tests {
         let menus = menus();
         let mut seen: BTreeMap<&str, usize> = BTreeMap::new();
         for m in &menus {
-            for i in &m.items {
+            for i in m.items.iter().filter(|i| i.catalog) {
                 *seen.entry(i.id).or_default() += 1;
                 assert_eq!(top_of(gate::find_command(i.id).unwrap().menu_path), m.name);
             }
@@ -421,11 +679,15 @@ mod tests {
             .filter(|n| CK_MENU_ORDER.contains(n))
             .collect();
         assert_eq!(ck, CK_MENU_ORDER);
-        assert_eq!(&names[..7], &CK_MENU_ORDER[..7]);
+        let head = CK_MENU_ORDER.len().saturating_sub(1);
+        assert_eq!(&names[..head], &CK_MENU_ORDER[..head]);
         assert_eq!(names.last(), Some(&"Help"));
         for n in ["Record", "Tools", "Archive", "Papyrus", "Strings", "Game"] {
             let at = names.iter().position(|x| *x == n).unwrap();
-            assert!((7..names.len() - 1).contains(&at), "{n} at {at}: {names:?}");
+            assert!(
+                (head..names.len() - 1).contains(&at),
+                "{n} at {at}: {names:?}"
+            );
         }
     }
 
@@ -434,7 +696,7 @@ mod tests {
     #[test]
     fn disabled_items_say_why_and_enabled_ones_pass_the_gate() {
         for m in menus() {
-            for i in &m.items {
+            for i in m.items.iter().filter(|i| !i.id.is_empty()) {
                 let spec = gate::find_command(i.id).unwrap();
                 match &i.target {
                     Ok(_) => assert!(
@@ -460,7 +722,22 @@ mod tests {
             .flat_map(|m| m.items)
             .find(|i| i.id == "set")
             .unwrap();
-        assert!(set.target.is_err());
+        // M7.E2 (ADR 0007 Amendment 4): `set` is permitted, so Record > Set Field opens
+        // the edit dialog.
+        assert_eq!(set.target, Ok(Target::Window(WindowKind::EditDialog)));
+        // A writing command not yet permitted stays disabled and says why (review L3).
+        let new = menus()
+            .into_iter()
+            .flat_map(|m| m.items)
+            .find(|i| i.id == "new")
+            .unwrap();
+        assert!(
+            new.target
+                .as_ref()
+                .is_err_and(|w| w.contains("write scope")),
+            "{:?}",
+            new.target
+        );
         let ledger = menus()
             .into_iter()
             .flat_map(|m| m.items)
@@ -471,7 +748,7 @@ mod tests {
 
     /// The recorded CK menu order in `docs/ck-parity.md` is this file's order, and every
     /// `menu` row there names a menu the bar draws and maps to a catalog command that
-    /// exists, a documented `gap:`, or "per item" (items unresearched until sitting 1).
+    /// exists, a documented `gap:`, or "per item" (its items are `menu item` rows).
     #[test]
     fn every_ck_menu_row_in_the_parity_doc_maps_to_the_bar() {
         let rows = parity_rows();
@@ -481,16 +758,16 @@ mod tests {
             .iter()
             .find(|r| r.0 == "menu" && r.1.starts_with("Main menu bar"))
             .expect("the main menu bar row");
-        let recalled = order_row
+        let observed = order_row
             .1
-            .split("recalls")
+            .split("observed:")
             .nth(1)
             .unwrap()
             .trim_end_matches(')')
             .split(',')
             .map(|s| s.trim().trim_start_matches("and ").trim())
             .collect::<Vec<_>>();
-        assert_eq!(recalled, CK_MENU_ORDER, "update CK_MENU_ORDER with the row");
+        assert_eq!(observed, CK_MENU_ORDER, "update CK_MENU_ORDER with the row");
         let mut checked = 0;
         for (kind, element, maps, _status) in rows.iter().filter(|r| r.0 == "menu") {
             assert_eq!(kind, "menu");
@@ -573,7 +850,9 @@ mod tests {
                 "{id}"
             );
             let spec = gate::find_command(id).unwrap();
-            if gate::permitted(id).is_none() {
+            // A guarded id runs (`target` lets it through), so only an id neither permitted
+            // nor guarded must be disabled (stub review M1: `build` enters `GUARDED`, M7.E5).
+            if gate::permitted(id).is_none() && !gate::GUARDED.iter().any(|g| g.id == id) {
                 let why = target(spec).unwrap_err();
                 assert!(why.starts_with("writes"), "{id}: {why}");
             }
@@ -583,5 +862,203 @@ mod tests {
         assert_eq!(target(bounds), Ok(Target::Tab("Render Window")));
         let geometry = target(gate::find_command("mesh.geometry").unwrap()).unwrap_err();
         assert!(geometry.starts_with("deferred to M7.S5"), "{geometry}");
+    }
+
+    /// M7.M1 rest: every `menu item` row of `docs/ck-parity.md` is one entry of
+    /// [`CK_ITEMS`], in the row order, mapped as the row maps it (its first catalog id, or
+    /// its `gap:`); and the bar draws each CK menu's observed items first, in that order.
+    #[test]
+    fn every_observed_menu_item_row_is_drawn_in_its_menu_in_order() {
+        let rows: Vec<(String, String)> = parity_rows()
+            .into_iter()
+            .filter(|r| r.0 == "menu item")
+            .map(|r| (r.1, r.2))
+            .collect();
+        assert_eq!(rows.len(), CK_ITEMS.len(), "one entry per menu item row");
+        for ((element, maps), item) in rows.iter().zip(CK_ITEMS) {
+            assert_eq!(
+                element,
+                &format!("{} > {}", item.menu, item.label),
+                "row order"
+            );
+            assert!(CK_MENU_ORDER.contains(&item.menu), "{element}");
+            let first_id = maps
+                .split('`')
+                .skip(1)
+                .step_by(2)
+                .find(|s| !s.ends_with(':'));
+            match item.mapping {
+                CkMapping::Gap(why) => {
+                    assert!(maps.starts_with("`gap:`"), "{element}: {maps}");
+                    assert_eq!(
+                        maps,
+                        &format!("`gap:` {why}"),
+                        "{element}: the row's own reason"
+                    );
+                }
+                CkMapping::Command(id) | CkMapping::CommandIn(id, _) => {
+                    assert_eq!(first_id, Some(id), "{element}: {maps}");
+                    assert!(gate::find_command(id).is_some(), "{element}: {id}");
+                }
+                CkMapping::Note(_) => {
+                    assert_eq!(element, "File > Save Plugin", "the one note");
+                    assert_eq!(first_id, Some("set"), "{element}: {maps}");
+                    assert!(maps.contains("written when it is made"), "{maps}");
+                }
+            }
+        }
+        for m in menus().iter().filter(|m| m.ck) {
+            let observed: Vec<&str> = m
+                .items
+                .iter()
+                .take_while(|i| i.observed)
+                .map(|i| i.label)
+                .collect();
+            let want: Vec<&str> = CK_ITEMS
+                .iter()
+                .filter(|c| c.menu == m.name)
+                .map(|c| c.label)
+                .collect();
+            assert_eq!(observed, want, "{}: the observed items first", m.name);
+            assert!(
+                m.items
+                    .iter()
+                    .skip(want.len())
+                    .all(|i| !i.observed && i.catalog),
+                "{}: then the catalog's own",
+                m.name
+            );
+        }
+    }
+
+    /// An observed item is enabled or disabled as its command is; a `gap:` item is
+    /// disabled with its reason; File > Data... opens the Data dialog (M7.M2) and View >
+    /// Warnings the Warnings window.
+    #[test]
+    fn observed_items_follow_their_command_or_say_their_gap() {
+        let menus = menus();
+        let item = |menu: &str, label: &str| {
+            menus
+                .iter()
+                .find(|m| m.name == menu)
+                .and_then(|m| m.items.iter().find(|i| i.observed && i.label == label))
+                .cloned()
+                .unwrap_or_else(|| panic!("{menu} > {label}"))
+        };
+        assert_eq!(
+            item("File", "Data...").target,
+            Ok(Target::Window(WindowKind::DataDialog))
+        );
+        assert_eq!(
+            item("View", "Warnings").target,
+            Ok(Target::Window(WindowKind::Warnings))
+        );
+        assert_eq!(
+            item("View", "Cell View").target,
+            Ok(Target::Tab("Cell View"))
+        );
+        assert_eq!(item("Edit", "Find Text").target, Ok(Target::Tab("Records")));
+        let exit = item("File", "Exit");
+        assert!(exit.id.is_empty() && !exit.catalog);
+        assert!(exit.target.unwrap_err().starts_with("gap: no command"));
+        let save = item("File", "Save Plugin").target.unwrap_err();
+        assert_eq!(short_reason(&save), "no command");
+        assert!(save.contains("Amendment 4"), "{save}");
+        for c in CK_ITEMS {
+            let i = item(c.menu, c.label);
+            match c.mapping {
+                CkMapping::Command(id) => {
+                    let own = target(gate::find_command(id).unwrap());
+                    assert_eq!(i.target, own, "{} > {}", c.menu, c.label);
+                }
+                CkMapping::CommandIn(id, t) => {
+                    let own = target(gate::find_command(id).unwrap());
+                    assert_eq!(i.target.is_ok(), own.is_ok(), "{} > {}", c.menu, c.label);
+                    if own.is_ok() {
+                        assert_eq!(i.target, Ok(t));
+                    }
+                }
+                CkMapping::Gap(_) => {
+                    let why = i.target.unwrap_err();
+                    assert_eq!(short_reason(&why), "gap", "{why}");
+                }
+                CkMapping::Note(_) => assert!(i.target.is_err()),
+            }
+        }
+    }
+
+    /// A command whose `menu_path` is an observed item is that item (one item, the
+    /// catalog's, with its shortcut): what the M7.S1 `menu_path` table does to `load`.
+    #[test]
+    fn a_command_at_an_observed_place_is_that_item() {
+        let mut specs: Vec<CommandSpec> = gate::catalog().to_vec();
+        for s in &mut specs {
+            if s.id == "load" {
+                s.menu_path = "File/Data...";
+            }
+        }
+        let menus = build(&specs);
+        let file = menus.iter().find(|m| m.name == "File").unwrap();
+        let loads: Vec<&MenuItem> = file.items.iter().filter(|i| i.id == "load").collect();
+        assert_eq!(loads.len(), 1, "{loads:?}");
+        let data = loads[0];
+        assert!(data.observed && data.catalog);
+        assert_eq!(data.label, "Data...");
+        assert_eq!(data.shortcut, gate::find_command("load").unwrap().shortcut);
+        assert_eq!(data.target, Ok(Target::Window(WindowKind::DataDialog)));
+    }
+
+    /// W2 review I1: a catalog command that sits at an observed item is the command that
+    /// item's row maps (checked for the catalog and for the eight M7.S1 moves).
+    #[test]
+    fn a_merged_item_is_the_command_its_row_maps() {
+        let moves = [
+            ("load", "File/Data..."),
+            ("validate", "File/Validate Loaded Data"),
+            ("ba2.pack", "File/Create Archive"),
+            ("revert", "Edit/Undo"),
+            ("clone", "Edit/Duplicate"),
+            ("query", "Edit/Find Text"),
+            ("cell", "View/Cell View"),
+            ("papyrus.compile", "Gameplay/Compile Papyrus Scripts..."),
+        ];
+        let mut moved: Vec<CommandSpec> = gate::catalog().to_vec();
+        for s in &mut moved {
+            if let Some((_, to)) = moves.iter().find(|(id, _)| *id == s.id) {
+                s.menu_path = to;
+            }
+        }
+        for specs in [gate::catalog().to_vec(), moved] {
+            for c in CK_ITEMS {
+                let Some(own) = specs
+                    .iter()
+                    .find(|s| s.menu_path.split_once('/') == Some((c.menu, c.label)))
+                else {
+                    continue;
+                };
+                match c.mapping {
+                    CkMapping::Command(id) | CkMapping::CommandIn(id, _) => {
+                        assert_eq!(own.id, id, "{} > {}", c.menu, c.label)
+                    }
+                    other => panic!("{} > {}: {other:?} at a command", c.menu, c.label),
+                }
+            }
+        }
+    }
+
+    /// E1 ask A3: the reasons a not-yet-permitted write gives name Amendment 4 as decided.
+    #[test]
+    fn write_reasons_name_amendment_4_as_decided() {
+        let editor: CommandSpec = *gate::find_command("place").unwrap();
+        if gate::permitted("place").is_none() && !gate::GUARDED.iter().any(|g| g.id == "place") {
+            let why = target(&editor).unwrap_err();
+            assert!(why.contains("editor's write scope"), "{why}");
+            assert!(!why.contains("waits on"), "{why}");
+        }
+        let pack = target(gate::find_command("ba2.pack").unwrap()).unwrap_err();
+        assert_eq!(
+            pack,
+            "writes: not in the window's write scope (ADR 0007 Amendments 3 and 4)"
+        );
     }
 }

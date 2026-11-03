@@ -1631,9 +1631,34 @@ pub fn guard_location(target: &Path) -> Result<(), PatchError> {
                 d.display()
             )));
         }
+        // After the MO2 check: an MO2 profile with profile-local INIs is named as MO2's
+        // (W3/W4 review L7).
+        if is_user_game_dir(d) {
+            return Err(refused(format!(
+                "{} is inside the game's My Games folder ({}), where the game keeps its INIs and saves; write the patch elsewhere",
+                target.display(),
+                d.display()
+            )));
+        }
         dir = d.parent();
     }
     Ok(())
+}
+
+/// The game's per-user folder, `Documents\My Games\Starfield` (a directory named
+/// `Starfield` whose parent is `My Games`), or any directory holding `StarfieldCustom.ini`
+/// or `StarfieldPrefs.ini`: where the live game keeps its INIs and saves (AGENTS.md "Owner's
+/// live game is off limits"), so no output goes anywhere below it (W2 review M1, ruling R23).
+pub(crate) fn is_user_game_dir(dir: &Path) -> bool {
+    let named = |p: &Path, want: &str| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.eq_ignore_ascii_case(want))
+    };
+    (named(dir, "Starfield") && dir.parent().is_some_and(|g| named(g, "My Games")))
+        || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
+            .iter()
+            .any(|ini| dir.join(ini).is_file())
 }
 
 /// The per-user Data folder the game also loads plugins from: a directory named `Data`

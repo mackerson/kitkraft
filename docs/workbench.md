@@ -6,8 +6,9 @@ Each view runs one engine command, or a fixed sequence of commands, and shows th
 envelope. The UI track continues in M6 "Cockpit", M7 "CK parity" and M8 "Beyond the CK"
 ("Roadmap" at the end). The window's first permitted write is the Ledger
 tab's (Amendment 2): it appends the owner's in-game result as a row of
-`docs/game-observations.md`, a repo doc, one confirm click per row. The six
-permitted writes ADR 0007 Amendment 3 names are listed under "What it can run".
+`docs/game-observations.md`, a repo doc, one confirm click per row. The
+permitted writes (Amendment 3's six, and `set` from Amendment 4) are listed under "What it
+can run".
 
 ## Launch
 
@@ -95,12 +96,12 @@ M6.G1 and M6.G3):
   --incoming` fills the engine's reverse-link cache, as `load` fills the index cache.)
 - **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
   with `out` or `overwrite`.
-- **The permitted writes** (`gate::PERMITTED_WRITES`, inside `gate::COCKPIT_SCOPE`, the six
-  commands ADR 0007 Amendment 3 names: `ledger`, `deploy`, `deploy.rollback`,
-  `game.session`, `game.probe`, `game.stop`). Today all six of them are permitted, each
-  with a writing form that passes only as a request built by `Request::confirmed`, which
-  one panel file per command makes, once per confirm click, and five of them with a
-  preview that passes like a read (`game.probe` has none):
+- **The permitted writes** (`gate::PERMITTED_WRITES`: Amendment 3's six, inside
+  `gate::COCKPIT_SCOPE`, `ledger`, `deploy`, `deploy.rollback`, `game.session`,
+  `game.probe`, `game.stop`; and `set` from Amendment 4, inside `gate::EDITOR_SCOPE`).
+  Today all seven are permitted, each with a writing form that passes only as a request built by `Request::confirmed`, which
+  one panel file per command makes, once per confirm click, and all but `game.probe`
+  with a preview that passes like a read:
 
   | Command | Preview (writes nothing) | Writing form | Panel |
   | ------- | ------------------------ | ------------ | ----- |
@@ -110,6 +111,21 @@ M6.G1 and M6.G3):
   | `game.session` | `dry_run: true` | `start: true`, `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit/session.rs`) |
   | `game.probe` | none | confirmed | Cockpit (`panels/cockpit/probes.rs`) |
   | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
+  | `set` (M7.E2, Amendment 4) | `dry_run: true` | no `dry_run`, confirmed, `into` named | Edit dialog (`dialogs/set.rs`, `dialogs/editor.rs`) |
+
+  `set` is the editor's first write (ADR 0007 Amendment 4, accepted 2026-11-01 with
+  model A: one confirmed write per OK click; `gate::EDITOR_SCOPE` holds the six editor
+  ids, each permitted with its M7.E ticket). The gate requires `into` in the writing
+  form. In every form it refuses an `into` that is not a plugin (.esm, .esp, .esl), an
+  official master by name (Starfield, Constellation, OldMars, ShatteredSpace,
+  `BlueprintShips-*.esm`, `SFBGS*.esm`, any case) or a path in the MO2 profile
+  `Default`, as well as `profile` = `Default` and `overwrite`. The edit dialog edits
+  numbers and plain text in place. OK previews every changed field of the record as one
+  `set --dry-run` into the active file. The confirm box shows the paths changed, the
+  validate findings on the staged result and the limitations, and keeps its one button
+  disabled unless the dry run would write and the active file is still the preview's
+  output. The engine's output guard refuses load-order plugins, the game and user Data
+  folders, MO2 and links on its own.
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
   refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
@@ -132,9 +148,10 @@ M6.G1 and M6.G3):
   probe rows (below). `game.status` is on the allowlist: it is how the window follows
   a started session.
 - **Refused before the engine sees the request:** every other catalog command and alias.
-  That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
+  That includes `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*` and (M7,
-  ADR 0007 Amendment 4, accepted 2026-11-01 with model A) the editor's writes, until each joins with its M7.E ticket.
+  ADR 0007 Amendment 4, accepted 2026-11-01 with model A) the editor's other writes
+  (`new`, `clone`, `place`, `build`, `revert`), until each joins with its M7.E ticket.
 
 Tests enforce this in six ways:
 
@@ -142,10 +159,11 @@ Tests enforce this in six ways:
 - The allowlist must hold no command the catalog marks `writes`, the gate's writing list
   must equal the catalog's `writes` set, and a guarded command must refuse its writing
   arguments. The writing commands the window can run in a writing form must be exactly
-  the ids of `PERMITTED_WRITES`; each must be in `COCKPIT_SCOPE`, in the catalog,
-  `writes` and `Implemented`; `COCKPIT_SCOPE` is pinned to Amendment 3's six ids. A
-  scratch test adds `testplan`, `set`, `package` and `revert` and checks that each fails
-  the rule.
+  the ids of `PERMITTED_WRITES`; each must be in `COCKPIT_SCOPE` or `EDITOR_SCOPE`, in
+  the catalog, `writes` and `Implemented`; both scopes are pinned (`COCKPIT_SCOPE` to
+  Amendment 3's six ids, `EDITOR_SCOPE` to Amendment 4's six). A scratch test adds
+  `testplan`, `package`, `mod.run` and `deploy.enable` and checks that each fails the
+  rule, and that an editor id fails against `COCKPIT_SCOPE` alone.
 - Every refused id and alias is tried, and each must be refused (a permitted write in its
   writing form, unconfirmed). A confirmed request for any other command is refused.
 - A scan of the crate's sources allows `Request::confirmed("<id>", ..)` only in `gate.rs`
@@ -449,7 +467,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W2, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M2, M7.M4, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption, confirmed by the owner for now on 2026-11-01):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -469,22 +487,62 @@ revisited once a sitting observes how the CK docks. Code:
 `app.rs`, which calls it through one-line hooks), `src/dialogs/`, and the layout files in
 `crates/ui-egui/layouts/`.
 
-- **Menu bar (M7.M1)**, above the tabs, built from the catalog: one item per command, in
+- **Menu bar (M7.M1)**, above the tabs. The CK's twelve menus come first, in the order
+  sitting `ck-20261101-01` observed (File, Edit, View, Docks, Galaxy, World, Terrain,
+  NavMesh, Character, Gameplay, Audio, Help; `docs/ck-parity.md`, filed in
+  `ck-20261102-01`); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game)
+  come before Help. A CK menu lists its observed items first, in the CK's order and with
+  the CK's labels (`menu.rs` `CK_ITEMS`, a test holds it equal to the `menu item` rows):
+  an item its row maps to a command opens that command's tab or window and is enabled or
+  disabled as the command is (File > Data... opens the Data dialog, View > Warnings the
+  Warnings window); an item its row gives a `gap:` is drawn disabled with that reason
+  (File > Save Plugin, whose row maps `set` and `build`, is disabled with KitKraft's note instead,
+  model A: saved at each OK, each confirmed edit written when it is made). Below a
+  "KitKraft" line come the catalog's own commands of that menu: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
-  (bound by M7.M5). The CK's menus come first in the order `docs/ck-parity.md` records,
-  which is a recollection: the bar's parity row is `built, unobserved` (ADR 0012
-  Amendment 1, accepted 2026-11-01), never counted as parity, until a sitting observes the
-  CK's order (each such menu says so in its first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
-  before Help; a CK menu with no command yet (World, NavMesh, Character, Gameplay) shows a
-  disabled line saying why. An item opens the tab or window that runs its command and
-  runs nothing itself. Disabled items carry a word beside them and the reason on hover:
-  `writes` (outside ADR 0007 Amendment 3's scope, or in it but not yet permitted),
-  `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
+  (bound by M7.M5); a command whose `menu_path` is an observed item is that item. An item
+  opens the tab or window that runs its command and runs nothing itself. Disabled items
+  carry a word beside them and the reason on hover: `writes` (outside ADR 0007 Amendments
+  3 and 4, or in the editor's scope and not yet permitted with its M7.E ticket), `gap`,
+  `no command`, `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
   severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
   double-click a finding to inspect its record.
+- **Data dialog (M7.M2)**: View > Data Dialog. The session's load order (the Load tab's
+  `load`) and the plugins its profile lists but does not activate, each with its status as
+  the CK names it ("Master File", "Plugin File", "Active File") and a tick: a double-click
+  or its box ticks a row, "Set as Active File" makes the selected plugin the active file
+  and ticks it, OK loads the ticked plugins with `load` when the ticks changed (through the
+  Load tab's slot, so the session follows) and then sets the active file, Cancel changes
+  nothing. The selected plugin's header shows beside the list (author, description,
+  masters, header flags, the stored timestamp; `inspect` of its `TES4`, FormID 0, in
+  single-plugin mode). Never the active file: a master-flagged plugin (as the CK refuses
+  one, `ck-20261101-01`), an official master or Creation (the engine's activation rule
+  `hardcoded-official`, `Starfield.ccc` or `blueprint-companion-of:`, or the official
+  names), and anything while the session was loaded from `Default` (whose order is then
+  read-only: no ticks, OK sends no `load`); the refusal shows under the list and the
+  active file stays as it was. These refusals read the engine's `load` result; the engine's
+  output guard (`edit::patch::guard_target`, `guard_location`) refuses a load-order plugin,
+  the Data folders and MO2 as a write target on its own, with its own tests
+  (`edit/patch_tests.rs`, `handlers/build_tests.rs`). A Creation listed only in
+  `plugins.txt` is not recognised as one here (it lives in the Data folder, which the guard
+  refuses). The active file is UI state only
+  (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
+  Below the list, the "Active file path:" field and "Use This File" (director ruling R17,
+  2026-11-02; KitKraft's addition, the CK's Data dialog has no such field) take a new or
+  existing `.esp` or `.esm` outside the load order as the active file: a full path, not
+  an official master's name, not inside a Starfield Data folder (the game's or
+  `My Games\Starfield\Data`) or an MO2 instance, not master-flagged (an existing file's
+  `TES4` is read with `inspect`); a new file is created by the editor's first write. The
+  engine's output guard has the final word. Writing again into such a file once it is
+  loaded is refused by the engine until its guard exempts the active file (E's ask A6,
+  deferred).
+  Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
+  the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
+  the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row
+  selection is not built.
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.

@@ -206,7 +206,6 @@ fn m7_r3_model_boxes_are_forgotten_on_a_new_load_and_on_an_engine_restart() {
 }
 
 #[test]
-#[ignore = "needs ask A7 (app.rs files a refused mesh.bounds reply through bounds_failed); the A7 commit removes this ignore"]
 fn m7_r3_a_refused_mesh_bounds_request_answers_its_base() {
     // The requests go to the harness's engine, which has no load order and refuses
     // both. With A7 each refusal answers its base with no model box: both bases are
