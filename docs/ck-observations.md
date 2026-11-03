@@ -505,15 +505,19 @@ The record is in `C:\Modding\kitkraft-observe\ck-2026-11-02\sitting1-rest\` (D9)
 4. Every probe passed, but the menu dumps were empty: their items were looked for in the
    wrong place.
 
-Each fault was fixed in the scripts before the next attempt. After each attempt the CK and
-MO2 were gone and the settings files were restored and their hashes checked. After attempt 1
-I restored them by hand.
+Each fault was fixed in the scripts before the next attempt. After attempts 2 to 4 the frame
+closed the CK and MO2 and restored the settings files with their hashes checked. Attempt 1's
+`session.md` stops at the launch line (the runner died on the locked log, `x6-run.err`): it
+left the CK's two settings files rewritten. When I found the runner dead the CK and MO2 were
+no longer running (process list checked; how they ended is not recorded), and I restored the
+files by hand. Attempt 2's backup hashes equal attempt 1's (`2c25a70f`, `3fbea763`), so the
+restore was exact.
 
 | Field | Content |
 | ----- | ------- |
 | Id | `ck-20261102-02` |
-| CK version | 1.16.244.0, read from the main window's title after the load (`ck-title.txt`); nothing was read from the exe |
-| Data | File > Data...: `Starfield.esm` ticked by type-ahead and a double-click (the row found in a screenshot of the list), no active file, OK. Loaded in about 127 s (attempt 5), 129 s (attempt 4) |
+| CK version | 1.16.244.0, read from the main window's title after the load (`ck-title.txt`). The exe's SHA-256 is in `preflight.json`; no version resource or content of it was read |
+| Data | File > Data...: `Starfield.esm` ticked by type-ahead and a double-click (the row found in a screenshot of the list), no active file, OK. Loaded in about 134 s (attempt 5), 127 s (attempt 4), per each `session.md` |
 | Postflight | `ok` in attempts 2 to 5. The settings files were restored with their hashes checked. The dev profile's list files and the `Default` profile's are unchanged, and nothing was written into `overwrite\` or a dev mod. Finding: MO2 rewrote `ModOrganizer.ini` (hash `44c936e8...` before attempt 1, different after it), which is MO2's own settings file and recorded only |
 | S1-04 submenus (12) | **inconclusive** after two attempts (attempts 4 and 5). The hovered item's submenu opens in the screenshots (`shots\s1-04-01..12.png`), but neither the hovered item's subtree nor any top-level popup holds a menu item in the UI Automation tree. Not counted (Amendment 2 decision 2). Request: an owner sitting, or reading the screenshots, for the submenus' items |
 | S1-05 Docks | **observed** (`s1-05-docks.txt`, `a1d84df3...b359bc1a`). The open menu's tree lists Save Current Layout, Save Layout as..., Recent Layouts, Manage Layouts..., Galaxy View, Picking Preferences. The screenshot shows these and a list of window entries with check marks (Object Windows, Render Windows, Warnings, Show/Hide, Cell View, Layers, Material Palette, Properties, Reflection Probe). The tree does not list those entries, so they are not counted. The entries differ from the 2026-11-01 screenshot's, so the list depends on which windows are open |
