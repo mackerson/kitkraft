@@ -44,8 +44,9 @@ const PAGE: u32 = 1000;
 pub enum ObjectTicket {
     /// The category tree (`schema`).
     Categories,
-    /// One type's records (`query`).
-    List,
+    /// One type's records (`query`): the type, kept with the reply so the list is never
+    /// shown under the type of a request still on its way (W3 review L6).
+    List(String),
 }
 
 /// One category of the tree, with its types `(signature, name)`.
@@ -68,7 +69,7 @@ pub struct ObjectWindowState {
     pub node: Option<String>,
     /// The Text Filter.
     pub filter: String,
-    /// The type of the shown (or pending) list.
+    /// The type of the shown list (set when its reply arrives).
     pub listed: Option<String>,
     pub list: Option<QueryView>,
     pub list_error: Option<String>,
@@ -163,11 +164,10 @@ impl ObjectWindowState {
         };
         match form.request(cursor.as_deref()) {
             Ok(req) => {
-                self.listed = Some(ty);
                 self.cursor = cursor;
                 self.list_pending = true;
                 self.list_error = None;
-                self.outbox = Some((ObjectTicket::List, req));
+                self.outbox = Some((ObjectTicket::List(ty), req));
             }
             Err(e) => self.list_error = Some(e),
         }
@@ -206,11 +206,12 @@ impl ObjectWindowState {
                     Err(e) => self.categories_error = Some(e),
                 }
             }
-            ObjectTicket::List => {
+            ObjectTicket::List(ty) => {
                 self.list_pending = false;
                 match result {
                     Ok(env) => {
                         self.list = Some(QueryView::from_envelope(env));
+                        self.listed = Some(ty.clone());
                         self.list_error = None;
                     }
                     Err(e) => {
@@ -224,10 +225,13 @@ impl ObjectWindowState {
 
     /// Takes a successful reply that came back on `Slot::ObjectCategories` or
     /// `Slot::ObjectList` (the window sends neither; it uses tickets).
-    pub(crate) fn receive_slot(&mut self, slot: Slot, _request: &Request, env: &Value) {
+    pub(crate) fn receive_slot(&mut self, slot: Slot, request: &Request, env: &Value) {
         match slot {
             Slot::ObjectCategories => self.receive(&ObjectTicket::Categories, Ok(env)),
-            Slot::ObjectList => self.receive(&ObjectTicket::List, Ok(env)),
+            Slot::ObjectList => {
+                let ty = text_or_empty(&request.args, "type");
+                self.receive(&ObjectTicket::List(ty), Ok(env));
+            }
             _ => {}
         }
     }
@@ -245,7 +249,7 @@ impl ObjectWindowState {
                         .desired_width(theme::combo_width(ui)),
                 )
                 .labelled_by(label.id);
-            let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            let enter = !busy && edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
             if ui.add_enabled(!busy, egui::Button::new("Filter")).clicked() || enter {
                 self.apply_filter();
             }
@@ -437,7 +441,7 @@ mod tests {
         let mut s = ObjectWindowState::default();
         s.select_node("GLOB");
         let (t, req) = s.take_request().unwrap();
-        assert_eq!(t, ObjectTicket::List);
+        assert_eq!(t, ObjectTicket::List("GLOB".into()));
         assert_eq!(req.args["type"], "GLOB");
         assert!(req.args.get("where").is_none());
         crate::gate::check(&req).unwrap();
@@ -456,9 +460,18 @@ mod tests {
         let env = json!({"data": {"results": [{"form": "A.esm:000800", "editor_id": "Glob800"}]}});
         s.select_node("GLOB");
         s.take_request();
-        s.receive(&ObjectTicket::List, Ok(&env));
+        s.receive(&ObjectTicket::List("GLOB".into()), Ok(&env));
         assert_eq!(s.list.as_ref().unwrap().rows.len(), 1);
-        s.receive(&ObjectTicket::List, Err("no load order".into()));
+        // Review L6: while STAT's page is on its way, GLOB's rows stay GLOB's.
+        s.select_node("STAT");
+        s.take_request();
+        assert_eq!(s.listed.as_deref(), Some("GLOB"));
+        s.receive(&ObjectTicket::List("STAT".into()), Ok(&env));
+        assert_eq!(s.listed.as_deref(), Some("STAT"));
+        s.receive(
+            &ObjectTicket::List("STAT".into()),
+            Err("no load order".into()),
+        );
         assert!(s.list.is_none() && s.list_error.is_some());
     }
 
