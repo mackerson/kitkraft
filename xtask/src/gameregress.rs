@@ -28,6 +28,13 @@ use crate::evidence::{sha256_hex, KitBinary, Runner};
 /// The environment variable that opts into the live half (M4.T7).
 pub(crate) const PROFILE_VAR: &str = "KITKRAFT_GAME_PROFILE";
 
+/// The `kit` commands a replay's `build` may run: the plugin writers. Anything else (a game
+/// session, a deploy into MO2) is refused when the replay is read (review M4).
+const WRITERS: [&str; 5] = ["build", "set", "new", "clone", "place"];
+
+/// The `kit testplan` options a replay may pass, each with its value.
+const TESTPLAN_OPTIONS: [&str; 2] = ["--plugins", "--profile"];
+
 /// One replay file.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Replay {
@@ -75,6 +82,14 @@ impl Replay {
             .map(|s| s.to_string_lossy().into_owned())
             .ok_or_else(|| anyhow!("{}: no file name", file.display()))?;
         let build = list(&t, "build", file)?;
+        if !build.first().is_some_and(|c| WRITERS.contains(&c.as_str())) {
+            bail!(
+                "{}: `build` must start with a plugin writer ({}), not {:?}",
+                file.display(),
+                WRITERS.join(", "),
+                build.first()
+            );
+        }
         if !build.iter().any(|a| a.contains("{out}")) {
             bail!("{}: `build` must write `{{out}}`", file.display());
         }
@@ -82,11 +97,25 @@ impl Replay {
         if plugin.contains(['/', '\\']) || plugin.contains("..") || plugin.is_empty() {
             bail!("{}: `plugin` is a file name, not a path", file.display());
         }
+        let testplan = list(&t, "testplan", file)?;
+        let mut it = testplan.iter();
+        while let Some(opt) = it.next() {
+            let value = it.next();
+            if !TESTPLAN_OPTIONS.contains(&opt.as_str())
+                || value.is_none_or(|v| v.starts_with("--"))
+            {
+                bail!(
+                    "{}: `testplan` takes only {} with a value each, not `{opt}`",
+                    file.display(),
+                    TESTPLAN_OPTIONS.join(" and ")
+                );
+            }
+        }
         Ok(Replay {
             name,
             plugin,
             build,
-            testplan: list(&t, "testplan", file)?,
+            testplan,
             plugin_sha256: text(&t, "plugin_sha256", file)?.to_ascii_lowercase(),
             probes_sha256: text(&t, "probes_sha256", file)?.to_ascii_lowercase(),
             session: text(&t, "session", file)?,
@@ -232,8 +261,8 @@ pub(crate) fn replay_desk(
     Ok(o)
 }
 
-/// Every replay in `dir`, in name order; each works in `<root>/out/game-regress/<name>/`.
-pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<Outcome>> {
+/// Every replay in `dir` with its recorded probe file, in name order.
+fn read_all(dir: &Path) -> Result<Vec<(Replay, String)>> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
         .with_context(|| format!("{}: no replays folder", dir.display()))?
         .filter_map(|e| e.ok().map(|e| e.path()))
@@ -250,6 +279,15 @@ pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<O
         let probes = f.with_file_name(format!("{}.probes.toml", r.name));
         let recorded = std::fs::read_to_string(&probes)
             .with_context(|| format!("{}: the recorded probe file is missing", probes.display()))?;
+        out.push((r, recorded));
+    }
+    Ok(out)
+}
+
+/// Every replay in `dir`, in name order; each works in `<root>/out/game-regress/<name>/`.
+pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<Outcome>> {
+    let mut out = Vec::new();
+    for (r, recorded) in read_all(dir)? {
         let work = root.join("out").join("game-regress").join(&r.name);
         out.push(replay_desk(&r, &recorded, &work, kit)?);
     }
@@ -434,12 +472,60 @@ mod tests {
         assert!(e.to_string().contains("{out}"), "{e}");
         let e = Replay::parse(
             p,
-            &format!("{base}plugin = '..\\P.esm'\nbuild = [\"{{out}}\"]\n"),
+            &format!("{base}plugin = '..\\P.esm'\nbuild = [\"set\", \"{{out}}\"]\n"),
         )
         .unwrap_err();
         assert!(e.to_string().contains("file name"), "{e}");
         let e = Replay::parse(p, "format = 2\n").unwrap_err();
         assert!(e.to_string().contains("format = 1"), "{e}");
+    }
+
+    /// Review M4: a replay can only rebuild a plugin and plan it; a command that launches the
+    /// game or writes into MO2, or another testplan argument, is refused.
+    #[test]
+    fn a_replay_runs_only_plugin_writers_and_plain_testplan_arguments() {
+        let p = Path::new("x.toml");
+        let base = "format = 1
+plugin = \"P.esm\"
+plugin_sha256 = \"a\"
+probes_sha256 = \"b\"
+session = \"s\"
+";
+        for build in [
+            r#"["game", "session", "{out}"]"#,
+            r#"["deploy", "{out}", 'C:\x', "--dev"]"#,
+            r#"["deploy", "enable", "{out}", "--dev"]"#,
+        ] {
+            let e = Replay::parse(
+                p,
+                &format!(
+                    "{base}testplan = []
+build = {build}
+"
+                ),
+            )
+            .unwrap_err();
+            assert!(e.to_string().contains("plugin writer"), "{build}: {e}");
+        }
+        let e = Replay::parse(
+            p,
+            &format!(
+                "{base}build = [\"set\", \"{{out}}\"]
+testplan = [\"--mo2\", 'C:\\x']
+"
+            ),
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("testplan"), "{e}");
+        assert!(Replay::parse(
+            p,
+            &format!(
+                "{base}build = [\"build\", \"s.toml\", \"{{out}}\"]
+testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
+"
+            ),
+        )
+        .is_ok());
     }
 
     #[test]
