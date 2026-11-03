@@ -587,25 +587,64 @@ fn preferences_change_the_zoom_theme_and_checkout() {
 
 // ---- E's ask B1: File > Build Patch opens the build form ------------------------------------
 
-/// E's ask B1 (M7.E5): the `build` item targets the editor, and the shell sends
-/// `Action::OpenEditor { command: "build" }` for it (the item is enabled once the gate
-/// permits `build`, with E5's merge).
-#[test]
-fn file_build_patch_sends_open_editor_for_build() {
-    let menus = crate::menu::build(crate::gate::catalog());
-    let item = menus
-        .iter()
-        .flat_map(|m| m.items.iter())
-        .find(|i| i.id == "build" && i.catalog)
-        .expect("the build item");
+/// The menu item labelled `label` (its text may carry the shortcut), in the open menu.
+fn menu_item<'a>(h: &'a Bench, label: &'a str) -> Node<'a> {
+    let all: Vec<Node<'a>> = h
+        .query_all_by(move |n| {
+            n.role() == egui::accesskit::Role::Button
+                && text_of(n).is_some_and(|t| t.starts_with(label))
+        })
+        .collect();
+    assert_eq!(all.len(), 1, "one `{label}` item");
+    all.into_iter().next().expect("checked above")
+}
+
+/// An editor write's menu item, `command` under `menu` > `label`: enabled exactly when the
+/// gate permits `command`; a click sends the editor `Action::OpenEditor { command }` when it
+/// is enabled, and nothing when it is not. Then the pick itself, as the shell takes it,
+/// reaches the editor (`ck_pick`), whichever the gate says.
+fn editor_item_follows_the_gate(command: &'static str, menu: &str, label: &str) {
+    let Some(mut h) = workbench() else { return };
+    let editor_says = |h: &Bench| {
+        visible_text(h)
+            .lines()
+            .any(|l| l.contains(&format!("`{command}`")) && !l.contains(label))
+    };
+    h.state_mut().app.shell.tour_menu = Some(menu.to_string());
+    h.run_steps(3);
+    let item = menu_item(&h, label);
+    let permitted = crate::gate::permitted(command).is_some();
     assert_eq!(
-        crate::gate::find_command("build").unwrap().menu_path,
-        "File/Build Patch..."
+        !item.accesskit_node().is_disabled(),
+        permitted,
+        "{menu} > {label}: enabled exactly when the gate permits `{command}`"
     );
-    match &item.target {
-        Ok(t) => assert_eq!(*t, crate::menu::Target::Editor("build")),
-        Err(why) => assert!(why.contains("editor's write scope"), "{why}"),
-    }
+    item.click();
+    h.state_mut().app.shell.tour_menu = None;
+    h.run_steps(4);
+    assert_eq!(
+        editor_says(&h),
+        permitted,
+        "{menu} > {label}: the editor heard of `{command}` exactly when it is permitted"
+    );
+    h.state_mut()
+        .app
+        .ck_pick(crate::menu::MenuPick::Open(crate::menu::Target::Editor(
+            command,
+        )));
+    h.run_steps(4);
+    assert!(
+        editor_says(&h),
+        "the pick reaches the editor:\n{}",
+        visible_text(&h)
+    );
+}
+
+/// E's ask B1 (M7.E5), W5 review L1: File > Build Patch follows the gate and opens the
+/// build form through the editor.
+#[test]
+fn file_build_patch_follows_the_gate_and_opens_the_build_form() {
+    editor_item_follows_the_gate("build", "File", "Build Patch...");
     match super::super::ck_shell::editor_action("build") {
         Action::OpenEditor { command, form } => {
             assert_eq!((command.as_str(), form.as_str()), ("build", ""))

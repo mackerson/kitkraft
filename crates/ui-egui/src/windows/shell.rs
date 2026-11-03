@@ -103,13 +103,19 @@ impl App {
             (!r.signature.is_empty()).then(|| s.trim().to_string())
         });
         let pick = menu::menu_bar(ui, &menus, &mut self.shell, &labels, selected.as_deref());
+        if let Some(p) = pick {
+            self.ck_pick(p);
+        }
+    }
+
+    /// What a menu pick does: a tab, a window, the editor's form for a write, or a tab
+    /// floated or docked.
+    pub(super) fn ck_pick(&mut self, pick: MenuPick) {
         match pick {
-            Some(MenuPick::Open(Target::Tab(label))) => self.ck_open_tab(label),
-            Some(MenuPick::Open(Target::Window(kind))) => self.shell.set_open(kind, true),
-            Some(MenuPick::Open(Target::Editor(command))) => {
-                self.apply(vec![editor_action(command)])
-            }
-            Some(MenuPick::FloatTab(label)) => {
+            MenuPick::Open(Target::Tab(label)) => self.ck_open_tab(label),
+            MenuPick::Open(Target::Window(kind)) => self.shell.set_open(kind, true),
+            MenuPick::Open(Target::Editor(command)) => self.apply(vec![editor_action(command)]),
+            MenuPick::FloatTab(label) => {
                 let float = !self.shell.is_floating(label);
                 let docked = TABS
                     .iter()
@@ -126,7 +132,6 @@ impl App {
                     }
                 }
             }
-            None => {}
         }
     }
 
