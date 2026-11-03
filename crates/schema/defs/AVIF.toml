@@ -7,8 +7,15 @@
 #     and the helpers it uses: EDID (L3182), script data (L3407-L3411, kept opaque),
 #     FULL (L3184), NLDT (L3183); the record-header flag bits (L9878-L9888) name the
 #     navmesh bits the same way HAZD and TRAV do.
-#   corpus: ANAM and FULL keep the lstring typing of the lstring-only definition
-#     (lane E's corpus lstring table, crates/engine/src/edit/lstrings.rs).
+#   corpus: the 1,267 AVIF records of the 14 official ESMs (crates/esm/tests/avif_types.rs,
+#     avif_types_full, 2026-11-03): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. VMAD is absent from all 1,267; NLDT is in 387,
+#     FULL in 181, ANAM in 61, NAM1 in 1,185 and NAM2 and NAM3 in 35; EDID, NAM0 and AVFL
+#     are in all 1,267.
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs): in the
+#     official AVIF records every FULL and ANAM is 4 bytes and more than 95% of their
+#     distinct values are IDs in the plugin's own English string tables.
 #
 # Every member xEdit gives a layout is typed here; the script data (VMAD) stays raw.
 # EDID, ANAM and FULL keep the lstring evidence they carried when the type was
@@ -19,9 +26,10 @@ signature = "AVIF"
 name = "ActorValueInformation"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953",
+  "corpus: crates/esm/tests/avif_types.rs (avif_types_full), 2026-11-03: in all 1,267 official AVIF records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+  "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus: in the official AVIF records every FULL and ANAM is 4 bytes and more than 95% of their distinct values are IDs in the plugin's own English string tables",
 ]
-confidence = "reference"
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x2],
   ["GroundPiece", 0x4],
@@ -53,7 +61,8 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, kept raw"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; absent from all 1,267 official AVIF records"
 
 [[member]]
 sig = "FULL"
@@ -66,6 +75,7 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official AVIF records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+note = "in 181 of the 1,267 official AVIF records"
 
 [[member]]
 sig = "NLDT"
@@ -73,7 +83,7 @@ name = "ContextNotes"
 type = "zstring"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183"]
-note = "an editor note for translators"
+note = "an editor note for translators; in 387 of the 1,267 official AVIF records"
 
 [[member]]
 sig = "ANAM"
@@ -85,12 +95,14 @@ evidence = [
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official AVIF records every ANAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
 ]
 confidence = "corpus"
+note = "in 61 of the 1,267 official AVIF records"
 
 [[member]]
 sig = "NAM0"
 name = "DefaultValue"
 type = "f32"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9900-L9900"]
+note = "in all 1,267 official AVIF records"
 
 [[member]]
 sig = "AVFL"
@@ -118,7 +130,7 @@ bits = [
   ["Hardcoded", 0x80000000],
 ]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9901-L9934"]
-note = "14 of the 32 bits are unnamed upstream and stay in the base value"
+note = "14 of the 32 bits are unnamed upstream and stay in the base value; in all 1,267 official AVIF records"
 
 [[member]]
 sig = "NAM1"
@@ -140,6 +152,7 @@ values = [
   ["AnimGraphVariable", 10],
 ]
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9935-L9947"]
+note = "in 1,185 of the 1,267 official AVIF records"
 
 [[member]]
 sig = "NAM2"
@@ -147,6 +160,7 @@ name = "Min"
 type = "f32"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9948-L9948"]
+note = "in 35 of the 1,267 official AVIF records"
 
 [[member]]
 sig = "NAM3"
@@ -154,3 +168,4 @@ name = "Max"
 type = "f32"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9949-L9949"]
+note = "in 35 of the 1,267 official AVIF records"

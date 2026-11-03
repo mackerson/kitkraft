@@ -60,7 +60,7 @@
 // - ARTO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804; corpus)
 // - ASPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official ASPC record (814) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ATMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically; corpus)
-// - AVIF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953; reference)
+// - AVIF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953; corpus)
 // - AVMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
 // - BMMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BMMO record (71) decodes with every subrecord placed and re-encodes identically; corpus)
