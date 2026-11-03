@@ -4,6 +4,11 @@
 # row). It records labels, not which field each label edits, and no tab names, so the
 # dialogs' tabs and groups stay KitKraft's (layouts/<TYPE>.toml, or the default layout
 # from the schema); M7.K4 maps each label to a schema member.
+#
+# M7.K4's mapping goes in each [[dialog]] as explicit pairs, one per label:
+#   map = [{ label = "ID", member = "EDID" }, ...]
+# where `member` is a `set` field path of the type (`SIG` or `SIG.Member`). A label
+# without a pair is a gap (dialogs::layouts::tests, the members check, pins the list).
 
 [[dialog]]
 type = "WEAP"

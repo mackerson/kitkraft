@@ -32,6 +32,10 @@ pub struct Observation {
     pub tab_control: String,
     /// The dialog's labels in the record's order (empty unless observed).
     pub labels: Vec<String>,
+    /// M7.K4's mapping, label by label: (observed label, `set` field path such as `EDID`
+    /// or `CNAM.Red`), from the `[[dialog]]`'s `map = [{ label, member }]`. Empty until
+    /// M7.K4 maps a label; a label without a pair is a gap.
+    pub map: Vec<(String, String)>,
 }
 
 /// CK sitting 2's record of the edit dialogs (M7.W4).
@@ -65,6 +69,20 @@ pub fn observation(signature: &str) -> Option<Observation> {
                 .collect()
         })
         .unwrap_or_default();
+    let map = o
+        .get("map")
+        .and_then(toml::Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(toml::Value::as_table)
+                .filter_map(|m| {
+                    let label = m.get("label")?.as_str()?.to_string();
+                    let member = m.get("member")?.as_str()?.to_string();
+                    Some((label, member))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     Some(Observation {
         sitting: s("sitting"),
         step: s("step"),
@@ -72,6 +90,7 @@ pub fn observation(signature: &str) -> Option<Observation> {
         status: s("status"),
         tab_control: s("tab_control"),
         labels,
+        map,
     })
 }
 
@@ -288,44 +307,144 @@ mod tests {
         assert_eq!(observation("AMMO").unwrap().tab_control, "none");
     }
 
-    /// M7.W4's members check: an observed label is mapped when a group of its layout names
-    /// it among its `members` (M7.K4's mapping); every other label is a gap, and a type
-    /// whose dialog was not observed is a gap as a whole. Tonight M7.K4 has mapped no
-    /// label, so the report is every observed label, and WEAP "unobserved
-    /// (ck-20261102-03 inconclusive)"; the test pins that report so it changes with K4.
+    /// M7.K4's mapping as the members check pins it, type by type: (observed label, `set`
+    /// field path). Empty tonight: no label is mapped yet. A mapping lands in two places,
+    /// the `[[dialog]]`'s `map` in `layouts/sitting2.toml` and here, so a mapping changed in
+    /// one and not the other fails.
+    const MAPPED: &[(&str, &[(&str, &str)])] = &[
+        ("AMMO", &[]),
+        ("COBJ", &[]),
+        ("LCTN", &[]),
+        ("TERM", &[]),
+        ("CONT", &[]),
+        ("STAT", &[]),
+        ("KYWD", &[]),
+    ];
+
+    /// Whether the deep `schema` envelope of a type has the field path `path` (`SIG` or
+    /// `SIG.Member`): the subrecord (top level or in a group), and the member named inside.
+    fn schema_has(env: &serde_json::Value, path: &str) -> bool {
+        fn names(v: &serde_json::Value, out: &mut Vec<String>) {
+            for k in ["members", "fields"] {
+                for m in v
+                    .get(k)
+                    .and_then(serde_json::Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    if let Some(n) = m.get("name").and_then(serde_json::Value::as_str) {
+                        out.push(n.to_string());
+                    }
+                    names(m, out);
+                }
+            }
+        }
+        let (sig, member) = path.split_once('.').unwrap_or((path, ""));
+        let is_sig = |m: &&serde_json::Value| {
+            m.get("signature").and_then(serde_json::Value::as_str) == Some(sig)
+        };
+        let top: Vec<&serde_json::Value> = env["data"]["members"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .collect();
+        let entries: Vec<&serde_json::Value> = top
+            .iter()
+            .copied()
+            .filter(is_sig)
+            .chain(
+                top.iter()
+                    .flat_map(|g| g["members"].as_array().into_iter().flatten())
+                    .filter(is_sig),
+            )
+            .collect();
+        !entries.is_empty()
+            && (member.is_empty()
+                || entries.iter().any(|e| {
+                    let mut out = Vec::new();
+                    names(e, &mut out);
+                    out.iter().any(|n| n == member)
+                }))
+    }
+
+    /// M7.W4's members check (review finding M1 of M7.W4): a label is mapped only by an
+    /// explicit pair (label, field path) in its `[[dialog]]`'s `map`, which must name an
+    /// observed label once and a field path the type's schema has; the pairs must equal
+    /// the [`MAPPED`] pin. Every other label is a gap, named; a type whose dialog was not
+    /// observed is a gap as a whole. The report is pinned in full.
     #[test]
     fn every_observed_label_is_mapped_or_reported_as_a_gap() {
+        let engine = ReadOnlyEngine::new();
         let mut gaps = Vec::new();
         for (t, _) in SITTING2 {
             let o = observation(t).unwrap();
             if o.status != "observed" {
+                assert!(o.map.is_empty(), "{t}: a mapping for an unobserved dialog");
                 gaps.push(format!("{t}: unobserved ({} {})", o.sitting, o.status));
                 continue;
             }
-            let mapped: Vec<String> = shipped(t)
-                .and_then(Result::ok)
-                .map(|layout| {
-                    layout
-                        .tabs
-                        .into_iter()
-                        .flat_map(|tab| tab.groups)
-                        .filter_map(|g| g.members)
-                        .flatten()
+            let pinned: Vec<(String, String)> = MAPPED
+                .iter()
+                .find(|(ty, _)| ty == t)
+                .map(|(_, pairs)| {
+                    pairs
+                        .iter()
+                        .map(|(l, m)| ((*l).to_string(), (*m).to_string()))
                         .collect()
                 })
                 .unwrap_or_default();
-            let unmapped = o.labels.iter().filter(|l| !mapped.contains(l)).count();
-            if unmapped > 0 {
-                gaps.push(format!(
-                    "{t}: {unmapped} of {} observed labels not mapped to a member (M7.K4)",
-                    o.labels.len()
-                ));
+            assert_eq!(o.map, pinned, "{t}: the mapping differs from the pin");
+            let env = engine
+                .run(&Request::new("schema", json!({"type": t, "deep": true})))
+                .unwrap();
+            let mut seen: Vec<&String> = Vec::new();
+            for (label, member) in &o.map {
+                assert!(
+                    o.labels.contains(label),
+                    "{t}: `{label}` is no observed label"
+                );
+                assert!(!seen.contains(&label), "{t}: `{label}` mapped twice");
+                seen.push(label);
+                assert!(
+                    schema_has(&env, member),
+                    "{t}: `{label}` -> `{member}` is not a field of the schema"
+                );
+            }
+            let unmapped: Vec<&str> = o
+                .labels
+                .iter()
+                .filter(|l| !seen.contains(l))
+                .map(String::as_str)
+                .collect();
+            if !unmapped.is_empty() {
+                gaps.push(format!("{t}: not mapped (M7.K4): {}", unmapped.join(" | ")));
             }
         }
         eprintln!("M7.W4 gaps:\n  {}", gaps.join("\n  "));
-        assert_eq!(gaps.len(), 8, "{gaps:#?}");
-        assert!(gaps
-            .iter()
-            .any(|g| g == "WEAP: unobserved (ck-20261102-03 inconclusive)"));
+        // The full report: WEAP unobserved, and every label of the seven named, since
+        // M7.K4 has mapped none (the record's labels, held equal to it by the test above).
+        let mut expected = vec!["WEAP: unobserved (ck-20261102-03 inconclusive)".to_string()];
+        for (t, _) in SITTING2.iter().skip(1) {
+            expected.push(format!(
+                "{t}: not mapped (M7.K4): {}",
+                observation(t).unwrap().labels.join(" | ")
+            ));
+        }
+        assert_eq!(gaps, expected);
+        assert!(gaps[1].starts_with("AMMO: not mapped (M7.K4): ID | Name | Short name | Value"));
+        // The path check refuses what the review's probe used: a name that is no field
+        // path, and a member the subrecord lacks.
+        let kywd = engine
+            .run(&Request::new(
+                "schema",
+                json!({"type": "KYWD", "deep": true}),
+            ))
+            .unwrap();
+        assert!(schema_has(&kywd, "EDID"));
+        assert!(schema_has(&kywd, "TNAM"));
+        assert!(schema_has(&kywd, "CNAM.Red"));
+        assert!(!schema_has(&kywd, "Keywords"));
+        assert!(!schema_has(&kywd, "EditorID"));
+        assert!(!schema_has(&kywd, "CNAM.Nothing"));
     }
 }
