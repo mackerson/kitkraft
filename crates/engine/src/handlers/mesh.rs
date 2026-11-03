@@ -583,7 +583,7 @@ fn turn(m: &[[f64; 4]; 3], n: [f32; 3]) -> [f32; 3] {
 }
 
 /// `mesh.geometry` (M7.S5): the model's triangles in its root frame, as base64
-/// little-endian buffers (ADR 0002 Amendment 1): `positions` and `normals` `f32` x, y, z
+/// little-endian buffers (the director's geometry-encoding decision, `plan/execution-plan.md` "M6" decisions item 2 and the M7.S5 row; owner-confirmed 2026-11-01): `positions` and `normals` `f32` x, y, z
 /// per vertex, `indices` `u32` per corner, three per triangle. Each reached geometry
 /// block's first slot is read (claims G1 and G2 of
 /// `docs/research/mesh-layout-2026-11-02.md`), placed by the block's own transform and

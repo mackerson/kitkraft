@@ -14,7 +14,7 @@ place (`u8_43`, `u32_44`, `u32_52`, `after_extra`, `opaque`), never by a descrip
 Every field the reader reads that the corpus shows as one constant value (H2's `u8_43`
 and `u32_44`, H4's `u32` after the string table, H6's `u32` 1, B2's `after_extra`) is read
 as that value, and any other value is refused as a layout we do not read
-(`Error::Unsupported`, with offset). B6's byte (always 1) is not read by the reader. A fact we could not show from the bytes is
+(`Error::Unsupported`, with offset). B6's byte is the first slot flag of the mesh study's G1, read by `Nif::slots`. A fact we could not show from the bytes is
 not claimed.
 
 ## Corpus and method

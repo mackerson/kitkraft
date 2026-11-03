@@ -33,8 +33,8 @@ official file, grade B when the evidence is statistical.
   `every_official_mesh_matches_the_layout_study`, ignored by default; run it with
   `cargo test -p kitkraft-engine --release --test mesh_corpus -- --ignored`.
   - Run 2026-11-02, about 90 to 106 s: **0 failures over 720,957 meshes** for the structural claims, each asserted at the count stated here; the normals are counted, not asserted.
-  - It is written in the test, with no engine API, so `mesh.geometry` stays Deferred
-    (a catalog seam).
+  - The walker is written in the test; it also checks the crate's reader (see "The reader").
+    `mesh.geometry` stays Deferred in the catalog (a seam).
 - **Worked example.** The NIF study's decal,
   `meshes\architecture\city\newatlantis\setdressing\na_addon_ceiling_floordecals01.nif`.
   - Its block 2 (offset 0x21c) names
