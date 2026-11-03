@@ -935,12 +935,22 @@ the winning version's record header of each listed cell or reference.
 Arguments `{model?, form?, plugin?}` plus the load-order arguments; read-only. `model` is
 a model path as a base object's `MODL` names it (relative to the Data folder's `Meshes`
 folder), read from loose files or a BA2; `form` is a base object (formref or EditorID)
-whose model is read. **Not built yet**: until M7.S4 reads the NIF, the command reads no
-file and returns `data {model, form, bounds: null, summary}` (`model` and `form` echo the
-arguments, `null` when not given), coverage `unknown`, no evidence, and the limitation
-"mesh.bounds is not built yet (M7.S4)", so a `null` bound is never read as a model
-without one. The workbench may run it (the gate's read-only list); its menu item is
-Tools > Mesh Bounds.
+whose model is read. Reads the model (loose `Data\Meshes` first, else the archives: a
+plugin's own archive over the base game's, a base Patch archive over the rest, ties by
+archive name (a rule of ours, not the game's observed archive order; a limitation says
+so whenever it decides); loose over archives is our rule too; every holder in
+`also_in`) and returns `data {model, form, base_signature, base_editor_id, source {kind,
+file, archive}, also_in, bounds {min, max} | null, frame: "model root", geometries
+{total, stored, sphere_only, not_stored, unrecognised, unreached}, summary}`. `bounds`
+is the union of the bounds the geometry blocks store, carried to the model's root
+(`docs/research/nif-bounds-2026-11-02.md`); null, with a limitation saying why, when
+the model has no geometry or only skinned geometry. It is not `OBND` (a limitation says
+how often they agree). Evidence: the base's `MODL`, and each bound's 40 bytes as
+`<archive>/<entry>` (or the loose path) at their offset in the model. Coverage
+`complete` when every reached geometry has a bound. Only the game Data folder is
+searched: with `profile`, models that exist only in MO2 mod folders are not found, and
+the error names the folder that was searched. The workbench may run it (the gate's
+read-only list); its menu item is Tools > Mesh Bounds.
 
 ### `mesh.geometry` (M7.S5; CLI `kit mesh geometry`)
 
