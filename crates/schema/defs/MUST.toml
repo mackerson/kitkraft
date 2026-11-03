@@ -1,145 +1,166 @@
-# MUST: MusicTrack, inventory definition (KK-102).
+# MUST: MusicTrack, the game's music track. A track has a type (palette, single track, or
+# silent track); a palette track carries a duration and a fade-out, a single-track one a
+# sound reference, and a track can also carry cue points, a flag that its conditions
+# cannot fail after succeeding, conditions, and a list of other tracks.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-102 scan of every official MUST record (279 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the MUST definition of wbDefinitionsSF1.pas at the pinned revision (L14725-L14744),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw. The palette subrecords (FLTV, DNAM) and the single-track
-# subrecords (MTSH, FNAM) never occur together, so they stand in the xEdit order.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14725-L14744 - member order, the track type
+#     enumeration (L14729-L14733), the duration and fade-out floats, the single-track
+#     sound reference, the cue points, the condition-fail flag, the conditions and the
+#     track list. Helpers: EDID (L3182), script data (L3407-L3411, kept opaque), the
+#     base form component block (L5984-L6832, common/BfcbBlock.toml), the sound
+#     reference (L2197-L2227, common/SoundReference.toml), the boolean enumeration
+#     (wbDefinitionsCommon.pas L7514-L7521, common/Bool8.toml), conditions (CITC
+#     L2251, L4750-L4840, common/Condition.toml).
+#   corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03 - the 279 MUST
+#     records of the 14 official ESMs: CNAM 279 times (4 bytes), FLTV 66 (4 bytes),
+#     DNAM 61 (4 bytes), MTSH 212 (40 bytes), FNAM 41 (32 to 112 bytes), MSTF 213
+#     (1 byte), CITC 51 (4 bytes), CTDA 66 in the 51 records that have a CITC (all
+#     32 bytes, no CIS1 or CIS2), SNAM 61 (4 bytes). No VMAD or base form
+#     components occur. Every record decodes and re-encodes identically.
 signature = "MUST"
 name = "MusicTrack"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUST record (279) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14729-L14733",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: all 279 MUST records of the 14 official ESMs decode with nothing left unnamed and re-encode identically",
 ]
 confidence = "corpus"
-note = "inventory definition (KK-102): corpus order and cardinality; EDID typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 279 of 279 official MUST records (279 occurrences), 11..57 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14726-L14726",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: all 279 MUST records of the 14 official ESMs hold an EDID of 11 to 57 bytes",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, so kept raw; not present in the official MUST records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official MUST records"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 279 of 279 official MUST records (279 occurrences), 4 bytes"
+name = "TrackType"
+type = "enum"
+base = "u32"
+values = [
+  ["Palette", 0x23F678C3],
+  ["SingleTrack", 0x6ED7E048],
+  ["SilentTrack", 0xA1A9C4D5],
+]
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14729-L14729",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14729-L14733",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: all 279 MUST records hold a 4-byte CNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "FLTV"
-name = "Fltv"
-type = "opaque"
+name = "Duration"
+type = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 66 of 279 official MUST records (66 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14734-L14734",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 66 of the 279 MUST records hold a 4-byte FLTV",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "FadeOut"
+type = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 61 of 279 official MUST records (61 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14735-L14735",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 61 of the 279 MUST records hold a 4-byte DNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "MTSH"
-name = "Mtsh"
-type = "opaque"
+name = "SingleTrackSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 212 of 279 official MUST records (212 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14736-L14736",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 212 of the 279 MUST records hold a 40-byte MTSH",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "CuePoints"
+type = "array"
+count = "rest"
+element = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 41 of 279 official MUST records (41 occurrences), 32..112 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14737-L14737",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 41 of the 279 MUST records hold an FNAM of 32 to 112 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "MSTF"
-name = "Mstf"
-type = "opaque"
+name = "ConditionsCantFailAfterSuccess"
+type = "ref:Bool8"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 213 of 279 official MUST records (213 occurrences), 1 byte"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14738-L14738",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 213 of the 279 MUST records hold a 1-byte MSTF",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "CITC"
-name = "Citc"
-type = "opaque"
+name = "ConditionCount"
+type = "u32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 51 of 279 official MUST records (51 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14740-L14740",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 51 of the 279 MUST records hold a 4-byte CITC",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "number of Conditions that follow; stored, not derived"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 51 of 279 official MUST records (66 occurrences, up to 2 per record), 32 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14741-L14741",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: the 51 MUST records with a CITC hold 66 Conditions in total, each a 32-byte CTDA with no CIS1 or CIS2",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
+name = "Tracks"
+type = "array"
+element = "formid"
+targets = ["MUST"]
+count = "rest"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 61 of 279 official MUST records (61 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14743-L14743",
+  "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 61 of the 279 MUST records hold a 4-byte SNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+note = "other tracks of this kind; a zero entry divides the list into groups"
