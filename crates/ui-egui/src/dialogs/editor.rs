@@ -37,13 +37,21 @@
 //! A write that replaced a version the file already held cannot be undone this way:
 //! `revert` would drop the earlier version too, so the undo is refused with the reason.
 //! One undo per write: the last write is forgotten once it is undone.
+//!
+//! M7.E5 (`build`): `OpenEditor { command: "build", .. }` opens the Build Spec form
+//! (`dialogs/build.rs` draws it): the spec file and the active file it builds into.
+//! "Plan" sends `build --plan` (every change, the new forms, validate; nothing written);
+//! the confirm box shows the plan, and its one "Build into <file>" click sends the
+//! confirmed `build`, then reads the first written record back from the active file.
+//! `build` writes a fresh plugin and the window never sends `overwrite`, so the form
+//! refuses an active file that already exists (the engine refuses it too).
 
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
-use super::{edit, revert, set};
+use super::{build, edit, revert, set};
 use crate::gate::{self, Request};
 use crate::panels::common::{Action, Slot};
 use crate::panels::fmt_value;
@@ -122,6 +130,8 @@ fn stamp_of(path: &str) -> Option<(u64, std::time::SystemTime)> {
 pub struct EditorState {
     /// The last confirmed `set` not yet undone.
     last: Option<LastWrite>,
+    /// The Build Spec form, while it is open: the spec file's path.
+    build_form: Option<String>,
     /// A dialog's OK, taken up by the next frame (which knows the active file).
     opening: Option<(String, String)>,
     /// The write in progress, shown in the confirm box.
@@ -221,6 +231,26 @@ impl EditorState {
                     stamp: stamp_of(&w.into),
                 });
             }
+            (Slot::EditorPreview, "build") if *request == w.preview => {
+                self.awaiting = None;
+                w.previewed = Some(env.clone());
+            }
+            (Slot::EditorWrite, "build")
+                if w.written.is_none() && w.write_req.as_ref() == Some(request) =>
+            {
+                w.written = Some(env.clone());
+                self.awaiting = None;
+                // A build is not the editor's undo's to invert.
+                self.last = None;
+                if let Some(read) = set::readback_request(env, &w.into) {
+                    w.readback_req = Some(read.clone());
+                    self.next = Some((Slot::EditorWrite, read));
+                }
+                self.note = Some((
+                    Status::Pass,
+                    format!("built: {} into {}", changed_line(env), file_name(&w.into)),
+                ));
+            }
             (Slot::EditorPreview, "revert") if *request == w.preview => {
                 self.awaiting = None;
                 w.previewed = Some(env.clone());
@@ -293,6 +323,23 @@ fn file_name(path: &str) -> &str {
 /// each.
 fn changes(env: &Value) -> Vec<(String, String, String)> {
     let data = env.get("data").unwrap_or(&Value::Null);
+    if let Some(a) = data.get("changes").and_then(Value::as_array) {
+        // A build plan: every change, each with its record.
+        return a
+            .iter()
+            .map(|c| {
+                (
+                    format!(
+                        "{} {}",
+                        c.get("form").map(fmt_value).unwrap_or_default(),
+                        c.get("path").map(fmt_value).unwrap_or_default()
+                    ),
+                    c.get("before").map(fmt_value).unwrap_or_default(),
+                    c.get("after").map(fmt_value).unwrap_or_default(),
+                )
+            })
+            .collect();
+    }
     let from_changed = data.get("changed").and_then(Value::as_array).map(|a| {
         a.iter()
             .map(|c| {
@@ -497,7 +544,12 @@ fn confirm_blocked(
     if w.failed {
         return Some("the write failed: OK again for a new dry run".to_string());
     }
-    if env.pointer("/data/would_write") != Some(&Value::Bool(true)) {
+    let writable = if w.command == "build" {
+        env.pointer("/data/passed") == Some(&Value::Bool(true))
+    } else {
+        env.pointer("/data/would_write") == Some(&Value::Bool(true))
+    };
+    if !writable {
         return Some(
             "the dry run says a real write would be refused (validate finds errors on the written record)"
                 .to_string(),
@@ -551,6 +603,9 @@ pub(crate) fn ui(
             out.push(Action::Submit(slot, req));
         }
     }
+    if state.build_form.is_some() {
+        build_window(ctx, state, active_file, &mut out);
+    }
     if state.write.is_some() || state.note.is_some() {
         confirm_box(ctx, state, busy, active_file, &mut out);
     }
@@ -579,6 +634,11 @@ fn start(
         return;
     }
     state.write = None;
+    if command == "build" {
+        // The form opens; nothing is sent until its Plan.
+        state.build_form.get_or_insert_with(String::new);
+        return;
+    }
     if command != "set" && command != "revert" {
         state.note = Some((
             Status::NotRun,
@@ -635,6 +695,106 @@ fn start(
     });
     state.awaiting = Some(Slot::EditorPreview);
     out.push(Action::Submit(Slot::EditorPreview, preview));
+}
+
+/// The Build Spec form (`build::form_ui`) in its own window; its Plan starts a build.
+fn build_window(
+    ctx: &egui::Context,
+    state: &mut EditorState,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    let mut plan = false;
+    let mut close = false;
+    if let Some(spec) = state.build_form.as_mut() {
+        egui::Window::new("Build Spec")
+            .id(egui::Id::new("kitkraft-editor-build"))
+            .collapsible(false)
+            .default_width(520.0)
+            .show(ctx, |ui| {
+                let ask = build::form_ui(ui, spec, active_file);
+                plan = ask.plan;
+                close = ask.close;
+            });
+    }
+    if close {
+        state.build_form = None;
+        return;
+    }
+    if plan {
+        let spec = state.build_form.clone().unwrap_or_default();
+        start_build(state, &spec, active_file, out);
+    }
+}
+
+/// Takes up the Build Spec form's Plan: `build --plan` of `spec` into the active file, or
+/// the reason there is none.
+fn start_build(
+    state: &mut EditorState,
+    spec: &str,
+    active_file: Option<&str>,
+    out: &mut Vec<Action>,
+) {
+    if state.awaiting.is_some() {
+        state.note = Some((
+            Status::Warn,
+            "the editor is waiting for the engine; Plan again when it has answered".to_string(),
+        ));
+        return;
+    }
+    state.write = None;
+    let Some(into) = active_file.map(str::trim).filter(|f| !f.is_empty()) else {
+        state.note = Some((
+            Status::Fail,
+            "no active file: choose one in File > Data... (Set as Active File); the build writes only into it"
+                .to_string(),
+        ));
+        return;
+    };
+    let spec = spec.trim();
+    if spec.is_empty() {
+        state.note = Some((
+            Status::NotRun,
+            "name the build spec (a .toml file)".to_string(),
+        ));
+        return;
+    }
+    if std::path::Path::new(into).exists() {
+        state.note = Some((
+            Status::Fail,
+            format!(
+                "{} exists: `build` writes a fresh plugin and the window never overwrites one; choose a new active file",
+                file_name(into)
+            ),
+        ));
+        return;
+    }
+    let plan = build::plan_request(spec, into);
+    if let Err(e) = gate::check(&plan) {
+        state.note = Some((Status::Fail, e.to_string()));
+        return;
+    }
+    state.note = None;
+    state.next = None;
+    state.write = Some(Write {
+        command: "build",
+        form: spec.to_string(),
+        into: into.to_string(),
+        preview: plan.clone(),
+        edits: Map::new(),
+        held: None,
+        first: None,
+        kept: Vec::new(),
+        previewed: None,
+        written: None,
+        readback_due: false,
+        write_req: None,
+        readback_req: None,
+        readback: None,
+        failed: false,
+    });
+    state.awaiting = Some(Slot::EditorPreview);
+    out.push(Action::Submit(Slot::EditorPreview, plan));
 }
 
 /// Takes up "Undo last write" on `form`: the `revert` preview of the editor's last write,
@@ -719,6 +879,8 @@ fn confirm_box(
                 ui.horizontal_wrapped(|ui| {
                     let what = if w.command == "revert" {
                         format!("undo: revert {} in {}", w.form, file_name(&w.into))
+                    } else if w.command == "build" {
+                        format!("build {} into {}", file_name(&w.form), file_name(&w.into))
                     } else {
                         format!("set {} into {}", w.form, file_name(&w.into))
                     };
@@ -729,10 +891,11 @@ fn confirm_box(
                     None => {
                         ui.horizontal(|ui| {
                             ui.spinner();
-                            ui.label(format!(
-                                "previewing: `{} --dry-run` on a staged copy",
-                                w.command
-                            ));
+                            ui.label(if w.command == "build" {
+                                "planning: `build --plan` (nothing is written)".to_string()
+                            } else {
+                                format!("previewing: `{} --dry-run` on a staged copy", w.command)
+                            });
                         });
                     }
                     Some(env) => {
@@ -769,6 +932,11 @@ fn confirm_box(
                             format!("Undo in {}", file_name(&w.into)),
                             "one confirmed `revert`: drops the override the last write added",
                         )
+                    } else if w.command == "build" {
+                        (
+                            format!("Build into {}", file_name(&w.into)),
+                            "one confirmed `build`: the planned plugin, written as the active file",
+                        )
                     } else {
                         (
                             format!("Write to {}", file_name(&w.into)),
@@ -793,6 +961,8 @@ fn confirm_box(
         if let Some(w) = state.write.as_mut() {
             let confirmed = if w.command == "revert" {
                 revert::write_request(&w.preview)
+            } else if w.command == "build" {
+                build::build_request(&w.preview)
             } else {
                 set::write_request(&w.preview)
             };
@@ -831,7 +1001,14 @@ fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
             ui.monospace(format!("removed {}", fmt_value(r)));
         }
     } else {
-        ui.label(theme::subheading(ui, "Fields changed (dry run)"));
+        ui.label(theme::subheading(
+            ui,
+            if command == "build" {
+                "Changes (plan; nothing written)"
+            } else {
+                "Fields changed (dry run)"
+            },
+        ));
         let rows = changes(env);
         if rows.is_empty() {
             ui.weak("  (none: the values are what the record holds)");
@@ -848,7 +1025,11 @@ fn preview_lines(ui: &mut egui::Ui, env: &Value, command: &str) {
                 }
             });
     }
-    let would = data.get("would_write") == Some(&Value::Bool(true));
+    let would = if command == "build" {
+        data.get("passed") == Some(&Value::Bool(true))
+    } else {
+        data.get("would_write") == Some(&Value::Bool(true))
+    };
     let validate = data.get("validate").unwrap_or(&Value::Null);
     let n = |k: &str| validate.get(k).and_then(Value::as_u64).unwrap_or(0);
     let line = format!(
@@ -1020,6 +1201,23 @@ mod tests {
             .unwrap_err()
             .contains("already held"));
         assert!(undoable(&env(json!([])), "f", "P.esp").is_err());
+    }
+
+    /// A build's confirm needs a plan whose validate passed; its changes list each with
+    /// its record.
+    #[test]
+    fn a_build_confirm_needs_a_plan_that_passed() {
+        let mut w = write(r"C:\out\Patch.esp");
+        w.command = "build";
+        let active = Some(r"C:\out\Patch.esp");
+        w.previewed = Some(json!({"data": {"passed": false, "would_write": true}}));
+        assert!(confirm_blocked(&w, false, false, active).is_some());
+        let plan = json!({"data": {"passed": true, "changes": [
+            {"form": "Fixture.esm:000800", "path": "FLTV", "before": 1.5, "after": 7.25}
+        ]}});
+        w.previewed = Some(plan.clone());
+        assert_eq!(confirm_blocked(&w, false, false, active), None);
+        assert_eq!(changed_line(&plan), "Fixture.esm:000800 FLTV 1.5 -> 7.25");
     }
 
     /// The confirm button waits for the preview, needs a dry run that would write and

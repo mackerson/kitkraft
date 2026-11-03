@@ -571,3 +571,121 @@ fn m7_e6_an_undo_of_a_file_changed_since_the_write_is_refused() {
     assert_absent(&h, "Undo in Patch.esp");
     assert_eq!(std::fs::read(&patch).unwrap(), bytes);
 }
+
+// ---- M7.E5: a build spec into the active file (`build`) --------------------------------
+
+/// A one-`[[set]]` spec in the scratch folder: FLTV of GLOB 000800 to 7.25.
+fn spec_file(s: &Scratch) -> String {
+    let path = s.0.join("spec.toml");
+    std::fs::write(
+        &path,
+        "version = 1\n\n[plugin]\nlocalized = false\n\n[[set]]\nform = \"Fixture.esm:000800\"\nfields = { FLTV = 7.25 }\n",
+    )
+    .unwrap();
+    path.display().to_string()
+}
+
+/// The Build Spec form's spec box (exactly one).
+fn spec_box(h: &Bench) -> Node<'_> {
+    let all: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Spec file")
+        })
+        .collect();
+    assert_eq!(
+        all.len(),
+        1,
+        "one Spec file box
+{}",
+        visible_text(h)
+    );
+    all.into_iter().next().expect("checked above")
+}
+
+/// Opens the Build Spec form (as the menu's Build Patch will, through
+/// `Action::OpenEditor`), types `spec` into it and presses Plan.
+fn plan_build(h: &mut Bench, spec: &str) {
+    h.state_mut().app.apply(vec![Action::OpenEditor {
+        command: "build".to_string(),
+        form: String::new(),
+    }]);
+    h.run_steps(3);
+    spec_box(h).focus();
+    h.run_steps(2);
+    spec_box(h).type_text(spec);
+    h.run_steps(3);
+    press(h, "Plan");
+}
+
+/// M7.E5's acceptance in the window's own frame: a spec's plan lists the change and writes
+/// nothing; one confirm builds the active file; the written record is read back (FLTV
+/// 7.25); the confirm is then spent.
+#[test]
+fn m7_e5_a_spec_is_planned_built_into_the_active_file_and_read_back() {
+    let s = Scratch::new("build");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let spec = spec_file(&s);
+    plan_build(&mut h, &spec);
+    assert_in_view(&h, "Changes (plan; nothing written)");
+    assert_in_view(&h, "Fixture.esm:000800 FLTV");
+    assert!(!Path::new(&patch).exists(), "the plan wrote {patch}");
+    assert!(enabled(&h, "Build into Patch.esp"));
+    press(&mut h, "Build into Patch.esp");
+    assert!(Path::new(&patch).is_file(), "the confirm did not build");
+    assert_in_view(&h, "built:");
+    assert_in_view(&h, "Read back from Patch.esp");
+    assert_eq!(fltv_in(&patch), hex(7.25));
+    assert!(!enabled(&h, "Build into Patch.esp"), "one build per Plan");
+}
+
+/// The build's refusals in the window: an active file that exists (no `overwrite`), no
+/// active file, an official master or a `Default`-profile path as the active file are
+/// refused before anything is sent; an active file changed after the plan closes the
+/// confirm. Nothing is written in any of them.
+#[test]
+fn m7_e5_a_build_is_refused_where_it_would_replace_or_leave_the_active_file() {
+    let s = Scratch::new("build-refused");
+    let spec = spec_file(&s);
+    let existing = s.path("Existing.esp");
+    std::fs::write(&existing, b"x").unwrap();
+    std::fs::create_dir_all(s.0.join("profiles").join("Default")).unwrap();
+    let default =
+        s.0.join("profiles")
+            .join("Default")
+            .join("Patch.esp")
+            .display()
+            .to_string();
+    for (active, why) in [
+        (Some(existing.clone()), "exists"),
+        (None, "no active file"),
+        (Some(s.path("Starfield.esm")), "official master"),
+        (Some(default.clone()), "live game"),
+    ] {
+        let Some(mut h) = editing(&s, active.clone()) else {
+            return;
+        };
+        plan_build(&mut h, &spec);
+        assert_in_view(&h, why);
+        assert_absent(&h, "Changes (plan; nothing written)");
+    }
+    assert_eq!(std::fs::read(&existing).unwrap(), b"x");
+    assert!(!Path::new(&default).exists() && !Path::new(&s.path("Starfield.esm")).exists());
+    // The active file changed after the plan: the confirm is closed.
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    plan_build(&mut h, &spec);
+    assert!(enabled(&h, "Build into Patch.esp"));
+    h.state_mut().app.active_file = Some(s.path("Other.esp"));
+    h.run_steps(3);
+    assert!(!enabled(&h, "Build into Patch.esp"));
+    one(&h, "Build into Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert!(!Path::new(&patch).exists() && !Path::new(&s.path("Other.esp")).exists());
+}

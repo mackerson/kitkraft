@@ -9,20 +9,72 @@
 //! per-entry source scan holds it). The editor draws the spec form (`super::editor`);
 //! the Build Spec window (`WindowKind::BuildSpec`) is where the shell will show it.
 
+use eframe::egui;
 use serde_json::{json, Value};
 
 use crate::gate::Request;
+use crate::theme::{self, Status};
+
+/// What the Build Spec form's buttons asked for this frame.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FormAsk {
+    pub plan: bool,
+    pub close: bool,
+}
+
+/// The Build Spec form: the spec file (edited in `spec`), the active file it builds
+/// into, and its Plan and Close buttons. Nothing is sent from here: Plan asks the editor
+/// for `build --plan`.
+pub(crate) fn form_ui(ui: &mut egui::Ui, spec: &mut String, active_file: Option<&str>) -> FormAsk {
+    let mut ask = FormAsk::default();
+    ui.horizontal(|ui| {
+        let label = ui.label("Spec file");
+        ui.add(
+            egui::TextEdit::singleline(spec)
+                .hint_text("a build spec (.toml, version 1 to 3)")
+                .desired_width(theme::width(ui, theme::Field::Wide)),
+        )
+        .labelled_by(label.id);
+    });
+    match active_file.filter(|f| !f.trim().is_empty()) {
+        Some(f) => {
+            ui.label(format!("into the active file: {f}"));
+            if std::path::Path::new(f).exists() {
+                theme::status_line(
+                    ui,
+                    Status::Warn,
+                    "the active file exists: `build` writes a fresh plugin and the window never overwrites one",
+                );
+            }
+        }
+        None => {
+            theme::status_line(
+                ui,
+                Status::NotRun,
+                "no active file: choose one in File > Data... (Set as Active File)",
+            );
+        }
+    }
+    ui.horizontal(|ui| {
+        ask.plan = ui
+            .add_enabled(!spec.trim().is_empty(), egui::Button::new("Plan"))
+            .on_hover_text(
+                "`build --plan`: every change, the new forms and validate; nothing written",
+            )
+            .clicked();
+        ask.close = ui.button("Close").clicked();
+    });
+    ask
+}
 
 /// The plan of building the spec at `spec` (a TOML file) into `out`, the active file: it
 /// writes nothing, and the gate passes it like a read.
-#[allow(dead_code)] // the editor's build form sends it from the next commit (M7.E5)
 pub(crate) fn plan_request(spec: &str, out: &str) -> Request {
     Request::new("build", json!({"spec": spec, "out": out, "plan": true}))
 }
 
 /// The confirmed build of a planned spec: the plan's arguments with `plan` dropped,
 /// built once per confirm click. `None` when `plan` is not a `build` plan.
-#[allow(dead_code)] // the confirm box sends it from the next commit (M7.E5)
 pub(crate) fn build_request(plan: &Request) -> Option<Request> {
     if plan.id != "build" || plan.args.get("plan") != Some(&Value::Bool(true)) {
         return None;
