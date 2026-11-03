@@ -941,6 +941,12 @@ impl RenderTab {
         (self.asked.len(), self.nif.len())
     }
 
+    /// Takes the `mesh.bounds` requests not yet handed to the shell, so a test decides
+    /// which replies arrive.
+    pub(crate) fn take_bounds_queue(&mut self) -> Vec<Request> {
+        std::mem::take(&mut self.bounds_queue)
+    }
+
     /// The shown cell's references.
     pub(crate) fn page_refs(&self) -> Vec<CellRef> {
         self.page
