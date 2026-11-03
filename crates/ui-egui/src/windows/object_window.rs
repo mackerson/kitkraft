@@ -1,6 +1,7 @@
 //! The Object Window (M7.W1, pipeline W): the category tree from `schema` (M7.S2), a
 //! virtual list of one record type's records from `query`, a text filter, and a
-//! double-click that opens the record's edit dialog; read-only. Pipeline E's
+//! double-click that opens the record's edit dialog (M7.W1's; not observed in the CK's
+//! Object Window yet); read-only. Pipeline E's
 //! `new`/`clone` hooks (M7.E3) sit in it.
 //!
 //! What a sitting observed (`docs/ck-parity.md` row "Object Window (category tree, list,
@@ -8,7 +9,9 @@
 //! top, a "Text Filter" box, and a list of the EditorID, the FormID and the type. Built but
 //! not observed (KitKraft's own until sitting 1's S1-09 records the tree): the categories
 //! below "*All" (every type is in "Other" until then, as `schema` says), each type as a
-//! node of its category, the Filter and page buttons, and the "Plugin" column. Observed
+//! node of its category, the Filter and page buttons, the "Plugin" column, and the
+//! double-click that opens the edit dialog (the plan's, M7.W1: the sitting double-clicked a
+//! Cell View cell and a placed reference, not an Object Window row). Observed
 //! but not built: "*All" listing every form at once (`query` takes one type, so "*All"
 //! asks for a type), the use count column (a `refs --incoming` per row), and dragging a
 //! row into the Render Window (placement is M7.E4).
@@ -176,7 +179,8 @@ impl ObjectWindowState {
         self.request_page(None);
     }
 
-    /// Opens row `form` in the edit dialog (the CK's double-click).
+    /// Opens row `form` in the edit dialog (KitKraft's double-click, M7.W1; not yet
+    /// observed in the CK's Object Window).
     pub(crate) fn open(&mut self, form: &str) -> Vec<Action> {
         self.selected = Some(form.to_string());
         vec![
@@ -458,7 +462,7 @@ mod tests {
         assert!(s.list.is_none() && s.list_error.is_some());
     }
 
-    /// The CK's double-click: the record is inspected and the edit dialog opens.
+    /// KitKraft's double-click (M7.W1): the record is inspected and the edit dialog opens.
     #[test]
     fn opening_a_row_inspects_it_in_the_edit_dialog() {
         let mut s = ObjectWindowState::default();
