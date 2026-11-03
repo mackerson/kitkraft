@@ -518,6 +518,26 @@ fn walk_mesh(b: &[u8]) -> Result<Walked, String> {
     })
 }
 
+/// The crate's `positions()` and `normals()` equal, bit for bit, the study's formulas
+/// computed here in `f32` (M2: `i16 x scale / 32767`; M4: three 10-bit fields to -1..1).
+fn same_decoding(m: &kitkraft_nif::Mesh, w: &Walked) -> bool {
+    let q = w.scale / 32767.0;
+    let positions = m.positions();
+    let normals = m.normals();
+    positions.len() == w.positions.len()
+        && positions
+            .iter()
+            .zip(&w.positions)
+            .all(|(a, p)| (0..3).all(|k| a[k].to_bits() == (f32::from(p[k]) * q).to_bits()))
+        && normals.len() == w.sections[3].len()
+        && normals.iter().zip(&w.sections[3]).all(|(n, word)| {
+            (0..3).all(|k| {
+                let field = (word >> (10 * k)) & 0x3FF;
+                n[k].to_bits() == (field as f32 / 1023.0 * 2.0 - 1.0).to_bits()
+            })
+        })
+}
+
 /// A word of the fourth section as a vector (M4: three 10-bit unsigned fields, low bits
 /// first, each mapped from 0..1023 to -1..1).
 fn unpack10(w: u32) -> [f64; 3] {
@@ -623,7 +643,8 @@ fn every_official_mesh_matches_the_layout_study() {
                     if m.indices == w.indices
                         && m.quantized == w.positions
                         && m.section_4 == w.sections[3]
-                        && m.scale.to_bits() == w.scale.to_bits() => {}
+                        && m.scale.to_bits() == w.scale.to_bits()
+                        && same_decoding(&m, &w) => {}
                 Ok(_) => failures.push(format!("{}: kitkraft-nif reads another mesh", e.name)),
                 Err(why) => failures.push(format!("{}: kitkraft-nif: {why}", e.name)),
             }
