@@ -215,6 +215,11 @@ impl App {
                 self.ck_submit(Pending::CellView, req);
             }
         }
+        // E's ask D2: a new load (the active file written, then loaded) refreshes the
+        // shown cell's references, so a placed reference shows.
+        if let Some(req) = self.shell.cell_view.reload_on(self.load.data) {
+            self.ck_submit(Pending::CellView, req);
+        }
     }
 
     /// What a click in the Cell View asked for: its own `cell` pages, or an action for the
