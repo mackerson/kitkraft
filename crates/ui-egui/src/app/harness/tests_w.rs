@@ -403,3 +403,109 @@ fn the_object_window_lists_a_types_records_and_filters_them() {
     h.run_steps(2);
     assert_in_view(&h, "pick one below *All");
 }
+
+/// M7.W1's T1 (`docs/design/workbench-performance.md`: frame time while scrolling a
+/// 1,000-row page) in the Object Window, on `Starfield.esm` from KITKRAFT_DATA_DIR: the
+/// engine's first page of the type with the most records (REFR, 3,291,860 in the corpus)
+/// and of STAT, cold (the first query after the load) and warm (the same query again), then
+/// the harness frames while the wheel scrolls the list. Headless: a frame here is egui's
+/// layout and tessellation without the GPU, so it bounds the window's own cost from below.
+/// `#[ignore]`d (reads the corpus; run with `--release -- --ignored --nocapture`).
+#[test]
+#[ignore = "T1 on the corpus: needs KITKRAFT_DATA_DIR; run in release with --ignored"]
+fn t1_object_window_on_the_largest_type() {
+    let Some(data) = std::env::var_os("KITKRAFT_DATA_DIR") else {
+        eprintln!("skipped: KITKRAFT_DATA_DIR unset");
+        return;
+    };
+    let esm = std::path::Path::new(&data).join("Starfield.esm");
+    if !esm.is_file() {
+        eprintln!("skipped: no Starfield.esm");
+        return;
+    }
+    let Some(mut h) = workbench() else { return };
+    let t = std::time::Instant::now();
+    let load = Request::new("load", json!({"plugins": [esm.display().to_string()]}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    eprintln!("T1: load Starfield.esm {} ms", t.elapsed().as_millis());
+    h.state_mut()
+        .app
+        .apply(vec![Action::OpenWindow(WindowKind::ObjectWindow)]);
+    h.run_steps(3);
+    settle(&mut h);
+    for ty in ["REFR", "STAT"] {
+        for pass in ["cold", "warm"] {
+            let t = std::time::Instant::now();
+            h.state_mut().app.shell.object_window.select_node(ty);
+            h.run_steps(1);
+            settle(&mut h);
+            let rows = h
+                .state()
+                .app
+                .shell
+                .object_window
+                .list
+                .as_ref()
+                .map_or(0, |v| v.rows.len());
+            eprintln!(
+                "T1: {ty} first page {pass}: {rows} rows in {} ms (query and the frames that show it)",
+                t.elapsed().as_millis()
+            );
+            assert_eq!(rows, 1000, "{ty}: a full page");
+        }
+        // Frames while the wheel scrolls the 1,000 rows (the wheel over a row's FormID).
+        let forms: Vec<String> = h
+            .state()
+            .app
+            .shell
+            .object_window
+            .list
+            .as_ref()
+            .map(|v| v.rows.iter().map(|r| r.form.clone()).collect())
+            .unwrap_or_default();
+        let mut frames: Vec<f64> = Vec::new();
+        for _ in 0..300 {
+            if let Some(n) = h
+                .query_all_by(|n| text_of(n).is_some_and(|t| forms.contains(&t)))
+                .find(|n| in_view(n))
+            {
+                n.scroll_down();
+            }
+            let t = std::time::Instant::now();
+            h.step();
+            frames.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        // The wheel moved the list: a row far down the page is drawn now.
+        let far: Vec<String> = h
+            .state()
+            .app
+            .shell
+            .object_window
+            .list
+            .as_ref()
+            .map(|v| {
+                v.rows
+                    .iter()
+                    .skip(150)
+                    .take(800)
+                    .map(|r| r.form.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let shown = far.iter().any(|f| nodes_with(&h, f).iter().any(in_view));
+        eprintln!("T1: {ty} a row past the 150th is in view after the scroll: {shown}");
+        assert!(shown, "the wheel scrolled the list");
+        frames.sort_by(f64::total_cmp);
+        let at = |q: f64| frames[((frames.len() - 1) as f64 * q) as usize];
+        eprintln!(
+            "T1: {ty} scrolling, {} frames: p50 {:.2} ms, p95 {:.2} ms, max {:.2} ms",
+            frames.len(),
+            at(0.5),
+            at(0.95),
+            frames[frames.len() - 1]
+        );
+    }
+}

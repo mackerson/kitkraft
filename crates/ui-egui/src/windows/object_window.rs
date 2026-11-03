@@ -360,7 +360,8 @@ impl ObjectWindowState {
         let selected = self.selected.as_deref();
         ui.strong("EditorID, FormID, Type, Plugin");
         ScrollArea::vertical()
-            .id_salt("object-window-rows")
+            // A new type or page starts at the top (the id follows the list shown).
+            .id_salt(("object-window-rows", ty.as_str(), self.cursor.as_deref()))
             .auto_shrink([false, false])
             .max_height(height)
             .show_rows(ui, row_h, v.rows.len(), |ui, range| {

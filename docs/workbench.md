@@ -516,6 +516,14 @@ revisited once a sitting observes how the CK docks. Code:
   the Edit dialog. Observed and not built: "*All" listing every form (`query` takes one
   type, so "*All" asks for one), the use count column, and dragging a row into the Render
   Window (M7.E4).
+  T1 (2026-11-02, release, `app::harness::tests_w::t1_object_window_on_the_largest_type`,
+  `#[ignore]`d, `Starfield.esm` from the Data folder, warm index cache): REFR, the type with
+  the most records (3,291,860), first 1,000-row page 146 to 180 ms cold (the first query
+  of the session) and 143 to 162 ms warm; STAT (20,607 winners) 728 to 1,455 ms cold and
+  68 to 97 ms warm; frames while the wheel scrolls the page, 300 frames, p50 1.0 to 1.5 ms,
+  p95 1.7 to 2.0 ms, max 2.4 to 2.8 ms over three runs (budget p95 under 16 ms, max under
+  50 ms). The frames are the headless harness's (egui layout and tessellation, no GPU), a
+  lower bound on the window's; the window itself on the dev profile is not measured yet.
 - **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
