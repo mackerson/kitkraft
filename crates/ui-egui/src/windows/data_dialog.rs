@@ -153,9 +153,20 @@ fn refused_location(path: &Path) -> Option<String> {
                 d.display()
             ));
         }
+        let mo2 = named(d, "MO2-Starfield")
+            || d.join("ModOrganizer.ini").is_file()
+            || (d.join("modlist.txt").is_file() && d.join("plugins.txt").is_file());
+        if mo2 {
+            return Some(format!(
+                "{} is inside a Mod Organizer instance or profile ({}), which KitKraft never writes",
+                path.display(),
+                d.display()
+            ));
+        }
         // The owner's live game keeps its INIs and saves in `My Games\Starfield` (AGENTS.md
         // "Owner's live game is off limits"): the whole tree, not only its `Data` folder
-        // (W2 review M1).
+        // (W2 review M1). After the MO2 check: an MO2 profile with
+        // profile-local INIs is named as MO2's (W3 review L7).
         let my_games = (named(d, "Starfield") && d.parent().is_some_and(|p| named(p, "My Games")))
             || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
                 .iter()
@@ -163,16 +174,6 @@ fn refused_location(path: &Path) -> Option<String> {
         if my_games {
             return Some(format!(
                 "{} is inside the game's My Games folder ({}), where the live game keeps its INIs and saves: KitKraft never writes there",
-                path.display(),
-                d.display()
-            ));
-        }
-        let mo2 = named(d, "MO2-Starfield")
-            || d.join("ModOrganizer.ini").is_file()
-            || (d.join("modlist.txt").is_file() && d.join("plugins.txt").is_file());
-        if mo2 {
-            return Some(format!(
-                "{} is inside a Mod Organizer instance or profile ({}), which KitKraft never writes",
                 path.display(),
                 d.display()
             ));
@@ -896,9 +897,24 @@ mod tests {
         }
     }
 
-    /// R17: the active-file field takes a new or existing plugin outside the load order,
-    /// outside the Data folders and MO2; everything else is refused, and the choice
-    /// survives OK because no listed row names it.
+    /// W3 review L7: an MO2 profile with profile-local INIs is refused as MO2's.
+    #[test]
+    fn a_profile_with_its_own_inis_is_named_as_mo2s() {
+        let base = std::env::temp_dir().join(format!("kitkraft-ui-profini-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let profile = base.join("profiles").join("KitKraft Dev");
+        std::fs::create_dir_all(&profile).unwrap();
+        for f in ["modlist.txt", "plugins.txt", "StarfieldCustom.ini"] {
+            std::fs::write(profile.join(f), b"x").unwrap();
+        }
+        let mut s = opened("plugins");
+        s.path_field = profile.join("P.esp").display().to_string();
+        assert!(s.use_path().is_none());
+        let why = s.refusal.clone().unwrap_or_default();
+        assert!(why.contains("Mod Organizer"), "{why}");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
     /// W2 review M1: the whole `Documents\My Games\Starfield` tree is the owner's live
     /// game (INIs, saves; AGENTS.md "Owner's live game is off limits"), not only its
     /// `Data` folder; so is any folder holding the game's INIs.
@@ -961,6 +977,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
+    /// R17: the active-file field takes a new or existing plugin outside the load order,
+    /// outside the Data folders and MO2; everything else is refused, and the choice
+    /// survives OK because no listed row names it.
     #[test]
     fn the_path_field_takes_a_plugin_outside_data_and_mo2() {
         let base = std::env::temp_dir().join(format!("kitkraft-ui-r17-{}", std::process::id()));
