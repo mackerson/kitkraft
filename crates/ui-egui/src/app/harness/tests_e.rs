@@ -689,3 +689,41 @@ fn m7_e5_a_build_is_refused_where_it_would_replace_or_leave_the_active_file() {
     settle(&mut h);
     assert!(!Path::new(&patch).exists() && !Path::new(&s.path("Other.esp")).exists());
 }
+
+/// Review finding M1 of M7.E5 (probe RV-E5-B): the confirm covers the spec's content, not
+/// only its path. The spec is rewritten after the plan (000800 to 99.5, and a second
+/// record); the box still shows the old plan, so "Build into" stays disabled, a click
+/// writes nothing, and a new Plan previews the new spec.
+#[test]
+fn m7_e5_a_spec_changed_after_the_plan_is_not_built() {
+    let s = Scratch::new("build-spec-changed");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = editing(&s, Some(patch.clone())) else {
+        return;
+    };
+    let spec = spec_file(&s);
+    plan_build(&mut h, &spec);
+    assert_in_view(&h, "Fixture.esm:000800 FLTV");
+    assert!(enabled(&h, "Build into Patch.esp"));
+    std::fs::write(
+        &spec,
+        "version = 1\n\n[plugin]\nlocalized = false\n\n[[set]]\nform = \"Fixture.esm:000800\"\nfields = { FLTV = 99.5 }\n\n[[set]]\nform = \"Fixture.esm:000801\"\nfields = { FLTV = 42.0 }\n",
+    )
+    .unwrap();
+    h.run_steps(3);
+    assert!(
+        !enabled(&h, "Build into Patch.esp"),
+        "the old plan still confirms"
+    );
+    one(&h, "Build into Patch.esp").click();
+    h.run_steps(3);
+    settle(&mut h);
+    assert!(
+        !Path::new(&patch).exists(),
+        "a spec never previewed was built"
+    );
+    press(&mut h, "Plan");
+    assert_in_view(&h, "99.5");
+    press(&mut h, "Build into Patch.esp");
+    assert_eq!(fltv_in(&patch), hex(99.5));
+}

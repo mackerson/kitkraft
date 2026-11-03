@@ -104,6 +104,19 @@ struct Write {
     /// The confirmed write was sent and no envelope came back: the confirm is spent, and
     /// another write needs a new OK and a new dry run (review finding M1).
     failed: bool,
+    /// A build's spec file as it was when planned: the confirm covers its content, not
+    /// only its path (M7.E5 review M1). `None` for the other commands.
+    spec_bytes: Option<Vec<u8>>,
+}
+
+/// Why a build's spec no longer matches its plan: `spec` is the path, `planned` its
+/// bytes at plan time.
+fn spec_changed(spec: &str, planned: &[u8]) -> Option<String> {
+    match std::fs::read(spec) {
+        Ok(now) if now == planned => None,
+        Ok(_) => Some("the spec changed since the plan: Plan again to preview it".to_string()),
+        Err(e) => Some(format!("the spec cannot be read now ({e}): Plan again")),
+    }
 }
 
 /// The editor's last confirmed `set`, the one its undo may invert.
@@ -561,6 +574,16 @@ fn confirm_blocked(
             file_name(&w.into)
         ));
     }
+    if w.command == "build" {
+        // What the box shows is what is built (M7.E5 review M1).
+        if let Some(why) = w
+            .spec_bytes
+            .as_deref()
+            .and_then(|planned| spec_changed(&w.form, planned))
+        {
+            return Some(why);
+        }
+    }
     if busy || awaiting {
         return Some("the engine is busy".to_string());
     }
@@ -692,6 +715,7 @@ fn start(
         readback_req: None,
         readback: None,
         failed: false,
+        spec_bytes: None,
     });
     state.awaiting = Some(Slot::EditorPreview);
     out.push(Action::Submit(Slot::EditorPreview, preview));
@@ -769,6 +793,13 @@ fn start_build(
         ));
         return;
     }
+    let spec_bytes = match std::fs::read(spec) {
+        Ok(b) => b,
+        Err(e) => {
+            state.note = Some((Status::Fail, format!("cannot read the spec {spec}: {e}")));
+            return;
+        }
+    };
     let plan = build::plan_request(spec, into);
     if let Err(e) = gate::check(&plan) {
         state.note = Some((Status::Fail, e.to_string()));
@@ -792,6 +823,7 @@ fn start_build(
         readback_req: None,
         readback: None,
         failed: false,
+        spec_bytes: Some(spec_bytes),
     });
     state.awaiting = Some(Slot::EditorPreview);
     out.push(Action::Submit(Slot::EditorPreview, plan));
@@ -849,6 +881,7 @@ fn start_undo(state: &mut EditorState, form: &str, into: &str, out: &mut Vec<Act
         readback_req: None,
         readback: None,
         failed: false,
+        spec_bytes: None,
     });
     state.awaiting = Some(Slot::EditorPreview);
     out.push(Action::Submit(Slot::EditorPreview, preview));
@@ -959,6 +992,14 @@ fn confirm_box(
         });
     if confirm {
         if let Some(w) = state.write.as_mut() {
+            if let Some(why) = w
+                .spec_bytes
+                .as_deref()
+                .and_then(|planned| spec_changed(&w.form, planned))
+            {
+                state.note = Some((Status::Fail, why));
+                return;
+            }
             let confirmed = if w.command == "revert" {
                 revert::write_request(&w.preview)
             } else if w.command == "build" {
@@ -1120,6 +1161,7 @@ mod tests {
             readback_req: None,
             readback: None,
             failed: false,
+            spec_bytes: None,
         }
     }
 
