@@ -856,6 +856,13 @@ impl App {
             self.cockpit
                 .session
                 .failed(&reply.request, reply.result.as_ref().err());
+        } else if matches!(
+            slot,
+            Slot::EditorPreview | Slot::EditorWrite | Slot::EditorValidate
+        ) {
+            // Pipeline E (M7.E2): the editor shows why its preview or write failed.
+            let why = reply.result.as_ref().err().map(ToString::to_string);
+            self.shell.editor.failed(slot, why.as_deref());
         }
         // Replies arrive in submission order, so the session now is the one this
         // request ran against.
