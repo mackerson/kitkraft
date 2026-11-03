@@ -84,6 +84,18 @@ The code, a reader in `crates/nif` and the engine's `mesh.geometry`, is a later 
 The catalog entry is a seam, and its acceptance also needs V4 measured. So this study adds
 no STATUS line.
 
+## The reader (M7.S5 code, 2026-11-02)
+
+`kitkraft-nif` implements G1, G2 and M1 to M6 as the study states them:
+- `Nif::slots` and `Slot::mesh_entry` for the slots;
+- `Mesh::parse`, which refuses with an offset anything no official mesh has;
+- `Mesh::positions` (grade A) and `Mesh::normals` (grade B, labelled so).
+
+The test of record also reads every official mesh and every geometry block with the
+crate's reader. It must agree with the walker, and it did on all 720,957 meshes and
+484,820 blocks. The engine's `mesh.geometry` handler uses the reader. Its catalog entry
+is still `Deferred`: that is a seam, ask A8.
+
 ## Not known (limitations)
 
 - What the fields named by place in M2, M3, M5 and M6 mean.
