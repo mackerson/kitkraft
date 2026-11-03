@@ -189,7 +189,7 @@
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
 // - SCOL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: every official SCOL record (15) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SDLT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically; corpus)
-// - SECH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SECH record (32) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
 // - SFPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SFPC record (62) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)
@@ -81695,31 +81695,117 @@ impl SdltRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct SechEchoes {
-    /// `ECHO`, optional.
-    pub echo: Option<Sub<Bytes>>,
-    /// `ECHD`, optional.
-    pub echd: Option<Sub<Bytes>>,
-    /// `ECTE`, optional.
-    pub ecte: Option<Sub<Bytes>>,
-    /// `ECSH`, optional.
-    pub ecsh: Option<Sub<Bytes>>,
-    /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
-    /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
-    /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
-    /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
-    /// `ENAM`, required.
-    pub enam: Option<Sub<Bytes>>,
-    /// `ECHE`, required.
-    pub eche: Option<Sub<Bytes>>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SechEchosActionAtLimit {
+    Steal,
+    Skip,
+    /// A value the definition does not name.
+    Other(u8),
 }
 
-impl SechEchoes {
+impl SechEchosActionAtLimit {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Steal,
+            1 => Self::Skip,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Steal => 0,
+            Self::Skip => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SechEchosActionAtLimit {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SechEchosActionAtLimit {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SechEchosUse {
+    OnEachPlayback,
+    OnLimitReached,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl SechEchosUse {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::OnEachPlayback,
+            1 => Self::OnLimitReached,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::OnEachPlayback => 0,
+            Self::OnLimitReached => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SechEchosUse {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SechEchosUse {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SechEchos {
+    /// `ECHO`, optional.
+    pub echo_start: Option<Sub<Empty>>,
+    /// `ECHD`, optional.
+    pub echo_default_start: Option<Sub<Empty>>,
+    /// `ECTE`, optional.
+    pub event: Option<Sub<[u8; 16]>>,
+    /// `ECSH`, optional.
+    pub sound: Option<Sub<SoundReference>>,
+    /// `ANAM`, required.
+    pub voice_count: Option<Sub<u32>>,
+    /// `BNAM`, required.
+    pub duration: Option<Sub<f32>>,
+    /// `CNAM`, required.
+    pub action_at_limit: Option<Sub<SechEchosActionAtLimit>>,
+    /// `DNAM`, required.
+    pub use_: Option<Sub<SechEchosUse>>,
+    /// `ENAM`, required.
+    pub trigger_release: Option<Sub<Bool8>>,
+    /// `NNAM`, optional.
+    pub echo_description: Option<Sub<ZString>>,
+    /// `CITC`, optional.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `ECHE`, required.
+    pub echo_end: Option<Sub<Empty>>,
+}
+
+impl SechEchos {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
@@ -81759,6 +81845,18 @@ impl SechEchoes {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"NNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
             sig: *b"ECHE",
             card: Card::Required,
         },
@@ -81773,71 +81871,158 @@ impl SechEchoes {
     ) {
         for hit in hits {
             match hit {
-                Hit::Sub { member: 0, index } => {
-                    put(&mut self.echo, subs, *index, "SECH.Echoes.ECHO", ctx, extra)
-                }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.echd, subs, *index, "SECH.Echoes.ECHD", ctx, extra)
-                }
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.echo_start,
+                    subs,
+                    *index,
+                    "SECH.Echos.ECHO",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.echo_default_start,
+                    subs,
+                    *index,
+                    "SECH.Echos.ECHD",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.ecte, subs, *index, "SECH.Echoes.ECTE", ctx, extra)
+                    put(&mut self.event, subs, *index, "SECH.Echos.ECTE", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.ecsh, subs, *index, "SECH.Echoes.ECSH", ctx, extra)
+                    put(&mut self.sound, subs, *index, "SECH.Echos.ECSH", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.anam, subs, *index, "SECH.Echoes.ANAM", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.bnam, subs, *index, "SECH.Echoes.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.cnam, subs, *index, "SECH.Echoes.CNAM", ctx, extra)
-                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.voice_count,
+                    subs,
+                    *index,
+                    "SECH.Echos.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.duration,
+                    subs,
+                    *index,
+                    "SECH.Echos.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.action_at_limit,
+                    subs,
+                    *index,
+                    "SECH.Echos.CNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 7, index } => {
-                    put(&mut self.dnam, subs, *index, "SECH.Echoes.DNAM", ctx, extra)
+                    put(&mut self.use_, subs, *index, "SECH.Echos.DNAM", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.enam, subs, *index, "SECH.Echoes.ENAM", ctx, extra)
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.trigger_release,
+                    subs,
+                    *index,
+                    "SECH.Echos.ENAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.echo_description,
+                    subs,
+                    *index,
+                    "SECH.Echos.NNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "SECH.Echos.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 11, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
                 }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.eche, subs, *index, "SECH.Echoes.ECHE", ctx, extra)
-                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.echo_end,
+                    subs,
+                    *index,
+                    "SECH.Echos.ECHE",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"ECHO", self.echo.as_ref());
-        emit(out, *b"ECHD", self.echd.as_ref());
-        emit(out, *b"ECTE", self.ecte.as_ref());
-        emit(out, *b"ECSH", self.ecsh.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
-        emit(out, *b"ENAM", self.enam.as_ref());
-        emit(out, *b"ECHE", self.eche.as_ref());
+        emit(out, *b"ECHO", self.echo_start.as_ref());
+        emit(out, *b"ECHD", self.echo_default_start.as_ref());
+        emit(out, *b"ECTE", self.event.as_ref());
+        emit(out, *b"ECSH", self.sound.as_ref());
+        emit(out, *b"ANAM", self.voice_count.as_ref());
+        emit(out, *b"BNAM", self.duration.as_ref());
+        emit(out, *b"CNAM", self.action_at_limit.as_ref());
+        emit(out, *b"DNAM", self.use_.as_ref());
+        emit(out, *b"ENAM", self.trigger_release.as_ref());
+        emit(out, *b"NNAM", self.echo_description.as_ref());
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"ECHE", self.echo_end.as_ref());
     }
 }
 
-impl Visit for SechEchoes {}
+impl Visit for SechEchos {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sound, "SECH.Echos.ECSH", out);
+        visit_form_ids(&self.conditions, "SECH.Echos.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sound, "SECH.Echos.ECSH", out);
+        visit_form_ids_mut(&mut self.conditions, "SECH.Echos.Conditions", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SechRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
+    /// `SNBH`, optional.
+    pub snap_behavior: Option<Sub<FormId>>,
+    /// `DEFL`, optional.
+    pub default_layer: Option<Sub<FormId>>,
     /// `XALG`, optional.
-    pub xalg: Option<Sub<Bytes>>,
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `NNAM`, optional.
-    pub nnam: Option<Sub<Bytes>>,
-    /// Group `Echoes`, repeated.
-    pub echoes: Vec<SechEchoes>,
+    pub description: Option<Sub<ZString>>,
+    /// `ECHL`, optional.
+    pub looping_sound: Option<Sub<SoundReference>>,
+    /// Group `Echos`, repeated.
+    pub echos: Vec<SechEchos>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -81853,6 +82038,10 @@ impl SechRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -81861,16 +82050,44 @@ impl SechRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNBH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DEFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"XALG",
             card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"NNAM",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"ECHL",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: SechEchoes::MEMBERS,
+            members: SechEchos::MEMBERS,
         },
     ];
 
@@ -81887,21 +82104,82 @@ impl SechRecord {
                     put(&mut self.editor_id, subs, *index, "SECH.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "SECH.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "SECH.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "SECH.ODTY", ctx, extra)
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "SECH.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "SECH.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "SECH.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "SECH.PTT2", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.xalg, subs, *index, "SECH.XALG", ctx, extra)
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "SECH.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.snap_behavior,
+                    subs,
+                    *index,
+                    "SECH.SNBH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.default_layer,
+                    subs,
+                    *index,
+                    "SECH.DEFL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "SECH.XALG", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.nnam, subs, *index, "SECH.NNAM", ctx, extra)
-                }
-                Hit::Group { member: 5, hits } => {
-                    let mut group = SechEchoes::default();
+                Hit::Group { member: 10, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.echoes.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.description, subs, *index, "SECH.NNAM", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.looping_sound,
+                    subs,
+                    *index,
+                    "SECH.ECHL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 13, hits } => {
+                    let mut group = SechEchos::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.echos.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -81910,21 +82188,77 @@ impl SechRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"XALG", self.xalg.as_ref());
-        emit(out, *b"NNAM", self.nnam.as_ref());
-        for group in &self.echoes {
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"SNBH", self.snap_behavior.as_ref());
+        emit(out, *b"DEFL", self.default_layer.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"NNAM", self.description.as_ref());
+        emit(out, *b"ECHL", self.looping_sound.as_ref());
+        for group in &self.echos {
             group.emit(out);
         }
     }
 }
 
-impl Visit for SechRecord {}
+impl Visit for SechRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "SECH.PTT2", out);
+        visit_form_ids(&self.snap_template, "SECH.SNTP", out);
+        visit_form_ids(&self.snap_behavior, "SECH.SNBH", out);
+        visit_form_ids(&self.default_layer, "SECH.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "SECH.BfcbBlock", out);
+        visit_form_ids(&self.looping_sound, "SECH.ECHL", out);
+        visit_form_ids(&self.echos, "SECH.Echos", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "SECH.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "SECH.SNTP", out);
+        visit_form_ids_mut(&mut self.snap_behavior, "SECH.SNBH", out);
+        visit_form_ids_mut(&mut self.default_layer, "SECH.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "SECH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.looping_sound, "SECH.ECHL", out);
+        visit_form_ids_mut(&mut self.echos, "SECH.Echos", out);
+    }
+}
 
 impl SechRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"SECH";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_RANDOM_ANIM_START: u32 = 0x10000;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_OBSTACLE: u32 = 0x2000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+    /// Record-header flag.
+    pub const FLAG_MUST_BE_UNIQUE: u32 = 0x80000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

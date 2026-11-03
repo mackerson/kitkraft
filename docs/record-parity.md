@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SECH, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 88: AACT, AAMD, AAPD, ADDN, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, AVMD, BMMO, BMOD, BNDS, CAMS, CLDF, CLFM, CLMT, CNDF, COLL, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPCT, IPDS, KSSM, LAYR, LENS, LGTM, LMSW, LSCR, LTEX, LVLB, LVSC, MAAM, MATT, MOVT, MRPH, MTPT, MUSC, MUST, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPCH, SPGD, STAG, STBH, STMP, STND, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    513,325 |   559,080 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,068,846 | 2,636,573 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    514,159 |   558,246 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,069,680 | 2,635,739 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 89:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:fc98b328cbfc5a09` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:1313c8de2b29d06f` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -195,7 +195,7 @@ Columns:
 | `REVB`        | ReverbParameters               |        41 |          0 |     3 |     1 |      2 |       0 |
 | `CUR3`        | Curve3D                        |        36 |          0 |     2 |     1 |      1 |       0 |
 | `RSGD`        | ResourceGenerationData         |        32 |          0 |     3 |     3 |      0 |       0 |
-| `SECH`        | SoundEchoMarker                |        32 |          0 |    15 |     1 |     14 |       0 |
+| `SECH`        | SoundEchoMarker                |        32 |          0 |    15 |    14 |      1 |       0 |
 | `FXPD`        | FacialExpression               |        31 |          0 |     4 |     2 |      0 |       2 |
 | `GPOF`        | GameplayOption                 |        31 |          0 |    11 |    11 |      0 |       0 |
 | `STAG`        | AnimationSoundTagSet           |        30 |          0 |     4 |     1 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,161 |    440 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,174 |    427 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,068,846 typed (0 of them failed to decode), 2,636,573 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,069,680 typed (0 of them failed to decode), 2,635,739 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -397,7 +397,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `REVB`    | ReverbParameters               |            41 |         41 |      0 |         0 |         0 |                   0 |         41 |       0 |        0 |
 | `CUR3`    | Curve3D                        |            36 |         36 |      0 |         0 |         0 |                   0 |         36 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |            32 |        168 |      0 |         0 |         0 |                   0 |        168 |       0 |        0 |
-| `SECH`    | SoundEchoMarker                |            32 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
+| `SECH`    | SoundEchoMarker                |            32 |        866 |      0 |         0 |         0 |                   0 |        866 |       0 |        0 |
 | `FXPD`    | FacialExpression               |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |            31 |        793 |      0 |         0 |       412 |                   0 |        381 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |            30 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,068,846 |      0 |         0 |   232,876 |                   0 | 46,835,970 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,069,680 |      0 |         0 |   232,876 |                   0 | 46,836,804 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -612,7 +612,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SCEN`    | Scene                          |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
 | `SCOL`    | StaticCollection               |             42 |    31 |     11 |         0 |                   0 |     42 |       0 |        0 |
 | `SDLT`    | SecondaryDamageListForm        |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `SECH`    | SoundEchoMarker                |             15 |     1 |     14 |         0 |                   0 |     15 |       0 |        0 |
+| `SECH`    | SoundEchoMarker                |             60 |    55 |      5 |         9 |                   0 |     51 |       0 |        0 |
 | `SFBK`    | SurfaceBlock                   |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
 | `SFPC`    | SurfacePatternConfig           |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SFPT`    | SurfacePattern                 |             41 |    38 |      3 |         3 |                   0 |     38 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          5,952 | 5,206 |    746 |       445 |                   2 |  5,505 |       0 |        0 |
+| **Total** |                                |          5,997 | 5,260 |    737 |       454 |                   2 |  5,541 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

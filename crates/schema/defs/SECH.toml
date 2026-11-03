@@ -1,215 +1,322 @@
-# SECH: SoundEchoMarker, inventory definition (KK-108).
+# SECH: Sound Echo Marker, a placeable object that marks where a sound plays and how its
+# echo behaves (echoes of distant sounds in the open world).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official SECH record (32 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the SECH definition of wbDefinitionsSF1.pas at the pinned revision (L17467-L17523),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17467-L17523 - member order, the record flags,
+#     the description string, the looping sound, and the list of echoes (each echo a
+#     start marker, an event, a sound, a voice count, a duration, an action at limit, a
+#     use, a trigger release, a description, conditions and an end marker). Helpers:
+#     EDID (L3182), script data (L3407-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962),
+#     PTT2 (L3965-L3978), SNTP/SNBH (L3919-L3920), DEFL (L3963), XALG (L3230), the base
+#     form component block (L5984-L6832), the sound reference (L2197-L2227,
+#     common/SoundReference.toml), the boolean enumeration (wbDefinitionsCommon.pas
+#     L7514-L7521, common/Bool8.toml), conditions (CITC L2251, L4750-L4840,
+#     common/Condition.toml).
+#   corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03 - the 32 SECH
+#     records of the 14 official ESMs: 15 signatures, 100 echoes; ANAM, BNAM, CNAM, DNAM,
+#     ENAM and ECHE 100 times (one per echo), ECHO 68, ECHD 32, ECTE 67 (16 bytes), ECSH
+#     67 (40 bytes), NNAM 2 (37 to 128 bytes, both the record's description before the
+#     first echo; none inside the echoes), XALG 1 (8 bytes). No VMAD, OPDS, PTT2,
+#     SNTP, SNBH, DEFL, ECHL, BFCB, CITC or CTDA occurs. Every record decodes and
+#     re-encodes identically.
 signature = "SECH"
 name = "SoundEchoMarker"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SECH record (32) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523",
-]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523"
 confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+evidence = [
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records of the 14 official ESMs decode with nothing left unnamed and re-encode identically",
+]
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["RandomAnimStart", 0x10000],
+  ["HasCurrents", 0x80000],
+  ["Obstacle", 0x2000000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+  ["MustBeUnique", 0x80000000],
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 23..47 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17487-L17487",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records of the 14 official ESMs hold an EDID of 23 to 47 bytes",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, so kept raw; not present in the official SECH records"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 24 bytes"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17489-L17489",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records hold a 24-byte OBND",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences), 4 bytes"
+name = "DirtinessScale"
+type = "f32"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17490-L17490",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 32 SECH records hold a 4-byte ODTY",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official SECH records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official SECH records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official SECH records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official SECH records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 32 official SECH records (1 occurrence), 8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17496-L17496",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 1 of the 32 SECH records holds an 8-byte XALG",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 8 bytes"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official SECH records"
 
 [[member]]
 sig = "NNAM"
-name = "Nnam"
-type = "opaque"
+name = "Description"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 32 official SECH records (2 occurrences), 37..128 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17498-L17498",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 2 of the 32 SECH records hold an NNAM before the first echo, 37 to 128 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 37..128 bytes"
 
 [[member]]
-group = "Echoes"
+sig = "ECHL"
+name = "LoopingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17499-L17499"]
+confidence = "reference"
+note = "not present in the official SECH records"
+
+[[member]]
+group = "Echos"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (68 occurrences, up to 15 per record) opened by ECHO; with the 32 opened by ECHD, 100 echoes, up to 16 per record"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17500",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17500-L17522",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: the 32 SECH records hold 100 echoes: 68 begin with an ECHO, 32 with an ECHD, and all 100 end with an empty ECHE",
 ]
 confidence = "corpus"
-note = "one echo: its start marker (ECHO, or ECHD for the last echo of every record), its optional ECTE and ECSH, then ANAM, BNAM, CNAM, DNAM, ENAM and ECHE"
 
 [[member.member]]
 sig = "ECHO"
-name = "Echo"
-type = "opaque"
+name = "EchoStart"
+type = "empty"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (68 occurrences, up to 15 per record), 0 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17503-L17503",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 68 of the 100 echoes begin with an empty ECHO, 32 with an ECHD: one start marker per echo",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 0 bytes"
+note = "start marker; an echo carries one of this and EchoDefaultStart"
 
 [[member.member]]
 sig = "ECHD"
-name = "Echd"
-type = "opaque"
+name = "EchoDefaultStart"
+type = "empty"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (32 occurrences, up to 1 per record), 0 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17504-L17504",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 32 of the 100 echoes begin with an empty ECHD, 68 with an ECHO: one start marker per echo",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 0 bytes"
 
 [[member.member]]
 sig = "ECTE"
-name = "Ecte"
+name = "Event"
 type = "opaque"
+size = 16
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 31 of 32 official SECH records (67 occurrences, up to 15 per record), 16 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17506-L17506",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 67 of the 100 echoes hold a 16-byte ECTE, in 31 records",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 16 bytes"
+note = "Wwise event GUID; upstream gives it no field layout, so kept raw"
 
 [[member.member]]
 sig = "ECSH"
-name = "Ecsh"
-type = "opaque"
+name = "Sound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 31 of 32 official SECH records (67 occurrences, up to 15 per record), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17507-L17507",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: 67 of the 100 echoes hold a 40-byte ECSH, in 31 records",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 40 bytes"
 
 [[member.member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 4 bytes"
+name = "VoiceCount"
+type = "u32"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17508-L17508",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 4-byte ANAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
 
 [[member.member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 4 bytes"
+name = "Duration"
+type = "f32"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17509-L17509",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 4-byte BNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
 
 [[member.member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+name = "ActionAtLimit"
+type = "enum"
+base = "u8"
+values = [
+  ["Steal", 0],
+  ["Skip", 1],
+]
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17510-L17510",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17510-L17513",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte CNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 1 byte"
 
 [[member.member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+name = "Use"
+type = "enum"
+base = "u8"
+values = [
+  ["OnEachPlayback", 0],
+  ["OnLimitReached", 1],
+]
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17514-L17514",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17514-L17517",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte DNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 1 byte"
 
 [[member.member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 1 byte"
+name = "TriggerRelease"
+type = "ref:Bool8"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17518-L17518",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes hold a 1-byte ENAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 1 byte"
+
+[[member.member]]
+sig = "NNAM"
+name = "EchoDescription"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17519-L17519"]
+confidence = "reference"
+note = "the echo's own description; a second NNAM, distinct from the record-level one; not present in the official SECH records"
+
+[[member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+confidence = "reference"
+note = "number of Conditions that follow; stored, not derived; not present in the official SECH records"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "not present in the official SECH records"
 
 [[member.member]]
 sig = "ECHE"
-name = "Eche"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 32 of 32 official SECH records (100 occurrences, up to 16 per record), 0 bytes"
+name = "EchoEnd"
+type = "empty"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17521-L17521",
+  "corpus: kitkraft-esm tests/sech_types.rs (sech_types_full), 2026-11-03: all 100 echoes end with an empty ECHE",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 0 bytes"
