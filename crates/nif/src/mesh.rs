@@ -188,7 +188,16 @@ impl Mesh {
         for _ in 0..ni {
             indices.push(c.u16("index")?);
         }
+        let scale_at = c.offset();
         let scale = c.f32("scale")?;
+        // Finite and positive in every official mesh (study M2; asserted by the study test).
+        if !(scale.is_finite() && scale > 0.0) {
+            return Err(Error::Unsupported {
+                what: "scale",
+                offset: scale_at,
+                value: u64::from(scale.to_bits()),
+            });
+        }
         let u32_after_scale = c.u32("u32 after the scale")?;
         let nv = c.u32("vertex count")?;
         let positions_offset = c.file_pos();

@@ -182,6 +182,19 @@ fn what_no_official_mesh_has_is_refused_with_its_offset() {
             ..
         }
     ));
+    // Review L3 (M7.S5 code): every official scale is finite and positive.
+    for bad in [0.0f32, -1.0, f32::NAN, f32::INFINITY] {
+        let mut m = M::triangle();
+        m.scale = bad;
+        assert!(matches!(
+            refused(m),
+            Error::Unsupported {
+                what: "scale",
+                offset: 14,
+                ..
+            }
+        ));
+    }
     let mut bytes = M::triangle().bytes();
     bytes.push(0);
     assert!(matches!(
