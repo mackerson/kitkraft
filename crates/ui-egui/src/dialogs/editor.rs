@@ -246,11 +246,18 @@ impl EditorState {
     /// opens on them; nothing is sent until its Preview. The last write's note goes with
     /// its box, so the box does not cover the form.
     pub fn place(&mut self, base: &str, cell: &str) {
-        self.note = None;
-        // The last write's box goes too, unless a reply is still awaited (M7.E4 review L1).
-        if self.awaiting.is_none() {
-            self.write = None;
+        // While a reply is awaited the open form stays, so it keeps matching the confirm
+        // box beside it (M7.W4 review L2); place again once the engine has answered.
+        if self.awaiting.is_some() {
+            self.note = Some((
+                Status::Warn,
+                "the editor is waiting for the engine; place again when it has answered"
+                    .to_string(),
+            ));
+            return;
         }
+        self.note = None;
+        self.write = None;
         self.place_form = Some(place::PlaceForm::open(base, cell));
     }
 
@@ -1705,6 +1712,22 @@ mod tests {
             .unwrap_err()
             .contains("already held"));
         assert!(undoable(&env(json!([])), "f", "P.esp").is_err());
+    }
+
+    /// M7.W4 review L2: a Place action while a reply is awaited keeps the open form (it
+    /// matches the confirm box) and says to place again; once idle, it opens the new one.
+    #[test]
+    fn a_place_while_waiting_keeps_the_form_that_matches_the_box() {
+        let mut s = EditorState::default();
+        s.place("World.esp:001000", "World.esp:001001");
+        s.awaiting = Some(Slot::EditorPreview);
+        s.place("World.esp:00AAAA", "World.esp:00BBBB");
+        assert_eq!(s.place_form.as_ref().unwrap().base, "World.esp:001000");
+        assert!(s.note.as_ref().unwrap().1.contains("place again"));
+        s.awaiting = None;
+        s.place("World.esp:00AAAA", "World.esp:00BBBB");
+        assert_eq!(s.place_form.as_ref().unwrap().cell, "World.esp:00BBBB");
+        assert!(s.note.is_none());
     }
 
     /// A build's confirm needs a plan whose validate passed; its changes list each with
