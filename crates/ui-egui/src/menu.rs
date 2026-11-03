@@ -1171,7 +1171,8 @@ mod tests {
     }
 
     /// Whether `id` may stand as a Source (ruling R24): a recorded sitting, or a desk entry
-    /// that names the recorded sitting it was filed from.
+    /// whose heading names the recorded sitting it was filed from (a mention elsewhere in
+    /// its text, "not filed from ...", does not count: W5 review L2).
     fn source_ok(observations: &str, id: &str) -> bool {
         let Some(e) = entry(observations, id) else {
             return false;
@@ -1179,7 +1180,8 @@ mod tests {
         if !is_desk(e) {
             return true;
         }
-        sitting_ids(e)
+        let heading = e.lines().next().unwrap_or_default();
+        sitting_ids(heading)
             .iter()
             .any(|other| other != id && entry(observations, other).is_some_and(|o| !is_desk(o)))
     }
@@ -1345,7 +1347,7 @@ mod tests {
     }
 
     const FIXTURE_HEAD: &str = "# CK parity\n\n## Interface parity\n\n| Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |\n| ---- | ---- | ---- | ---- | ---- | ---- |\n";
-    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n\nAgent-run.\n\n| File | Data..., Save / Exit |\n\n### ck-20261102-01: the menus of `ck-20261101-01` (desk entry; no CK run)\n\n| File | Data... *(off)* / Exit |\n\n### ck-20261102-02: a desk note (desk entry; no CK run)\n\nNo sitting.\n";
+    const FIXTURE_OBSERVATIONS: &str = "## Ledger\n\n### ck-20261101-01: a sitting\n\nAgent-run.\n\n| File | Data..., Save / Exit |\n\n### ck-20261102-01: the menus of `ck-20261101-01` (desk entry; no CK run)\n\n| File | Data... *(off)* / Exit |\n\n### ck-20261102-02: a desk note (desk entry; no CK run)\n\nNo sitting.\n\n### ck-20261102-03: a desk note (desk entry; no CK run)\n\nNothing was observed; not filed from ck-20261101-01.\n";
     const FIXTURE_GOOD: &str = "| menu item | File > Data... | `load` (the Data dialog) | observed | `ck-20261101-01` | - |\n| menu item | File > Exit | `gap:` no command | observed | `ck-20261101-01` | - |\n| menu | Edit menu, every item | per item | unresearched | - | - |\n| dialog | Data dialog | `load` | reproduced | `ck-20261101-01` | test `menu::tests::the_parity_doc_passes_the_parity_check` |\n";
 
     fn fixture(rows: &str) -> String {
@@ -1396,6 +1398,8 @@ mod tests {
             ("| menu item | File > Exit Now | `gap:` no command | observed | `ck-20261101-01` | - |", "records `Exit Now`"),
             // R24: a desk entry with no sitting behind it is no Source.
             ("| window | Object Window | `query` | observed | `ck-20261102-02` | - |", "no sitting behind"),
+            // W5 review L2: a desk entry that only mentions a sitting in its text.
+            ("| window | Object Window | `query` | observed | `ck-20261102-03` | - |", "no sitting behind"),
         ];
         for (row, want) in planted {
             let problems = parity_problems(&fixture(row), FIXTURE_OBSERVATIONS, &has);
