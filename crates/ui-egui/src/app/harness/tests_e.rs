@@ -987,6 +987,28 @@ fn m7_e4_place_previews_confirms_and_reads_back_the_reference() {
     assert_in_view(&h, "placed: Patch.esp:");
     assert_in_view(&h, "Read back from Patch.esp");
     assert_in_view(&h, "NAME");
+    // The typed position is what is written (review finding L3 of M7.E4): DATA starts with
+    // X, Y, Z as little-endian f32.
+    let back = ReadOnlyEngine::new()
+        .run(&Request::new(
+            "inspect",
+            json!({"form": "01001000", "plugin": patch, "full": true}),
+        ))
+        .unwrap();
+    let data = back["data"]["subrecords"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["signature"] == json!("DATA"))
+        .and_then(|s| s["payload_hex"].as_str())
+        .unwrap()
+        .to_string();
+    let xyz: String = [12.5f32, 0.0, 0.0]
+        .iter()
+        .flat_map(|f| f.to_le_bytes())
+        .map(|b| format!("{b:02X}"))
+        .collect();
+    assert!(data.starts_with(&xyz), "DATA {data}");
     assert_eq!(
         std::fs::read(s.path("World.esp")).unwrap(),
         world,
