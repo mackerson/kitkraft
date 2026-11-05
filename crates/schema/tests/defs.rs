@@ -647,7 +647,6 @@ const BX2_INVENTORY: &[&str] = &[
     "MATT",
     "MOVT",
     "MUSC",
-    "MUST",
     "NAVI",
     "NOCM",
     "OSWP",
