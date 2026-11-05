@@ -533,16 +533,20 @@ fn preferences_change_the_zoom_theme_and_checkout() {
     click_button(&mut h, "Reset zoom");
     assert_eq!(h.state().app.prefs.zoom, Some(1.0));
     // The theme: the window's "dark" radio (not the Start tab's, behind it) sends
-    // Action::SetTheme, which the window applies.
-    let left = h
-        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("KitKraft's own layout")))
-        .map(|n| n.rect().min.x)
-        .fold(f32::MAX, f32::min);
-    let dark: Vec<Node<'_>> = h
+    // Action::SetTheme, which the window applies. The window's own subtree tells the two
+    // apart: where the Start tab's radio lands depends on the font (right of the window's
+    // left edge with DejaVu Sans, the Linux gate's).
+    let window: Vec<Node<'_>> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::Window
+                && n.label().as_deref() == Some(WindowKind::Preferences.title())
+        })
+        .collect();
+    assert_eq!(window.len(), 1, "the Preferences window");
+    let dark: Vec<Node<'_>> = window[0]
         .query_all_by(|n| {
             text_of(n).as_deref() == Some("dark") && n.role() == egui::accesskit::Role::RadioButton
         })
-        .filter(|n| n.rect().min.x >= left - 1.0)
         .collect();
     assert_eq!(dark.len(), 1, "the window's dark radio");
     dark[0].click();

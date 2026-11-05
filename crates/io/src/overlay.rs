@@ -198,8 +198,10 @@ impl Overlay {
     }
 }
 
-/// Find `key` (normalized) under `root`, matching each component case-insensitively.
-fn find_ci(root: &Path, key: &str) -> Option<PathBuf> {
+/// Find the file `key` (normalized) under `root`, matching each component ASCII
+/// case-insensitively, as Windows and the game do: `meshes/a.nif` finds `Meshes\A.nif` on a
+/// case-sensitive file system too.
+pub fn find_ci(root: &Path, key: &str) -> Option<PathBuf> {
     let mut dir = root.to_path_buf();
     let parts: Vec<&str> = key.split('/').filter(|p| !p.is_empty()).collect();
     let last = parts.len().checked_sub(1)?;

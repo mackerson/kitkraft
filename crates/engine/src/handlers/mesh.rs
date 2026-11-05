@@ -318,7 +318,9 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
         .ok_or_else(|| failed(id, "no Data dir: pass `data_dir` or set KITKRAFT_DATA_DIR"))?;
     let wanted = entry_path_in(id, &model)?;
     let rel: PathBuf = wanted.split('/').collect();
-    let loose = data_dir.join(&rel);
+    // `wanted` is lowercased and the loose tree is not (`Meshes\...`): matched without
+    // case, as Windows does, so a case-sensitive file system finds the file too.
+    let loose = kitkraft_io::overlay::find_ci(&data_dir, &wanted);
 
     if session
         .get::<MeshIndex>()
@@ -343,7 +345,7 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
         .filter_map(|(a, _)| index.archives.get(*a).map(|(n, _, _)| n.clone()))
         .collect();
 
-    let (bytes, file, source) = if loose.is_file() {
+    let (bytes, file, source) = if let Some(loose) = loose {
         let len = std::fs::metadata(&loose).map_or(u64::MAX, |m| m.len());
         if len > MAX_MODEL_BYTES {
             return Err(failed(
