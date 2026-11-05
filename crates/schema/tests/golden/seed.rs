@@ -153,7 +153,7 @@
 // - MSTT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14652-L14698; corpus)
 // - MTPT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MTPT record (906) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MUSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUSC record (117) decodes with every subrecord placed and re-encodes identically; corpus)
-// - MUST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744; reference)
+// - MUST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744; corpus)
 // - NAVI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NAVI record (8) decodes with every subrecord placed and re-encodes identically; corpus)
 // - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
 // - NOCM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically; corpus)

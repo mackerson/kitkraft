@@ -123,6 +123,7 @@ name = "ConditionsCantFailAfterSuccess"
 type = "ref:Bool8"
 card = "optional"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14738-L14738",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
   "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 213 of the 279 MUST records hold a 1-byte MSTF",
 ]
@@ -134,6 +135,7 @@ name = "ConditionCount"
 type = "u32"
 card = "optional"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14740-L14740",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
   "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: 51 of the 279 MUST records hold a 4-byte CITC",
 ]
@@ -145,6 +147,7 @@ group_ref = "Condition"
 name = "Conditions"
 card = "repeated"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14741-L14741",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
   "corpus: kitkraft-esm tests/must_types.rs (must_types_full), 2026-11-03: the 51 MUST records with a CITC hold 66 Conditions in total, each a 32-byte CTDA with no CIS1 or CIS2",
 ]
