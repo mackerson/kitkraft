@@ -176,6 +176,22 @@ nothing here is merged into `main` unless it says so):
   fix: whether the console answers in send order (two sessions agree, nobody has ruled).
   Until these are closed, do not trust a new in-game pass on a row whose command can fail
   late.
+- **Item 7, built and reviewed; waits for the owner.** Branch `owner-review/a6-active-file`
+  (head `fa533191`, gate 1,501 passed, 0 failed, 106 ignored; its own Landed line states
+  the rules). A request opts in with `active_file: true`; the engine then exempts `into`
+  from the load-order refusal only when the order came from a `plugins` list (never a
+  profile), `into` is the last plugin, no loaded plugin names it as a master, no other
+  loaded plugin has its file name, it is not an official master and not master-flagged, and
+  it is unchanged on disk since the load. `guard_location` runs unrelaxed. `set`, `new` and
+  `clone` only: `place`, `build` and `revert` still refuse a loaded active file, so the
+  editor's Undo is still refused there. Two review rounds by a second agent (the first
+  found the exemption reached any master-flagged last plugin and that three write-gate
+  tests had been changed in a way that hid it; the second found an in-place `set` editing
+  the wrong record after another tool rewrote the file); both fixed, the second fix checked
+  by the reviewer's tests and the gate, not re-read by a second agent. Open for the owner:
+  whether one of his own master-flagged (`.esm`) plugins may be the active file (refused
+  for now). Not caught: a same-size rewrite within one timestamp tick that keeps the header
+  flags. No real-window check.
 - **Item 9, drafted:** `plan/tickets/KK-250.toml` and `KK-251.toml`, both held.
 - **Items 11 and 12, step list written, not run:** `plan/owner-sitting-2026-11-06.md`. It
   cannot run as it stands: the fixture matrix names no form, cell or value for F20, F23 and
@@ -2092,7 +2108,7 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 | M7.O5 | NIF and mesh sources                  | **decided 2026-11-01**: the memo's recommendations 1 to 3 (sheet item 20; `docs/source-registry.md` "Sources for NIF and mesh layout") |
 | ADR 0012 Am. 2 | Automated CK sittings through UI Automation | **decided 2026-11-01: accepted** (sheet item 17); static string scans of `CreationKit.exe` not allowed (item 18) |
 | CK build fingerprint | SHA-256 of `CreationKit.exe` in the sitting preflight | **decided 2026-11-05: allowed** ("Owner decisions (2026-11-05)" item 10); string scans stay not allowed |
-| A6 | The active file is exempt from `guard_target` once loaded (ADR 0007 Amendment 4) | **decided 2026-11-05: approved** (item 7), as an engine ticket with six negative tests, by Claude agents; not built yet |
+| A6 | The active file is exempt from `guard_target` once loaded (ADR 0007 Amendment 4) | **decided 2026-11-05: approved** (item 7), as an engine ticket with six negative tests, by Claude agents; built and reviewed on branch `owner-review/a6-active-file` (2026-11-06), not merged |
 | M3.O6 | UI (ADR 0007)                         | **decided 2026-10-14**: accepted with scope (read-only workbench, M4 lane W; authoring UI M5) |
 | M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
 | M4.O6 | Agent-driven game sessions on `KitKraft Dev` (ADR 0010) | **decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1): screenshots in scope, input injection deferred, `crates/game` dependencies MIT/Apache-2.0 confirmed by the owner at the merge |
