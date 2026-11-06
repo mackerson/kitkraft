@@ -131,8 +131,9 @@ M6.G1 and M6.G3):
   `new` and `clone` name it with `active_file: true`, and the engine then writes it once
   it is loaded, but only as the last plugin of a `plugins` load order (not one read from
   a profile), never an official master, never under Data, My Games or MO2 (A6, owner
-  decision 2026-11-05; `docs/mcp.md`, `set`). `place`, `build` and `revert` still refuse a
-  loaded active file.
+  decision 2026-11-05; `docs/mcp.md`, `set`). A master-flagged file is not exempt; the
+  owner has not ruled on it. `place`, `build` and `revert` still refuse a loaded active
+  file, saying they do not yet write one.
 
   The `build` and `revert` rows land with E's branch (M7.E5, M7.E6): until it merges, both
   are refused here. `build` writes a fresh plugin: the window builds only into an active

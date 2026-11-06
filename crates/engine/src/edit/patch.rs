@@ -318,11 +318,11 @@ pub struct PatchOptions<'a> {
     /// named in a limitation) instead of refusing (module docs, "Non-localized").
     pub allow_untyped_lstrings: bool,
     /// The target is the editor's active file, loaded as the last plugin of the load order
-    /// and exempted from `protected` by the caller (A6, owner decision 2026-11-05 item 7):
-    /// a copy whose source is the target itself (its own version, by file name) is edited
-    /// in place when the source's master list is a prefix of the target's, instead of
-    /// being refused as "its own master". False everywhere else.
-    pub in_place: bool,
+    /// at this path and exempted from `protected` by the caller (A6, owner decision
+    /// 2026-11-05 item 7): a copy read from that very file (its own version, matched by
+    /// path, not by name) is edited in place when the source's master list is a prefix of
+    /// the target's, instead of being refused as "its own master". `None` everywhere else.
+    pub in_place: Option<PathBuf>,
 }
 
 /// One lstring written inline in place of a string ID.
@@ -786,7 +786,11 @@ pub fn write_patch_with(
             }
             continue;
         }
-        if options.in_place && copy.source.name.eq_ignore_ascii_case(&target_name) {
+        let own = options.in_place.as_ref().is_some_and(|active| {
+            copy.source.name.eq_ignore_ascii_case(&target_name)
+                && absolute(&copy.source.path) == absolute(active)
+        });
+        if own {
             // The active file's own version (A6): its FormIDs are already in the target's
             // space when the target still has the masters the loaded version had.
             if !is_prefix(&copy.source.masters, &masters) {

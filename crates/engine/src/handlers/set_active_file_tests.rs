@@ -395,7 +395,6 @@ fn a_profile_load_never_exempts_its_last_plugin() {
 /// workbench refuses a master-flagged active file (`windows/data_dialog.rs`), but the
 /// engine, which the window's gate tests rely on as the final word, does not.
 #[test]
-#[ignore = "review finding M1: the engine writes a master-flagged last plugin when the request says active_file; proposal: refuse a target whose loaded TES4 has the master flag"]
 fn a_master_flagged_last_plugin_is_refused_as_the_active_file() {
     let (d, data, _active) = scratch("review-master");
     let mods = d.join("mods").join("ThirdParty");
@@ -584,7 +583,6 @@ fn a_junction_to_the_active_file_is_refused() {
 /// file name, so the earlier file's record would be written into the active file as if it
 /// were the active file's own (FormIDs as stored, no remap). It must be refused.
 #[test]
-#[ignore = "review finding L1: in_place matches the copy's source by file name, so a same-named earlier plugin's record is taken as the active file's own; proposal: refuse duplicate file names at load, and match in_place by path"]
 fn a_same_named_earlier_plugin_is_not_taken_as_the_active_file() {
     let (d, data, active) = scratch("review-samename");
     let other_dir = d.join("other");
@@ -739,5 +737,63 @@ fn a_unc_spelling_of_a_loaded_plugin_is_refused() {
         );
     }
     assert_eq!(bytes(&over), before, "Override.esp changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// A6 review L3: `place` and `revert` refuse a loaded active file with a message that says
+/// they do not yet write one (`set`, `new` and `clone` do); nothing is written.
+#[test]
+fn place_and_revert_say_they_do_not_yet_write_a_loaded_active_file() {
+    let (d, data, active) = scratch("l3");
+    let engine = loaded(&data, &order(&active));
+    let before = bytes(&active);
+    for (cmd, args) in [
+        (
+            "revert",
+            json!({"plugin": active.display().to_string(), "form": "Source.esm:000800"}),
+        ),
+        (
+            "place",
+            json!({"base": "Source.esm:000800", "cell": "Source.esm:000801",
+                   "position": [0.0, 0.0, 0.0], "into": active.display().to_string()}),
+        ),
+    ] {
+        let err = engine.execute(cmd, args).unwrap_err().to_string();
+        assert!(err.contains("plugin of the load order"), "{cmd}: {err}");
+        assert!(
+            err.contains("does not yet write to a loaded active file"),
+            "{cmd}: {err}"
+        );
+    }
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// A6 review L2: the reload after a write keeps the load's `from_save`, so runtime IDs the
+/// save confirmed stay confirmed.
+#[test]
+fn the_reload_keeps_from_save() {
+    let (d, data, active) = scratch("l2");
+    let save = d.join("Quicksave0.sfs");
+    std::fs::write(
+        &save,
+        super::testdata::save(&["Source.esm", "Override.esp", "Patch.esp"], &[], &[]),
+    )
+    .unwrap();
+    let engine = Engine::with_default_handlers();
+    engine
+        .execute(
+            "load",
+            json!({"plugins": order(&active), "data_dir": data.display().to_string(),
+                   "no_cache": true, "from_save": save.display().to_string()}),
+        )
+        .unwrap();
+    let basis = |engine: &Engine| {
+        engine.with_session(|s| s.load_order().map(|l| l["runtime_basis"].clone()))
+    };
+    let first = basis(&engine);
+    assert_eq!(first, Some(json!("confirmed-by-save")), "{first:?}");
+    set_full(&engine, "Source.esm:000801", "Saved", &active, true, false).unwrap();
+    assert_eq!(basis(&engine), first);
     let _ = std::fs::remove_dir_all(&d);
 }

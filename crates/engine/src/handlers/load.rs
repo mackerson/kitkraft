@@ -78,6 +78,9 @@ pub(crate) struct Loaded {
     /// The `data_dir` argument the load order was loaded with, if any (`set::reload` loads
     /// the same order again after a write into its active file, A6).
     pub data_dir: Option<PathBuf>,
+    /// The `from_save` argument the load order was loaded with, if any (kept by
+    /// `set::reload`, A6 review L2).
+    pub from_save: Option<String>,
 }
 
 /// The EditorIDs of a load order's indexes: `(hash of the ASCII-lowercased EditorID, plugin,
@@ -785,6 +788,10 @@ pub(crate) fn load(
             cache_dir: cache_dir.map(PathBuf::from),
             backrefs: OnceLock::new(),
             data_dir: explicit_data_dir,
+            from_save: args
+                .get("from_save")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         },
         listing,
         evidence,

@@ -991,7 +991,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         copies,
         new_refs,
         allow_untyped,
-        false,
+        None,
     )?;
     let spec_dir = spec_path
         .parent()

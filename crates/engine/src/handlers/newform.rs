@@ -393,7 +393,7 @@ fn commit(
     mut limitations: Vec<String>,
     origins: &[Origin],
     dry_run: Option<Option<&kitkraft_schema::Schema>>,
-    in_place: bool,
+    in_place: Option<&Path>,
 ) -> Result<Outcome, EngineError> {
     let staged = stage(command, into, true)?;
     let mut report = write_with(
@@ -545,14 +545,20 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
         limitations,
         &[],
         dry_run,
-        in_place,
+        in_place.as_deref(),
     )?;
     if let Some(obj) = result.data.as_object_mut() {
         if !scripts.reports.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts.reports));
         }
     }
-    after_in_place(session, ID, in_place, dry_run.is_some(), &mut result);
+    after_in_place(
+        session,
+        ID,
+        in_place.is_some(),
+        dry_run.is_some(),
+        &mut result,
+    );
     Ok(result)
 }
 
@@ -599,14 +605,20 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
         limitations,
         &[origin],
         dry_run,
-        in_place,
+        in_place.as_deref(),
     )?;
     if let Some(obj) = result.data.as_object_mut() {
         if let Some(report) = swap_report {
             obj.insert("swap_overrides".into(), Value::Array(report));
         }
     }
-    after_in_place(session, ID, in_place, dry_run.is_some(), &mut result);
+    after_in_place(
+        session,
+        ID,
+        in_place.is_some(),
+        dry_run.is_some(),
+        &mut result,
+    );
     Ok(result)
 }
 

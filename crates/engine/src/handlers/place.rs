@@ -1076,7 +1076,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         vec![planned.carried],
         vec![planned.new_ref],
         allow_untyped,
-        false,
+        None,
     )?;
     let checked = check(ID, loaded, &staged)?;
     let written: Vec<String> = report

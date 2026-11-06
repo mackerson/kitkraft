@@ -869,14 +869,17 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   active file (ADR 0007 Amendment 4; A6, owner decision 2026-11-05). It may then be a
   plugin of the load order, and is written in place, only when the load order was given
   as `plugins` (never read from an MO2 profile), `into` is its **last** plugin (so no
-  later plugin hides the edit), no loaded plugin names it as a master, and `into` is not
-  an official master by name. The location guard is unchanged: never the game Data dir, the user Data dir, My
+  later plugin hides the edit), no loaded plugin names it as a master or has its file
+  name, and `into` is not an official master by name and its header is readable. A
+  master-flagged file is not exempt; the owner has not ruled on it. The location guard is unchanged: never the game Data dir, the user Data dir, My
   Games, MO2 or a path through a link. Every other plugin of the load order stays
   refused, and so does `into` without the flag. A version `into` already holds is edited
-  in place (its own record, not a copy from itself). After a write the session's load
-  order is read again, so later reads see the new bytes (a dry run writes and re-reads
+  in place (its own record, matched by path, not a copy from itself). After a write the
+  session's load order is read again (same plugins, Data dir, language, cache choice and
+  `from_save`), so later reads see the new bytes (a dry run writes and re-reads
   nothing). The workbench editor sends it with every `set`, `new` and `clone`; `place`,
-  `build` and `revert` take no such flag and still refuse a loaded active file. The writer rules (masters,
+  `build` and `revert` take no such flag and refuse a loaded active file, saying they do
+  not yet write one. The writer rules (masters,
   lstrings inline, remapping, header, scaled sources refused) are in
   `crates/engine/src/edit/patch.rs` and `docs/corpus.md` "Writing rules". The write goes
   to a staged copy, `validate`'s plugin rules run on it, and `into` changes only when the

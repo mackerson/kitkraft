@@ -1798,7 +1798,6 @@ mod tests {
     /// did before A6 removed the flag from its bypass request. The engine alone should
     /// still refuse it; with A6 it writes `Fixture.esm` (the only, so last, plugin).
     #[test]
-    #[ignore = "review finding M1: with the dialog's own `active_file: true`, the engine writes a loaded master-flagged plugin that is last in the order; proposal: refuse a master-flagged target in set::guard_output"]
     fn the_dialogs_own_request_never_writes_a_loaded_master_on_its_own() {
         use crate::dialogs::set;
         use crate::panels::cockpit::fake_mo2::plugin_bytes;
@@ -1908,12 +1907,11 @@ mod tests {
         );
         // The engine refuses a load-order plugin as output on its own (the gate's
         // checks are bypassed here on purpose).
-        // The request no longer names its output as the active file: the engine's A6
-        // exemption (the active file, last in the load order) is tested in the engine
-        // (`handlers::set_active_file_tests`).
+        // The request the window sends names its output as the active file (A6); the
+        // engine still refuses the master-flagged fixture (A6 review, M1).
         let mut onto_master = preview.args.clone();
         onto_master["into"] = json!(fixture.display().to_string());
-        onto_master.as_object_mut().unwrap().remove("active_file");
+        assert_eq!(onto_master["active_file"], json!(true));
         let refused = engine.engine.execute("set", onto_master);
         assert!(refused.is_err(), "{refused:?}");
         assert_eq!(
@@ -2437,10 +2435,11 @@ mod tests {
             master,
             "the master changed"
         );
-        // Not named as the active file (A6 is tested in the engine).
+        // As the window sends it, `active_file: true`: the engine still refuses the
+        // master-flagged fixture (A6 review, M1).
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
-        onto.as_object_mut().unwrap().remove("active_file");
+        assert_eq!(onto["active_file"], json!(true));
         assert!(engine.engine.execute("new", onto).is_err());
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
@@ -2600,10 +2599,11 @@ mod tests {
             master,
             "the master changed"
         );
-        // Not named as the active file (A6 is tested in the engine).
+        // As the window sends it, `active_file: true`: the engine still refuses the
+        // master-flagged fixture (A6 review, M1).
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
-        onto.as_object_mut().unwrap().remove("active_file");
+        assert_eq!(onto["active_file"], json!(true));
         assert!(engine.engine.execute("clone", onto).is_err());
         assert_eq!(
             std::fs::read(&fixture).unwrap(),

@@ -251,7 +251,23 @@ pub(crate) fn protected(loaded: &Loaded) -> Vec<PathBuf> {
 /// load-order plugin, the game or user Data directory, an MO2 instance), before anything
 /// is staged.
 pub(crate) fn guard(command: &str, loaded: &Loaded, out: &Path) -> Result<(), EngineError> {
-    guard_target(out, &protected(loaded)).map_err(|e| failed(command, e.to_string()))
+    let all = protected(loaded);
+    let target = crate::edit::patch::absolute(out);
+    if all
+        .iter()
+        .any(|p| crate::edit::patch::absolute(p) == target)
+    {
+        // `place`, `build` and `revert` (A6 review, L3): only `set`, `new` and `clone`
+        // write a loaded active file.
+        return Err(failed(
+            command,
+            format!(
+                "{} is a plugin of the load order: `{command}` does not yet write to a loaded active file (only `set`, `new` and `clone` do, with `active_file: true`); unload it, or write another file",
+                out.display()
+            ),
+        ));
+    }
+    guard_target(out, &all).map_err(|e| failed(command, e.to_string()))
 }
 
 /// Whether the request names its output as the editor's active file (`active_file: true`;
@@ -288,19 +304,22 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    where an MO2 keeps its mods elsewhere);
 /// 2. `out` is in the load order once, as its **last** plugin (its own winner: no later
 ///    plugin hides the edit), and no loaded plugin names it as a master;
-/// 3. `out` is not an official master by name ([`official_master`]);
+/// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
+///    readable and has no master flag (A6 review, M1: a master-flagged file is not
+///    exempt; the owner has not ruled on whether one of their own may be), and no other
+///    loaded plugin has its file name (A6 review, L1);
 /// 4. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
 ///    through a link), which `guard_target` still runs, unrelaxed.
 ///
-/// Every other plugin of the load order stays protected. Returns whether the exemption was
-/// used (the write is then in place: [`write_with`]'s `in_place`, and the session's load
-/// order is read again after the write, [`reload`]).
+/// Every other plugin of the load order stays protected. Returns the active file's path as
+/// loaded when the exemption was used (the write is then in place: [`write_with`]'s
+/// `in_place`, and the session's load order is read again after the write, [`reload`]).
 pub(crate) fn guard_output(
     command: &str,
     loaded: &Loaded,
     out: &Path,
     active: bool,
-) -> Result<bool, EngineError> {
+) -> Result<Option<PathBuf>, EngineError> {
     let all = protected(loaded);
     let target = crate::edit::patch::absolute(out);
     let hits: Vec<usize> = all
@@ -311,7 +330,7 @@ pub(crate) fn guard_output(
         .collect();
     if !active || hits.is_empty() {
         guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
-        return Ok(false);
+        return Ok(None);
     }
     let refuse = |why: String| {
         failed(
@@ -339,6 +358,37 @@ pub(crate) fn guard_output(
     if official_master(&name) {
         return Err(refuse(format!("{name} is an official master")));
     }
+    let plugin = loaded
+        .lo
+        .plugins
+        .get(last)
+        .ok_or_else(|| refuse("it is not in the load order".to_string()))?;
+    match plugin.header() {
+        None => {
+            return Err(refuse(format!(
+                "its header could not be read ({})",
+                plugin.error.as_deref().unwrap_or("no TES4")
+            )))
+        }
+        Some(h) if h.flags.master() => {
+            return Err(refuse(format!(
+                "{name} has the master flag; a master-flagged file is not exempt (the owner has not ruled on it)"
+            )))
+        }
+        Some(_) => {}
+    }
+    if let Some(p) = loaded
+        .lo
+        .plugins
+        .iter()
+        .take(last)
+        .find(|p| p.name.eq_ignore_ascii_case(&name))
+    {
+        return Err(refuse(format!(
+            "another plugin of the load order has the same file name ({})",
+            p.path.display()
+        )));
+    }
     // A plugin listing it as a master (loaded before it: an ordering error) would see
     // its FormIDs change meaning.
     if let Some(p) = loaded
@@ -350,15 +400,16 @@ pub(crate) fn guard_output(
     {
         return Err(refuse(format!("{} names {name} as a master", p.name)));
     }
+    let path = plugin.path.clone();
     let others: Vec<PathBuf> = all.into_iter().take(last).collect();
     guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
-    Ok(true)
+    Ok(Some(path))
 }
 
 /// Reads the session's load order again after a write into its last plugin (the active
 /// file, [`guard_output`]), so later commands do not read the old bytes through stale
 /// offsets. The load order is the same `plugins` list (each by its path), language, index
-/// cache choice and Data dir. When the reload fails the stale load order is dropped (later
+/// cache choice, Data dir and `from_save`. When the reload fails the stale load order is dropped (later
 /// commands then ask for a load) and the returned note says so.
 pub(crate) fn reload(session: &mut Session, command: &str) -> Option<String> {
     let args = {
@@ -375,6 +426,9 @@ pub(crate) fn reload(session: &mut Session, command: &str) -> Option<String> {
         args.insert("no_cache".into(), json!(loaded.cache_dir.is_none()));
         if let Some(d) = &loaded.data_dir {
             args.insert("data_dir".into(), json!(d.display().to_string()));
+        }
+        if let Some(save) = &loaded.from_save {
+            args.insert("from_save".into(), json!(save));
         }
         Value::Object(args)
     };
@@ -410,13 +464,13 @@ pub(crate) fn write(
         copies,
         Vec::new(),
         allow_untyped_lstrings,
-        false,
+        None,
     )
 }
 
 /// [`write`] with new placed references (`place`, spec v3 `[[place]]`). `in_place` (only
-/// after [`guard_output`] exempted the active file): copies whose source is the target
-/// itself, the active file's own versions, are edited in place.
+/// after [`guard_output`] exempted the active file; its path as loaded): copies read from
+/// that file, the active file's own versions, are edited in place.
 pub(crate) fn write_with(
     command: &str,
     loaded: &mut Loaded,
@@ -424,7 +478,7 @@ pub(crate) fn write_with(
     copies: Vec<Copy>,
     new_refs: Vec<NewRef>,
     allow_untyped_lstrings: bool,
-    in_place: bool,
+    in_place: Option<&Path>,
 ) -> Result<PatchReport, EngineError> {
     let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
@@ -440,7 +494,7 @@ pub(crate) fn write_with(
         plugin_flags,
         limits: DecodeLimits::default(),
         allow_untyped_lstrings,
-        in_place,
+        in_place: in_place.map(Path::to_path_buf),
     };
     write_patch_with(into, copies, new_refs, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
@@ -783,7 +837,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         vec![copy],
         Vec::new(),
         allow_untyped,
-        in_place,
+        in_place.as_deref(),
     )?;
     let checked = check(ID, loaded, &staged)?;
     let written: Vec<String> = report
@@ -855,7 +909,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
     }
     // The active file is the load order's last plugin: read it again (A6).
-    if in_place {
+    if in_place.is_some() {
         if let Some(note) = reload(session, ID) {
             result.limitations.push(note);
         }
