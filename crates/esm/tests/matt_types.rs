@@ -95,8 +95,9 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
         let k = key(subs[*i].signature);
         *t.unplaced.entry(k.clone()).or_insert(0) += 1;
         if t.failures.len() < 20 {
-            t.failures
-                .push(format!("{name} {form_id:08X}: {k} at {i} matches no member"));
+            t.failures.push(format!(
+                "{name} {form_id:08X}: {k} at {i} matches no member"
+            ));
         }
     }
     for (i, sub) in typed.extra() {
@@ -119,7 +120,8 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
@@ -147,7 +149,10 @@ fn check_file(path: &Path, t: &mut TypeStats) {
 }
 
 fn report(t: &TypeStats) {
-    println!("matt MATT: {} records, {} identical", t.records, t.identical);
+    println!(
+        "matt MATT: {} records, {} identical",
+        t.records, t.identical
+    );
     if !t.unplaced.is_empty() || !t.failed.is_empty() {
         println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
     }
@@ -161,7 +166,10 @@ fn report(t: &TypeStats) {
             println!("   {sig}: {count} records ({min}..{max} bytes)");
         }
     }
-    println!("   records with both HNAM and ANAM: {}", t.hnam_anam_together);
+    println!(
+        "   records with both HNAM and ANAM: {}",
+        t.hnam_anam_together
+    );
 }
 
 fn assert_clean(t: &TypeStats) {
