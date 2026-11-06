@@ -1,5 +1,5 @@
-# ADDN: AddonNode, the node that attaches a master particle system (and a light) to a
-# scene; the game loads it together with the objects it references.
+# ADDN: AddonNode: an index, an optional light, particle system data, and a master
+# particle system cap with its flags.
 #
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L9277-L9296 - member order, DATA (index, a u32,
