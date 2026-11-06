@@ -45,7 +45,7 @@
 // - AAPD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAPD record (22) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
 // - ACTI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9199-L9274; corpus)
-// - ADDN (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official ADDN record (77) decodes with every subrecord placed and re-encodes identically; corpus)
+// - ADDN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296; reference)
 // - AFFE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9309-L9329; corpus)
 // - ALCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384; corpus)
 // - AMBS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AMBS record (369) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -11273,28 +11273,98 @@ impl ActiRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddnDataFlags {
+    NoMasterParticleSystem,
+    MasterParticleSystem,
+    AlwaysLoaded,
+    MasterParticleSystemAndAlwaysLoaded,
+    /// A value the definition does not name.
+    Other(u16),
+}
+
+impl AddnDataFlags {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u16) -> Self {
+        match raw {
+            0 => Self::NoMasterParticleSystem,
+            1 => Self::MasterParticleSystem,
+            2 => Self::AlwaysLoaded,
+            3 => Self::MasterParticleSystemAndAlwaysLoaded,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u16 {
+        match self {
+            Self::NoMasterParticleSystem => 0,
+            Self::MasterParticleSystem => 1,
+            Self::AlwaysLoaded => 2,
+            Self::MasterParticleSystemAndAlwaysLoaded => 3,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for AddnDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for AddnDataFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AddnData {
+    pub master_particle_system_cap: u16,
+    pub flags: AddnDataFlags,
+}
+
+impl Field for AddnData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "ADDN.DNAM.MasterParticleSystemCap", ctx)?;
+        let f1 = Field::read(r, "ADDN.DNAM.Flags", ctx)?;
+        Ok(Self {
+            master_particle_system_cap: f0,
+            flags: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.master_particle_system_cap.write(out);
+        self.flags.write(out);
+    }
+}
+
+impl Visit for AddnData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AddnRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
-    /// `MODL`, optional.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub index: Option<Sub<u32>>,
     /// `LNAM`, optional.
-    pub lnam: Option<Sub<Bytes>>,
+    pub light: Option<Sub<FormId>>,
     /// `PSDF`, required.
-    pub psdf: Option<Sub<Bytes>>,
+    pub particle_system_data: Option<Sub<Bytes>>,
     /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub data: Option<Sub<AddnData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -11310,6 +11380,10 @@ impl AddnRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -11321,13 +11395,9 @@ impl AddnRecord {
             card: Card::Repeated,
             members: BfcbBlock::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"MODL",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FLLD",
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"DATA",
@@ -11360,33 +11430,50 @@ impl AddnRecord {
                     put(&mut self.editor_id, subs, *index, "ADDN.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "ADDN.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "ADDN.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "ADDN.ODTY", ctx, extra)
-                }
-                Hit::Group { member: 3, hits } => {
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "ADDN.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "ADDN.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 4, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.modl, subs, *index, "ADDN.MODL", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.flld, subs, *index, "ADDN.FLLD", ctx, extra)
+                Hit::Group { member: 5, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.data, subs, *index, "ADDN.DATA", ctx, extra)
+                    put(&mut self.index, subs, *index, "ADDN.DATA", ctx, extra)
                 }
                 Hit::Sub { member: 7, index } => {
-                    put(&mut self.lnam, subs, *index, "ADDN.LNAM", ctx, extra)
+                    put(&mut self.light, subs, *index, "ADDN.LNAM", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.psdf, subs, *index, "ADDN.PSDF", ctx, extra)
-                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.particle_system_data,
+                    subs,
+                    *index,
+                    "ADDN.PSDF",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 9, index } => {
-                    put(&mut self.dnam, subs, *index, "ADDN.DNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "ADDN.DNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -11395,27 +11482,33 @@ impl AddnRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"LNAM", self.lnam.as_ref());
-        emit(out, *b"PSDF", self.psdf.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"DATA", self.index.as_ref());
+        emit(out, *b"LNAM", self.light.as_ref());
+        emit(out, *b"PSDF", self.particle_system_data.as_ref());
+        emit(out, *b"DNAM", self.data.as_ref());
     }
 }
 
 impl Visit for AddnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "ADDN.BfcbBlock", out);
+        visit_form_ids(&self.model, "ADDN.Model", out);
+        visit_form_ids(&self.light, "ADDN.LNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "ADDN.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "ADDN.Model", out);
+        visit_form_ids_mut(&mut self.light, "ADDN.LNAM", out);
     }
 }
 

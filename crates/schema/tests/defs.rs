@@ -601,7 +601,6 @@ const BX2_INVENTORY: &[&str] = &[
     "AACT",
     "AAMD",
     "AAPD",
-    "ADDN",
     "AMBS",
     "AOPF",
     "AOPS",
