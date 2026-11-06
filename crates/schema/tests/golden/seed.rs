@@ -206,7 +206,7 @@
 // - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
 // - STMP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official STMP record (696) decodes with every subrecord placed and re-encodes identically; corpus)
-// - STND (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062; reference)
+// - STND (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TERM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)

@@ -11,16 +11,23 @@
 #     (L5984-L6832, kept raw), the generic model (L7008-L7029), keywords
 #     (wbDefinitionsCommon.pas L8935-L8951), the byte RGBA colour (wbDefinitionsCommon.pas
 #     L7018-L7033).
-#   corpus: the official STND records checked by stnd_types_full in
-#     crates/esm/tests/stnd_types.rs: every subrecord is placed, every placed subrecord
-#     decodes, and the re-encoding reproduces every record.
+#   corpus: the 183 official STND records of the 14 official ESMs: the KK-104 scan
+#     (crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-28) gives the
+#     order and the per-signature counts; stnd_types_full (crates/esm/tests/stnd_types.rs)
+#     re-checked every record: every subrecord is placed, every placed subrecord decodes,
+#     and the re-encoding reproduces every record. No VMAD, OPDS, PTT2, SNTP, SNBH, DEFL or
+#     XALG occurs.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
 # Inside component blocks (kept raw by BfcbBlock): FLTR INTV.
 signature = "STND"
 name = "SnapTemplateNode"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062"
-confidence = "reference"
+evidence = [
+  "corpus: the 183 official STND records of the 14 official ESMs: the KK-104 scan (crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-28) gives the order and the per-signature counts; stnd_types_full (crates/esm/tests/stnd_types.rs) re-checked every record: every subrecord is placed, every placed subrecord decodes, and the re-encoding reproduces every record; no VMAD, OPDS, PTT2, SNTP, SNBH, DEFL or XALG occurs",
+]
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -40,7 +47,11 @@ note = "transcribed from the pinned xEdit file (KK-235); the members no official
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18026-L18026"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18026-L18026",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: stnd_types_full (crates/esm/tests/stnd_types.rs), 2026-11-06: in 183 of 183 official STND records (183 occurrences), 18 to 69 bytes",
+]
 
 [[member]]
 sig = "VMAD"
@@ -48,6 +59,7 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
 note = "script data; its property values are unions by property type, kept raw; not present in the official STND records"
 
 [[member]]
@@ -116,6 +128,7 @@ name = "XalgFlags"
 type = "u64"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
 note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official STND records"
 
 [[member]]
