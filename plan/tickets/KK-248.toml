@@ -9,17 +9,22 @@ owns = [
   "docs/workbench.md",
 ]
 brief = """
-UX principles 1 and 8. The View menu's windows (Warnings, Use Info, Edit Dialog;
-`WindowKind` in `crates/ui-egui/src/windows/mod.rs`) open at fixed default places
-(`default_pos`, `default_size`) over the current tab and over each other: the tour's
-`ck-layout.png` shows them stacked over the Load tab, which becomes unreadable. A window
-the owner moved keeps its place (`ui.json`, `layout_from_json`); only first openings
-change.
+UX principles 1 and 8. The View menu's windows open at fixed default places
+(`default_pos`, `default_size` of `WindowKind` in `crates/ui-egui/src/windows/mod.rs`)
+over the current tab and over each other: the tour's `ck-layout.png` shows Warnings, Use
+Info and Edit Dialog stacked over the Load tab, which becomes unreadable. A window the
+owner moved keeps its place (`ui.json`, `layout_from_json`); only first openings change.
 
-Open a window the first time where it overlaps no other open window: for example cascade
-from the right half of the central panel, each next window below or beside the last, and
-size it no larger than the space it gets (sizes from `crate::theme`). Do not change the
-remembered-layout format.
+`WindowKind::ALL` has seven kinds since the 2026-11-02 sprint (Object Window, Data Dialog,
+Preferences and Build Spec were added). The audit saw the first three, and this ticket's
+test opens those three only: seven windows are not expected to fit side by side. The
+placement rule you add is one rule for every kind (no per-kind special case), and it must
+leave the other four kinds opening inside the viewport.
+
+Open a window the first time where it overlaps no other open window when there is room:
+for example cascade from the right half of the central panel, each next window below or
+beside the last, and size it no larger than the space it gets (sizes from `crate::theme`).
+Do not change the remembered-layout format.
 
 Read first: `docs/design/workbench-ux.md` (the eight principles, the harness and
 the findings table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`,
@@ -33,10 +38,11 @@ sizing call, a `Color32`, or a spacing edit, in tests too. The workbench writes 
 but `ui.json`; do not add a write, and do not touch `crates/ui-egui/src/gate.rs`.
 
 The windows' rectangles are AccessKit nodes of role `Window` in the harness. Write one
-harness test, `audit_a6_ck_windows_open_without_overlap`: open all three windows with
-`h.state_mut().app.shell.set_open(kind, true)` for each `WindowKind::ALL`, run a few
-frames, then check that no two `Window` nodes' rectangles intersect and that each lies
-inside the viewport (`viewport()`). It must fail on `main`. Mark A6 fixed in
+harness test, `audit_a6_ck_windows_open_without_overlap`: open three windows with
+`h.state_mut().app.shell.set_open(kind, true)` for `WindowKind::Warnings`,
+`WindowKind::UseInfo` and `WindowKind::EditDialog`, run a few frames, then check that no
+two `Window` nodes' rectangles intersect and that each lies inside the viewport
+(`viewport()`). It must fail on `main`. Mark A6 fixed in
 `docs/design/workbench-ux.md` naming the test, update `docs/workbench.md` "CK-style
 windows" if it describes the first placement, and run `cargo xtask ci`.
 """

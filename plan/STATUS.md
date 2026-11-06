@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -101,6 +101,66 @@ it blocks the queue):
   drift from KK-202 sat on `main` until KK-223 noticed it.
 - Stale local branches to delete: `kk/KK-002-wip`, `kk/KK-022-wip`, `kk/KK-100-wip`,
   `kk/KK-109-wip` (each fully merged).
+
+## Owner decisions (2026-11-05): the 2026-11-02 sprint's rulings and open items
+
+The 2026-11-02 director sprint (M4 to M7, `main` `6d302d14` to `ef5ed3c8`) left its rulings
+and open items in a completion report in the sprint's session scratchpad, which is not in
+the repo; this section is the record. The owner answered the twelve items below in chat on
+2026-11-05, verbatim: **"Accept all"** (each item carried a recommendation; the outcome
+below is that recommendation).
+
+Rulings confirmed as ruled:
+
+1. **R23.** The engine refuses a plugin path under `Documents\My Games\Starfield`
+   (`guard_location`; on `main` since the sprint, with its negative tests).
+2. **R27.** A console command that echoes with no answer is retried up to twice, then graded
+   inconclusive, never fail (`crates/game`).
+3. **R28.** Late console replies were a correlation bug in the session controller, fixed by
+   matching each reply to the request it names. T-20 (a pack-in reference does not report
+   its PKIN as base, three sessions) is recorded as a fail with its **cause open**, not as a
+   confirmed finding about the game.
+4. **R30.** `mesh.geometry` stays off the window's read-only ALLOWLIST until something in
+   the UI uses it.
+5. **R31.** Passes graded by controller `aa31a9c9` were re-graded offline. Approved with it:
+   a fresh review of the last controller fix `47bcf5c7` (the sprint's final pass, M1: it
+   landed unreviewed and differs from the fix the re-review asked for) and an offline
+   re-grade of `game-20261103-04` and `game-20261103-08` with the final controller. Agent
+   work; until it is done, do not quote the M5.D7 and M5.B3 pass counts.
+6. **R34.** The sprint's one-shot reviewers were thanked collectively in the report.
+
+Decided:
+
+7. **Active file (R17, ask A6): approved.** The editor may keep writing to the active file
+   once that file is in the load order: the engine exempts the active file, and only it,
+   from `guard_target`. To be built as an engine ticket with its six negative tests, written
+   and reviewed by Claude agents, not the local agent, because it relaxes a write guard.
+   Until it lands the editor refuses further writes to a loaded active file.
+8. **M6 end-to-end from the window (R10, M6.O4).** An agent drives `kit-ui.exe` by computer
+   use on `KitKraft Dev` while the owner watches (the owner grants the access at the desk),
+   then the owner signs M6.O4. The same sitting covers the real-window checks below.
+9. **Two tickets to draft for the owner's review (R33):** the testplan's pack-in base check
+   (T-20), and checking an `ACHR` by cell and distance (T08: an actor 1.2 m from its
+   expected position).
+10. **Hashing `CreationKit.exe`: allowed.** The sitting preflight may take the file's
+    SHA-256 to identify the CK build. A hash identifies the file and reads nothing out of
+    it; static string scans stay not allowed (decision sheet 2026-11-01, item 18).
+11. **CK fixture saves F28, F23, F20, F27:** one owner-assisted sitting (the save box is not
+    exposed to UI Automation: the owner clicks Save, an agent does the rest).
+12. **What UI Automation cannot see in the CK** (hotkeys and camera bindings S1-06 and S1-07,
+    context menus, the category tree S1-09, the remaining Preferences pages S1-08, the WEAP
+    dialog S2-01, LCTN tab names, Edit > Undo): the same sitting as item 11, from a prepared
+    step list.
+
+For the record, nothing to decide: R21 and R25 (that night's schedule), R32 (the owner's own
+instruction; the campaign it started ended 2026-11-04 with KK-225 and KK-228 to KK-232
+merged).
+
+Left for the owner at the desk: the real-window checks (the list above under "To try in a
+real window", plus from the sprint: a load from a real MO2 profile in the window, the
+Object Window's speed and the viewport's V3 on the dev profile, a placed reference showing
+in the Cell View and viewport); O5-15 needs a dev-deployed copy of the overhaul (the
+controller refuses the copy the owner installed by hand).
 
 ## Pause (2026-10-16, evening): read this first when resuming
 
@@ -1998,6 +2058,8 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 | M7.O4 | Editor write scope (ADR 0007 Amendment 4) | **decided 2026-11-01: accepted with model A**, one confirmed write per OK click (sheet item 22) |
 | M7.O5 | NIF and mesh sources                  | **decided 2026-11-01**: the memo's recommendations 1 to 3 (sheet item 20; `docs/source-registry.md` "Sources for NIF and mesh layout") |
 | ADR 0012 Am. 2 | Automated CK sittings through UI Automation | **decided 2026-11-01: accepted** (sheet item 17); static string scans of `CreationKit.exe` not allowed (item 18) |
+| CK build fingerprint | SHA-256 of `CreationKit.exe` in the sitting preflight | **decided 2026-11-05: allowed** ("Owner decisions (2026-11-05)" item 10); string scans stay not allowed |
+| A6 | The active file is exempt from `guard_target` once loaded (ADR 0007 Amendment 4) | **decided 2026-11-05: approved** (item 7), as an engine ticket with six negative tests, by Claude agents; not built yet |
 | M3.O6 | UI (ADR 0007)                         | **decided 2026-10-14**: accepted with scope (read-only workbench, M4 lane W; authoring UI M5) |
 | M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
 | M4.O6 | Agent-driven game sessions on `KitKraft Dev` (ADR 0010) | **decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1): screenshots in scope, input injection deferred, `crates/game` dependencies MIT/Apache-2.0 confirmed by the owner at the merge |
