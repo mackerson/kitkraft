@@ -1321,10 +1321,10 @@ Save file not found.",
 }
 
 /// Review H3 (re-review probe PB4): T-01's own `prid` failure arrives late, in T-03's reply;
-/// T-02 (`help`) spells the same item. The earliest request naming the item takes it, and
-/// T-01's pass is re-opened; T-02 keeps its pass.
+/// T-02 (`help`) spells the same item. Every request naming the item takes it, and both
+/// passes are re-opened (owner review M1).
 #[test]
-fn rx_pb4_a_late_failure_goes_to_the_earliest_request_naming_its_item() {
+fn rx_pb4_a_late_failure_goes_to_every_request_naming_its_item() {
     let c = console();
     c.answer("prid KitKraftCrate", "prid KitKraftCrate");
     c.answer(
@@ -1356,7 +1356,8 @@ GetPos: Y >> -4.00",
         ],
     );
     assert!(v[0].starts_with("inconclusive (late failure"), "PB4 {v:?}");
-    assert_eq!(v[1], "pass", "PB4 {v:?}");
+    // Owner review M1: every request spelling the item is a candidate; none keeps a pass.
+    assert!(v[1].starts_with("inconclusive (late failure"), "PB4 {v:?}");
     assert!(v[2].starts_with("inconclusive"), "PB4 {v:?}");
 }
 
@@ -1387,16 +1388,15 @@ GetPos: Y >> -4.00",
 
 // ------------------------------------------------- owner review 2026-11-06 (final-pass M1)
 // The re-review's H3 step 3 asked that, when two or more requests spell a late failure
-// line's item, no candidate's pass stand. 47bcf5c7 re-opens the earliest candidate only.
-// PB1 is the re-review's probe as written; PB4R, PB7 and PB6 are new. A test marked
-// `ignore` asserts the defensible grade and is red on 47bcf5c7 (run with `--ignored`).
+// line's item, no candidate's pass stand. 47bcf5c7 re-opened the earliest candidate only.
+// PB1 is the re-review's probe as written; PB4R, PB7 and PB6 are new, each red on 47bcf5c7.
 
 /// PB1 (re-review): `prid KitKraftCrate` (T-01), `help KitKraftCrate 4` (T-02, its own
-/// REFR line), and the prid's failure late in T-03's `getpos x` reply. The failure goes to
-/// T-01, the earliest; T-02 keeps a pass that rests on its own answer (a `help` never
-/// answers "not found for parameter").
+/// REFR line), and the prid's failure late in T-03's `getpos x` reply. Both rows spell the
+/// item, so both are re-opened (H3 step 3), though a `help` is unlikely to answer "not
+/// found for parameter".
 #[test]
-fn om1_pb1_two_candidates_the_prid_row_is_reopened() {
+fn om1_pb1_two_candidates_both_rows_are_reopened() {
     let c = console();
     c.answer("prid KitKraftCrate", "prid KitKraftCrate");
     c.answer(
@@ -1425,6 +1425,7 @@ GetPos: X >> -17.00",
         ],
     );
     assert!(v[0].starts_with("inconclusive (late failure"), "PB1 {v:?}");
+    assert!(v[1].starts_with("inconclusive (late failure"), "PB1 {v:?}");
     assert!(v[2].starts_with("inconclusive"), "PB1 {v:?}");
 }
 
@@ -1433,7 +1434,6 @@ GetPos: X >> -17.00",
 /// takes the failure, and T-02's `getpos` (which may have read the previous selection, the
 /// 2026-11-01-T03 case) keeps its pass. False pass on 47bcf5c7.
 #[test]
-#[ignore = "owner review 2026-11-06 (M1): false pass on 47bcf5c7; un-ignore with the fix"]
 fn om1_pb4r_a_late_failure_reopens_every_candidate_not_only_the_earliest() {
     let c = console();
     c.answer("prid KitKraftCrate", "prid KitKraftCrate");
@@ -1473,7 +1473,6 @@ GetPos: Y >> -4.00",
 /// 09001007`). T-11's `prid` fails late, in T-12's `coc` reply. The failure goes to T-09,
 /// the earliest; T-10 and T-11 keep their passes. False pass on 47bcf5c7.
 #[test]
-#[ignore = "owner review 2026-11-06 (M1): false pass on 47bcf5c7; un-ignore with the fix"]
 fn om1_pb7_same_runtime_id_in_three_rows_no_candidate_keeps_a_pass() {
     let c = console();
     c.answer("prid 09001007", "prid 09001007\nCommand: prid 09001007");
@@ -1546,7 +1545,6 @@ fn om1_pb7_same_runtime_id_in_three_rows_no_candidate_keeps_a_pass() {
 /// line arrives in a later reply: `regrade` recombines the steps and drops the late
 /// failure. One candidate only, so this is not the M1 rule; it is a second false pass.
 #[test]
-#[ignore = "owner review 2026-11-06 (M1): false pass on 47bcf5c7; un-ignore with the fix"]
 fn om1_pb6_a_late_failure_is_not_undone_by_a_later_late_line() {
     let c = console();
     c.answer("prid KitKraftCrate", "prid KitKraftCrate");
@@ -1587,6 +1585,48 @@ KYWD: KitKraftAlpha (09001000) ''",
     );
     assert!(seen[0].contains("(late failure)"), "PB6 {seen:?}");
     assert_ne!(v[0], "pass", "PB6 {v:?}");
+}
+
+/// PB8 (open, needs a ruling): the late failure lands in the reply of a later request that
+/// spells the same item itself (T10's T-23 sends `prid 09001007` again). Review M2 keeps a
+/// failure with its own reply then, so T-03 fails and T-01, whose own `prid` may be the one
+/// that failed, keeps its pass. Not covered by H3; the fix leaves it.
+#[test]
+#[ignore = "owner review 2026-11-06: open, needs a ruling (a failure in a reply that spells its own item)"]
+fn om1_pb8_a_late_failure_in_a_reply_that_spells_the_item_itself() {
+    let c = console();
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.",
+        ],
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    let (v, _) = rx_run(
+        "om1-pb8",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+            probe(
+                "T-03",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert_ne!(v[0], "pass", "PB8 {v:?}");
 }
 
 // ------------------------------------------------- offline re-grade (owner review 2026-11-06)

@@ -30,8 +30,8 @@
 //! Commands of any other kind name nothing: lines no request names stay with the reply
 //! they arrived in. So do the console's failure lines ([`crate::probes::console_failure`]),
 //! unless the item they quote is a word of another request's command and not of this one;
-//! then they are re-queued to the earliest such request (review M2, H3), whose row cannot
-//! keep a `pass`: it becomes `inconclusive (late failure)`.
+//! then they are re-queued to every such request (review M2, H3), and none of their rows
+//! can keep a `pass`: each becomes `inconclusive (late failure)`.
 
 /// What a request's answer names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -370,32 +370,29 @@ impl Correlator {
             if crate::probes::console_failure("", &line).is_some() {
                 // A failure line is the reply's own request's, unless the item it quotes
                 // is in another request's command and not in this one (review M2).
-                // The item must be a whole word of the command (or its quoted text), and
-                // the earliest such request without a failure yet takes it (review H3).
+                // The item must be a whole word of the command (or its quoted text). Every
+                // such request gets it: the text cannot tell which of them failed, so no
+                // candidate's row may keep a pass (review H3 step 3; owner review M1).
                 let item = failure_item(&line);
-                let other = item.as_ref().and_then(|item| {
-                    if names_item(&command, item) {
-                        return None;
-                    }
-                    let named: Vec<usize> = self
+                let others: Vec<usize> = match item.as_ref() {
+                    Some(item) if !names_item(&command, item) => self
                         .requests
                         .iter()
                         .enumerate()
                         .filter(|(i, r)| *i != id && names_item(&r.command, item))
                         .map(|(i, _)| i)
-                        .collect();
-                    named
-                        .iter()
-                        .copied()
-                        .find(|i| self.requests.get(*i).is_some_and(|r| r.failures.is_empty()))
-                        .or_else(|| named.first().copied())
-                });
-                match other.and_then(|o| self.requests.get_mut(o).map(|r| (o, r))) {
-                    Some((o, r)) => {
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                if others.is_empty() {
+                    routed.unclaimed.push(line);
+                    continue;
+                }
+                for o in others {
+                    if let Some(r) = self.requests.get_mut(o) {
                         r.failures.push((command.clone(), line.clone()));
-                        routed.failures.push((o, line));
+                        routed.failures.push((o, line.clone()));
                     }
-                    None => routed.unclaimed.push(line),
                 }
                 continue;
             }
