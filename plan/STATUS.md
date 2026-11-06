@@ -156,6 +156,39 @@ For the record, nothing to decide: R21 and R25 (that night's schedule), R32 (the
 instruction; the campaign it started ended 2026-11-04 with KK-225 and KK-228 to KK-232
 merged).
 
+**Progress, night of 2026-11-06** (Opus agents, each piece reviewed by a second agent;
+nothing here is merged into `main` unless it says so):
+
+- **Item 5, done; the fix waits for the owner.** `47bcf5c7` could still grade a false pass:
+  with several requests spelling the item of a late failure line it re-opened only the
+  earliest, and a re-opened row went back to pass when its waiting getter's line arrived.
+  The fix is on branch `owner-review/controller-m1` (`2bc0e967`, about 20 lines in
+  `crates/game`; a second reviewer: mergeable, no new false pass; head `32beb047` with both
+  reviewers' probes; gate 1,486 passed, 0 failed, 110 ignored). The offline re-grade of
+  `game-20261103-04` and `game-20261103-08` changed no row, so the M5.D7 and M5.B3 lines
+  stand as written; neither session holds a console failure line, so they never reach the
+  changed code. **Three older false-pass paths remain**, each an ignored test on the branch
+  (FR2, FR3, FR4): a failure line naming no item ("Save file not found.") stays with the
+  reply it arrives in; a late failure landing in a later reply that spells the same item
+  stays with that later row; an item written only as a reference prefix
+  (`09001007.disable`) is not matched. Found by reading only: re-runs requested while the
+  session stays open never re-grade the original row. One ruling would allow the narrow
+  fix: whether the console answers in send order (two sessions agree, nobody has ruled).
+  Until these are closed, do not trust a new in-game pass on a row whose command can fail
+  late.
+- **Item 9, drafted:** `plan/tickets/KK-250.toml` and `KK-251.toml`, both held.
+- **Items 11 and 12, step list written, not run:** `plan/owner-sitting-2026-11-06.md`. It
+  cannot run as it stands: the fixture matrix names no form, cell or value for F20, F23 and
+  F27 (the list's choices are proposals), the base fixture F01 (`KC_F01.esp`) was never
+  saved, no owner-driven steps file exists for the sitting frame, and `cargo xtask observe
+  new` knows F00 to F14 only. Seven questions for the owner are at its end.
+- **Found on the way, on `main` before any of this:** `guard_target`'s load-order refusal
+  compares path spellings, so an earlier load-order plugin named through a UNC admin-share
+  path (`\\localhost\C$\...`) was rewritten in a reviewer's test (ignored test on branch
+  `owner-review/a6-active-file`). Not verified: whether the Data and MO2 refusals hold for
+  a UNC spelling. Needs its own Claude-agent ticket: compare by file identity, or refuse
+  UNC outputs.
+
 Left for the owner at the desk: the real-window checks (the list above under "To try in a
 real window", plus from the sprint: a load from a real MO2 profile in the window, the
 Object Window's speed and the viewport's V3 on the dev profile, a placed reference showing
