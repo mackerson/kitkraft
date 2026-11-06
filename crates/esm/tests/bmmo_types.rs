@@ -195,4 +195,5 @@ fn bmmo_types_full() {
     }
     report(&t);
     assert_clean(&t);
+    assert!(t.records > 0, "no BMMO record");
 }
