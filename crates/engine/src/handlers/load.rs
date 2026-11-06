@@ -75,6 +75,9 @@ pub(crate) struct Loaded {
     /// The reverse link index (`refs --incoming`, M4.D1), built or read from the cache on
     /// first use and kept with the load order.
     pub backrefs: OnceLock<kitkraft_doc::backrefs::Backrefs>,
+    /// The `data_dir` argument the load order was loaded with, if any (`set::reload` loads
+    /// the same order again after a write into its active file, A6).
+    pub data_dir: Option<PathBuf>,
 }
 
 /// The EditorIDs of a load order's indexes: `(hash of the ASCII-lowercased EditorID, plugin,
@@ -781,6 +784,7 @@ pub(crate) fn load(
             edids: OnceLock::new(),
             cache_dir: cache_dir.map(PathBuf::from),
             backrefs: OnceLock::new(),
+            data_dir: explicit_data_dir,
         },
         listing,
         evidence,

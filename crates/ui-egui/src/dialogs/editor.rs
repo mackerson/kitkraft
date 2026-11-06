@@ -19,9 +19,12 @@
 //! click sends the confirmed `set` (`Slot::EditorWrite`, built in `dialogs/set.rs`),
 //! then the written record is read back from the active file alone. One write per OK.
 //!
-//! `set` starts from the load order's winner, and the active file is not in the load
-//! order (the engine refuses a load-order plugin as output), so a second edit of a record
-//! the active file already holds would drop the first (review finding H1). When the dry
+//! `set` starts from the load order's winner, and while the active file is not in the load
+//! order that winner is another plugin's version, so a second edit of a record the active
+//! file already holds would drop the first (review finding H1). (Once the active file is
+//! loaded as the last plugin, which the engine accepts for a request naming it with
+//! `active_file: true`, A6, its own version is the winner and the rebase below carries
+//! nothing; `revert` still refuses a loaded active file, so Undo is refused there.) When the dry
 //! run says it would replace a record in the active file, the editor reads the active
 //! file's version (`inspect`, single-plugin, every byte), carries each subrecord that
 //! differs from the winner as `hex:` at its `set` path, puts the dialog's edits over

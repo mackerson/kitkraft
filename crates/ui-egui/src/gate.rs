@@ -1870,8 +1870,12 @@ mod tests {
         );
         // The engine refuses a load-order plugin as output on its own (the gate's
         // checks are bypassed here on purpose).
+        // The request no longer names its output as the active file: the engine's A6
+        // exemption (the active file, last in the load order) is tested in the engine
+        // (`handlers::set_active_file_tests`).
         let mut onto_master = preview.args.clone();
         onto_master["into"] = json!(fixture.display().to_string());
+        onto_master.as_object_mut().unwrap().remove("active_file");
         let refused = engine.engine.execute("set", onto_master);
         assert!(refused.is_err(), "{refused:?}");
         assert_eq!(
@@ -2395,8 +2399,10 @@ mod tests {
             master,
             "the master changed"
         );
+        // Not named as the active file (A6 is tested in the engine).
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
+        onto.as_object_mut().unwrap().remove("active_file");
         assert!(engine.engine.execute("new", onto).is_err());
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
@@ -2556,8 +2562,10 @@ mod tests {
             master,
             "the master changed"
         );
+        // Not named as the active file (A6 is tested in the engine).
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
+        onto.as_object_mut().unwrap().remove("active_file");
         assert!(engine.engine.execute("clone", onto).is_err());
         assert_eq!(
             std::fs::read(&fixture).unwrap(),

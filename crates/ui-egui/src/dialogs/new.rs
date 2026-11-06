@@ -121,11 +121,12 @@ pub(crate) fn form_ui(ui: &mut egui::Ui, f: &mut NewForm, active_file: Option<&s
 }
 
 /// The preview of a new form of `record_type` (a signature) with the EditorID `edid` in
-/// `into`, the active file: a dry run, which the gate passes like a read.
+/// `into`, the active file: a dry run, which the gate passes like a read. It names `into`
+/// as the active file (`active_file: true`, A6), as `super::set::preview_request` does.
 pub(crate) fn preview_request(record_type: &str, edid: &str, into: &str) -> Request {
     Request::new(
         "new",
-        json!({"type": record_type, "edid": edid, "into": into, "dry_run": true}),
+        json!({"type": record_type, "edid": edid, "into": into, "active_file": true, "dry_run": true}),
     )
 }
 

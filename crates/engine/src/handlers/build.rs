@@ -984,7 +984,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let staged = stage(ID, &out, false)?;
     let out_name = super::file_name(&out);
     crate::progress::emit("write", 0, Some(1), Some(&out_name));
-    let mut report = write_with(ID, loaded, &staged.path, copies, new_refs, allow_untyped)?;
+    let mut report = write_with(
+        ID,
+        loaded,
+        &staged.path,
+        copies,
+        new_refs,
+        allow_untyped,
+        false,
+    )?;
     let spec_dir = spec_path
         .parent()
         .map(std::path::Path::to_path_buf)

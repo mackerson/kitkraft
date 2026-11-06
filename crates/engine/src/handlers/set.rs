@@ -254,6 +254,146 @@ pub(crate) fn guard(command: &str, loaded: &Loaded, out: &Path) -> Result<(), En
     guard_target(out, &protected(loaded)).map_err(|e| failed(command, e.to_string()))
 }
 
+/// Whether the request names its output as the editor's active file (`active_file: true`;
+/// `set`, `new` and `clone` only, ADR 0007 Amendment 4, owner decision 2026-11-05 item 7).
+pub(crate) fn active_file_arg(args: &Value) -> bool {
+    args.get("active_file").and_then(Value::as_bool) == Some(true)
+}
+
+/// An official master by name: one of the game's official order
+/// (`kitkraft_io::plan::OFFICIAL_ORDER`), or any `Starfield.esm`, `Constellation.esm`,
+/// `OldMars.esm`, `ShatteredSpace.esm`, `BlueprintShips-*.esm` or `SFBGS*.esm` (the rule
+/// the workbench gate applies, ADR 0007 Amendment 4), compared without case.
+pub(crate) fn official_master(name: &str) -> bool {
+    let n = name.trim().to_ascii_lowercase();
+    let esm = n.ends_with(".esm");
+    kitkraft_io::plan::OFFICIAL_ORDER
+        .iter()
+        .any(|o| o.eq_ignore_ascii_case(&n))
+        || matches!(
+            n.as_str(),
+            "starfield.esm" | "constellation.esm" | "oldmars.esm" | "shatteredspace.esm"
+        )
+        || (esm && (n.starts_with("blueprintships-") || n.starts_with("sfbgs")))
+}
+
+/// [`guard`] for `set`, `new` and `clone` (A6, owner decision 2026-11-05 item 7). Without
+/// `active` it is [`guard`]. With `active` (the request says `out` is the editor's active
+/// file), `out` alone is taken off the protected list when it is a plugin of the load order
+/// and all of these hold, so the editor can keep writing to the active file once it is
+/// loaded:
+///
+/// 1. the load order came from an explicit `plugins` list, not an MO2 profile (a profile's
+///    plugins live in Data or MO2, which `guard_location` refuses anyway; this holds even
+///    where an MO2 keeps its mods elsewhere);
+/// 2. `out` is in the load order once, as its **last** plugin (its own winner: no later
+///    plugin hides the edit), and no loaded plugin names it as a master;
+/// 3. `out` is not an official master by name ([`official_master`]);
+/// 4. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
+///    through a link), which `guard_target` still runs, unrelaxed.
+///
+/// Every other plugin of the load order stays protected. Returns whether the exemption was
+/// used (the write is then in place: [`write_with`]'s `in_place`, and the session's load
+/// order is read again after the write, [`reload`]).
+pub(crate) fn guard_output(
+    command: &str,
+    loaded: &Loaded,
+    out: &Path,
+    active: bool,
+) -> Result<bool, EngineError> {
+    let all = protected(loaded);
+    let target = crate::edit::patch::absolute(out);
+    let hits: Vec<usize> = all
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| crate::edit::patch::absolute(p) == target)
+        .map(|(i, _)| i)
+        .collect();
+    if !active || hits.is_empty() {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(false);
+    }
+    let refuse = |why: String| {
+        failed(
+            command,
+            format!(
+                "{} is a plugin of the load order and cannot be written as the active file: {why}",
+                out.display()
+            ),
+        )
+    };
+    if loaded.source != "plugins" {
+        return Err(refuse(format!(
+            "the load order was read from an MO2 profile ({}); the active file is exempt only in a load order given as `plugins`",
+            loaded.source
+        )));
+    }
+    let last = all.len().saturating_sub(1);
+    if hits != [last] {
+        return Err(refuse(
+            "only the last plugin of the load order can be the active file (a later plugin would hide the edit, or depend on it)"
+                .to_string(),
+        ));
+    }
+    let name = super::file_name(out);
+    if official_master(&name) {
+        return Err(refuse(format!("{name} is an official master")));
+    }
+    // A plugin listing it as a master (loaded before it: an ordering error) would see
+    // its FormIDs change meaning.
+    if let Some(p) = loaded
+        .lo
+        .plugins
+        .iter()
+        .take(last)
+        .find(|p| p.masters.iter().any(|m| m.name.eq_ignore_ascii_case(&name)))
+    {
+        return Err(refuse(format!("{} names {name} as a master", p.name)));
+    }
+    let others: Vec<PathBuf> = all.into_iter().take(last).collect();
+    guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
+    Ok(true)
+}
+
+/// Reads the session's load order again after a write into its last plugin (the active
+/// file, [`guard_output`]), so later commands do not read the old bytes through stale
+/// offsets. The load order is the same `plugins` list (each by its path), language, index
+/// cache choice and Data dir. When the reload fails the stale load order is dropped (later
+/// commands then ask for a load) and the returned note says so.
+pub(crate) fn reload(session: &mut Session, command: &str) -> Option<String> {
+    let args = {
+        let loaded = session.get::<Loaded>()?;
+        let mut args = Map::new();
+        let plugins: Vec<Value> = loaded
+            .lo
+            .plugins
+            .iter()
+            .map(|p| json!(p.path.display().to_string()))
+            .collect();
+        args.insert("plugins".into(), Value::Array(plugins));
+        args.insert("language".into(), json!(loaded.language));
+        args.insert("no_cache".into(), json!(loaded.cache_dir.is_none()));
+        if let Some(d) = &loaded.data_dir {
+            args.insert("data_dir".into(), json!(d.display().to_string()));
+        }
+        Value::Object(args)
+    };
+    match super::load::load(&args, Some(&*session), command) {
+        Ok((loaded, listing, _)) => {
+            session.set_load_order(Some(listing));
+            session.insert(loaded);
+            None
+        }
+        Err(e) => {
+            session.remove::<Loaded>();
+            session.set_load_order(None);
+            Some(format!(
+                "the load order could not be read again after writing its last plugin ({e}); it was dropped from the session: load it again"
+            ))
+        }
+    }
+}
+
 /// Writes `copies` into `into` with the load order's string tables, protected files and
 /// plugin flags.
 pub(crate) fn write(
@@ -270,10 +410,13 @@ pub(crate) fn write(
         copies,
         Vec::new(),
         allow_untyped_lstrings,
+        false,
     )
 }
 
-/// [`write`] with new placed references (`place`, spec v3 `[[place]]`).
+/// [`write`] with new placed references (`place`, spec v3 `[[place]]`). `in_place` (only
+/// after [`guard_output`] exempted the active file): copies whose source is the target
+/// itself, the active file's own versions, are edited in place.
 pub(crate) fn write_with(
     command: &str,
     loaded: &mut Loaded,
@@ -281,6 +424,7 @@ pub(crate) fn write_with(
     copies: Vec<Copy>,
     new_refs: Vec<NewRef>,
     allow_untyped_lstrings: bool,
+    in_place: bool,
 ) -> Result<PatchReport, EngineError> {
     let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
@@ -296,6 +440,7 @@ pub(crate) fn write_with(
         plugin_flags,
         limits: DecodeLimits::default(),
         allow_untyped_lstrings,
+        in_place,
     };
     write_patch_with(into, copies, new_refs, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
@@ -602,7 +747,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let dry_run = super::preview::requested(args);
     let schema = super::load::schema_of(session);
     let loaded = acquire(session, args, ID)?;
-    guard(ID, loaded, &into)?;
+    let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
     let unrelated = safe_source(ID, loaded, g)?;
@@ -631,7 +776,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     // Write into a staged copy of `into`, run the record rules on it (as `build` does),
     // and replace `into` only when the records this call wrote pass.
     let staged = stage(ID, &into, true)?;
-    let mut report = write(ID, loaded, &staged.path, vec![copy], allow_untyped)?;
+    let mut report = write_with(
+        ID,
+        loaded,
+        &staged.path,
+        vec![copy],
+        Vec::new(),
+        allow_untyped,
+        in_place,
+    )?;
     let checked = check(ID, loaded, &staged)?;
     let written: Vec<String> = report
         .records
@@ -699,6 +852,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         if let Some(report) = swap_report {
             obj.insert("swap_overrides".into(), Value::Array(report));
+        }
+    }
+    // The active file is the load order's last plugin: read it again (A6).
+    if in_place {
+        if let Some(note) = reload(session, ID) {
+            result.limitations.push(note);
         }
     }
     Ok(result)

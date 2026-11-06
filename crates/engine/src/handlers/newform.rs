@@ -34,8 +34,8 @@ use serde_json::{json, Value};
 use super::load::{acquire, Loaded};
 use super::place::{check_target_edids, edid_owner, valid_edid, PlaceRequest};
 use super::set::{
-    check, describe, edits, extend_once, find_form, guard, install, outcome, safe_source, stage,
-    validate_json, winning_copy, write_with, Origin,
+    active_file_arg, check, describe, edits, extend_once, find_form, guard_output, install,
+    outcome, safe_source, stage, validate_json, winning_copy, write_with, Origin,
 };
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit};
@@ -393,6 +393,7 @@ fn commit(
     mut limitations: Vec<String>,
     origins: &[Origin],
     dry_run: Option<Option<&kitkraft_schema::Schema>>,
+    in_place: bool,
 ) -> Result<Outcome, EngineError> {
     let staged = stage(command, into, true)?;
     let mut report = write_with(
@@ -402,6 +403,7 @@ fn commit(
         copies,
         Vec::new(),
         allow_untyped,
+        in_place,
     )?;
     let checked = check(command, loaded, &staged)?;
     let written: Vec<String> = report
@@ -525,7 +527,7 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
     };
     let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
-    guard(ID, loaded, &into)?;
+    let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
     let (mut copy, notes) = plan_new(ID, loaded, &req)?;
     target_edid(ID, &into, ID, &req.edid)?;
     // Scripts to attach (M4.E9): refused here when a script or property is unknown.
@@ -543,12 +545,14 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
         limitations,
         &[],
         dry_run,
+        in_place,
     )?;
     if let Some(obj) = result.data.as_object_mut() {
         if !scripts.reports.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts.reports));
         }
     }
+    after_in_place(session, ID, in_place, dry_run.is_some(), &mut result);
     Ok(result)
 }
 
@@ -572,7 +576,7 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
     };
     let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
-    guard(ID, loaded, &into)?;
+    let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
     let limits = DecodeLimits::default();
     let (mut copy, origin, _, unrelated) = plan_clone(ID, loaded, &req, &limits)?;
     // The material swap, as a whole-REFL edit of the LMSW's current REFL (KK-019).
@@ -595,11 +599,29 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
         limitations,
         &[origin],
         dry_run,
+        in_place,
     )?;
     if let Some(obj) = result.data.as_object_mut() {
         if let Some(report) = swap_report {
             obj.insert("swap_overrides".into(), Value::Array(report));
         }
     }
+    after_in_place(session, ID, in_place, dry_run.is_some(), &mut result);
     Ok(result)
+}
+
+/// After a write into the loaded active file (A6), the session's load order is read again
+/// (`set::reload`); a dry run wrote nothing, so nothing is re-read.
+fn after_in_place(
+    session: &mut Session,
+    command: &str,
+    in_place: bool,
+    dry_run: bool,
+    result: &mut Outcome,
+) {
+    if in_place && !dry_run {
+        if let Some(note) = super::set::reload(session, command) {
+            result.limitations.push(note);
+        }
+    }
 }

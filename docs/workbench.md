@@ -127,7 +127,12 @@ M6.G1 and M6.G3):
   validate findings on the staged result and the limitations, and keeps its one button
   disabled unless the dry run would write and the active file is still the preview's
   output. The engine's output guard refuses load-order plugins, the game and user Data
-  folders, MO2 and links on its own.
+  folders, MO2 and links on its own. The one exception is the active file itself: `set`,
+  `new` and `clone` name it with `active_file: true`, and the engine then writes it once
+  it is loaded, but only as the last plugin of a `plugins` load order (not one read from
+  a profile), never an official master, never under Data, My Games or MO2 (A6, owner
+  decision 2026-11-05; `docs/mcp.md`, `set`). `place`, `build` and `revert` still refuse a
+  loaded active file.
 
   The `build` and `revert` rows land with E's branch (M7.E5, M7.E6): until it merges, both
   are refused here. `build` writes a fresh plugin: the window builds only into an active
@@ -575,7 +580,9 @@ revisited once a sitting observes how the CK docks. Code:
   active file stays as it was. These refusals read the engine's `load` result; the engine's
   output guard (`edit::patch::guard_target`, `guard_location`) refuses a load-order plugin,
   the Data folders and MO2 as a write target on its own, with its own tests
-  (`edit/patch_tests.rs`, `handlers/build_tests.rs`). A Creation listed only in
+  (`edit/patch_tests.rs`, `handlers/build_tests.rs`); the active file alone is exempt from
+  the load-order refusal for `set`, `new` and `clone` when it is the last plugin of a
+  `plugins` load order (A6, `handlers/set_active_file_tests.rs`). A Creation listed only in
   `plugins.txt` is not recognised as one here (it lives in the Data folder, which the guard
   refuses). The active file is UI state only
   (never in `ui.json`) and is the file the editor's writes go into (ADR 0007 Amendment 4).
@@ -585,9 +592,11 @@ revisited once a sitting observes how the CK docks. Code:
   an official master's name, not inside a Starfield Data folder (the game's or
   `My Games\Starfield\Data`) or an MO2 instance, not master-flagged (an existing file's
   `TES4` is read with `inspect`); a new file is created by the editor's first write. The
-  engine's output guard has the final word. Writing again into such a file once it is
-  loaded is refused by the engine until its guard exempts the active file (E's ask A6,
-  deferred).
+  engine's output guard has the final word. Once such a file is loaded as the last plugin
+  of the order, `set`, `new` and `clone` keep writing into it (A6, owner decision
+  2026-11-05): the editor names it as the active file, and the engine re-reads the load
+  order after each write. Loaded anywhere else in the order, or from a profile, it is
+  refused; `place`, `build` and `revert` refuse it once loaded.
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
   the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row

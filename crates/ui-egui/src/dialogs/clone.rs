@@ -13,11 +13,12 @@ use serde_json::{json, Value};
 use crate::gate::Request;
 
 /// The preview of copying `form` into `into` (the active file) as a new form with the
-/// EditorID `edid`: a dry run, which the gate passes like a read.
+/// EditorID `edid`: a dry run, which the gate passes like a read. It names `into` as the
+/// active file (`active_file: true`, A6), as `super::set::preview_request` does.
 pub(crate) fn preview_request(form: &str, edid: &str, into: &str) -> Request {
     Request::new(
         "clone",
-        json!({"form": form, "edid": edid, "into": into, "dry_run": true}),
+        json!({"form": form, "edid": edid, "into": into, "active_file": true, "dry_run": true}),
     )
 }
 
