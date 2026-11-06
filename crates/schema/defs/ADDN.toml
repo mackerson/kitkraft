@@ -9,20 +9,32 @@
 #     (wbDefinitionsCommon.pas L9348-L9365, common/ObjectBounds.toml), ODTY (L3921-L3923),
 #     the base form component block (L5984-L6832, common/BfcbBlock.toml) and the generic
 #     model (L7008-L7029, common/Model.toml).
+#   corpus: the 77 ADDN records of the 14 official ESMs (crates/esm/tests/addn_types.rs,
+#     addn_types_full, 2026-11-06): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout and
+#     every record re-encodes identically. EDID, OBND, ODTY, FLLD, DATA, PSDF and DNAM
+#     are in all 77; MODL in 55, LNAM in 18, BFCB, BFCE and REFL in 1 each; VMAD, MOLM,
+#     MODC and XFLG, and every other base form component signature, are absent from all
+#     77.
+#
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "ADDN"
 name = "AddonNode"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296"
-confidence = "reference"
+evidence = [
+  "corpus: crates/esm/tests/addn_types.rs (addn_types_full), 2026-11-06: in all 77 official ADDN records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9278-L9278",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: EDID is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
@@ -37,34 +49,49 @@ note = "script data; its property values are unions by property type, kept raw; 
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: OBND is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: ODTY is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: the base form component block (BFCB, a REFL component and its BFCE) in 1 of 77 official ADDN records; 77 records, 77 identical",
+]
+confidence = "corpus"
 note = "base form components"
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: the model block of the official ADDN records (FLLD in all 77, MODL in 55, MOLM, MODC and XFLG in none); 77 records, 77 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DATA"
 name = "Index"
 type = "u32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9284-L9284"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9284-L9284",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: DATA is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "LNAM"
@@ -72,23 +99,32 @@ name = "Light"
 type = "formid"
 targets = ["LIGH"]
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9285-L9285"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9285-L9285",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: LNAM in 18 of 77 official ADDN records; 77 records, 77 identical",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PSDF"
 name = "ParticleSystemData"
 type = "opaque"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9286-L9286"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9286-L9286",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: PSDF is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 note = "particle system definition; upstream reads it with the reflection helper (wbReflection, defined outside the two authorized xEdit files), kept raw"
 
 [[member]]
 sig = "DNAM"
 name = "Data"
 type = "struct"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9287-L9295"]
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9287-L9295",
+  "corpus: addn_types_full (crates/esm/tests/addn_types.rs), 2026-11-06: DNAM is in all 77 of the official ADDN records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 field = [
   { name = "MasterParticleSystemCap", type = "u16" },
   { name = "Flags", type = "enum", base = "u16", values = [["NoMasterParticleSystem", 0], ["MasterParticleSystem", 1], ["AlwaysLoaded", 2], ["MasterParticleSystemAndAlwaysLoaded", 3]] },

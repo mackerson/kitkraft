@@ -45,7 +45,7 @@
 // - AAPD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAPD record (22) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
 // - ACTI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9199-L9274; corpus)
-// - ADDN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296; reference)
+// - ADDN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296; corpus)
 // - AFFE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9309-L9329; corpus)
 // - ALCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9332-L9384; corpus)
 // - AMBS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AMBS record (369) decodes with every subrecord placed and re-encodes identically; corpus)
