@@ -10,9 +10,9 @@
 //!   `XXXX`).
 //!
 //! It prints `matt MATT: <n> records, <m> identical` (plain integers, no separators)
-//! and, per subrecord signature, how many records have it and the payload sizes seen
-//! - the facts the `corpus:` evidence lines in `crates/schema/defs/MATT.toml` quote -
-//! plus how many records carry both an `HNAM` and an `ANAM`.
+//! and, per subrecord signature, how many records have it and the payload sizes
+//! seen: the facts the `corpus:` evidence lines in `crates/schema/defs/MATT.toml`
+//! quote, plus how many records carry both an `HNAM` and an `ANAM`.
 //!
 //! `matt_types_full` (ignored) runs all 14 files, every record; run it in release:
 //! `cargo test -p kitkraft-esm --release --test matt_types -- --ignored --nocapture`
@@ -82,7 +82,7 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
             }
         }
     }
-    if seen.contains(&b"HNAM") && seen.contains(&b"ANAM") {
+    if seen.contains(&b"HNAM"[..]) && seen.contains(&b"ANAM"[..]) {
         t.hnam_anam_together += 1;
     }
     let members = RECORDS
