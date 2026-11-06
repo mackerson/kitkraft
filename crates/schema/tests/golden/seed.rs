@@ -63,7 +63,7 @@
 // - AVIF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953; corpus)
 // - AVMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BIOM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241; corpus)
-// - BMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281; reference)
+// - BMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281; corpus)
 // - BMOD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official BMOD record (529) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BNDS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BNDS record (14) decodes with every subrecord placed and re-encodes identically; corpus)
 // - BOOK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10395-L10449; corpus)

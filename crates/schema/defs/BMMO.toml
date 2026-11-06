@@ -1,4 +1,4 @@
-# BMMO: Biome Marker, the placed objects that structure the world's navmesh and
+# BMMO: BiomeMarker, the placed objects that structure the world's navmesh and
 # gameplay (landmarks, platforms, obstacle volumes, navmesh ground pieces).
 #
 # Sources (ADR 0005 Amendment 2):
@@ -9,10 +9,23 @@
 #     block (L5984-L6832, kept raw), the generic model (L7008-L7029), keywords
 #     (wbDefinitionsCommon.pas L8935-L8951), conditions (L4750-L4840,
 #     common/Condition.toml) and the three marker FormIDs (L10278-L10280).
+#   corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06 - the 71 BMMO
+#     records of the 14 official ESMs: EDID 71 (17 to 57 bytes), OBND 71 (24 bytes),
+#     ODTY 71 (4 bytes), OPDS 57 (80 bytes), KNAM 71 (4 bytes), LNAM 71 (4 bytes),
+#     LNA2 71 (4 bytes), MODL 71 (28 to 78 bytes), FLLD 71 (4 bytes), KSIZ 13
+#     (4 bytes), KWDA 13 (4 to 8 bytes); the 50 records with conditions hold 194
+#     of them (each a 32-byte CTDA, no CIS1 or CIS2); one record has base form
+#     components (BFCB 22 bytes, BFCE 0 bytes, REFL 678 bytes). No VMAD, PTT2,
+#     SNTP, SNBH, DEFL or XALG occur. Every record decodes and re-encodes
+#     identically.
 signature = "BMMO"
 name = "BiomeMarker"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs decode with nothing left unnamed and re-encode identically",
+]
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -33,6 +46,11 @@ flags = [
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10281",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold an EDID of 17 to 57 bytes",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
@@ -40,26 +58,39 @@ name = "Scripts"
 type = "opaque"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
-note = "script data; its property values are unions by property type, kept raw"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official BMMO records"
 
 [[member]]
 sig = "OBND"
 name = "ObjectBounds"
 type = "ref:ObjectBounds"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a 24-byte OBND",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ODTY"
 name = "DirtinessScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a 4-byte ODTY",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
 name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: 57 of the 71 BMMO records of the 14 official ESMs hold an 80-byte OPDS",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PTT2"
@@ -67,6 +98,8 @@ name = "Transforms"
 type = "ref:Transforms"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official BMMO records"
 
 [[member]]
 sig = "SNTP"
@@ -75,6 +108,8 @@ type = "formid"
 targets = ["STMP"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official BMMO records"
 
 [[member]]
 sig = "SNBH"
@@ -83,6 +118,8 @@ type = "formid"
 targets = ["STBH"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official BMMO records"
 
 [[member]]
 sig = "DEFL"
@@ -91,6 +128,8 @@ type = "formid"
 targets = ["LAYR"]
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official BMMO records"
 
 [[member]]
 sig = "XALG"
@@ -98,46 +137,75 @@ name = "XalgFlags"
 type = "u64"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
-note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+confidence = "reference"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official BMMO records"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: one BMMO record of the 14 official ESMs holds base form components (a 22-byte BFCB, a 0-byte BFCE and a 678-byte REFL), which decode and re-encode identically",
+]
+confidence = "corpus"
 note = "base form components"
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a model (MODL 28 to 78 bytes, FLLD 4 bytes), which decode and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: 13 of the 71 BMMO records of the 14 official ESMs hold keywords (KSIZ 4 bytes, KWDA 4 to 8 bytes), which decode and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Condition"
 name = "Conditions"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: the 50 BMMO records with conditions of the 14 official ESMs hold 194 Conditions in total, each a 32-byte CTDA with no CIS1 or CIS2, which decode and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "KNAM"
 name = "MarkerType"
 type = "formid"
 targets = ["KYWD"]
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10278-L10278"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10278-L10278",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a 4-byte KNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "LNAM"
 name = "FallbackList"
 type = "formid"
 targets = ["LVLI"]
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10279-L10279"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10279-L10279",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a 4-byte LNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "LNA2"
 name = "NavmeshObject"
 type = "formid"
 targets = ["FLOR", "PKIN", "STAT"]
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10280-L10280"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10280-L10280",
+  "corpus: kitkraft-esm tests/bmmo_types.rs (bmmo_types_full), 2026-11-06: all 71 BMMO records of the 14 official ESMs hold a 4-byte LNA2",
+]
+confidence = "corpus"
