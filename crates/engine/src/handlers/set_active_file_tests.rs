@@ -797,3 +797,206 @@ fn the_reload_keeps_from_save() {
     assert_eq!(basis(&engine), first);
     let _ = std::fs::remove_dir_all(&d);
 }
+
+// ---------------------------------------------------------------------------------------
+// Re-review of the fix round (58032c7d), 2026-11-06.
+// ---------------------------------------------------------------------------------------
+
+/// Re-review: a last plugin whose header cannot be read (garbage bytes) is not exempt;
+/// nothing is written.
+#[test]
+fn an_unreadable_last_plugin_is_not_exempt() {
+    let (d, data, _active) = scratch("rr-badheader");
+    let bad = d.join("work").join("Bad.esp");
+    std::fs::write(&bad, b"this is not a plugin at all, just bytes").unwrap();
+    let mut plugins = vec!["Source.esm".to_string(), "Override.esp".to_string()];
+    plugins.push(bad.display().to_string());
+    let engine = Engine::with_default_handlers();
+    let load = engine.execute(
+        "load",
+        json!({"plugins": plugins, "data_dir": data.display().to_string(), "no_cache": true}),
+    );
+    if load.is_ok() {
+        let before = bytes(&bad);
+        let err = set_full(&engine, "Source.esm:000801", "X", &bad, true, false).unwrap_err();
+        assert!(err.contains("plugin of the load order"), "{err}");
+        assert!(err.contains("header could not be read"), "{err}");
+        assert_eq!(bytes(&bad), before);
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Sets bit 0 (master) of the TES4 record flags of the plugin at `p`, in place on disk.
+fn flag_master_on_disk(p: &Path) {
+    let mut b = bytes(p);
+    assert_eq!(b.get(0..4), Some(&b"TES4"[..]));
+    if let Some(f) = b.get_mut(8) {
+        *f |= 1;
+    }
+    std::fs::write(p, b).unwrap();
+}
+
+/// Re-review: the active file is loaded without the master flag, then gains it on disk
+/// (another tool) before the write. The exemption is decided on the loaded header, so the
+/// write goes ahead into a file that is now master-flagged.
+#[test]
+#[ignore = "re-review finding RR-L1: guard_output reads the master flag from the loaded header, not the file on disk at write time; proposal: the writer (or guard_output) re-reads the target's TES4 flags from disk and refuses a master flag when in_place"]
+fn a_master_flag_set_on_disk_after_the_load_is_refused() {
+    let (d, data, active) = scratch("rr-flag-race");
+    let engine = loaded(&data, &order(&active));
+    flag_master_on_disk(&active);
+    let before = bytes(&active);
+    let got = set_full(
+        &engine,
+        "Source.esm:000801",
+        "AfterFlag",
+        &active,
+        true,
+        false,
+    );
+    assert!(
+        got.is_err(),
+        "a now master-flagged active file was written: {got:?}"
+    );
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Re-review: the active file is rewritten on disk by another writer after the load (a
+/// form added in front of its WEAP group, so every later offset moves). The session's
+/// in-place copy is read at the old offset; the write must either refuse or produce the
+/// right record, never a mangled one.
+#[test]
+fn an_active_file_rewritten_after_the_load_is_never_mangled() {
+    let (d, data, active) = scratch("rr-stale");
+    let engine = loaded(&data, &order(&active));
+    // Another writer (a one-shot call, the active file not loaded there) adds a GLOB.
+    execute(
+        "new",
+        json!({"type": "GLOB", "edid": "KkExternal", "into": active.display().to_string(),
+               "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap();
+    let got = set_full(
+        &engine,
+        "Source.esm:000800",
+        "AfterRewrite",
+        &active,
+        true,
+        false,
+    );
+    if got.is_ok() {
+        let text = String::from_utf8_lossy(&bytes(&active)).into_owned();
+        assert!(
+            text.contains("KkExternal"),
+            "the other writer's form was lost"
+        );
+        assert!(text.contains("AfterRewrite"));
+        let v = execute(
+            "validate",
+            json!({"plugin": active.display().to_string(), "data_dir": data.display().to_string()}),
+        )
+        .unwrap();
+        assert_eq!(v["data"]["passed"], json!(true), "{:#}", v["data"]);
+        let one = execute(
+            "inspect",
+            json!({"form": "Source.esm:000800", "plugins": order(&active),
+                   "data_dir": data.display().to_string(), "no_cache": true}),
+        )
+        .unwrap();
+        let s = one["data"].to_string();
+        assert!(s.contains("AfterRewrite") && s.contains("OldRifle"), "{s}");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Re-review: `set` cannot reach the active file's own TES4 header to give it the master
+/// flag (no form addresses it), so the exemption cannot be turned against a later write.
+#[test]
+fn set_cannot_flag_the_active_files_own_header() {
+    let (d, data, active) = scratch("rr-tes4");
+    let engine = loaded(&data, &order(&active));
+    for form in ["Patch.esp:000000", "00000000"] {
+        let got = engine.execute(
+            "set",
+            json!({"form": form, "fields": {"FULL": "X"}, "plugin": "Patch.esp",
+                   "into": active.display().to_string(), "active_file": true}),
+        );
+        assert!(got.is_err(), "{form}: {got:?}");
+    }
+    let b = bytes(&active);
+    assert_eq!(
+        b.get(8).map(|f| f & 1),
+        Some(0),
+        "the active file gained the master flag"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Re-review: same file name up to non-ASCII case (`Ä` / `ä`). The same-name check
+/// compares ASCII case only, so the exemption stands; the in-place edit matches by path,
+/// so the other file's form is not taken as the active file's own: it is either refused
+/// or carried with the other file as a master, and the active file still validates.
+#[test]
+fn a_same_name_up_to_unicode_case_never_merges_the_two_files() {
+    let d = dir("a6-rr-unicode");
+    let data = data(&d);
+    let work = d.join("work");
+    std::fs::create_dir_all(work.join("meshes").join("weapons")).unwrap();
+    std::fs::write(work.join("meshes").join("weapons").join("a.nif"), []).unwrap();
+    let other_dir = d.join("other");
+    std::fs::create_dir_all(&other_dir).unwrap();
+    let active = work.join("Äpatch.esp");
+    let other = other_dir.join("äpatch.esp");
+    for (into, edid) in [(&other, "KkUniOther"), (&active, "KkUniActive")] {
+        execute(
+            "new",
+            json!({"type": "GLOB", "edid": edid, "into": into.display().to_string(),
+                   "plugins": ["Source.esm"], "data_dir": data.display().to_string(),
+                   "no_cache": true}),
+        )
+        .unwrap();
+    }
+    let plugins = vec![
+        "Source.esm".to_string(),
+        other.display().to_string(),
+        active.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    let got = engine.execute(
+        "set",
+        json!({"form": "KkUniOther", "fields": {"FLTV": 3.0},
+               "into": active.display().to_string(), "active_file": true}),
+    );
+    // The active file holds forms of its own, so adding the other file as a master is
+    // refused; an Ok here would mean the record went in as the active file's own.
+    assert!(got.is_err(), "accepted: {got:?}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Re-review: the same stale read, with a field both the intended WEAP and the record now
+/// at its old offset have (EDID). The write must refuse (the file changed since the load),
+/// not edit whatever record now sits at the old offset.
+#[test]
+#[ignore = "re-review finding RR-M1: a session reads the active file at offsets from the load even after another tool rewrote it; set then edits the record now at that offset (here the other tool's GLOB) and reports it as the intended form; proposal: before an in-place write, refuse when the active file's size/mtime differ from the load's (load it again)"]
+fn a_stale_offset_never_edits_another_record() {
+    let (d, data, active) = scratch("rr-stale-edid");
+    let engine = loaded(&data, &order(&active));
+    execute(
+        "new",
+        json!({"type": "GLOB", "edid": "KkExternal", "into": active.display().to_string(),
+               "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap();
+    let before = bytes(&active);
+    let got = engine.execute(
+        "set",
+        json!({"form": "Source.esm:000800", "fields": {"EDID": "RenamedRifle"},
+               "into": active.display().to_string(), "active_file": true}),
+    );
+    assert!(got.is_err(), "a stale read was written: {got:?}");
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
