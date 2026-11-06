@@ -1,0 +1,99 @@
+id = "KK-250"
+title = "testplan: a reference placed from a pack-in no longer expects the PKIN as its base"
+timeout_min = 45
+budget_h = 1.5
+hold = "owner review (decision of 2026-11-05, item 9)"
+owns = [
+  "crates/engine/src/handlers/testplan.rs",
+  "crates/engine/src/handlers/testplan/probes.rs",
+  "crates/engine/src/handlers/testplan/probes/tests.rs",
+]
+brief = """
+`kit testplan` writes an in-game test plan for a plugin: `checklist.md` for a person and
+`probes.toml`, one machine-checkable probe per checklist step, which `kit game session` runs
+through the game's console. Read the module docs of `crates/engine/src/handlers/testplan.rs`
+and `crates/engine/src/handlers/testplan/probes.rs` first.
+
+For every placed reference (`REFR` or `ACHR`) the probes have a "base" row (in
+`probes.rs` `fn build`, the block after the comment "The checklist's \"click the object\"
+step"): `prid <reference runtime ID>`, then `getisid <base runtime ID>` with the regex
+matcher `ONE`, so the row passes only if the game answers `GetIsID >> 1.00`.
+
+What was observed (`docs/game-observations.md`, entries `game-20261103-02`,
+`game-20261103-03` and `game-20261103-08`, the mini-site plugin `KitKraftMiniSite.esm`): for
+the reference `KitKraftMiniSitePackInRef`, whose base in the plugin is the pack-in (`PKIN`)
+`KitKraftMiniSitePackIn`, row T-20 sent `prid 09001009`, `getisid 09001003` and the game
+answered `GetIsID >> 0.00`, its own labelled answer, in three sessions. The same reference
+was selected and stood at its position (T-19, T-21 passed). For references whose base is a
+STAT, ACTI or TERM the same row passed. Nothing observed says why: either the plan expects
+the wrong base for a reference placed from a pack-in, or the game does not report the PKIN
+as such a reference's base. That is an open question. The plan must stop asserting
+something unproven, and must not assert the opposite either (do not expect 0).
+
+Change, for a reference whose base record is a `PKIN` only:
+
+1. `testplan.rs`: give `Form` the base's record signature (a new field, filled where
+   `base_edid` and `base_runtime` are filled, with the existing `signature_of(&lo, base)`).
+2. `probes.rs`: the base row of such a reference becomes a `manual` row (the existing
+   `manual` helper; same row number, so the checklist and probe numbering stay in step).
+   Its title names the reference and its pack-in base as the other rows do. Its reason
+   says, in one sentence each: that whether the game reports a pack-in (PKIN) as the base of
+   a reference placed from it is an open question; the evidence (`getisid` on the PKIN's
+   runtime ID answered 0.00 in game-20261103-03 and game-20261103-08, cause open); that the
+   reference itself is checked by its `player.moveto` and `getpos` rows; and what the person
+   should do: click the reference in the console and write down the base it shows. Put the
+   reason text in a `const` so the test and the docs use the same words. No step of this
+   row sends `getisid` (a manual row runs no commands).
+3. `testplan.rs` `fn checklist`: the matching "click the object" step of such a reference
+   gets one more sentence: its base is a pack-in, whether the console reports the PKIN as
+   its base is an open question (game-20261103-03, -08), write down the base the console
+   shows. Still one numbered step.
+4. Add one line to the module docs of `probes.rs` saying a pack-in reference's base row is
+   manual and why.
+
+Every other reference keeps its `getisid` row exactly as today, and nothing else in the
+three output files changes: the cell, `player.moveto`, `getpos` and persistence rows of a
+pack-in reference stay as they are (T-21 and T-23 passed for it in game). Do not change
+`crates/game` (another crate) or the matchers.
+
+Test in `crates/engine/src/handlers/testplan/probes/tests.rs`, with this exact name:
+`a_pack_in_reference_does_not_expect_the_pkin_as_its_base`. The `place` command takes a
+base by EditorID from the load order, and the synthetic master `World.esm` (`world_master`
+in `crates/engine/src/handlers/place_tests.rs`) has no PKIN, so build the plugin under
+test by hand the way `world_master` builds `World.esm`, with its `pub(crate)` helpers
+(`rec`, `sub`, `zstr`, `data24`, the `put` closure over `cells::placement` and
+`upsert_styled`): a master-flagged plugin with no masters, written to `d.join(...)` outside
+the Data folder as the other tests here place their plugins, holding a `PKIN` `KC_Pack`
+(EDID only), a `STAT` `KC_Box` (EDID only), an interior `CELL` `TestPackRoom` and, in it,
+two `REFR`s: one with `NAME` the PKIN, one with `NAME` the STAT, each with a `DATA`
+position. Use the test's own form IDs (for example 0x800 to 0x803), not `World.esm`'s.
+Run `testplan` on it with `data = world_master(&d)` and `plugins: ["World.esm"]`, as the
+other tests do (the helpers `testplan`, `read`, `rows`, `commands`, `checklist_steps`).
+Assert:
+- `rows(&p) == checklist_steps(&out)` (one probe per checklist step);
+- the pack-in reference's base row is manual (`is_manual()`), its reason contains
+  `open question` and `game-20261103-08`, and it has no steps;
+- the STAT reference's base row is still `["prid <its runtime ID>", "getisid <KC_Box's
+  runtime ID>"]` with `Matcher::Regex`;
+- no step in the whole file sends `getisid <KC_Pack's runtime ID>`;
+- the checklist text contains `open question` once for the pack-in reference;
+- the pack-in reference still has its `player.moveto` row and its `getpos` row with the
+  three `getpos` steps.
+Find rows by their `forms` or titles, not by fixed row numbers, so the test does not depend
+on the sort order. If writing the PKIN by hand is refused by `testplan` for a reason you can
+see, say it in the commit message and write the PKIN with `new` (`type: "PKIN"`) into a
+master in the test's Data folder instead (`crates/engine/src/handlers/authoring_tests.rs`,
+`new_record`, shows `new`'s arguments).
+
+Every existing test in `probes/tests.rs`, `testplan_tests.rs` and `modrun_tests.rs` must
+pass unchanged: do not edit their expectations. Run `cargo test -p kitkraft-engine --lib
+testplan` while you work, then `cargo xtask ci`. Commit when the new test passes.
+"""
+
+[[accept]]
+name = "pack-in-base"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::testplan::probes::tests::a_pack_in_reference_does_not_expect_the_pkin_as_its_base 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "testplan-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- testplan modrun 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o && grep -q 'PKIN' crates/engine/src/handlers/testplan/probes.rs"

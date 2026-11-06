@@ -228,6 +228,8 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-247](KK-247.toml) | Workbench: give the two copy buttons of a result block distinct labels | workbench UX audit, finding A5 | queued |
 | [KK-248](KK-248.toml) | Workbench: open the CK-style windows where they cover neither the tab nor each other | workbench UX audit, finding A6 | queued (brief corrected 2026-11-05: the test opens the three windows the audit saw, since `WindowKind::ALL` has seven after the 2026-11-02 sprint) |
 | [KK-249](KK-249.toml) | Workbench: make a long path in a single-line field readable in full | workbench UX audit, finding A7 | queued |
+| [KK-250](KK-250.toml) | testplan: a reference placed from a pack-in no longer expects the PKIN as its base | owner decision 2026-11-05, item 9 (T-20 of `game-20261103-03` and `-08`) | **held** for the owner's review (a draft; remove `hold` to queue it) |
+| [KK-251](KK-251.toml) | testplan: check a placed actor (ACHR) by its cell and a distance, not its exact position | owner decision 2026-11-05, item 9 (T-04 and T-06 of `game-20261103-06`) | **held** for the owner's review (a draft; the 3.0 tolerance is the drafter's number; owns the same three files as KK-250) |
 
 KK-246 to KK-249 each add one test to `crates/ui-egui/src/app/harness/tests.rs`, so `auto`
 picks one of them a night (owns overlap). To run all four the same night, queue them as a

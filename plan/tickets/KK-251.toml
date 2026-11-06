@@ -1,0 +1,95 @@
+id = "KK-251"
+title = "testplan: check a placed actor (ACHR) by its cell and a distance, not its exact position"
+timeout_min = 45
+budget_h = 1.5
+hold = "owner review (decision of 2026-11-05, item 9)"
+owns = [
+  "crates/engine/src/handlers/testplan.rs",
+  "crates/engine/src/handlers/testplan/probes.rs",
+  "crates/engine/src/handlers/testplan/probes/tests.rs",
+]
+brief = """
+`kit testplan` writes an in-game test plan for a plugin: `checklist.md` for a person and
+`probes.toml`, one machine-checkable probe per checklist step, which `kit game session` runs
+through the game's console. Read the module docs of `crates/engine/src/handlers/testplan.rs`
+and `crates/engine/src/handlers/testplan/probes.rs` first.
+
+For every placed reference (`REFR` or `ACHR`) the probes have a position row (in
+`probes.rs` `fn build`, after the comment "prid, getpos; screenshot"): `prid <runtime ID>`,
+then `getpos x`, `getpos y`, `getpos z`, each a `Matcher::Number` step expecting the
+reference's `DATA` position within `POSITION_TOLERANCE` (0.5). The persistence row at the
+end ("persistence 4: return; every new reference where it was") repeats those `getpos`
+steps for every new reference after a save and reload (the helper `fn getpos`).
+
+What was observed (`docs/game-observations.md`, entry `game-20261103-06`, the actors
+plugin `KitKraftActors.esm`): the actor `KitKraftTestActor`, placed at (4, 4, 0) in the
+interior cell `CityNewAtlantisFreestarEmbassy`, answered `getpos` 5.16, 3.58, 0.01, about
+1.2 units off, both before (T-04) and after the save and reload (T-06), so both rows failed.
+Its cell (T-01), `player.moveto` (T-02, `GetDistance >> 2.56`) and base (T-03) passed. An
+actor's AI may walk it or settle it off its placed spot, so an exact position is the wrong
+check for an actor. The request filed with that entry: for an `ACHR`, check the cell and a
+distance, not the placed position.
+
+Change, for `ACHR` references only (every `REFR` keeps its rows byte-for-byte):
+
+1. `probes.rs`: a new constant `ACTOR_TOLERANCE: f64 = 3.0`, documented as the largest
+   difference accepted on each axis between an actor's `getpos` answer and its placed
+   `DATA` position (an actor walks or settles; game-20261103-06 saw 1.2 units). Per axis is
+   a box, not a sphere: the `number` matcher checks one number at a time; say so in the
+   doc comment.
+2. The position row of an `ACHR` with a runtime ID and a position becomes the
+   cell-and-distance row, same row number, still with a screenshot: `prid <ID>`, `getpos
+   x`, `getpos y`, `getpos z` as `Matcher::Number` steps with `tolerance` `ACTOR_TOLERANCE`
+   (expected values still the `DATA` position); then, when the actor's cell is an interior
+   cell with a runtime ID (the same condition the cell row uses), `player.moveto <ID>` (with
+   the `settle` wait) and `player.getincell <cell runtime ID>` with the `ONE` regex (the
+   existing `in_cell` helper). The `why` of the cell step says that `player.moveto` puts the
+   player beside the actor (row T-02 of game-20261103-06 answered `GetDistance >> 2.56`), so
+   the player's cell is the actor's cell. The `why` of each `getpos` step names the
+   tolerance and game-20261103-06. The title says the actor is checked in its cell and
+   within the tolerance of its placed position. For an actor in an exterior cell, or a cell
+   with no runtime ID, the row has only the `prid` and `getpos` steps.
+3. The persistence row's steps for an `ACHR` are the same as in 2 (after the existing `coc`
+   to its cell), so the after-reload check is by cell and distance too.
+4. `testplan.rs` `fn checklist`: the matching step of an `ACHR` says the position is
+   checked within `ACTOR_TOLERANCE` on each axis (an actor walks or settles) and that
+   `player.moveto` then `player.getincell` checks its cell, instead of "the positions match".
+   Still one numbered step.
+5. Update the module docs of `probes.rs` (the list of what the expected values are).
+
+Do not change `crates/game` (another crate) or the matchers, the cell, `player.moveto`
+and base rows, the batch file, or anything for `REFR`.
+
+Test in `crates/engine/src/handlers/testplan/probes/tests.rs`, with this exact name:
+`an_actor_is_checked_by_cell_and_distance`. Build the plugin as the other tests there do
+(`world_master`, the `place` helper): one `ACHR` with `place` `{"base": "KC_Npc", "cell":
+"TestInterior", "position": [10.0, 20.0, 30.0]}` and one `REFR` with `{"cell":
+"TestInterior"}` (base `KC_Crate`, the helper's default), into the same plugin; run
+`testplan` (the helpers `testplan`, `read`, `rows`, `commands`, `checklist_steps`). Find
+rows by their `forms` or titles, not fixed numbers. Assert:
+- `rows(&p) == checklist_steps(&out)`;
+- the actor's position row's commands are `prid <ID>`, `getpos x`, `getpos y`, `getpos z`,
+  `player.moveto <ID>`, `player.getincell 00000900` (TestInterior's runtime ID); the three
+  `getpos` steps have `tolerance == Some(ACTOR_TOLERANCE)` and expected `10`, `20`, `30`;
+  the `player.moveto` step has `wait_secs == Some(10)`; the `player.getincell` step is
+  `Matcher::Regex`; the row has `screenshot == true`;
+- the crate's position row is unchanged: exactly `prid <ID>`, `getpos x`, `getpos y`,
+  `getpos z`, tolerance `Some(0.5)`;
+- in the persistence row, the actor's `getpos` steps have `ACTOR_TOLERANCE` and are
+  followed by its `player.moveto` and `player.getincell 00000900`; the crate's have 0.5;
+- the checklist text names the tolerance for the actor's step.
+
+Every existing test in `probes/tests.rs`, `testplan_tests.rs` and `modrun_tests.rs` must
+pass unchanged: do not edit their expectations (the actors-shape test there places its
+actor in an exterior cell, so its rows keep the `prid` first). Run `cargo test -p
+kitkraft-engine --lib testplan` while you work, then `cargo xtask ci`. Commit when the new
+test passes.
+"""
+
+[[accept]]
+name = "actor-cell-distance"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::testplan::probes::tests::an_actor_is_checked_by_cell_and_distance 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "testplan-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- testplan modrun 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o && grep -q 'ACTOR_TOLERANCE' crates/engine/src/handlers/testplan/probes.rs"
