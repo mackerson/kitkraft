@@ -82,7 +82,7 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
             }
         }
     }
-    if seen.contains(&*b"HNAM") && seen.contains(&*b"ANAM") {
+    if seen.contains(&b"HNAM") && seen.contains(&b"ANAM") {
         t.hnam_anam_together += 1;
     }
     let members = RECORDS

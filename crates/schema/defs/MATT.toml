@@ -11,33 +11,43 @@
 #     the Buoyancy float (L14297), the Flags u32 (L14298-L14303), the Havok Impact Data
 #     Set form (L14304, IPDS), the Breakable FX string (L14305) and the Light Layer
 #     (L14306, the shared wbFLLD u32 flags, L3818-L3823).
+#   corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06 - the 255
+#     MATT records of the 14 official ESMs: EDID 255 (12 to 59 bytes), PNAM 247 (4
+#     bytes), MNAM 255 (4 to 45 bytes), CNAM 255 (12 bytes), BNAM 255 (4 bytes),
+#     FNAM 255 (4 bytes), HNAM 210 (4 bytes), ANAM 1 (55 bytes), FLLD 255 (4 bytes).
+#     No base form components occur, and no record carries both an HNAM and an
+#     ANAM. Every record decodes and re-encodes identically.
 #
 # No lstring member: the corpus lstring table (crates/engine/src/edit/lstrings.rs)
 # lists none for MATT.
 signature = "MATT"
 name = "MaterialType"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14291-L14307"
-confidence = "reference"
+evidence = [
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs decode with nothing left unnamed and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14292-L14292"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14292-L14292",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold an EDID of 12 to 59 bytes",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14293-L14293"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14293-L14293",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
 ]
 confidence = "reference"
-note = "base form components"
+note = "base form components; no official MATT record carries any"
 
 [[member]]
 sig = "PNAM"
@@ -45,26 +55,33 @@ name = "MaterialParent"
 type = "formid"
 targets = ["MATT"]
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14294-L14294"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14294-L14294",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: 247 of the 255 MATT records of the 14 official ESMs hold a 4-byte PNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "MNAM"
 name = "MaterialName"
 type = "zstring"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14295-L14295"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14295-L14295",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold an MNAM of 4 to 45 bytes",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "CNAM"
 name = "HavokDisplayColor"
 type = "struct"
 size = 12
-source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7103"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14296-L14296",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7084-L7103",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold a 12-byte CNAM",
 ]
-confidence = "reference"
+confidence = "corpus"
 field = [
   { name = "Red", type = "f32" },
   { name = "Green", type = "f32" },
@@ -75,8 +92,11 @@ field = [
 sig = "BNAM"
 name = "Buoyancy"
 type = "f32"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14297-L14297"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14297-L14297",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold a 4-byte BNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FNAM"
@@ -89,8 +109,11 @@ bits = [
   ["CanTunnel", 0x4],
   ["IsSlippery", 0x8],
 ]
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14298-L14303"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14298-L14303",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold a 4-byte FNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "HNAM"
@@ -98,16 +121,23 @@ name = "HavokImpactDataSet"
 type = "formid"
 targets = ["IPDS"]
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14304-L14304"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14304-L14304",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: 210 of the 255 MATT records of the 14 official ESMs hold a 4-byte HNAM",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ANAM"
 name = "BreakableFx"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14305-L14305"
-confidence = "reference"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14305-L14305",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: 1 of the 255 MATT records of the 14 official ESMs holds a 55-byte ANAM",
+]
+confidence = "corpus"
+note = "never occurs with an HNAM in the official MATT records, so their relative order is unknown; the definition lists them in the pinned xEdit file's order"
 
 [[member]]
 sig = "FLLD"
@@ -120,8 +150,9 @@ bits = [
   ["ShipInterior", 0x4],
   ["ShipExterior", 0x8],
 ]
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14306-L14306"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14306-L14306",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitkraft-esm tests/matt_types.rs (matt_types_full), 2026-11-06: all 255 MATT records of the 14 official ESMs hold a 4-byte FLLD",
 ]
-confidence = "reference"
+confidence = "corpus"
