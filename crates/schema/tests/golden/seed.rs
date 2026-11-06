@@ -144,7 +144,7 @@
 // - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14158; corpus)
 // - LVSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVSC record (20) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MAAM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - MATT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MATT record (255) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MATT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14291-L14307; reference)
 // - MESG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14310-L14358; corpus)
 // - MGEF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554; corpus)
 // - MISC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14557-L14605; corpus)
@@ -51033,26 +51033,112 @@ impl MaamRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MattHavokDisplayColor {
+    pub red: f32,
+    pub green: f32,
+    pub blue: f32,
+}
+
+impl Field for MattHavokDisplayColor {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MATT.CNAM.Red", ctx)?;
+        let f1 = f32::read(r, "MATT.CNAM.Green", ctx)?;
+        let f2 = f32::read(r, "MATT.CNAM.Blue", ctx)?;
+        Ok(Self {
+            red: f0,
+            green: f1,
+            blue: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.red.write(out);
+        self.green.write(out);
+        self.blue.write(out);
+    }
+}
+
+impl Visit for MattHavokDisplayColor {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MattFlags(pub u32);
+
+impl MattFlags {
+    pub const STAIR_MATERIAL: u32 = 0x1;
+    pub const ARROWS_STICK: u32 = 0x2;
+    pub const CAN_TUNNEL: u32 = 0x4;
+    pub const IS_SLIPPERY: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for MattFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for MattFlags {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MattLightLayer(pub u32);
+
+impl MattLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for MattLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for MattLightLayer {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MattRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub material_parent: Option<Sub<FormId>>,
     /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
+    pub material_name: Option<Sub<ZString>>,
     /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
+    pub havok_display_color: Option<Sub<MattHavokDisplayColor>>,
     /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
+    pub buoyancy: Option<Sub<f32>>,
     /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<MattFlags>>,
     /// `HNAM`, optional.
-    pub hnam: Option<Sub<Bytes>>,
+    pub havok_impact_data_set: Option<Sub<FormId>>,
     /// `ANAM`, optional.
-    pub anam: Option<Sub<Bytes>>,
+    pub breakable_fx: Option<Sub<ZString>>,
     /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    pub light_layer: Option<Sub<MattLightLayer>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -51066,6 +51152,10 @@ impl MattRecord {
         MemberDesc::Sub {
             sig: *b"EDID",
             card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"PNAM",
@@ -51113,29 +51203,59 @@ impl MattRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "MATT.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.pnam, subs, *index, "MATT.PNAM", ctx, extra)
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.mnam, subs, *index, "MATT.MNAM", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.cnam, subs, *index, "MATT.CNAM", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.bnam, subs, *index, "MATT.BNAM", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.material_parent,
+                    subs,
+                    *index,
+                    "MATT.PNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.material_name,
+                    subs,
+                    *index,
+                    "MATT.MNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.havok_display_color,
+                    subs,
+                    *index,
+                    "MATT.CNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.fnam, subs, *index, "MATT.FNAM", ctx, extra)
+                    put(&mut self.buoyancy, subs, *index, "MATT.BNAM", ctx, extra)
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.hnam, subs, *index, "MATT.HNAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "MATT.FNAM", ctx, extra)
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.anam, subs, *index, "MATT.ANAM", ctx, extra)
-                }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.flld, subs, *index, "MATT.FLLD", ctx, extra)
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.havok_impact_data_set,
+                    subs,
+                    *index,
+                    "MATT.HNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.breakable_fx,
+                    subs,
+                    *index,
+                    "MATT.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.light_layer, subs, *index, "MATT.FLLD", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -51144,18 +51264,33 @@ impl MattRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"HNAM", self.hnam.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"PNAM", self.material_parent.as_ref());
+        emit(out, *b"MNAM", self.material_name.as_ref());
+        emit(out, *b"CNAM", self.havok_display_color.as_ref());
+        emit(out, *b"BNAM", self.buoyancy.as_ref());
+        emit(out, *b"FNAM", self.flags.as_ref());
+        emit(out, *b"HNAM", self.havok_impact_data_set.as_ref());
+        emit(out, *b"ANAM", self.breakable_fx.as_ref());
+        emit(out, *b"FLLD", self.light_layer.as_ref());
     }
 }
 
-impl Visit for MattRecord {}
+impl Visit for MattRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "MATT.BfcbBlock", out);
+        visit_form_ids(&self.material_parent, "MATT.PNAM", out);
+        visit_form_ids(&self.havok_impact_data_set, "MATT.HNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "MATT.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.material_parent, "MATT.PNAM", out);
+        visit_form_ids_mut(&mut self.havok_impact_data_set, "MATT.HNAM", out);
+    }
+}
 
 impl MattRecord {
     /// Record signature.

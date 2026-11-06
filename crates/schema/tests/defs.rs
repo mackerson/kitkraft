@@ -644,7 +644,6 @@ const BX2_INVENTORY: &[&str] = &[
     "LTEX",
     "LVSC",
     "MAAM",
-    "MATT",
     "MOVT",
     "MUSC",
     "NAVI",
