@@ -1792,6 +1792,44 @@ mod tests {
         Scratch(dir)
     }
 
+    /// Review of A6 (2026-11-06), finding M1: the request the set dialog really sends (it
+    /// now always carries `active_file: true`), aimed at a loaded master-flagged plugin with
+    /// the gate's checks bypassed, as `set_reaches_the_engine_only_confirmed_and_the_engine_refuses_a_master`
+    /// did before A6 removed the flag from its bypass request. The engine alone should
+    /// still refuse it; with A6 it writes `Fixture.esm` (the only, so last, plugin).
+    #[test]
+    #[ignore = "review finding M1: with the dialog's own `active_file: true`, the engine writes a loaded master-flagged plugin that is last in the order; proposal: refuse a master-flagged target in set::guard_output"]
+    fn the_dialogs_own_request_never_writes_a_loaded_master_on_its_own() {
+        use crate::dialogs::set;
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        let scratch = scratch("review-a6-master");
+        let fixture = scratch.0.join("Fixture.esm");
+        let master = plugin_bytes(&[], 1, &[0x800], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
+        let into = scratch.0.join("Patch.esp").display().to_string();
+        let engine = ReadOnlyEngine::new();
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
+            ))
+            .unwrap();
+        let mut fields = Map::new();
+        fields.insert("FLTV".into(), json!(7.25));
+        let preview = set::preview_request("Fixture.esm:000800", &fields, &into);
+        let mut onto_master = set::write_request(&preview).unwrap().args;
+        onto_master["into"] = json!(fixture.display().to_string());
+        assert_eq!(onto_master["active_file"], json!(true));
+        let got = engine.engine.execute("set", onto_master);
+        assert!(got.is_err(), "the engine wrote the master: {got:?}");
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
+    }
+
     struct Scratch(std::path::PathBuf);
 
     impl Drop for Scratch {

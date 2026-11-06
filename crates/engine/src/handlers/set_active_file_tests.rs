@@ -384,3 +384,360 @@ fn a_profile_load_never_exempts_its_last_plugin() {
     assert_eq!(bytes(&last), before);
     let _ = std::fs::remove_dir_all(&d);
 }
+
+// ---------------------------------------------------------------------------------------
+// Independent review of A6 (2026-11-06): adversarial cases the tests above do not cover.
+// ---------------------------------------------------------------------------------------
+
+/// Review M1: the engine exempts any last plugin the request calls the active file, so a
+/// master-flagged plugin of another mod (outside Data, My Games and MO2), last in a
+/// `plugins` order and named as a master by no loaded plugin, is written in place. The
+/// workbench refuses a master-flagged active file (`windows/data_dialog.rs`), but the
+/// engine, which the window's gate tests rely on as the final word, does not.
+#[test]
+#[ignore = "review finding M1: the engine writes a master-flagged last plugin when the request says active_file; proposal: refuse a target whose loaded TES4 has the master flag"]
+fn a_master_flagged_last_plugin_is_refused_as_the_active_file() {
+    let (d, data, _active) = scratch("review-master");
+    let mods = d.join("mods").join("ThirdParty");
+    std::fs::create_dir_all(&mods).unwrap();
+    let third = crate::edit::patch_tests::write_plugin(
+        &mods,
+        "ThirdParty.esm",
+        &["Source.esm"],
+        kitkraft_esm::tes4::FLAG_MASTER,
+        Vec::new(),
+    );
+    let plugins = vec!["Source.esm".to_string(), third.display().to_string()];
+    let engine = loaded(&data, &plugins);
+    let before = bytes(&third);
+    let got = set_full(
+        &engine,
+        "Source.esm:000801",
+        "Hijacked",
+        &third,
+        true,
+        false,
+    );
+    assert!(
+        got.is_err(),
+        "the master-flagged ThirdParty.esm was written: {got:?}"
+    );
+    assert_eq!(bytes(&third), before, "ThirdParty.esm changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: path spellings. An earlier plugin spelled another way (case, `..`, forward
+/// slashes, the `\\?\` prefix) is still refused with the flag; the active file spelled
+/// another way gets the exemption it would get by its own spelling (no wider); a flag that
+/// is not the JSON `true` is no flag.
+#[test]
+fn path_spellings_neither_widen_nor_dodge_the_exemption() {
+    let (d, data, active) = scratch("review-spelling");
+    let engine = loaded(&data, &order(&active));
+    let over = data.join("Override.esp");
+    let over_before = bytes(&over);
+    let canon = std::fs::canonicalize(&over).unwrap();
+    let canon_s = canon.display().to_string();
+    let plain = canon_s.trim_start_matches(r"\\?\").to_string();
+    let spellings = vec![
+        PathBuf::from(plain.to_ascii_uppercase()),
+        PathBuf::from(plain.replace('\\', "/")),
+        data.join("..").join("Data").join("override.ESP"),
+        PathBuf::from(format!(r"\\?\{plain}")),
+    ];
+    for s in &spellings {
+        let err = set_full(&engine, "Source.esm:000801", "X", s, true, false).unwrap_err();
+        assert!(
+            err.contains("only the last plugin") || err.contains("plugin of the load order"),
+            "{}: {err}",
+            s.display()
+        );
+    }
+    assert_eq!(bytes(&over), over_before, "Override.esp changed");
+    // Not a boolean true: refused as a plain load-order plugin (or as a bad argument).
+    let active_before = bytes(&active);
+    for flag in [json!("true"), json!(1), json!(null)] {
+        let got = engine.execute(
+            "set",
+            json!({"form": "Source.esm:000801", "fields": {"FULL": "X"},
+                   "into": active.display().to_string(), "active_file": flag}),
+        );
+        assert!(got.is_err(), "{flag}: {got:?}");
+    }
+    assert_eq!(bytes(&active), active_before, "a non-true flag wrote");
+    // The active file by another spelling: exempt, written, and the session sees it.
+    let other = PathBuf::from(
+        std::fs::canonicalize(&active)
+            .unwrap()
+            .display()
+            .to_string()
+            .trim_start_matches(r"\\?\")
+            .replace('\\', "/")
+            .to_ascii_lowercase(),
+    );
+    set_full(&engine, "Source.esm:000801", "Spelled", &other, true, false).unwrap();
+    assert!(winning_full(&engine, "Source.esm:000801").contains("Spelled"));
+    assert_eq!(bytes(&over), over_before, "Override.esp changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: hard links. The active file is a hard link to an earlier plugin of the order,
+/// or to a plugin inside a game Data folder: the write replaces the link (staged copy,
+/// then rename), so the other name's bytes never change.
+#[test]
+fn a_hard_linked_active_file_never_changes_the_linked_plugin() {
+    let (d, data, active) = scratch("review-hardlink");
+    let over = data.join("Override.esp");
+    let over_before = bytes(&over);
+    let work = d.join("work");
+    let linked = work.join("Linked.esp");
+    std::fs::hard_link(&over, &linked).unwrap();
+    let plugins = vec![
+        "Source.esm".to_string(),
+        "Override.esp".to_string(),
+        linked.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    set_full(
+        &engine,
+        "Source.esm:000800",
+        "ViaLink",
+        &linked,
+        true,
+        false,
+    )
+    .unwrap();
+    assert!(String::from_utf8_lossy(&bytes(&linked)).contains("ViaLink"));
+    assert_eq!(
+        bytes(&over),
+        over_before,
+        "Override.esp changed through a hard link"
+    );
+    // A hard link into a game Data folder (Starfield.esm beside it).
+    let game = d.join("Game").join("Data");
+    std::fs::create_dir_all(&game).unwrap();
+    std::fs::write(game.join("Starfield.esm"), b"TES4").unwrap();
+    let in_game = game.join("Patch.esp");
+    std::fs::copy(&active, &in_game).unwrap();
+    let game_before = bytes(&in_game);
+    let linked2 = work.join("Linked2.esp");
+    std::fs::hard_link(&in_game, &linked2).unwrap();
+    let plugins = vec![
+        "Source.esm".to_string(),
+        "Override.esp".to_string(),
+        linked2.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    set_full(
+        &engine,
+        "Source.esm:000801",
+        "ViaLink2",
+        &linked2,
+        true,
+        false,
+    )
+    .unwrap();
+    assert!(String::from_utf8_lossy(&bytes(&linked2)).contains("ViaLink2"));
+    assert_eq!(
+        bytes(&in_game),
+        game_before,
+        "the Data plugin changed through a hard link"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: junctions. A load order whose last plugin is reached through a junction, or a
+/// request naming the active file through one, is refused by `guard_location`; nothing is
+/// written.
+#[cfg(windows)]
+#[test]
+fn a_junction_to_the_active_file_is_refused() {
+    let (d, data, active) = scratch("review-junction");
+    let junction = d.join("work-j");
+    let ok = std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(&junction)
+        .arg(d.join("work"))
+        .output()
+        .unwrap();
+    assert!(ok.status.success(), "{ok:?}");
+    let through = junction.join("Patch.esp");
+    let before = bytes(&active);
+    // Loaded through the junction.
+    let mut plugins = order(&active);
+    plugins.pop();
+    plugins.push(through.display().to_string());
+    let engine = loaded(&data, &plugins);
+    let err = set_full(&engine, "Source.esm:000801", "X", &through, true, false).unwrap_err();
+    assert!(err.contains("symbolic link or junction"), "{err}");
+    // Loaded by its real path, named through the junction.
+    let engine = loaded(&data, &order(&active));
+    let err = set_full(&engine, "Source.esm:000801", "X", &through, true, false).unwrap_err();
+    assert!(err.contains("symbolic link or junction"), "{err}");
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir(&junction);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: two plugins of the same file name. A second `Patch.esp` earlier in the order
+/// (another folder) holds a form of its own; with the flag, `in_place` matches copies by
+/// file name, so the earlier file's record would be written into the active file as if it
+/// were the active file's own (FormIDs as stored, no remap). It must be refused.
+#[test]
+#[ignore = "review finding L1: in_place matches the copy's source by file name, so a same-named earlier plugin's record is taken as the active file's own; proposal: refuse duplicate file names at load, and match in_place by path"]
+fn a_same_named_earlier_plugin_is_not_taken_as_the_active_file() {
+    let (d, data, active) = scratch("review-samename");
+    let other_dir = d.join("other");
+    std::fs::create_dir_all(&other_dir).unwrap();
+    let other = other_dir.join("Patch.esp");
+    // A form of its own in the other Patch.esp (not loaded while written).
+    execute(
+        "new",
+        json!({"type": "GLOB", "edid": "KkOnlyInOther", "into": other.display().to_string(),
+               "plugins": ["Source.esm"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap();
+    let plugins = vec![
+        "Source.esm".to_string(),
+        other.display().to_string(),
+        active.display().to_string(),
+    ];
+    let engine = Engine::with_default_handlers();
+    let load = engine.execute(
+        "load",
+        json!({"plugins": plugins, "data_dir": data.display().to_string(), "no_cache": true}),
+    );
+    assert!(
+        load.is_ok(),
+        "refused at load (the finding does not apply): {load:?}"
+    );
+    let before = bytes(&active);
+    let got = engine.execute(
+        "set",
+        json!({"form": "KkOnlyInOther", "fields": {"FLTV": 2.0},
+               "into": active.display().to_string(), "active_file": true}),
+    );
+    assert!(
+        got.is_err(),
+        "the other Patch.esp's own form was written as the active file's: {got:?}"
+    );
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: `revert` refuses a loaded active file cleanly (an error naming the load order,
+/// the file byte identical), and `active_file` is not an argument it takes.
+#[test]
+fn revert_refuses_a_loaded_active_file_cleanly() {
+    let (d, data, active) = scratch("review-revert");
+    let engine = loaded(&data, &order(&active));
+    let before = bytes(&active);
+    let err = engine
+        .execute(
+            "revert",
+            json!({"plugin": active.display().to_string(), "form": "Source.esm:000800"}),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("plugin of the load order"), "{err}");
+    let err = engine
+        .execute(
+            "revert",
+            json!({"plugin": active.display().to_string(), "form": "Source.esm:000800",
+                   "active_file": true}),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("active_file"), "{err}");
+    assert_eq!(bytes(&active), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: the reload after a write with the index cache on. Same-size in-place edits in
+/// quick succession must each be seen by the next read and the next write. Needs
+/// `KITKRAFT_CACHE_DIR` set to a scratch folder under the temp dir (an env var is
+/// process-wide, so the test does not set it).
+#[test]
+#[ignore = "needs KITKRAFT_CACHE_DIR set to a scratch folder under the temp dir; run alone with --ignored"]
+fn the_reload_with_the_index_cache_sees_each_write() {
+    let cache = std::env::var_os("KITKRAFT_CACHE_DIR").expect("set KITKRAFT_CACHE_DIR");
+    assert!(
+        PathBuf::from(&cache).starts_with(std::env::temp_dir()),
+        "KITKRAFT_CACHE_DIR must be under the temp dir"
+    );
+    let (d, data, active) = scratch("review-cache");
+    let engine = Engine::with_default_handlers();
+    for _ in 0..2 {
+        let env = engine
+            .execute(
+                "load",
+                json!({"plugins": order(&active), "data_dir": data.display().to_string()}),
+            )
+            .unwrap();
+        assert!(env["data"]["cache_dir"].is_string(), "{:#}", env["data"]);
+    }
+    for name in ["AAAAA", "BBBBB", "CCCCC", "DDDDD"] {
+        let size = bytes(&active).len();
+        set_full(&engine, "Source.esm:000800", name, &active, true, false).unwrap();
+        assert_eq!(bytes(&active).len(), size, "the size changed");
+        let seen = winning_full(&engine, "Source.esm:000800");
+        assert!(seen.contains(name), "{name}: {seen}");
+        set_full(&engine, "Source.esm:000801", name, &active, true, false).unwrap();
+        assert!(winning_full(&engine, "Source.esm:000801").contains(name));
+        assert!(winning_full(&engine, "Source.esm:000800").contains(name));
+    }
+    let v = execute(
+        "validate",
+        json!({"plugin": active.display().to_string(), "data_dir": data.display().to_string()}),
+    )
+    .unwrap();
+    assert_eq!(v["data"]["passed"], json!(true), "{:#}", v["data"]);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Review: a UNC spelling (`\localhost\C$\...`) of an earlier plugin of the order. The
+/// load-order comparison canonicalizes both sides, but a UNC path canonicalizes to
+/// `\?\UNC\...`, never equal to the `\?\C:\...` of the loaded path, so neither the A6
+/// check (`hits`) nor `guard_target` sees a load-order plugin. Skipped when the local
+/// admin share is not reachable.
+#[cfg(windows)]
+#[test]
+#[ignore = "review finding (pre-existing, not A6): guard_target misses a load-order plugin named by a UNC admin-share path; proposal: compare by file identity (volume serial + file index) as well as by canonical path"]
+fn a_unc_spelling_of_a_loaded_plugin_is_refused() {
+    let (d, data, active) = scratch("review-unc");
+    let engine = loaded(&data, &order(&active));
+    let over = data.join("Override.esp");
+    let before = bytes(&over);
+    let canon = std::fs::canonicalize(&over).unwrap().display().to_string();
+    let plain = canon.trim_start_matches(r"\\?\").to_string();
+    let Some(rest) = plain.strip_prefix(r"C:\") else {
+        return;
+    };
+    let unc = PathBuf::from(format!(r"\\localhost\C$\{rest}"));
+    if !unc.is_file() {
+        return;
+    }
+    for flag in [false, true] {
+        // OldRifle's winner is the active file, so the writer's own-master check does not
+        // stand in for the guard here.
+        let got = set_full(&engine, "Source.esm:000800", "ViaUnc", &unc, flag, false);
+        assert!(
+            got.is_err(),
+            "flag {flag}: Override.esp written through {}: {got:?}",
+            unc.display()
+        );
+        let mut args =
+            json!({"type": "GLOB", "edid": "KkViaUnc", "into": unc.display().to_string()});
+        if flag {
+            args["active_file"] = json!(true);
+        }
+        let got = engine.execute("new", args);
+        assert!(
+            got.is_err(),
+            "flag {flag}: `new` wrote Override.esp: {got:?}"
+        );
+    }
+    assert_eq!(bytes(&over), before, "Override.esp changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
