@@ -2014,3 +2014,339 @@ fn regrade_game_20261103_08_t10() {
     }
     assert_eq!(got, want);
 }
+
+// ------------------------------------------------- fix review of 2bc0e967 (owner review M1)
+// Independent reviewer's probes. Each asserts the defensible grade; one red on 2bc0e967 is
+// marked `ignore` with the reason (run with `--ignored`).
+
+/// FR1: the late failure lands in a later step of its own row whose getter got no line of
+/// its own (only the failure), and the getter's line arrives in the next row's reply. The
+/// row must not go back to `pass` (PB6 inside one row).
+#[test]
+fn fr1_a_late_failure_in_its_own_rows_waiting_getter_reply_is_not_undone() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "getpos x",
+        "getpos x\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.",
+    );
+    c.answer(
+        "getpos y",
+        "getpos y\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr1",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR1 {v:?}");
+}
+
+/// FR2: a failure line that names no item (`Save file not found.`) arrives late, in the
+/// next row's getter reply, before T-01's own late `GetPos: X` line. Only T-01 sent a
+/// `load`, so the line is T-01's whatever the order of replies. It stays with T-02's
+/// reply: T-02 fails on T-01's line, and T-01, whose `load` found no save, is graded `pass`
+/// on the late getter line (the 2026-11-01-T03 case, late).
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an itemless failure line stays with the reply it arrived in)"]
+fn fr2_a_late_itemless_failure_line_does_not_leave_its_row_a_pass() {
+    let c = console();
+    c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
+    c.answer("getpos x", "getpos x");
+    c.answer(
+        "getpos y",
+        "getpos y\nSave file not found.\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr2",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("load {save}", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR2 {v:?}");
+    assert!(!v[1].starts_with("fail"), "FR2 {v:?}");
+}
+
+/// FR3: the failing command names its item only as a reference prefix
+/// (`09001007.disable`), so `names_item` does not see it; the late failure (ahead of
+/// T-01's own late getter line) stays with the next row's reply and T-01 is graded `pass`.
+/// Whether the console quotes a bad prefix this way is not observed; the shape is the
+/// correlator's, not the game's.
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an item spelled as `<ref>.` is not a word of the command)"]
+fn fr3_a_late_failure_for_a_reference_prefix_does_not_leave_its_row_a_pass() {
+    let c = console();
+    c.answer("09001007.disable", "09001007.disable");
+    c.answer("getpos x", "getpos x");
+    c.answer(
+        "getpos y",
+        "getpos y\nItem '09001007' not found for parameter ObjectReferenceID.\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr3",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("09001007.disable", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR3 {v:?}");
+}
+
+/// FR4: PB8 in the generated testplan's shape (T10's T-09 and T-10 both start with
+/// `prid 09001007`), with no answered request between: T-09's `getdistance` answers only
+/// its echo (three sends), and T-10's own `prid` reply holds the failure line and then
+/// T-09's late `GetDistance` line. In send order the failure can only be T-09's (or
+/// T-10's, if replies are not in order); it stays with T-10 (fail) and T-09 is graded
+/// `pass` on its late getter line.
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (PB8: a late failure in a reply that spells its own item)"]
+fn fr4_pb8_in_the_testplan_shape_two_requests_late() {
+    let c = console();
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.\nGetDistance >> 0.44",
+            "prid 09001007\nCommand: prid 09001007",
+        ],
+    );
+    c.answer(
+        "getdistance player",
+        "getdistance player\nCommand: getdistance player",
+    );
+    c.answer(
+        "getisid 09001004",
+        "getisid 09001004\nCommand: getisid 09001004\nGetIsID >> 1.00",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "fr4",
+        &c,
+        vec![
+            probe(
+                "T-09",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step(
+                        "getdistance player",
+                        Some(Matcher::Number),
+                        "0",
+                        Some(500.0),
+                    ),
+                ],
+            ),
+            probe(
+                "T-10",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getisid 09001004", Some(Matcher::Regex), re, None),
+                ],
+            ),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR4 {v:?}");
+}
+
+/// FR5 (well-behaved): every reply on time and in order, the same `prid` in three rows and
+/// a `help` row spelling it, and one row's own failure in its own reply. Only that row
+/// fails; nothing is re-opened.
+#[test]
+fn fr5_on_time_replies_grade_as_before() {
+    let c = console();
+    c.answer(
+        "help 09001007",
+        "help 09001007 4\nREFR: KitKraftCrate (09001007)",
+    );
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.",
+            "prid 09001007\nCommand: prid 09001007",
+        ],
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    c.answer("getpos z", "getpos z\nGetPos: Z >> 4.63");
+    let (v, _) = rx_run(
+        "fr5",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "help 09001007 4",
+                Matcher::Contains,
+                "09001007",
+                None,
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-03",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-04",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos z", Some(Matcher::Number), "4.63", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "FR5 {v:?}");
+    assert_eq!(v[1], "pass", "FR5 {v:?}");
+    assert!(v[2].starts_with("fail"), "FR5 {v:?}");
+    assert_eq!(v[3], "pass", "FR5 {v:?}");
+}
+
+/// FR6: one late failure, carried again by every retry of the getter it arrived with, and
+/// two candidates. Neither candidate keeps `pass`; the carrying row is not failed.
+#[test]
+fn fr6_a_repeated_late_failure_in_retries_reopens_each_candidate() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer("player.moveto KitKraftCrate", "player.moveto KitKraftCrate");
+    c.answer(
+        "getpos y",
+        "getpos y\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "fr6",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("player.moveto KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-03", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive"), "FR6 {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "FR6 {v:?}");
+    assert!(!v[2].starts_with("fail") && v[2] != "pass", "FR6 {v:?}");
+}
+
+/// FR7: a late failure for T-01 arrives in the reply of T-02's non-keyed step (`coc`),
+/// merged with T-02's own on-time failure for another item. T-02 fails on its own line;
+/// T-01 is re-opened.
+#[test]
+fn fr7_two_failure_lines_in_one_reply_go_their_own_ways() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.\nItem 'KitKraftCell' not found for parameter Cell.",
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    let (v, _) = rx_run(
+        "fr7",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("coc KitKraftCell", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive (late failure"), "FR7 {v:?}");
+    assert!(v[1].starts_with("fail"), "FR7 {v:?}");
+}
+
+/// FR8 (on time): T-02's own failure arrives in its own reply, but T-02 spells the item
+/// only as a reference prefix (`09001007.disable`) and T-01 spells it as a word. The line
+/// is routed to T-01 and taken out of what T-02 is judged on (the `routed.failures` arm
+/// 2bc0e967 adds): T-02's true fail becomes inconclusive. Not a false pass; a lost fail.
+#[test]
+fn fr8_an_on_time_failure_spelled_as_a_reference_prefix_is_not_a_pass() {
+    let c = console();
+    c.answer("prid 09001007", "prid 09001007");
+    c.answer(
+        "09001007.disable",
+        "09001007.disable\nItem '09001007' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "fr8",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![step("09001007.disable", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[1], "pass", "FR8 {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "FR8 {v:?}");
+}
