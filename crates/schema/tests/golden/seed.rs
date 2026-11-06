@@ -206,7 +206,7 @@
 // - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
 // - STMP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official STMP record (696) decodes with every subrecord placed and re-encodes identically; corpus)
-// - STND (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STND record (183) decodes with every subrecord placed and re-encodes identically; corpus)
+// - STND (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062; reference)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TERM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
@@ -88109,34 +88109,121 @@ impl StmpRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct StndFlags(pub u32);
+
+impl StndFlags {
+    pub const SNAPS_TO_SELF: u32 = 0x1;
+    pub const IS_HINGE: u32 = 0x2;
+    pub const DISPLAY_NODE: u32 = 0x4;
+    pub const RUN_BEHAVIORS_WHEN_NOT_SNAPPED: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for StndFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for StndFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StndStairwayType {
+    None,
+    Upstairs,
+    Downstairs,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl StndStairwayType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Upstairs,
+            2 => Self::Downstairs,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Upstairs => 1,
+            Self::Downstairs => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for StndStairwayType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for StndStairwayType {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StndRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
+    /// `SNBH`, optional.
+    pub snap_behavior: Option<Sub<FormId>>,
+    /// `DEFL`, optional.
+    pub default_layer: Option<Sub<FormId>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
-    /// `MODL`, optional.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
+    pub color: Option<Sub<ColorRgba>>,
     /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<StndFlags>>,
     /// `SNST`, required.
-    pub snst: Option<Sub<Bytes>>,
+    pub stairway_type: Option<Sub<StndStairwayType>>,
     /// `NNAM`, repeated.
-    pub nnam: Vec<Sub<Bytes>>,
-    /// `FLTV`, repeated.
-    pub fltv: Vec<Sub<Bytes>>,
+    pub adjacent_snap_nodes: Vec<Sub<FormId>>,
+    /// `FLTV`, required.
+    pub min: Option<Sub<f32>>,
+    /// `FLTV`, required.
+    pub max: Option<Sub<f32>>,
+    /// `FLTV`, required.
+    pub step: Option<Sub<f32>>,
     /// `ANAM`, optional.
-    pub anam: Option<Sub<Bytes>>,
+    pub art_object: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -88152,6 +88239,10 @@ impl StndRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -88159,17 +88250,37 @@ impl StndRecord {
             sig: *b"ODTY",
             card: Card::Required,
         },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNBH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DEFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
             members: BfcbBlock::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"MODL",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FLLD",
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -88193,7 +88304,15 @@ impl StndRecord {
         },
         MemberDesc::Sub {
             sig: *b"FLTV",
-            card: Card::Repeated,
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTV",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTV",
+            card: Card::Required,
         },
         MemberDesc::Sub {
             sig: *b"ANAM",
@@ -88214,44 +88333,110 @@ impl StndRecord {
                     put(&mut self.editor_id, subs, *index, "STND.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "STND.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "STND.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "STND.ODTY", ctx, extra)
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "STND.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "STND.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "STND.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "STND.PTT2", ctx, extra)
                 }
-                Hit::Group { member: 3, hits } => {
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "STND.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.snap_behavior,
+                    subs,
+                    *index,
+                    "STND.SNBH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.default_layer,
+                    subs,
+                    *index,
+                    "STND.DEFL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "STND.XALG", ctx, extra)
+                }
+                Hit::Group { member: 10, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.modl, subs, *index, "STND.MODL", ctx, extra)
+                Hit::Group { member: 11, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.flld, subs, *index, "STND.FLLD", ctx, extra)
-                }
-                Hit::Group { member: 6, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 12, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.cnam, subs, *index, "STND.CNAM", ctx, extra)
+                Hit::Sub { member: 13, index } => {
+                    put(&mut self.color, subs, *index, "STND.CNAM", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.fnam, subs, *index, "STND.FNAM", ctx, extra)
+                Hit::Sub { member: 14, index } => {
+                    put(&mut self.flags, subs, *index, "STND.FNAM", ctx, extra)
                 }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.snst, subs, *index, "STND.SNST", ctx, extra)
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.stairway_type,
+                    subs,
+                    *index,
+                    "STND.SNST",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => push(
+                    &mut self.adjacent_snap_nodes,
+                    subs,
+                    *index,
+                    "STND.NNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.min, subs, *index, "STND.FLTV", ctx, extra)
                 }
-                Hit::Sub { member: 10, index } => {
-                    push(&mut self.nnam, subs, *index, "STND.NNAM", ctx, extra)
+                Hit::Sub { member: 18, index } => {
+                    put(&mut self.max, subs, *index, "STND.FLTV", ctx, extra)
                 }
-                Hit::Sub { member: 11, index } => {
-                    push(&mut self.fltv, subs, *index, "STND.FLTV", ctx, extra)
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.step, subs, *index, "STND.FLTV", ctx, extra)
                 }
-                Hit::Sub { member: 12, index } => {
-                    put(&mut self.anam, subs, *index, "STND.ANAM", ctx, extra)
+                Hit::Sub { member: 20, index } => {
+                    put(&mut self.art_object, subs, *index, "STND.ANAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -88260,44 +88445,88 @@ impl StndRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"SNBH", self.snap_behavior.as_ref());
+        emit(out, *b"DEFL", self.default_layer.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"SNST", self.snst.as_ref());
-        for value in &self.nnam {
+        emit(out, *b"CNAM", self.color.as_ref());
+        emit(out, *b"FNAM", self.flags.as_ref());
+        emit(out, *b"SNST", self.stairway_type.as_ref());
+        for value in &self.adjacent_snap_nodes {
             emit(out, *b"NNAM", Some(value));
         }
-        for value in &self.fltv {
-            emit(out, *b"FLTV", Some(value));
-        }
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"FLTV", self.min.as_ref());
+        emit(out, *b"FLTV", self.max.as_ref());
+        emit(out, *b"FLTV", self.step.as_ref());
+        emit(out, *b"ANAM", self.art_object.as_ref());
     }
 }
 
 impl Visit for StndRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "STND.PTT2", out);
+        visit_form_ids(&self.snap_template, "STND.SNTP", out);
+        visit_form_ids(&self.snap_behavior, "STND.SNBH", out);
+        visit_form_ids(&self.default_layer, "STND.DEFL", out);
         visit_form_ids(&self.bfcb_block, "STND.BfcbBlock", out);
+        visit_form_ids(&self.model, "STND.Model", out);
         visit_form_ids(&self.keywords, "STND.Keywords", out);
+        visit_form_ids(&self.adjacent_snap_nodes, "STND.NNAM", out);
+        visit_form_ids(&self.art_object, "STND.ANAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "STND.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "STND.SNTP", out);
+        visit_form_ids_mut(&mut self.snap_behavior, "STND.SNBH", out);
+        visit_form_ids_mut(&mut self.default_layer, "STND.DEFL", out);
         visit_form_ids_mut(&mut self.bfcb_block, "STND.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "STND.Model", out);
         visit_form_ids_mut(&mut self.keywords, "STND.Keywords", out);
+        visit_form_ids_mut(&mut self.adjacent_snap_nodes, "STND.NNAM", out);
+        visit_form_ids_mut(&mut self.art_object, "STND.ANAM", out);
     }
 }
 
 impl StndRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"STND";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+    /// Record-header flag.
+    pub const FLAG_MUST_BE_UNIQUE: u32 = 0x80000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

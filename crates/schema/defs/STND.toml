@@ -1,175 +1,198 @@
-# STND: SnapTemplateNode, inventory definition (KK-104).
+# STND: SnapTemplateNode, a node of a snap template: a placement target that other
+# snap nodes can be snapped to, with an optional hinge behaviour, a stairway type,
+# a min/max/step angle range and an art object.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-104 scan of every official STND record (183 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the STND definition of wbDefinitionsSF1.pas at the pinned revision (L18008-L18062),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18008-L18062 - member order, the record flags,
+#     FNAM and its bits, SNST, NNAM and the Angles block (three FLTV floats). Helpers:
+#     script data (L3407-L3411, kept raw), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2 (L3965-L3978),
+#     SNTP/SNBH (L3919-L3920), DEFL (L3963), XALG (L3230), the base form component block
+#     (L5984-L6832, kept raw), the generic model (L7008-L7029), keywords
+#     (wbDefinitionsCommon.pas L8935-L8951), the byte RGBA colour (wbDefinitionsCommon.pas
+#     L7018-L7033).
+#   corpus: the official STND records checked by stnd_types_full in
+#     crates/esm/tests/stnd_types.rs: every subrecord is placed, every placed subrecord
+#     decodes, and the re-encoding reproduces every record.
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID, the keyword list and the component block frame are typed; every other
-# payload is opaque (named after its signature, a placeholder) until a family lane
-# transcribes the record from the pinned xEdit file (docs/gaps.md). Members xEdit lists
-# that no official record has are left out; a plugin that has one keeps it raw.
 # Inside component blocks (kept raw by BfcbBlock): FLTR INTV.
 signature = "STND"
 name = "SnapTemplateNode"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STND record (183) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+  ["MustBeUnique", 0x80000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-104): corpus order and cardinality; EDID, keywords and component frames typed, every other payload opaque"
+note = "transcribed from the pinned xEdit file (KK-235); the members no official STND record has are listed at reference confidence"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 18..69 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18026-L18026",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18026-L18026"]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw; not present in the official STND records"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 24 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18028-L18028",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 24 bytes"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18029-L18029",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official STND records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+confidence = "reference"
+note = "not present in the official STND records"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official STND records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official STND records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official STND records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official STND records"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 21 of 183 official STND records (21 occurrences), 32 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18036-L18036",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
 note = "base form components; the component data stays raw"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 181 of 183 official STND records (181 occurrences), 32..98 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18037-L18037",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 32..98 bytes"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 57 of 183 official STND records (57 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18038-L18038",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18039-L18039",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+name = "Color"
+type = "ref:ColorRgba"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033"]
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18040-L18040",
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["SnapsToSelf", 0x1],
+  ["IsHinge", 0x2],
+  ["DisplayNode", 0x4],
+  ["RunBehaviorsWhenNotSnapped", 0x8],
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18040-L18047"]
 
 [[member]]
 sig = "SNST"
-name = "Snst"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (183 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18048-L18048",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+name = "StairwayType"
+type = "enum"
+base = "u32"
+values = [["None", 0], ["Upstairs", 1], ["Downstairs", 2]]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18048-L18053"]
 
 [[member]]
 sig = "NNAM"
-name = "Nnam"
-type = "opaque"
+name = "AdjacentSnapNodes"
+type = "formid"
+targets = ["STND"]
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 96 of 183 official STND records (343 occurrences, up to 10 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18055-L18055",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18054-L18055"]
 
 [[member]]
 sig = "FLTV"
-name = "Fltv"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 183 of 183 official STND records (549 occurrences, up to 3 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18057-L18059",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+name = "Min"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18056-L18060"]
+note = "the Angles block's minimum angle"
+
+[[member]]
+sig = "FLTV"
+name = "Max"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18056-L18060"]
+note = "the Angles block's maximum angle"
+
+[[member]]
+sig = "FLTV"
+name = "Step"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18056-L18060"]
+note = "the Angles block's step angle"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "ArtObject"
+type = "formid"
+targets = ["ARTO"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 60 of 183 official STND records (60 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18061-L18061",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18061-L18061"]
