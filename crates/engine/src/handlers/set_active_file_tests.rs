@@ -840,7 +840,6 @@ fn flag_master_on_disk(p: &Path) {
 /// (another tool) before the write. The exemption is decided on the loaded header, so the
 /// write goes ahead into a file that is now master-flagged.
 #[test]
-#[ignore = "re-review finding RR-L1: guard_output reads the master flag from the loaded header, not the file on disk at write time; proposal: the writer (or guard_output) re-reads the target's TES4 flags from disk and refuses a master flag when in_place"]
 fn a_master_flag_set_on_disk_after_the_load_is_refused() {
     let (d, data, active) = scratch("rr-flag-race");
     let engine = loaded(&data, &order(&active));
@@ -979,7 +978,6 @@ fn a_same_name_up_to_unicode_case_never_merges_the_two_files() {
 /// at its old offset have (EDID). The write must refuse (the file changed since the load),
 /// not edit whatever record now sits at the old offset.
 #[test]
-#[ignore = "re-review finding RR-M1: a session reads the active file at offsets from the load even after another tool rewrote it; set then edits the record now at that offset (here the other tool's GLOB) and reports it as the intended form; proposal: before an in-place write, refuse when the active file's size/mtime differ from the load's (load it again)"]
 fn a_stale_offset_never_edits_another_record() {
     let (d, data, active) = scratch("rr-stale-edid");
     let engine = loaded(&data, &order(&active));

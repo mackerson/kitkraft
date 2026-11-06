@@ -308,7 +308,9 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    readable and has no master flag (A6 review, M1: a master-flagged file is not
 ///    exempt; the owner has not ruled on whether one of their own may be), and no other
 ///    loaded plugin has its file name (A6 review, L1);
-/// 4. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
+/// 4. the file on disk is still the one loaded: same size, modification time and `TES4`
+///    flags (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]);
+/// 5. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
 ///    through a link), which `guard_target` still runs, unrelaxed.
 ///
 /// Every other plugin of the load order stays protected. Returns the active file's path as
@@ -377,6 +379,7 @@ pub(crate) fn guard_output(
         }
         Some(_) => {}
     }
+    unchanged_on_disk(command, plugin)?;
     if let Some(p) = loaded
         .lo
         .plugins
@@ -404,6 +407,55 @@ pub(crate) fn guard_output(
     let others: Vec<PathBuf> = all.into_iter().take(last).collect();
     guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
     Ok(Some(path))
+}
+
+/// Refuses the exemption when the active file on disk is not the file the session loaded
+/// (A6 re-review, RR-M1 and RR-L1): its size or modification time differ from the index's,
+/// or its `TES4` flags differ from the loaded header's (or now carry the master flag).
+/// Another tool rewrote it, so the session's offsets may name other records: it must be
+/// loaded again. The session's own writes re-read the load order ([`reload`]), so they
+/// never trip this.
+fn unchanged_on_disk(
+    command: &str,
+    plugin: &kitkraft_doc::LoadedPlugin,
+) -> Result<(), EngineError> {
+    use std::io::Read;
+    let changed = |why: String| {
+        failed(
+            command,
+            format!(
+                "{command}.active-file-changed: {} changed on disk since it was loaded ({why}); load it again before writing to it",
+                plugin.path.display()
+            ),
+        )
+    };
+    let index = plugin
+        .index
+        .as_deref()
+        .ok_or_else(|| changed("it has no index".to_string()))?;
+    let (size, mtime_ns) = kitkraft_doc::index::file_stamp(&plugin.path)
+        .map_err(|e| changed(format!("it cannot be read: {e}")))?;
+    if size != index.size {
+        return Err(changed(format!(
+            "{size} bytes now, {} when loaded",
+            index.size
+        )));
+    }
+    if index.mtime_ns != 0 && mtime_ns != index.mtime_ns {
+        return Err(changed("its modification time differs".to_string()));
+    }
+    let mut head = [0u8; 12];
+    File::open(&plugin.path)
+        .and_then(|mut f| f.read_exact(&mut head))
+        .map_err(|e| changed(format!("its header cannot be read: {e}")))?;
+    let flags = head
+        .get(8..12)
+        .and_then(|b| <[u8; 4]>::try_from(b).ok())
+        .map(u32::from_le_bytes);
+    if head.get(0..4) != Some(b"TES4".as_slice()) || flags != Some(index.header.flags.0) {
+        return Err(changed("its TES4 header differs".to_string()));
+    }
+    Ok(())
 }
 
 /// Reads the session's load order again after a write into its last plugin (the active

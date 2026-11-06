@@ -132,7 +132,8 @@ M6.G1 and M6.G3):
   it is loaded, but only as the last plugin of a `plugins` load order (not one read from
   a profile), never an official master, never under Data, My Games or MO2 (A6, owner
   decision 2026-11-05; `docs/mcp.md`, `set`). A master-flagged file is not exempt; the
-  owner has not ruled on it. `place`, `build` and `revert` still refuse a loaded active
+  owner has not ruled on it. If another tool changed the active file on disk since it was
+  loaded, the engine refuses the write until the order is loaded again. `place`, `build` and `revert` still refuse a loaded active
   file, saying they do not yet write one.
 
   The `build` and `revert` rows land with E's branch (M7.E5, M7.E6): until it merges, both
