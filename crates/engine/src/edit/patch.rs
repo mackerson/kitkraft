@@ -317,6 +317,12 @@ pub struct PatchOptions<'a> {
     /// Copy 4-byte subrecords of unknown layout from a localized source as stored (each
     /// named in a limitation) instead of refusing (module docs, "Non-localized").
     pub allow_untyped_lstrings: bool,
+    /// The target is the editor's active file, loaded as the last plugin of the load order
+    /// at this path and exempted from `protected` by the caller (A6, owner decision
+    /// 2026-11-05 item 7): a copy read from that very file (its own version, matched by
+    /// path, not by name) is edited in place when the source's master list is a prefix of
+    /// the target's, instead of being refused as "its own master". `None` everywhere else.
+    pub in_place: Option<PathBuf>,
 }
 
 /// One lstring written inline in place of a string ID.
@@ -777,6 +783,22 @@ pub fn write_patch_with(
                     }
                     masters.push(name);
                 }
+            }
+            continue;
+        }
+        let own = options.in_place.as_ref().is_some_and(|active| {
+            copy.source.name.eq_ignore_ascii_case(&target_name)
+                && same_identity(&copy.source.path, active)
+        });
+        if own {
+            // The active file's own version (A6): its FormIDs are already in the target's
+            // space when the target still has the masters the loaded version had.
+            if !is_prefix(&copy.source.masters, &masters) {
+                return Err(refused(format!(
+                    "{target_name} as loaded names the masters [{}], the file now [{}]; load it again",
+                    copy.source.masters.join(", "),
+                    masters.join(", ")
+                )));
             }
             continue;
         }
@@ -1595,6 +1617,27 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
             )))
         }
     }
+    let (abs_target, hits) = load_order_matches(target, protected)?;
+    if !hits.is_empty() {
+        return Err(refused(format!(
+            "{} is a plugin of the load order; a patch is always a separate file",
+            target.display()
+        )));
+    }
+    guard_resolved(target, &abs_target)
+}
+
+/// The load-order comparison [`guard_target`] makes, for callers that decide on the
+/// matches themselves (the A6 active-file exemption, `handlers::set::guard_output`):
+/// runs the spelling, link and resolved-network refusals on `target` ([`resolved_output`]),
+/// refuses while any `protected` entry is named through a network path, then returns the
+/// resolved target and the indexes of the `protected` entries with its identity
+/// ([`identity_key`]: resolved, `\\?\` stripped, case-insensitive on Windows). Never a
+/// spelling comparison.
+pub(crate) fn load_order_matches(
+    target: &Path,
+    protected: &[PathBuf],
+) -> Result<(PathBuf, Vec<usize>), PatchError> {
     // The spelling and link refusals run first, so the canonicalization behind the
     // comparison never follows a link and never sees a network or device spelling.
     let abs_target = resolved_output(target)?;
@@ -1610,15 +1653,19 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
         }
     }
     let key = identity_key(&abs_target);
-    for p in protected {
-        if identity_key(&absolute(p)) == key {
-            return Err(refused(format!(
-                "{} is a plugin of the load order; a patch is always a separate file",
-                target.display()
-            )));
-        }
-    }
-    guard_resolved(target, &abs_target)
+    let hits = protected
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| identity_key(&absolute(p)) == key)
+        .map(|(i, _)| i)
+        .collect();
+    Ok((abs_target, hits))
+}
+
+/// Whether two plugin paths name the same file by [`identity_key`] (the A6 writer's match
+/// of a copy's source against the active file as loaded).
+pub(crate) fn same_identity(a: &Path, b: &Path) -> bool {
+    identity_key(&absolute(a)) == identity_key(&absolute(b))
 }
 
 /// Refuses any output file (a plugin, or a spec `overhaul.scaffold` writes) that is not

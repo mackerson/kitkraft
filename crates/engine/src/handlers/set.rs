@@ -23,7 +23,8 @@ use super::{failed, str_arg};
 use crate::args::Violation;
 use crate::edit::fields::{parse_op, parse_path};
 use crate::edit::patch::{
-    guard_target, write_patch_with, Copy, Edit, NewRef, PatchError, PatchOptions, PatchReport,
+    guard_target, load_order_matches, write_patch_with, Copy, Edit, NewRef, PatchError,
+    PatchOptions, PatchReport,
 };
 use crate::edit::source::{placement_at, SourcePlugin};
 use crate::edit::strings::TableStrings;
@@ -251,7 +252,278 @@ pub(crate) fn protected(loaded: &Loaded) -> Vec<PathBuf> {
 /// load-order plugin, the game or user Data directory, an MO2 instance), before anything
 /// is staged.
 pub(crate) fn guard(command: &str, loaded: &Loaded, out: &Path) -> Result<(), EngineError> {
-    guard_target(out, &protected(loaded)).map_err(|e| failed(command, e.to_string()))
+    let all = protected(loaded);
+    // Matched by resolved identity, after the spelling and network-order refusals
+    // (`load_order_matches`, as `guard_target` matches).
+    let (_, hits) = load_order_matches(out, &all).map_err(|e| failed(command, e.to_string()))?;
+    if !hits.is_empty() {
+        // `place`, `build` and `revert` (A6 review, L3): only `set`, `new` and `clone`
+        // write a loaded active file.
+        return Err(failed(
+            command,
+            format!(
+                "{} is a plugin of the load order: `{command}` does not yet write to a loaded active file (only `set`, `new` and `clone` do, with `active_file: true`); unload it, or write another file",
+                out.display()
+            ),
+        ));
+    }
+    guard_target(out, &all).map_err(|e| failed(command, e.to_string()))
+}
+
+/// Whether the request names its output as the editor's active file (`active_file: true`;
+/// `set`, `new` and `clone` only, ADR 0007 Amendment 4, owner decision 2026-11-05 item 7).
+pub(crate) fn active_file_arg(args: &Value) -> bool {
+    args.get("active_file").and_then(Value::as_bool) == Some(true)
+}
+
+/// An official master by name: one of the game's official order
+/// (`kitkraft_io::plan::OFFICIAL_ORDER`), or any `Starfield.esm`, `Constellation.esm`,
+/// `OldMars.esm`, `ShatteredSpace.esm`, `BlueprintShips-*.esm` or `SFBGS*.esm` (the rule
+/// the workbench gate applies, ADR 0007 Amendment 4), compared without case.
+pub(crate) fn official_master(name: &str) -> bool {
+    let n = name.trim().to_ascii_lowercase();
+    let esm = n.ends_with(".esm");
+    kitkraft_io::plan::OFFICIAL_ORDER
+        .iter()
+        .any(|o| o.eq_ignore_ascii_case(&n))
+        || matches!(
+            n.as_str(),
+            "starfield.esm" | "constellation.esm" | "oldmars.esm" | "shatteredspace.esm"
+        )
+        || (esm && (n.starts_with("blueprintships-") || n.starts_with("sfbgs")))
+}
+
+/// [`guard`] for `set`, `new` and `clone` (A6, owner decision 2026-11-05 item 7). Without
+/// `active` it is [`guard`]. With `active` (the request says `out` is the editor's active
+/// file), `out` alone is taken off the protected list when it is a plugin of the load order
+/// and all of these hold, so the editor can keep writing to the active file once it is
+/// loaded:
+///
+/// 1. the load order came from an explicit `plugins` list, not an MO2 profile (a profile's
+///    plugins live in Data or MO2, which `guard_location` refuses anyway; this holds even
+///    where an MO2 keeps its mods elsewhere);
+/// 2. `out` is in the load order once, as its **last** plugin (its own winner: no later
+///    plugin hides the edit), and no loaded plugin names it as a master; "is" means the
+///    same resolved identity as `guard_target` compares (`load_order_matches`: canonical as
+///    far as it exists, `\\?\` stripped, case-insensitive), never the same spelling, and
+///    `out`'s network, verbatim, device and stream spellings, and a load order with any
+///    plugin named through a network path, are refused before any exemption; `out` must
+///    also exist and canonicalize to exactly the last plugin's canonical path (a target
+///    that does not fully resolve, such as a new `patch.esp` beside `Patch.esp` in a
+///    case-sensitive folder, is refused, never exempted);
+/// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
+///    readable and has no master flag (A6 review, M1: a master-flagged file is not
+///    exempt; the owner has not ruled on whether one of their own may be), and no other
+///    loaded plugin has its file name (A6 review, L1);
+/// 4. the file on disk is still the one loaded: same size, modification time and `TES4`
+///    flags (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]);
+/// 5. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
+///    through a link), which `guard_target` still runs, unrelaxed.
+///
+/// Every other plugin of the load order stays protected. Returns the active file's path as
+/// loaded when the exemption was used (the write is then in place: [`write_with`]'s
+/// `in_place`, and the session's load order is read again after the write, [`reload`]).
+pub(crate) fn guard_output(
+    command: &str,
+    loaded: &Loaded,
+    out: &Path,
+    active: bool,
+) -> Result<Option<PathBuf>, EngineError> {
+    let all = protected(loaded);
+    if !active {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(None);
+    }
+    // The same comparison `guard_target` makes (unc-guard): `out`'s non-local spellings,
+    // links and network resolution, and any load-order entry named through a network
+    // path, are refused before any exemption; the entries `out` matches are those with its
+    // resolved identity (`identity_key`), never a spelling comparison.
+    let (_, hits) = load_order_matches(out, &all).map_err(|e| failed(command, e.to_string()))?;
+    if hits.is_empty() {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(None);
+    }
+    let refuse = |why: String| {
+        failed(
+            command,
+            format!(
+                "{} is a plugin of the load order and cannot be written as the active file: {why}",
+                out.display()
+            ),
+        )
+    };
+    if loaded.source != "plugins" {
+        return Err(refuse(format!(
+            "the load order was read from an MO2 profile ({}); the active file is exempt only in a load order given as `plugins`",
+            loaded.source
+        )));
+    }
+    let last = all.len().saturating_sub(1);
+    if hits != [last] {
+        return Err(refuse(
+            "only the last plugin of the load order can be the active file (a later plugin would hide the edit, or depend on it)"
+                .to_string(),
+        ));
+    }
+    // The identity key keeps the caller's spelling (lowercased) for a part that does not
+    // exist, so in a case-sensitive folder a new `patch.esp` keys like a loaded
+    // `Patch.esp`. Exempt only a target that exists and fully resolves to the last
+    // plugin's own file (exact canonical paths); anything else is left to `guard_target`,
+    // which refuses it on the safe side (A6 review, unc-guard rebase item 2).
+    let same_file = all.get(last).is_some_and(|p| {
+        matches!(
+            (std::fs::canonicalize(out), std::fs::canonicalize(p)),
+            (Ok(a), Ok(b)) if a == b
+        )
+    });
+    if !same_file {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(None);
+    }
+    let name = super::file_name(out);
+    if official_master(&name) {
+        return Err(refuse(format!("{name} is an official master")));
+    }
+    let plugin = loaded
+        .lo
+        .plugins
+        .get(last)
+        .ok_or_else(|| refuse("it is not in the load order".to_string()))?;
+    match plugin.header() {
+        None => {
+            return Err(refuse(format!(
+                "its header could not be read ({})",
+                plugin.error.as_deref().unwrap_or("no TES4")
+            )))
+        }
+        Some(h) if h.flags.master() => {
+            return Err(refuse(format!(
+                "{name} has the master flag; a master-flagged file is not exempt (the owner has not ruled on it)"
+            )))
+        }
+        Some(_) => {}
+    }
+    unchanged_on_disk(command, plugin)?;
+    if let Some(p) = loaded
+        .lo
+        .plugins
+        .iter()
+        .take(last)
+        .find(|p| p.name.eq_ignore_ascii_case(&name))
+    {
+        return Err(refuse(format!(
+            "another plugin of the load order has the same file name ({})",
+            p.path.display()
+        )));
+    }
+    // A plugin listing it as a master (loaded before it: an ordering error) would see
+    // its FormIDs change meaning.
+    if let Some(p) = loaded
+        .lo
+        .plugins
+        .iter()
+        .take(last)
+        .find(|p| p.masters.iter().any(|m| m.name.eq_ignore_ascii_case(&name)))
+    {
+        return Err(refuse(format!("{} names {name} as a master", p.name)));
+    }
+    let path = plugin.path.clone();
+    let others: Vec<PathBuf> = all.into_iter().take(last).collect();
+    // Every entry, `out`'s own included, was network-checked by `load_order_matches`
+    // above; this repeats `guard_target`'s refusals for the other plugins only.
+    guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
+    Ok(Some(path))
+}
+
+/// Refuses the exemption when the active file on disk is not the file the session loaded
+/// (A6 re-review, RR-M1 and RR-L1): its size or modification time differ from the index's,
+/// or its `TES4` flags differ from the loaded header's (or now carry the master flag).
+/// Another tool rewrote it, so the session's offsets may name other records: it must be
+/// loaded again. The session's own writes re-read the load order ([`reload`]), so they
+/// never trip this.
+fn unchanged_on_disk(
+    command: &str,
+    plugin: &kitkraft_doc::LoadedPlugin,
+) -> Result<(), EngineError> {
+    use std::io::Read;
+    let changed = |why: String| {
+        failed(
+            command,
+            format!(
+                "{command}.active-file-changed: {} changed on disk since it was loaded ({why}); load it again before writing to it",
+                plugin.path.display()
+            ),
+        )
+    };
+    let index = plugin
+        .index
+        .as_deref()
+        .ok_or_else(|| changed("it has no index".to_string()))?;
+    let (size, mtime_ns) = kitkraft_doc::index::file_stamp(&plugin.path)
+        .map_err(|e| changed(format!("it cannot be read: {e}")))?;
+    if size != index.size {
+        return Err(changed(format!(
+            "{size} bytes now, {} when loaded",
+            index.size
+        )));
+    }
+    if index.mtime_ns != 0 && mtime_ns != index.mtime_ns {
+        return Err(changed("its modification time differs".to_string()));
+    }
+    let mut head = [0u8; 12];
+    File::open(&plugin.path)
+        .and_then(|mut f| f.read_exact(&mut head))
+        .map_err(|e| changed(format!("its header cannot be read: {e}")))?;
+    let flags = head
+        .get(8..12)
+        .and_then(|b| <[u8; 4]>::try_from(b).ok())
+        .map(u32::from_le_bytes);
+    if head.get(0..4) != Some(b"TES4".as_slice()) || flags != Some(index.header.flags.0) {
+        return Err(changed("its TES4 header differs".to_string()));
+    }
+    Ok(())
+}
+
+/// Reads the session's load order again after a write into its last plugin (the active
+/// file, [`guard_output`]), so later commands do not read the old bytes through stale
+/// offsets. The load order is the same `plugins` list (each by its path), language, index
+/// cache choice, Data dir and `from_save`. When the reload fails the stale load order is dropped (later
+/// commands then ask for a load) and the returned note says so.
+pub(crate) fn reload(session: &mut Session, command: &str) -> Option<String> {
+    let args = {
+        let loaded = session.get::<Loaded>()?;
+        let mut args = Map::new();
+        let plugins: Vec<Value> = loaded
+            .lo
+            .plugins
+            .iter()
+            .map(|p| json!(p.path.display().to_string()))
+            .collect();
+        args.insert("plugins".into(), Value::Array(plugins));
+        args.insert("language".into(), json!(loaded.language));
+        args.insert("no_cache".into(), json!(loaded.cache_dir.is_none()));
+        if let Some(d) = &loaded.data_dir {
+            args.insert("data_dir".into(), json!(d.display().to_string()));
+        }
+        if let Some(save) = &loaded.from_save {
+            args.insert("from_save".into(), json!(save));
+        }
+        Value::Object(args)
+    };
+    match super::load::load(&args, Some(&*session), command) {
+        Ok((loaded, listing, _)) => {
+            session.set_load_order(Some(listing));
+            session.insert(loaded);
+            None
+        }
+        Err(e) => {
+            session.remove::<Loaded>();
+            session.set_load_order(None);
+            Some(format!(
+                "the load order could not be read again after writing its last plugin ({e}); it was dropped from the session: load it again"
+            ))
+        }
+    }
 }
 
 /// Writes `copies` into `into` with the load order's string tables, protected files and
@@ -270,10 +542,13 @@ pub(crate) fn write(
         copies,
         Vec::new(),
         allow_untyped_lstrings,
+        None,
     )
 }
 
-/// [`write`] with new placed references (`place`, spec v3 `[[place]]`).
+/// [`write`] with new placed references (`place`, spec v3 `[[place]]`). `in_place` (only
+/// after [`guard_output`] exempted the active file; its path as loaded): copies read from
+/// that file, the active file's own versions, are edited in place.
 pub(crate) fn write_with(
     command: &str,
     loaded: &mut Loaded,
@@ -281,6 +556,7 @@ pub(crate) fn write_with(
     copies: Vec<Copy>,
     new_refs: Vec<NewRef>,
     allow_untyped_lstrings: bool,
+    in_place: Option<&Path>,
 ) -> Result<PatchReport, EngineError> {
     let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
@@ -296,6 +572,7 @@ pub(crate) fn write_with(
         plugin_flags,
         limits: DecodeLimits::default(),
         allow_untyped_lstrings,
+        in_place: in_place.map(Path::to_path_buf),
     };
     write_patch_with(into, copies, new_refs, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
@@ -602,7 +879,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let dry_run = super::preview::requested(args);
     let schema = super::load::schema_of(session);
     let loaded = acquire(session, args, ID)?;
-    guard(ID, loaded, &into)?;
+    let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
     let unrelated = safe_source(ID, loaded, g)?;
@@ -631,7 +908,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     // Write into a staged copy of `into`, run the record rules on it (as `build` does),
     // and replace `into` only when the records this call wrote pass.
     let staged = stage(ID, &into, true)?;
-    let mut report = write(ID, loaded, &staged.path, vec![copy], allow_untyped)?;
+    let mut report = write_with(
+        ID,
+        loaded,
+        &staged.path,
+        vec![copy],
+        Vec::new(),
+        allow_untyped,
+        in_place.as_deref(),
+    )?;
     let checked = check(ID, loaded, &staged)?;
     let written: Vec<String> = report
         .records
@@ -699,6 +984,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         if let Some(report) = swap_report {
             obj.insert("swap_overrides".into(), Value::Array(report));
+        }
+    }
+    // The active file is the load order's last plugin: read it again (A6).
+    if in_place.is_some() {
+        if let Some(note) = reload(session, ID) {
+            result.limitations.push(note);
         }
     }
     Ok(result)

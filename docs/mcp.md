@@ -862,8 +862,26 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   (`path-syntax`, `no-subrecord`, `no-member`, `type`, `range`, `opaque`, `formref`,
   `layout`).
 - `into`: the patch, created or updated (`.esm` gets the master flag, `.esp` does not;
-  `.esl` is refused). Never a plugin of the load order, never inside the game Data dir,
-  the user Data dir or an MO2 instance or profile (any depth). The writer rules (masters,
+  `.esl` is refused). Never a plugin of the load order other than the active file (next
+  item), never inside the game Data dir, the user Data dir or an MO2 instance or profile
+  (any depth).
+- `active_file` (default `false`; `set`, `new` and `clone` only): `into` is the editor's
+  active file (ADR 0007 Amendment 4; A6, owner decision 2026-11-05). It may then be a
+  plugin of the load order, and is written in place, only when the load order was given
+  as `plugins` (never read from an MO2 profile), `into` is its **last** plugin (so no
+  later plugin hides the edit), no loaded plugin names it as a master or has its file
+  name, and `into` is not an official master by name and its header is readable. A
+  master-flagged file is not exempt; the owner has not ruled on it. A file changed on
+  disk since it was loaded (size, modification time or `TES4` flags differ) is refused
+  with `<command>.active-file-changed`: load it again first. The location guard is unchanged: never the game Data dir, the user Data dir, My
+  Games, MO2 or a path through a link. Every other plugin of the load order stays
+  refused, and so does `into` without the flag. A version `into` already holds is edited
+  in place (its own record, matched by path, not a copy from itself). After a write the
+  session's load order is read again (same plugins, Data dir, language, cache choice and
+  `from_save`), so later reads see the new bytes (a dry run writes and re-reads
+  nothing). The workbench editor sends it with every `set`, `new` and `clone`; `place`,
+  `build` and `revert` take no such flag and refuse a loaded active file, saying they do
+  not yet write one. The writer rules (masters,
   lstrings inline, remapping, header, scaled sources refused) are in
   `crates/engine/src/edit/patch.rs` and `docs/corpus.md` "Writing rules". The write goes
   to a staged copy, `validate`'s plugin rules run on it, and `into` changes only when the
@@ -1125,8 +1143,9 @@ members (above, under `set`), and leaves `into` untouched.
 
 ### `new`, `clone` (M4.E1)
 
-`new {type, edid, into, fields?, masters?, scripts?}` (`scripts` as `set`'s) and `clone
-{form, edid, into, fields?, plugin?, allow_untyped_lstrings}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
+`new {type, edid, into, fields?, masters?, scripts?, active_file?}` (`scripts` and
+`active_file` as `set`'s) and `clone {form, edid, into, fields?, plugin?,
+allow_untyped_lstrings, active_file?}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
 <into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
 <into>`. A new base form (a type the schema defines that lives in its own top-level
 group; the schema's required members written as zeros or an empty string, each field's

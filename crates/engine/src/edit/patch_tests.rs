@@ -136,6 +136,7 @@ fn options<'a>(lookup: &'a dyn StringLookup, plugins: &[Indexed]) -> PatchOption
         plugin_flags: plugins.iter().map(|p| flags_entry(&p.plugin)).collect(),
         limits: DecodeLimits::default(),
         allow_untyped_lstrings: false,
+        in_place: None,
     }
 }
 

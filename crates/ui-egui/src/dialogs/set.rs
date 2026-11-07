@@ -15,11 +15,14 @@ use serde_json::{json, Map, Value};
 use crate::gate::Request;
 
 /// The preview of writing `fields` (field path -> value, as `set` takes them) of `form`
-/// into `into`, the active file: a dry run, which the gate passes like a read.
+/// into `into`, the active file: a dry run, which the gate passes like a read. It names
+/// `into` as the active file (`active_file: true`), so the engine also writes it once it is
+/// the load order's last plugin (A6, owner decision 2026-11-05 item 7; every other
+/// load-order plugin stays refused).
 pub(crate) fn preview_request(form: &str, fields: &Map<String, Value>, into: &str) -> Request {
     Request::new(
         "set",
-        json!({"form": form, "fields": fields, "into": into, "dry_run": true}),
+        json!({"form": form, "fields": fields, "into": into, "active_file": true, "dry_run": true}),
     )
 }
 
@@ -92,5 +95,71 @@ mod tests {
         assert_eq!(readback.args["form"], json!("00000800"));
         assert!(check(&readback).is_ok());
         assert!(readback_request(&json!({"data": {}}), "x.esp").is_none());
+        // The preview names `into` as the active file (A6); the write keeps it.
+        assert_eq!(preview.args["active_file"], json!(true));
+        assert_eq!(write.args["active_file"], json!(true));
+    }
+
+    /// A6 (owner decision 2026-11-05 item 7) through the gate and the engine, on a scratch
+    /// folder in the OS temp dir: once the active file is loaded as the last plugin, the
+    /// dialog's preview and confirmed write still reach it, and the read-back shows the
+    /// second value; the master is unchanged.
+    #[test]
+    fn a_loaded_active_file_takes_a_second_confirmed_set() {
+        use crate::gate::ReadOnlyEngine;
+        use crate::panels::cockpit::fake_mo2::plugin_bytes;
+
+        struct Scratch(std::path::PathBuf);
+        impl Drop for Scratch {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let scratch = Scratch(
+            std::env::temp_dir().join(format!("kitkraft-ui-set-a6-{}", std::process::id())),
+        );
+        let _ = std::fs::remove_dir_all(&scratch.0);
+        std::fs::create_dir_all(&scratch.0).unwrap();
+        let fixture = scratch.0.join("Fixture.esm");
+        let master = plugin_bytes(&[], 1, &[0x800], 1.5);
+        std::fs::write(&fixture, &master).unwrap();
+        let patch = scratch.0.join("Patch.esp");
+        let into = patch.display().to_string();
+        let engine = ReadOnlyEngine::new();
+        let load = |plugins: Vec<String>| {
+            engine
+                .run(&Request::new(
+                    "load",
+                    json!({"plugins": plugins, "no_cache": true}),
+                ))
+                .unwrap();
+        };
+        let write = |value: f32| {
+            let mut fields = Map::new();
+            fields.insert("FLTV".into(), json!(value));
+            let preview = preview_request("Fixture.esm:000800", &fields, &into);
+            let env = engine.run(&preview).unwrap();
+            assert_eq!(env["data"]["would_write"], json!(true), "{env}");
+            let done = engine.run(&write_request(&preview).unwrap()).unwrap();
+            let back = engine
+                .run(&readback_request(&done, &into).unwrap())
+                .unwrap();
+            let hex: String = value
+                .to_le_bytes()
+                .iter()
+                .map(|b| format!("{b:02X}"))
+                .collect();
+            assert!(back.to_string().contains(&hex), "{back}");
+        };
+        load(vec![fixture.display().to_string()]);
+        write(7.25);
+        // The active file joins the load order, last; the next OK writes it again.
+        load(vec![fixture.display().to_string(), into.clone()]);
+        write(9.5);
+        assert_eq!(
+            std::fs::read(&fixture).unwrap(),
+            master,
+            "the master changed"
+        );
     }
 }

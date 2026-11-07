@@ -62,6 +62,8 @@ mod scripts;
 mod scripts_tests;
 mod set;
 #[cfg(test)]
+mod set_active_file_tests;
+#[cfg(test)]
 mod set_tests;
 #[cfg(test)]
 mod shapes_tests;

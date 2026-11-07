@@ -32,7 +32,9 @@
 //! `blueprint-companion-of:`) or by name (the names ADR 0007 Amendment 4's gate check
 //! lists); and anything while the session was loaded from the `Default` profile (the
 //! owner's live game is read-only input, never a target: AGENTS.md). The engine's output
-//! guard refuses the rest on its own (`edit::patch::guard_target`).
+//! guard refuses the rest on its own (`edit::patch::guard_target`; it exempts the active
+//! file alone, for `set`, `new` and `clone` naming it with `active_file: true`, when it is
+//! the last plugin of a `plugins` load order: A6).
 
 use std::path::Path;
 
