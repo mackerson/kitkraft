@@ -1278,3 +1278,162 @@ fn absolute_resolves_junctions_before_missing_components() {
     std::fs::remove_dir(d.join("link2")).unwrap();
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// `path` canonicalized, without the `\\?\` canonicalization adds: `C:\...`.
+#[cfg(windows)]
+fn plain(path: &Path) -> String {
+    let canon = std::fs::canonicalize(path).unwrap().display().to_string();
+    canon.trim_start_matches(r"\\?\").to_string()
+}
+
+/// The local admin-share spelling (`\\localhost\C$\...`) of an existing `path`, or `None`
+/// (with a message) when the share is not reachable.
+#[cfg(windows)]
+fn admin_share(path: &Path) -> Option<PathBuf> {
+    let plain = plain(path);
+    let (drive, rest) = plain.split_once(r":\")?;
+    let unc = PathBuf::from(format!(r"\\localhost\{drive}$\{rest}"));
+    if unc.exists() {
+        Some(unc)
+    } else {
+        println!(
+            "skipped: the admin share {} is not reachable",
+            unc.display()
+        );
+        None
+    }
+}
+
+/// The 8.3 short-name spelling of an existing `path` (`cmd`'s `%~sI`), or `None` (with a
+/// message) when the volume gives it none.
+#[cfg(windows)]
+fn short_name(path: &Path) -> Option<PathBuf> {
+    use std::os::windows::process::CommandExt;
+    let out = std::process::Command::new("cmd")
+        .arg("/C")
+        .raw_arg(format!(r#"for %I in ("{}") do @echo %~sI"#, plain(path)))
+        .output()
+        .ok()?;
+    let short = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if out.status.success() && !short.is_empty() && !short.eq_ignore_ascii_case(&plain(path)) {
+        Some(PathBuf::from(short))
+    } else {
+        println!("skipped: no 8.3 short name for {}", path.display());
+        None
+    }
+}
+
+/// Owner review of A6 (2026-11-06, `owner-review/a6-active-file`): `guard_target`
+/// compared path spellings, so a loaded plugin named through `\\localhost\C$\...` passed
+/// and was rewritten. Every other spelling of a load-order plugin is now refused: network
+/// and prefixed spellings as not local, the rest (8.3, case, `..`) as the plugin itself.
+#[cfg(windows)]
+#[test]
+fn other_spellings_of_a_load_order_plugin_are_refused() {
+    use super::patch::guard_target;
+    let d = dir("spellings");
+    let folder = d.join("Long Folder Of Plugins");
+    std::fs::create_dir_all(&folder).unwrap();
+    let plugin = folder.join("Override.esp");
+    std::fs::write(&plugin, b"plugin").unwrap();
+    let protected = vec![plugin.clone()];
+    let refused = |target: &Path, want: &str| {
+        let err = guard_target(target, &protected)
+            .err()
+            .unwrap_or_else(|| panic!("{} was accepted", target.display()))
+            .to_string();
+        assert!(err.contains(want), "{}: {err}", target.display());
+    };
+    let plain = plain(&plugin);
+    refused(&plugin, "load order");
+    // Letter case, `..` and a canonical spelling: the same file, refused as the plugin.
+    refused(Path::new(&plain.to_uppercase()), "load order");
+    refused(Path::new(&plain.to_lowercase()), "load order");
+    refused(
+        &folder
+            .join("..")
+            .join("Long Folder Of Plugins")
+            .join("OVERRIDE.esp"),
+        "load order",
+    );
+    // A protected entry that is itself spelled oddly still protects the file.
+    let odd = vec![PathBuf::from(plain.to_uppercase())];
+    assert!(guard_target(&plugin, &odd).is_err());
+    if let Some(short) = short_name(&plugin) {
+        refused(&short, "load order");
+    }
+    // Network, verbatim, device and NT object spellings: refused before any comparison.
+    let local = "local drive paths only";
+    let (drive, rest) = plain.split_once(r":\").unwrap();
+    for spelled in [
+        format!(r"\\?\{plain}"),
+        format!(r"\\?\UNC\localhost\{drive}$\{rest}"),
+        format!(r"\\.\{plain}"),
+        format!(r"\??\{plain}"),
+        format!(r"//localhost/{drive}$/{}", rest.replace('\\', "/")),
+    ] {
+        refused(Path::new(&spelled), local);
+    }
+    if let Some(unc) = admin_share(&plugin) {
+        refused(&unc, local);
+    }
+    // An alternate data stream of the plugin.
+    refused(
+        Path::new(&format!("{plain}:x.esp")),
+        "alternate data stream",
+    );
+    // A plain new plugin beside it is still accepted.
+    assert!(guard_target(&folder.join("Patch.esp"), &protected).is_ok());
+    assert_eq!(std::fs::read(&plugin).unwrap(), b"plugin");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// The Data and MO2 refusals of `guard_location` under the spellings that beat the
+/// load-order comparison: `\\?\` and the admin share are refused as not local, and the
+/// directory walk alone (on the resolved path) still finds the Data and MO2 markers, as it
+/// does for an 8.3 or mixed-case spelling.
+#[cfg(windows)]
+#[test]
+fn data_and_mo2_refusals_hold_for_other_spellings() {
+    use super::patch::{absolute, guard_location, guard_resolved};
+    let d = dir("spellings-location");
+    let data = d.join("Game Folder Data");
+    std::fs::create_dir_all(data.join("sub")).unwrap();
+    std::fs::write(data.join("Starfield.esm"), b"").unwrap();
+    let mo2 = d.join("Mod Organizer Instance");
+    std::fs::create_dir_all(mo2.join("mods").join("New")).unwrap();
+    std::fs::write(mo2.join("ModOrganizer.ini"), b"[General]\r\n").unwrap();
+    for (inside, marker) in [
+        (data.join("sub"), "Data directory"),
+        (mo2.join("mods").join("New"), "Mod Organizer"),
+    ] {
+        let refused = |target: &Path, want: &str| {
+            let err = guard_location(target)
+                .err()
+                .unwrap_or_else(|| panic!("{} was accepted", target.display()))
+                .to_string();
+            assert!(err.contains(want), "{}: {err}", target.display());
+        };
+        let plain = plain(&inside);
+        refused(&inside.join("P.esp"), marker);
+        refused(&Path::new(&plain.to_uppercase()).join("P.esp"), marker);
+        if let Some(short) = short_name(&inside) {
+            refused(&short.join("P.esp"), marker);
+        }
+        let mut spellings = vec![PathBuf::from(format!(r"\\?\{plain}")).join("P.esp")];
+        if let Some(unc) = admin_share(&inside) {
+            spellings.push(unc.join("P.esp"));
+        }
+        for spelled in spellings {
+            refused(&spelled, "local drive paths only");
+            // Without the spelling refusal, the walk on the resolved path still holds.
+            let err = guard_resolved(&spelled, &absolute(&spelled))
+                .err()
+                .unwrap_or_else(|| panic!("walk accepted {}", spelled.display()))
+                .to_string();
+            assert!(err.contains(marker), "{}: {err}", spelled.display());
+        }
+    }
+    assert!(guard_location(&d.join("elsewhere").join("P.esp")).is_ok());
+    let _ = std::fs::remove_dir_all(&d);
+}
