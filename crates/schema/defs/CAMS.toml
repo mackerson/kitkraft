@@ -18,9 +18,10 @@
 signature = "CAMS"
 name = "CameraShot"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10530-L10586"
-confidence = "reference"
+confidence = "corpus"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10530-L10586",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: all 276 official CAMS records decode with every subrecord placed and re-encode identically",
 ]
 
 [[member]]
@@ -53,12 +54,20 @@ note = "base form components; not present in the official CAMS records, so its p
 
 [[member]]
 group_ref = "Model"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: FLLD in all 276 official CAMS records",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10535-L10535"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10535-L10535",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: KSIZ and KWDA in 111 of the 276 official CAMS records",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "NLDT"
