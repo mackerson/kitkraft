@@ -1,121 +1,157 @@
-# CAMS: Camera Shot, inventory definition (M4.BX2, lane B).
+# CAMS: Camera Shot — a shot definition for the game's cinematic camera: which action
+# to play (shoot, fly, hit or zoom), which actor the camera is attached to, how it
+# follows its target, and how quickly it settles.
+#
+# The record carries the generic model block, the base form components, keywords and
+# conditions, then a Data block with the shot parameters, an optional image space
+# modifier and an animation string.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official CAMS record (276 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the CAMS definition of wbDefinitionsSF1.pas at the pinned revision (L10530-L10586),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
-#
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Order: NLDT and CTDA never occur together in one official CAMS record; their order follows
-# the pinned xEdit file.
+#   xedit: the pinned wbDefinitionsSF1.pas (revision 9fb016884bec138ea6c7b872cec831537d464c3e),
+#     L10530-L10586; the helpers it names are cited per member (EDID L3182, NLDT L3183,
+#     VMAD L3407-L3411, wbConditions L4750-L4840, wbBaseFormComponents L5984-L6832,
+#     wbGenericModel L7008-L7029; wbVec3 in wbDefinitionsCommon.pas, L6725-L6740).
+#   corpus: kitkraft-esm tests/cams_types.rs (cams_types_full), 2026-11-07: all 276
+#     official CAMS records of the 14 official ESMs decode with every subrecord placed
+#     and re-encode identically; no official record has a VMAD or a base form component.
+#   uesp-skyrim: the EDID string convention.
 signature = "CAMS"
 name = "CameraShot"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CAMS record (276) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10530-L10586"
+confidence = "corpus"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10530-L10586",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: all 276 official CAMS records decode with every subrecord placed and re-encode identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 8..41 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10531-L10531",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: 276 of 276 official CAMS records carry an EDID",
 ]
 confidence = "corpus"
 
 [[member]]
-sig = "FLLD"
-name = "Flld"
+sig = "VMAD"
+name = "Scripts"
 type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 4 bytes"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official CAMS records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official CAMS records, so its position against the model block is not attested"
+
+[[member]]
+group_ref = "Model"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10534-L10534",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: FLLD in all 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 111 of 276 official CAMS records (111 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10535-L10535",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: KSIZ and KWDA in 111 of the 276 official CAMS records",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "NLDT"
-name = "Nldt"
-type = "opaque"
+name = "ContextNotes"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 74 of 276 official CAMS records (74 occurrences), 28..181 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10536-L10536",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: NLDT in 74 of the 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 58 of 276 official CAMS records (252 occurrences, up to 8 per record), 32 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10537-L10537",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: CTDA in 58 of the 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "without a CITC count"
 
 [[member]]
 sig = "DATA"
 name = "Data"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 276 of 276 official CAMS records (276 occurrences), 64 bytes"
+type = "struct"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10538-L10583"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10538-L10538",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10538-L10583",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: DATA in all 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+field = [
+  { name = "Action", type = "enum", base = "u32", values = [["Shoot", 0], ["Fly", 1], ["Hit", 2], ["Zoom", 3]] },
+  { name = "Location", type = "enum", base = "u32", values = [["Attacker", 0], ["Projectile", 1], ["Target", 2], ["LeadActor", 3]] },
+  { name = "Target", type = "enum", base = "u32", values = [["Attacker", 0], ["Projectile", 1], ["Target", 2], ["LeadActor", 3]] },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["PositionFollowsLocation", 0x1],
+    ["RotationFollowsTarget", 0x2],
+    ["DontFollowBone", 0x4],
+    ["FirstPersonCamera", 0x8],
+    ["NoTracer", 0x10],
+    ["StartAtTimeZero", 0x20],
+    ["DontResetLocationSpring", 0x40],
+    ["DontResetTargetSpring", 0x80],
+    ["SelectableSceneCamera", 0x100],
+    ["FreeCam", 0x200],
+  ], note = "bit 0x400 is unnamed upstream and stays unnamed" },
+  { name = "TimeMultipliers", type = "struct", field = [
+    { name = "Player", type = "f32" },
+    { name = "Target", type = "f32" },
+    { name = "Global", type = "f32" },
+  ] },
+  { name = "MaxTime", type = "f32" },
+  { name = "MinTime", type = "f32" },
+  { name = "TargetPercentBetweenActors", type = "f32" },
+  { name = "NearTargetDistance", type = "f32" },
+  { name = "Tail", type = "struct", if_remaining = true, note = "upstream marks the fields from index 9 optional (L10582)", field = [
+    { name = "LocationSpring", type = "f32" },
+    { name = "TargetSpring", type = "f32" },
+    { name = "RotationOffset", type = "ref:Vec3" },
+  ] },
+]
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "ImageSpaceModifier"
+type = "formid"
+targets = ["IMAD"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 114 of 276 official CAMS records (114 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10584-L10584",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: MNAM in 114 of the 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "GNAM"
-name = "Gnam"
-type = "opaque"
+name = "Animation"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 148 of 276 official CAMS records (148 occurrences), 42..83 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10585-L10585",
+  "corpus: kitkraft-esm tests/cams_types.rs cams_types_full, 2026-11-07: GNAM in 148 of the 276 official CAMS records",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
