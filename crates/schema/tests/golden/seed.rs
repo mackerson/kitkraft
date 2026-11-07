@@ -131,7 +131,7 @@
 // - LAYR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically; corpus)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
-// - LENS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636; reference)
+// - LENS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636; corpus)
 // - LGDI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13639-L13754; reference)
 // - LGTM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LGTM record (6) decodes with every subrecord placed and re-encodes identically; corpus)
 // - LIGH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899; corpus)
@@ -44795,6 +44795,10 @@ impl Visit for LensFlares {}
 pub struct LensRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `CNAM`, required.
     pub color_influence: Option<Sub<f32>>,
     /// `DNAM`, required.
@@ -44822,6 +44826,14 @@ impl LensRecord {
         MemberDesc::Sub {
             sig: *b"EDID",
             card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"CNAM",
@@ -44865,7 +44877,15 @@ impl LensRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "LENS.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => put(
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "LENS.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => put(
                     &mut self.color_influence,
                     subs,
                     *index,
@@ -44873,7 +44893,7 @@ impl LensRecord {
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 2, index } => put(
+                Hit::Sub { member: 4, index } => put(
                     &mut self.fade_distance_radius_scale,
                     subs,
                     *index,
@@ -44881,7 +44901,7 @@ impl LensRecord {
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 3, index } => put(
+                Hit::Sub { member: 5, index } => put(
                     &mut self.exposure_influence,
                     subs,
                     *index,
@@ -44889,16 +44909,16 @@ impl LensRecord {
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 4, index } => {
+                Hit::Sub { member: 6, index } => {
                     put(&mut self.min_ev100, subs, *index, "LENS.MNAM", ctx, extra)
                 }
-                Hit::Sub { member: 5, index } => {
+                Hit::Sub { member: 7, index } => {
                     put(&mut self.max_ev100, subs, *index, "LENS.XNAM", ctx, extra)
                 }
-                Hit::Sub { member: 6, index } => {
+                Hit::Sub { member: 8, index } => {
                     put(&mut self.count, subs, *index, "LENS.LFSP", ctx, extra)
                 }
-                Hit::Group { member: 7, hits } => {
+                Hit::Group { member: 9, hits } => {
                     let mut group = LensFlares::default();
                     group.fill(hits, subs, ctx, extra);
                     self.flares.push(group);
@@ -44910,6 +44930,10 @@ impl LensRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
         emit(out, *b"CNAM", self.color_influence.as_ref());
         emit(out, *b"DNAM", self.fade_distance_radius_scale.as_ref());
         emit(out, *b"ENAM", self.exposure_influence.as_ref());
@@ -44922,7 +44946,15 @@ impl LensRecord {
     }
 }
 
-impl Visit for LensRecord {}
+impl Visit for LensRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LENS.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LENS.BfcbBlock", out);
+    }
+}
 
 impl LensRecord {
     /// Record signature.

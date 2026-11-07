@@ -3,19 +3,32 @@
 #
 # Sources (ADR 0005):
 #   xedit: the LENS definition of wbDefinitionsSF1.pas at the pinned revision
-#     (L13590-L13636), cited per member: EDID (L13607, the generic editor-id string
-#     L3182), CNAM (L13610), DNAM (L13611), ENAM (L13612), MNAM (L13613), XNAM (L13614),
-#     LFSP (L13615), the Flares array (L13616-L13635, its count taken from LFSP at
-#     L13635), the flare's DNAM (L13618), FNAM (L13619) and LFSD (L13620-L13631, the
-#     Tint colour from the float-colour struct, wbDefinitionsCommon.pas L7105-L7123).
-#     xEdit also lists VMAD (L13608) and the base form component block (L13609); no
-#     official record has either, so they are not members here.
-#   corpus: the 26 official LENS records of the 14 official ESMs; the lens_types scan in
-#     crates/esm/tests/lens_types.rs checks this definition against them.
+#     (L13590-L13636): CNAM (Color Influence, an f32, L13610), DNAM (Fade Distance
+#     Radius Scale, an f32, L13611), ENAM (Exposure Influence, an f32, L13612), MNAM
+#     (Min EV 100, an f32, L13613), XNAM (Max EV 100, an f32, L13614), LFSP (Count, a
+#     u32, L13615) and the Lens Flare Sprites array (L13616-L13635, its count taken
+#     from LFSP at L13635): one flare per sprite, DNAM (the sprite ID, a string,
+#     L13618), FNAM (the texture, a string, L13619) and LFSD (36 bytes: the Tint
+#     colour, Width, Height, Position, Angular Fade and Opacity floats, and a u32
+#     with three flag values, L13620-L13631).
+#     Helpers: the editor ID (L3182), script data (L3407-L3411, kept raw), the base
+#     form component block (L5984-L6832, common/BfcbBlock.toml) and the float colour
+#     (wbDefinitionsCommon.pas L7105-L7123).
+#   corpus: the 26 LENS records of the 14 official ESMs (crates/esm/tests/lens_types.rs,
+#     lens_types_full, 2026-11-07): every subrecord is placed in a member in the
+#     definition's order, every placed subrecord decodes with the declared layout
+#     and every record re-encodes identically. EDID, CNAM, DNAM, ENAM, MNAM, XNAM,
+#     LFSP, FNAM and LFSD are in all 26; VMAD and every base form component
+#     signature are absent from all 26.
+#
+# Names are ours (UpperCamelCase, CK wording where it exists).
 signature = "LENS"
 name = "LensFlare"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636"
-confidence = "reference"
+evidence = [
+  "corpus: crates/esm/tests/lens_types.rs (lens_types_full), 2026-11-07: in all 26 official LENS records of the 14 official ESMs every subrecord is placed in a member in the definition's order, every placed subrecord decodes with the declared layout, and every record re-encodes identically",
+]
+confidence = "corpus"
 flags = [
   ["NonPlayable", 0x4],
   ["GroundPiece", 0x10],
@@ -36,69 +49,128 @@ type = "zstring"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13607-L13607",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: EDID is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
 ]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data (a version, an object format and the compiled script), kept raw; not present in the official LENS records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official LENS records"
 
 [[member]]
 sig = "CNAM"
 name = "ColorInfluence"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13610-L13610"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13610-L13610",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: CNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DNAM"
 name = "FadeDistanceRadiusScale"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13611-L13611"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13611-L13611",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: DNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ENAM"
 name = "ExposureInfluence"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13612-L13612"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13612-L13612",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: ENAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "MNAM"
 name = "MinEV100"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13613-L13613"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13613-L13613",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: MNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "XNAM"
 name = "MaxEV100"
 type = "f32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13614-L13614"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13614-L13614",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: XNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "LFSP"
 name = "Count"
 type = "u32"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13615-L13615"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13615-L13615",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: LFSP is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 note = "the number of flares that follow; xEdit takes the Flares array's count from it"
 
 [[member]]
 group = "Flares"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13616-L13635"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13616-L13635",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: the flares are in all 26 of the official LENS records; 26 records, 26 identical",
+]
+confidence = "corpus"
 note = "one flare per sprite: DNAM, FNAM, LFSD"
 
 [[member.member]]
 sig = "DNAM"
 name = "LensFlareSpriteId"
 type = "zstring"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13618-L13618"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13618-L13618",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: the flare DNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "FNAM"
 name = "Texture"
 type = "zstring"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13619-L13619"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13619-L13619",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: FNAM is in all 26 of the official LENS records, and every record decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "LFSD"
 name = "LensFlareData"
 type = "struct"
 size = 36
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13620-L13631"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13620-L13631",
+  "corpus: lens_types_full (crates/esm/tests/lens_types.rs), 2026-11-07: LFSD is in all 26 of the official LENS records, and every record decodes with this 36-byte layout and re-encodes identically",
+]
+confidence = "corpus"
 field = [
   { name = "Tint", type = "struct", evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7105-L7123"], field = [
     { name = "Red", type = "f32" },
