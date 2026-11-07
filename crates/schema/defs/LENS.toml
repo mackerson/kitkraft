@@ -1,155 +1,114 @@
-# LENS: LensFlare, inventory definition (KK-108).
+# LENS: LensFlare, the light-effect record that places lens-flare sprites in a cell
+# (KK-237).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official LENS record (26 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LENS definition of wbDefinitionsSF1.pas at the pinned revision (L13590-L13636),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# Sources (ADR 0005):
+#   xedit: the LENS definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L13590-L13636), cited per member: EDID (L13607, the generic editor-id string
+#     L3182), CNAM (L13610), DNAM (L13611), ENAM (L13612), MNAM (L13613), XNAM (L13614),
+#     LFSP (L13615), the Flares array (L13616-L13635, its count taken from LFSP at
+#     L13635), the flare's DNAM (L13618), FNAM (L13619) and LFSD (L13620-L13631, the
+#     Tint colour from the float-colour struct, wbDefinitionsCommon.pas L7105-L7123).
+#     xEdit also lists VMAD (L13608) and the base form component block (L13609); no
+#     official record has either, so they are not members here.
+#   corpus: the 26 official LENS records of the 14 official ESMs; the lens_types scan in
+#     crates/esm/tests/lens_types.rs checks this definition against them.
 signature = "LENS"
 name = "LensFlare"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LENS record (26) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 14..42 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13607-L13607",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-confidence = "corpus"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13610-L13610",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+name = "ColorInfluence"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13610-L13610"]
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences, up to 1 per record), 4..16 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13611-L13611",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4..16 bytes (this position and the Flares group combined)"
+name = "FadeDistanceRadiusScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13611-L13611"]
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13612-L13612",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+name = "ExposureInfluence"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13612-L13612"]
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13613-L13613",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+name = "MinEV100"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13613-L13613"]
 
 [[member]]
 sig = "XNAM"
-name = "Xnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13614-L13614",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+name = "MaxEV100"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13614-L13614"]
 
 [[member]]
 sig = "LFSP"
-name = "Lfsp"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (26 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13615-L13615",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+name = "Count"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13615-L13615"]
+note = "the number of flares that follow; xEdit takes the Flares array's count from it"
 
 [[member]]
 group = "Flares"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13616-L13616",
-]
-confidence = "corpus"
-note = "one flare: DNAM then FNAM then LFSD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13616-L13635"]
+note = "one flare per sprite: DNAM, FNAM, LFSD"
 
 [[member.member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 4..16 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13618-L13618",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4..16 bytes (this position and the top-level DNAM combined)"
+name = "LensFlareSpriteId"
+type = "zstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13618-L13618"]
 
 [[member.member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 40..63 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13619-L13619",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 40..63 bytes"
+name = "Texture"
+type = "zstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13619-L13619"]
 
 [[member.member]]
 sig = "LFSD"
-name = "Lfsd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 26 of 26 official LENS records (326 occurrences, up to 22 per record), 36 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13620-L13620",
+name = "LensFlareData"
+type = "struct"
+size = 36
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13620-L13631"]
+field = [
+  { name = "Tint", type = "struct", evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7105-L7123"], field = [
+    { name = "Red", type = "f32" },
+    { name = "Green", type = "f32" },
+    { name = "Blue", type = "f32" },
+  ] },
+  { name = "Width", type = "f32" },
+  { name = "Height", type = "f32" },
+  { name = "Position", type = "f32" },
+  { name = "AngularFade", type = "f32" },
+  { name = "Opacity", type = "f32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["Rotates", 0x1], ["ShrinksWhenOccluded", 0x2], ["GlareFlare", 0x4]] },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 36 bytes"
