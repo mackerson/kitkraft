@@ -69,7 +69,8 @@ group_ref = "BfcbBlock"
 card = "repeated"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: the component blocks of the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: BFCB and BFCE in 1 of the 135 records, a ParticleSystem component holding one PTCL, decoded and re-encoded identically",
+  "corpus: the component blocks of the ENCH records of the 14 official ESMs, ench_types_full 2026-10-30: BFCB and BFCE in 1 of the 135 records, decoded and re-encoded identically",
+  "corpus: kit inspect 0209C65E --plugin SFBGS050.esm, 2026-11-07: that record (the one above) holds a single component block, a ParticleSystem_Component carrying one 1,292-byte PTCL",
 ]
 confidence = "corpus"
 note = "base form components; observed in one official record"

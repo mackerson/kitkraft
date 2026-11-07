@@ -136,8 +136,12 @@ element = "formid"
 targets = ["HDPT"]
 count = "rest"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12639-L12641"]
-note = "the extra parts list, one FormID per official subrecord; in 27 of the 236 official HDPT records"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12639-L12641",
+  "corpus: hdpt_types_full (crates/esm/tests/hdpt_types.rs), 2026-10-30: HNAM in 27 of the 236 official HDPT records, every one placed, decoded and re-encoded identically",
+  "corpus: payload-size scan of the HDPT records of the 14 official ESMs, 2026-11-07 (a scratch scan, not kept; re-check with kit query HDPT --where \"has HNAM\" --scope all and kit inspect on each match): 30 HNAM subrecords in the 27 records, 24 records with one and 3 with two, every payload 4 bytes",
+]
+note = "the extra parts list; every official HNAM holds one FormID (4 bytes); in 27 of the 236 official HDPT records"
 
 [[member]]
 sig = "NAM2"
