@@ -198,7 +198,7 @@
 // - SMEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17689-L17703; corpus)
 // - SMQN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17705-L17730; corpus)
 // - SOUN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745; reference)
-// - SPCH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SPCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763; reference)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
 // - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STAG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STAG record (30) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -86097,26 +86097,96 @@ impl SounRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpchScenes(pub Vec<FormId>);
+
+impl Field for SpchScenes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SpchScenes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpchDifficulty {
+    Easy,
+    Medium,
+    Hard,
+    /// A value the definition does not name.
+    Other(u16),
+}
+
+impl SpchDifficulty {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u16) -> Self {
+        match raw {
+            0 => Self::Easy,
+            1 => Self::Medium,
+            2 => Self::Hard,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u16 {
+        match self {
+            Self::Easy => 0,
+            Self::Medium => 1,
+            Self::Hard => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SpchDifficulty {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SpchDifficulty {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SpchRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `SPWI`, required.
-    pub spwi: Option<Sub<Bytes>>,
+    pub quest_stage_on_win: Option<Sub<i16>>,
     /// `SPLO`, required.
-    pub splo: Option<Sub<Bytes>>,
+    pub quest_stage_on_loss: Option<Sub<i16>>,
     /// `SRAN`, optional.
-    pub sran: Option<Sub<Bytes>>,
+    pub sequential_scenes: Option<Sub<Empty>>,
     /// `SGEN`, optional.
-    pub sgen: Option<Sub<Bytes>>,
+    pub dont_allow_no_keyword_scenes: Option<Sub<Empty>>,
     /// `SPQU`, required.
-    pub spqu: Option<Sub<Bytes>>,
+    pub quest: Option<Sub<FormId>>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// `SPMA`, optional.
-    pub spma: Option<Sub<Bytes>>,
+    pub scenes: Option<Sub<SpchScenes>>,
     /// `DIFF`, required.
-    pub diff: Option<Sub<Bytes>>,
+    pub difficulty: Option<Sub<SpchDifficulty>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -86130,6 +86200,14 @@ impl SpchRecord {
         MemberDesc::Sub {
             sig: *b"EDID",
             card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"SPWI",
@@ -86178,30 +86256,58 @@ impl SpchRecord {
                     put(&mut self.editor_id, subs, *index, "SPCH.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.spwi, subs, *index, "SPCH.SPWI", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "SPCH.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.splo, subs, *index, "SPCH.SPLO", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.sran, subs, *index, "SPCH.SRAN", ctx, extra)
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.quest_stage_on_win,
+                    subs,
+                    *index,
+                    "SPCH.SPWI",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.quest_stage_on_loss,
+                    subs,
+                    *index,
+                    "SPCH.SPLO",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.sequential_scenes,
+                    subs,
+                    *index,
+                    "SPCH.SRAN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.dont_allow_no_keyword_scenes,
+                    subs,
+                    *index,
+                    "SPCH.SGEN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.quest, subs, *index, "SPCH.SPQU", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.sgen, subs, *index, "SPCH.SGEN", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.spqu, subs, *index, "SPCH.SPQU", ctx, extra)
-                }
-                Hit::Group { member: 6, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 8, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.spma, subs, *index, "SPCH.SPMA", ctx, extra)
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.scenes, subs, *index, "SPCH.SPMA", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.diff, subs, *index, "SPCH.DIFF", ctx, extra)
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.difficulty, subs, *index, "SPCH.DIFF", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -86210,26 +86316,36 @@ impl SpchRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"SPWI", self.spwi.as_ref());
-        emit(out, *b"SPLO", self.splo.as_ref());
-        emit(out, *b"SRAN", self.sran.as_ref());
-        emit(out, *b"SGEN", self.sgen.as_ref());
-        emit(out, *b"SPQU", self.spqu.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"SPWI", self.quest_stage_on_win.as_ref());
+        emit(out, *b"SPLO", self.quest_stage_on_loss.as_ref());
+        emit(out, *b"SRAN", self.sequential_scenes.as_ref());
+        emit(out, *b"SGEN", self.dont_allow_no_keyword_scenes.as_ref());
+        emit(out, *b"SPQU", self.quest.as_ref());
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"SPMA", self.spma.as_ref());
-        emit(out, *b"DIFF", self.diff.as_ref());
+        emit(out, *b"SPMA", self.scenes.as_ref());
+        emit(out, *b"DIFF", self.difficulty.as_ref());
     }
 }
 
 impl Visit for SpchRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "SPCH.BfcbBlock", out);
+        visit_form_ids(&self.quest, "SPCH.SPQU", out);
         visit_form_ids(&self.keywords, "SPCH.Keywords", out);
+        visit_form_ids(&self.scenes, "SPCH.SPMA", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "SPCH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.quest, "SPCH.SPQU", out);
         visit_form_ids_mut(&mut self.keywords, "SPCH.Keywords", out);
+        visit_form_ids_mut(&mut self.scenes, "SPCH.SPMA", out);
     }
 }
 
