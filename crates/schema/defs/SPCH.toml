@@ -1,7 +1,6 @@
-# SPCH: Speech Challenge, the form behind an NPC's spoken line in a cinematic
-# scene: the quest the challenge belongs to (SPQU), the quest stage set when the
-# player wins or loses the exchange (SPWI, SPLO), the list of the challenge's
-# scenes (SPMA) and its difficulty (DIFF).
+# SPCH: Speech Challenge: the quest the challenge belongs to (SPQU), the quest
+# stage set when the player wins or loses it (SPWI, SPLO), the list of the
+# challenge's scenes (SPMA) and its difficulty (DIFF).
 #
 # Sources (ADR 0005):
 #   xedit: the SPCH definition of wbDefinitionsSF1.pas at the pinned revision
@@ -18,8 +17,11 @@
 # SPCH has no lstring subrecords (the corpus lstring table, lane E).
 signature = "SPCH"
 name = "SpeechChallengeForm"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763"
-confidence = "reference"
+source = "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763",
+]
+confidence = "corpus"
 note = "the speech challenge of a scene: its quest, the win and loss quest stages, the scene list and the difficulty"
 
 [[member]]
@@ -28,9 +30,12 @@ name = "EditorId"
 type = "zstring"
 card = "required"
 evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17748-L17748",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "VMAD"
@@ -60,9 +65,11 @@ name = "QuestStageOnWin"
 type = "i16"
 card = "required"
 evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17751-L17751",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8450-L8471",
 ]
+confidence = "corpus"
 note = "the quest stage to set when the player wins the challenge"
 
 [[member]]
@@ -71,9 +78,11 @@ name = "QuestStageOnLoss"
 type = "i16"
 card = "required"
 evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17752-L17752",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8450-L8471",
 ]
+confidence = "corpus"
 note = "the quest stage to set when the player loses the challenge"
 
 [[member]]
@@ -81,7 +90,11 @@ sig = "SRAN"
 name = "SequentialScenes"
 type = "empty"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17753-L17753"]
+evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 4 of 197 official SPCH records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17753-L17753",
+]
+confidence = "corpus"
 note = "marker; 0 bytes in the 4 official records that have it"
 
 [[member]]
@@ -89,7 +102,11 @@ sig = "SGEN"
 name = "DontAllowNoKeywordScenes"
 type = "empty"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17754-L17754"]
+evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 75 of 197 official SPCH records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17754-L17754",
+]
+confidence = "corpus"
 note = "marker; 0 bytes in the 75 official records that have it"
 
 [[member]]
@@ -98,16 +115,22 @@ name = "Quest"
 type = "formid"
 targets = ["QUST"]
 card = "required"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17755-L17755"]
+evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17755-L17755",
+]
+confidence = "corpus"
 note = "the quest the challenge belongs to"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
 evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: KSIZ and KWDA in 196 of 197 official SPCH records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17756-L17756",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "SPMA"
@@ -117,7 +140,11 @@ element = "formid"
 targets = ["SCEN"]
 count = "rest"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17757-L17757"]
+evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 50 of 197 official SPCH records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17757-L17757",
+]
+confidence = "corpus"
 note = "one FormID per scene of the challenge"
 
 [[member]]
@@ -127,5 +154,9 @@ type = "enum"
 base = "u16"
 values = [["Easy", 0], ["Medium", 1], ["Hard", 2]]
 card = "required"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17758-L17762"]
+evidence = [
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17758-L17762",
+]
+confidence = "corpus"
 note = "how hard the challenge is for the player"

@@ -198,7 +198,7 @@
 // - SMEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17689-L17703; corpus)
 // - SMQN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17705-L17730; corpus)
 // - SOUN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745; reference)
-// - SPCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763; reference)
+// - SPCH (corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
 // - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STAG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STAG record (30) decodes with every subrecord placed and re-encodes identically; corpus)

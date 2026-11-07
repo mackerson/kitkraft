@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 80:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:6ebe71648031fc31` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:e3fe3b2c100f1343` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -358,7 +358,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `IMAD`    | ImageSpaceAdapter              |           224 |        224 |      0 |         0 |         0 |                   0 |        224 |       0 |        0 |
 | `AACT`    | ActionForm                     |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject                      |           212 |      2,021 |      0 |         0 |         0 |                   0 |      2,021 |       0 |        0 |
-| `SPCH`    | SpeechChallengeForm            |           197 |      1,506 |      0 |         0 |     1,114 |                   0 |        392 |       0 |        0 |
+| `SPCH`    | SpeechChallengeForm            |           197 |      1,506 |      0 |         0 |         0 |                   0 |      1,506 |       0 |        0 |
 | `GRAS`    | Grass                          |           193 |        440 |      0 |         0 |         0 |                   0 |        440 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |           187 |        187 |      0 |         0 |         0 |                   0 |        187 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |           183 |      2,570 |      0 |         0 |         0 |                   0 |      2,570 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,087,215 |      0 |         0 |   233,990 |                   0 | 46,853,225 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,087,215 |      0 |         0 |   232,876 |                   0 | 46,854,339 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -621,7 +621,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SMEN`    | StoryManagerEventNode          |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode          |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
 | `SOUN`    | SoundMarker                    |              8 |     8 |      0 |         0 |                   0 |      8 |       0 |        0 |
-| `SPCH`    | SpeechChallengeForm            |             44 |    40 |      4 |         9 |                   0 |     35 |       0 |        0 |
+| `SPCH`    | SpeechChallengeForm            |             44 |    40 |      4 |         1 |                   0 |     43 |       0 |        0 |
 | `SPEL`    | Spell                          |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,182 | 5,499 |    683 |       496 |                   2 |  5,684 |       0 |        0 |
+| **Total** |                                |          6,182 | 5,499 |    683 |       488 |                   2 |  5,692 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
