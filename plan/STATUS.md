@@ -177,8 +177,11 @@ nothing here is merged into `main` unless it says so):
   Until these are closed, do not trust a new in-game pass on a row whose command can fail
   late.
 - **Item 7, built and reviewed; waits for the owner.** Branch `owner-review/a6-active-file`
-  (head `fa533191`, gate 1,501 passed, 0 failed, 106 ignored; its own Landed line states
-  the rules). A request opts in with `active_file: true`; the engine then exempts `into`
+  (rebased 2026-11-07 onto `main` `3f8542b8`, the unc-guard merge; old head `fa533191`;
+  code head `6bd81801`, gate 1,507 passed, 0 failed, 109 ignored; its own Landed line
+  states the rules). The exemption finds `into` in the load order by the resolved identity
+  `guard_target` uses, and a load order with a plugin named through a network path is
+  refused before any exemption. A request opts in with `active_file: true`; the engine then exempts `into`
   from the load-order refusal only when the order came from a `plugins` list (never a
   profile), `into` is the last plugin, no loaded plugin names it as a master, no other
   loaded plugin has its file name, it is not an official master and not master-flagged, and
