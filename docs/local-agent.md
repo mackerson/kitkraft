@@ -32,21 +32,24 @@ it. Paid usage is limited to the check-ins, the final QA and the morning merge.
 
    That starts a queue with a 4-hour budget (the default when the hours are left out) for
    ticket `plan/tickets/KK-001.toml`, with a grade every 30 minutes and one as soon as the agent
-   stops. To queue several tickets in one budget, join them with `+`:
+   stops (unless it was graded in the last 5 minutes). To queue several tickets in one budget, join them with `+`:
    `overnight kitkraft KK-002+KK-003+KK-004 8`; `overnight kitkraft auto 8` queues every
    runnable ticket (`plan/tickets/README.md`, "Queue"). A preflight first drops any ticket that
    cannot run. The rest run one after another, each from `main`, each for up to its `budget_h`
-   (default 1.5 hours) or the time left, and none starts with less than 30 minutes left. When
-   every ticket has had its turn, each one that ran out of time unfinished gets one overtime run
-   of up to an hour, continuing from its bundle, while time lasts.
+   (default 1.5 hours; during a campaign, `ticket_h` in `campaign.json` replaces that default)
+   or the time left, and none starts with less than 30 minutes left. When every ticket has had
+   its turn, each one left unfinished gets one overtime run of up to an hour, continuing from
+   its bundle, while time lasts.
    Opus checks in at about minutes 10 and 25, while the agent is choosing its approach. After
    that, each check-in ends with a `NEXT:` line that sets the gap to the next one, held between
    15 and 60 minutes: sooner when the agent is stuck or off track. Without that line the gap is
    30 minutes. A gap counts from the end of the previous check-in, so the minutes drift (10, 26,
-   52 is typical), and no check-in starts in a run's last 20 minutes. Check-ins see the agent's
-   recent commands and their results as well as its commits. A check-in that finds the ticket
-   cannot pass as written adds a `DEFECT:` line; the run then ends 15 minutes later, keeping its
-   work, and the ticket needs fixing before it runs again.
+   52 is typical), and no check-in starts in a run's last 15 minutes (20, or half the fallback
+   gap, whichever is less). Check-ins see the agent's recent commands and their results as well
+   as its commits. A check-in that finds the ticket cannot pass as written adds a `DEFECT:`
+   line; the run then ends 15 minutes later, keeping its work, and the merge review sees the
+   `ticket_defect` event. Nothing else acts on it: until someone fixes or holds the ticket, the
+   queue can still give it overtime and `auto` picks it again.
    A check-in or QA session that ends in an API error, without a result, or with a non-zero exit
    gives the agent nothing: it is logged in `events.jsonl` as `checkin_error` or `qa_error`, and
    the agent carries on without a review (since 2026-11-06; before, an "API Error" reply was
@@ -87,10 +90,10 @@ The local agent never pushes. Review and merge happen on Windows. When a queue e
 `runs\kkq-<stamp>.pending`, a list of its runs, and the guard runs the morning merge on it
 (`harness\kk-merge.ps1`). A headless Opus session (`harness\kk-merge-prompt.md`) reviews each
 run's branch and merges what holds up into `main`. The script then runs `cargo xtask ci` on
-`main` with `KITKRAFT_DATA_DIR` set, at most 2 hours per gate, and hands the result back to the
+`main` (with `KITKRAFT_DATA_DIR` set when the Data folder is found), at most 2 hours per gate, and hands the result back to the
 session, up to three gates. The session pushes once the gate is green, refreshes the mirror,
-writes `runs\kkq-<stamp>-merge.md` and says `DONE`; the `.pending` becomes `.merged`. With no
-report, or with merged commits on `main` that no green gate covered, it becomes `.failed`
+writes `runs\kkq-<stamp>-merge.md` and says `DONE`; the `.pending` becomes `.merged`. With neither
+a `DONE` nor a report, or with merged commits on `main` that no green gate covered, it becomes `.failed`
 instead, and the guard retries it the next times nothing is running, up to three more tries
 (counted in `kkq-<stamp>.tries`).
 
@@ -133,8 +136,8 @@ minutes is left (the last 45 minutes are for the last merge), waits 30 minutes w
 or more than 6,000 MiB of GPU memory is in use, refills the backlog with
 `plan/tickets/generate.py` when fewer than 6 tickets are runnable, and starts the next segment
 as an `auto` queue. Between segments it prunes old grader copies and removes the `kkq-*` state
-of queues that were stopped rather than finished (kept while a resume is pending), and it writes
-a `.pending` for finished runs a stopped queue left unlisted, so they merge too. So
+of queues that were stopped rather than finished (kept while a resume is pending), and the guard
+writes a `.pending` for finished runs a stopped queue left unlisted, so they merge too. So
 `overnight stop` during a campaign ends only the current segment. To end the campaign, run
 `kk-campaign.ps1 -Stop`: the current segment finishes and merges. `kk-campaign.ps1 -Status`
 prints `runs\campaign-status.md`.

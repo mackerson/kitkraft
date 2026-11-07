@@ -2011,8 +2011,8 @@ Updated 2026-10-30 at `7d10db1`. The M2 lane table that stood here is history: M
 on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progress").
 
 1. **The local-agent queue** (ADR 0014, `plan/tickets/README.md` "Queue", the truth for
-   this list; checked 2026-11-07). 13 tickets are queued: KK-237 to KK-245 type one record
-   type each from the pinned xEdit file, corpus-checked, and KK-246 to KK-249 are workbench
+   this list; checked 2026-11-07). 13 tickets are queued: KK-237 to KK-245 type record
+   types from the pinned xEdit file (KK-245 two, REGN and GRAS), corpus-checked, and KK-246 to KK-249 are workbench
    fixes from the UX audit. KK-250 and KK-251 (testplan changes) are held for the owner's
    review. Start a campaign with
    `F:\AI\Scripts\overnight\harness\kk-campaign.ps1 -Start -Until '<yyyy-MM-dd HH:mm>'`
