@@ -46,6 +46,16 @@
 //!   directory (a directory holding `Starfield.esm`), the user Data directory
 //!   (`My Games\Starfield\Data`) or an MO2 instance (a directory holding
 //!   `ModOrganizer.ini`, or a profile with `modlist.txt` and `plugins.txt`), at any depth.
+//!   Outputs are local drive paths only: a UNC path (`\\server\share\...`,
+//!   `\\?\UNC\...`, the admin share `\\localhost\C$\...` included), a `\\?\`, `\\.\` or
+//!   `\??\` path, a name holding `:` (an alternate data stream), a path through a link or
+//!   junction, and a drive that resolves to a network share are refused (after the
+//!   extension check, before the link check and any canonicalization). A load order whose
+//!   plugins are named through a network path refuses every plugin write target. The
+//!   load-order comparison is then made on resolved paths (canonical as far as they exist,
+//!   so 8.3 short names, letter case, `..` and trailing dots are the file system's own),
+//!   case-insensitively. Not matched: a hard link to a loaded plugin (a different file
+//!   name; the writer's rename replaces the link, not the plugin's data).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
@@ -1560,9 +1570,12 @@ fn is_prefix(prefix: &[String], list: &[String]) -> bool {
             .all(|(a, b)| a.eq_ignore_ascii_case(b))
 }
 
-/// Refuses targets the module docs rule out: not `.esm`/`.esp`, a protected (load-order)
-/// plugin, or inside the game's Data directory, the user Data directory or an MO2
-/// instance or profile, at any depth. `build` checks its `out` with it too.
+/// Refuses targets the module docs rule out: not `.esm`/`.esp`, not a plain local drive
+/// path, through a link, any target while a protected (load-order) entry is named through
+/// a network path, a protected plugin under a local spelling that resolves to it (8.3,
+/// letter case, `..`; compared on the resolved path, case-insensitively), or inside the game's Data directory, the user
+/// Data directory or an MO2 instance or profile, at any depth. `build` checks its `out`
+/// with it too.
 pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchError> {
     let name = file_name(target);
     let ext = target
@@ -1582,22 +1595,58 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
             )))
         }
     }
-    let abs_target = absolute(target);
+    // The spelling and link refusals run first, so the canonicalization behind the
+    // comparison never follows a link and never sees a network or device spelling.
+    let abs_target = resolved_output(target)?;
+    // A load order read through a network path keeps that spelling after resolution
+    // (`\\?\UNC\...`), so a drive spelling of the same plugin would never match: refuse
+    // writing at all while any loaded plugin is named through one (unc-guard review 1).
     for p in protected {
-        if absolute(p) == abs_target {
+        if names_network_plugin(p) {
+            return Err(refused(format!(
+                "{} names a plugin of the load order through a network path; load the order through a local drive path to write",
+                p.display()
+            )));
+        }
+    }
+    let key = identity_key(&abs_target);
+    for p in protected {
+        if identity_key(&absolute(p)) == key {
             return Err(refused(format!(
                 "{} is a plugin of the load order; a patch is always a separate file",
                 target.display()
             )));
         }
     }
-    guard_location(target)
+    guard_resolved(target, &abs_target)
 }
 
-/// Refuses any output file (a plugin, or a spec `overhaul.scaffold` writes) inside the
-/// game's Data directory, the user Data directory, or an MO2 instance or profile, at any
-/// depth.
+/// Refuses any output file (a plugin, or a spec `overhaul.scaffold` writes) that is not
+/// a plain local drive path (a network, `\\?\`, `\\.\` or `\??\` spelling, or an
+/// alternate data stream), passes through a link, or lies inside the game's Data
+/// directory, the user Data directory, the My Games folder, or an MO2 instance or
+/// profile, at any depth.
 pub fn guard_location(target: &Path) -> Result<(), PatchError> {
+    let abs_target = resolved_output(target)?;
+    guard_resolved(target, &abs_target)
+}
+
+/// The spelling and link refusals every output path gets, then the path resolved by
+/// [`absolute`] (canonical as far as it exists). Refuses a resolved path on a network
+/// share (a drive letter mapped to one canonicalizes to `\\?\UNC\...`).
+fn resolved_output(target: &Path) -> Result<PathBuf, PatchError> {
+    let spelled = std::path::absolute(target).unwrap_or_else(|_| target.to_path_buf());
+    if let Some(what) = non_local_spelling(target).or_else(|| non_local_spelling(&spelled)) {
+        let hint = if what.starts_with("a verbatim") {
+            r"; spell it as C:\...; long paths work without \\?\"
+        } else {
+            ""
+        };
+        return Err(refused(format!(
+            "{} is {what}; outputs are written to local drive paths only, so no other spelling of a load-order plugin, the game's Data folder or MO2 can slip past these checks{hint}",
+            target.display()
+        )));
+    }
     if let Some(link) = first_link(target) {
         return Err(refused(format!(
             "{} passes through {}, a symbolic link or junction; outputs are written to real paths only, so no write can be redirected into the game, the user Data folder or MO2",
@@ -1606,6 +1655,98 @@ pub fn guard_location(target: &Path) -> Result<(), PatchError> {
         )));
     }
     let abs_target = absolute(target);
+    if cfg!(windows) && is_network(&abs_target) {
+        return Err(refused(format!(
+            "{} resolves to a network path ({}); outputs are written to local drive paths only, so no other spelling of a load-order plugin, the game's Data folder or MO2 can slip past these checks",
+            target.display(),
+            abs_target.display()
+        )));
+    }
+    Ok(abs_target)
+}
+
+/// Why `path` is not a plain local drive spelling, on Windows: a UNC path
+/// (`\\server\share\...`, `\\?\UNC\...`), a verbatim (`\\?\`), device (`\\.\`) or NT
+/// object (`\??\`) path, or a component holding `:` (an alternate data stream of a file or
+/// folder). `None` for a drive path, a rooted or relative path, and anywhere but Windows.
+fn non_local_spelling(path: &Path) -> Option<&'static str> {
+    use std::path::{Component, Prefix};
+    if !cfg!(windows) {
+        return None;
+    }
+    let mut parts = path.components();
+    match parts.next() {
+        Some(Component::Prefix(p)) => match p.kind() {
+            Prefix::Disk(_) => {}
+            Prefix::UNC(..) | Prefix::VerbatimUNC(..) => return Some("a network (UNC) path"),
+            Prefix::Verbatim(_) | Prefix::VerbatimDisk(_) => {
+                return Some(r"a verbatim (\\?\) path")
+            }
+            Prefix::DeviceNS(_) => return Some(r"a device (\\.\) path"),
+        },
+        Some(Component::RootDir) => {
+            if matches!(parts.next(), Some(Component::Normal(n)) if n == "??") {
+                return Some(r"an NT object (\??\) path");
+            }
+        }
+        _ => {}
+    }
+    let stream = path.components().any(|c| match c {
+        Component::Normal(n) => n.to_string_lossy().contains(':'),
+        _ => false,
+    });
+    stream.then_some("a path naming an alternate data stream (a `:` inside a name)")
+}
+
+/// Whether a protected (load-order) entry is named through anything but a local drive:
+/// a non-local spelling other than `\\?\C:\...` (which resolves to the same key as
+/// `C:\...`), or a path that resolves to a network share (a mapped drive). Only on
+/// Windows.
+fn names_network_plugin(p: &Path) -> bool {
+    use std::path::{Component, Prefix};
+    if !cfg!(windows) {
+        return false;
+    }
+    let verbatim_disk = matches!(
+        p.components().next(),
+        Some(Component::Prefix(x)) if matches!(x.kind(), Prefix::VerbatimDisk(_))
+    );
+    let spelled = std::path::absolute(p).unwrap_or_else(|_| p.to_path_buf());
+    (!verbatim_disk && (non_local_spelling(p).is_some() || non_local_spelling(&spelled).is_some()))
+        || is_network(&absolute(p))
+}
+
+/// Whether a resolved path is on a network share (`\\server\...` or `\\?\UNC\...`).
+fn is_network(path: &Path) -> bool {
+    use std::path::{Component, Prefix};
+    matches!(
+        path.components().next(),
+        Some(Component::Prefix(p)) if matches!(p.kind(), Prefix::UNC(..) | Prefix::VerbatimUNC(..))
+    )
+}
+
+/// What two resolved paths are compared by: the [`absolute`] form (canonical as far as it
+/// exists, so 8.3 names, letter case and `.`/`..` are the file system's own) with the
+/// `\\?\` that canonicalization adds removed, lowercased, because NTFS names are
+/// case-insensitive and a missing component keeps the caller's spelling. In a directory
+/// made case-sensitive (`fsutil file setCaseSensitiveInfo`) this over-refuses: a new
+/// `mod.esp` beside a loaded `Mod.esp` is refused as that plugin, which is accepted.
+fn identity_key(resolved: &Path) -> String {
+    let text = resolved.to_string_lossy();
+    let plain = if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else {
+        text.strip_prefix(r"\\?\").unwrap_or(&text).to_string()
+    };
+    if cfg!(windows) {
+        plain.to_lowercase()
+    } else {
+        plain
+    }
+}
+
+/// The Data, user Data, MO2 and My Games refusals, on the resolved path.
+pub(crate) fn guard_resolved(target: &Path, abs_target: &Path) -> Result<(), PatchError> {
     let mut dir = abs_target.parent();
     while let Some(d) = dir {
         if d.join("Starfield.esm").is_file() {
