@@ -152,7 +152,10 @@ fn check_file(path: &Path, t: &mut Stats) {
 }
 
 fn report(t: &Stats) {
-    println!("spch SPCH: {} records, {} identical", t.records, t.identical);
+    println!(
+        "spch SPCH: {} records, {} identical",
+        t.records, t.identical
+    );
     if !t.unplaced.is_empty() || !t.failed.is_empty() {
         println!("   unplaced: {:?} failed: {:#?}", t.unplaced, t.failed);
     }

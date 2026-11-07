@@ -17,9 +17,9 @@
 # SPCH has no lstring subrecords (the corpus lstring table, lane E).
 signature = "SPCH"
 name = "SpeechChallengeForm"
-source = "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763",
+  "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: every official SPCH record (197) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "corpus"
 note = "the speech challenge of a scene: its quest, the win and loss quest stages, the scene list and the difficulty"
