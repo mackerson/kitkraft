@@ -2010,14 +2010,14 @@ _The entries below are the 2026-10-14 state, kept as history. The work in flight
 Updated 2026-10-30 at `7d10db1`. The M2 lane table that stood here is history: M2 closed
 on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progress").
 
-1. **The local-agent queue** (ADR 0014, `plan/tickets/README.md` "Queue"). 31 tickets are
-   runnable, 30 of them schema: KK-211 to KK-219 and KK-226 to KK-245 type one record type
-   each from the pinned xEdit file, corpus-checked; KK-224 is the five types without a
-   definition (MRPH, CNDF, VTYP, MTPT, ASPC), and KK-225 (type AVIF) waits on it. KK-221
-   (`new` writes a WRLD) is the one engine ticket. Start a campaign with
-   `F:\AI\Scripts\overnight\harness\kk-campaign.ps1 -Start -Until '<yyyy-MM-dd HH:mm>'`.
-   First re-enable the "KitKraft guard" scheduled task, which was disabled after the
-   2026-10-30 campaign.
+1. **The local-agent queue** (ADR 0014, `plan/tickets/README.md` "Queue", the truth for
+   this list; checked 2026-11-07). 13 tickets are queued: KK-237 to KK-245 type one record
+   type each from the pinned xEdit file, corpus-checked, and KK-246 to KK-249 are workbench
+   fixes from the UX audit. KK-250 and KK-251 (testplan changes) are held for the owner's
+   review. Start a campaign with
+   `F:\AI\Scripts\overnight\harness\kk-campaign.ps1 -Start -Until '<yyyy-MM-dd HH:mm>'`
+   (`docs/local-agent.md`, "The guard and campaigns"); the "KitKraft guard" scheduled task
+   is enabled again.
 2. **The campaign RFC's remaining changes** ("RFC: Campaign loop changes after the first
    unattended week", a Claude Docs doc). Its first group (Changes 1, 3, 4, 5, 6, 11) was
    adopted on 2026-10-30 (`b99522b`, `docs/local-agent.md`), and the first segment after
@@ -2028,9 +2028,10 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 3. ~~Refresh the gap matrix's hand rows.~~ Done 2026-10-31: `docs/foothold/gap-matrix.md`
    checked as a whole at `630b3be` (14 of 48 record-family rows changed; QUST
    typed-writable partial -> yes by KK-220), and `docs/foothold/next-sprint.md` marked as
-   the 2026-10-16 plan kept as history. Follow-up found by that check: LVLI's typed-write
-   read-back is still `#[ignore]`d (entry conditions written one slot early, the problem
-   KK-220 fixed for QUST), and no ticket covers it.
+   the 2026-10-16 plan kept as history. Follow-up found by that check, since settled:
+   LVLI's typed-write read-back, `#[ignore]`d by KK-017 (entry conditions written one slot
+   early), passes since KK-220's fix for QUST and is no longer ignored
+   (`crates/engine/src/handlers/authoring_tests.rs`, `docs/schema/evidence.toml`).
 4. **Checks the merge reports left** ("Campaign" above): ENCH's `ENIT` and ARTO's `DNAM`
    names against the pinned xEdit file, and two evidence notes that say more than their
    tests (ENCH's BfcbBlock, HDPT's HNAM).
