@@ -11,13 +11,20 @@
 #     the colour L10069, the colour's byte order wbByteABGR in
 #     wbDefinitionsCommon.pas L6985-L7000), the texture type (L10085-L10095) and
 #     the AVMS parent (L10096).
+#   corpus: the 6,530 AVMD records of the 14 official ESMs (crates/esm/tests/avmd_types.rs,
+#     avmd_types_full, 2026-11-07): every subrecord is placed in a member, every placed
+#     subrecord decodes and every record re-encodes identically. FLLD, GNAM and MODL (one
+#     record each) sit inside the single record's component block, which stays raw.
 #
 # No lstring member: the corpus lstring table (crates/engine/src/edit/lstrings.rs)
 # lists none for AVMD.
 signature = "AVMD"
 name = "AvmsData"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9954-L10097"
-confidence = "reference"
+evidence = [
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -49,7 +56,9 @@ values = [["None", 0], ["Simple", 1], ["Complex", 2], ["Modulation", 3]]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9957-L9957",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7031-L7037",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: MNAM in 6530 of 6530 official records",
 ]
+confidence = "corpus"
 note = "AVM group type"
 
 [[member]]
@@ -58,7 +67,9 @@ name = "Name"
 type = "zstring"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9958-L9958",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: YNAM in 6530 of 6530 official records",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "TNAM"
@@ -66,7 +77,9 @@ name = "Name2"
 type = "zstring"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9959-L9959",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: TNAM in 6530 of 6530 official records",
 ]
+confidence = "corpus"
 note = "upstream labels both names 'Name'; this is the second"
 
 [[member]]
@@ -75,7 +88,9 @@ name = "EntryCount"
 type = "u32"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9960-L9960",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: ITMC in 6530 of 6530 official records",
 ]
+confidence = "corpus"
 note = "the number of entries"
 
 [[member]]
@@ -83,7 +98,9 @@ group = "LnamEntries"
 card = "repeated"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9961-L10084",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: entries in 6490 of 6530 official records",
 ]
+confidence = "corpus"
 note = "one entry per LNAM, the entries consecutive; the entry count is ITMC"
 
 [[member.member]]
@@ -92,7 +109,9 @@ name = "Name"
 type = "zstring"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9963-L9963",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: LNAM in 6490 of 6530 official records",
 ]
+confidence = "corpus"
 
 [[member.member]]
 sig = "VNAM"
@@ -101,7 +120,9 @@ type = "zstring"
 card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10006-L10006",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: VNAM in 2682 of 6530 official records",
 ]
+confidence = "corpus"
 
 [[member.member]]
 sig = "NNAM"
@@ -111,7 +132,9 @@ size = 4
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10069-L10069",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6985-L7000",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: NNAM in 6490 of 6530 official records",
 ]
+confidence = "corpus"
 field = [
   { name = "Alpha", type = "u8" },
   { name = "Blue", type = "u8" },
@@ -136,7 +159,9 @@ bits = [
 ]
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10085-L10095",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: MODT in 6530 of 6530 official records",
 ]
+confidence = "corpus"
 note = "texture type; bit 0 is unnamed upstream"
 
 [[member]]
@@ -147,4 +172,6 @@ targets = ["AVMD"]
 card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10096-L10096",
+  "corpus: avmd_types_full (crates/esm/tests/avmd_types.rs), 2026-11-07: AVMP in 3 of 6530 official records",
 ]
+confidence = "corpus"
