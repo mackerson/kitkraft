@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-11-07 (`main` `3f8542b8` pushed: the UNC write-guard hole closed, "Next" item 4 done, `docs/local-agent.md` reconciled; A6 rebased on its branch; "Progress, night of 2026-11-07" under "Owner decisions (2026-11-05)"). Earlier: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -177,8 +177,8 @@ nothing here is merged into `main` unless it says so):
   Until these are closed, do not trust a new in-game pass on a row whose command can fail
   late.
 - **Item 7, built and reviewed; waits for the owner.** Branch `owner-review/a6-active-file`
-  (head `fa533191`, gate 1,501 passed, 0 failed, 106 ignored; its own Landed line states
-  the rules). A request opts in with `active_file: true`; the engine then exempts `into`
+  (head `fa533191` on 2026-11-06; rebased 2026-11-07, see the next block; its own Landed
+  line states the rules). A request opts in with `active_file: true`; the engine then exempts `into`
   from the load-order refusal only when the order came from a `plugins` list (never a
   profile), `into` is the last plugin, no loaded plugin names it as a master, no other
   loaded plugin has its file name, it is not an official master and not master-flagged, and
@@ -205,6 +205,45 @@ nothing here is merged into `main` unless it says so):
   a UNC spelling. Needs its own Claude-agent ticket: compare by file identity, or refuse
   UNC outputs. (Fixed on branch `ws/unc-guard`: see its Landed line at the end of this
   file.)
+
+**Progress, night of 2026-11-07** (Opus agents alongside the local-agent campaign, each
+piece reviewed by a second agent; `main` `3f8542b8` pushed after a green gate, 1,481 passed,
+0 failed, 108 ignored):
+
+- **The UNC hole above is closed on `main`** (`ws/unc-guard`, merged `3f8542b8`; Landed
+  line at the end of this file). Outputs are local drive paths only; a load order named
+  through a network path refuses every write; load-order protection compares resolved
+  identities. The reviewer's first round found the mirror case (order read through
+  `\\localhost\C$`, target spelled `C:\`) still rewrote the plugin end to end; fixed and
+  re-reviewed. Not covered: mapped or `subst` drives (untested), hard links (not matched;
+  the rename replaces the link). The engine crate and its tests cross-check for Linux.
+- **Item 7 (A6) rebased onto that `main` and brought in line:** branch
+  `owner-review/a6-active-file` is now head `95b54189` (code `867c73de`; the old head
+  `fa533191` is gone, the branch was rebased; gate 1,508 passed, 0 failed, 109 ignored;
+  Linux cross-check clean). The exemption's own comparison uses the same resolved identity
+  as `guard_target`, a network-named order is refused before any exemption, and the
+  exemption needs `into` to resolve to exactly the last plugin's canonical path (a new
+  `patch.esp` beside a loaded `Patch.esp` in a case-sensitive folder is refused, with a
+  test). The reviewer's once-ignored UNC test runs. Two review rounds; the second found a
+  test that would have failed on Linux (case variants on a case-sensitive file system) and
+  the case-sensitive wrong exemption; both fixed and re-checked. Still the owner's decision.
+- **"Next" item 4 done** (ENCH `ENIT` and ARTO `DNAM` match the pinned xEdit file; the ENCH
+  BfcbBlock and HDPT HNAM evidence notes now cite what shows each fact; checks repeated by
+  the director with `kit inspect` and `kit query`). **`docs/local-agent.md` reconciled**
+  against the harness (check-in schedule, budgets, overtime, the morning merge, the guard
+  and campaigns, `checkin_error`/`qa_error`) and "Next" items 1 and 3 corrected.
+- **Found on the way, for the owner:** this clone's `core.hooksPath` is
+  `C:\Modding\kitcraft\.githooks` (a typo for `kitkraft`), so the pre-commit hook has
+  never run here; `git config core.hooksPath .githooks` fixes it (left alone tonight, since
+  a hook firing during the morning merge is a behaviour change). A shared target dir serves
+  stale test binaries after a worktree switch: `crates/pex/tests/official_compiler.rs`
+  bakes `env!("CARGO_MANIFEST_DIR")`, so a gate from another worktree fails it with
+  path-not-found until `cargo clean -p` of the workspace members (53 such `env!` uses in
+  32 files; the run-time `std::env::var` form would avoid it). Harness side, not changed
+  during the campaign: `supervisor-prompt.md` is still tied to the 2026-10-30 campaign;
+  `kk-merge.ps1` and `guard.ps1` comments misstate who retries and how often (four
+  attempts, not three); `KITKRAFT-HARNESS.md` spells the ticket path `kitcraft`; a stopped
+  single-worker queue writes no `.pending`.
 
 Left for the owner at the desk: the real-window checks (the list above under "To try in a
 real window", plus from the sprint: a load from a real MO2 profile in the window, the
@@ -2120,7 +2159,7 @@ on 2026-10-14 ("Decision records" below), and lane B round 3 is done ("In progre
 | M7.O5 | NIF and mesh sources                  | **decided 2026-11-01**: the memo's recommendations 1 to 3 (sheet item 20; `docs/source-registry.md` "Sources for NIF and mesh layout") |
 | ADR 0012 Am. 2 | Automated CK sittings through UI Automation | **decided 2026-11-01: accepted** (sheet item 17); static string scans of `CreationKit.exe` not allowed (item 18) |
 | CK build fingerprint | SHA-256 of `CreationKit.exe` in the sitting preflight | **decided 2026-11-05: allowed** ("Owner decisions (2026-11-05)" item 10); string scans stay not allowed |
-| A6 | The active file is exempt from `guard_target` once loaded (ADR 0007 Amendment 4) | **decided 2026-11-05: approved** (item 7), as an engine ticket with six negative tests, by Claude agents; built and reviewed on branch `owner-review/a6-active-file` (2026-11-06), not merged |
+| A6 | The active file is exempt from `guard_target` once loaded (ADR 0007 Amendment 4) | **decided 2026-11-05: approved** (item 7), as an engine ticket with six negative tests, by Claude agents; built and reviewed on branch `owner-review/a6-active-file` (2026-11-06; rebased onto `main` `3f8542b8` and re-reviewed 2026-11-07, head `95b54189`), not merged |
 | M3.O6 | UI (ADR 0007)                         | **decided 2026-10-14**: accepted with scope (read-only workbench, M4 lane W; authoring UI M5) |
 | M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
 | M4.O6 | Agent-driven game sessions on `KitKraft Dev` (ADR 0010) | **decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1): screenshots in scope, input injection deferred, `crates/game` dependencies MIT/Apache-2.0 confirmed by the owner at the merge |
