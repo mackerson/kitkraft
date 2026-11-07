@@ -677,7 +677,6 @@ const BX2_INVENTORY: &[&str] = &[
 #[rustfmt::skip]
 const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "ASPC",
-    "AVMD",
     "CNDF",
     "CURV",
     "DFOB",
