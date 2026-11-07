@@ -425,10 +425,11 @@ fn a_master_flagged_last_plugin_is_refused_as_the_active_file() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Review: path spellings. An earlier plugin spelled another way (case, `..`, forward
-/// slashes, the `\\?\` prefix) is still refused with the flag; the active file spelled
-/// another way gets the exemption it would get by its own spelling (no wider); a flag that
-/// is not the JSON `true` is no flag.
+/// Review: path spellings. An earlier plugin spelled another way (`..`, forward slashes;
+/// on Windows also letter case and the `\\?\` prefix) is still refused with the flag; the
+/// active file spelled another way gets the exemption it would get by its own spelling (no
+/// wider); a flag that is not the JSON `true` is no flag. Letter-case spellings are the
+/// same file only on Windows: on a case-sensitive file system they name another file.
 #[test]
 fn path_spellings_neither_widen_nor_dodge_the_exemption() {
     let (d, data, active) = scratch("review-spelling");
@@ -438,11 +439,16 @@ fn path_spellings_neither_widen_nor_dodge_the_exemption() {
     let canon = std::fs::canonicalize(&over).unwrap();
     let canon_s = canon.display().to_string();
     let plain = canon_s.trim_start_matches(r"\\?\").to_string();
-    let spellings = vec![
-        PathBuf::from(plain.to_ascii_uppercase()),
+    let data_name = data.file_name().unwrap().to_os_string();
+    // The same file on every file system.
+    let mut spellings = vec![
         PathBuf::from(plain.replace('\\', "/")),
-        data.join("..").join("Data").join("override.ESP"),
+        data.join("..").join(&data_name).join("Override.esp"),
     ];
+    if cfg!(windows) {
+        spellings.push(PathBuf::from(plain.to_ascii_uppercase()));
+        spellings.push(data.join("..").join(&data_name).join("override.ESP"));
+    }
     for s in &spellings {
         let err = set_full(&engine, "Source.esm:000801", "X", s, true, false).unwrap_err();
         assert!(
@@ -473,18 +479,34 @@ fn path_spellings_neither_widen_nor_dodge_the_exemption() {
         assert!(got.is_err(), "{flag}: {got:?}");
     }
     assert_eq!(bytes(&active), active_before, "a non-true flag wrote");
-    // The active file by another spelling: exempt, written, and the session sees it.
-    let other = PathBuf::from(
-        std::fs::canonicalize(&active)
-            .unwrap()
-            .display()
-            .to_string()
-            .trim_start_matches(r"\\?\")
-            .replace('\\', "/")
-            .to_ascii_lowercase(),
-    );
-    set_full(&engine, "Source.esm:000801", "Spelled", &other, true, false).unwrap();
-    assert!(winning_full(&engine, "Source.esm:000801").contains("Spelled"));
+    // The active file by another spelling of the same file: exempt, written, and the
+    // session sees it (a `..` spelling everywhere; on Windows also lower case and `/`).
+    let work = active.parent().unwrap();
+    let mut others = vec![work
+        .join("..")
+        .join(work.file_name().unwrap())
+        .join(active.file_name().unwrap())];
+    if cfg!(windows) {
+        others.push(PathBuf::from(
+            std::fs::canonicalize(&active)
+                .unwrap()
+                .display()
+                .to_string()
+                .trim_start_matches(r"\\?\")
+                .replace('\\', "/")
+                .to_ascii_lowercase(),
+        ));
+    }
+    for (i, other) in others.iter().enumerate() {
+        let full = format!("Spelled{i}");
+        let got = set_full(&engine, "Source.esm:000801", &full, other, true, false);
+        assert!(got.is_ok(), "{}: {got:?}", other.display());
+        assert!(
+            winning_full(&engine, "Source.esm:000801").contains(&full),
+            "{}",
+            other.display()
+        );
+    }
     assert_eq!(bytes(&over), over_before, "Override.esp changed");
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -811,6 +833,55 @@ fn a_network_named_order_is_refused_before_any_exemption() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Review of the unc-guard rebase, item 2: in a case-sensitive folder, a new `patch.esp`
+/// beside the loaded active file `Patch.esp` keys like it (the identity key keeps a missing
+/// file's spelling, lowercased), but it is another file: it is refused, never exempted (an
+/// exemption would write `patch.esp` from `Patch.esp`'s records). The exact name is still
+/// exempt there. Skipped when the temp volume refuses `fsutil file setCaseSensitiveInfo`.
+#[cfg(windows)]
+#[test]
+fn a_new_file_differing_only_in_case_is_never_exempt() {
+    let (d, data, active) = scratch("case-sensitive");
+    let cs = d.join("cs");
+    std::fs::create_dir_all(&cs).unwrap();
+    let enabled = std::process::Command::new("fsutil")
+        .args(["file", "setCaseSensitiveInfo"])
+        .arg(&cs)
+        .arg("enable")
+        .output()
+        .is_ok_and(|o| o.status.success());
+    if !enabled {
+        let _ = std::fs::remove_dir_all(&d);
+        return;
+    }
+    let meshes = cs.join("meshes").join("weapons");
+    std::fs::create_dir_all(&meshes).unwrap();
+    std::fs::write(meshes.join("a.nif"), []).unwrap();
+    let loaded_active = cs.join("Patch.esp");
+    std::fs::copy(&active, &loaded_active).unwrap();
+    let engine = loaded(&data, &order(&loaded_active));
+    let before = bytes(&loaded_active);
+    let lower = cs.join("patch.esp");
+    assert!(!lower.exists(), "the folder is not case-sensitive");
+    let err = set_full(&engine, "Source.esm:000801", "Lower", &lower, true, false).unwrap_err();
+    assert!(err.contains("plugin of the load order"), "{err}");
+    assert!(!lower.exists(), "patch.esp was written");
+    assert_eq!(bytes(&loaded_active), before, "Patch.esp changed");
+    // Control: the exact name is the active file, exempt in a case-sensitive folder too.
+    let got = set_full(
+        &engine,
+        "Source.esm:000801",
+        "Exact",
+        &loaded_active,
+        true,
+        false,
+    );
+    assert!(got.is_ok(), "{got:?}");
+    assert!(winning_full(&engine, "Source.esm:000801").contains("Exact"));
+    assert!(!lower.exists(), "patch.esp was written");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// A6 review L3: `place` and `revert` refuse a loaded active file with a message that says
 /// they do not yet write one (`set`, `new` and `clone` do); nothing is written.
 #[test]
@@ -1005,7 +1076,8 @@ fn set_cannot_flag_the_active_files_own_header() {
 }
 
 /// Re-review: same file name up to non-ASCII case (`Ä` / `ä`). The same-name check
-/// compares ASCII case only, so the exemption stands; the in-place edit matches by path,
+/// compares ASCII case only, so the exemption stands; the in-place edit matches by resolved
+/// identity (the two files are in different folders),
 /// so the other file's form is not taken as the active file's own: it is either refused
 /// or carried with the other file as a master, and the active file still validates.
 #[test]

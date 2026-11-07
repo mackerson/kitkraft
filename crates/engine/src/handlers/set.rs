@@ -307,7 +307,10 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    same resolved identity as `guard_target` compares (`load_order_matches`: canonical as
 ///    far as it exists, `\\?\` stripped, case-insensitive), never the same spelling, and
 ///    `out`'s network, verbatim, device and stream spellings, and a load order with any
-///    plugin named through a network path, are refused before any exemption;
+///    plugin named through a network path, are refused before any exemption; `out` must
+///    also exist and canonicalize to exactly the last plugin's canonical path (a target
+///    that does not fully resolve, such as a new `patch.esp` beside `Patch.esp` in a
+///    case-sensitive folder, is refused, never exempted);
 /// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
 ///    readable and has no master flag (A6 review, M1: a master-flagged file is not
 ///    exempt; the owner has not ruled on whether one of their own may be), and no other
@@ -362,6 +365,21 @@ pub(crate) fn guard_output(
                 .to_string(),
         ));
     }
+    // The identity key keeps the caller's spelling (lowercased) for a part that does not
+    // exist, so in a case-sensitive folder a new `patch.esp` keys like a loaded
+    // `Patch.esp`. Exempt only a target that exists and fully resolves to the last
+    // plugin's own file (exact canonical paths); anything else is left to `guard_target`,
+    // which refuses it on the safe side (A6 review, unc-guard rebase item 2).
+    let same_file = all.get(last).is_some_and(|p| {
+        matches!(
+            (std::fs::canonicalize(out), std::fs::canonicalize(p)),
+            (Ok(a), Ok(b)) if a == b
+        )
+    });
+    if !same_file {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(None);
+    }
     let name = super::file_name(out);
     if official_master(&name) {
         return Err(refuse(format!("{name} is an official master")));
@@ -411,6 +429,8 @@ pub(crate) fn guard_output(
     }
     let path = plugin.path.clone();
     let others: Vec<PathBuf> = all.into_iter().take(last).collect();
+    // Every entry, `out`'s own included, was network-checked by `load_order_matches`
+    // above; this repeats `guard_target`'s refusals for the other plugins only.
     guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
     Ok(Some(path))
 }
