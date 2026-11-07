@@ -788,7 +788,7 @@ pub fn write_patch_with(
         }
         let own = options.in_place.as_ref().is_some_and(|active| {
             copy.source.name.eq_ignore_ascii_case(&target_name)
-                && absolute(&copy.source.path) == absolute(active)
+                && same_identity(&copy.source.path, active)
         });
         if own {
             // The active file's own version (A6): its FormIDs are already in the target's
@@ -1617,6 +1617,27 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
             )))
         }
     }
+    let (abs_target, hits) = load_order_matches(target, protected)?;
+    if !hits.is_empty() {
+        return Err(refused(format!(
+            "{} is a plugin of the load order; a patch is always a separate file",
+            target.display()
+        )));
+    }
+    guard_resolved(target, &abs_target)
+}
+
+/// The load-order comparison [`guard_target`] makes, for callers that decide on the
+/// matches themselves (the A6 active-file exemption, `handlers::set::guard_output`):
+/// runs the spelling, link and resolved-network refusals on `target` ([`resolved_output`]),
+/// refuses while any `protected` entry is named through a network path, then returns the
+/// resolved target and the indexes of the `protected` entries with its identity
+/// ([`identity_key`]: resolved, `\\?\` stripped, case-insensitive on Windows). Never a
+/// spelling comparison.
+pub(crate) fn load_order_matches(
+    target: &Path,
+    protected: &[PathBuf],
+) -> Result<(PathBuf, Vec<usize>), PatchError> {
     // The spelling and link refusals run first, so the canonicalization behind the
     // comparison never follows a link and never sees a network or device spelling.
     let abs_target = resolved_output(target)?;
@@ -1632,15 +1653,19 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
         }
     }
     let key = identity_key(&abs_target);
-    for p in protected {
-        if identity_key(&absolute(p)) == key {
-            return Err(refused(format!(
-                "{} is a plugin of the load order; a patch is always a separate file",
-                target.display()
-            )));
-        }
-    }
-    guard_resolved(target, &abs_target)
+    let hits = protected
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| identity_key(&absolute(p)) == key)
+        .map(|(i, _)| i)
+        .collect();
+    Ok((abs_target, hits))
+}
+
+/// Whether two plugin paths name the same file by [`identity_key`] (the A6 writer's match
+/// of a copy's source against the active file as loaded).
+pub(crate) fn same_identity(a: &Path, b: &Path) -> bool {
+    identity_key(&absolute(a)) == identity_key(&absolute(b))
 }
 
 /// Refuses any output file (a plugin, or a spec `overhaul.scaffold` writes) that is not

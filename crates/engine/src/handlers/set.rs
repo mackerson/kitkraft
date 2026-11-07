@@ -23,7 +23,8 @@ use super::{failed, str_arg};
 use crate::args::Violation;
 use crate::edit::fields::{parse_op, parse_path};
 use crate::edit::patch::{
-    guard_target, write_patch_with, Copy, Edit, NewRef, PatchError, PatchOptions, PatchReport,
+    guard_target, load_order_matches, write_patch_with, Copy, Edit, NewRef, PatchError,
+    PatchOptions, PatchReport,
 };
 use crate::edit::source::{placement_at, SourcePlugin};
 use crate::edit::strings::TableStrings;
@@ -252,11 +253,10 @@ pub(crate) fn protected(loaded: &Loaded) -> Vec<PathBuf> {
 /// is staged.
 pub(crate) fn guard(command: &str, loaded: &Loaded, out: &Path) -> Result<(), EngineError> {
     let all = protected(loaded);
-    let target = crate::edit::patch::absolute(out);
-    if all
-        .iter()
-        .any(|p| crate::edit::patch::absolute(p) == target)
-    {
+    // Matched by resolved identity, after the spelling and network-order refusals
+    // (`load_order_matches`, as `guard_target` matches).
+    let (_, hits) = load_order_matches(out, &all).map_err(|e| failed(command, e.to_string()))?;
+    if !hits.is_empty() {
         // `place`, `build` and `revert` (A6 review, L3): only `set`, `new` and `clone`
         // write a loaded active file.
         return Err(failed(
@@ -303,7 +303,11 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    plugins live in Data or MO2, which `guard_location` refuses anyway; this holds even
 ///    where an MO2 keeps its mods elsewhere);
 /// 2. `out` is in the load order once, as its **last** plugin (its own winner: no later
-///    plugin hides the edit), and no loaded plugin names it as a master;
+///    plugin hides the edit), and no loaded plugin names it as a master; "is" means the
+///    same resolved identity as `guard_target` compares (`load_order_matches`: canonical as
+///    far as it exists, `\\?\` stripped, case-insensitive), never the same spelling, and
+///    `out`'s network, verbatim, device and stream spellings, and a load order with any
+///    plugin named through a network path, are refused before any exemption;
 /// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
 ///    readable and has no master flag (A6 review, M1: a master-flagged file is not
 ///    exempt; the owner has not ruled on whether one of their own may be), and no other
@@ -323,14 +327,16 @@ pub(crate) fn guard_output(
     active: bool,
 ) -> Result<Option<PathBuf>, EngineError> {
     let all = protected(loaded);
-    let target = crate::edit::patch::absolute(out);
-    let hits: Vec<usize> = all
-        .iter()
-        .enumerate()
-        .filter(|(_, p)| crate::edit::patch::absolute(p) == target)
-        .map(|(i, _)| i)
-        .collect();
-    if !active || hits.is_empty() {
+    if !active {
+        guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
+        return Ok(None);
+    }
+    // The same comparison `guard_target` makes (unc-guard): `out`'s non-local spellings,
+    // links and network resolution, and any load-order entry named through a network
+    // path, are refused before any exemption; the entries `out` matches are those with its
+    // resolved identity (`identity_key`), never a spelling comparison.
+    let (_, hits) = load_order_matches(out, &all).map_err(|e| failed(command, e.to_string()))?;
+    if hits.is_empty() {
         guard_target(out, &all).map_err(|e| failed(command, e.to_string()))?;
         return Ok(None);
     }

@@ -442,12 +442,21 @@ fn path_spellings_neither_widen_nor_dodge_the_exemption() {
         PathBuf::from(plain.to_ascii_uppercase()),
         PathBuf::from(plain.replace('\\', "/")),
         data.join("..").join("Data").join("override.ESP"),
-        PathBuf::from(format!(r"\\?\{plain}")),
     ];
     for s in &spellings {
         let err = set_full(&engine, "Source.esm:000801", "X", s, true, false).unwrap_err();
         assert!(
             err.contains("only the last plugin") || err.contains("plugin of the load order"),
+            "{}: {err}",
+            s.display()
+        );
+    }
+    // A `\\?\` spelling is refused as a spelling (unc-guard), before any load-order match.
+    if cfg!(windows) {
+        let s = PathBuf::from(format!(r"\\?\{plain}"));
+        let err = set_full(&engine, "Source.esm:000801", "X", &s, true, false).unwrap_err();
+        assert!(
+            err.contains(r"verbatim (\\?\) path") && err.contains("local drive paths only"),
             "{}: {err}",
             s.display()
         );
@@ -694,49 +703,111 @@ fn the_reload_with_the_index_cache_sees_each_write() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Review: a UNC spelling (`\localhost\C$\...`) of an earlier plugin of the order. The
-/// load-order comparison canonicalizes both sides, but a UNC path canonicalizes to
-/// `\?\UNC\...`, never equal to the `\?\C:\...` of the loaded path, so neither the A6
-/// check (`hits`) nor `guard_target` sees a load-order plugin. Skipped when the local
-/// admin share is not reachable.
+/// The admin-share spelling (`\\localhost\C$\...`) of a local file, or `None` when the
+/// file is not on `C:` or the share is not reachable.
+#[cfg(windows)]
+fn admin_share(p: &Path) -> Option<PathBuf> {
+    let canon = std::fs::canonicalize(p).ok()?.display().to_string();
+    let plain = canon.trim_start_matches(r"\\?\").to_string();
+    let rest = plain.strip_prefix(r"C:\")?;
+    let unc = PathBuf::from(format!(r"\\localhost\C$\{rest}"));
+    unc.is_file().then_some(unc)
+}
+
+/// Review: a UNC spelling (`\\localhost\C$\...`) of a plugin of the order, an earlier one
+/// or the active file itself. Before the unc-guard merge neither the A6 check (`hits`) nor
+/// `guard_target` saw a load-order plugin there (a UNC path resolves to `\\?\UNC\...`).
+/// Now the output's network spelling is refused before any load-order match or exemption,
+/// with or without the flag, for `set` and `new`. Skipped when the local admin share is not
+/// reachable.
 #[cfg(windows)]
 #[test]
-#[ignore = "review finding (pre-existing, not A6): guard_target misses a load-order plugin named by a UNC admin-share path; proposal: compare by file identity (volume serial + file index) as well as by canonical path"]
 fn a_unc_spelling_of_a_loaded_plugin_is_refused() {
     let (d, data, active) = scratch("review-unc");
     let engine = loaded(&data, &order(&active));
     let over = data.join("Override.esp");
     let before = bytes(&over);
-    let canon = std::fs::canonicalize(&over).unwrap().display().to_string();
-    let plain = canon.trim_start_matches(r"\\?\").to_string();
-    let Some(rest) = plain.strip_prefix(r"C:\") else {
+    let active_before = bytes(&active);
+    let (Some(unc_over), Some(unc_active)) = (admin_share(&over), admin_share(&active)) else {
+        let _ = std::fs::remove_dir_all(&d);
         return;
     };
-    let unc = PathBuf::from(format!(r"\\localhost\C$\{rest}"));
-    if !unc.is_file() {
-        return;
-    }
-    for flag in [false, true] {
-        // OldRifle's winner is the active file, so the writer's own-master check does not
-        // stand in for the guard here.
-        let got = set_full(&engine, "Source.esm:000800", "ViaUnc", &unc, flag, false);
-        assert!(
-            got.is_err(),
-            "flag {flag}: Override.esp written through {}: {got:?}",
-            unc.display()
-        );
-        let mut args =
-            json!({"type": "GLOB", "edid": "KkViaUnc", "into": unc.display().to_string()});
-        if flag {
-            args["active_file"] = json!(true);
+    for unc in [&unc_over, &unc_active] {
+        for flag in [false, true] {
+            // OldRifle's winner is the active file, so the writer's own-master check does
+            // not stand in for the guard here.
+            let err =
+                set_full(&engine, "Source.esm:000800", "ViaUnc", unc, flag, false).unwrap_err();
+            assert!(
+                err.contains("a network (UNC) path") && err.contains("local drive paths only"),
+                "flag {flag}, set into {}: {err}",
+                unc.display()
+            );
+            let mut args =
+                json!({"type": "GLOB", "edid": "KkViaUnc", "into": unc.display().to_string()});
+            if flag {
+                args["active_file"] = json!(true);
+            }
+            let err = engine.execute("new", args).unwrap_err().to_string();
+            assert!(
+                err.contains("a network (UNC) path"),
+                "flag {flag}, new into {}: {err}",
+                unc.display()
+            );
         }
-        let got = engine.execute("new", args);
+    }
+    assert_eq!(bytes(&over), before, "Override.esp changed");
+    assert_eq!(bytes(&active), active_before, "the active file changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// unc-guard follow-up: a load order with a plugin named through a network path is
+/// refused before any exemption. The active file loaded through the admin share and
+/// written by its drive spelling (a different identity key, so never the "last plugin"),
+/// or by its share spelling, and an order whose earlier plugin is on the share: every
+/// `set` with the flag is refused, and nothing changes. Skipped when the local admin share
+/// is not reachable.
+#[cfg(windows)]
+#[test]
+fn a_network_named_order_is_refused_before_any_exemption() {
+    let (d, data, active) = scratch("unc-order");
+    let over = data.join("Override.esp");
+    let (Some(unc_over), Some(unc_active)) = (admin_share(&over), admin_share(&active)) else {
+        let _ = std::fs::remove_dir_all(&d);
+        return;
+    };
+    let before = bytes(&over);
+    let active_before = bytes(&active);
+    // The active file named through the share.
+    let shared_active = vec![
+        "Source.esm".to_string(),
+        "Override.esp".to_string(),
+        unc_active.display().to_string(),
+    ];
+    // An earlier plugin named through the share, the active file by its drive path.
+    let shared_over = vec![
+        "Source.esm".to_string(),
+        unc_over.display().to_string(),
+        active.display().to_string(),
+    ];
+    for plugins in [shared_active, shared_over] {
+        let engine = loaded(&data, &plugins);
+        let err = set_full(
+            &engine,
+            "Source.esm:000801",
+            "ViaOrder",
+            &active,
+            true,
+            false,
+        )
+        .unwrap_err();
         assert!(
-            got.is_err(),
-            "flag {flag}: `new` wrote Override.esp: {got:?}"
+            err.contains("through a network path") && err.contains("local drive path to write"),
+            "{plugins:?}: {err}"
         );
     }
     assert_eq!(bytes(&over), before, "Override.esp changed");
+    assert_eq!(bytes(&active), active_before, "the active file changed");
     let _ = std::fs::remove_dir_all(&d);
 }
 
