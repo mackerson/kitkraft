@@ -340,7 +340,14 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   given with `archive` is a path inside the archive and does not resolve. Output
   arguments (`out`, `out_dir`, `into`) never resolve: a bare output name is relative to
   the working directory and the write guards (never the game or user Data dir) apply as
-  before. One helper does this (`crates/engine/src/handlers/resolve.rs`).
+  before. One helper does this (`crates/engine/src/handlers/resolve.rs`). The write
+  guards accept local drive paths only (no `\\server\share`, `\\?\`, `\\.\` or `\??\`
+  spelling, no `:` stream name, no link): from a UNC working directory (a
+  `\\wsl.localhost\...` checkout) every relative output, including the defaults
+  (`mod run`'s `out`, `game session`'s `observe`), is refused; pass a drive path. A load
+  order read through a network path (`data_dir` or a plugin entry on a share) refuses
+  every plugin write (`set`, `new`, `clone`, `place`, `revert`, `build`) until it is
+  loaded through a drive path.
 
 ### Load-order arguments (`load`, `inspect`, `query`, `conflicts`, `refs`, `planet`)
 

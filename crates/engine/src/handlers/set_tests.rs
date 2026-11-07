@@ -55,6 +55,45 @@ pub(crate) fn data(d: &Path) -> PathBuf {
     data
 }
 
+/// unc-guard review 1, end to end: with the load order read through the admin share,
+/// `set` into the drive spelling of a loaded plugin rewrote it; now it is refused and
+/// the plugin is unchanged. Skipped when the admin share is not reachable.
+#[cfg(windows)]
+#[test]
+fn set_refuses_writes_while_the_order_is_read_through_a_network_path() {
+    let d = dir("set-unc-order");
+    let data = data(&d);
+    let over = data.join("Override.esp");
+    let before = std::fs::read(&over).unwrap();
+    let canon = std::fs::canonicalize(&data).unwrap().display().to_string();
+    let plain = canon.trim_start_matches(r"\\?\").to_string();
+    let Some((drive, rest)) = plain.split_once(r":\") else {
+        return;
+    };
+    let unc = format!(r"\\localhost\{drive}$\{rest}");
+    if !Path::new(&unc).is_dir() {
+        println!("skipped: the admin share {unc} is not reachable");
+        let _ = std::fs::remove_dir_all(&d);
+        return;
+    }
+    let got = execute(
+        "set",
+        json!({
+            "form": "OldRifle", "fields": {"FULL": "pwned"},
+            "into": format!(r"{plain}\Override.esp"),
+            "plugins": ["Source.esm", "Override.esp"], "data_dir": unc, "no_cache": true,
+        }),
+    );
+    let err = got.err().map(|e| e.to_string()).unwrap_or_default();
+    assert!(err.contains("through a network path"), "{err}");
+    assert_eq!(
+        std::fs::read(&over).unwrap(),
+        before,
+        "Override.esp changed"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 fn set(data: &Path, form: &str, fields: Value, into: &Path) -> Value {
     execute(
         "set",

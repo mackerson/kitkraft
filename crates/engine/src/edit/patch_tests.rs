@@ -1437,3 +1437,51 @@ fn data_and_mo2_refusals_hold_for_other_spellings() {
     assert!(guard_location(&d.join("elsewhere").join("P.esp")).is_ok());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// unc-guard review 1: a load order read through a network path keeps that spelling after
+/// resolution, so the drive spelling of a loaded plugin never matched it and was accepted.
+/// Any network-named protected entry now refuses the write; a `\\?\C:\` entry still
+/// protects by comparison, and a plain path over 260 characters is accepted.
+#[cfg(windows)]
+#[test]
+fn a_load_order_named_through_a_network_path_refuses_writes() {
+    use super::patch::guard_target;
+    let d = dir("network-order");
+    let plugin = d.join("Override.esp");
+    std::fs::write(&plugin, b"plugin").unwrap();
+    let plain = plain(&plugin);
+    let (drive, rest) = plain.split_once(r":\").unwrap();
+    let mut entries = vec![format!(r"\\?\UNC\localhost\{drive}$\{rest}")];
+    if admin_share(&plugin).is_some() {
+        entries.push(format!(r"\\localhost\{drive}$\{rest}"));
+        entries.push(format!(r"\\127.0.0.1\{drive}$\{rest}"));
+    }
+    for entry in entries {
+        let protected = vec![PathBuf::from(&entry)];
+        for target in [plugin.clone(), d.join("Patch.esp")] {
+            let err = guard_target(&target, &protected)
+                .err()
+                .unwrap_or_else(|| panic!("{entry}: {} was accepted", target.display()))
+                .to_string();
+            assert!(err.contains("through a network path"), "{entry}: {err}");
+        }
+    }
+    let verbatim = vec![PathBuf::from(format!(r"\\?\{plain}"))];
+    let err = guard_target(&plugin, &verbatim).unwrap_err().to_string();
+    assert!(err.contains("load order"), "{err}");
+    assert!(guard_target(&d.join("Patch.esp"), &verbatim).is_ok());
+    // A `\\?\` target is told how to spell a long path instead.
+    let err = guard_target(Path::new(&format!(r"\\?\{plain}")), &verbatim)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("long paths work without"), "{err}");
+    let mut long = d.join("long");
+    while long.as_os_str().len() < 310 {
+        long = long.join("a".repeat(40));
+    }
+    let long = long.join("P.esp");
+    assert!(long.as_os_str().len() > 260, "{}", long.display());
+    assert!(guard_target(&long, &verbatim).is_ok(), "{}", long.display());
+    assert_eq!(std::fs::read(&plugin).unwrap(), b"plugin");
+    let _ = std::fs::remove_dir_all(&d);
+}
