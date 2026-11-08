@@ -2058,7 +2058,6 @@ fn fr1_a_late_failure_in_its_own_rows_waiting_getter_reply_is_not_undone() {
 /// reply: T-02 fails on T-01's line, and T-01, whose `load` found no save, is graded `pass`
 /// on the late getter line (the 2026-11-01-T03 case, late).
 #[test]
-#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an itemless failure line stays with the reply it arrived in)"]
 fn fr2_a_late_itemless_failure_line_does_not_leave_its_row_a_pass() {
     let c = console();
     c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
@@ -2092,7 +2091,6 @@ fn fr2_a_late_itemless_failure_line_does_not_leave_its_row_a_pass() {
 /// Whether the console quotes a bad prefix this way is not observed; the shape is the
 /// correlator's, not the game's.
 #[test]
-#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an item spelled as `<ref>.` is not a word of the command)"]
 fn fr3_a_late_failure_for_a_reference_prefix_does_not_leave_its_row_a_pass() {
     let c = console();
     c.answer("09001007.disable", "09001007.disable");
@@ -2126,7 +2124,6 @@ fn fr3_a_late_failure_for_a_reference_prefix_does_not_leave_its_row_a_pass() {
 /// T-10's, if replies are not in order); it stays with T-10 (fail) and T-09 is graded
 /// `pass` on its late getter line.
 #[test]
-#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (PB8: a late failure in a reply that spells its own item)"]
 fn fr4_pb8_in_the_testplan_shape_two_requests_late() {
     let c = console();
     c.answer_in_turn(
@@ -2349,4 +2346,35 @@ fn fr8_an_on_time_failure_spelled_as_a_reference_prefix_is_not_a_pass() {
     );
     assert_ne!(v[1], "pass", "FR8 {v:?}");
     assert!(v[1].starts_with("inconclusive"), "FR8 {v:?}");
+}
+
+// ------------------------------------------------- send order (owner ruling 2026-11-07, item 2)
+// The console answers in send order, so a failure line that arrives while an older getter is
+// certainly unanswered is an older request's (FR2 to FR4 above). A getter answered by its own
+// failure line was answered: it does not pull a later row's on-time failure back to it.
+
+/// A getter fails on its own failure line (P5a's shape); the next row's `load` finds no save,
+/// on time. The getter has no line of its own, but it was answered: the `load` row fails.
+#[test]
+fn an_on_time_failure_after_a_getter_that_failed_on_its_own_line_still_fails_its_row() {
+    let c = console();
+    let cmd = "player.getincell CityNewAtlantisApartmentTEMPLATE";
+    c.answer(
+        cmd,
+        &format!("{cmd}\nItem 'CityNewAtlantisApartmentTEMPLATE' not found for parameter Cell."),
+    );
+    c.answer(
+        "load KitKraftSession",
+        "load KitKraftSession\nSave file not found.",
+    );
+    let (v, _) = rx_run(
+        "send-order-1",
+        &c,
+        vec![
+            one("T-01", cmd, Matcher::Regex, r"(?m)>>\s*1(\.0+)?\s*$", None),
+            probe("T-02", false, vec![step("load {save}", None, "", None)]),
+        ],
+    );
+    assert!(v[0].starts_with("fail"), "{v:?}");
+    assert!(v[1].starts_with("fail"), "{v:?}");
 }

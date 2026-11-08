@@ -169,6 +169,8 @@ pub struct Request {
     /// The command.
     pub command: String,
     subject: Option<Subject>,
+    /// A failure line in its own reply stayed with it: it was answered (send order).
+    failed_here: bool,
     /// How many times it was sent (each send may bring one answer, late or not).
     pub sent: usize,
     /// The lines that answer it, in the order they arrived.
@@ -274,6 +276,7 @@ impl Correlator {
             step,
             command: command.trim().to_string(),
             subject: subject(command),
+            failed_here: false,
             sent: 1,
             lines: Vec::new(),
             late: Vec::new(),
@@ -316,6 +319,25 @@ impl Correlator {
                 )
             })
             .collect()
+    }
+
+    /// The requests sent before `id` that a line arriving now must answer, in send order
+    /// (owner ruling 2026-11-07): when a getter older than `id` has no line and no later
+    /// request has one either, it is certainly still unanswered (a getter's answer is always
+    /// a line; a `help` that finds nothing may print none), and so is everything sent after
+    /// it; the line answers the oldest unanswered request, which is that getter or one sent
+    /// since the newest request with a line. Empty when no such getter is known.
+    fn unanswered_before(&self, id: usize) -> Vec<usize> {
+        let from = self
+            .requests
+            .iter()
+            .rposition(|r| !r.lines.is_empty() || r.failed_here)
+            .map_or(0, |a| a.saturating_add(1));
+        let oldest = (from..id).find(|i| self.requests.get(*i).is_some_and(Request::is_getter));
+        match oldest {
+            Some(w) => (from..=w).collect(),
+            None => Vec::new(),
+        }
     }
 
     /// `line` without the echoes: the reply's own first, then any other command's.
@@ -373,8 +395,13 @@ impl Correlator {
                 // The item must be a whole word of the command (or its quoted text). Every
                 // such request gets it: the text cannot tell which of them failed, so no
                 // candidate's row may keep a pass (review H3 step 3; owner review M1).
+                // First, send order: while an older getter is certainly unanswered,
+                // the line is an older request's, whatever item it quotes or does not
+                // (fix review FR2 to FR4); every candidate is re-opened.
                 let item = failure_item(&line);
+                let before = self.unanswered_before(id);
                 let others: Vec<usize> = match item.as_ref() {
+                    _ if !before.is_empty() => before,
                     Some(item) if !names_item(&command, item) => self
                         .requests
                         .iter()
@@ -385,6 +412,10 @@ impl Correlator {
                     _ => Vec::new(),
                 };
                 if others.is_empty() {
+                    // Kept, it is this request's answer (a getter's `Item ... not found`).
+                    if let Some(r) = self.requests.get_mut(id) {
+                        r.failed_here = true;
+                    }
                     routed.unclaimed.push(line);
                     continue;
                 }
