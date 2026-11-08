@@ -48,8 +48,8 @@ it. Paid usage is limited to the check-ins, the final QA and the morning merge.
    gap, whichever is less). Check-ins see the agent's recent commands and their results as well
    as its commits. A check-in that finds the ticket cannot pass as written adds a `DEFECT:`
    line; the run then ends within 15 minutes (the deadline moves to 15 minutes from then when
-   more time than that is left), keeping its work, and the merge review sees the
-   `ticket_defect` event. Nothing else acts on it: until someone fixes or holds the ticket, the
+   more time than that is left), keeping its work, and the merge review sees a
+   `ticket_defect` event (logged only when the deadline moved). Nothing else acts on it: until someone fixes or holds the ticket, the
    queue can still give it overtime and `auto` picks it again.
    A check-in or QA session that ends in an API error, without a result, or with a non-zero exit
    gives the agent nothing: it is logged in `events.jsonl` as `checkin_error` or `qa_error`, and
@@ -175,7 +175,7 @@ and left out of the bundle.
   one's output, after a grade it triggered by stopping and at the start of an overtime run.
 - **Should not read:** `plan/STATUS.md` and `plan/execution-plan.md`. They are too large for its
   context (134,000 tokens, Claude Code's cap in the sandbox, under the server's 139,264-token
-  window, 136k), so every ticket's brief carries what it needs.
+  (136k) window), so every ticket's brief carries what it needs.
 
 ## Known limits (2026-10-23, updated 2026-11-07)
 
