@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-11-07 (midday: seven owner rulings, "Owner rulings, 2026-11-07 (midday)" under the night block, `controller-m1` merged as `0a5868f8`, KK-250 and KK-251 released; A6, the active-file exemption, merged into `main` on the owner's "Merge A6" after the campaign's morning merge of KK-237 to KK-240; earlier that day `main` `3f8542b8` pushed: the UNC write-guard hole closed, "Next" item 4 done, `docs/local-agent.md` reconciled; "Progress, night of 2026-11-07" under "Owner decisions (2026-11-05)"). Earlier: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-11-07 (afternoon: rulings 2, 3, 6 and 7 landed, `main` `e8886379`, gate 1,532/0/115, "Afternoon of 2026-11-07" under the rulings; owed: the send-order controller session, the Data-dialog question; midday: seven owner rulings, "Owner rulings, 2026-11-07 (midday)" under the night block, `controller-m1` merged as `0a5868f8`, KK-250 and KK-251 released; A6, the active-file exemption, merged into `main` on the owner's "Merge A6" after the campaign's morning merge of KK-237 to KK-240; earlier that day `main` `3f8542b8` pushed: the UNC write-guard hole closed, "Next" item 4 done, `docs/local-agent.md` reconciled; "Progress, night of 2026-11-07" under "Owner decisions (2026-11-05)"). Earlier: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -284,6 +284,36 @@ choices after the A6 merge. Each is binding from this line; the work it opens is
 7. **The harness docs are brought in line with the scripts** (all of them: the supervisor
    prompt, `KITKRAFT-HARNESS.md`, the script comments in `kk-merge.ps1`, `guard.ps1` and
    the rest, the `.pending` note), while no campaign runs. Opus agent, outside the repo.
+
+**Afternoon of 2026-11-07: the rulings' work landed** (Opus writer and reviewer per branch,
+the director merging; each branch gated on its own, each merge gated on `main`):
+
+- Ruling 2: `ws/grader-order` merged as `dc755b49` (head `db11ff5c`). Two review rounds;
+  the first found two severity-1 false passes the new rule had introduced (a row after the
+  unclaimed getter kept PASS when the late failure named its item; a diverted failure made
+  the request retry and later pass), fixed with the reviewer's trial diff; FR2, FR3, FR4
+  and the rewritten PB8 run; five probes kept as tests. Known and documented: on-time
+  failures after an unclaimed getter become inconclusive (lost fails, never a false pass).
+  **Still owed: the confirming controller session** (not run; the director does not start
+  the game unasked).
+- Ruling 3: `ws/a6-esm` merged as `e8886379` (head `fd5eee55`). Three review rounds:
+  masters-load-first (a flagged active file after an unflagged plugin would have gained it
+  as a master), a non-ASCII-case hole in the names-it-as-master check, and a security hole
+  the second fix opened (raw `MAST` strings reached `canonicalize`: a plugin's bytes could
+  make the engine contact a network host or open a device; now refused unopened). **For the
+  owner:** the window's Data dialog still refuses a master-flagged active file for CK parity
+  (`ck-20261101-01`); the ruling works through MCP/CLI and the dialogs' own requests. Say
+  whether the dialog should follow the ruling or the CK. Follow-up noted: `validate` has no
+  rule for a master-flagged plugin with an unflagged master.
+- Ruling 6: `ws/spch-diff` merged as `ce27ed88` (head `3cb9f26d`). The reviewer caught
+  that xEdit also marks members required through the `...Req` constructors' argument (178
+  uses), not only `.SetRequired` (368); the rule names both. EDID stays required by
+  convention; inventory definitions keep corpus cardinality until typed.
+- Ruling 7: nine harness files reconciled (`F:\AI\Scripts\overnight\`, backups
+  `*.bak-20261107-docsync`), docs and comments only, scripts' code byte-identical; one
+  review fix round (five sentences). `docs/local-agent.md` got the three corrections the
+  sweep found (in the SPCH branch).
+- Final gate on `main` `e8886379`: 1,532 passed, 0 failed, 115 ignored. Pushed.
 
 Left for the owner at the desk: the real-window checks (the list above under "To try in a
 real window", plus from the sprint: a load from a real MO2 profile in the window, the
