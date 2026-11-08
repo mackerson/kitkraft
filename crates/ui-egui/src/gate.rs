@@ -1808,8 +1808,10 @@ mod tests {
         let fixture = scratch.0.join("Fixture.esm");
         let master = plugin_bytes(&[], 1, &[0x800], 1.5);
         std::fs::write(&fixture, &master).unwrap();
-        let dependent = scratch.0.join("Dependent.esp");
-        std::fs::write(&dependent, plugin_bytes(&["Fixture.esm"], 0, &[], 1.5)).unwrap();
+        // Master-flagged too, so the engine's masters-first check does not stand in for
+        // the named-as-a-master one.
+        let dependent = scratch.0.join("Dependent.esm");
+        std::fs::write(&dependent, plugin_bytes(&["Fixture.esm"], 1, &[], 1.5)).unwrap();
         let into = scratch.0.join("Patch.esp").display().to_string();
         let engine = ReadOnlyEngine::new();
         let load = |plugins: Vec<String>| {

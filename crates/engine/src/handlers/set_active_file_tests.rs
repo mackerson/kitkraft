@@ -427,21 +427,17 @@ fn master_flag_on_disk(p: &Path) -> bool {
 
 /// Owner ruling 2026-11-07, item 3 (which lifted review M1's refusal): a master-flagged
 /// file of the owner's own, not an official master by name, last in a `plugins` order and
-/// named as a master by no loaded plugin, is the active file: `set`, `new` and `clone`
-/// with `active_file: true` write it in place, it keeps its master flag, each later write
-/// sees the one before, and the plugins before it are untouched.
+/// named as a master by no loaded plugin, after master-flagged plugins only, is the active
+/// file: `set`, `new` and `clone` with `active_file: true` write it in place, it keeps its
+/// master flag, each later write sees the one before, and the plugin before it is
+/// untouched.
 #[test]
 fn a_master_flagged_file_of_the_owners_own_is_written_in_place_as_the_active_file() {
     let (d, data, _active) = scratch("ruling-master");
     let own = own_master(&d);
-    let plugins = vec![
-        "Source.esm".to_string(),
-        "Override.esp".to_string(),
-        own.display().to_string(),
-    ];
+    let plugins = vec!["Source.esm".to_string(), own.display().to_string()];
     let engine = loaded(&data, &plugins);
     let source = bytes(&data.join("Source.esm"));
-    let over = bytes(&data.join("Override.esp"));
     let before = bytes(&own);
     let first = set_full(&engine, "Source.esm:000801", "OwnFirst", &own, true, false).unwrap();
     assert_eq!(first["data"]["created"], json!(false), "{first:#}");
@@ -477,22 +473,97 @@ fn a_master_flagged_file_of_the_owners_own_is_written_in_place_as_the_active_fil
     assert!(master_flag_on_disk(&own), "Own.esm lost its master flag");
     assert!(winning_full(&engine, "Source.esm:000801").contains("OwnFirst"));
     assert_eq!(bytes(&data.join("Source.esm")), source);
-    assert_eq!(bytes(&data.join("Override.esp")), over);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fix round M1: a master-flagged active file after an unflagged plugin is refused. The
+/// game loads masters first (`masters-load-first`), so `Own.esm` would load before
+/// `Override.esp`: not its own winner, and a write of OtherRifle (whose winner here is
+/// `Override.esp`) would give it a master that loads after it. Nothing is written.
+#[test]
+fn a_master_flagged_active_file_after_an_unflagged_plugin_is_refused() {
+    let (d, data, _active) = scratch("ruling-master-order");
+    let own = own_master(&d);
+    let plugins = vec![
+        "Source.esm".to_string(),
+        "Override.esp".to_string(),
+        own.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    let before = bytes(&own);
+    for form in ["Source.esm:000801", "Source.esm:000800"] {
+        let err = set_full(&engine, form, "X", &own, true, false).unwrap_err();
+        assert!(err.contains("plugin of the load order"), "{form}: {err}");
+        assert!(
+            err.contains("Override.esp has no master flag") && err.contains("masters-load-first"),
+            "{form}: {err}"
+        );
+    }
+    let err = engine
+        .execute(
+            "new",
+            json!({"type": "GLOB", "edid": "KkAfterEsp", "into": own.display().to_string(),
+                   "active_file": true}),
+        )
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("masters-load-first"), "{err}");
+    assert_eq!(bytes(&own), before, "Own.esm changed");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fix round L1: a loaded plugin naming the master-flagged active file `Étude.esm` as
+/// `étude.esm` (another case of a non-ASCII letter: the same file on NTFS, where the load
+/// reports it as a missing master) is refused like one naming it exactly; nothing is
+/// written.
+#[cfg(windows)]
+#[test]
+fn a_plugin_naming_the_active_file_as_a_master_in_another_unicode_case_is_refused() {
+    let (d, data, _active) = scratch("ruling-master-unicode");
+    let work = d.join("work");
+    let etude = crate::edit::patch_tests::write_plugin(
+        &work,
+        "Étude.esm",
+        &["Source.esm"],
+        kitkraft_esm::tes4::FLAG_MASTER,
+        Vec::new(),
+    );
+    let dependent = crate::edit::patch_tests::write_plugin(
+        &work,
+        "Dependent.esm",
+        &["Source.esm", "étude.esm"],
+        kitkraft_esm::tes4::FLAG_MASTER,
+        Vec::new(),
+    );
+    let plugins = vec![
+        "Source.esm".to_string(),
+        dependent.display().to_string(),
+        etude.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    let before = bytes(&etude);
+    let err = set_full(&engine, "Source.esm:000801", "X", &etude, true, false).unwrap_err();
+    assert!(
+        err.contains("Dependent.esm names Étude.esm as a master"),
+        "{err}"
+    );
+    assert_eq!(bytes(&etude), before, "Étude.esm changed");
     let _ = std::fs::remove_dir_all(&d);
 }
 
 /// The ruling's limit: a master-flagged file of the owner's own that a loaded plugin names
 /// as a master (loaded before it, an ordering error) is still refused as the active file,
-/// with the refusal naming that plugin; nothing is written.
+/// with the refusal naming that plugin; nothing is written. The plugin naming it is
+/// master-flagged too, so the masters-first check does not stand in for this one.
 #[test]
 fn a_master_flagged_file_a_loaded_plugin_names_as_a_master_is_still_refused() {
     let (d, data, _active) = scratch("ruling-master-named");
     let own = own_master(&d);
     let dependent = crate::edit::patch_tests::write_plugin(
         &d.join("work"),
-        "Dependent.esp",
+        "Dependent.esm",
         &["Source.esm", "Own.esm"],
-        0,
+        kitkraft_esm::tes4::FLAG_MASTER,
         Vec::new(),
     );
     let plugins = vec![
@@ -505,7 +576,7 @@ fn a_master_flagged_file_a_loaded_plugin_names_as_a_master_is_still_refused() {
     let err = set_full(&engine, "Source.esm:000801", "X", &own, true, false).unwrap_err();
     assert!(err.contains("plugin of the load order"), "{err}");
     assert!(
-        err.contains("Dependent.esp names Own.esm as a master"),
+        err.contains("Dependent.esm names Own.esm as a master"),
         "{err}"
     );
     let err = engine
@@ -1064,24 +1135,37 @@ fn an_unreadable_last_plugin_is_not_exempt() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Sets bit 0 (master) of the TES4 record flags of the plugin at `p`, in place on disk.
+/// Sets bit 0 (master) of the TES4 record flags of the plugin at `p`, in place on disk,
+/// and restores its modification time, so only the flags tell the change (the size is
+/// unchanged too).
 fn flag_master_on_disk(p: &Path) {
+    let mtime = std::fs::metadata(p).unwrap().modified().unwrap();
     let mut b = bytes(p);
     assert_eq!(b.get(0..4), Some(&b"TES4"[..]));
     if let Some(f) = b.get_mut(8) {
         *f |= 1;
     }
     std::fs::write(p, b).unwrap();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(p)
+        .unwrap()
+        .set_modified(mtime)
+        .unwrap();
+    assert_eq!(std::fs::metadata(p).unwrap().modified().unwrap(), mtime);
 }
 
 /// Re-review: the active file is loaded without the master flag, then gains it on disk
 /// (another tool) before the write. The file is no longer the one loaded, so the write is
-/// refused as changed on disk (the ruling of 2026-11-07 that a master-flagged file may be
-/// the active file does not relax this: it must be loaded again first).
+/// refused as changed on disk by its `TES4` flags alone (size and modification time are
+/// the same); the ruling of 2026-11-07 that a master-flagged file may be the active file
+/// does not relax this: it must be loaded again first. Loaded again after master-flagged
+/// plugins only, it is the active file.
 #[test]
 fn a_master_flag_set_on_disk_after_the_load_is_refused() {
     let (d, data, active) = scratch("rr-flag-race");
-    let engine = loaded(&data, &order(&active));
+    let plugins = vec!["Source.esm".to_string(), active.display().to_string()];
+    let engine = loaded(&data, &plugins);
     flag_master_on_disk(&active);
     let before = bytes(&active);
     let got = set_full(
@@ -1093,13 +1177,14 @@ fn a_master_flag_set_on_disk_after_the_load_is_refused() {
         false,
     );
     assert!(
-        got.as_ref()
-            .is_err_and(|e| e.contains("set.active-file-changed")),
+        got.as_ref().is_err_and(
+            |e| e.contains("set.active-file-changed") && e.contains("its TES4 header differs")
+        ),
         "a now master-flagged active file was written: {got:?}"
     );
     assert_eq!(bytes(&active), before);
     // Loaded again, the now master-flagged file is the active file (the ruling).
-    let engine = loaded(&data, &order(&active));
+    let engine = loaded(&data, &plugins);
     set_full(
         &engine,
         "Source.esm:000801",

@@ -315,7 +315,11 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    plugin has its file name (A6 review, L1). The master flag does not matter: a
 ///    master-flagged file of the owner's own may be the active file (owner ruling
 ///    2026-11-07, item 3, which lifted the A6 review M1 refusal), as long as no loaded
-///    plugin names it as a master (condition 2);
+///    plugin names it as a master (condition 2; by name without case, Unicode included, or
+///    by a master name that resolves beside its plugin or in the Data dir to `out`'s
+///    file) and, when `out` is master-flagged, every plugin before it is master-flagged
+///    too (the game loads masters first, `masters-load-first`; an unreadable header
+///    counts as unflagged);
 /// 4. its loaded header is readable (the plugin has an index), and the file on disk is
 ///    still the one loaded: same size, modification time and `TES4` flags as that header
 ///    (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]), so a file that gained or lost
@@ -395,11 +399,30 @@ pub(crate) fn guard_output(
     // The loaded header is what `unchanged_on_disk` compares the file's `TES4` flags with;
     // without one there is nothing to compare, so the file is not exempt. Its master flag
     // is no refusal (owner ruling 2026-11-07, item 3).
-    if plugin.header().is_none() {
+    let Some(header) = plugin.header() else {
         return Err(refuse(format!(
             "its header could not be read ({})",
             plugin.error.as_deref().unwrap_or("no TES4")
         )));
+    };
+    // The game loads master-flagged plugins before the others (`masters-load-first`,
+    // `handlers/testplan.rs`): after an unflagged plugin, a master-flagged active file
+    // would load before it in the game, so it would not be its own winner, and could gain
+    // it as a master that loads after it. A plugin whose header is unreadable counts as
+    // unflagged.
+    if header.flags.master() {
+        if let Some(p) = loaded
+            .lo
+            .plugins
+            .iter()
+            .take(last)
+            .find(|p| !p.header().is_some_and(|h| h.flags.master()))
+        {
+            return Err(refuse(format!(
+                "{} has no master flag, and a master-flagged active file must follow only master-flagged plugins: the game loads masters first (masters-load-first)",
+                p.name
+            )));
+        }
     }
     unchanged_on_disk(command, plugin)?;
     if let Some(p) = loaded
@@ -415,13 +438,29 @@ pub(crate) fn guard_output(
         )));
     }
     // A plugin listing it as a master (loaded before it: an ordering error) would see
-    // its FormIDs change meaning.
+    // its FormIDs change meaning. The name is compared without case (Unicode, not only
+    // ASCII), and a master name that resolves beside the plugin naming it, or in the Data
+    // dir, to `out`'s own file is the same master whatever its spelling (A6 fix round, L1:
+    // NTFS folds non-ASCII case).
+    let lower = name.to_lowercase();
+    let canonical_out = std::fs::canonicalize(out).ok();
+    let names_out = |p: &kitkraft_doc::LoadedPlugin, m: &str| {
+        if m.eq_ignore_ascii_case(&name) || m.to_lowercase() == lower {
+            return true;
+        }
+        let beside = p.path.parent().map(|d| d.join(m));
+        let in_data = loaded.data_dir.as_ref().map(|d| d.join(m));
+        [beside, in_data]
+            .into_iter()
+            .flatten()
+            .any(|c| canonical_out.is_some() && std::fs::canonicalize(c).ok() == canonical_out)
+    };
     if let Some(p) = loaded
         .lo
         .plugins
         .iter()
         .take(last)
-        .find(|p| p.masters.iter().any(|m| m.name.eq_ignore_ascii_case(&name)))
+        .find(|p| p.masters.iter().any(|m| names_out(p, &m.name)))
     {
         return Err(refuse(format!("{} names {name} as a master", p.name)));
     }
