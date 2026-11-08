@@ -47,8 +47,9 @@ it. Paid usage is limited to the check-ins, the final QA and the morning merge.
    52 is typical), and no check-in starts in a run's last 15 minutes (20, or half the fallback
    gap, whichever is less). Check-ins see the agent's recent commands and their results as well
    as its commits. A check-in that finds the ticket cannot pass as written adds a `DEFECT:`
-   line; the run then ends 15 minutes later, keeping its work, and the merge review sees the
-   `ticket_defect` event. Nothing else acts on it: until someone fixes or holds the ticket, the
+   line; the run then ends within 15 minutes (the deadline moves to 15 minutes from then when
+   more time than that is left), keeping its work, and the merge review sees a
+   `ticket_defect` event (logged only when the deadline moved). Nothing else acts on it: until someone fixes or holds the ticket, the
    queue can still give it overtime and `auto` picks it again.
    A check-in or QA session that ends in an API error, without a result, or with a non-zero exit
    gives the agent nothing: it is logged in `events.jsonl` as `checkin_error` or `qa_error`, and
@@ -68,8 +69,9 @@ it. Paid usage is limited to the check-ins, the final QA and the morning merge.
 3. Check on it with `overnight status`, or stop it with `overnight stop`. The final grade still
    runs after a stop, after the harness runs `cargo fmt --all`, as it does at the end of every
    run. A stop is deliberate: the guard does not resume it, and the stopped queue leaves no
-   `.pending`, so its runs are merged only if a campaign is running ("The guard and
-   campaigns").
+   `.pending`, so the guard merges its runs only while a campaign is running (its `orphans`
+   step, "The guard and campaigns"); they can always be merged by hand ("Merge a finished
+   ticket").
 4. Results land in `F:\AI\Scripts\overnight\runs\kk-KK-001-<date-time>\`, one folder per ticket
    (an overtime run's folder ends in `-ot`, and its bundle holds the earlier run's work too):
    - `KK-001.bundle`: the agent's commits on branch `ticket/KK-001`. Work left uncommitted at the
@@ -172,7 +174,8 @@ and left out of the bundle.
   game, MO2 or the Creation Kit. It learns only which checks still fail, with the tail of each
   one's output, after a grade it triggered by stopping and at the start of an overtime run.
 - **Should not read:** `plan/STATUS.md` and `plan/execution-plan.md`. They are too large for its
-  136k context, so every ticket's brief carries what it needs.
+  context (134,000 tokens, Claude Code's cap in the sandbox, under the server's 139,264-token
+  (136k) window), so every ticket's brief carries what it needs.
 
 ## Known limits (2026-10-23, updated 2026-11-07)
 

@@ -153,10 +153,10 @@ name = "Difficulty"
 type = "enum"
 base = "u16"
 values = [["Easy", 0], ["Medium", 1], ["Hard", 2]]
-card = "required"
+card = "optional"
 evidence = [
   "corpus: spch_types_full (crates/esm/tests/spch_types.rs), 2026-11-07: in 197 of 197 official SPCH records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17758-L17762",
 ]
 confidence = "corpus"
-note = "how hard the challenge is for the player"
+note = "how hard the challenge is for the player; optional although all 197 official records carry it, since the pinned xEdit file does not require it (owner ruling 2026-11-07)"

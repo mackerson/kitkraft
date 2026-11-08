@@ -153,6 +153,19 @@ consecutive). In an ordered record the same signature may appear at two position
 members have different names (WEAP has two `FLLD` slots); an unordered record does not
 allow that at the top level (see Unordered records).
 
+A member is `required` only where the pinned xEdit file requires it (`.SetRequired` on the
+member or on the helper that builds it, or the required argument some constructors take, as
+the `...Req` helpers such as the required-name helper at L3185 do); corpus presence never makes a member required,
+because the official records show what they happen to carry, not what the engine needs
+(owner ruling 2026-11-07). A member every official record carries but xEdit leaves
+optional is `optional`, with the corpus count in its `evidence` (SPCH `DIFF`: 197 of 197).
+The rule applies to definitions transcribed from the pinned xEdit file; an inventory
+definition (corpus only, not yet typed from xEdit) keeps the corpus cardinality that
+"Inventory definitions" below describes and `cargo xtask inventory-check` enforces, until it
+is typed, when the xEdit rule takes over. `EDID` is the one exception: it stays `required`
+by the project's convention for `EditorId`, although the pinned EditorID helper (L3182) does
+not require it.
+
 ### Unordered records
 
 `unordered = true` on a record definition (CELL, REFR, ACHR; xEdit marks them so) says
