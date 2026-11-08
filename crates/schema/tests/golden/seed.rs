@@ -86821,7 +86821,7 @@ pub struct SpchRecord {
     pub keywords: Option<Keywords>,
     /// `SPMA`, optional.
     pub scenes: Option<Sub<SpchScenes>>,
-    /// `DIFF`, required.
+    /// `DIFF`, optional.
     pub difficulty: Option<Sub<SpchDifficulty>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
@@ -86875,7 +86875,7 @@ impl SpchRecord {
         },
         MemberDesc::Sub {
             sig: *b"DIFF",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
