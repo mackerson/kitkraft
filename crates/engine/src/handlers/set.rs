@@ -311,12 +311,21 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    also exist and canonicalize to exactly the last plugin's canonical path (a target
 ///    that does not fully resolve, such as a new `patch.esp` beside `Patch.esp` in a
 ///    case-sensitive folder, is refused, never exempted);
-/// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
-///    readable and has no master flag (A6 review, M1: a master-flagged file is not
-///    exempt; the owner has not ruled on whether one of their own may be), and no other
-///    loaded plugin has its file name (A6 review, L1);
-/// 4. the file on disk is still the one loaded: same size, modification time and `TES4`
-///    flags (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]);
+/// 3. `out` is not an official master by name ([`official_master`]), and no other loaded
+///    plugin has its file name (A6 review, L1). The master flag does not matter: a
+///    master-flagged file of the owner's own may be the active file (owner ruling
+///    2026-11-07, item 3, which lifted the A6 review M1 refusal), as long as no loaded
+///    plugin names it as a master (condition 2; by name without case, Unicode included, or
+///    by a master name that resolves beside its plugin or in the Data dir to `out`'s
+///    file; only a plain relative name, [`plain_master_name`], is resolved on disk, and an
+///    earlier plugin naming any master by a path, a drive, a network or device spelling or
+///    a reserved device name refuses the exemption unopened) and, when `out` is master-flagged, every plugin before it is master-flagged
+///    too (the game loads masters first, `masters-load-first`; an unreadable header
+///    counts as unflagged);
+/// 4. its loaded header is readable (the plugin has an index), and the file on disk is
+///    still the one loaded: same size, modification time and `TES4` flags as that header
+///    (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]), so a file that gained or lost
+///    the master flag on disk since the load is refused until it is loaded again;
 /// 5. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
 ///    through a link), which `guard_target` still runs, unrelaxed.
 ///
@@ -389,19 +398,33 @@ pub(crate) fn guard_output(
         .plugins
         .get(last)
         .ok_or_else(|| refuse("it is not in the load order".to_string()))?;
-    match plugin.header() {
-        None => {
+    // The loaded header is what `unchanged_on_disk` compares the file's `TES4` flags with;
+    // without one there is nothing to compare, so the file is not exempt. Its master flag
+    // is no refusal (owner ruling 2026-11-07, item 3).
+    let Some(header) = plugin.header() else {
+        return Err(refuse(format!(
+            "its header could not be read ({})",
+            plugin.error.as_deref().unwrap_or("no TES4")
+        )));
+    };
+    // The game loads master-flagged plugins before the others (`masters-load-first`,
+    // `handlers/testplan.rs`): after an unflagged plugin, a master-flagged active file
+    // would load before it in the game, so it would not be its own winner, and could gain
+    // it as a master that loads after it. A plugin whose header is unreadable counts as
+    // unflagged.
+    if header.flags.master() {
+        if let Some(p) = loaded
+            .lo
+            .plugins
+            .iter()
+            .take(last)
+            .find(|p| !p.header().is_some_and(|h| h.flags.master()))
+        {
             return Err(refuse(format!(
-                "its header could not be read ({})",
-                plugin.error.as_deref().unwrap_or("no TES4")
-            )))
+                "{} has no master flag, and a master-flagged active file must follow only master-flagged plugins: the game loads masters first (masters-load-first)",
+                p.name
+            )));
         }
-        Some(h) if h.flags.master() => {
-            return Err(refuse(format!(
-                "{name} has the master flag; a master-flagged file is not exempt (the owner has not ruled on it)"
-            )))
-        }
-        Some(_) => {}
     }
     unchanged_on_disk(command, plugin)?;
     if let Some(p) = loaded
@@ -417,15 +440,40 @@ pub(crate) fn guard_output(
         )));
     }
     // A plugin listing it as a master (loaded before it: an ordering error) would see
-    // its FormIDs change meaning.
-    if let Some(p) = loaded
-        .lo
-        .plugins
-        .iter()
-        .take(last)
-        .find(|p| p.masters.iter().any(|m| m.name.eq_ignore_ascii_case(&name)))
-    {
-        return Err(refuse(format!("{} names {name} as a master", p.name)));
+    // its FormIDs change meaning. The name is compared without case (Unicode, not only
+    // ASCII), and a master name that resolves beside the plugin naming it, or in the Data
+    // dir, to `out`'s own file is the same master whatever its spelling (A6 fix round, L1:
+    // NTFS folds non-ASCII case). The `MAST` string comes from the plugin's bytes, so the
+    // file system is touched only for a plain relative name (A6 fix round 3): a path, a
+    // drive, a network or device spelling or a reserved device name refuses the
+    // exemption without being opened.
+    let lower = name.to_lowercase();
+    let canonical_out = std::fs::canonicalize(out).ok();
+    for p in loaded.lo.plugins.iter().take(last) {
+        for m in p.masters.iter().map(|m| m.name.as_str()) {
+            if m.eq_ignore_ascii_case(&name) || m.to_lowercase() == lower {
+                return Err(refuse(format!("{} names {name} as a master", p.name)));
+            }
+            let by_path = || {
+                refuse(format!(
+                    "{} names a master by a path ({m}); a master is named by its file name",
+                    p.name
+                ))
+            };
+            if !plain_master_name(m) {
+                return Err(by_path());
+            }
+            let beside = p.path.parent().map(|d| d.join(m));
+            let in_data = loaded.data_dir.as_ref().map(|d| d.join(m));
+            for c in [beside, in_data].into_iter().flatten() {
+                if crate::edit::patch::non_local_spelling(&c).is_some() {
+                    return Err(by_path());
+                }
+                if canonical_out.is_some() && std::fs::canonicalize(&c).ok() == canonical_out {
+                    return Err(refuse(format!("{} names {name} as a master", p.name)));
+                }
+            }
+        }
     }
     let path = plugin.path.clone();
     let others: Vec<PathBuf> = all.into_iter().take(last).collect();
@@ -435,9 +483,49 @@ pub(crate) fn guard_output(
     Ok(Some(path))
 }
 
+/// Whether a `MAST` name read from a plugin is a plain relative name that may be resolved
+/// on disk ([`guard_output`]): not empty, no `:`, no prefix or root, every component a
+/// normal name or `..`, and none a reserved device name (`CON`, `PRN`, `AUX`, `NUL`,
+/// `CONIN$`, `CONOUT$`, `COM0`-`COM9`, `LPT0`-`LPT9`, `COM¹`-`COM³`, `LPT¹`-`LPT³`, with
+/// or without an extension, any case). On the Windows 11 build tested none of these but
+/// `NUL` maps to a device inside a directory (`std::path::absolute` turns only
+/// `<dir>\NUL` into `\\.\NUL`); older Windows 10 builds mapped more, so the whole list is
+/// refused on the safe side.
+pub(crate) fn plain_master_name(m: &str) -> bool {
+    use std::path::Component;
+    let reserved = |c: &str| {
+        let stem = c.split('.').next().unwrap_or(c).trim_end().to_uppercase();
+        let numbered = stem
+            .strip_prefix("COM")
+            .or_else(|| stem.strip_prefix("LPT"))
+            .is_some_and(|n| {
+                let mut digits = n.chars();
+                matches!(
+                    (digits.next(), digits.next()),
+                    (Some('0'..='9' | '¹' | '²' | '³'), None)
+                )
+            });
+        numbered
+            || matches!(
+                stem.as_str(),
+                "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+            )
+    };
+    // A `\` is a separator only on Windows; elsewhere a name holding one is a Windows path.
+    !m.is_empty()
+        && !m.contains(':')
+        && (cfg!(windows) || !m.contains('\\'))
+        && Path::new(m).components().all(|c| match c {
+            Component::Normal(n) => !reserved(&n.to_string_lossy()),
+            Component::ParentDir => true,
+            _ => false,
+        })
+}
+
 /// Refuses the exemption when the active file on disk is not the file the session loaded
 /// (A6 re-review, RR-M1 and RR-L1): its size or modification time differ from the index's,
-/// or its `TES4` flags differ from the loaded header's (or now carry the master flag).
+/// or its `TES4` flags differ from the loaded header's (a master flag set or cleared since
+/// the load included).
 /// Another tool rewrote it, so the session's offsets may name other records: it must be
 /// loaded again. The session's own writes re-read the load order ([`reload`]), so they
 /// never trip this.

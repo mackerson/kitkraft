@@ -1716,7 +1716,7 @@ fn resolved_output(target: &Path) -> Result<PathBuf, PatchError> {
 /// (`\\server\share\...`, `\\?\UNC\...`), a verbatim (`\\?\`), device (`\\.\`) or NT
 /// object (`\??\`) path, or a component holding `:` (an alternate data stream of a file or
 /// folder). `None` for a drive path, a rooted or relative path, and anywhere but Windows.
-fn non_local_spelling(path: &Path) -> Option<&'static str> {
+pub(crate) fn non_local_spelling(path: &Path) -> Option<&'static str> {
     use std::path::{Component, Prefix};
     if !cfg!(windows) {
         return None;

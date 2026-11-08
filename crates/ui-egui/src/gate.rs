@@ -1792,13 +1792,15 @@ mod tests {
         Scratch(dir)
     }
 
-    /// Review of A6 (2026-11-06), finding M1: the request the set dialog really sends (it
-    /// now always carries `active_file: true`), aimed at a loaded master-flagged plugin with
-    /// the gate's checks bypassed, as `set_reaches_the_engine_only_confirmed_and_the_engine_refuses_a_master`
-    /// did before A6 removed the flag from its bypass request. The engine alone should
-    /// still refuse it; with A6 it writes `Fixture.esm` (the only, so last, plugin).
+    /// Review of A6 (2026-11-06), finding M1, after the owner's ruling of 2026-11-07 (item
+    /// 3: a master-flagged file of the owner's own may be the active file): the request the
+    /// set dialog really sends (it always carries `active_file: true`), aimed at a loaded
+    /// master-flagged plugin with the gate's checks bypassed. While a loaded plugin names
+    /// `Fixture.esm` as a master the engine alone refuses it and nothing changes; loaded on
+    /// its own (the only, so last, plugin, named by nothing) it is written in place and
+    /// keeps its master flag.
     #[test]
-    fn the_dialogs_own_request_never_writes_a_loaded_master_on_its_own() {
+    fn the_dialogs_own_request_writes_a_loaded_master_only_when_nothing_names_it_as_a_master() {
         use crate::dialogs::set;
         use crate::panels::cockpit::fake_mo2::plugin_bytes;
 
@@ -1806,26 +1808,53 @@ mod tests {
         let fixture = scratch.0.join("Fixture.esm");
         let master = plugin_bytes(&[], 1, &[0x800], 1.5);
         std::fs::write(&fixture, &master).unwrap();
+        // Master-flagged too, so the engine's masters-first check does not stand in for
+        // the named-as-a-master one.
+        let dependent = scratch.0.join("Dependent.esm");
+        std::fs::write(&dependent, plugin_bytes(&["Fixture.esm"], 1, &[], 1.5)).unwrap();
         let into = scratch.0.join("Patch.esp").display().to_string();
         let engine = ReadOnlyEngine::new();
-        engine
-            .run(&Request::new(
-                "load",
-                json!({"plugins": [fixture.display().to_string()], "no_cache": true}),
-            ))
-            .unwrap();
+        let load = |plugins: Vec<String>| {
+            engine
+                .run(&Request::new(
+                    "load",
+                    json!({"plugins": plugins, "no_cache": true}),
+                ))
+                .unwrap();
+        };
+        load(vec![fixture.display().to_string()]);
         let mut fields = Map::new();
         fields.insert("FLTV".into(), json!(7.25));
         let preview = set::preview_request("Fixture.esm:000800", &fields, &into);
         let mut onto_master = set::write_request(&preview).unwrap().args;
         onto_master["into"] = json!(fixture.display().to_string());
         assert_eq!(onto_master["active_file"], json!(true));
-        let got = engine.engine.execute("set", onto_master);
-        assert!(got.is_err(), "the engine wrote the master: {got:?}");
+        // Named as a master by a plugin loaded before it: refused by the engine alone.
+        load(vec![
+            dependent.display().to_string(),
+            fixture.display().to_string(),
+        ]);
+        let got = engine.engine.execute("set", onto_master.clone());
+        assert!(
+            got.as_ref()
+                .is_err_and(|e| e.to_string().contains("names Fixture.esm as a master")),
+            "the engine wrote a master another plugin depends on: {got:?}"
+        );
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
             master,
             "the master changed"
+        );
+        // On its own: the owner's master-flagged active file, written in place.
+        load(vec![fixture.display().to_string()]);
+        let got = engine.engine.execute("set", onto_master);
+        assert!(got.is_ok(), "{got:?}");
+        let after = std::fs::read(&fixture).unwrap();
+        assert_ne!(after, master, "Fixture.esm was not written");
+        assert_eq!(
+            after.get(8).map(|f| f & 1),
+            Some(1),
+            "Fixture.esm lost its master flag"
         );
     }
 
@@ -1907,13 +1936,26 @@ mod tests {
         );
         // The engine refuses a load-order plugin as output on its own (the gate's
         // checks are bypassed here on purpose).
-        // The request the window sends names its output as the active file (A6); the
-        // engine still refuses the master-flagged fixture (A6 review, M1).
+        // The request the window sends names its output as the active file (A6). A
+        // master-flagged file of the owner's own may be the active file only as the last
+        // plugin (owner ruling 2026-11-07, item 3): with the patch loaded after it, the
+        // engine still refuses the fixture.
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string(), into.clone()], "no_cache": true}),
+            ))
+            .unwrap();
         let mut onto_master = preview.args.clone();
         onto_master["into"] = json!(fixture.display().to_string());
         assert_eq!(onto_master["active_file"], json!(true));
         let refused = engine.engine.execute("set", onto_master);
-        assert!(refused.is_err(), "{refused:?}");
+        assert!(
+            refused
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("only the last plugin")),
+            "{refused:?}"
+        );
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
             master,
@@ -2435,12 +2477,26 @@ mod tests {
             master,
             "the master changed"
         );
-        // As the window sends it, `active_file: true`: the engine still refuses the
-        // master-flagged fixture (A6 review, M1).
+        // As the window sends it, `active_file: true`. A master-flagged file of the
+        // owner's own may be the active file only as the last plugin (owner ruling
+        // 2026-11-07, item 3): with the patch loaded after it, the engine still refuses
+        // the fixture.
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string(), into.clone()], "no_cache": true}),
+            ))
+            .unwrap();
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
         assert_eq!(onto["active_file"], json!(true));
-        assert!(engine.engine.execute("new", onto).is_err());
+        let refused = engine.engine.execute("new", onto);
+        assert!(
+            refused
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("only the last plugin")),
+            "{refused:?}"
+        );
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
             master,
@@ -2599,12 +2655,26 @@ mod tests {
             master,
             "the master changed"
         );
-        // As the window sends it, `active_file: true`: the engine still refuses the
-        // master-flagged fixture (A6 review, M1).
+        // As the window sends it, `active_file: true`. A master-flagged file of the
+        // owner's own may be the active file only as the last plugin (owner ruling
+        // 2026-11-07, item 3): with the patch loaded after it, the engine still refuses
+        // the fixture.
+        engine
+            .run(&Request::new(
+                "load",
+                json!({"plugins": [fixture.display().to_string(), into.clone()], "no_cache": true}),
+            ))
+            .unwrap();
         let mut onto = preview.args.clone();
         onto["into"] = json!(fixture.display().to_string());
         assert_eq!(onto["active_file"], json!(true));
-        assert!(engine.engine.execute("clone", onto).is_err());
+        let refused = engine.engine.execute("clone", onto);
+        assert!(
+            refused
+                .as_ref()
+                .is_err_and(|e| e.to_string().contains("only the last plugin")),
+            "{refused:?}"
+        );
         assert_eq!(
             std::fs::read(&fixture).unwrap(),
             master,
