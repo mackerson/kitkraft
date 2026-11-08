@@ -722,6 +722,14 @@ impl Run<'_> {
                         verdicts.push(Verdict::Inconclusive(format!(
                             "{why}: no result to judge (a timing anomaly, R20, R28)"
                         )));
+                        if let Some(note) = foreign.clone() {
+                            // Review M2 on this path too: a failure line in this request's
+                            // replies went to other rows (send order may divert its own), so
+                            // a late line for it alone must not make the row a pass.
+                            verdicts.push(Verdict::Inconclusive(format!(
+                                "{note} (a timing anomaly, R20, R28)"
+                            )));
+                        }
                         continue;
                     }
                     seen.push(format!("{cmd} -> {}", clip(&out, 120)));

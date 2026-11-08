@@ -32,6 +32,31 @@
 //! unless the item they quote is a word of another request's command and not of this one;
 //! then they are re-queued to every such request (review M2, H3), and none of their rows
 //! can keep a `pass`: each becomes `inconclusive (late failure)`.
+//!
+//! Before that, send order: while a getter sent before the reply's request has no line
+//! claimed for it, and no request sent after it has one either, the getter's answer is not
+//! known to have arrived. It may simply be unclaimed here: its failure line may have gone
+//! elsewhere by the item rule, or its answer may name the function in a form the getter
+//! does not claim, or have been lost to echo-only replies. A failure line arriving then
+//! goes to every request sent from the one after the newest answered request up to the
+//! reply's own (not included), and to every other request whose command spells the item
+//! it quotes. Each of their rows is re-opened (`inconclusive (late failure)`), and the
+//! reply's own row is inconclusive, not failed: an on-time failure after such a getter is
+//! a lost fail, never a false pass (fix review FR2 to FR4). A request whose own failure
+//! line stayed with it counts as answered.
+//!
+//! A getter or `help` whose own failure line was diverted this way has no answer of its
+//! own and is re-sent like an echo-only request (R20), so the commands a session sends can
+//! differ from review H2's "a failure line is not re-sent". Only those read-only commands
+//! are re-sent; the row keeps the diverted failure as an inconclusive part, so a later line
+//! for the request cannot make it a pass.
+//!
+//! The send-order assumption is the owner's ruling of 2026-11-07 (`plan/STATUS.md`, "Owner
+//! rulings, 2026-11-07 (midday)", item 2), drawn from `game-20261103-04` and `-08`; no
+//! session has yet been designed to test it. The rows it decides are those where a failure
+//! line arrives while an older getter is still waiting (FR2, FR3 and FR4 in
+//! `tests/session.rs`). A controller session on `KitKraft Dev` is to confirm the ordering;
+//! if it contradicts the ruling, the ruling reverts and this rule goes with it.
 
 /// What a request's answer names.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -169,6 +194,8 @@ pub struct Request {
     /// The command.
     pub command: String,
     subject: Option<Subject>,
+    /// A failure line in its own reply stayed with it: it was answered (send order).
+    failed_here: bool,
     /// How many times it was sent (each send may bring one answer, late or not).
     pub sent: usize,
     /// The lines that answer it, in the order they arrived.
@@ -274,6 +301,7 @@ impl Correlator {
             step,
             command: command.trim().to_string(),
             subject: subject(command),
+            failed_here: false,
             sent: 1,
             lines: Vec::new(),
             late: Vec::new(),
@@ -316,6 +344,28 @@ impl Correlator {
                 )
             })
             .collect()
+    }
+
+    /// The requests sent before `id` that a line arriving now may answer, in send order
+    /// (owner ruling 2026-11-07): when a getter older than `id` has no line claimed for it
+    /// and no later request has one either, its answer is not known to have arrived (a
+    /// getter's answer is a line, though the correlator may not have claimed it; a `help`
+    /// that finds nothing may print none, so a `help` does not count), and neither is any
+    /// answer sent after it. Then every request since the newest one with a line, up to
+    /// `id` (not included), may own the line. Empty when no such getter is known.
+    fn unanswered_before(&self, id: usize) -> Vec<usize> {
+        let from = self
+            .requests
+            .iter()
+            .rposition(|r| !r.lines.is_empty() || r.failed_here)
+            .map_or(0, |a| a.saturating_add(1));
+        let oldest = (from..id).find(|i| self.requests.get(*i).is_some_and(Request::is_getter));
+        // Every request sent since that getter is as unanswered as it is: all of them are
+        // candidates (re-opening one loses a pass, never makes one; fix review S1).
+        match oldest {
+            Some(_) => (from..id).collect(),
+            None => Vec::new(),
+        }
     }
 
     /// `line` without the echoes: the reply's own first, then any other command's.
@@ -373,8 +423,24 @@ impl Correlator {
                 // The item must be a whole word of the command (or its quoted text). Every
                 // such request gets it: the text cannot tell which of them failed, so no
                 // candidate's row may keep a pass (review H3 step 3; owner review M1).
+                // First, send order: while an older getter's answer is not known to have
+                // arrived, every request sent since the newest answered one may own the
+                // line (fix review FR2 to FR4), and so may every request spelling its item
+                // (fix review S1, RP1 to RP3); each candidate is re-opened.
                 let item = failure_item(&line);
+                let before = self.unanswered_before(id);
                 let others: Vec<usize> = match item.as_ref() {
+                    _ if !before.is_empty() => {
+                        let mut all = before;
+                        if let Some(item) = item.as_ref() {
+                            for (i, r) in self.requests.iter().enumerate() {
+                                if i != id && !all.contains(&i) && names_item(&r.command, item) {
+                                    all.push(i);
+                                }
+                            }
+                        }
+                        all
+                    }
                     Some(item) if !names_item(&command, item) => self
                         .requests
                         .iter()
@@ -385,6 +451,10 @@ impl Correlator {
                     _ => Vec::new(),
                 };
                 if others.is_empty() {
+                    // Kept, it is this request's answer (a getter's `Item ... not found`).
+                    if let Some(r) = self.requests.get_mut(id) {
+                        r.failed_here = true;
+                    }
                     routed.unclaimed.push(line);
                     continue;
                 }
