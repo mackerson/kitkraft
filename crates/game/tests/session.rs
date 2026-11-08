@@ -1587,13 +1587,13 @@ KYWD: KitKraftAlpha (09001000) ''",
     assert_ne!(v[0], "pass", "PB6 {v:?}");
 }
 
-/// PB8 (open, needs a ruling): the late failure lands in the reply of a later request that
-/// spells the same item itself (T10's T-23 sends `prid 09001007` again). Review M2 keeps a
-/// failure with its own reply then, so T-03 fails and T-01, whose own `prid` may be the one
-/// that failed, keeps its pass. Not covered by H3; the fix leaves it.
+/// PB8, decided by the owner's ruling of 2026-11-07 (midday, item 2: the console answers in
+/// send order): the failure lands in the reply of a later request that spells the same item
+/// itself (T10's T-23 sends `prid 09001007` again). T-01's and T-02's answers both arrived
+/// before T-03's reply, so T-01's `prid` was answered before them and the failure is T-03's:
+/// T-03 fails and T-01 keeps its pass.
 #[test]
-#[ignore = "owner review 2026-11-06: open, needs a ruling (a failure in a reply that spells its own item)"]
-fn om1_pb8_a_late_failure_in_a_reply_that_spells_the_item_itself() {
+fn om1_pb8_a_failure_after_every_earlier_answer_is_the_later_rows_own() {
     let c = console();
     c.answer_in_turn(
         "prid 09001007",
@@ -1626,7 +1626,8 @@ fn om1_pb8_a_late_failure_in_a_reply_that_spells_the_item_itself() {
             ),
         ],
     );
-    assert_ne!(v[0], "pass", "PB8 {v:?}");
+    assert_eq!(v[0], "pass", "PB8 {v:?}");
+    assert!(v[2].starts_with("fail"), "PB8 {v:?}");
 }
 
 // ------------------------------------------------- offline re-grade (owner review 2026-11-06)
@@ -2377,4 +2378,201 @@ fn an_on_time_failure_after_a_getter_that_failed_on_its_own_line_still_fails_its
     );
     assert!(v[0].starts_with("fail"), "{v:?}");
     assert!(v[1].starts_with("fail"), "{v:?}");
+}
+
+// Fix review of the send-order rule (RP1 to RP4, RP6): a getter with no line claimed for it
+// may have been answered all the same, so the rule must keep every request that may own the
+// failure line a candidate, and the reply's own row must not pass on a diverted failure.
+
+/// RP1: T-02's getter is answered on time by a failure line the item rule sends to T-01
+/// (the item is spelled only as T-02's reference prefix), so T-02 has no line of its own.
+/// T-03's own failure, quoting only T-03's item, arrives in T-04's reply: T-03 is re-opened.
+#[test]
+fn a_late_failure_quoting_a_later_rows_item_reopens_that_row_after_an_unclaimed_getter() {
+    let c = console();
+    c.answer("prid 09001009", "prid 09001009");
+    c.answer(
+        "09001009.getpos x",
+        "09001009.getpos x
+Item '09001009' not found for parameter ObjectReferenceID.",
+    );
+    c.answer("prid 0900ABCD", "prid 0900ABCD");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell
+Item '0900ABCD' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "rp1",
+        &c,
+        vec![
+            probe("T-01", false, vec![step("prid 09001009", None, "", None)]),
+            one(
+                "T-02",
+                "09001009.getpos x",
+                Matcher::Number,
+                "-17",
+                Some(0.5),
+            ),
+            probe("T-03", false, vec![step("prid 0900ABCD", None, "", None)]),
+            probe(
+                "T-04",
+                false,
+                vec![step("coc KitKraftCell", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[2], "pass", "RP1 {v:?}");
+}
+
+/// RP2: a getter's answer names its function in a form the getter does not claim
+/// (`getav` answered `GetActorValue: ...`; not observed in Starfield), so the getter has no
+/// line; T-02's late failure, quoting T-02's item, still re-opens T-02.
+#[test]
+fn a_late_failure_is_not_kept_from_its_row_by_a_getter_whose_answer_went_unclaimed() {
+    let c = console();
+    c.answer(
+        "player.getav health",
+        "player.getav health
+GetActorValue: Health >> 100.00",
+    );
+    c.answer("prid 0900ABCD", "prid 0900ABCD");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell
+Item '0900ABCD' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "rp2",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "player.getav health",
+                Matcher::Number,
+                "100",
+                Some(0.5),
+            ),
+            probe("T-02", false, vec![step("prid 0900ABCD", None, "", None)]),
+            probe(
+                "T-03",
+                false,
+                vec![step("coc KitKraftCell", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[1], "pass", "RP2 {v:?}");
+}
+
+/// RP3: an echo-only getter (three sends), then T-02's `prid` (echo), then T-03's reply
+/// with a failure quoting only T-02's item: T-02 is re-opened, not only the getter's row.
+#[test]
+fn an_echo_only_getter_does_not_take_alone_a_failure_quoting_a_later_rows_item() {
+    let c = console();
+    c.answer("player.getincell 0021966F", "player.getincell 0021966F");
+    c.answer("prid 0900ABCD", "prid 0900ABCD");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell
+Item '0900ABCD' not found for parameter ObjectReferenceID.",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "rp3",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "player.getincell 0021966F",
+                Matcher::Regex,
+                re,
+                None,
+            ),
+            probe("T-02", false, vec![step("prid 0900ABCD", None, "", None)]),
+            probe(
+                "T-03",
+                false,
+                vec![step("coc KitKraftCell", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[1], "pass", "RP3 {v:?}");
+}
+
+/// RP4: a getter's own on-time failure is diverted to an older echo-only getter by send
+/// order, so the getter is re-sent and waits; a later line only it can claim must not
+/// then grade its row a pass (before the send-order rule the failure failed it at once).
+#[test]
+fn a_getter_whose_own_failure_was_diverted_is_not_passed_by_a_later_line() {
+    let c = console();
+    c.answer("player.getincell 0021966F", "player.getincell 0021966F");
+    c.answer(
+        "09001007.getdistance player",
+        "09001007.getdistance player
+Item '09001007' not found for parameter ObjectReferenceID.",
+    );
+    c.answer(
+        "getpos y",
+        "getpos y
+GetPos: Y >> -4.00
+GetDistance: player >> 0.44",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "rp4",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "player.getincell 0021966F",
+                Matcher::Regex,
+                re,
+                None,
+            ),
+            one(
+                "T-02",
+                "09001007.getdistance player",
+                Matcher::Number,
+                "0",
+                Some(500.0),
+            ),
+            one("T-03", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[1], "pass", "RP4 {v:?}");
+}
+
+/// RP6: as RP3 with an itemless failure (`Save file not found.`): only T-02, sent after the
+/// echo-only getter, sent a `load`, so T-02 must not keep a pass.
+#[test]
+fn an_itemless_late_failure_reopens_a_row_sent_after_the_waiting_getter() {
+    let c = console();
+    c.answer("player.getincell 0021966F", "player.getincell 0021966F");
+    c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell
+Save file not found.",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "rp6",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "player.getincell 0021966F",
+                Matcher::Regex,
+                re,
+                None,
+            ),
+            probe("T-02", false, vec![step("load {save}", None, "", None)]),
+            probe(
+                "T-03",
+                false,
+                vec![step("coc KitKraftCell", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[1], "pass", "RP6 {v:?}");
 }

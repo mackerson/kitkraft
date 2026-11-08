@@ -33,12 +33,23 @@
 //! then they are re-queued to every such request (review M2, H3), and none of their rows
 //! can keep a `pass`: each becomes `inconclusive (late failure)`.
 //!
-//! Before that, send order: while a getter sent before the reply's request has no line,
-//! and no request sent after it has one, the getter is certainly unanswered (its answer is
-//! always a line), so a failure line arriving now answers an older request, whatever item
-//! it quotes or does not. It goes to every request from the one after the newest answered
-//! request up to that getter (each row re-opened, the reply's own row not failed on it;
-//! fix review FR2 to FR4). A request whose own failure line stayed with it was answered.
+//! Before that, send order: while a getter sent before the reply's request has no line
+//! claimed for it, and no request sent after it has one either, the getter's answer is not
+//! known to have arrived. It may simply be unclaimed here: its failure line may have gone
+//! elsewhere by the item rule, or its answer may name the function in a form the getter
+//! does not claim, or have been lost to echo-only replies. A failure line arriving then
+//! goes to every request sent from the one after the newest answered request up to the
+//! reply's own (not included), and to every other request whose command spells the item
+//! it quotes. Each of their rows is re-opened (`inconclusive (late failure)`), and the
+//! reply's own row is inconclusive, not failed: an on-time failure after such a getter is
+//! a lost fail, never a false pass (fix review FR2 to FR4). A request whose own failure
+//! line stayed with it counts as answered.
+//!
+//! A getter or `help` whose own failure line was diverted this way has no answer of its
+//! own and is re-sent like an echo-only request (R20), so the commands a session sends can
+//! differ from review H2's "a failure line is not re-sent". Only those read-only commands
+//! are re-sent; the row keeps the diverted failure as an inconclusive part, so a later line
+//! for the request cannot make it a pass.
 //!
 //! The send-order assumption is the owner's ruling of 2026-11-07 (`plan/STATUS.md`, "Owner
 //! rulings, 2026-11-07 (midday)", item 2), drawn from `game-20261103-04` and `-08`; no
@@ -335,12 +346,13 @@ impl Correlator {
             .collect()
     }
 
-    /// The requests sent before `id` that a line arriving now must answer, in send order
-    /// (owner ruling 2026-11-07): when a getter older than `id` has no line and no later
-    /// request has one either, it is certainly still unanswered (a getter's answer is always
-    /// a line; a `help` that finds nothing may print none), and so is everything sent after
-    /// it; the line answers the oldest unanswered request, which is that getter or one sent
-    /// since the newest request with a line. Empty when no such getter is known.
+    /// The requests sent before `id` that a line arriving now may answer, in send order
+    /// (owner ruling 2026-11-07): when a getter older than `id` has no line claimed for it
+    /// and no later request has one either, its answer is not known to have arrived (a
+    /// getter's answer is a line, though the correlator may not have claimed it; a `help`
+    /// that finds nothing may print none, so a `help` does not count), and neither is any
+    /// answer sent after it. Then every request since the newest one with a line, up to
+    /// `id` (not included), may own the line. Empty when no such getter is known.
     fn unanswered_before(&self, id: usize) -> Vec<usize> {
         let from = self
             .requests
@@ -348,8 +360,10 @@ impl Correlator {
             .rposition(|r| !r.lines.is_empty() || r.failed_here)
             .map_or(0, |a| a.saturating_add(1));
         let oldest = (from..id).find(|i| self.requests.get(*i).is_some_and(Request::is_getter));
+        // Every request sent since that getter is as unanswered as it is: all of them are
+        // candidates (re-opening one loses a pass, never makes one; fix review S1).
         match oldest {
-            Some(w) => (from..=w).collect(),
+            Some(_) => (from..id).collect(),
             None => Vec::new(),
         }
     }
@@ -409,13 +423,24 @@ impl Correlator {
                 // The item must be a whole word of the command (or its quoted text). Every
                 // such request gets it: the text cannot tell which of them failed, so no
                 // candidate's row may keep a pass (review H3 step 3; owner review M1).
-                // First, send order: while an older getter is certainly unanswered,
-                // the line is an older request's, whatever item it quotes or does not
-                // (fix review FR2 to FR4); every candidate is re-opened.
+                // First, send order: while an older getter's answer is not known to have
+                // arrived, every request sent since the newest answered one may own the
+                // line (fix review FR2 to FR4), and so may every request spelling its item
+                // (fix review S1, RP1 to RP3); each candidate is re-opened.
                 let item = failure_item(&line);
                 let before = self.unanswered_before(id);
                 let others: Vec<usize> = match item.as_ref() {
-                    _ if !before.is_empty() => before,
+                    _ if !before.is_empty() => {
+                        let mut all = before;
+                        if let Some(item) = item.as_ref() {
+                            for (i, r) in self.requests.iter().enumerate() {
+                                if i != id && !all.contains(&i) && names_item(&r.command, item) {
+                                    all.push(i);
+                                }
+                            }
+                        }
+                        all
+                    }
                     Some(item) if !names_item(&command, item) => self
                         .requests
                         .iter()
