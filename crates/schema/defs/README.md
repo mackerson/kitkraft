@@ -153,6 +153,12 @@ consecutive). In an ordered record the same signature may appear at two position
 members have different names (WEAP has two `FLLD` slots); an unordered record does not
 allow that at the top level (see Unordered records).
 
+A member is `required` only where the pinned xEdit file requires it (`.SetRequired` on the
+member or on the helper that builds it); corpus presence never makes a member required,
+because the official records show what they happen to carry, not what the engine needs
+(owner ruling 2026-11-07). A member every official record carries but xEdit leaves
+optional is `optional`, with the corpus count in its `evidence` (SPCH `DIFF`: 197 of 197).
+
 ### Unordered records
 
 `unordered = true` on a record definition (CELL, REFR, ACHR; xEdit marks them so) says
