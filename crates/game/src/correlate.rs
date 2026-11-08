@@ -32,6 +32,20 @@
 //! unless the item they quote is a word of another request's command and not of this one;
 //! then they are re-queued to every such request (review M2, H3), and none of their rows
 //! can keep a `pass`: each becomes `inconclusive (late failure)`.
+//!
+//! Before that, send order: while a getter sent before the reply's request has no line,
+//! and no request sent after it has one, the getter is certainly unanswered (its answer is
+//! always a line), so a failure line arriving now answers an older request, whatever item
+//! it quotes or does not. It goes to every request from the one after the newest answered
+//! request up to that getter (each row re-opened, the reply's own row not failed on it;
+//! fix review FR2 to FR4). A request whose own failure line stayed with it was answered.
+//!
+//! The send-order assumption is the owner's ruling of 2026-11-07 (`plan/STATUS.md`, "Owner
+//! rulings, 2026-11-07 (midday)", item 2), drawn from `game-20261103-04` and `-08`; no
+//! session has yet been designed to test it. The rows it decides are those where a failure
+//! line arrives while an older getter is still waiting (FR2, FR3 and FR4 in
+//! `tests/session.rs`). A controller session on `KitKraft Dev` is to confirm the ordering;
+//! if it contradicts the ruling, the ruling reverts and this rule goes with it.
 
 /// What a request's answer names.
 #[derive(Debug, Clone, PartialEq, Eq)]
