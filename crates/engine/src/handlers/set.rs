@@ -317,7 +317,9 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    2026-11-07, item 3, which lifted the A6 review M1 refusal), as long as no loaded
 ///    plugin names it as a master (condition 2; by name without case, Unicode included, or
 ///    by a master name that resolves beside its plugin or in the Data dir to `out`'s
-///    file) and, when `out` is master-flagged, every plugin before it is master-flagged
+///    file; only a plain relative name, [`plain_master_name`], is resolved on disk, and an
+///    earlier plugin naming any master by a path, a drive, a network or device spelling or
+///    a reserved device name refuses the exemption unopened) and, when `out` is master-flagged, every plugin before it is master-flagged
 ///    too (the game loads masters first, `masters-load-first`; an unreadable header
 ///    counts as unflagged);
 /// 4. its loaded header is readable (the plugin has an index), and the file on disk is
@@ -441,28 +443,37 @@ pub(crate) fn guard_output(
     // its FormIDs change meaning. The name is compared without case (Unicode, not only
     // ASCII), and a master name that resolves beside the plugin naming it, or in the Data
     // dir, to `out`'s own file is the same master whatever its spelling (A6 fix round, L1:
-    // NTFS folds non-ASCII case).
+    // NTFS folds non-ASCII case). The `MAST` string comes from the plugin's bytes, so the
+    // file system is touched only for a plain relative name (A6 fix round 3): a path, a
+    // drive, a network or device spelling or a reserved device name refuses the
+    // exemption without being opened.
     let lower = name.to_lowercase();
     let canonical_out = std::fs::canonicalize(out).ok();
-    let names_out = |p: &kitkraft_doc::LoadedPlugin, m: &str| {
-        if m.eq_ignore_ascii_case(&name) || m.to_lowercase() == lower {
-            return true;
+    for p in loaded.lo.plugins.iter().take(last) {
+        for m in p.masters.iter().map(|m| m.name.as_str()) {
+            if m.eq_ignore_ascii_case(&name) || m.to_lowercase() == lower {
+                return Err(refuse(format!("{} names {name} as a master", p.name)));
+            }
+            let by_path = || {
+                refuse(format!(
+                    "{} names a master by a path ({m}); a master is named by its file name",
+                    p.name
+                ))
+            };
+            if !plain_master_name(m) {
+                return Err(by_path());
+            }
+            let beside = p.path.parent().map(|d| d.join(m));
+            let in_data = loaded.data_dir.as_ref().map(|d| d.join(m));
+            for c in [beside, in_data].into_iter().flatten() {
+                if crate::edit::patch::non_local_spelling(&c).is_some() {
+                    return Err(by_path());
+                }
+                if canonical_out.is_some() && std::fs::canonicalize(&c).ok() == canonical_out {
+                    return Err(refuse(format!("{} names {name} as a master", p.name)));
+                }
+            }
         }
-        let beside = p.path.parent().map(|d| d.join(m));
-        let in_data = loaded.data_dir.as_ref().map(|d| d.join(m));
-        [beside, in_data]
-            .into_iter()
-            .flatten()
-            .any(|c| canonical_out.is_some() && std::fs::canonicalize(c).ok() == canonical_out)
-    };
-    if let Some(p) = loaded
-        .lo
-        .plugins
-        .iter()
-        .take(last)
-        .find(|p| p.masters.iter().any(|m| names_out(p, &m.name)))
-    {
-        return Err(refuse(format!("{} names {name} as a master", p.name)));
     }
     let path = plugin.path.clone();
     let others: Vec<PathBuf> = all.into_iter().take(last).collect();
@@ -470,6 +481,35 @@ pub(crate) fn guard_output(
     // above; this repeats `guard_target`'s refusals for the other plugins only.
     guard_target(out, &others).map_err(|e| failed(command, e.to_string()))?;
     Ok(Some(path))
+}
+
+/// Whether a `MAST` name read from a plugin is a plain relative name that may be resolved
+/// on disk ([`guard_output`]): not empty, no `:`, no prefix or root, every component a
+/// normal name or `..`, and none a reserved device name (`CON`, `PRN`, `AUX`, `NUL`,
+/// `COM1`-`COM9`, `LPT1`-`LPT9`, with or without an extension, any case).
+pub(crate) fn plain_master_name(m: &str) -> bool {
+    use std::path::Component;
+    let reserved = |c: &str| {
+        let stem = c
+            .split('.')
+            .next()
+            .unwrap_or(c)
+            .trim_end()
+            .to_ascii_uppercase();
+        matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+            || ((stem.starts_with("COM") || stem.starts_with("LPT"))
+                && stem.len() == 4
+                && stem.ends_with(|d: char| ('1'..='9').contains(&d)))
+    };
+    // A `\` is a separator only on Windows; elsewhere a name holding one is a Windows path.
+    !m.is_empty()
+        && !m.contains(':')
+        && (cfg!(windows) || !m.contains('\\'))
+        && Path::new(m).components().all(|c| match c {
+            Component::Normal(n) => !reserved(&n.to_string_lossy()),
+            Component::ParentDir => true,
+            _ => false,
+        })
 }
 
 /// Refuses the exemption when the active file on disk is not the file the session loaded

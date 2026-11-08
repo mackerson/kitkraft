@@ -551,6 +551,80 @@ fn a_plugin_naming_the_active_file_as_a_master_in_another_unicode_case_is_refuse
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Loads [Source.esm, Dependent.esm (master-flagged, masters `Source.esm` and `mast`),
+/// Own.esm (master-flagged)] and tries a `set` into Own.esm as the active file; returns
+/// the error, after checking that Own.esm is byte identical.
+fn set_after_a_dependent_naming(tag: &str, mast: &str) -> String {
+    let (d, data, _active) = scratch(tag);
+    let own = own_master(&d);
+    let dependent = crate::edit::patch_tests::write_plugin(
+        &d.join("work"),
+        "Dependent.esm",
+        &["Source.esm", mast],
+        kitkraft_esm::tes4::FLAG_MASTER,
+        Vec::new(),
+    );
+    let plugins = vec![
+        "Source.esm".to_string(),
+        dependent.display().to_string(),
+        own.display().to_string(),
+    ];
+    let engine = loaded(&data, &plugins);
+    let before = bytes(&own);
+    let err = set_full(&engine, "Source.esm:000801", "X", &own, true, false).unwrap_err();
+    assert_eq!(bytes(&own), before, "{mast}: Own.esm changed");
+    let _ = std::fs::remove_dir_all(&d);
+    err
+}
+
+/// Fix round 3: a `MAST` naming a master through a network path comes from the plugin's
+/// bytes, so it is never resolved (no name lookup, no SMB attempt): the exemption is
+/// refused, saying a master is named by its file name, and nothing is written. The same
+/// for a drive path and a rooted path.
+#[test]
+fn a_plugin_naming_a_master_through_a_network_path_refuses_the_exemption() {
+    for mast in [
+        r"\\kk-nohost\share\X.esm",
+        r"\\127.0.0.1\C$\X.esm",
+        r"C:\X.esm",
+        r"\X.esm",
+        r"\\?\C:\X.esm",
+    ] {
+        let err = set_after_a_dependent_naming("master-unc", mast);
+        assert!(err.contains("plugin of the load order"), "{mast}: {err}");
+        assert!(
+            err.contains("Dependent.esm names a master by a path")
+                && err.contains("a master is named by its file name"),
+            "{mast}: {err}"
+        );
+    }
+}
+
+/// Fix round 3: a `MAST` naming a reserved device name (`NUL`, `CON`, `COM1.esm`, a device
+/// spelling) is never opened: the exemption is refused, and nothing is written. A plain
+/// name with `..` is still resolved (and here names no file, so the write goes ahead).
+#[test]
+fn a_plugin_naming_a_device_as_a_master_refuses_the_exemption() {
+    for mast in [
+        "NUL",
+        "con",
+        "COM1.esm",
+        "nul.esm",
+        r"\\.\NUL",
+        r"\\.\pipe\kk-nopipe",
+    ] {
+        let err = set_after_a_dependent_naming("master-device", mast);
+        assert!(
+            err.contains("Dependent.esm names a master by a path"),
+            "{mast}: {err}"
+        );
+    }
+    assert!(super::set::plain_master_name("../work/Other.esm"));
+    assert!(super::set::plain_master_name("Other.esm"));
+    assert!(!super::set::plain_master_name("COM9"));
+    assert!(!super::set::plain_master_name("Own.esm:stream"));
+}
+
 /// The ruling's limit: a master-flagged file of the owner's own that a loaded plugin names
 /// as a master (loaded before it, an ordering error) is still refused as the active file,
 /// with the refusal naming that plugin; nothing is written. The plugin naming it is
