@@ -159,7 +159,9 @@ merged).
 **Progress, night of 2026-11-06** (Opus agents, each piece reviewed by a second agent;
 nothing here is merged into `main` unless it says so):
 
-- **Item 5, done; the fix waits for the owner.** `47bcf5c7` could still grade a false pass:
+- **Item 5, done; the fix merged 2026-11-07** (branch `owner-review/controller-m1` head
+  `32beb047`, on the owner's "Merge"; the three remaining paths below are the next ruling's
+  work). `47bcf5c7` could still grade a false pass:
   with several requests spelling the item of a late failure line it re-opened only the
   earliest, and a re-opened row went back to pass when its waiting getter's line arrived.
   The fix is on branch `owner-review/controller-m1` (`2bc0e967`, about 20 lines in

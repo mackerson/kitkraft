@@ -734,7 +734,7 @@ impl Run<'_> {
                             .request(id)
                             .map(|r| r.lines.join("\n"))
                             .unwrap_or_default()
-                    } else if routed.requeued.is_empty() {
+                    } else if routed.requeued.is_empty() && routed.failures.is_empty() {
                         out.clone()
                     } else {
                         kept.clone()
@@ -954,10 +954,16 @@ impl Run<'_> {
                 // Review H3: a failure routed by the item it quotes re-opens the row; it is
                 // never graded fail on that routing alone, and a pass cannot stand.
                 if !matches!(row.verdict, Verdict::Fail(_)) {
-                    row.verdict = Verdict::Inconclusive(format!(
+                    let v = Verdict::Inconclusive(format!(
                         "late failure: `{command}`: the console answered `{}`, late, in the reply to `{via}` (R20, R28)",
                         clip(line, 100)
                     ));
+                    // Owner review M1 (PB6): a step of this row still waiting for its line
+                    // must not undo the late failure when the line arrives.
+                    for w in self.waiting.iter_mut().filter(|w| w.slot == slot) {
+                        w.failed.get_or_insert_with(|| v.clone());
+                    }
+                    row.verdict = v;
                 }
                 row.seen.push_str(&format!(
                     "; (late failure) {command} -> {line} (in the reply to `{via}`)"

@@ -1321,10 +1321,10 @@ Save file not found.",
 }
 
 /// Review H3 (re-review probe PB4): T-01's own `prid` failure arrives late, in T-03's reply;
-/// T-02 (`help`) spells the same item. The earliest request naming the item takes it, and
-/// T-01's pass is re-opened; T-02 keeps its pass.
+/// T-02 (`help`) spells the same item. Every request naming the item takes it, and both
+/// passes are re-opened (owner review M1).
 #[test]
-fn rx_pb4_a_late_failure_goes_to_the_earliest_request_naming_its_item() {
+fn rx_pb4_a_late_failure_goes_to_every_request_naming_its_item() {
     let c = console();
     c.answer("prid KitKraftCrate", "prid KitKraftCrate");
     c.answer(
@@ -1356,7 +1356,8 @@ GetPos: Y >> -4.00",
         ],
     );
     assert!(v[0].starts_with("inconclusive (late failure"), "PB4 {v:?}");
-    assert_eq!(v[1], "pass", "PB4 {v:?}");
+    // Owner review M1: every request spelling the item is a candidate; none keeps a pass.
+    assert!(v[1].starts_with("inconclusive (late failure"), "PB4 {v:?}");
     assert!(v[2].starts_with("inconclusive"), "PB4 {v:?}");
 }
 
@@ -1383,4 +1384,969 @@ GetPos: Y >> -4.00",
         "PB3 {v:?}"
     );
     assert!(v[1].starts_with("inconclusive"), "PB3 {v:?}");
+}
+
+// ------------------------------------------------- owner review 2026-11-06 (final-pass M1)
+// The re-review's H3 step 3 asked that, when two or more requests spell a late failure
+// line's item, no candidate's pass stand. 47bcf5c7 re-opened the earliest candidate only.
+// PB1 is the re-review's probe as written; PB4R, PB7 and PB6 are new, each red on 47bcf5c7.
+
+/// PB1 (re-review): `prid KitKraftCrate` (T-01), `help KitKraftCrate 4` (T-02, its own
+/// REFR line), and the prid's failure late in T-03's `getpos x` reply. Both rows spell the
+/// item, so both are re-opened (H3 step 3), though a `help` is unlikely to answer "not
+/// found for parameter".
+#[test]
+fn om1_pb1_two_candidates_both_rows_are_reopened() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "getpos x",
+        "getpos x
+Item 'KitKraftCrate' not found for parameter ObjectReferenceID.
+GetPos: X >> -17.00",
+    );
+    let (v, _) = rx_run(
+        "om1-pb1",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![step("prid KitKraftCrate", None, "", None)],
+            ),
+            one(
+                "T-02",
+                "help KitKraftCrate 4",
+                Matcher::Contains,
+                "04001000",
+                None,
+            ),
+            one("T-03", "getpos x", Matcher::Number, "-17", Some(0.5)),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive (late failure"), "PB1 {v:?}");
+    assert!(v[1].starts_with("inconclusive (late failure"), "PB1 {v:?}");
+    assert!(v[2].starts_with("inconclusive"), "PB1 {v:?}");
+}
+
+/// PB4R: PB4 with the rows in the testplan's order (`help` rows first). T-02's own `prid`
+/// fails late, in T-03's reply; T-01 (`help`) spells the same item and is earlier, so it
+/// takes the failure, and T-02's `getpos` (which may have read the previous selection, the
+/// 2026-11-01-T03 case) keeps its pass. False pass on 47bcf5c7.
+#[test]
+fn om1_pb4r_a_late_failure_reopens_every_candidate_not_only_the_earliest() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "getpos y",
+        "getpos y
+Item 'KitKraftCrate' not found for parameter ObjectReferenceID.
+GetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "om1-pb4r",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "help KitKraftCrate 4",
+                Matcher::Contains,
+                "04001000",
+                None,
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-03", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[1], "pass", "PB4R {v:?}");
+    assert!(!v[1].starts_with("fail"), "PB4R {v:?}");
+}
+
+/// PB7: the generated testplan's own shape (2026-11-03-T10 rows T-09 to T-11 all `prid
+/// 09001007`). T-11's `prid` fails late, in T-12's `coc` reply. The failure goes to T-09,
+/// the earliest; T-10 and T-11 keep their passes. False pass on 47bcf5c7.
+#[test]
+fn om1_pb7_same_runtime_id_in_three_rows_no_candidate_keeps_a_pass() {
+    let c = console();
+    c.answer("prid 09001007", "prid 09001007\nCommand: prid 09001007");
+    c.answer(
+        "getdistance player",
+        "getdistance player\nCommand: getdistance player\nGetDistance >> 0.44",
+    );
+    c.answer(
+        "getisid 09001004",
+        "getisid 09001004\nCommand: getisid 09001004\nGetIsID >> 1.00",
+    );
+    c.answer(
+        "coc CityNewAtlantisApartmentTEMPLATE",
+        "coc CityNewAtlantisApartmentTEMPLATE\nCommand: coc CityNewAtlantisApartmentTEMPLATE\nItem '09001007' not found for parameter ObjectReferenceID.",
+    );
+    c.answer(
+        "player.getincell 0021966F",
+        "player.getincell 0021966F\nCommand: player.getincell 0021966F\nGetInCell >> 1.00",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "om1-pb7",
+        &c,
+        vec![
+            probe(
+                "T-09",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step(
+                        "getdistance player",
+                        Some(Matcher::Number),
+                        "0",
+                        Some(500.0),
+                    ),
+                ],
+            ),
+            probe(
+                "T-10",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getisid 09001004", Some(Matcher::Regex), re, None),
+                ],
+            ),
+            probe(
+                "T-11",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-12",
+                false,
+                vec![
+                    step("coc CityNewAtlantisApartmentTEMPLATE", None, "", None),
+                    step("player.getincell 0021966F", Some(Matcher::Regex), re, None),
+                ],
+            ),
+        ],
+    );
+    for (i, row) in ["T-09", "T-10", "T-11"].iter().enumerate() {
+        assert_ne!(v[i], "pass", "PB7 {row} {v:?}");
+    }
+}
+
+/// PB6: a row re-opened by a late failure is set back to `pass` when its waiting getter's
+/// line arrives in a later reply: `regrade` recombines the steps and drops the late
+/// failure. One candidate only, so this is not the M1 rule; it is a second false pass.
+#[test]
+fn om1_pb6_a_late_failure_is_not_undone_by_a_later_late_line() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer("getpos z", "getpos z");
+    c.answer(
+        "getpos y",
+        "getpos y
+Item 'KitKraftCrate' not found for parameter ObjectReferenceID.
+GetPos: Y >> -4.00",
+    );
+    c.answer(
+        "help KitKraftAlpha 4",
+        "help KitKraftAlpha 4
+GetPos: Z >> 4.63
+KYWD: KitKraftAlpha (09001000) ''",
+    );
+    let (v, seen) = rx_run(
+        "om1-pb6",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos z", Some(Matcher::Number), "4.63", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+            one(
+                "T-03",
+                "help KitKraftAlpha 4",
+                Matcher::Contains,
+                "09001000",
+                None,
+            ),
+        ],
+    );
+    assert!(seen[0].contains("(late failure)"), "PB6 {seen:?}");
+    assert_ne!(v[0], "pass", "PB6 {v:?}");
+}
+
+/// PB8 (open, needs a ruling): the late failure lands in the reply of a later request that
+/// spells the same item itself (T10's T-23 sends `prid 09001007` again). Review M2 keeps a
+/// failure with its own reply then, so T-03 fails and T-01, whose own `prid` may be the one
+/// that failed, keeps its pass. Not covered by H3; the fix leaves it.
+#[test]
+#[ignore = "owner review 2026-11-06: open, needs a ruling (a failure in a reply that spells its own item)"]
+fn om1_pb8_a_late_failure_in_a_reply_that_spells_the_item_itself() {
+    let c = console();
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.",
+        ],
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    let (v, _) = rx_run(
+        "om1-pb8",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+            probe(
+                "T-03",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert_ne!(v[0], "pass", "PB8 {v:?}");
+}
+
+// ------------------------------------------------- offline re-grade (owner review 2026-11-06)
+// Sessions game-20261103-04 (2026-11-03-T06) and game-20261103-08 (2026-11-03-T10) replayed
+// through the controller from their saved transcripts: the recorded `probes.toml` (SHA-256
+// checked by hand against the ledger), and each send's reply rebuilt from the row's `seen`
+// in `report.json`. A send the live session never made (a retry the corrected controller
+// adds) is answered with its echo only. Text `seen` clipped (`...`) is replaced by lines
+// no request claims: the live controller noted no re-queue from it and no failure line in
+// it (a failure line there would have failed the row live). `wait_secs` are dropped. The
+// Papyrus log is the session's own, written when the first command arrives (for T10 only
+// up to 00:19:38, when T-12 read it live). Ignored: it needs the files under
+// `C:\Modding\kitkraft-observe` and the recorded probe files.
+
+const OBSERVE: &str = r"C:\Modding\kitkraft-observe";
+const PROBES_T06: &str = r"C:\Modding\kitkraft-worktrees\x\out\x9\scripts\plan\probes.toml";
+const PROBES_T10: &str = r"C:\Modding\kitkraft-worktrees\x\out\minisite\plan-dev\probes.toml";
+
+fn echo(cmd: &str) -> String {
+    format!("{cmd}\nCommand: {cmd}")
+}
+
+fn said(cmd: &str, lines: &[&str]) -> String {
+    let mut s = echo(cmd);
+    for l in lines {
+        s.push('\n');
+        s.push_str(l);
+    }
+    s
+}
+
+fn turns(c: &FakeConsole, cmd: &str, replies: &[String]) {
+    let r: Vec<&str> = replies.iter().map(String::as_str).collect();
+    c.answer_in_turn(cmd, &r);
+}
+
+type Replayed = (Vec<String>, Vec<String>, Vec<String>);
+
+fn replay(
+    tag: &str,
+    probes_path: &str,
+    save: &str,
+    log: String,
+    c: &FakeConsole,
+) -> Option<Replayed> {
+    let text = std::fs::read_to_string(probes_path).ok()?;
+    let mut pf = ProbeFile::parse(&text).unwrap();
+    for p in &mut pf.probes {
+        for s in &mut p.steps {
+            s.wait_secs = None;
+        }
+    }
+    let f = fixture(tag);
+    let papyrus = f.root.join("replay-papyrus.log");
+    let written = std::sync::Mutex::new(false);
+    let pp = papyrus.clone();
+    c.on_command(move |_| {
+        let mut w = written.lock().unwrap();
+        if !*w {
+            std::fs::write(&pp, &log).unwrap();
+            *w = true;
+        }
+    });
+    let mut p = plan(&f, c, &papyrus, "2026-11-06-T01");
+    p.probes = pf;
+    p.session_save = save.into();
+    p.timeouts.probe_secs = 120;
+    p.timeouts.session_secs = 1800;
+    let report = run(&p, deps(&host(), c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    let rows: Vec<String> = report.rows.iter().map(|r| r.row.clone()).collect();
+    let seen: Vec<String> = report.rows.iter().map(|r| r.seen.clone()).collect();
+    let _ = std::fs::remove_dir_all(&f.root);
+    for ((r, v), s) in rows.iter().zip(&v).zip(&seen) {
+        eprintln!("REPLAY {tag} {r}: {v}\n    seen: {s}");
+    }
+    eprintln!("SENDS {tag}: {:#?}", c.received());
+    Some((rows, v, seen))
+}
+
+fn grade(v: &str) -> &str {
+    v.split(' ').next().unwrap_or_default()
+}
+
+fn wanted(list: &[(&str, &str)]) -> Vec<(String, String)> {
+    list.iter()
+        .map(|(a, b)| (a.to_string(), b.to_string()))
+        .collect()
+}
+
+/// game-20261103-04 (2026-11-03-T06), the scripts recipe.
+#[test]
+#[ignore = "offline re-grade: needs the session transcripts under C:\\Modding\\kitkraft-observe"]
+fn regrade_game_20261103_04_t06() {
+    let Ok(log) = std::fs::read_to_string(format!(
+        r"{OBSERVE}\2026-11-03-T06\logs\papyrus-Papyrus.0.log"
+    )) else {
+        eprintln!("skipped: no T06 transcript");
+        return;
+    };
+    let c = console();
+    let emb = "coc CityNewAtlantisFreestarEmbassy";
+    let lodge = "coc CityNewAtlantisLodgeInt";
+    let g_emb = "player.getincell 00017307";
+    let g_lodge = "player.getincell 0006BB29";
+    let cell = "GetInCell >> 1.00";
+    turns(
+        &c,
+        emb,
+        &[
+            echo(emb),
+            said(emb, &["IsInSpace >> 0.00", "GetGlobalValue >> 0.00"]),
+        ],
+    );
+    c.answer(
+        lodge,
+        &said(lodge, &["GetInFaction >> 1.00", "GetInFaction >> 1.00"]),
+    );
+    // T-01: echo, then its line. T-06 step 5 (the same command): its line on the first send.
+    turns(
+        &c,
+        g_emb,
+        &[
+            echo(g_emb),
+            said(g_emb, &[cell]),
+            said(g_emb, &[cell]),
+            echo(g_emb),
+        ],
+    );
+    // T-06 steps 2 and 7: each answered on its first send; a retry the live session never
+    // sent gets the echo.
+    turns(
+        &c,
+        g_lodge,
+        &[
+            said(g_lodge, &[cell]),
+            echo(g_lodge),
+            echo(g_lodge),
+            said(g_lodge, &[cell]),
+            echo(g_lodge),
+        ],
+    );
+    for cmd in ["player.moveto 09001000", "prid 09001000"] {
+        c.answer(cmd, &echo(cmd));
+    }
+    let s = "save KitKraftSession-20261103-06";
+    let l = "load KitKraftSession-20261103-06";
+    c.answer(s, &echo(s));
+    c.answer(l, &echo(l));
+    c.answer(
+        "getdistance player",
+        &said("getdistance player", &["GetDistance >> 0.44"]),
+    );
+    c.answer(
+        "getisid 0003CCF4",
+        &said("getisid 0003CCF4", &["GetIsID >> 1.00"]),
+    );
+    c.answer("getpos x", &said("getpos x", &["GetPos: X >> 4.00"]));
+    c.answer("getpos y", &said("getpos y", &["GetPos: Y >> 4.00"]));
+    c.answer("getpos z", &said("getpos z", &["GetPos: Z >> 0.00"]));
+    let Some((rows, v, _)) = replay(
+        "regrade-t06",
+        PROBES_T06,
+        "KitKraftSession-20261103-06",
+        log,
+        &c,
+    ) else {
+        eprintln!("skipped: no T06 probe file");
+        return;
+    };
+    let got: Vec<(String, String)> = rows
+        .iter()
+        .zip(&v)
+        .map(|(r, v)| (r.clone(), grade(v).to_string()))
+        .collect();
+    // docs/game-observations.md, the re-grade table: 6 pass, T-06 inconclusive.
+    let want = wanted(&[
+        ("T-01", "pass"),
+        ("T-02", "pass"),
+        ("T-03", "pass"),
+        ("T-04", "pass"),
+        ("T-05", "pass"),
+        ("T-06", "inconclusive"),
+        ("T-07", "pass"),
+    ]);
+    assert_eq!(got, want);
+}
+
+/// game-20261103-08 (2026-11-03-T10), the mini-site.
+#[test]
+#[ignore = "offline re-grade: needs the session transcripts under C:\\Modding\\kitkraft-observe"]
+fn regrade_game_20261103_08_t10() {
+    let Ok(full) = std::fs::read_to_string(format!(
+        r"{OBSERVE}\2026-11-03-T10\logs\papyrus-Papyrus.0.log"
+    )) else {
+        eprintln!("skipped: no T10 transcript");
+        return;
+    };
+    // T-12 read the log live between 00:19:15 and 00:19:38.
+    let log: String = full
+        .lines()
+        .take_while(|l| !(l.starts_with('[') && l.get(..10).is_some_and(|t| t >= "[00:19:38]")))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    let c = console();
+    let h1 = "help KitKraftLocTypeMiniSite 4";
+    let h2 = "help \"KitKraft Mini Site Menu\" 4";
+    let h4 = "help KitKraftMiniSitePackIn 4";
+    c.answer(h1, h1);
+    turns(
+        &c,
+        h2,
+        &[
+            h2.to_string(),
+            h2.to_string(),
+            format!("{h2}\nKYWD: KitKraftLocTypeMiniSite (09001000) ''"),
+        ],
+    );
+    turns(
+        &c,
+        h4,
+        &[
+            h4.to_string(),
+            format!("{h4}\nusage: help <matchstring> <filter> <form type>"),
+            h4.to_string(),
+        ],
+    );
+    for t in [
+        "help \"KitKraft Site Terminal\" 4",
+        "help \"KitKraft Site Switch\" 4",
+        "help \"KitKraft Mini Site Crew\" 4",
+        "help \"KitKraft Mini Site\" 4",
+    ] {
+        c.answer(t, t);
+    }
+    let apt = "coc CityNewAtlantisApartmentTEMPLATE";
+    let lodge = "coc CityNewAtlantisLodgeInt";
+    turns(
+        &c,
+        apt,
+        &[
+            echo(apt),
+            said(apt, &["IsInSpace >> 0.00", "GetGlobalValue >> 0.00"]),
+        ],
+    );
+    c.answer(
+        lodge,
+        &said(lodge, &["IsInSpace >> 0.00", "GetGlobalValue >> 0.00"]),
+    );
+    let g_apt = "player.getincell 0021966F";
+    let g_lodge = "player.getincell 0006BB29";
+    let cell = "GetInCell >> 1.00";
+    // T-08: three echoes; T-13, T-18, T-22 step 5: their own line on the first send.
+    turns(
+        &c,
+        g_apt,
+        &[
+            echo(g_apt),
+            echo(g_apt),
+            echo(g_apt),
+            said(g_apt, &[cell]),
+            said(g_apt, &[cell]),
+            said(g_apt, &[cell]),
+            echo(g_apt),
+        ],
+    );
+    c.answer(g_lodge, &said(g_lodge, &[cell]));
+    let gd = "getdistance player";
+    turns(
+        &c,
+        gd,
+        &[
+            echo(gd),
+            echo(gd),
+            echo(gd),
+            said(gd, &["GetDistance >> 0.83"]),
+            said(gd, &["GetDistance >> 0.25"]),
+            echo(gd),
+        ],
+    );
+    // T-10: the help usage text, T-08's and T-09's three late answers, its own line.
+    c.answer(
+        "getisid 09001004",
+        &said(
+            "getisid 09001004",
+            &[
+                "usage: help <matchstring> <filter> <form type>",
+                cell,
+                cell,
+                cell,
+                "GetDistance >> 10.44",
+                "GetDistance >> 10.44",
+                "GetDistance >> 10.44",
+                "GetIsID >> 1.00",
+            ],
+        ),
+    );
+    c.answer(
+        "getisid 09001002",
+        &said("getisid 09001002", &["GetIsID >> 1.00"]),
+    );
+    c.answer(
+        "getisid 09001003",
+        &said("getisid 09001003", &["GetIsID >> 0.00"]),
+    );
+    // getpos x: T-11 echo then its line; T-16, T-21 and T-23's three each their own line on
+    // the first send, then an echo for each retry the corrected controller adds.
+    let gx = "getpos x";
+    let x = |v: &str| said(gx, &[&format!("GetPos: X >> {v}")]);
+    turns(
+        &c,
+        gx,
+        &[
+            echo(gx),
+            x("-19.00"),
+            x("-21.00"),
+            echo(gx),
+            echo(gx),
+            x("-23.00"),
+            echo(gx),
+            echo(gx),
+            x("-19.00"),
+            echo(gx),
+            echo(gx),
+            x("-21.00"),
+            echo(gx),
+            echo(gx),
+            x("-23.00"),
+            echo(gx),
+            echo(gx),
+        ],
+    );
+    c.answer("getpos y", &said("getpos y", &["GetPos: Y >> -4.00"]));
+    c.answer("getpos z", &said("getpos z", &["GetPos: Z >> 4.63"]));
+    for cmd in [
+        "player.moveto 09001007",
+        "player.moveto 09001008",
+        "player.moveto 09001009",
+        "prid 09001007",
+        "prid 09001008",
+        "prid 09001009",
+    ] {
+        c.answer(cmd, &echo(cmd));
+    }
+    let s = "save KitKraftSession-20261103-10";
+    let l = "load KitKraftSession-20261103-10";
+    c.answer(s, &echo(s));
+    c.answer(l, &echo(l));
+    let Some((rows, v, _)) = replay(
+        "regrade-t10",
+        PROBES_T10,
+        "KitKraftSession-20261103-10",
+        log,
+        &c,
+    ) else {
+        eprintln!("skipped: no T10 probe file");
+        return;
+    };
+    let got: Vec<(String, String)> = rows
+        .iter()
+        .zip(&v)
+        .map(|(r, v)| (r.clone(), grade(v).to_string()))
+        .collect();
+    // docs/game-observations.md: T-12 is `fail` as written (read inconclusive, R20).
+    let mut want: Vec<(String, String)> = (1..=23)
+        .map(|n| (format!("T-{n:02}"), "pass".to_string()))
+        .collect();
+    for (n, g) in [
+        (2usize, "inconclusive"),
+        (3, "inconclusive"),
+        (4, "inconclusive"),
+        (5, "inconclusive"),
+        (6, "inconclusive"),
+        (7, "inconclusive"),
+        (12, "fail"),
+        (16, "inconclusive"),
+        (17, "not-run"),
+        (20, "fail"),
+        (21, "inconclusive"),
+        (23, "inconclusive"),
+    ] {
+        if let Some(w) = want.get_mut(n - 1) {
+            w.1 = g.to_string();
+        }
+    }
+    assert_eq!(got, want);
+}
+
+// ------------------------------------------------- fix review of 2bc0e967 (owner review M1)
+// Independent reviewer's probes. Each asserts the defensible grade; one red on 2bc0e967 is
+// marked `ignore` with the reason (run with `--ignored`).
+
+/// FR1: the late failure lands in a later step of its own row whose getter got no line of
+/// its own (only the failure), and the getter's line arrives in the next row's reply. The
+/// row must not go back to `pass` (PB6 inside one row).
+#[test]
+fn fr1_a_late_failure_in_its_own_rows_waiting_getter_reply_is_not_undone() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "getpos x",
+        "getpos x\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.",
+    );
+    c.answer(
+        "getpos y",
+        "getpos y\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr1",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR1 {v:?}");
+}
+
+/// FR2: a failure line that names no item (`Save file not found.`) arrives late, in the
+/// next row's getter reply, before T-01's own late `GetPos: X` line. Only T-01 sent a
+/// `load`, so the line is T-01's whatever the order of replies. It stays with T-02's
+/// reply: T-02 fails on T-01's line, and T-01, whose `load` found no save, is graded `pass`
+/// on the late getter line (the 2026-11-01-T03 case, late).
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an itemless failure line stays with the reply it arrived in)"]
+fn fr2_a_late_itemless_failure_line_does_not_leave_its_row_a_pass() {
+    let c = console();
+    c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
+    c.answer("getpos x", "getpos x");
+    c.answer(
+        "getpos y",
+        "getpos y\nSave file not found.\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr2",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("load {save}", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR2 {v:?}");
+    assert!(!v[1].starts_with("fail"), "FR2 {v:?}");
+}
+
+/// FR3: the failing command names its item only as a reference prefix
+/// (`09001007.disable`), so `names_item` does not see it; the late failure (ahead of
+/// T-01's own late getter line) stays with the next row's reply and T-01 is graded `pass`.
+/// Whether the console quotes a bad prefix this way is not observed; the shape is the
+/// correlator's, not the game's.
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (an item spelled as `<ref>.` is not a word of the command)"]
+fn fr3_a_late_failure_for_a_reference_prefix_does_not_leave_its_row_a_pass() {
+    let c = console();
+    c.answer("09001007.disable", "09001007.disable");
+    c.answer("getpos x", "getpos x");
+    c.answer(
+        "getpos y",
+        "getpos y\nItem '09001007' not found for parameter ObjectReferenceID.\nGetPos: X >> -17.00\nGetPos: Y >> -4.00",
+    );
+    let (v, _) = rx_run(
+        "fr3",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("09001007.disable", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR3 {v:?}");
+}
+
+/// FR4: PB8 in the generated testplan's shape (T10's T-09 and T-10 both start with
+/// `prid 09001007`), with no answered request between: T-09's `getdistance` answers only
+/// its echo (three sends), and T-10's own `prid` reply holds the failure line and then
+/// T-09's late `GetDistance` line. In send order the failure can only be T-09's (or
+/// T-10's, if replies are not in order); it stays with T-10 (fail) and T-09 is graded
+/// `pass` on its late getter line.
+#[test]
+#[ignore = "fix review 2026-11-06: false pass on 2bc0e967 (PB8: a late failure in a reply that spells its own item)"]
+fn fr4_pb8_in_the_testplan_shape_two_requests_late() {
+    let c = console();
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.\nGetDistance >> 0.44",
+            "prid 09001007\nCommand: prid 09001007",
+        ],
+    );
+    c.answer(
+        "getdistance player",
+        "getdistance player\nCommand: getdistance player",
+    );
+    c.answer(
+        "getisid 09001004",
+        "getisid 09001004\nCommand: getisid 09001004\nGetIsID >> 1.00",
+    );
+    let re = r"(?m)>>\s*1(\.0+)?\s*$";
+    let (v, _) = rx_run(
+        "fr4",
+        &c,
+        vec![
+            probe(
+                "T-09",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step(
+                        "getdistance player",
+                        Some(Matcher::Number),
+                        "0",
+                        Some(500.0),
+                    ),
+                ],
+            ),
+            probe(
+                "T-10",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getisid 09001004", Some(Matcher::Regex), re, None),
+                ],
+            ),
+        ],
+    );
+    assert_ne!(v[0], "pass", "FR4 {v:?}");
+}
+
+/// FR5 (well-behaved): every reply on time and in order, the same `prid` in three rows and
+/// a `help` row spelling it, and one row's own failure in its own reply. Only that row
+/// fails; nothing is re-opened.
+#[test]
+fn fr5_on_time_replies_grade_as_before() {
+    let c = console();
+    c.answer(
+        "help 09001007",
+        "help 09001007 4\nREFR: KitKraftCrate (09001007)",
+    );
+    c.answer_in_turn(
+        "prid 09001007",
+        &[
+            "prid 09001007\nCommand: prid 09001007",
+            "prid 09001007\nCommand: prid 09001007\nItem '09001007' not found for parameter ObjectReferenceID.",
+            "prid 09001007\nCommand: prid 09001007",
+        ],
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    c.answer("getpos z", "getpos z\nGetPos: Z >> 4.63");
+    let (v, _) = rx_run(
+        "fr5",
+        &c,
+        vec![
+            one(
+                "T-01",
+                "help 09001007 4",
+                Matcher::Contains,
+                "09001007",
+                None,
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-03",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-04",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos z", Some(Matcher::Number), "4.63", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "FR5 {v:?}");
+    assert_eq!(v[1], "pass", "FR5 {v:?}");
+    assert!(v[2].starts_with("fail"), "FR5 {v:?}");
+    assert_eq!(v[3], "pass", "FR5 {v:?}");
+}
+
+/// FR6: one late failure, carried again by every retry of the getter it arrived with, and
+/// two candidates. Neither candidate keeps `pass`; the carrying row is not failed.
+#[test]
+fn fr6_a_repeated_late_failure_in_retries_reopens_each_candidate() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer("player.moveto KitKraftCrate", "player.moveto KitKraftCrate");
+    c.answer(
+        "getpos y",
+        "getpos y\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "fr6",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("player.moveto KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            one("T-03", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive"), "FR6 {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "FR6 {v:?}");
+    assert!(!v[2].starts_with("fail") && v[2] != "pass", "FR6 {v:?}");
+}
+
+/// FR7: a late failure for T-01 arrives in the reply of T-02's non-keyed step (`coc`),
+/// merged with T-02's own on-time failure for another item. T-02 fails on its own line;
+/// T-01 is re-opened.
+#[test]
+fn fr7_two_failure_lines_in_one_reply_go_their_own_ways() {
+    let c = console();
+    c.answer("prid KitKraftCrate", "prid KitKraftCrate");
+    c.answer(
+        "coc KitKraftCell",
+        "coc KitKraftCell\nItem 'KitKraftCrate' not found for parameter ObjectReferenceID.\nItem 'KitKraftCell' not found for parameter Cell.",
+    );
+    c.answer("getpos y", "getpos y\nGetPos: Y >> -4.00");
+    let (v, _) = rx_run(
+        "fr7",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid KitKraftCrate", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![
+                    step("coc KitKraftCell", None, "", None),
+                    step("getpos y", Some(Matcher::Number), "-4", Some(0.5)),
+                ],
+            ),
+        ],
+    );
+    assert!(v[0].starts_with("inconclusive (late failure"), "FR7 {v:?}");
+    assert!(v[1].starts_with("fail"), "FR7 {v:?}");
+}
+
+/// FR8 (on time): T-02's own failure arrives in its own reply, but T-02 spells the item
+/// only as a reference prefix (`09001007.disable`) and T-01 spells it as a word. The line
+/// is routed to T-01 and taken out of what T-02 is judged on (the `routed.failures` arm
+/// 2bc0e967 adds): T-02's true fail becomes inconclusive. Not a false pass; a lost fail.
+#[test]
+fn fr8_an_on_time_failure_spelled_as_a_reference_prefix_is_not_a_pass() {
+    let c = console();
+    c.answer("prid 09001007", "prid 09001007");
+    c.answer(
+        "09001007.disable",
+        "09001007.disable\nItem '09001007' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "fr8",
+        &c,
+        vec![
+            probe(
+                "T-01",
+                false,
+                vec![
+                    step("prid 09001007", None, "", None),
+                    step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+                ],
+            ),
+            probe(
+                "T-02",
+                false,
+                vec![step("09001007.disable", None, "", None)],
+            ),
+        ],
+    );
+    assert_ne!(v[1], "pass", "FR8 {v:?}");
+    assert!(v[1].starts_with("inconclusive"), "FR8 {v:?}");
 }
