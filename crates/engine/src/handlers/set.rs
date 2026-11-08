@@ -311,12 +311,15 @@ pub(crate) fn official_master(name: &str) -> bool {
 ///    also exist and canonicalize to exactly the last plugin's canonical path (a target
 ///    that does not fully resolve, such as a new `patch.esp` beside `Patch.esp` in a
 ///    case-sensitive folder, is refused, never exempted);
-/// 3. `out` is not an official master by name ([`official_master`]), its loaded header is
-///    readable and has no master flag (A6 review, M1: a master-flagged file is not
-///    exempt; the owner has not ruled on whether one of their own may be), and no other
-///    loaded plugin has its file name (A6 review, L1);
-/// 4. the file on disk is still the one loaded: same size, modification time and `TES4`
-///    flags (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]);
+/// 3. `out` is not an official master by name ([`official_master`]), and no other loaded
+///    plugin has its file name (A6 review, L1). The master flag does not matter: a
+///    master-flagged file of the owner's own may be the active file (owner ruling
+///    2026-11-07, item 3, which lifted the A6 review M1 refusal), as long as no loaded
+///    plugin names it as a master (condition 2);
+/// 4. its loaded header is readable (the plugin has an index), and the file on disk is
+///    still the one loaded: same size, modification time and `TES4` flags as that header
+///    (A6 re-review, RR-M1 and RR-L1; [`unchanged_on_disk`]), so a file that gained or lost
+///    the master flag on disk since the load is refused until it is loaded again;
 /// 5. `out` passes `guard_location` (never Data, the user Data folder, My Games, MO2, or
 ///    through a link), which `guard_target` still runs, unrelaxed.
 ///
@@ -389,19 +392,14 @@ pub(crate) fn guard_output(
         .plugins
         .get(last)
         .ok_or_else(|| refuse("it is not in the load order".to_string()))?;
-    match plugin.header() {
-        None => {
-            return Err(refuse(format!(
-                "its header could not be read ({})",
-                plugin.error.as_deref().unwrap_or("no TES4")
-            )))
-        }
-        Some(h) if h.flags.master() => {
-            return Err(refuse(format!(
-                "{name} has the master flag; a master-flagged file is not exempt (the owner has not ruled on it)"
-            )))
-        }
-        Some(_) => {}
+    // The loaded header is what `unchanged_on_disk` compares the file's `TES4` flags with;
+    // without one there is nothing to compare, so the file is not exempt. Its master flag
+    // is no refusal (owner ruling 2026-11-07, item 3).
+    if plugin.header().is_none() {
+        return Err(refuse(format!(
+            "its header could not be read ({})",
+            plugin.error.as_deref().unwrap_or("no TES4")
+        )));
     }
     unchanged_on_disk(command, plugin)?;
     if let Some(p) = loaded
@@ -437,7 +435,8 @@ pub(crate) fn guard_output(
 
 /// Refuses the exemption when the active file on disk is not the file the session loaded
 /// (A6 re-review, RR-M1 and RR-L1): its size or modification time differ from the index's,
-/// or its `TES4` flags differ from the loaded header's (or now carry the master flag).
+/// or its `TES4` flags differ from the loaded header's (a master flag set or cleared since
+/// the load included).
 /// Another tool rewrote it, so the session's offsets may name other records: it must be
 /// loaded again. The session's own writes re-read the load order ([`reload`]), so they
 /// never trip this.
