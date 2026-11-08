@@ -2,7 +2,6 @@ id = "KK-250"
 title = "testplan: a reference placed from a pack-in no longer expects the PKIN as its base"
 timeout_min = 45
 budget_h = 1.5
-hold = "owner review (decision of 2026-11-05, item 9)"
 owns = [
   "crates/engine/src/handlers/testplan.rs",
   "crates/engine/src/handlers/testplan/probes.rs",

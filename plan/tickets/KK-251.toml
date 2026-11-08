@@ -2,7 +2,6 @@ id = "KK-251"
 title = "testplan: check a placed actor (ACHR) by its cell and a distance, not its exact position"
 timeout_min = 45
 budget_h = 1.5
-hold = "owner review (decision of 2026-11-05, item 9)"
 owns = [
   "crates/engine/src/handlers/testplan.rs",
   "crates/engine/src/handlers/testplan/probes.rs",
@@ -32,11 +31,13 @@ distance, not the placed position.
 
 Change, for `ACHR` references only (every `REFR` keeps its rows byte-for-byte):
 
-1. `probes.rs`: a new constant `ACTOR_TOLERANCE: f64 = 3.0`, documented as the largest
+1. `probes.rs`: a new constant `ACTOR_TOLERANCE: f64 = 128.0`, documented as the largest
    difference accepted on each axis between an actor's `getpos` answer and its placed
-   `DATA` position (an actor walks or settles; game-20261103-06 saw 1.2 units). Per axis is
-   a box, not a sphere: the `number` matcher checks one number at a time; say so in the
-   doc comment.
+   `DATA` position (an actor walks or settles; game-20261103-06 saw 1.2 units of settling,
+   and an actor that steps off its marker moves much more; 128 units is about a body
+   length, set by the director 2026-11-07 when the owner released this ticket; the cell
+   step below catches an actor that wandered farther). Per axis is a box, not a sphere: the
+   `number` matcher checks one number at a time; say so in the doc comment.
 2. The position row of an `ACHR` with a runtime ID and a position becomes the
    cell-and-distance row, same row number, still with a screenshot: `prid <ID>`, `getpos
    x`, `getpos y`, `getpos z` as `Matcher::Number` steps with `tolerance` `ACTOR_TOLERANCE`

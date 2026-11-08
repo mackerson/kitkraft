@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-11-07 (A6, the active-file exemption, merged into `main` on the owner's "Merge A6" after the campaign's morning merge of KK-237 to KK-240; earlier that day `main` `3f8542b8` pushed: the UNC write-guard hole closed, "Next" item 4 done, `docs/local-agent.md` reconciled; "Progress, night of 2026-11-07" under "Owner decisions (2026-11-05)"). Earlier: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-11-07 (midday: seven owner rulings, "Owner rulings, 2026-11-07 (midday)" under the night block, `controller-m1` merged as `0a5868f8`, KK-250 and KK-251 released; A6, the active-file exemption, merged into `main` on the owner's "Merge A6" after the campaign's morning merge of KK-237 to KK-240; earlier that day `main` `3f8542b8` pushed: the UNC write-guard hole closed, "Next" item 4 done, `docs/local-agent.md` reconciled; "Progress, night of 2026-11-07" under "Owner decisions (2026-11-05)"). Earlier: 2026-11-05 (the owner answered the twelve items left by the 2026-11-02 sprint, "Accept all": "Owner decisions (2026-11-05)" below; tickets KK-246 to KK-249 have queue rows and KK-248's brief is corrected for the seven window kinds). Earlier: 2026-11-01 (the owner answered `plan/owner-decisions-2026-11-01.md`, "accept all", with item 13 corrected to "public": items 1 to 23 recorded in "Owner next actions", "Open owner decisions", "Pause" section 3 and "Director assumptions pending owner"; rows 2 and 3 marked PASS). Earlier: 2026-10-30 (`main` at `827a7dd`, pushed, after the 2026-10-26 to 2026-10-30 local-agent campaign: "Campaign" below, the "Current milestone" summary rewritten against it, and the Landed lines KK-032, KK-051 and KK-204 added at the end). Earlier: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
 ## Pivot (2026-10-23): read this first
 
@@ -251,6 +251,39 @@ piece reviewed by a second agent; `main` `3f8542b8` pushed after a green gate, 1
   `kk-merge.ps1` and `guard.ps1` comments misstate who retries and how often (four
   attempts, not three); `KITKRAFT-HARNESS.md` spells the ticket path `kitcraft`; a stopped
   single-worker queue writes no `.pending`.
+
+**Owner rulings, 2026-11-07 (midday)**, given on the director's explication of the open
+choices after the A6 merge. Each is binding from this line; the work it opens is named.
+
+1. **Controller fix merged.** `owner-review/controller-m1` (`32beb047`) merged into `main`
+   as `0a5868f8` (gate 1,517 passed, 0 failed, 119 ignored). Item 5 is closed.
+2. **The game console answers in send order** (ruling "a", with the fallback). Two sessions
+   agree (`game-20261103-04`, `-08`); the owner rules it a fact the grader may build on, and
+   asks for one controller session designed to test the ordering as confirmation. Opens:
+   the narrow fix for FR2, FR3 and FR4 in `crates/game` (the three ignored tests in
+   `crates/game/tests/session.rs`), by Opus agents; and a controller session on
+   `KitKraft Dev` whose rows send commands that answer late and check the reply order
+   (owner-assisted or automated; if it contradicts the ruling, the ruling reverts and the
+   fix is reverted with it).
+3. **A master-flagged file of the owner's own may be the active file** (ruling "b"): the
+   A6 exemption no longer refuses a master-flagged `into` when it is not an official master
+   by name and no loaded plugin names it as a master (the other A6 conditions still apply).
+   Opens: the `set::guard_output` change, its tests and the docs (`docs/mcp.md`,
+   `docs/workbench.md`), by Opus agents.
+4. **KK-250 and KK-251 released** to the queue (the `hold` removed). KK-251's tolerance is
+   set by the director at 128 units per axis (the drafter's 3.0 is about 4 cm; an actor
+   that steps off its marker moves more than that; 128 is about a body length, and the
+   cell row catches a wanderer); the owner released the ticket without naming a number.
+5. (The `core.hooksPath` fix was applied by the owner, 2026-11-07; the hook ran on
+   `0a5868f8`.)
+6. **A member is `required` only where the pinned xEdit file requires it** (ruling "a";
+   the corpus shows what the official records happen to carry, not what the engine needs).
+   SPCH `DIFF` becomes `optional` (xEdit L17758 carries no `SetRequired`; SPQU does);
+   AVMD `MODT` stays `optional`. Opens: the SPCH change with codegen, and the rule written
+   into `crates/schema/defs/README.md`, by an Opus agent.
+7. **The harness docs are brought in line with the scripts** (all of them: the supervisor
+   prompt, `KITKRAFT-HARNESS.md`, the script comments in `kk-merge.ps1`, `guard.ps1` and
+   the rest, the `.pending` note), while no campaign runs. Opus agent, outside the repo.
 
 Left for the owner at the desk: the real-window checks (the list above under "To try in a
 real window", plus from the sprint: a load from a real MO2 profile in the window, the
