@@ -870,8 +870,10 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   plugin of the load order, and is written in place, only when the load order was given
   as `plugins` (never read from an MO2 profile), `into` is its **last** plugin (so no
   later plugin hides the edit), no loaded plugin names it as a master or has its file
-  name, and `into` is not an official master by name and its header is readable. A
-  master-flagged file is not exempt; the owner has not ruled on it. A file changed on
+  name, and `into` is not an official master by name and its header is readable. The
+  master flag is no refusal: a master-flagged file of the owner's own may be the active
+  file (owner ruling 2026-11-07, item 3), and keeps its flag; it is refused only as an
+  official master by name or when a loaded plugin names it as a master. A file changed on
   disk since it was loaded (size, modification time or `TES4` flags differ) is refused
   with `<command>.active-file-changed`: load it again first. The location guard is unchanged: never the game Data dir, the user Data dir, My
   Games, MO2 or a path through a link. Every other plugin of the load order stays

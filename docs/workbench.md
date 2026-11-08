@@ -131,8 +131,11 @@ M6.G1 and M6.G3):
   `new` and `clone` name it with `active_file: true`, and the engine then writes it once
   it is loaded, but only as the last plugin of a `plugins` load order (not one read from
   a profile), never an official master, never under Data, My Games or MO2 (A6, owner
-  decision 2026-11-05; `docs/mcp.md`, `set`). A master-flagged file is not exempt; the
-  owner has not ruled on it. If another tool changed the active file on disk since it was
+  decision 2026-11-05; `docs/mcp.md`, `set`). The engine exempts a master-flagged file
+  of the owner's own too, when no loaded plugin names it as a master (owner ruling
+  2026-11-07, item 3); the window's Data dialog still refuses a master-flagged plugin as
+  the active file, as the CK does (below), so the window does not yet make use of it. If
+  another tool changed the active file on disk since it was
   loaded, the engine refuses the write until the order is loaded again. `place`, `build` and `revert` still refuse a loaded active
   file, saying they do not yet write one.
 
