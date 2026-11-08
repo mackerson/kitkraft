@@ -600,29 +600,52 @@ fn a_plugin_naming_a_master_through_a_network_path_refuses_the_exemption() {
     }
 }
 
-/// Fix round 3: a `MAST` naming a reserved device name (`NUL`, `CON`, `COM1.esm`, a device
-/// spelling) is never opened: the exemption is refused, and nothing is written. A plain
-/// name with `..` is still resolved (and here names no file, so the write goes ahead).
+/// Fix round 3: a `MAST` naming a reserved device name (`NUL`, `CON`, `COM1.esm`, `COM0`,
+/// `LPT¹`, `CONIN$`, ..., or a device spelling) is never opened: the exemption is refused,
+/// and nothing is written. A plain name, `..` included, is still a name that may be
+/// resolved.
 #[test]
 fn a_plugin_naming_a_device_as_a_master_refuses_the_exemption() {
-    for mast in [
+    let devices = [
         "NUL",
         "con",
         "COM1.esm",
         "nul.esm",
+        "COM0",
+        "lpt0.esm",
+        "COM¹",
+        "com².esm",
+        "COM³",
+        "LPT¹",
+        "lpt².esm",
+        "LPT³",
+        "CONIN$",
+        "conout$.esm",
         r"\\.\NUL",
         r"\\.\pipe\kk-nopipe",
-    ] {
+    ];
+    for mast in devices {
         let err = set_after_a_dependent_naming("master-device", mast);
         assert!(
             err.contains("Dependent.esm names a master by a path"),
             "{mast}: {err}"
         );
     }
-    assert!(super::set::plain_master_name("../work/Other.esm"));
-    assert!(super::set::plain_master_name("Other.esm"));
-    assert!(!super::set::plain_master_name("COM9"));
-    assert!(!super::set::plain_master_name("Own.esm:stream"));
+    for mast in devices
+        .iter()
+        .chain(&["COM9", "Own.esm:stream", "COM1 .esm"])
+    {
+        assert!(!super::set::plain_master_name(mast), "{mast}");
+    }
+    for mast in [
+        "Own.esm",
+        "../work/Own.esm",
+        "..",
+        "COM10.esm",
+        "CONSOLE.esm",
+    ] {
+        assert!(super::set::plain_master_name(mast), "{mast}");
+    }
 }
 
 /// The ruling's limit: a master-flagged file of the owner's own that a loaded plugin names

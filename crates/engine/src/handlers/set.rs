@@ -486,20 +486,30 @@ pub(crate) fn guard_output(
 /// Whether a `MAST` name read from a plugin is a plain relative name that may be resolved
 /// on disk ([`guard_output`]): not empty, no `:`, no prefix or root, every component a
 /// normal name or `..`, and none a reserved device name (`CON`, `PRN`, `AUX`, `NUL`,
-/// `COM1`-`COM9`, `LPT1`-`LPT9`, with or without an extension, any case).
+/// `CONIN$`, `CONOUT$`, `COM0`-`COM9`, `LPT0`-`LPT9`, `COM¹`-`COM³`, `LPT¹`-`LPT³`, with
+/// or without an extension, any case). On the Windows 11 build tested none of these but
+/// `NUL` maps to a device inside a directory (`std::path::absolute` turns only
+/// `<dir>\NUL` into `\\.\NUL`); older Windows 10 builds mapped more, so the whole list is
+/// refused on the safe side.
 pub(crate) fn plain_master_name(m: &str) -> bool {
     use std::path::Component;
     let reserved = |c: &str| {
-        let stem = c
-            .split('.')
-            .next()
-            .unwrap_or(c)
-            .trim_end()
-            .to_ascii_uppercase();
-        matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
-            || ((stem.starts_with("COM") || stem.starts_with("LPT"))
-                && stem.len() == 4
-                && stem.ends_with(|d: char| ('1'..='9').contains(&d)))
+        let stem = c.split('.').next().unwrap_or(c).trim_end().to_uppercase();
+        let numbered = stem
+            .strip_prefix("COM")
+            .or_else(|| stem.strip_prefix("LPT"))
+            .is_some_and(|n| {
+                let mut digits = n.chars();
+                matches!(
+                    (digits.next(), digits.next()),
+                    (Some('0'..='9' | '¹' | '²' | '³'), None)
+                )
+            });
+        numbered
+            || matches!(
+                stem.as_str(),
+                "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$"
+            )
     };
     // A `\` is a separator only on Windows; elsewhere a name holding one is a Windows path.
     !m.is_empty()
