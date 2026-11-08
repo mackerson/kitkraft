@@ -871,7 +871,10 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   as `plugins` (never read from an MO2 profile), `into` is its **last** plugin (so no
   later plugin hides the edit), no loaded plugin names it as a master (by name without
   case, non-ASCII letters included, or by a master name that resolves beside that plugin
-  or in the Data dir to `into`'s file) or has its file name, and `into` is not an
+  or in the Data dir to `into`'s file; only a plain relative `MAST` name is resolved on
+  disk, and a loaded plugin naming any master by a path, a drive, a network or device
+  spelling, or a reserved device name such as `NUL`, refuses the exemption without the
+  name being opened) or has its file name, and `into` is not an
   official master by name and its header is readable. A master-flagged file of the
   owner's own may be the active file (owner ruling 2026-11-07, item 3), and keeps its
   flag, but only after master-flagged plugins: the game loads masters first
