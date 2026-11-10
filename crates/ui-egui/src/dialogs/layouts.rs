@@ -198,6 +198,79 @@ pub const SHIPPED: &[(&str, &str)] = &[
     ),
 ];
 
+/// The field paths of the seven member layouts (the six observed types and REFR) whose
+/// value is a set of flags or an enum, mapped or falling to "Other" (D7 review L1),
+/// component-block enums such as `Bool8` included (D7-fix review L1). Read-only goes by
+/// signature, so a signature any of whose definitions is flags or an enum is listed.
+/// The engine shows such a value as a plain number (the raw bits, the raw value), so the
+/// edit dialog would offer it as a number to type; it stays read-only instead (D2-fix
+/// review L2: typing `1` into AMMO's flags sets IgnoresNormalWeaponResistance, not
+/// Playable). Pinned against the schema by the test
+/// `flags_and_enums_are_pinned_from_the_schema`.
+pub const NOT_NUMBERS: &[(&str, &str)] = &[
+    ("AMMO", "DNAM.Flags"),
+    ("AMMO", "YNAM"),
+    ("AMMO", "VNAM"),
+    ("AMMO", "NAM8"),
+    ("AMMO", "FLLD"),
+    ("AMMO", "XFLG"),
+    ("COBJ", "RECF"),
+    ("COBJ", "YNAM"),
+    ("COBJ", "VNAM"),
+    ("COBJ", "NAM8"),
+    ("COBJ", "TNAM"),
+    ("COBJ", "LRNM"),
+    ("TERM", "NAM1"),
+    ("TERM", "FNAM"),
+    ("TERM", "MNAM"),
+    ("TERM", "YNAM"),
+    ("TERM", "VNAM"),
+    ("TERM", "NAM8"),
+    ("TERM", "FLLD"),
+    ("TERM", "XFLG"),
+    ("CONT", "DATA"),
+    ("CONT", "YNAM"),
+    ("CONT", "VNAM"),
+    ("CONT", "NAM8"),
+    ("CONT", "FLLD"),
+    ("CONT", "XFLG"),
+    ("STAT", "YNAM"),
+    ("STAT", "VNAM"),
+    ("STAT", "NAM8"),
+    ("STAT", "FLLD"),
+    ("STAT", "XFLG"),
+    ("KYWD", "YNAM"),
+    ("KYWD", "VNAM"),
+    ("KYWD", "NAM8"),
+    ("REFR", "YNAM"),
+    ("REFR", "VNAM"),
+    ("REFR", "NAM8"),
+    ("REFR", "XACT"),
+    ("REFR", "XLSM"),
+    ("REFR", "FNAM"),
+    ("REFR", "VISI"),
+    ("REFR", "XLCM"),
+    ("REFR", "INAM"),
+];
+
+/// Numeric fields the edit dialog shows read-only although they are plain numbers: REFR's
+/// rotation is stored in radians while the CK's Reference dialog edits it in degrees, so
+/// a CK user typing `90` would write 90 radians (D7 review M1). No conversion is offered.
+pub const READ_ONLY: &[(&str, &str)] = &[
+    ("REFR", "DATA.Rotation.X"),
+    ("REFR", "DATA.Rotation.Y"),
+    ("REFR", "DATA.Rotation.Z"),
+];
+
+/// Whether the edit dialog may offer `path` of `record_type` as a number to type: not a
+/// flags or enum member ([`NOT_NUMBERS`]) and not held read-only ([`READ_ONLY`]).
+pub fn edits_as_number(record_type: &str, path: &str) -> bool {
+    !NOT_NUMBERS
+        .iter()
+        .chain(READ_ONLY)
+        .any(|(t, p)| *t == record_type && *p == path)
+}
+
 /// Which of `subrows` lie inside a base-form component block (`BFCB` to `BFCE`, both
 /// included), whose subrecords may reuse a signature the record also has at the top level.
 pub fn in_component(subrows: &[SubRow]) -> Vec<bool> {
@@ -278,15 +351,50 @@ pub struct MemberPage<'a> {
     pub groups: Vec<MemberGroup<'a>>,
 }
 
+/// The subrecords no label of a member layout shows, each with its position in the
+/// version's subrecords (for its `set` occurrence path).
+pub type Leftover<'a> = Vec<(usize, &'a SubRow)>;
+
+/// One line of a member page in the order sitting 2 recorded the labels (D2-fix review
+/// L3): a mapped label's group (its index in the page), or an unmapped label and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Line {
+    Mapped(usize),
+    Gap(String, String),
+}
+
+/// The lines of `page` in the order sitting 2 recorded `record_type`'s labels, each label
+/// its group or its gap; without an observation, the groups in the page's order. A group
+/// the observation does not list (none today) follows.
+pub fn observed_lines(record_type: &str, page: &MemberPage<'_>) -> Vec<Line> {
+    let mut out = Vec::new();
+    if let Some(o) = observation(record_type) {
+        for l in &o.labels {
+            if let Some(i) = page.groups.iter().position(|g| &g.label == l) {
+                out.push(Line::Mapped(i));
+            } else if let Some((_, why)) = o.gaps.iter().find(|(g, _)| g == l) {
+                out.push(Line::Gap(l.clone(), why.clone()));
+            }
+        }
+    }
+    for i in 0..page.groups.len() {
+        if !out.contains(&Line::Mapped(i)) {
+            out.push(Line::Mapped(i));
+        }
+    }
+    out
+}
+
 /// The placement of a layout whose groups name the member each label edits (`members`):
 /// `None` for a layout without (the signature placement, `super::place`). Each label
 /// shows every subrecord of its signature outside the component blocks; a signature a
 /// component block also holds makes the field read-only. Returned last: the subrecords no
-/// label shows (component blocks included), for the "Other" page.
+/// label shows (component blocks included), with their positions, for the "Other"
+/// page.
 pub fn place_members<'a>(
     layout: &Layout,
     subrows: &'a [SubRow],
-) -> Option<(Vec<MemberPage<'a>>, Vec<&'a SubRow>)> {
+) -> Option<(Vec<MemberPage<'a>>, Leftover<'a>)> {
     if !layout
         .tabs
         .iter()
@@ -342,6 +450,7 @@ pub fn place_members<'a>(
     }
     let rest = subrows
         .iter()
+        .enumerate()
         .zip(&shown)
         .filter(|(_, s)| !**s)
         .map(|(r, _)| r)
@@ -1094,8 +1203,11 @@ mod tests {
         );
         assert!(g("Projectile").rows[0].blocked);
         assert!(g("Short name").rows.is_empty(), "no ONAM in this record");
-        let rest: Vec<&str> = rest.iter().map(|s| s.signature.as_str()).collect();
-        assert_eq!(rest, ["BFCB", "DNAM", "BFCE", "XXXX"]);
+        let rest: Vec<(usize, &str)> = rest
+            .iter()
+            .map(|(i, s)| (*i, s.signature.as_str()))
+            .collect();
+        assert_eq!(rest, [(1, "BFCB"), (2, "DNAM"), (3, "BFCE"), (7, "XXXX")]);
         // A record without the block: DNAM edits.
         let plain: Vec<_> = rows
             .iter()
@@ -1111,5 +1223,206 @@ mod tests {
             .all(|g| g.rows.iter().all(|r| !r.blocked)));
         // WEAP's layout names no members: placed by signature.
         assert!(place_members(&shipped("WEAP").unwrap().unwrap(), &rows).is_none());
+    }
+
+    /// The type of the leaf `path` names in a deep `schema` envelope (the subrecord at the
+    /// top level or in a group outside the component block, then each member step).
+    fn leaf_type(env: &serde_json::Value, path: &str) -> Option<String> {
+        use serde_json::Value;
+        fn find<'a>(members: &'a Value, sig: &str) -> Option<&'a Value> {
+            for m in members.as_array().into_iter().flatten() {
+                if m.get("signature").and_then(Value::as_str) == Some(sig) {
+                    return Some(m);
+                }
+                if m.get("kind").and_then(Value::as_str) == Some("group")
+                    && m.get("name").and_then(Value::as_str) != Some("BfcbBlock")
+                {
+                    if let Some(f) = find(&m["members"], sig) {
+                        return Some(f);
+                    }
+                }
+            }
+            None
+        }
+        let mut steps = path.split('.');
+        let mut v = find(&env["data"]["members"], steps.next()?)?;
+        for step in steps {
+            v = ["members", "fields"]
+                .iter()
+                .flat_map(|k| v.get(*k).and_then(Value::as_array).into_iter().flatten())
+                .find(|m| m.get("name").and_then(Value::as_str) == Some(step))?;
+        }
+        v.get("type").and_then(Value::as_str).map(str::to_string)
+    }
+
+    /// Every subrecord a deep `schema` envelope defines, at the top level, in a group or in
+    /// the base-form component block (whose rows fall to "Other"), as (signature, type),
+    /// in schema order (D7-fix review L1: the block's `Bool8` enums too).
+    fn subrecords_in(env: &serde_json::Value) -> Vec<(String, String)> {
+        use serde_json::Value;
+        fn walk(members: &Value, out: &mut Vec<(String, String)>) {
+            for m in members.as_array().into_iter().flatten() {
+                if let Some(sig) = m.get("signature").and_then(Value::as_str) {
+                    let ty = m.get("type").and_then(Value::as_str).unwrap_or_default();
+                    out.push((sig.to_string(), ty.to_string()));
+                } else if m.get("kind").and_then(Value::as_str) == Some("group") {
+                    walk(&m["members"], out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&env["data"]["members"], &mut out);
+        out
+    }
+
+    /// D2-fix review L2, widened by D7 review L1 and D7-fix review L1: for the seven member
+    /// layouts (the six observed types and REFR), every mapped field path and every
+    /// subrecord that can fall to "Other" (component blocks included) whose schema type is
+    /// flags or an enum is in [`super::NOT_NUMBERS`], and
+    /// nothing else is, so the edit dialog never offers raw bits or a raw enum value as a
+    /// number to type.
+    #[test]
+    fn flags_and_enums_are_pinned_from_the_schema() {
+        use super::{edits_as_number, NOT_NUMBERS};
+        let engine = ReadOnlyEngine::new();
+        let mut found: Vec<(String, String)> = Vec::new();
+        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD", "REFR"] {
+            let env = engine
+                .run(&Request::new("schema", json!({"type": t, "deep": true})))
+                .unwrap();
+            let layout = shipped(t).unwrap().unwrap();
+            let mapped = layout
+                .tabs
+                .iter()
+                .flat_map(|tab| tab.groups.iter())
+                .flat_map(|g| g.members.clone().unwrap_or_default());
+            let mapped = mapped.map(|path| {
+                let ty = leaf_type(&env, &path).unwrap_or_else(|| panic!("{t}: {path}"));
+                (path, ty)
+            });
+            // A signature is read-only by name, so any of its definitions (top level, a
+            // group, a component) that is flags or an enum puts it in.
+            for (path, ty) in mapped.chain(subrecords_in(&env)) {
+                let entry = (t.to_string(), path);
+                if (ty.contains("flags<") || ty.contains("enum<")) && !found.contains(&entry) {
+                    found.push(entry);
+                }
+            }
+        }
+        let pinned: Vec<(String, String)> = NOT_NUMBERS
+            .iter()
+            .map(|(t, p)| ((*t).to_string(), (*p).to_string()))
+            .collect();
+        assert_eq!(pinned, found);
+        assert!(!edits_as_number("AMMO", "DNAM.Flags"));
+        assert!(edits_as_number("AMMO", "DNAM.Damage"));
+        assert!(edits_as_number("AMMO", "DATA.Value"));
+        // D7 review M1: REFR's rotation is read-only, its position is not.
+        assert!(!edits_as_number("REFR", "DATA.Rotation.Z"));
+        assert!(edits_as_number("REFR", "DATA.Position.X"));
+    }
+
+    /// D2-fix review L3: a member page's lines follow the observed labels, mapped and
+    /// unmapped interleaved (AMMO's "Edit", observed sixth, is the sixth line), each label
+    /// once.
+    #[test]
+    fn a_member_page_follows_the_observed_order() {
+        use super::{observed_lines, place_members, Line};
+        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"] {
+            let o = observation(t).unwrap();
+            let layout = shipped(t).unwrap().unwrap();
+            let (pages, _) = place_members(&layout, &[]).unwrap();
+            let lines = observed_lines(t, &pages[0]);
+            let labels: Vec<&str> = lines
+                .iter()
+                .map(|l| match l {
+                    Line::Mapped(i) => pages[0].groups[*i].label.as_str(),
+                    Line::Gap(label, _) => label.as_str(),
+                })
+                .collect();
+            assert_eq!(labels, o.labels, "{t}");
+        }
+        let o = observation("AMMO").unwrap();
+        let (pages, _) = place_members(&shipped("AMMO").unwrap().unwrap(), &[]).unwrap();
+        let lines = observed_lines("AMMO", &pages[0]);
+        assert_eq!(o.labels[5], "Edit");
+        assert!(matches!(&lines[5], Line::Gap(l, _) if l == "Edit"));
+        assert!(matches!(lines[4], Line::Mapped(_)));
+    }
+
+    /// D7 (M7.W4, REFR): the layout follows the Reference dialog `ck-20261101-03` observed
+    /// (`docs/ck-parity.md`, row "Reference dialog (a placed reference)", read here): its
+    /// tabs are observed tab names in the observed order (those no schema member holds
+    /// left out), "3D Data" first, opening with the four fields shown above the tabs in
+    /// their observed order, then Position and Rotation X, Y, Z and Scale; every group
+    /// names one field path REFR's schema has.
+    #[test]
+    fn the_refr_layout_follows_the_reference_dialog() {
+        let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
+        let row = parity
+            .lines()
+            .find(|l| l.starts_with("| dialog | Reference dialog (a placed reference) |"))
+            .expect("the Reference dialog row");
+        let after = |key: &str| -> Vec<String> {
+            let start = row.find(key).unwrap() + key.len();
+            let rest = &row[start..];
+            let end = rest.find(';').unwrap();
+            rest[..end].split(", ").map(str::to_string).collect()
+        };
+        let observed_tabs = after("tabs ");
+        let observed_fields = after("Observed: fields ");
+        assert_eq!(observed_tabs.len(), 14, "{observed_tabs:?}");
+        assert_eq!(
+            observed_fields,
+            [
+                "Reference Editor ID",
+                "Base Object",
+                "Layer",
+                "Location Override"
+            ]
+        );
+        let l = shipped("REFR").unwrap().unwrap();
+        assert_eq!(l.parity, "Reference dialog (a placed reference)");
+        assert!(!l.observed, "the tabs' contents are mostly ours");
+        let names: Vec<&str> = l.tabs.iter().map(|t| t.name.as_str()).collect();
+        let mut at = 0;
+        for n in &names {
+            let i = observed_tabs
+                .iter()
+                .position(|o| o == n)
+                .unwrap_or_else(|| panic!("`{n}` is no observed tab"));
+            assert!(i >= at, "`{n}` out of the observed order");
+            at = i;
+        }
+        assert_eq!(names[0], "3D Data");
+        let first: Vec<&str> = l.tabs[0].groups.iter().map(|g| g.name.as_str()).collect();
+        assert_eq!(&first[..4], observed_fields.as_slice());
+        assert_eq!(
+            &first[4..],
+            [
+                "Position X",
+                "Position Y",
+                "Position Z",
+                "Rotation X (radians)",
+                "Rotation Y (radians)",
+                "Rotation Z (radians)",
+                "Scale"
+            ]
+        );
+        let engine = ReadOnlyEngine::new();
+        let env = engine
+            .run(&Request::new(
+                "schema",
+                json!({"type": "REFR", "deep": true}),
+            ))
+            .unwrap();
+        for t in &l.tabs {
+            for g in &t.groups {
+                let m = g.members.clone().unwrap_or_default();
+                assert_eq!(m.len(), 1, "{}", g.name);
+                assert!(schema_has(&env, &m[0]), "{}: {}", g.name, m[0]);
+                assert_eq!(g.fields, [m[0].split('.').next().unwrap()], "{}", g.name);
+            }
+        }
     }
 }
