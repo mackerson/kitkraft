@@ -13,8 +13,13 @@
 //! The tabs and groups stay ours (`observed = false`, or the default layout from the
 //! schema for a type without a layout file): the sitting recorded
 //! labels, not which field each label edits, and no tab names (LCTN's three are in its
-//! screenshots only). M7.K4 maps each label to a schema member; until then every label
-//! is a gap the members test reports.
+//! screenshots only).
+//!
+//! M7.K4 (sprint 2026-11-09): each observed label is either mapped to the `set` field path
+//! it edits (`map`) or named as a gap with its reason (`gaps`): a button, a column or
+//! caption, a record header flag (`set` edits subrecords only), a member the schema lacks,
+//! or a label the sitting did not tie to one field. A label is never both, and never
+//! neither (the members test).
 
 /// What a CK sitting recorded of a type's edit dialog (a `[[dialog]]` of
 /// `layouts/sitting2.toml`).
@@ -36,6 +41,9 @@ pub struct Observation {
     /// or `CNAM.Red`), from the `[[dialog]]`'s `map = [{ label, member }]`. Empty until
     /// M7.K4 maps a label; a label without a pair is a gap.
     pub map: Vec<(String, String)>,
+    /// M7.K4's gaps: (observed label, why it maps to no field path), from the
+    /// `[[dialog]]`'s `gaps = [{ label, reason }]`.
+    pub gaps: Vec<(String, String)>,
 }
 
 /// CK sitting 2's record of the edit dialogs (M7.W4).
@@ -90,20 +98,23 @@ fn dialog_of(o: &toml::Table) -> Option<Observation> {
                 .collect()
         })
         .unwrap_or_default();
-    let map = o
-        .get("map")
-        .and_then(toml::Value::as_array)
-        .map(|a| {
-            a.iter()
-                .filter_map(toml::Value::as_table)
-                .filter_map(|m| {
-                    let label = m.get("label")?.as_str()?.to_string();
-                    let member = m.get("member")?.as_str()?.to_string();
-                    Some((label, member))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let pairs = |key: &str, second: &str| -> Vec<(String, String)> {
+        o.get(key)
+            .and_then(toml::Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(toml::Value::as_table)
+                    .filter_map(|m| {
+                        let label = m.get("label")?.as_str()?.to_string();
+                        let value = m.get(second)?.as_str()?.to_string();
+                        Some((label, value))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let map = pairs("map", "member");
+    let gaps = pairs("gaps", "reason");
     Some(Observation {
         sitting: s("sitting"),
         step: s("step"),
@@ -112,6 +123,7 @@ fn dialog_of(o: &toml::Table) -> Option<Observation> {
         tab_control: s("tab_control"),
         labels,
         map,
+        gaps,
     })
 }
 
@@ -329,78 +341,276 @@ mod tests {
     }
 
     /// M7.K4's mapping as the members check pins it, type by type: (observed label, `set`
-    /// field path). Empty tonight: no label is mapped yet. A mapping lands in two places,
-    /// the `[[dialog]]`'s `map` in `layouts/sitting2.toml` and here, so a mapping changed in
-    /// one and not the other fails.
+    /// field path), in the labels' order. A mapping lands in two places, the
+    /// `[[dialog]]`'s `map` in `layouts/sitting2.toml` and here, so a mapping changed in one
+    /// and not the other fails. Several labels may name one field: the flags of a flags
+    /// member (LCTN's level flags, CONT's `DATA`) each edit that member.
     const MAPPED: &[(&str, &[(&str, &str)])] = &[
-        ("AMMO", &[]),
-        ("COBJ", &[]),
-        ("LCTN", &[]),
-        ("TERM", &[]),
-        ("CONT", &[]),
-        ("STAT", &[]),
-        ("KYWD", &[]),
+        (
+            "AMMO",
+            &[
+                ("ID", "EDID"),
+                ("Name", "FULL"),
+                ("Short name", "ONAM"),
+                ("Value", "DATA.Value"),
+                ("Model", "MODL"),
+                ("Pickup Sound", "PUSH"),
+                ("Putdown Sound", "PDSH"),
+                ("Projectile", "DNAM.Projectile"),
+                ("Damage", "DNAM.Damage"),
+                ("Description", "DESC"),
+                ("Keywords", "KWDA"),
+                ("Preview Transform", "PTT2.Preview"),
+                ("Shell Casing", "NAM1"),
+                ("Health", "DNAM.Health"),
+                ("Weight", "DATA.Weight"),
+                ("Flags (Playable, Has Count Based 3D)", "DNAM.Flags"),
+            ],
+        ),
+        (
+            "COBJ",
+            &[
+                ("ID", "EDID"),
+                ("Created Object", "CNAM"),
+                ("Created Object Count", "NNAM"),
+                ("Required Item List", "FVPA"),
+                ("Workbench Keyword", "BNAM"),
+                ("Recipe Filters", "FNAM"),
+                ("Pickup Sound:", "PUSH"),
+                ("Putdown Sound:", "PDSH"),
+                ("Crafting Sound: (each with Select Audio Data)", "CUSH"),
+                ("Priority", "SNAM"),
+                ("Menu Art Object", "ANAM"),
+                ("Description", "DESC"),
+                ("Learned From", "GNAM"),
+                ("Base Return Scale Table", "CVT0"),
+                ("Required Perks", "RQPK"),
+                ("Max Build Count", "JNAM"),
+                ("Value", "DATA"),
+                ("Exclude From Workshop LOD", "RECF"),
+            ],
+        ),
+        (
+            "LCTN",
+            &[
+                ("ID", "EDID"),
+                ("Name", "FULL"),
+                ("Parent Location", "PNAM"),
+                ("World Location Marker Ref", "MNAM"),
+                ("Music Type", "NAM1"),
+                ("Unreported Crime Faction", "FNAM"),
+                ("Actor Fade Mult", "ANAM"),
+                ("World Location Radius", "RNAM"),
+                ("Random Conversation Timer", "TNAM"),
+                ("Color (R, G, B, Select)", "CNAM"),
+                ("Keywords", "KWDA"),
+                ("Match PC Below Minimum Level", "DATA.LevelFlags"),
+                ("Never Resets", "DATA.LevelFlags"),
+                ("Disable Combat Boundary", "DATA.LevelFlags"),
+                ("Workshop", "DATA.LevelFlags"),
+                ("Min Level:", "DATA.MinLevel"),
+                ("Max Level:", "DATA.MaxLevel"),
+                ("Required Rank", "DATA.FactionRank"),
+            ],
+        ),
+        (
+            "TERM",
+            &[
+                ("ID", "EDID"),
+                ("Name", "FULL"),
+                ("Model", "MODL"),
+                ("Marker Model", "XMRK"),
+                ("Looping Sound (Select Audio Data)", "ALSH"),
+                ("Papyrus Scripts:", "VMAD"),
+                ("Keywords", "KWDA"),
+                ("Actor Values", "PRPS"),
+                ("Preview Transform", "PTT2.Preview"),
+                ("Forced Loc Ref Types:", "FTYP"),
+                ("Art Theme", "NAM1"),
+                ("Furniture Template", "FTMP"),
+                ("Ignored By Sandbox", "FNAM"),
+                ("Active Markers", "MNAM"),
+            ],
+        ),
+        (
+            "CONT",
+            &[
+                ("ID", "EDID"),
+                ("Name", "FULL"),
+                ("Model", "MODL"),
+                ("Object", "CNTO.Item"),
+                ("Count", "CNTO.Count"),
+                ("Item List", "CNTO"),
+                ("Owner", "COED.Owner"),
+                ("Papyrus Scripts:", "VMAD"),
+                ("Keywords", "KWDA"),
+                ("Preview Transform", "PTT2.Preview"),
+                ("Native Terminal", "NTRM"),
+                ("Contains Only", "ONAM"),
+                ("Actor Values", "PRPS"),
+                ("Forced Loc Ref Types:", "FTYP"),
+                ("Attach Parent Slots", "APPR"),
+                ("Snap Template", "SNTP"),
+                ("Respawns", "DATA"),
+                ("Show Owner", "DATA"),
+            ],
+        ),
+        (
+            "STAT",
+            &[
+                ("ID", "EDID"),
+                ("Display Name", "FULL"),
+                ("Model", "MODL"),
+                ("Object Palette Defaults", "OPDS"),
+                ("Actor Values", "PRPS"),
+                ("Preview Transform", "PTT2.Preview"),
+                ("Leaf Amplitude", "DNAM.Leaf.LeafAmplitude"),
+                ("Leaf Frequency", "DNAM.Leaf.LeafFrequency"),
+                ("Default Layer", "DEFL"),
+                ("Snap Template", "SNTP"),
+                ("Snap Behavior", "SNBH"),
+                ("Forced Loc Ref Type", "FTYP"),
+            ],
+        ),
+        (
+            "KYWD",
+            &[
+                ("ID", "EDID"),
+                ("Display Name", "FULL"),
+                ("Type", "TNAM"),
+                ("Rule", "DATA"),
+                ("Linkage Name", "ENAM"),
+                ("Notes", "DNAM"),
+                ("Editor Color (R, G, B, Select Color)", "CNAM"),
+            ],
+        ),
     ];
 
-    /// Whether the deep `schema` envelope of a type has the field path `path` (`SIG` or
-    /// `SIG.Member`): the subrecord (top level or in a group), and the member named inside.
+    /// How many labels each type maps and how many are gaps (M7.K4, sprint 2026-11-09).
+    const COUNTS: &[(&str, usize, usize)] = &[
+        ("AMMO", 16, 5),
+        ("COBJ", 18, 5),
+        ("LCTN", 18, 18),
+        ("TERM", 14, 12),
+        ("CONT", 18, 29),
+        ("STAT", 12, 25),
+        ("KYWD", 7, 1),
+    ];
+
+    /// Whether the deep `schema` envelope of a type has the `set` field path `path`
+    /// (`SIG`, `SIG.Member` or `SIG.Member.Member`): a subrecord of that signature, at the
+    /// top level or in a group (not inside the base-form component block, whose payloads
+    /// stay raw), whose members or fields hold each named step in turn.
     fn schema_has(env: &serde_json::Value, path: &str) -> bool {
-        fn names(v: &serde_json::Value, out: &mut Vec<String>) {
-            for k in ["members", "fields"] {
-                for m in v
-                    .get(k)
-                    .and_then(serde_json::Value::as_array)
-                    .into_iter()
-                    .flatten()
+        use serde_json::Value;
+        fn entries<'a>(members: &'a Value, sig: &str, out: &mut Vec<&'a Value>) {
+            for m in members.as_array().into_iter().flatten() {
+                if m.get("signature").and_then(Value::as_str) == Some(sig) {
+                    out.push(m);
+                } else if m.get("kind").and_then(Value::as_str) == Some("group")
+                    && m.get("name").and_then(Value::as_str) != Some("BfcbBlock")
                 {
-                    if let Some(n) = m.get("name").and_then(serde_json::Value::as_str) {
-                        out.push(n.to_string());
-                    }
-                    names(m, out);
+                    entries(&m["members"], sig, out);
                 }
             }
         }
-        let (sig, member) = path.split_once('.').unwrap_or((path, ""));
-        let is_sig = |m: &&serde_json::Value| {
-            m.get("signature").and_then(serde_json::Value::as_str) == Some(sig)
+        fn child<'a>(v: &'a Value, name: &str) -> Option<&'a Value> {
+            ["members", "fields"]
+                .iter()
+                .flat_map(|k| v.get(*k).and_then(Value::as_array).into_iter().flatten())
+                .find(|m| m.get("name").and_then(Value::as_str) == Some(name))
+        }
+        let mut steps = path.split('.');
+        let Some(sig) = steps.next() else {
+            return false;
         };
-        let top: Vec<&serde_json::Value> = env["data"]["members"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .collect();
-        let entries: Vec<&serde_json::Value> = top
+        let steps: Vec<&str> = steps.collect();
+        if steps.iter().any(|s| s.is_empty()) {
+            return false;
+        }
+        let mut found = Vec::new();
+        entries(&env["data"]["members"], sig, &mut found);
+        found
             .iter()
-            .copied()
-            .filter(is_sig)
-            .chain(
-                top.iter()
-                    .flat_map(|g| g["members"].as_array().into_iter().flatten())
-                    .filter(is_sig),
-            )
-            .collect();
-        !entries.is_empty()
-            && (member.is_empty()
-                || entries.iter().any(|e| {
-                    let mut out = Vec::new();
-                    names(e, &mut out);
-                    out.iter().any(|n| n == member)
-                }))
+            .any(|e| steps.iter().try_fold(*e, |v, s| child(v, s)).is_some())
     }
 
-    /// M7.W4's members check (review finding M1 of M7.W4): a label is mapped only by an
-    /// explicit pair (label, field path) in its `[[dialog]]`'s `map`, which must name an
-    /// observed label once and a field path the type's schema has; the pairs must equal
-    /// the [`MAPPED`] pin. Every other label is a gap, named; a type whose dialog was not
-    /// observed is a gap as a whole. The report is pinned in full.
+    /// M7.K4's check of one observed dialog against its type's deep schema: every pair
+    /// names an observed label once and a field path the schema has; every gap names an
+    /// observed label once, with a reason; no label is both, and every label is one of
+    /// them. Returns the gap report line, or the first rule broken.
+    fn k4_check(
+        t: &str,
+        o: &super::Observation,
+        env: &serde_json::Value,
+    ) -> Result<String, String> {
+        let mut seen: Vec<&String> = Vec::new();
+        for (label, member) in &o.map {
+            if !o.labels.contains(label) {
+                return Err(format!("{t}: `{label}` is no observed label"));
+            }
+            if seen.contains(&label) {
+                return Err(format!("{t}: `{label}` mapped twice"));
+            }
+            seen.push(label);
+            if !schema_has(env, member) {
+                return Err(format!(
+                    "{t}: `{label}` -> `{member}` is not a field of the schema"
+                ));
+            }
+        }
+        let mut gapped: Vec<&String> = Vec::new();
+        for (label, reason) in &o.gaps {
+            if !o.labels.contains(label) {
+                return Err(format!("{t}: gap `{label}` is no observed label"));
+            }
+            if seen.contains(&label) {
+                return Err(format!("{t}: `{label}` is both mapped and a gap"));
+            }
+            if gapped.contains(&label) {
+                return Err(format!("{t}: gap `{label}` named twice"));
+            }
+            if reason.trim().is_empty() {
+                return Err(format!("{t}: gap `{label}` has no reason"));
+            }
+            gapped.push(label);
+        }
+        if let Some(l) = o
+            .labels
+            .iter()
+            .find(|l| !seen.contains(l) && !gapped.contains(l))
+        {
+            return Err(format!("{t}: `{l}` is neither mapped nor a gap"));
+        }
+        Ok(format!(
+            "{t}: {} mapped, {} gaps (M7.K4): {}",
+            o.map.len(),
+            o.gaps.len(),
+            o.gaps
+                .iter()
+                .map(|(l, r)| format!("{l} ({r})"))
+                .collect::<Vec<_>>()
+                .join(" | ")
+        ))
+    }
+
+    /// M7.W4's members check, completed by M7.K4 (sprint 2026-11-09): a label is mapped
+    /// only by an explicit pair (label, field path) in its `[[dialog]]`'s `map`, which must
+    /// equal the [`MAPPED`] pin and pass [`k4_check`]; every other label is a gap with its
+    /// reason in `gaps`. A type whose dialog was not observed is a gap as a whole. The
+    /// counts are pinned, and the report printed for `docs/gaps.md`.
     #[test]
     fn every_observed_label_is_mapped_or_reported_as_a_gap() {
         let engine = ReadOnlyEngine::new();
         let mut gaps = Vec::new();
+        let (mut mapped_total, mut gap_total) = (0usize, 0usize);
         for (t, _) in SITTING2 {
             let o = observation(t).unwrap();
             if o.status != "observed" {
-                assert!(o.map.is_empty(), "{t}: a mapping for an unobserved dialog");
+                assert!(
+                    o.map.is_empty() && o.gaps.is_empty(),
+                    "{t}: a mapping for an unobserved dialog"
+                );
                 gaps.push(format!("{t}: unobserved ({} {})", o.sitting, o.status));
                 continue;
             }
@@ -415,57 +625,118 @@ mod tests {
                 })
                 .unwrap_or_default();
             assert_eq!(o.map, pinned, "{t}: the mapping differs from the pin");
+            // The pairs follow the labels' order, as the gaps do.
+            let order = |pairs: &[(String, String)]| -> Vec<usize> {
+                pairs
+                    .iter()
+                    .filter_map(|(l, _)| o.labels.iter().position(|x| x == l))
+                    .collect()
+            };
+            for pairs in [&o.map, &o.gaps] {
+                let idx = order(pairs);
+                assert!(idx.windows(2).all(|w| w[0] < w[1]), "{t}: out of order");
+            }
             let env = engine
                 .run(&Request::new("schema", json!({"type": t, "deep": true})))
                 .unwrap();
-            let mut seen: Vec<&String> = Vec::new();
-            for (label, member) in &o.map {
-                assert!(
-                    o.labels.contains(label),
-                    "{t}: `{label}` is no observed label"
-                );
-                assert!(!seen.contains(&label), "{t}: `{label}` mapped twice");
-                seen.push(label);
-                assert!(
-                    schema_has(&env, member),
-                    "{t}: `{label}` -> `{member}` is not a field of the schema"
-                );
-            }
-            let unmapped: Vec<&str> = o
-                .labels
-                .iter()
-                .filter(|l| !seen.contains(l))
-                .map(String::as_str)
-                .collect();
-            if !unmapped.is_empty() {
-                gaps.push(format!("{t}: not mapped (M7.K4): {}", unmapped.join(" | ")));
-            }
+            gaps.push(k4_check(t, &o, &env).unwrap_or_else(|e| panic!("{e}")));
+            let counts = COUNTS.iter().find(|(ty, _, _)| ty == t).unwrap();
+            assert_eq!(
+                (o.map.len(), o.gaps.len()),
+                (counts.1, counts.2),
+                "{t}: the counts differ from the pin"
+            );
+            mapped_total += o.map.len();
+            gap_total += o.gaps.len();
         }
-        eprintln!("M7.W4 gaps:\n  {}", gaps.join("\n  "));
-        // The full report: WEAP unobserved, and every label of the seven named, since
-        // M7.K4 has mapped none (the record's labels, held equal to it by the test above).
-        let mut expected = vec!["WEAP: unobserved (ck-20261102-03 inconclusive)".to_string()];
-        for (t, _) in SITTING2.iter().skip(1) {
-            expected.push(format!(
-                "{t}: not mapped (M7.K4): {}",
-                observation(t).unwrap().labels.join(" | ")
-            ));
-        }
-        assert_eq!(gaps, expected);
-        assert!(gaps[1].starts_with("AMMO: not mapped (M7.K4): ID | Name | Short name | Value"));
-        // The path check refuses what the review's probe used: a name that is no field
-        // path, and a member the subrecord lacks.
-        let kywd = engine
-            .run(&Request::new(
-                "schema",
-                json!({"type": "KYWD", "deep": true}),
-            ))
-            .unwrap();
+        eprintln!("M7.K4 gaps:\n  {}", gaps.join("\n  "));
+        assert_eq!((mapped_total, gap_total), (103, 95));
+        assert_eq!(gaps[0], "WEAP: unobserved (ck-20261102-03 inconclusive)");
+        assert!(gaps[1].starts_with("AMMO: 16 mapped, 5 gaps (M7.K4): Edit (a button"));
+        assert!(
+            gaps[7].starts_with("KYWD: 7 mapped, 1 gaps (M7.K4): Restricted (a record header flag")
+        );
+    }
+
+    /// The path check refuses what the review's probe used (a name that is no field path,
+    /// a member the subrecord lacks), a step out of chain, and a signature only the raw
+    /// component block holds; it accepts a nested member and a subrecord two groups deep.
+    #[test]
+    fn the_k4_path_check_follows_each_step() {
+        let engine = ReadOnlyEngine::new();
+        let schema = |t: &str| {
+            engine
+                .run(&Request::new("schema", json!({"type": t, "deep": true})))
+                .unwrap()
+        };
+        let kywd = schema("KYWD");
         assert!(schema_has(&kywd, "EDID"));
         assert!(schema_has(&kywd, "TNAM"));
         assert!(schema_has(&kywd, "CNAM.Red"));
         assert!(!schema_has(&kywd, "Keywords"));
         assert!(!schema_has(&kywd, "EditorID"));
         assert!(!schema_has(&kywd, "CNAM.Nothing"));
+        assert!(!schema_has(&kywd, "CNAM."));
+        assert!(!schema_has(&kywd, "BFCB"));
+        let stat = schema("STAT");
+        assert!(schema_has(&stat, "DNAM.Leaf.LeafAmplitude"));
+        assert!(!schema_has(&stat, "DNAM.LeafAmplitude.Leaf"));
+        assert!(!schema_has(&stat, "DNAM.Nothing.LeafAmplitude"));
+        assert!(!schema_has(&stat, "KWDA"));
+        let cont = schema("CONT");
+        assert!(schema_has(&cont, "CNTO.Item"));
+        assert!(schema_has(&cont, "COED.Owner"));
+        assert!(!schema_has(&cont, "CNTO.Owner"));
+    }
+
+    /// Every rule of [`k4_check`] refuses its planted break: a label mapped to no field,
+    /// a label that was not observed, one mapped twice, one both mapped and a gap, a gap
+    /// without a reason, a gap named twice, and a label left out of both.
+    #[test]
+    fn the_k4_check_refuses_each_planted_break() {
+        let engine = ReadOnlyEngine::new();
+        let env = engine
+            .run(&Request::new(
+                "schema",
+                json!({"type": "KYWD", "deep": true}),
+            ))
+            .unwrap();
+        let good = observation("KYWD").unwrap();
+        assert!(k4_check("KYWD", &good, &env).is_ok());
+        fn pair(l: &str, m: &str) -> (String, String) {
+            (l.to_string(), m.to_string())
+        }
+        type Plant = Box<dyn Fn(&mut super::Observation)>;
+        let planted: Vec<(&str, Plant)> = vec![
+            (
+                "is not a field",
+                Box::new(|o| o.map[0] = pair("ID", "Keywords")),
+            ),
+            (
+                "is no observed label",
+                Box::new(|o| o.map.push(pair("Name", "FULL"))),
+            ),
+            ("mapped twice", Box::new(|o| o.map.push(pair("ID", "EDID")))),
+            (
+                "both mapped and a gap",
+                Box::new(|o| o.gaps.push(pair("ID", "a planted reason"))),
+            ),
+            ("has no reason", Box::new(|o| o.gaps[0].1 = " ".to_string())),
+            (
+                "named twice",
+                Box::new(|o| o.gaps.push(pair("Restricted", "again"))),
+            ),
+            ("neither mapped nor a gap", Box::new(|o| o.gaps.clear())),
+            (
+                "gap `Name` is no observed label",
+                Box::new(|o| o.gaps.push(pair("Name", "planted"))),
+            ),
+        ];
+        for (want, plant) in planted {
+            let mut o = good.clone();
+            plant(&mut o);
+            let err = k4_check("KYWD", &o, &env).unwrap_err();
+            assert!(err.contains(want), "{want}: {err}");
+        }
     }
 }

@@ -631,6 +631,13 @@ revisited once a sitting observes how the CK docks. Code:
   schema's member names with the signature beside them; a subrecord the layout does not
   place shows on an "Other" tab. OK stays disabled until M7.E2 lands (the owner accepted
   ADR 0007 Amendment 4 with model A on 2026-11-01, M7.O4).
+  Sitting 2 (`ck-20261102-03`) recorded the labels of seven of these dialogs, held in
+  `crates/ui-egui/layouts/sitting2.toml`. M7.K4 (sprint 2026-11-09) maps each label to
+  the `set` field path it edits (`map`, 103 labels) or names it as a gap with its reason
+  (`gaps`, 95: buttons, list columns, captions, record header flags, which `set` does not
+  edit, members the schema lacks, and labels the sitting did not tie to one field); the
+  members test `dialogs::layouts::tests::every_observed_label_is_mapped_or_reported_as_a_gap`
+  pins both, and the edit dialog's header names the counts.
 
 ## Screenshot tour (development aid)
 

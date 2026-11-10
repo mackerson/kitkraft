@@ -360,11 +360,13 @@ fn header(ui: &mut egui::Ui, layout: &Layout, record: &RecordView) {
             Some(o) if o.status == "observed" => {
                 theme::status(ui, Status::Pass, &format!("CK labels observed ({})", o.sitting))
                     .on_hover_text(format!(
-                        "{} labels recorded at {} on {}: {}. Tabs and groups here are KitKraft's; M7.K4 maps each label to its field.",
+                        "{} labels recorded at {} on {}: {}. Tabs and groups here are KitKraft's; M7.K4 maps {} labels to their fields and names {} as gaps (layouts/sitting2.toml).",
                         o.labels.len(),
                         o.step,
                         o.form,
-                        o.labels.join(", ")
+                        o.labels.join(", "),
+                        o.map.len(),
+                        o.gaps.len()
                     ));
             }
             Some(o) => {
