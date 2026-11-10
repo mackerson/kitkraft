@@ -1191,6 +1191,12 @@ impl RenderTab {
         std::mem::take(&mut self.bounds_queue)
     }
 
+    /// Takes the `mesh.geometry` requests not yet handed to the shell (M7.R4), as
+    /// [`RenderTab::take_bounds_queue`] does for the boxes.
+    pub(crate) fn take_geometry_queue(&mut self) -> Vec<Request> {
+        std::mem::take(&mut self.geometry_queue)
+    }
+
     /// The shown cell's references.
     pub(crate) fn page_refs(&self) -> Vec<CellRef> {
         self.page

@@ -44,7 +44,8 @@ fn bounds_env(form: &str, model: &str, bounds: Value, limitation: &str) -> Value
            "limitations": [limitation]})
 }
 
-/// Shows `env` as the Render Window's cell without sending its `mesh.bounds` requests:
+/// Shows `env` as the Render Window's cell without sending its `mesh.bounds` (or, M7.R4,
+/// `mesh.geometry`) requests:
 /// the test files the replies it means to test, whatever `App::receive` does with a
 /// refused one (ask A7). Returns how many bases were asked.
 fn quiet_cell(h: &mut Bench, env: &Value) -> usize {
@@ -53,6 +54,7 @@ fn quiet_cell(h: &mut Bench, env: &Value) -> usize {
     let none = render.receive_page(crate::viewport::cell::parse_page(env));
     assert!(none.is_none(), "one page");
     let asked = render.take_bounds_queue().len();
+    let _ = render.take_geometry_queue();
     h.run_steps(4);
     asked
 }
