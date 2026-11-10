@@ -344,10 +344,16 @@ pub(crate) fn replay_session(
     r: &Replay,
     recorded_probes: &str,
     observe: &Path,
-    ledger: &str,
+    ledger: std::result::Result<&str, &str>,
     work: &Path,
 ) -> Result<(String, Vec<String>, Vec<String>)> {
     let not_run = |why: String| Ok(("not-run".to_string(), Vec::new(), vec![why]));
+    // No ledger to compare with: nothing can be graded, so not-run with why (review L2,
+    // R29), never a fail.
+    let ledger = match ledger {
+        Ok(text) => text,
+        Err(why) => return not_run(format!("session {}: not-run (the ledger {why})", r.session)),
+    };
     let Some((path, report)) = find_report(observe, &r.session) else {
         return not_run(format!(
             "session {}: not-run (no report.json naming it under {})",
@@ -411,6 +417,10 @@ pub(crate) fn replay_session(
         }
     };
     let Some(labels) = row_labels(ledger, &r.session) else {
+        if let Some(why) = &replayed.not_run {
+            // Nothing was replayed: no entry to compare with changes nothing (R29).
+            return not_run(format!("session {}: not-run ({why})", r.session));
+        }
         return Ok((
             "fail".to_string(),
             vec![format!(
@@ -485,13 +495,21 @@ pub(crate) fn run_all(
     ledger: &Path,
     kit: &dyn Runner,
 ) -> Result<Vec<Outcome>> {
-    let ledger = std::fs::read_to_string(ledger).unwrap_or_default();
+    // A ledger that cannot be read is not an empty one (review L2): each session half
+    // is then not-run, naming the file.
+    let ledger_text = std::fs::read_to_string(ledger)
+        .map_err(|e| format!("{} could not be read: {e}", ledger.display()));
     let mut out = Vec::new();
     for (r, recorded) in read_all(dir)? {
         let work = root.join("out").join("game-regress").join(&r.name);
         let mut o = replay_desk(&r, &recorded, &work, kit)?;
-        let (label, failures, notes) =
-            replay_session(&r, &recorded, observe, &ledger, &work.join("session"))?;
+        let (label, failures, notes) = replay_session(
+            &r,
+            &recorded,
+            observe,
+            ledger_text.as_deref().map_err(String::as_str),
+            &work.join("session"),
+        )?;
         o.session = label;
         o.failures.extend(failures);
         o.notes.extend(notes);
@@ -1007,5 +1025,23 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
             "{o:?}"
         );
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Review L2 (probe P4): a missing `--ledger` file is not-run, with a reason naming it,
+    /// never a fail (R29), whether the session has a transcript or not.
+    #[test]
+    fn a_missing_ledger_file_is_not_run_naming_it() {
+        for transcript in [false, true] {
+            let root = tmp(&format!("p4-{transcript}"));
+            let _ = recorded_session(&root, "**pass**", transcript, "");
+            let o = run_session(&root, &root.join("no-such-ledger.md"));
+            assert_eq!(o.session, "not-run", "{o:?}");
+            assert!(o.failures.is_empty(), "{o:?}");
+            assert!(
+                o.notes.iter().any(|n| n.contains("no-such-ledger.md")),
+                "{o:?}"
+            );
+            let _ = std::fs::remove_dir_all(&root);
+        }
     }
 }
