@@ -468,7 +468,11 @@ impl DataDialogState {
             return None;
         }
         self.details_due = false;
-        self.selected.and_then(|i| self.select(i))
+        // A refusal shown within the pause stays: settling asks for details only.
+        let refusal = self.refusal.take();
+        let ask = self.selected.and_then(|i| self.select(i));
+        self.refusal = refusal;
+        ask
     }
 
     /// The active-file field's "Use This File": the path becomes the dialog's choice
@@ -1414,6 +1418,19 @@ mod tests {
         assert!(s.settled(10.5).is_none());
         assert!(matches!(s.settled(11.5), Some(DataAsk::Details(..))));
         assert!(s.settled(12.5).is_none(), "once per settled prefix");
+        // Review L1 of the D2 fix round: a refusal shown within the pause survives it.
+        let mut r = opened("plugins");
+        assert!(r.type_ahead("b", 10.0));
+        assert_eq!(r.selected, Some(1));
+        assert!(r.set_active().unwrap_err().contains("master flag"));
+        assert!(matches!(r.settled(11.5), Some(DataAsk::Details(..))));
+        assert!(
+            r.refusal
+                .as_deref()
+                .is_some_and(|w| w.contains("master flag")),
+            "the refusal survives the settle: {:?}",
+            r.refusal
+        );
         assert_eq!(s.selected, Some(0));
         assert_eq!(s.scroll_to, Some(0));
         s.type_ahead("f", 10.3);
