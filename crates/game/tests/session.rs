@@ -2889,8 +2889,10 @@ fn a_late_failure_in_the_readiness_poll_after_a_load_is_not_a_pass() {
             ],
         )],
     );
-    assert!(v[0].starts_with("inconclusive"), "{v:?}");
-    assert!(v[0].contains("readiness poll"), "{v:?}");
+    // R41: a load failure in the poll before any getter fails the row's load (it was
+    // inconclusive before R41).
+    assert!(v[0].starts_with("fail"), "{v:?}");
+    assert!(v[0].contains("Save file not found."), "{v:?}");
     assert!(seen[0].contains("Save file not found."), "{seen:?}");
 }
 
@@ -3275,6 +3277,21 @@ fn fx1a_a_stray_line_in_the_readiness_poll_does_not_make_it_ready() {
 fn fx1d_a_getters_late_value_in_the_readiness_poll_does_not_make_it_ready() {
     let v = fx_case("fx1d", "GetPos: X >> -17.00");
     assert_ne!(v[0], "pass", "fx1d {v:?}");
+}
+
+/// Review L1' (probe fx1h): an earlier poll's stale `SFSE version` line in the first poll
+/// after the load. Under R41 no line makes a poll ready; the load's failure in the next poll's
+/// reply is a failure only a `load` prints, with this row's `load` its one candidate: the row
+/// fails on it.
+#[test]
+fn fx1h_a_stale_readiness_line_after_the_load_still_fails_its_row() {
+    let v = fx_case(
+        "fx1h",
+        "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+    );
+    assert!(v[0].starts_with("fail"), "fx1h {v:?}");
+    assert!(v[0].contains("Save file not found."), "fx1h {v:?}");
+    assert!(!v[1].starts_with("fail"), "fx1h {v:?}");
 }
 
 // ------------------------------------------------- M4.T7: the transcript and its replay (R29)

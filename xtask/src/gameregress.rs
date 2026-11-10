@@ -910,6 +910,9 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
                     "load KitKraftBase",
                     "load KitKraftBase\nCommand: load KitKraftBase"
                 ),
+                // The base wait: PACING_POLLS (3) polls with a reply (ruling R41).
+                sent("GetSFSEVersion", ready),
+                sent("GetSFSEVersion", ready),
                 sent("GetSFSEVersion", ready),
                 sent(
                     &help,
