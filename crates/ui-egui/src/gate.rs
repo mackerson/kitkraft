@@ -193,6 +193,13 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads a model's box from its NIF, loose or in a BA2 (M7.S4)",
     },
+    // M7.R4 (sprint 2026-11-09, R10): the Render Window's wireframe and flat-shaded meshes.
+    Allowed {
+        id: "mesh.geometry",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads a model's triangles from its NIF and its .mesh files, loose or in a BA2 (M7.S5, M7.R4)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
@@ -2937,8 +2944,6 @@ mod tests {
             "papyrus.disasm",
             "papyrus.events",
             "strings.dump",
-            // Deferred to M7.S5 (step 0 of sprint 2026-11-02).
-            "mesh.geometry",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

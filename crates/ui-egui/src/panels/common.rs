@@ -80,7 +80,6 @@ pub(crate) enum Slot {
     MeshBounds,
     /// The Render Window's mesh geometry (`mesh.geometry`; M7.R4, pipeline R). Step 0 of
     /// sprint 2026-11-09 lands the slot and its routes; R4 sends the request.
-    #[allow(dead_code)]
     MeshGeometry,
 }
 

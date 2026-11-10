@@ -297,7 +297,7 @@ fn panel_of(id: &str) -> Option<Target> {
         "new" => Target::Editor("new"),
         "clone" => Target::Editor("clone"),
         // Pipeline R's NIF bounds (M7.S4, M7.R3) belong to the Render Window.
-        "mesh.bounds" => Target::Tab("Render Window"),
+        "mesh.bounds" | "mesh.geometry" => Target::Tab("Render Window"),
         _ => return None,
     })
 }
@@ -962,11 +962,8 @@ mod tests {
         let bounds = gate::find_command("mesh.bounds").unwrap();
         assert_eq!(top_of(bounds.menu_path), "Tools");
         assert_eq!(target(bounds), Ok(Target::Tab("Render Window")));
-        let geometry = target(gate::find_command("mesh.geometry").unwrap()).unwrap_err();
-        assert!(
-            geometry.starts_with("not on the window's read-only list"),
-            "{geometry}"
-        );
+        let geometry = gate::find_command("mesh.geometry").unwrap();
+        assert_eq!(target(geometry), Ok(Target::Tab("Render Window")));
     }
 
     /// M7.M1 rest: every `menu item` row of `docs/ck-parity.md` is one entry of
