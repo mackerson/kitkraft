@@ -412,6 +412,9 @@ struct Run<'a> {
     waiting: Vec<Waiting>,
     /// The last row's parts, for `waiting` once the row has its place.
     last: Option<Waiting>,
+    /// Readiness polls whose `ready_expect` line has not arrived yet, over the whole session
+    /// (their answers come in send order, review L1' of the 3b fix round).
+    polls_owed: usize,
 }
 
 /// A row with steps that had no correlated reply (ruling R28).
@@ -514,22 +517,46 @@ impl Run<'_> {
                     Ok(out) if out.trim().is_empty() => {
                         last = format!("`{cmd}` answered an empty body, not ready");
                     }
-                    // Only the echo is not the game answering: it is the shape every late
-                    // reply takes, and a late failure of the `load` before it would slip
-                    // past the poll into the next row (review M1 of G 3b). Kept: it is a
-                    // reply all the same.
-                    Ok(out) if crate::probes::echo_only(&cmd, &out) => {
-                        last = format!("`{cmd}` answered only its echo, not ready");
-                        replies.push(out);
-                    }
-                    Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
-                        self.shared
-                            .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
-                        replies.push(out);
-                        return Ok(());
-                    }
                     Ok(out) => {
-                        last = format!("answer `{}`", clip(&out, 80));
+                        // Only the echo is not the game answering: it is the shape every
+                        // late reply takes, and a late failure of the `load` before it would
+                        // slip past the poll into the next row (review M1 of G 3b).
+                        let echo = crate::probes::echo_only(&cmd, &out);
+                        // In send order the n-th `ready_expect` line answers the n-th poll
+                        // still owed one, so a poll answered only by its echo owes its line
+                        // to a later reply, and a line arriving while an older poll is owed
+                        // is that poll's, not this one's (review L1' of the 3b fix round:
+                        // a stale line made a later poll ready). With no `ready_expect` a
+                        // line cannot be told apart; any answer but the echo is ready.
+                        let answers = if expect.is_empty() {
+                            usize::from(!echo)
+                        } else {
+                            let n = out
+                                .lines()
+                                .filter(|l| l.to_ascii_lowercase().contains(&expect))
+                                .count();
+                            self.polls_owed = self.polls_owed.saturating_add(1).saturating_sub(n);
+                            n
+                        };
+                        let ready = answers > 0 && (expect.is_empty() || self.polls_owed == 0);
+                        if ready {
+                            self.shared
+                                .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
+                            replies.push(out);
+                            return Ok(());
+                        }
+                        last = if echo {
+                            format!("`{cmd}` answered only its echo, not ready")
+                        } else if answers > 0 {
+                            format!(
+                                "`{cmd}` answered `{}`, but {} earlier poll(s) still owe their answer, so the line is theirs (send order), not ready",
+                                clip(&out, 60),
+                                self.polls_owed
+                            )
+                        } else {
+                            format!("answer `{}`", clip(&out, 80))
+                        };
+                        // Kept either way: it is a reply all the same (G 3b).
                         replies.push(out);
                     }
                     Err(e) => last = e.to_string(),
@@ -1271,6 +1298,7 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
         corr: Correlator::default(),
         waiting: Vec::new(),
         last: None,
+        polls_owed: 0,
     };
     let mut rows: Vec<RowReport> = Vec::new();
     let mut reruns = Vec::new();

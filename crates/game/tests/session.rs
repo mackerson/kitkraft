@@ -2989,7 +2989,10 @@ fn an_echo_only_readiness_answer_is_never_ready() {
         &[
             "GetSFSEVersion\nCommand: GetSFSEVersion",
             "Command: GetSFSEVersion",
-            "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+            // The two echo-only polls' answers, late, in send order, then this one's own.
+            "SFSE version: 0.2.21, release idx 26, runtime 01100F40
+SFSE version: 0.2.21, release idx 26, runtime 01100F40
+SFSE version: 0.2.21, release idx 26, runtime 01100F40",
         ],
     );
     let h = host();
@@ -3034,4 +3037,71 @@ fn rv9_a_quiet_poll_does_not_hold_a_later_failure() {
     );
     assert_eq!(v[0], "pass", "{v:?}");
     assert!(v[1].starts_with("fail"), "{v:?}");
+}
+
+// ------------------------------------------------- 3b fix round, review L1' (`g-3bfix.md`)
+
+/// A console in send order whose late answers drain slowly: each send's answer joins a
+/// queue, and a reply carries the oldest queued answers, at most `caps[k]` of them for the
+/// k-th send (none: only the echo; past the list: all). So a reply can carry an older
+/// poll's `SFSE version` line while the newer poll's own is still queued.
+fn fifo_console(caps: &'static [usize]) -> FakeConsole {
+    let c = console();
+    let state = std::sync::Mutex::new((0usize, std::collections::VecDeque::<Vec<String>>::new()));
+    c.respond_with(move |cmd| {
+        let mut st = state.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        let own: Vec<String> = if l.starts_with("getsfseversion") {
+            vec!["SFSE version: 0.2.21, release idx 26, runtime 01100F40".into()]
+        } else if l.starts_with("load kitkraftsession") {
+            vec!["Save file not found.".into()]
+        } else if l.starts_with("getpos y") {
+            vec!["GetPos: Y >> -4.00".into()]
+        } else {
+            vec![]
+        };
+        let k = st.0;
+        st.0 += 1;
+        st.1.push_back(own);
+        let cap = caps.get(k).copied().unwrap_or(usize::MAX);
+        let mut reply = format!("{cmd}\nCommand: {cmd}");
+        for _ in 0..cap {
+            let Some(lines) = st.1.pop_front() else { break };
+            for line in lines {
+                reply.push('\n');
+                reply.push_str(&line);
+            }
+        }
+        Some(reply)
+    });
+    c
+}
+
+/// Review L1': a stale `SFSE version` line, an earlier poll's answer arriving late, must not
+/// make a later poll ready. Sends: the launch poll; the base `load`; the base wait's first
+/// poll (only its echo); its second, which carries only the first one's late line; then,
+/// under the old rule, the `load` of T-01 (only its echo) and the poll after it, which
+/// carries the second poll's stale line: ready on it, T-01 passed, and T-02 failed on the
+/// load's line. With the polls' answers counted in send order no poll is ready on a line
+/// owed to an older one, and the load's failure reaches its own row.
+#[test]
+fn a_stale_readiness_line_of_an_earlier_poll_does_not_make_a_later_poll_ready() {
+    let c = fifo_console(&[usize::MAX, usize::MAX, 0, 1, 0, 1]);
+    let f = fixture("stale-ready");
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T14");
+    // A test-fixture profile that names its readiness text, as A-G1 makes Starfield's.
+    p.game.console.ready_expect = "SFSE version".into();
+    p.probes.probes = vec![
+        probe("T-01", false, vec![step("load {save}", None, "", None)]),
+        one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+    ];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    std::fs::remove_dir_all(&f.root).unwrap();
+    assert_ne!(v[0], "pass", "L1' {v:?} sent {:?}", c.received());
+    assert!(
+        !v[1].starts_with("fail"),
+        "L1' {v:?} sent {:?}",
+        c.received()
+    );
 }
