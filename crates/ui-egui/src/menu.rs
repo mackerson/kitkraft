@@ -166,7 +166,7 @@ pub const CK_ITEMS: &[CkItem] = &[
     ck("World", "Go to Location", CkMapping::Gap("no command: the Render Window shows the cell chosen in the Cell View")),
     ck("World", "World Testing And Reports", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
     ck("World", "View Render Test Failures...", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
-    ck("World", "View BetaComment Data", CkMapping::Gap("no command")),
+    ck("World", "View BetaComment Data", CkMapping::Gap("no command: no viewer for this data in M7")),
     ck("World", "Run Havok Sim", CkMapping::Gap("no command: physics simulation is not in M7")),
     ck("World", "Animate Lighting and Effects", CkMapping::Gap("no command: lighting is M8 (ROADMAP M7)")),
     ck("World", "Create Local Maps", CkMapping::Gap("no command: world generation, tests and exports are not in M7")),
@@ -211,11 +211,11 @@ pub const CK_ITEMS: &[CkItem] = &[
     ck("Gameplay", "Settings...", CkMapping::Command("query")),
     ck("Gameplay", "Papyrus Script Manager", CkMapping::Gap("no script list; `papyrus.disasm` reads one compiled script")),
     ck("Gameplay", "Compile Papyrus Scripts...", CkMapping::Command("papyrus.compile")),
-    ck("Gameplay", "Migrate Papyrus Property Data...", CkMapping::Gap("no command")),
+    ck("Gameplay", "Migrate Papyrus Property Data...", CkMapping::Gap("no command: no migration of script property data")),
     ck("Gameplay", "Export Papyrus Attach Data...", CkMapping::Gap("no command: no export of script attachments")),
     ck("Gameplay", "Animations...", CkMapping::Gap("no command: animation is not in M7")),
     ck("Gameplay", "Creature Creator", CkMapping::Gap("no command: creature tools are not in M7")),
-    ck("Gameplay", "Camera Paths...", CkMapping::Gap("no command")),
+    ck("Gameplay", "Camera Paths...", CkMapping::Gap("no command: no camera path editing in M7")),
     ck("Gameplay", "Default Objects...", CkMapping::Gap("no command for the default objects list")),
     ck("Gameplay", "Validate Forms", CkMapping::Command("validate")),
     ck("Gameplay", "Recipe Manager", CkMapping::Command("query")),
@@ -228,7 +228,7 @@ pub const CK_ITEMS: &[CkItem] = &[
     ck("Help", "Contents", CkMapping::Gap("no CK help text is reproduced; KitKraft's Help menu has its own (`schema`, `doctor`)")),
     ck("Help", "Snap Windows", CkMapping::Gap("no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)")),
     ck("Help", "Third-Party Software Licenses", CkMapping::Gap("no command: KitKraft lists its own in ATTRIBUTION.md")),
-    ck("Help", "About", CkMapping::Gap("no command yet")),
+    ck("Help", "About", CkMapping::Gap("no command: KitKraft's own About line is on the Start tab")),
 ];
 
 /// Where an enabled item takes the user.

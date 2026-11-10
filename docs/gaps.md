@@ -184,8 +184,8 @@ a ticket or milestone, "permanent" (by design, no command will be added), "out o
 (ROADMAP M7 excludes it) or "unscheduled" (not in M7, no ticket yet). A reason is never
 reworded here: a row and its quote change together, with `CK_ITEMS`.
 
-Counted 2026-11-10 (sprint 2026-11-09, C2): 47 reasons covering 102 `menu item` rows;
-4 more gaps named by a pointer from 5 rows that map a command; 4 rows with no reason yet; 10 rows
+Counted 2026-11-10 (sprint 2026-11-09, C2): 51 reasons covering 106 `menu item` rows;
+4 more gaps named by a pointer from 5 rows that map a command; 10 rows
 whose mapping is not known yet; 4 `unresearched` rows. The NavMesh `menu` row is `reproduced` (the
 menu is drawn with its items disabled and the reason, as ROADMAP M7 asks), not a gap row.
 
@@ -238,6 +238,10 @@ menu is drawn with its items disabled and the reason, as ROADMAP M7 asks), not a
 | "no command: audio tools (Wwise, FaceFX, voice files) are not in M7" | Audio > Animation Sound Tag Overrides..., Audio > Process Local Voice WAVs, Audio > Build Soundbank for Active File, Audio > Reload Wwise Data, Audio > Run FaceFX Compiler | 5 | unscheduled: not in M7, no ticket |
 | "no CK help text is reproduced; KitKraft's Help menu has its own (`schema`, `doctor`)" | Help > Contents | 1 | permanent: clean room (ADR 0012) |
 | "no command: KitKraft lists its own in ATTRIBUTION.md" | Help > Third-Party Software Licenses | 1 | permanent: ATTRIBUTION.md |
+| "no command: no viewer for this data in M7" | World > View BetaComment Data | 1 | unscheduled: not in M7, no ticket |
+| "no command: no migration of script property data" | Gameplay > Migrate Papyrus Property Data... | 1 | unscheduled: not in M7, no ticket |
+| "no command: no camera path editing in M7" | Gameplay > Camera Paths... | 1 | unscheduled: not in M7, no ticket |
+| "no command: KitKraft's own About line is on the Start tab" | Help > About | 1 | permanent: the Start tab's About line |
 
 Rows that map a command and still lack what the CK does; their "Maps to" points here:
 
@@ -247,15 +251,6 @@ Rows that map a command and still lack what the CK does; their "Maps to" points 
 | No "Select Target Plugin" file dialog: a new active file is named before any edit, in the Data dialog's "Active file path:" field (KitKraft's addition, outside the game's `Data` folder), not chosen when saving | dialog "Select Target Plugin (File > Save Plugin with no active file)" | permanent: the Data dialog's path field (M7.M2) |
 | No drag placement: `place` takes the base and a typed position from the Cell View's place bar (M7.E4); dragging an Object Window row into the Render Window is not built, the Render Window being read-only | workflow "Place an object into a cell" | M8.7 (placement editing in the viewport) |
 | No conversion of an existing file's header to a master; `build` sets the header flags of a file it writes | workflow "Convert the active file to a master" | unscheduled: no ticket |
-
-Not yet a documented gap: these rows give no reason ("Maps to" reads `` `gap:` no command `` or
-`` `gap:` no command yet ``). Each gets one with `CK_ITEMS` in a single commit (sprint 2026-11-09,
-C2's ask to D); until then they stay open:
-
-- World > View BetaComment Data ("no command")
-- Gameplay > Migrate Papyrus Property Data... ("no command")
-- Gameplay > Camera Paths... ("no command")
-- Help > About ("no command yet")
 
 Observed, mapping not known yet (not a KitKraft gap): the item's window or submenu was never
 opened. They stay `observed` until a sitting opens them:
