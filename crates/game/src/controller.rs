@@ -1206,6 +1206,36 @@ impl Run<'_> {
         }
     }
 
+    /// Review R41 M1: before the game ends, a `load` whose answer is not known to have
+    /// arrived may still have its failure queued; one more pacing wait reads it.
+    fn drain(&mut self, rows: &mut [RowReport]) {
+        if !self.corr.loads_pending() || self.shared.stop_requested() {
+            return;
+        }
+        let limit = secs(self.plan.timeouts.load_secs).min(self.budget_left());
+        let mut replies = Vec::new();
+        let _ = self.wait_ready(limit, "the last `load`'s answer", false, &mut replies);
+        let poll = self.plan.game.console.ready_command.clone();
+        let mut pid = None;
+        let mut seen = Vec::new();
+        for reply in &replies {
+            let id = match pid {
+                Some(p) => {
+                    self.corr.resend(p);
+                    p
+                }
+                None => {
+                    let p = self.corr.open_poll("(end of session)", 0, &poll);
+                    pid = Some(p);
+                    p
+                }
+            };
+            let r = self.corr.route(id, reply);
+            let _ = self.requeued(&r, &mut seen, "(end of session)");
+        }
+        self.regrade(rows);
+    }
+
     fn not_run(&self, from: usize, why: &str) -> Vec<RowReport> {
         self.plan
             .probes
@@ -1526,6 +1556,7 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
                         Ok(()) => {
                             shared.phase(Phase::Probing, "running the probes");
                             let open = r.probes(&mut rows);
+                            r.drain(&mut rows);
                             if open && plan.stay {
                                 reruns = r.idle();
                             }

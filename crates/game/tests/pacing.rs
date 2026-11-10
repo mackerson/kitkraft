@@ -23,10 +23,11 @@
 //!
 //! Checks: (i) a `Save file not found.` delivered in any reply never leaves the load's row
 //! `pass`; (ii) every run reaches the rows (T01's shape, the base wait's answers dropped,
-//! included); (iii) the runs where the load's line never reached the controller (dropped,
-//! or still queued when the session ended) are counted, with how many of them leave the
-//! load's row `pass`: no grader can see a failure it never receives (the limit
-//! `docs/game-sessions.md` states).
+//! included); (iii) the runs where the load's line never reached the controller are
+//! counted, with how many of them leave the load's row `pass`, and every one of them is a
+//! run whose `load` answer was dropped: a line still queued when the last row ends is read
+//! by the controller's last pacing wait (review R41 M1). No grader can see a failure the
+//! game never sends (the limit `docs/game-sessions.md` states).
 //!
 //! The gate runs every 16th case of each shape (977 runs a shape, 2,931 in all); the full
 //! 46,875 runs are `cargo test -p kitkraft-game --test pacing -- --ignored`.
@@ -357,10 +358,13 @@ struct Tally {
     not_reached: Vec<String>,
     /// (iii): runs where the load's line never reached the controller.
     undelivered: usize,
+    /// ... of those, the runs whose `load` answer was not dropped (review R41 M1: none).
+    undelivered_not_dropped: Vec<String>,
     /// ... and of those, the runs whose load row passed.
     undelivered_passes: Vec<String>,
     /// Delivered runs by the role of the reply that carried the line.
-    delivered_in: [usize; 6],
+    /// (index 6: the controller's last pacing wait after the rows, review R41 M1).
+    delivered_in: [usize; 7],
     /// Labels of the load's row over delivered runs.
     delivered_labels: std::collections::BTreeMap<String, usize>,
 }
@@ -409,7 +413,7 @@ fn enumerate(shape: Shape, every: usize) -> Tally {
         }
         match s.delivered {
             Some(role) => {
-                if let Some(n) = t.delivered_in.get_mut(role) {
+                if let Some(n) = t.delivered_in.get_mut(role.min(6)) {
                     *n += 1;
                 }
                 *t.delivered_labels.entry(load_row.clone()).or_default() += 1;
@@ -419,6 +423,9 @@ fn enumerate(shape: Shape, every: usize) -> Tally {
             }
             None => {
                 t.undelivered += 1;
+                if cases_of(i).get(ROW_LOAD).copied().flatten().is_some() {
+                    t.undelivered_not_dropped.push(what.clone());
+                }
                 if load_row == "pass" {
                     t.undelivered_passes.push(what);
                 }
@@ -431,7 +438,7 @@ fn enumerate(shape: Shape, every: usize) -> Tally {
         }
     }
     eprintln!(
-        "{shape:?}: {} runs; delivered {} (in base-load {}, base-wait {}, getter-1 {}, load {}, post-wait {}, getter-2 {}; load row {:?}); never delivered {} (load row pass in {}); not reached {}; delivered-failure passes {}",
+        "{shape:?}: {} runs; delivered {} (in base-load {}, base-wait {}, getter-1 {}, load {}, post-wait {}, getter-2 {}, last wait {}; load row {:?}); never delivered {} (load row pass in {}); not reached {}; delivered-failure passes {}",
         t.runs,
         t.runs - t.undelivered,
         t.delivered_in[0],
@@ -440,6 +447,7 @@ fn enumerate(shape: Shape, every: usize) -> Tally {
         t.delivered_in[3],
         t.delivered_in[4],
         t.delivered_in[5],
+        t.delivered_in[6],
         t.delivered_labels,
         t.undelivered,
         t.undelivered_passes.len(),
@@ -466,9 +474,15 @@ fn check(shape: Shape, every: usize) -> Tally {
         t.not_reached.len(),
         t.not_reached.first()
     );
-    // (iii) The undelivered runs are counted: every one has the load's own send dropped or
-    // its line still queued at the end, and only those may leave the load's row a pass.
+    // (iii) The undelivered runs are counted, and every one had the load's answer dropped:
+    // nothing the game sent is left unread (review R41 M1).
     assert!(t.undelivered > 0);
+    assert!(
+        t.undelivered_not_dropped.is_empty(),
+        "{shape:?}: {} runs left the load's line unread, first {:?}",
+        t.undelivered_not_dropped.len(),
+        t.undelivered_not_dropped.first()
+    );
     t
 }
 

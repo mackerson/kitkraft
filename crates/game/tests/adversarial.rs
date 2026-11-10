@@ -456,6 +456,14 @@ fn a6b_base_failure_late_in_first_getter() {
     assert!(l.iter().all(|x| !pass(x)), "{l:?} {f:?}");
 }
 
+/// A7: queued at session end: cross, A's load line still queued when the session ends.
+#[test]
+fn a7_queued_at_end() {
+    let acts = (6..=12).map(|i| (i, Act::Cap(0))).collect();
+    let (l, _, _) = go("a7", cross(), acts, Act::Cap(usize::MAX), false);
+    assert!(!l.first().is_some_and(|x| pass(x)), "{l:?}");
+}
+
 /// A8: the base save missing and its line dropped: rows pass on the main menu (the limit).
 #[test]
 fn a8_base_failure_dropped() {

@@ -171,13 +171,17 @@ except `pass` carries its reason.
   answered `Save file not found.`, late, in the reply to ...)`; one left with the poll is
   the `load`'s too. When they span rows, each is re-opened `inconclusive (late failure)`,
   and the reply's own row is not failed by it.
-- **The limit no grader passes** (R41): a failure line the game never sends, or that is
-  still queued when the session ends, is invisible. `2026-11-10-T01` showed the game
+- After the last row, while a `load` has no answer known to have arrived, the controller
+  waits once more as after a `load` and routes those replies too, so a failure line still
+  queued then reaches its row (review R41 M1). Nothing else reads the console after it.
+- **The limit no grader passes** (R41): a failure line the game never sends is
+  invisible. `2026-11-10-T01` showed the game
   dropping answers after a `load`; had the dropped answer been a `load`'s `Save file not
   found.`, the row would grade on its getters alone and may `pass` on the old state. The
   enumeration in `crates/game/tests/pacing.rs` (a fifo console with caps 0, 1, 2, all and
   drop on six sends, three row shapes, 46,875 runs; the gate runs every 16th) shows a
-  delivered failure never leaves its row `pass`, and counts the undelivered runs that do.
+  delivered failure never leaves its row `pass`, that every undelivered run is one whose
+  `load` answer was dropped (3,125 a shape), and counts those that pass.
 - `inconclusive` means the evidence is missing or ambiguous. Examples: no output to match,
   no number in the output, a Papyrus log that was not written, a screenshot the row asks
   for that was not taken, or a timeout. Missing evidence is never `pass`.

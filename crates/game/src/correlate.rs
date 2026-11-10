@@ -418,6 +418,11 @@ impl Correlator {
         }
     }
 
+    /// Whether a `load` sent so far has no answer known to have arrived (review R41 M1).
+    pub fn loads_pending(&self) -> bool {
+        !self.loads_before(self.requests.len()).is_empty()
+    }
+
     /// The `load` requests sent before `id` whose answer is not known to have arrived: every
     /// one since the newest answered request (ruling R41). A `load` that worked prints
     /// nothing, so its failure line, the only answer it has, may come in any later reply;
