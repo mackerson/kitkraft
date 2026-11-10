@@ -3007,3 +3007,29 @@ fn an_echo_only_readiness_answer_is_never_ready() {
     assert_eq!(report.rows[0].verdict, Verdict::Pass);
     std::fs::remove_dir_all(&f.root).unwrap();
 }
+
+/// Review L1 (probe rv9): the poll must not wait as a getter. After a quiet load and poll,
+/// a later row's own on-time failure is its own, and the load's row keeps its pass. Red if
+/// the poll is opened with `Correlator::open` (a `GetSFSEVersion` getter left waiting).
+#[test]
+fn rv9_a_quiet_poll_does_not_hold_a_later_failure() {
+    let c = console();
+    c.answer(
+        "prid KitKraftFoo",
+        "prid KitKraftFoo\nItem 'KitKraftFoo' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "rv9",
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            probe(
+                "T-02",
+                false,
+                vec![step("prid KitKraftFoo", None, "", None)],
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+    assert!(v[1].starts_with("fail"), "{v:?}");
+}
