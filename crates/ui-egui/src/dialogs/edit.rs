@@ -390,7 +390,10 @@ fn member_tab(
                         s.member.as_str()
                     };
                     cells(ui, label, &s.signature);
-                    match editable(s).zip(paths.get(*i)) {
+                    // Never raw bits or a raw enum value (D7 review L1).
+                    let edit = editable(s)
+                        .filter(|_| super::layouts::edits_as_number(record_type, &s.signature));
+                    match edit.zip(paths.get(*i)) {
                         Some((number, path)) => field_edit(ui, edits, path, s, number),
                         None => {
                             ui.add(

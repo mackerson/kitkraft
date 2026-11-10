@@ -198,7 +198,8 @@ pub const SHIPPED: &[(&str, &str)] = &[
     ),
 ];
 
-/// The field paths of the six member layouts whose value is a set of flags or an enum.
+/// The field paths of the seven member layouts (the six observed types and REFR) whose
+/// value is a set of flags or an enum, mapped or falling to "Other" (D7 review L1).
 /// The engine shows such a value as a plain number (the raw bits, the raw value), so the
 /// edit dialog would offer it as a number to type; it stays read-only instead (D2-fix
 /// review L2: typing `1` into AMMO's flags sets IgnoresNormalWeaponResistance, not
@@ -206,11 +207,27 @@ pub const SHIPPED: &[(&str, &str)] = &[
 /// `flags_and_enums_are_pinned_from_the_schema`.
 pub const NOT_NUMBERS: &[(&str, &str)] = &[
     ("AMMO", "DNAM.Flags"),
+    ("AMMO", "FLLD"),
+    ("AMMO", "XFLG"),
     ("COBJ", "RECF"),
+    ("COBJ", "TNAM"),
+    ("COBJ", "LRNM"),
     ("TERM", "NAM1"),
     ("TERM", "FNAM"),
     ("TERM", "MNAM"),
+    ("TERM", "FLLD"),
+    ("TERM", "XFLG"),
     ("CONT", "DATA"),
+    ("CONT", "FLLD"),
+    ("CONT", "XFLG"),
+    ("STAT", "FLLD"),
+    ("STAT", "XFLG"),
+    ("REFR", "XACT"),
+    ("REFR", "XLSM"),
+    ("REFR", "FNAM"),
+    ("REFR", "VNAM"),
+    ("REFR", "VISI"),
+    ("REFR", "XLCM"),
 ];
 
 /// Numeric fields the edit dialog shows read-only although they are plain numbers: REFR's
@@ -1215,26 +1232,54 @@ mod tests {
         v.get("type").and_then(Value::as_str).map(str::to_string)
     }
 
-    /// D2-fix review L2: every mapped field path of the six member layouts whose schema
-    /// type is flags or an enum is in [`super::NOT_NUMBERS`], and nothing else is, so the
-    /// edit dialog never offers raw bits as a number to type.
+    /// Every subrecord signature a deep `schema` envelope defines, at the top level or in
+    /// a group (not in the base-form component block), in schema order.
+    fn signatures_in(env: &serde_json::Value) -> Vec<String> {
+        use serde_json::Value;
+        fn walk(members: &Value, out: &mut Vec<String>) {
+            for m in members.as_array().into_iter().flatten() {
+                if let Some(sig) = m.get("signature").and_then(Value::as_str) {
+                    out.push(sig.to_string());
+                } else if m.get("kind").and_then(Value::as_str) == Some("group")
+                    && m.get("name").and_then(Value::as_str) != Some("BfcbBlock")
+                {
+                    walk(&m["members"], out);
+                }
+            }
+        }
+        let mut out = Vec::new();
+        walk(&env["data"]["members"], &mut out);
+        out
+    }
+
+    /// D2-fix review L2, widened by D7 review L1: for the seven member layouts (the six
+    /// observed types and REFR), every mapped field path and every subrecord that can fall
+    /// to "Other" whose schema type is flags or an enum is in [`super::NOT_NUMBERS`], and
+    /// nothing else is, so the edit dialog never offers raw bits or a raw enum value as a
+    /// number to type.
     #[test]
     fn flags_and_enums_are_pinned_from_the_schema() {
         use super::{edits_as_number, NOT_NUMBERS};
         let engine = ReadOnlyEngine::new();
-        let mut found = Vec::new();
-        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"] {
+        let mut found: Vec<(String, String)> = Vec::new();
+        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD", "REFR"] {
             let env = engine
                 .run(&Request::new("schema", json!({"type": t, "deep": true})))
                 .unwrap();
-            for (_, path) in observation(t).unwrap().map {
+            let layout = shipped(t).unwrap().unwrap();
+            let mapped = layout
+                .tabs
+                .iter()
+                .flat_map(|tab| tab.groups.iter())
+                .flat_map(|g| g.members.clone().unwrap_or_default());
+            for path in mapped.chain(signatures_in(&env)) {
                 let ty = leaf_type(&env, &path).unwrap_or_else(|| panic!("{t}: {path}"));
-                if ty.contains("flags<") || ty.contains("enum<") {
-                    found.push((t.to_string(), path));
+                let entry = (t.to_string(), path);
+                if (ty.contains("flags<") || ty.contains("enum<")) && !found.contains(&entry) {
+                    found.push(entry);
                 }
             }
         }
-        found.dedup();
         let pinned: Vec<(String, String)> = NOT_NUMBERS
             .iter()
             .map(|(t, p)| ((*t).to_string(), (*p).to_string()))

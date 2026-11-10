@@ -663,7 +663,8 @@ revisited once a sitting observes how the CK docks. Code:
   line per mapped label in the record's order with the field path it edits and its value;
   a whole subrecord edits in place as above, and a numeric member inside a struct
   (`DATA.Value`) too; flags and enums, which the engine shows as raw numbers, stay
-  read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema). A field whose signature a base-form component block of the record
+  read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema), on the label
+  lines and on "Other" alike. A field whose signature a base-form component block of the record
   also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
   labels sit among them in the observed order, read-only, with their reasons, and what no
   label shows goes to "Other".
