@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
-use super::layouts::{member_text, place_members, MemberPage};
+use super::layouts::{member_text, place_members, Line, MemberPage};
 use super::{place, DialogState, Layout, OTHER_TAB};
 use crate::panels::common::Action;
 use crate::panels::records::{RecordView, SubRow, VersionView};
@@ -351,9 +351,10 @@ impl DialogState {
 
 /// D6: one page of a member layout (or, past its pages, the "Other" page): each label on
 /// one line with the field path it edits and its value, edited in place when it is a
-/// number or plain text (a member inside a struct: a number), read-only when a component
-/// block of the record holds its signature too (D1 review L4); then, on the first page,
-/// the labels M7.K4 left unmapped with their reasons.
+/// number or plain text (a member inside a struct: a number; never flags or an enum),
+/// read-only when a component block of the record holds its signature too (D1 review
+/// L4); on the first page the labels M7.K4 left unmapped are interleaved in the observed
+/// order, read-only with their reasons.
 fn member_tab(
     ui: &mut egui::Ui,
     index: usize,
@@ -396,7 +397,31 @@ fn member_tab(
         }
         return;
     };
-    for (gi, g) in page.groups.iter().enumerate() {
+    // The labels in the observed order, mapped and unmapped interleaved (D2-fix review
+    // L3); a page past the first keeps its groups' order.
+    let lines = if index == 0 {
+        super::layouts::observed_lines(record_type, page)
+    } else {
+        (0..page.groups.len()).map(Line::Mapped).collect()
+    };
+    for line in lines {
+        let gi = match line {
+            Line::Mapped(gi) => gi,
+            Line::Gap(label, why) => {
+                ui.horizontal_top(|ui| {
+                    cells(ui, &label, "-");
+                    ui.add(
+                        egui::Label::new(egui::RichText::new(why).weak())
+                            .wrap_mode(egui::TextWrapMode::Wrap),
+                    )
+                    .on_hover_text("not editable here: M7.K4 maps this label to no field (layouts/sitting2.toml `gaps`)");
+                });
+                continue;
+            }
+        };
+        let Some(g) = page.groups.get(gi) else {
+            continue;
+        };
         if g.rows.is_empty() {
             ui.horizontal_top(|ui| {
                 cells(ui, &g.label, &g.path);
@@ -454,23 +479,6 @@ fn member_tab(
                 });
             });
         }
-    }
-    if index != 0 {
-        return;
-    }
-    let Some(o) = super::layouts::observation(record_type).filter(|o| !o.gaps.is_empty()) else {
-        return;
-    };
-    theme::gap(ui);
-    ui.label(theme::subheading(ui, "Not editable here (M7.K4 gaps)"));
-    for (l, why) in &o.gaps {
-        ui.horizontal_top(|ui| {
-            cells(ui, l, "-");
-            ui.add(
-                egui::Label::new(egui::RichText::new(why).weak())
-                    .wrap_mode(egui::TextWrapMode::Wrap),
-            );
-        });
     }
 }
 

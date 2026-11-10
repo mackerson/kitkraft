@@ -301,6 +301,36 @@ pub struct MemberPage<'a> {
     pub groups: Vec<MemberGroup<'a>>,
 }
 
+/// One line of a member page in the order sitting 2 recorded the labels (D2-fix review
+/// L3): a mapped label's group (its index in the page), or an unmapped label and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Line {
+    Mapped(usize),
+    Gap(String, String),
+}
+
+/// The lines of `page` in the order sitting 2 recorded `record_type`'s labels, each label
+/// its group or its gap; without an observation, the groups in the page's order. A group
+/// the observation does not list (none today) follows.
+pub fn observed_lines(record_type: &str, page: &MemberPage<'_>) -> Vec<Line> {
+    let mut out = Vec::new();
+    if let Some(o) = observation(record_type) {
+        for l in &o.labels {
+            if let Some(i) = page.groups.iter().position(|g| &g.label == l) {
+                out.push(Line::Mapped(i));
+            } else if let Some((_, why)) = o.gaps.iter().find(|(g, _)| g == l) {
+                out.push(Line::Gap(l.clone(), why.clone()));
+            }
+        }
+    }
+    for i in 0..page.groups.len() {
+        if !out.contains(&Line::Mapped(i)) {
+            out.push(Line::Mapped(i));
+        }
+    }
+    out
+}
+
 /// The placement of a layout whose groups name the member each label edits (`members`):
 /// `None` for a layout without (the signature placement, `super::place`). Each label
 /// shows every subrecord of its signature outside the component blocks; a signature a
@@ -1194,5 +1224,33 @@ mod tests {
         assert!(!edits_as_number("AMMO", "DNAM.Flags"));
         assert!(edits_as_number("AMMO", "DNAM.Damage"));
         assert!(edits_as_number("AMMO", "DATA.Value"));
+    }
+
+    /// D2-fix review L3: a member page's lines follow the observed labels, mapped and
+    /// unmapped interleaved (AMMO's "Edit", observed sixth, is the sixth line), each label
+    /// once.
+    #[test]
+    fn a_member_page_follows_the_observed_order() {
+        use super::{observed_lines, place_members, Line};
+        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"] {
+            let o = observation(t).unwrap();
+            let layout = shipped(t).unwrap().unwrap();
+            let (pages, _) = place_members(&layout, &[]).unwrap();
+            let lines = observed_lines(t, &pages[0]);
+            let labels: Vec<&str> = lines
+                .iter()
+                .map(|l| match l {
+                    Line::Mapped(i) => pages[0].groups[*i].label.as_str(),
+                    Line::Gap(label, _) => label.as_str(),
+                })
+                .collect();
+            assert_eq!(labels, o.labels, "{t}");
+        }
+        let o = observation("AMMO").unwrap();
+        let (pages, _) = place_members(&shipped("AMMO").unwrap().unwrap(), &[]).unwrap();
+        let lines = observed_lines("AMMO", &pages[0]);
+        assert_eq!(o.labels[5], "Edit");
+        assert!(matches!(&lines[5], Line::Gap(l, _) if l == "Edit"));
+        assert!(matches!(lines[4], Line::Mapped(_)));
     }
 }

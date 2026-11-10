@@ -1158,7 +1158,7 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
         ("AMMO", "Ammo", "Short name"),
         ("COBJ", "Constructible Object", "Created Object Count"),
         ("TERM", "Terminal", "Marker Model"),
-        ("CONT", "Container", "Contains Only"),
+        ("CONT", "Container", "Item List"),
         ("STAT", "Static", "Object Palette Defaults"),
         ("KYWD", "Keyword", "Linkage Name"),
     ];
@@ -1171,7 +1171,6 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
         assert_in_view(&h, &format!("D6{t}"));
         assert_in_view(&h, &format!("{title} ("));
         assert_in_view(&h, label);
-        assert_in_view(&h, "Not editable here (M7.K4 gaps)");
         // Each unmapped label is listed with its reason (below the fold for most types).
         let o = crate::dialogs::layouts::observation(t).unwrap();
         for (gap, why) in &o.gaps {

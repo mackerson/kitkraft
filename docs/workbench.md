@@ -661,7 +661,8 @@ revisited once a sitting observes how the CK docks. Code:
   (`DATA.Value`) too; flags and enums, which the engine shows as raw numbers, stay
   read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema). A field whose signature a base-form component block of the record
   also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
-  labels follow, read-only, with their reasons, and what no label shows goes to "Other".
+  labels sit among them in the observed order, read-only, with their reasons, and what no
+  label shows goes to "Other".
   AMMO's and COBJ's pages say observed (the sitting recorded no tab control); the other
   four do not, since the sitting did not record whether they have tabs.
 
