@@ -946,10 +946,7 @@ fn the_path_field_takes_an_own_master_the_list_still_refuses_one() {
         d.details
     );
     assert!(d.refusal.is_none(), "{:?}", d.refusal);
-    assert_in_view(
-        &h,
-        "master-flagged: the engine writes it as the active file only",
-    );
+    assert_in_view(&h, "master-flagged: while it is in the load order");
     click_button(&mut h, "OK");
     assert_eq!(h.state().app.active_file.as_deref(), Some(own.as_str()));
     assert_eq!(dir.snapshot(), before, "the dialog writes nothing");

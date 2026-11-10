@@ -600,8 +600,9 @@ revisited once a sitting observes how the CK docks. Code:
   first write. A master-flagged file of the owner's own is taken here (P1 of sprint
   2026-11-09, following owner ruling 2026-11-07 item 3), a listed one typed in included:
   an existing file's `TES4` is read with `inspect`, and a master-flagged choice shows a
-  note that the engine writes it only as the last plugin of a plugin list, after
-  master-flagged plugins only, and named as a master by none (A6). The list keeps the
+  note that, while it is in the load order, the engine writes it in place only as the
+  last plugin of a plugin list, after master-flagged plugins only, and named as a master
+  by none (A6). The list keeps the
   CK's rule ("Set as Active File" refuses a master-flagged row). The engine's output
   guard has the final word. Once such a file is loaded as the last plugin
   of the order, `set`, `new` and `clone` keep writing into it (A6, owner decision

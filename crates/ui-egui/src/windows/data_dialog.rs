@@ -422,7 +422,7 @@ impl DataDialogState {
             .as_ref()
             .is_some_and(|d| d.path == a && d.master_flag());
         (listed || read).then(|| {
-            "master-flagged: the engine writes it as the active file only as the last plugin of a plugin list, after master-flagged plugins only, and named as a master by none (A6; owner ruling 2026-11-07 item 3); it decides on each write".to_string()
+            "master-flagged: while it is in the load order, the engine writes it in place only as the last plugin of a plugin list, after master-flagged plugins only, and named as a master by none (A6; owner ruling 2026-11-07 item 3); it decides on each write".to_string()
         })
     }
 
@@ -473,7 +473,8 @@ impl DataDialogState {
 
     /// The active-file field's "Use This File": the path becomes the dialog's choice
     /// (applied on OK), or the refusal says why not. An existing file's `TES4` is asked
-    /// for, so a master flag the engine reads refuses it when the reply arrives.
+    /// for, so its details (and a master flag, shown by [`Self::master_note`]) come back
+    /// with the reply.
     pub fn use_path(&mut self) -> Option<DataAsk> {
         let path = self.path_field.trim().to_string();
         if let Some(why) = self.refused_path(&path) {
@@ -1172,7 +1173,10 @@ mod tests {
         s.receive(&DataTicket::Details(p), Ok(&env));
         assert_eq!(s.active.as_deref(), Some(master.as_str()));
         assert!(s.refusal.is_none());
-        assert!(s.master_note().unwrap().contains("A6"));
+        assert!(s
+            .master_note()
+            .unwrap()
+            .contains("while it is in the load order"));
 
         // Never while the session came from `Default`.
         let live = std::env::temp_dir().join("profiles").join("Default");
