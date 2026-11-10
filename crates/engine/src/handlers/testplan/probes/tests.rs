@@ -325,6 +325,7 @@ fn the_persistence_row_goes_elsewhere_between_the_save_and_the_load() {
         full: None,
         base_edid: None,
         base_runtime: None,
+        base_signature: None,
         disabled: false,
         scripts: Vec::new(),
     };
@@ -1011,4 +1012,279 @@ fn a_script_name_with_dot_dot_is_not_looked_up() {
             .join("KitKraft")
             .join("HelloOnLoad.pex")
     ));
+}
+
+/// KK-250: a plugin with a pack-in (`PKIN`) and a static, an interior cell, and one
+/// reference placed from each, built by hand as `world_master` builds `World.esm` (the
+/// synthetic master has no PKIN for `place` to take). Master-flagged, no masters.
+fn pack_in_plugin() -> Vec<u8> {
+    use kitkraft_esm::build::HeaderSpec;
+    use kitkraft_esm::cells::{self, CellPlace, Parent, PlacementStyle};
+    use kitkraft_esm::tes4::FLAG_MASTER;
+    use kitkraft_esm::{Plugin, Record};
+
+    use crate::handlers::place_tests::{data24, rec, sub, zstr};
+
+    const CELL: u32 = 0x802;
+    let mut spec = HeaderSpec::new(Vec::new());
+    spec.flags = FLAG_MASTER;
+    let mut plugin = Plugin::create(&spec);
+    plugin
+        .header_mut()
+        .subrecords_mut()
+        .unwrap()
+        .push(sub(b"INCC", &1u32.to_le_bytes()));
+    let style = PlacementStyle::OFFICIAL;
+    let mut put = |record: Record<'static>, parent: Parent| {
+        let path = cells::placement(&record.header, &parent, &style).unwrap();
+        plugin.upsert_styled(&path, record, &style).unwrap();
+    };
+    put(
+        rec(b"PKIN", 0, 0x800, vec![sub(b"EDID", &zstr("KC_Pack"))]),
+        Parent::None,
+    );
+    put(
+        rec(b"STAT", 0, 0x801, vec![sub(b"EDID", &zstr("KC_Box"))]),
+        Parent::None,
+    );
+    put(
+        rec(b"CELL", 0, CELL, vec![sub(b"EDID", &zstr("TestPackRoom"))]),
+        Parent::CellAt(CellPlace::INTERIOR),
+    );
+    for (id, edid, base, pos) in [
+        (0x803u32, "KC_PackRef", 0x800u32, [4.0f32, 5.0, 6.0]),
+        (0x804, "KC_BoxRef", 0x801, [7.0, 8.0, 9.0]),
+    ] {
+        put(
+            rec(
+                b"REFR",
+                0,
+                id,
+                vec![
+                    sub(b"EDID", &zstr(edid)),
+                    sub(b"NAME", &base.to_le_bytes()),
+                    sub(b"DATA", &data24(pos)),
+                ],
+            ),
+            Parent::Cell {
+                place: CellPlace::INTERIOR,
+                cell: CELL,
+            },
+        );
+    }
+    plugin.to_bytes().unwrap()
+}
+
+#[test]
+fn a_pack_in_reference_does_not_expect_the_pkin_as_its_base() {
+    let d = dir("probes-pack-in");
+    let data = world_master(&d);
+    let plugin = d.join("KC_PackIn.esm");
+    std::fs::write(&plugin, pack_in_plugin()).unwrap();
+    let out = d.join("plan");
+    let r = testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, text) = read(&out);
+    assert_eq!(
+        rows(&p),
+        checklist_steps(&out),
+        "one probe per checklist step"
+    );
+    let runtime = |edid: &str| -> String {
+        r["data"]["forms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["editor_id"] == edid)
+            .unwrap()["runtime_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let (pack, boxed, pack_ref, box_ref) = (
+        runtime("KC_Pack"),
+        runtime("KC_Box"),
+        runtime("KC_PackRef"),
+        runtime("KC_BoxRef"),
+    );
+    let of = |edid: &str| -> Vec<&kitkraft_game::probes::Probe> {
+        p.probes
+            .iter()
+            .filter(|x| x.forms.iter().any(|f| f == edid))
+            .collect()
+    };
+
+    // The pack-in reference's base row is manual, with the open question and its evidence.
+    let pack_rows = of("KC_PackRef");
+    let manual: Vec<_> = pack_rows.iter().filter(|x| x.is_manual()).collect();
+    assert_eq!(manual.len(), 1, "{pack_rows:#?}");
+    let base = manual[0];
+    let reason = base.reason.as_deref().unwrap();
+    assert!(reason.contains("open question"), "{reason}");
+    assert!(reason.contains("game-20261103-08"), "{reason}");
+    assert!(base.steps.is_empty());
+    assert!(
+        base.title.contains("`KC_PackRef`") && base.title.contains("KC_Pack "),
+        "{}",
+        base.title
+    );
+
+    // The STAT reference keeps its getisid row exactly.
+    let box_base = of("KC_BoxRef")
+        .into_iter()
+        .find(|x| x.steps.iter().any(|s| s.command.starts_with("getisid")))
+        .unwrap();
+    assert_eq!(
+        commands(&p, &box_base.row),
+        [format!("prid {box_ref}"), format!("getisid {boxed}")]
+    );
+    assert_eq!(box_base.steps[1].matcher, Some(Matcher::Regex));
+
+    // Nothing sends getisid on the PKIN.
+    assert!(p
+        .probes
+        .iter()
+        .flat_map(|x| x.steps.iter())
+        .all(|s| s.command != format!("getisid {pack}")));
+    assert!(!text.contains(&format!("getisid {pack}")));
+
+    // The checklist says it once, in the pack-in reference's click step.
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    assert_eq!(checklist.matches("open question").count(), 1, "{checklist}");
+    let at = checklist.find("open question").unwrap();
+    let step = checklist[..at].rsplit("click the object:").next().unwrap();
+    assert!(step.contains("KC_Pack (PKIN"), "{step}");
+
+    // Its moveto and getpos rows stay as they are.
+    assert!(pack_rows.iter().any(|x| commands(&p, &x.row)
+        == [
+            format!("player.moveto {pack_ref}"),
+            format!("prid {pack_ref}"),
+            "getdistance player".to_string()
+        ]));
+    assert!(pack_rows.iter().any(|x| commands(&p, &x.row)
+        == [
+            format!("prid {pack_ref}"),
+            "getpos x".to_string(),
+            "getpos y".to_string(),
+            "getpos z".to_string()
+        ]));
+}
+
+/// KK-251 (game-20261103-06: an actor settled 1.2 units off its placed spot, so the exact
+/// `getpos` rows failed while its cell, `player.moveto` and base passed): an `ACHR` is checked
+/// by its cell and within `ACTOR_TOLERANCE` of its position; a `REFR` keeps its exact rows.
+#[test]
+fn an_actor_is_checked_by_cell_and_distance() {
+    use super::ACTOR_TOLERANCE;
+    let d = dir("probes-actor-cell");
+    let data = world_master(&d);
+    let plugin = d.join("KC_ActorCell.esm");
+    place(
+        &data,
+        &plugin,
+        json!({"base": "KC_Npc", "cell": "TestInterior", "position": [10.0, 20.0, 30.0]}),
+    );
+    place(&data, &plugin, json!({"cell": "TestInterior"}));
+    let out = d.join("plan");
+    let r = testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(
+        rows(&p),
+        checklist_steps(&out),
+        "one probe per checklist step"
+    );
+    let runtime = |sig: &str| -> String {
+        r["data"]["forms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["signature"] == sig)
+            .unwrap()["runtime_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let (actor, crate_ref) = (runtime("ACHR"), runtime("REFR"));
+    let position_row = |id: &str| {
+        p.probes
+            .iter()
+            .find(|x| {
+                x.forms.iter().any(|f| f == id) && x.steps.iter().any(|s| s.command == "getpos x")
+            })
+            .unwrap()
+    };
+
+    // The actor: getpos within ACTOR_TOLERANCE, then its cell after player.moveto.
+    let a = position_row(&actor);
+    assert_eq!(
+        commands(&p, &a.row),
+        [
+            format!("prid {actor}"),
+            "getpos x".into(),
+            "getpos y".into(),
+            "getpos z".into(),
+            format!("player.moveto {actor}"),
+            "player.getincell 00000900".into(),
+        ]
+    );
+    for (step, expected) in a.steps[1..4].iter().zip(["10", "20", "30"]) {
+        assert_eq!(step.tolerance, Some(ACTOR_TOLERANCE));
+        assert_eq!(step.expected.as_deref(), Some(expected));
+        assert_eq!(step.matcher, Some(Matcher::Number));
+        assert!(step.why.as_deref().unwrap().contains("game-20261103-06"));
+    }
+    assert_eq!(a.steps[4].wait_secs, Some(10));
+    assert_eq!(a.steps[5].matcher, Some(Matcher::Regex));
+    assert!(a.screenshot);
+
+    // The crate's row is unchanged.
+    let c = position_row(&crate_ref);
+    assert_eq!(
+        commands(&p, &c.row),
+        [
+            format!("prid {crate_ref}"),
+            "getpos x".into(),
+            "getpos y".into(),
+            "getpos z".into(),
+        ]
+    );
+    assert!(c.steps[1..].iter().all(|s| s.tolerance == Some(0.5)));
+
+    // Persistence 4: the same steps after the reload.
+    let back = p
+        .probes
+        .iter()
+        .find(|x| x.title.starts_with("persistence 4"))
+        .unwrap();
+    let cmds: Vec<&str> = back.steps.iter().map(|s| s.command.as_str()).collect();
+    let at = cmds
+        .iter()
+        .position(|c| *c == format!("prid {actor}"))
+        .unwrap();
+    assert!(back.steps[at + 1..at + 4]
+        .iter()
+        .all(|s| s.tolerance == Some(ACTOR_TOLERANCE)));
+    assert_eq!(
+        cmds[at + 4..at + 6],
+        [
+            format!("player.moveto {actor}").as_str(),
+            "player.getincell 00000900"
+        ]
+    );
+    let at = cmds
+        .iter()
+        .position(|c| *c == format!("prid {crate_ref}"))
+        .unwrap();
+    assert_eq!(cmds[at + 1..at + 4], ["getpos x", "getpos y", "getpos z"]);
+    assert!(back.steps[at + 1..at + 4]
+        .iter()
+        .all(|s| s.tolerance == Some(0.5)));
+
+    // The checklist names the tolerance for the actor's step.
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    assert!(
+        checklist.contains(&format!("within {ACTOR_TOLERANCE} units")),
+        "{checklist}"
+    );
+    std::fs::remove_dir_all(&d).unwrap();
 }
