@@ -51,6 +51,11 @@
 //! are re-sent; the row keeps the diverted failure as an inconclusive part, so a later line
 //! for the request cannot make it a pass.
 //!
+//! The readiness poll the controller sends after a `load` (`GetSFSEVersion`) is a request
+//! too ([`Correlator::open_poll`], one that names nothing): its replies are routed by these
+//! rules, so a late failure or getter line arriving in one is never dropped, and a failure
+//! line left with the poll is the `load`'s, late (G ticket 3b, ruling R28).
+//!
 //! The send-order assumption is the owner's ruling of 2026-11-07 (`plan/STATUS.md`, "Owner
 //! rulings, 2026-11-07 (midday)", item 2), drawn from `game-20261103-04` and `-08`; no
 //! session has yet been designed to test it. The rows it decides are those where a failure
@@ -310,6 +315,19 @@ impl Correlator {
             surplus: Vec::new(),
         });
         self.requests.len().saturating_sub(1)
+    }
+
+    /// Opens the readiness poll sent for a row's step after a `load` (G ticket 3b, ruling
+    /// R28) as a request whose answer names nothing. `GetSFSEVersion` would parse as a
+    /// getter whose `SFSE version` line it never claims, and a getter left waiting would hand
+    /// every later failure line to the send-order rule. Its replies are routed like any
+    /// other, so a late line in them reaches the request it names.
+    pub fn open_poll(&mut self, row: &str, step: usize, command: &str) -> usize {
+        let id = self.open(row, step, command);
+        if let Some(r) = self.requests.get_mut(id) {
+            r.subject = None;
+        }
+        id
     }
 
     /// Request `id` was sent again.

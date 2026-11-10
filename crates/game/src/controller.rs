@@ -440,8 +440,17 @@ impl Run<'_> {
     /// (after the launch), nothing is sent until the game's main window has existed for
     /// `settle_secs` (game-20261101-T1/b': the port opens long before the game can take a
     /// command, and a command sent then ended the game once). One deadline, `limit`, covers
-    /// the window, the settle and the polls.
-    fn wait_ready(&mut self, limit: Duration, what: &str, window: bool) -> Result<(), String> {
+    /// the window, the settle and the polls. Every non-empty answer is pushed onto `replies`,
+    /// in order, whether or not it made the game ready and whether or not the wait timed out:
+    /// a late line of an earlier request may arrive in one, and it is routed like any other
+    /// reply, never dropped (G ticket 3b, ruling R28).
+    fn wait_ready(
+        &mut self,
+        limit: Duration,
+        what: &str,
+        window: bool,
+        replies: &mut Vec<String>,
+    ) -> Result<(), String> {
         let started = Instant::now();
         let limit = limit.min(self.budget_left());
         let cmd = self.plan.game.console.ready_command.clone();
@@ -507,9 +516,13 @@ impl Run<'_> {
                     Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
                         self.shared
                             .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
+                        replies.push(out);
                         return Ok(());
                     }
-                    Ok(out) => last = format!("answer `{}`", clip(&out, 80)),
+                    Ok(out) => {
+                        last = format!("answer `{}`", clip(&out, 80));
+                        replies.push(out);
+                    }
                     Err(e) => last = e.to_string(),
                 }
             }
@@ -761,7 +774,42 @@ impl Run<'_> {
                         && first_word(&cmd) == first_word(&self.plan.game.saves.load_command)
                     {
                         let limit = secs(self.plan.timeouts.load_secs);
-                        if let Err(e) = self.wait_ready(limit, "the save to load", false) {
+                        let mut replies = Vec::new();
+                        let waited =
+                            self.wait_ready(limit, "the save to load", false, &mut replies);
+                        // The poll's replies are this row's replies too (G ticket 3b, ruling
+                        // R28): the poll is a request of this step that names nothing, so a
+                        // late line in it goes where the send-order rule sends it, and a
+                        // failure line left with it is this `load`'s, late: inconclusive,
+                        // never a pass, and not a fail (R20).
+                        let poll = self.plan.game.console.ready_command.clone();
+                        let mut poll_id = None;
+                        for reply in &replies {
+                            let pid = match poll_id {
+                                Some(p) => {
+                                    self.corr.resend(p);
+                                    p
+                                }
+                                None => {
+                                    let p = self.corr.open_poll(&probe.row, n, &poll);
+                                    poll_id = Some(p);
+                                    p
+                                }
+                            };
+                            let r = self.corr.route(pid, reply);
+                            seen.push(format!("(readiness poll) {poll} -> {}", clip(reply, 120)));
+                            if let Some(note) = self.requeued(&r, &mut seen) {
+                                verdicts.push(Verdict::Inconclusive(format!(
+                                    "{note} (a timing anomaly, R20, R28)"
+                                )));
+                            }
+                            if let Some(line) = console_failure(&poll, &r.kept()) {
+                                verdicts.push(Verdict::Inconclusive(format!(
+                                    "late failure: `{cmd}`: the console answered `{line}` in the readiness poll after it (`{poll}`; R20, R28)"
+                                )));
+                            }
+                        }
+                        if let Err(e) = waited {
                             verdicts.push(Verdict::Inconclusive(format!("timeout: {e}")));
                             break;
                         }
@@ -1246,8 +1294,14 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                 }
                 Ok(child) => {
                     shared.phase(Phase::WaitingForConsole, "waiting for the console endpoint");
-                    let ready =
-                        r.wait_ready(secs(plan.timeouts.ready_secs), "the console endpoint", true);
+                    // Nothing but the poll has been sent yet, so its replies hold no other
+                    // request's line.
+                    let ready = r.wait_ready(
+                        secs(plan.timeouts.ready_secs),
+                        "the console endpoint",
+                        true,
+                        &mut Vec::new(),
+                    );
                     let loaded = ready.and_then(|()| {
                         shared.phase(Phase::LoadingSave, "loading the base save");
                         let cmd = fill(&plan.game.saves.load_command, &[("save", &plan.base_save)]);
@@ -1261,7 +1315,20 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                                 "the base save did not load: `{cmd}` answered `{line}`"
                             ));
                         }
-                        r.wait_ready(limit, "the base save to load", false)
+                        // Its failure may also come late, in the readiness poll's reply (G
+                        // ticket 3b): the base `load` is the only request before the poll, so
+                        // the line is the base save's.
+                        let mut replies = Vec::new();
+                        let waited =
+                            r.wait_ready(limit, "the base save to load", false, &mut replies);
+                        let poll = &plan.game.console.ready_command;
+                        if let Some(line) = replies.iter().find_map(|out| console_failure(poll, out))
+                        {
+                            return Err(format!(
+                                "the base save did not load: `{cmd}` answered `{line}`, late, in the readiness poll (`{poll}`)"
+                            ));
+                        }
+                        waited
                     });
                     match loaded {
                         Err(why) => {

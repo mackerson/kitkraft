@@ -2805,3 +2805,99 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
     assert_eq!(so("SO-05"), "pass", "{reversed:#?}");
     assert_eq!(so("SO-06"), "fail", "{reversed:#?}");
 }
+
+// ------------------------------------------------- the readiness poll (G ticket 3b, ruling R28)
+// After a `load` the controller polls the readiness command until the game answers. Those
+// replies are replies like any other: a late failure line or a late getter line in them is
+// routed by the send-order rule, never dropped (review M1 of `ws/g` hand-off 1).
+
+/// A console whose next readiness answer after a command starting with `trigger` carries
+/// `late` first, as the game's late lines do.
+fn poll_carries(c: &FakeConsole, trigger: &'static str, late: &'static str) {
+    let armed = std::sync::Mutex::new(false);
+    c.respond_with(move |cmd| {
+        let mut armed = armed.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        if l.starts_with(trigger) {
+            *armed = true;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if l.starts_with("getsfseversion") && *armed {
+            *armed = false;
+            return Some(format!(
+                "GetSFSEVersion\nCommand: GetSFSEVersion\n{late}\nSFSE version: 0.2.21"
+            ));
+        }
+        None
+    });
+}
+
+#[test]
+fn a_late_failure_in_the_readiness_poll_after_a_load_is_not_a_pass() {
+    let c = console();
+    poll_carries(&c, "load kitkraftsession", "Save file not found.");
+    let (v, seen) = rx_run(
+        "poll-load",
+        &c,
+        vec![probe(
+            "T-01",
+            false,
+            vec![
+                step("load {save}", None, "", None),
+                step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+            ],
+        )],
+    );
+    assert!(v[0].starts_with("inconclusive"), "{v:?}");
+    assert!(v[0].contains("readiness poll"), "{v:?}");
+    assert!(seen[0].contains("Save file not found."), "{seen:?}");
+}
+
+#[test]
+fn a_late_base_save_failure_in_the_readiness_poll_leaves_every_row_not_run() {
+    let c = console();
+    poll_carries(&c, "load kitkraftbase", "Save file not found.");
+    let (v, _) = rx_run(
+        "poll-base",
+        &c,
+        vec![one("T-01", "getpos x", Matcher::Number, "-17", Some(0.5))],
+    );
+    assert!(v[0].starts_with("not-run"), "{v:?}");
+    assert!(v[0].contains("the base save did not load"), "{v:?}");
+}
+
+#[test]
+fn a_late_getter_line_in_the_readiness_poll_goes_to_its_getter() {
+    let c = console();
+    c.answer("getpos x", "getpos x\nCommand: getpos x");
+    poll_carries(&c, "load kitkraftsession", "GetPos: X >> -17.00");
+    let (v, seen) = rx_run(
+        "poll-getter",
+        &c,
+        vec![
+            one("T-01", "getpos x", Matcher::Number, "-17", Some(0.5)),
+            probe("T-02", false, vec![step("load {save}", None, "", None)]),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?} {seen:?}");
+    assert!(seen[0].contains("GetSFSEVersion"), "{seen:?}");
+}
+
+#[test]
+fn a_quiet_readiness_poll_changes_no_grade() {
+    let c = console();
+    c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
+    let (v, _) = rx_run(
+        "poll-quiet",
+        &c,
+        vec![probe(
+            "T-01",
+            false,
+            vec![
+                step("load {save}", None, "", None),
+                step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+            ],
+        )],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+}
