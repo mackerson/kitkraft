@@ -131,7 +131,10 @@ ledger entry's "Console port" line say what was not checked.
    transcript is what a replay answers from (`kitkraft_game::replay`: today's
    controller run again over it with no game, its labels compared with the ledger
    entry's Result column; a command that differs from the recorded one ends the replay
-   there). Sessions recorded before M4.T7 have no transcript and are not replayed.
+   there). Sessions recorded before M4.T7 have no transcript and are not replayed. The
+   transcript stays in `report.json`: `game.session`, `game.status` and `game.stop` return
+   the report without it, so it does not reach MCP clients, the CLI or `kit mod run`'s
+   stage files.
 
 ### Statuses
 

@@ -555,6 +555,7 @@ fn start_status_probe_and_stop_through_the_catalog() {
     let stopped = e.execute("game.stop", json!({"id": id})).unwrap();
     let report = &stopped["data"]["report"];
     assert_eq!(report["reruns"].as_array().unwrap().len(), 1);
+    assert!(report.get("transcript").is_none(), "{report}");
     assert!(report["ledger_entry"].as_str().is_some());
     let gone = e.execute("game.status", json!({"id": id})).unwrap_err();
     assert!(gone.to_string().contains("no session"), "{gone}");
@@ -815,4 +816,37 @@ fn no_progress_changes_the_session_result() {
     );
     std::fs::remove_dir_all(&f1.root).unwrap();
     std::fs::remove_dir_all(&f2.root).unwrap();
+}
+
+/// Review L1 of M4.T7: the transcript (every send and its full reply) stays in the session's
+/// `observe\<id>\report.json`; the command's envelope, which reaches MCP clients, the CLI and
+/// `kit mod run`'s stage files, carries the report without it.
+#[test]
+fn the_transcript_stays_in_report_json_and_out_of_the_envelope() {
+    let c = console();
+    let f = fixture("transcript-envelope");
+    let probes = probes_file(&f);
+    let game = game_file(&f, &c);
+    let (e, _) = engine(&["explorer.exe"]);
+    let r = e
+        .execute("game.session", args(&f, &probes, &game, json!({})))
+        .unwrap();
+    let report = &r["data"]["report"];
+    assert!(report.get("transcript").is_none(), "{report}");
+    let path = report["written"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .find(|p| p.ends_with("report.json"))
+        .unwrap()
+        .to_string();
+    let on_disk: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert!(
+        on_disk["transcript"]
+            .as_array()
+            .is_some_and(|t| !t.is_empty()),
+        "{on_disk}"
+    );
+    std::fs::remove_dir_all(&f.root).unwrap();
 }

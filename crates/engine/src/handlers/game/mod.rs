@@ -507,8 +507,15 @@ fn prepare(
     })
 }
 
+/// The report as a command's envelope carries it: without `transcript`, which stays in
+/// `observe\<id>\report.json` (M4.T7). Every send and its full reply would otherwise go to MCP
+/// clients, the CLI and `kit mod run`'s stage files, and grow with every poll (review L1).
 fn report_json(report: &Report) -> Value {
-    serde_json::to_value(report).unwrap_or(Value::Null)
+    let mut v = serde_json::to_value(report).unwrap_or(Value::Null);
+    if let Some(map) = v.as_object_mut() {
+        map.remove("transcript");
+    }
+    v
 }
 
 /// A phase as `game.status` spells it (kebab-case).
@@ -697,7 +704,7 @@ pub(super) fn status(session: &mut Session, args: &Value) -> Result<Outcome, Eng
             })).collect::<Vec<_>>(),
             "events": snap.events,
             "elapsed_secs": snap.elapsed_secs,
-            "report": snap.report,
+            "report": snap.report.as_ref().map(report_json),
         }),
         Vec::new(),
     ))
