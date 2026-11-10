@@ -92,6 +92,10 @@ ledger entry's "Console port" line say what was not checked.
      window yet, settling, or the last answer).
 
    Then it sends `load <base save>` and waits for a non-empty answer again (`load_secs`).
+   A `load` step in a row is followed by the same wait. The poll's replies are replies like
+   any other (G ticket 3b): a late line of an earlier request may arrive in one, so after a
+   row's `load` each reply is routed as described in "Statuses" and noted in the row's
+   `seen` as `(readiness poll) GetSFSEVersion -> ...`.
 4. Run the probes in order. A row has its own deadline (`probe_secs`), and the session
    has a wall-clock budget (`session_secs`). After a step with `wait_secs` the controller
    pauses that long (within the row's deadline; `game.stop` cuts it short) before the next
@@ -124,8 +128,16 @@ except `pass` carries its reason.
   Why: in `2026-11-01-T03`, row T-05, the `load` found no save (it was sent 120 ms after
   the `save`, before the file was written), and the final `player.getincell` passed only
   because the player never left the cell.
-- A base save the game does not find (`Save file not found.` after `load <base save>`)
-  leaves every row `not-run (the base save did not load: ...)`.
+- A base save the game does not find (`Save file not found.` after `load <base save>`, in
+  the `load`'s own answer or late, in the readiness poll after it) leaves every row
+  `not-run (the base save did not load: ...)`.
+- After a row's `load`, the readiness poll is a request of that step that names nothing,
+  and its replies are routed by the send-order rule (`crates/game/src/correlate.rs`): a late
+  getter line reaches its getter, a late failure line re-opens the rows it may belong to
+  (`inconclusive (late failure)`), and a failure line left with the poll is the `load`'s,
+  late, so the row is `inconclusive (late failure: ... in the readiness poll ...)`, never
+  `pass`. Before G ticket 3b these replies were dropped, and a late `Save file not found.`
+  there let the row pass on getters that saw the old state.
 - `inconclusive` means the evidence is missing or ambiguous. Examples: no output to match,
   no number in the output, a Papyrus log that was not written, a screenshot the row asks
   for that was not taken, or a timeout. Missing evidence is never `pass`.
@@ -245,6 +257,11 @@ the load, the row needs more than the old 60 s deadline, so the Starfield profil
 Everything else the probes send (`getisid`, `player.getitemcount`, `player.getequipped`,
 `getstage`, `save` and `load` from the world) is grade D until a session observes it.
 
+A reference placed from a pack-in (`PKIN`) gets no `getisid`: its base row is `manual`
+(KK-250, `probes::PACK_IN_BASE`). `getisid` on the PKIN's runtime ID answered `GetIsID >> 0.00`
+in game-20261103-03 and game-20261103-08 while the reference stood where the plugin puts it;
+whether the game reports a PKIN as such a reference's base is open.
+
 ## Game profiles (M4.T9)
 
 `crates/game/profiles/<game>.toml` lists everything the controller knows about one game,
@@ -343,8 +360,8 @@ later grades are re-run.
 
 | Input | Value | Check |
 | ----- | ----- | ----- |
-| Probes | `crates/game/probes/send-order.toml` (hand-written; seven rows, `SO-01` to `SO-07`) | Record its SHA-256. The tests `the_send_order_probes_file_parses_and_names_the_rename_plugin` and `the_send_order_probes_grade_as_the_ruling_predicts` pass on the commit `kit` is built from |
-| Plugin | `OldSovietMarksmanRifle.esm`, already deployed as the mod `KitKraft Dev - OldSovietMarksmanRifle` (disabled in `Kitkraft Dev` on 2026-11-10) | The mod's file hashes `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` (`docs/smoke-rename.md`; checked 2026-11-10). If it differs, rebuild with `kit build docs\smoke-rename.toml <out> --overwrite` and redeploy with `kit deploy` |
+| Probes | `crates/game/probes/send-order.toml` (hand-written; eight rows, `SO-01` to `SO-08`) | Record its SHA-256. The tests `the_send_order_probes_file_parses_and_names_the_rename_plugin`, `the_send_order_probes_grade_as_the_ruling_predicts` and `a_late_failure_in_the_readiness_poll_after_a_load_is_not_a_pass` pass on the commit `kit` is built from |
+| Plugin | `OldSovietMarksmanRifle.esm`, already deployed as the mod `KitKraft Dev - OldSovietMarksmanRifle` (disabled in `Kitkraft Dev` on 2026-11-10) | The mod's file hashes `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` (`docs/smoke-rename.md`; checked 2026-11-10). If it differs, rebuild with `kit build docs\smoke-rename.toml <out> --overwrite` and redeploy with `kit deploy <out> C:\Modding\MO2-Starfield --dev --profile "Kitkraft Dev" --dry-run`, then the same without `--dry-run` |
 | Base save | `KitKraftBase` in `Kitkraft Dev\saves` | SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf` (`game-20261101-T1`, `-04`) |
 | `kit` | the release build of `ws/g` (`.targets\x\release\kit.exe`), its SHA-256 in the sprint's G report | built before the window, never while the game runs |
 
@@ -369,10 +386,10 @@ later grades are re-run.
    `C:\Modding\kitkraft-observe\<date>-T<nn>\`, the `KitKraftSession-*` save and one
    ledger entry.
 3. The same command without `--dry-run`, synchronously. Leave the screen alone. About
-   five minutes: launch and settle (about 90 s), the base save, seven rows with four 10 s
+   five minutes: launch and settle (about 90 s), the base save, eight rows with five 10 s
    pauses, and the getters' retries.
-4. After: no game process left; `kit deploy disable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev"`
-   (the rename owns no form, so it may leave the profile); the three list files hash as
+4. After: no game process left; `kit deploy disable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev" --dry-run`,
+   then the same without `--dry-run` (the rename owns no form, so it may leave the profile); the three list files hash as
    before step 1. A `Finding:` line about `plugins.txt` is the known MO2 rewrite at launch
    (`game-20261103-01`) and changes no grade.
 5. Read `observe\<id>\report.json`: each row's `seen` (every send, its reply clipped to 120
@@ -403,12 +420,14 @@ order their requests were sent, then its own result.
 | SO-05 | FR3: `KitKraftSendOrderRef.enable` (no such reference) behind an unsettled `coc`, then `player.getpos x` | not pass (its `enable` fails, late) | the failure line before SO-05's `GetPos: X` lines | SO-05's `GetPos: X` before the failure line while the `enable` reply was only its echo |
 | SO-06 | FR3: `player.getincell 0021966F` (a 10 s settle after) | not fail (its own getter answers) | SO-05's late lines, then `GetInCell >> 1.00` | `GetInCell >> 1.00` before a late line of SO-05 in the same reply |
 | SO-07 | FR2 on time: `player.getincell 0021966F`, `load {save}` (the session save does not exist yet), the getter again | fail on the load's own line `Save file not found.` | `Save file not found.` in the `load`'s own reply | the failure line in a reply before the first getter's `GetInCell` line |
+| SO-08 | FR2 late: `player.getpos y` and `load {save}` behind an unsettled `coc`, then `player.getincell 0006BB29` (a 10 s settle after) | not pass (its `load` fails, late); the grade names `Save file not found.` wherever the line arrives | SO-08's `GetPos: Y` lines before `Save file not found.`, in the `load`'s reply, in the readiness poll (`(readiness poll) GetSFSEVersion -> ...` in `seen`) or in the last getter's reply | `Save file not found.` before a `GetPos: Y` line still owed, or after `GetInCell >> 1.00` in the same reply |
 
 The grade column is what the controller writes under the ruling. The test
 `the_send_order_probes_grade_as_the_ruling_predicts` checks it against a console model that
 answers in send order, with zero to six echo-only sends after each unsettled move. **The
 grades show a contradiction only in one shape**: when the late stretch after SO-05's `coc`
-reaches SO-06, a console out of send order makes SO-05 `pass` (its `enable` failed) and
+reaches SO-06 (in the model, four or more echo-only sends; fewer, and the ruling can be
+judged only from `seen`, clipped at 120 characters), a console out of send order makes SO-05 `pass` (its `enable` failed) and
 SO-06 `fail` on SO-05's line, both against their predictions
 (`a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_row`, a
 model that answers its own lines first and the late ones newest first). Otherwise the
@@ -432,11 +451,9 @@ getter's three sends) cannot be told apart and are evidence neither way.
   ordered and the ruling is untested. Run the session once more in the same window if
   time allows (two attempts, then `inconclusive` with a request to the session lane),
   never `pass`.
-- A late `Save file not found.` seen only in an event (`the save to load: GetSFSEVersion
-  answered ...`) is the readiness-poll hole the probes file's notes describe, not a
-  contradiction: a `load` whose reply is only its echo is followed by the readiness poll,
-  whose reply is not routed. SO-07 sends its `load` on time so that it does not happen;
-  if it does, file it.
+- A `Save file not found.` in a `(readiness poll)` reply of SO-08's `seen` is a late
+  answer, routed like any other since G ticket 3b, not a contradiction; it is one only if
+  it stands before a line owed to an earlier request, as in the table.
 
 Grades follow AGENTS.md "Reporting": a row with no observation is `not-run`; ambiguous
 evidence is `inconclusive`, never `pass`.
@@ -485,7 +502,7 @@ that fills none. `ck_open` and `ck_reexport` stay `not-run` in this window (pipe
 | 1.8 | Select T-02's row, then its **Screenshot** button and the confirm (`game.probe` with `screenshot: true`) | the re-run joins the table as the latest; its screenshot shows below the table, scaled to the panel; a missing or undecodable file is `inconclusive` with its reason, never hidden (KK-033) | - (evidence for T-02) |
 | 1.9 | T-03's **Record in Ledger** | the Ledger tab opens with a pre-filled `custom` row (`note`); nothing is written until its own confirmed `ledger` write; the owner says what the row records and the agent confirms it | - |
 | 1.10 | **Preview stop** (`game.stop --dry-run`), then **Stop...** and the confirm | the `would` lines, then the stop report: the game ended, logs copied, the profile verified, one ledger entry `game-2026111x-nn` started from the window | the entry's six rows |
-| 1.11 | Relaunch: **Preview session** and **Launch...** again, then **Stop...** at once | the same flow a second time in one window (KK-032's relaunch); its entry may be `not-run` rows only | - |
+| 1.11 | Relaunch: **Preview session** and **Launch...** again, then at once **Preview stop**, **Stop...** and the confirm | the same flow a second time in one window (KK-032's relaunch); its entry may be `not-run` rows only | - |
 
 Acceptance of part 1: a ledger entry started from the window with the six statuses filled
 (`ck_open`, `ck_reexport` `not-run`), the screenshot shown, and the manual row recorded.
@@ -512,7 +529,7 @@ file is never loaded before it (the track's order).
 | 2.10 | Reopen the window (`kit ui --dev`): Cell View, `CityNewAtlantisApartmentTEMPLATE` | the placed reference is listed (EditorID, base, position) and draws in the Render Window (STATUS.md: "a placed reference showing in the Cell View and viewport") | - |
 | 2.11 | Cockpit: session with `out\f31-plan\probes.toml`; Preview session, Launch..., the poll, Stop... as 1.5 to 1.10 | a second ledger entry from the window: the clone and reference rows graded | `game_runtime` |
 | 2.12 | The persistence row of the same session (G3) | `pass`, or `inconclusive` with its reason (an ambiguous `GetInCell` after a retry, `game-20261103-04`) | `save_reload` |
-| 2.13 | After: `kit deploy disable C:\Modding\MO2-Starfield --mods KC_F31 --dev --profile "Kitkraft Dev"`; the list files hash as before 2.9 | `KC_F31.esp` owns forms, but only `KitKraftSession-*` saves ever held them, and those are disposable | - |
+| 2.13 | After: `kit deploy disable C:\Modding\MO2-Starfield --mods KC_F31 --dev --profile "Kitkraft Dev" --dry-run`, then the same without `--dry-run`; the list files hash as before 2.9 | `KC_F31.esp` owns forms, but only `KitKraftSession-*` saves ever held them, and those are disposable | - |
 
 Acceptance of part 2: `KC_F31.esp` SHA-256 recorded; `parse`, `byte_roundtrip` and
 `game_runtime` filled; `save_reload` filled by G3; `ck_open` and `ck_reexport` `not-run`
