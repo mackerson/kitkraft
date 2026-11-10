@@ -301,6 +301,10 @@ pub struct MemberPage<'a> {
     pub groups: Vec<MemberGroup<'a>>,
 }
 
+/// The subrecords no label of a member layout shows, each with its position in the
+/// version's subrecords (for its `set` occurrence path).
+pub type Leftover<'a> = Vec<(usize, &'a SubRow)>;
+
 /// One line of a member page in the order sitting 2 recorded the labels (D2-fix review
 /// L3): a mapped label's group (its index in the page), or an unmapped label and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -340,7 +344,7 @@ pub fn observed_lines(record_type: &str, page: &MemberPage<'_>) -> Vec<Line> {
 pub fn place_members<'a>(
     layout: &Layout,
     subrows: &'a [SubRow],
-) -> Option<(Vec<MemberPage<'a>>, Vec<(usize, &'a SubRow)>)> {
+) -> Option<(Vec<MemberPage<'a>>, Leftover<'a>)> {
     if !layout
         .tabs
         .iter()
