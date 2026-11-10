@@ -19,34 +19,48 @@ this list is M3; the viewport and world editing are deferred to M4+.
 
 ## Checklist
 
-Priority: P1 needed for data work, P2 editor convenience, P3 deferred.
+Priority: P1 needed for data work, P2 editor convenience, P3 deferred. Ranked (M3.H5, sprint
+2026-11-09) from the CK sittings in `docs/ck-observations.md` (the ledger ids in "Evidence");
+the interface itself (menus, windows, dialogs) is tracked row by row under "Interface parity".
+Status: `implemented` (the command exists and is in the catalog), `gap` (no command; a
+`docs/gaps.md` row says why), `not offered` (the CK showed no such choice), `deferred` (out of
+M7, ROADMAP).
 
 | Area     | CK feature                                | Kit command       | Priority | Status   | Evidence |
 | -------- | ----------------------------------------- | ----------------- | -------- | -------- | -------- |
-| Plugins  | Data dialog: choose masters + active file | `load`            | P1       | planned  | -        |
-| Plugins  | Save plugin (header, ONAM, masters)       | `build`, `set`    | P1       | planned  | -        |
-| Plugins  | Compression choice on save                | -                 | P1       | unknown  | -        |
-| Plugins  | ESM / light / medium plugin flags         | -                 | P1       | unknown  | -        |
-| Records  | Edit a field in the object window         | `set`             | P1       | planned  | -        |
-| Records  | "Use info" / references to a form         | `inspect`         | P1       | planned  | -        |
-| Records  | Duplicate / new form, FormID allocation   | -                 | P1       | unknown  | -        |
-| Records  | Localized strings on save                 | `strings.*`       | P1       | planned  | -        |
-| Scripts  | Compile Papyrus                           | `papyrus.compile` | P2       | planned  | -        |
-| Archives | Pack BA2                                  | `ba2.pack`        | P2       | planned  | -        |
-| Checks   | Plugin errors / warnings on load          | `validate`        | P2       | planned  | -        |
-| World    | Cell / worldspace editing                 | -                 | P3       | deferred | -        |
-| World    | Navmesh generation                        | -                 | P3       | deferred | -        |
-| Audio    | FaceFX / LIP generation, Wwise            | -                 | P3       | deferred | -        |
-| View     | Render window                             | -                 | P3       | planned  | -        |
+| Plugins  | Data dialog: choose masters + active file | `load`            | P1       | implemented | `ck-20261101-01`, `-02`, `-03` (the dialog, ticking, "Set as Active File"; a master-flagged file cannot be the active file) |
+| Plugins  | Save plugin (header, ONAM, masters)       | `build`, `set`    | P1       | implemented | `ck-20261101-02`, `-03` (File > Save Plugin saves in place with no prompt; "Select Target Plugin" with no active file); `ck-20261101-04` (the CK's re-export of F30 has no unexplained difference) |
+| Plugins  | Compression choice on save                | -                 | P1       | not offered | `ck-20261101-02`, `-03`: Save Plugin asked nothing; `ck-20261101-04`: F30's compressed CELL payload came back byte-identical |
+| Plugins  | ESM / light / medium plugin flags         | `build` (new files) | P1     | gap      | `ck-20261101-03`: File > Convert Active File to ... offers Small, Medium and Full Master and wrote a separate `.esm`; KitKraft converts no existing file (`docs/gaps.md`, "No conversion of an existing file's header to a master"). **M4 candidate** |
+| Plugins  | Compact the active file's FormIDs         | -                 | P2       | gap      | `ck-20261101-01` (File menu item, filed in `ck-20261102-01`); `docs/gaps.md` "no command compacts FormIDs" |
+| Plugins  | Upload / login to Bethesda.net            | -                 | P3       | gap      | `ck-20261101-01` (File menu, filed in `ck-20261102-01`); not offered by KitKraft (`docs/gaps.md`) |
+| Records  | Edit a field in the object window         | `set`             | P1       | implemented | `ck-20261102-03` (seven edit dialogs' labels; M7.K4 maps them to `set` paths); `ck-20261101-03` (the Reference dialog) |
+| Records  | Find a form (filter, Find Text)           | `query`           | P1       | implemented | `ck-20261101-03` (Object Window Text Filter); `ck-20261101-01` (Edit > Find Text, filed in `ck-20261102-01`) |
+| Records  | "Use info" / references to a form         | `refs`            | P1       | implemented | `ck-20261101-03` (the Object Window's use count column) |
+| Records  | Duplicate / new form, FormID allocation   | `clone`, `new`    | P1       | implemented | `ck-20261103-01` (Object Window > Duplicate: a third row, the title gains `*`; not saved); `ck-20261101-03`, `-04` (the CK numbered a new reference `000807` in a small-master-capable `.esp`) |
+| Records  | Place a reference into a cell             | `place`           | P1       | implemented | `ck-20261101-03` (Cell View, drag from the Object Window, the Reference dialog); KitKraft places from the Cell View with a typed position (`docs/gaps.md`, "No drag placement") |
+| Records  | Localized strings on save                 | `strings.*`       | P1       | implemented | Session note: the CK's side is not observed yet; F12 (`docs/ck-observations.md` fixture matrix) has not run |
+| Records  | Search and replace, find by condition     | -                 | P2       | gap      | `ck-20261101-01` (Edit menu, filed in `ck-20261102-01`); `docs/gaps.md` (M8.1) |
+| Scripts  | Compile Papyrus                           | `papyrus.compile` | P2       | implemented | `ck-20261101-01` (Gameplay > Compile Papyrus Scripts..., filed in `ck-20261102-01`) |
+| Archives | Pack BA2                                  | `ba2.pack`        | P2       | implemented | `ck-20261101-01` (File > Create Archive, filed in `ck-20261102-01`) |
+| Checks   | Plugin errors / warnings on load          | `validate`        | P2       | implemented | `ck-20261101-01` (the Warnings window after a load: 1,590 rows in eleven columns, none about our plugin); `ck-20261102-02` (S1-10); File > Validate Loaded Data and Gameplay > Validate Forms (`ck-20261102-01`) |
+| World    | Cell / worldspace editing                 | -                 | P3       | deferred | `ck-20261101-03` (Cell View loads a cell; World menu, `ck-20261102-01`); editing in the viewport is M8.7 |
+| World    | Navmesh generation                        | -                 | P3       | deferred | `ck-20261101-01` (NavMesh menu, 8 items, filed in `ck-20261102-01`); ROADMAP M7 "Deliberately not in M7" |
+| World    | Terrain editing                           | -                 | P3       | deferred | `ck-20261101-01` (Terrain menu, 8 items, filed in `ck-20261102-01`); ROADMAP M7 "Deliberately not in M7" |
+| Audio    | FaceFX / LIP generation, Wwise            | -                 | P3       | deferred | `ck-20261101-01` (Audio menu, 5 items, filed in `ck-20261102-01`) |
+| View     | Render window                             | `cell`            | P3       | implemented (read-only) | `ck-20261101-03` (a cell double-clicked in the Cell View loads into the Render Window; a dragged row places there); KitKraft's is read-only (M7.R) |
+
+P1 rows without a command, proposed to the owner as M4 candidates (M3.H5 acceptance):
+
+- **Convert an existing active file to a light, medium or full master**: no command changes an
+  existing file's header; `build` sets the flags only of a file it writes (`ck-20261101-03`).
+- **Compression choice on save**: not a candidate. The CK offered none (`ck-20261101-02`, `-03`).
+- **Localized strings on save**: has a command (`strings.*`), but no CK evidence until F12 runs.
 
 ## Findings
 
-None yet: the first CK session (M3.O1) has not happened. M3.H5 extends the checklist above
-from what it shows (menus, dialogs, save and export options, warnings on load), with a
-ledger id or session note as evidence for every row.
-
-| Date | CK version | Action | Observed | Kit difference | Follow-up |
-| ---- | ---------- | ------ | -------- | -------------- | --------- |
+The CK sittings' findings are the ledger entries of `docs/ck-observations.md` (`ck-20261101-01`
+onward); each checklist row above cites the ones it rests on.
 
 ## Interface parity (M7)
 
