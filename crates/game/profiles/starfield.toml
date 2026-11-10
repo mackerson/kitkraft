@@ -36,8 +36,11 @@ pending = ""
 url = "http://127.0.0.1:45555/console"
 # Readiness (game-20261101-T1/b'): the port opens about 5 s after launch, long before the
 # game takes a command, so the controller sends nothing until the game's main window has
-# been up `[timeouts] settle_secs`, and an empty answer is not ready (with `ready_expect`
-# empty, any non-empty answer is).
+# been up `[timeouts] settle_secs`, and an empty answer is not ready. Nor is an answer that
+# is only the echo, the shape of every late reply (G 3b review M1): ready means the answer
+# holds `ready_expect`. Empty for now: the text game-20261101-T1 row b observed after the
+# echo is `SFSE version: 0.2.21, release idx 26, runtime 01100F40`, and `ready_expect =
+# "SFSE version"` lands with the engine's `GameFakes` answering the same (ask A-G1).
 ready_command = "GetSFSEVersion"
 ready_expect = ""
 mod_names = ["Console API"]
