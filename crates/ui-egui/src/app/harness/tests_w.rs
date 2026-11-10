@@ -916,8 +916,19 @@ fn the_path_field_takes_an_own_master_the_list_still_refuses_one() {
     click_button(&mut h, "Use This File");
     assert_in_view(&h, "is an official master's name");
     assert_eq!(h.state().app.shell.data_dialog.active, None);
-    // Typing in the field did not move the list's selection (type-ahead is off there).
+    // Typing in the field never moves the list's selection (type-ahead is off while a
+    // text box has the keyboard; review M1 of D2): `m` starts the row `Mine.esp`.
     assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    let d = &mut h.state_mut().app.shell.data_dialog;
+    d.path_field.clear();
+    h.run_steps(1);
+    path_input(&mut h, "m");
+    assert_eq!(h.state().app.shell.data_dialog.path_field, "m");
+    assert_eq!(
+        h.state().app.shell.data_dialog.selected,
+        Some(0),
+        "type-ahead is off in a text box"
+    );
 
     // The path field: the owner's own master-flagged file is taken; its TES4 is read and
     // the engine's A6 conditions are named beside the choice.
