@@ -498,7 +498,16 @@ impl Correlator {
                 // request: those loads are its candidates.
                 let own_load = self.requests.get(id).is_some_and(Request::is_load);
                 let loads = if is_load_failure(&line) && !own_load {
-                    self.loads_before(id)
+                    let pending = self.loads_before(id);
+                    if pending.is_empty() {
+                        // Review R41 M2: no `load` is pending, yet only a `load` prints this
+                        // line: every earlier `load` may own it, never a getter.
+                        (0..id)
+                            .filter(|i| self.requests.get(*i).is_some_and(Request::is_load))
+                            .collect()
+                    } else {
+                        pending
+                    }
                 } else {
                     Vec::new()
                 };
