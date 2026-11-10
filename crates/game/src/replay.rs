@@ -179,12 +179,14 @@ pub struct Replayed {
     pub diverged: Option<String>,
     /// Sends of the transcript the replay never made.
     pub unused: usize,
-    /// Why nothing was replayed (a session recorded before M4.T7 has no transcript).
+    /// Why nothing was replayed (no transcript: a session recorded before M4.T7, or one that
+    /// sent nothing).
     pub not_run: Option<String>,
 }
 
 /// Why a session with no transcript is not replayed (R29).
-pub const NO_TRANSCRIPT: &str = "no transcript: recorded before M4.T7";
+pub const NO_TRANSCRIPT: &str =
+    "no transcript (a session recorded before M4.T7, or one that sent nothing)";
 
 /// A row whose grade a deliberate grader change moved since the session (R29: listed by name
 /// with a reason). One without a reason is not accepted.
@@ -223,7 +225,8 @@ fn digest(b: &[u8]) -> String {
 
 /// Replays `rec` in `work` (created, and its fixture removed after) with today's controller.
 pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
-    // A session recorded before M4.T7 has no transcript: nothing to answer from, so nothing
+    // A session recorded before M4.T7 has no transcript, nor does a later one that failed
+    // before it sent anything: nothing to answer from, so nothing
     // is sent and every row is `not-run` (R29; review M1 of M4.T7). Replaying it would only
     // diverge at the first send.
     if rec.transcript.is_empty() {

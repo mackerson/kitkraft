@@ -3482,6 +3482,12 @@ fn a_session_without_a_transcript_is_not_run() {
     let r = replay_of(&report, &probes, "no-transcript");
     assert_eq!(r.diverged, None);
     assert_eq!(r.not_run.as_deref(), Some(NO_TRANSCRIPT));
+    // Review L7: an empty transcript is either a session recorded before M4.T7 or a newer one
+    // that sent nothing (it failed before the console); the reason claims neither alone.
+    assert!(
+        NO_TRANSCRIPT.contains("before M4.T7") && NO_TRANSCRIPT.contains("sent nothing"),
+        "{NO_TRANSCRIPT}"
+    );
     assert!(
         r.rows
             .iter()
