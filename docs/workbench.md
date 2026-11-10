@@ -569,7 +569,11 @@ revisited once a sitting observes how the CK docks. Code:
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
   severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
-  double-click a finding to inspect its record.
+  double-click a finding to inspect its record. Its columns (sprint 2026-11-09) are the
+  ones the CK's Warnings window showed in `ck-20261101-01`, in its order (Time, Type,
+  Form, Form ID, File, Last User, Current User, Last Touched, Text, Source File, Line
+  Number), with "-" where KitKraft has no value, then KitKraft's own "Check" (`load` or
+  `validate <rule>`); copy writes the same columns.
 - **Data dialog (M7.M2)**: View > Data Dialog. The session's load order (the Load tab's
   `load`) and the plugins its profile lists but does not activate, each with its status as
   the CK names it ("Master File", "Plugin File", "Active File") and a tick: a double-click
