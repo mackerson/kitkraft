@@ -486,7 +486,7 @@ gaps = [
   { label = "Keywords", reason = "STAT's schema has no Keywords (KSIZ, KWDA) member" },
   { label = "High cost Path", reason = "no member of this type's schema" },
   { label = "Looping Sound (Select Audio Data)", reason = "not known whether it edits STLS (the schema's AmbientSound)" },
-  { label = "On Local Map", reason = "the inverse of the HiddenFromLocalMap record header flag; `set` edits subrecords only" },
+  { label = "On Local Map", reason = "probably the inverse of the HiddenFromLocalMap record header flag; `set` edits subrecords only" },
   { label = "Obstacle", reason = "a record header flag; `set` edits subrecords only" },
   { label = "Is Marker", reason = "a record header flag; `set` edits subrecords only" },
   { label = "Headtrack Marker", reason = "a record header flag; `set` edits subrecords only" },

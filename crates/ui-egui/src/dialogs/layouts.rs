@@ -723,6 +723,8 @@ mod tests {
                 if !reason.contains("header flag") || reason.contains("no header flag") {
                     continue;
                 }
+                // A reading the sitting did not confirm says "probably" first (review L2 of D2).
+                let reason = reason.strip_prefix("probably ").unwrap_or(reason);
                 let want = if let Some(rest) = reason.strip_prefix("the inverse of the ") {
                     squash(rest.split_whitespace().next().unwrap_or_default())
                 } else if reason.starts_with("a navmesh import option") {
