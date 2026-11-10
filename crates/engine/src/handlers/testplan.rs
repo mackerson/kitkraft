@@ -93,6 +93,8 @@ struct Form {
     base_edid: Option<String>,
     /// For a reference: the base's runtime ID.
     base_runtime: Option<u32>,
+    /// For a reference: the base's record signature (`PKIN` for a pack-in, KK-250).
+    base_signature: Option<String>,
     /// For a reference: the record's initially-disabled flag (0x800).
     disabled: bool,
     /// For a reference: the scripts its `VMAD` attaches, with the Papyrus log lines they
@@ -354,6 +356,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             full: None,
             base_edid: None,
             base_runtime: None,
+            base_signature: None,
             disabled: is_ref && loc.flags & probes::FLAG_INITIALLY_DISABLED != 0,
             scripts: Vec::new(),
         };
@@ -389,6 +392,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 }
                 form.base_edid = edid_of(&lo, base);
                 form.base_runtime = lo.runtime_id(base);
+                form.base_signature = signature_of(&lo, base);
                 form.base = Some(match edid_of(&lo, base) {
                     Some(e) => format!(
                         "{e} ({}, {})",
@@ -697,8 +701,13 @@ fn checklist(
             }
             let _ = writeln!(
                 s,
-                "{n}. Open the console and click the object: {base} at {pos}.\n   **Expect:** the console shows the reference ID `{runtime}` ({}). Another ID means\n   another slot, not a missing object: write down the ID shown.",
-                id_basis.short
+                "{n}. Open the console and click the object: {base} at {pos}.\n   **Expect:** the console shows the reference ID `{runtime}` ({}). Another ID means\n   another slot, not a missing object: write down the ID shown.{}",
+                id_basis.short,
+                if probes::is_pack_in(f) {
+                    probes::PACK_IN_STEP
+                } else {
+                    ""
+                }
             );
             n = n.saturating_add(1);
             let _ = writeln!(

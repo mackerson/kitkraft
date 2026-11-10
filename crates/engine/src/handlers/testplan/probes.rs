@@ -20,6 +20,8 @@
 //! [`super::traces`]) each get a row after its `getpos` row: a `papyrus-log` step per
 //! `Debug.Trace` line the compiled script next to the plugin is known to write, or a
 //! manual row naming why none is predicted.
+//! A reference placed from a pack-in (`PKIN`) gets a manual base row, no `getisid`
+//! (KK-250, [`PACK_IN_BASE`]): whether the game reports the PKIN as its base is open.
 //!
 //! What the console does, observed on Starfield 1.16.244 (game-20261101-T1):
 //!
@@ -83,6 +85,18 @@ pub(super) const SAVE_SECS: u64 = 10;
 
 /// The evidence for the console facts above.
 pub(super) const EVIDENCE: &str = "game-20261101-T1";
+
+/// The reason of a pack-in reference's base row (KK-250): `getisid` on the PKIN answered
+/// 0.00 in game while the reference stood where the plugin puts it.
+pub(super) const PACK_IN_BASE: &str = "Whether the game reports a pack-in (PKIN) as the base of a reference placed from it is an open question. Its evidence: `getisid` on the PKIN's runtime ID answered 0.00 in game-20261103-03 and game-20261103-08, cause open. The reference itself is checked by its player.moveto and getpos rows. Click the reference in the console and write down the base it shows.";
+
+/// The checklist's extra sentence on a pack-in reference's "click the object" step.
+pub(super) const PACK_IN_STEP: &str = "\n   Its base is a pack-in (PKIN): whether the console reports the PKIN as its base is an\n   open question (game-20261103-03, -08); write down the base the console shows.";
+
+/// Whether `f` is a reference whose base record is a pack-in (`PKIN`).
+pub(super) fn is_pack_in(f: &Form) -> bool {
+    is_ref(f) && f.base_signature.as_deref() == Some("PKIN")
+}
 
 /// A console answer of 1 on its line (`GetInCell >> 1.00`).
 const ONE: &str = r"(?m)>>\s*1(\.0+)?\s*$";
@@ -385,6 +399,16 @@ pub(super) fn build(
             // plugin's reference, with the plugin's base.
             let row = next(&mut n);
             match (&t, f.base_runtime) {
+                // KK-250: not asserted either way while the cause is open.
+                _ if is_pack_in(f) => probes.push(manual(
+                    row,
+                    format!(
+                        "click {what} in the console and write down its base, the pack-in {} (PKIN)",
+                        f.base_edid.as_deref().unwrap_or("base")
+                    ),
+                    ids.clone(),
+                    PACK_IN_BASE,
+                )),
                 (Some(t), Some(b)) => probes.push(probe(
                     row,
                     format!(
