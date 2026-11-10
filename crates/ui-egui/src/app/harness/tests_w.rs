@@ -1113,6 +1113,11 @@ fn d6_plugin(types: &[&str]) -> Vec<u8> {
     let mut out = record(b"TES4", 0, 0, &sub(b"HEDR", &hedr));
     for (i, t) in types.iter().enumerate() {
         let mut b = sub(b"EDID", format!("D6{t}\0").as_bytes());
+        if *t == "AMMO" {
+            // ODTY (DirtinessScale), where AMMO's definition places it: no AMMO label
+            // names it, so it shows on "Other".
+            b.extend(sub(b"ODTY", &0.25f32.to_le_bytes()));
+        }
         b.extend(sub(b"FULL", format!("D6 {t} name\0").as_bytes()));
         if *t == "AMMO" {
             let mut data = 12u32.to_le_bytes().to_vec();
@@ -1203,6 +1208,19 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
     assert_eq!(boxes(&h, "7"), 1, "DNAM.Health edits");
     assert_eq!(boxes(&h, "5"), 0, "DNAM.Flags is read-only");
     assert!(!nodes_with(&h, "DNAM.Flags").is_empty());
+    // D2-fix review L4: "Other" edits a number as any layout's fields do.
+    let other: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Other (")))
+        .collect();
+    assert_eq!(other.len(), 1, "one Other page");
+    other[0].click();
+    h.run_steps(3);
+    assert_eq!(boxes(&h, "0.25"), 1, "ODTY edits on Other");
+    let page: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Ammo (")))
+        .collect();
+    page[0].click();
+    h.run_steps(3);
     h.query_all_by(|n| {
         n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
     })

@@ -335,11 +335,12 @@ pub fn observed_lines(record_type: &str, page: &MemberPage<'_>) -> Vec<Line> {
 /// `None` for a layout without (the signature placement, `super::place`). Each label
 /// shows every subrecord of its signature outside the component blocks; a signature a
 /// component block also holds makes the field read-only. Returned last: the subrecords no
-/// label shows (component blocks included), for the "Other" page.
+/// label shows (component blocks included), with their positions, for the "Other"
+/// page.
 pub fn place_members<'a>(
     layout: &Layout,
     subrows: &'a [SubRow],
-) -> Option<(Vec<MemberPage<'a>>, Vec<&'a SubRow>)> {
+) -> Option<(Vec<MemberPage<'a>>, Vec<(usize, &'a SubRow)>)> {
     if !layout
         .tabs
         .iter()
@@ -395,6 +396,7 @@ pub fn place_members<'a>(
     }
     let rest = subrows
         .iter()
+        .enumerate()
         .zip(&shown)
         .filter(|(_, s)| !**s)
         .map(|(r, _)| r)
@@ -1147,8 +1149,11 @@ mod tests {
         );
         assert!(g("Projectile").rows[0].blocked);
         assert!(g("Short name").rows.is_empty(), "no ONAM in this record");
-        let rest: Vec<&str> = rest.iter().map(|s| s.signature.as_str()).collect();
-        assert_eq!(rest, ["BFCB", "DNAM", "BFCE", "XXXX"]);
+        let rest: Vec<(usize, &str)> = rest
+            .iter()
+            .map(|(i, s)| (*i, s.signature.as_str()))
+            .collect();
+        assert_eq!(rest, [(1, "BFCB"), (2, "DNAM"), (3, "BFCE"), (7, "XXXX")]);
         // A record without the block: DNAM edits.
         let plain: Vec<_> = rows
             .iter()

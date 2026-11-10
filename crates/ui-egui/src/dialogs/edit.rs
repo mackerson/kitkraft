@@ -359,7 +359,7 @@ fn member_tab(
     ui: &mut egui::Ui,
     index: usize,
     pages: &[MemberPage<'_>],
-    rest: &[&SubRow],
+    rest: &[(usize, &SubRow)],
     record_type: &str,
     paths: &[String],
     edits: &mut Edits,
@@ -379,7 +379,9 @@ fn member_tab(
         });
     };
     let Some(page) = pages.get(index) else {
-        for (ri, s) in rest.iter().enumerate() {
+        // "Other" edits as under any layout (D2-fix review L4): a number or plain text in
+        // place, through its occurrence path.
+        for (ri, (i, s)) in rest.iter().enumerate() {
             ui.push_id(("edit-dialog-other", ri), |ui| {
                 ui.horizontal_top(|ui| {
                     let label = if s.member.is_empty() {
@@ -388,10 +390,15 @@ fn member_tab(
                         s.member.as_str()
                     };
                     cells(ui, label, &s.signature);
-                    ui.add(
-                        egui::Label::new(egui::RichText::new(&s.value).monospace())
-                            .wrap_mode(egui::TextWrapMode::Wrap),
-                    );
+                    match editable(s).zip(paths.get(*i)) {
+                        Some((number, path)) => field_edit(ui, edits, path, s, number),
+                        None => {
+                            ui.add(
+                                egui::Label::new(egui::RichText::new(&s.value).monospace())
+                                    .wrap_mode(egui::TextWrapMode::Wrap),
+                            );
+                        }
+                    }
                 });
             });
         }
