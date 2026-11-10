@@ -590,7 +590,9 @@ const MATRIX: &[FixtureSpec] = &[
         notes: "The M7 exit plugin (one set, one clone, one place, made in the workbench): \
                 copy KitKraft's KC_F31.esp into this folder as kitkraft.esp before the launch \
                 (its SHA-256 from the G2 ledger entry). Exit status ck_open and ck_reexport. \
-                For cargo xtask oracle ck add ours = \"kitkraft.esp\" and ck = \"KC_F31.esp\".",
+                For cargo xtask oracle ck add ours = \"kitkraft.esp\" and ck = \"KC_F31.esp\". \
+                If File > Save Plugin writes nothing (no * in the title, the file time \
+                unchanged), record it: ck_reexport is then inconclusive, not pass.",
     },
 ];
 
