@@ -93,7 +93,12 @@ ledger entry's "Console port" line say what was not checked.
      answers are counted in send order over the whole session: a poll answered only by its
      echo owes its line to a later reply, each `ready_expect` line pays the oldest poll still
      owed one, and a reply makes the game ready only when no older poll is owed, so its line
-     is this poll's own and not an earlier poll's, late (3b fix review L1');
+     is this poll's own and not an earlier poll's, late (3b fix review L1'). A poll the
+     client gave up on (an HTTP timeout) or one answered with an empty body after a
+     `load` owes its line too: the game took it (3b fix review M1''). A debt is never
+     forgiven: if an owed line never arrives (or lands in a step's reply), every later
+     wait times out, so the session ends at the next wait with every remaining row
+     `not-run`, a lost session but never a false pass (3b fix review L1'');
    - gives up after `ready_secs` from launch (300 s), which covers the window, the settle
      and the polls (the first answer came at 91 s). A profile whose `settle_secs` is not
      below `ready_secs` is an error. The row reasons then name what was still missing (no
@@ -454,6 +459,11 @@ getter's three sends) cannot be told apart and are evidence neither way.
   `fail` (above). **Stop and send it to the director at
   once** (R17), quoting the reply text, the rows and the send order. Grade nothing else in
   the entry until the director answers.
+- A wait that timed out with "earlier poll(s) still owe their answer" in its reason is
+  the readiness count above, not a game fault: the game took a poll and its
+  `SFSE version` line never came where the controller reads it. Record it in the reading
+  as evidence about send order (which poll, which replies came instead), and grade the
+  rows `not-run` as the controller wrote them.
 - **Inconclusive**: no line arrived late (every getter answered in its own reply, or the
   clipped replies cut off before the order shows), or SO-01 did not pass. Nothing was
   ordered and the ruling is untested. Run the session once more in the same window if
