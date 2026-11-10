@@ -199,7 +199,9 @@ pub const SHIPPED: &[(&str, &str)] = &[
 ];
 
 /// The field paths of the seven member layouts (the six observed types and REFR) whose
-/// value is a set of flags or an enum, mapped or falling to "Other" (D7 review L1).
+/// value is a set of flags or an enum, mapped or falling to "Other" (D7 review L1),
+/// component-block enums such as `Bool8` included (D7-fix review L1). Read-only goes by
+/// signature, so a signature any of whose definitions is flags or an enum is listed.
 /// The engine shows such a value as a plain number (the raw bits, the raw value), so the
 /// edit dialog would offer it as a number to type; it stays read-only instead (D2-fix
 /// review L2: typing `1` into AMMO's flags sets IgnoresNormalWeaponResistance, not
@@ -207,27 +209,48 @@ pub const SHIPPED: &[(&str, &str)] = &[
 /// `flags_and_enums_are_pinned_from_the_schema`.
 pub const NOT_NUMBERS: &[(&str, &str)] = &[
     ("AMMO", "DNAM.Flags"),
+    ("AMMO", "YNAM"),
+    ("AMMO", "VNAM"),
+    ("AMMO", "NAM8"),
     ("AMMO", "FLLD"),
     ("AMMO", "XFLG"),
     ("COBJ", "RECF"),
+    ("COBJ", "YNAM"),
+    ("COBJ", "VNAM"),
+    ("COBJ", "NAM8"),
     ("COBJ", "TNAM"),
     ("COBJ", "LRNM"),
     ("TERM", "NAM1"),
     ("TERM", "FNAM"),
     ("TERM", "MNAM"),
+    ("TERM", "YNAM"),
+    ("TERM", "VNAM"),
+    ("TERM", "NAM8"),
     ("TERM", "FLLD"),
     ("TERM", "XFLG"),
     ("CONT", "DATA"),
+    ("CONT", "YNAM"),
+    ("CONT", "VNAM"),
+    ("CONT", "NAM8"),
     ("CONT", "FLLD"),
     ("CONT", "XFLG"),
+    ("STAT", "YNAM"),
+    ("STAT", "VNAM"),
+    ("STAT", "NAM8"),
     ("STAT", "FLLD"),
     ("STAT", "XFLG"),
+    ("KYWD", "YNAM"),
+    ("KYWD", "VNAM"),
+    ("KYWD", "NAM8"),
+    ("REFR", "YNAM"),
+    ("REFR", "VNAM"),
+    ("REFR", "NAM8"),
     ("REFR", "XACT"),
     ("REFR", "XLSM"),
     ("REFR", "FNAM"),
-    ("REFR", "VNAM"),
     ("REFR", "VISI"),
     ("REFR", "XLCM"),
+    ("REFR", "INAM"),
 ];
 
 /// Numeric fields the edit dialog shows read-only although they are plain numbers: REFR's
@@ -1232,17 +1255,17 @@ mod tests {
         v.get("type").and_then(Value::as_str).map(str::to_string)
     }
 
-    /// Every subrecord signature a deep `schema` envelope defines, at the top level or in
-    /// a group (not in the base-form component block), in schema order.
-    fn signatures_in(env: &serde_json::Value) -> Vec<String> {
+    /// Every subrecord a deep `schema` envelope defines, at the top level, in a group or in
+    /// the base-form component block (whose rows fall to "Other"), as (signature, type),
+    /// in schema order (D7-fix review L1: the block's `Bool8` enums too).
+    fn subrecords_in(env: &serde_json::Value) -> Vec<(String, String)> {
         use serde_json::Value;
-        fn walk(members: &Value, out: &mut Vec<String>) {
+        fn walk(members: &Value, out: &mut Vec<(String, String)>) {
             for m in members.as_array().into_iter().flatten() {
                 if let Some(sig) = m.get("signature").and_then(Value::as_str) {
-                    out.push(sig.to_string());
-                } else if m.get("kind").and_then(Value::as_str) == Some("group")
-                    && m.get("name").and_then(Value::as_str) != Some("BfcbBlock")
-                {
+                    let ty = m.get("type").and_then(Value::as_str).unwrap_or_default();
+                    out.push((sig.to_string(), ty.to_string()));
+                } else if m.get("kind").and_then(Value::as_str) == Some("group") {
                     walk(&m["members"], out);
                 }
             }
@@ -1252,9 +1275,10 @@ mod tests {
         out
     }
 
-    /// D2-fix review L2, widened by D7 review L1: for the seven member layouts (the six
-    /// observed types and REFR), every mapped field path and every subrecord that can fall
-    /// to "Other" whose schema type is flags or an enum is in [`super::NOT_NUMBERS`], and
+    /// D2-fix review L2, widened by D7 review L1 and D7-fix review L1: for the seven member
+    /// layouts (the six observed types and REFR), every mapped field path and every
+    /// subrecord that can fall to "Other" (component blocks included) whose schema type is
+    /// flags or an enum is in [`super::NOT_NUMBERS`], and
     /// nothing else is, so the edit dialog never offers raw bits or a raw enum value as a
     /// number to type.
     #[test]
@@ -1272,8 +1296,13 @@ mod tests {
                 .iter()
                 .flat_map(|tab| tab.groups.iter())
                 .flat_map(|g| g.members.clone().unwrap_or_default());
-            for path in mapped.chain(signatures_in(&env)) {
+            let mapped = mapped.map(|path| {
                 let ty = leaf_type(&env, &path).unwrap_or_else(|| panic!("{t}: {path}"));
+                (path, ty)
+            });
+            // A signature is read-only by name, so any of its definitions (top level, a
+            // group, a component) that is flags or an enum puts it in.
+            for (path, ty) in mapped.chain(subrecords_in(&env)) {
                 let entry = (t.to_string(), path);
                 if (ty.contains("flags<") || ty.contains("enum<")) && !found.contains(&entry) {
                     found.push(entry);
