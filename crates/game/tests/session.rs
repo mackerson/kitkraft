@@ -2576,3 +2576,232 @@ Save file not found.",
     );
     assert_ne!(v[1], "pass", "RP6 {v:?}");
 }
+
+// ------------------------------------------------- the send-order session (P2, sprint 2026-11-09 G1)
+// `crates/game/probes/send-order.toml` is the hand-written probes file for the controller
+// session that tests ruling 2026-11-07 item 2 on `KitKraft Dev`. These tests check that it
+// parses, and that a console answering in send order grades each row as the file's notes and
+// the OW-1 run sheet (`docs/game-sessions.md`) predict.
+
+const SEND_ORDER: &str = include_str!("../probes/send-order.toml");
+
+/// What the ruling predicts for each row: the grade's label, or a label it must not be.
+const PREDICTED: &[(&str, &str)] = &[
+    ("SO-01", "pass"),
+    ("SO-02", "pass"),
+    ("SO-03", "not pass"),
+    ("SO-04", "not pass"),
+    ("SO-05", "not pass"),
+    ("SO-06", "not fail"),
+    ("SO-07", "fail"),
+];
+
+fn holds(prediction: &str, verdict: &str) -> bool {
+    let label = verdict.split(' ').next().unwrap_or_default();
+    match prediction.strip_prefix("not ") {
+        Some(not) => label != not,
+        None => label == prediction,
+    }
+}
+
+/// A model of the game's console under the ruling: every send gets its answer, and answers
+/// come back in send order. After a `coc` the file sends without a wait, the next `busy`
+/// sends answer only their echo and their result lines wait in a queue; the next send that
+/// is not busy answers its echo, then the queue in send order, then its own lines.
+struct SendOrder {
+    settled_cocs: Vec<bool>,
+    cocs: usize,
+    busy: usize,
+    queue: Vec<String>,
+    /// A console that breaks the ruling: its own lines first, then the late ones newest
+    /// first.
+    reversed: bool,
+}
+
+impl SendOrder {
+    fn lines(command: &str) -> Vec<String> {
+        let c = command.to_ascii_lowercase();
+        let missing =
+            |item: &str| format!("Item '{item}' not found for parameter ObjectReferenceID.");
+        if c.starts_with("getsfseversion") {
+            vec!["SFSE version: 0.2.21".into()]
+        } else if c.starts_with("player.getincell") {
+            vec!["GetInCell >> 1.00".into()]
+        } else if let Some(axis) = c.strip_prefix("player.getpos ") {
+            let v = match axis.trim() {
+                "x" => "-19.00",
+                "y" => "-4.00",
+                _ => "4.63",
+            };
+            vec![format!(
+                "GetPos: {} >> {v}",
+                axis.trim().to_ascii_uppercase()
+            )]
+        } else if c.starts_with("prid russianhuntingrifle") {
+            vec![missing("RussianHuntingRifle")]
+        } else if c.starts_with("kitkraftsendorderref.") {
+            vec![missing("KitKraftSendOrderRef")]
+        } else if c.starts_with("load kitkraftsession") {
+            vec!["Save file not found.".into()]
+        } else {
+            vec![]
+        }
+    }
+
+    fn answer(&mut self, command: &str, busy_after_move: usize) -> String {
+        let mut reply = format!("{command}\nCommand: {command}");
+        let own = SendOrder::lines(command);
+        if self.busy > 0 {
+            self.busy -= 1;
+            self.queue.extend(own);
+        } else {
+            let late: Vec<String> = self.queue.drain(..).collect();
+            let lines: Vec<String> = if self.reversed {
+                own.into_iter().chain(late.into_iter().rev()).collect()
+            } else {
+                late.into_iter().chain(own).collect()
+            };
+            for l in lines {
+                reply.push('\n');
+                reply.push_str(&l);
+            }
+        }
+        if command.to_ascii_lowercase().starts_with("coc ") {
+            let settled = self.settled_cocs.get(self.cocs).copied().unwrap_or(true);
+            self.cocs += 1;
+            if !settled {
+                self.busy = busy_after_move;
+            }
+        }
+        reply
+    }
+}
+
+/// Runs the send-order probes file against the model; the rows' verdicts and `seen`.
+fn send_order_session(pf: &ProbeFile, busy: usize, reversed: bool) -> (Vec<String>, Vec<String>) {
+    let settled_cocs: Vec<bool> = pf
+        .probes
+        .iter()
+        .flat_map(|p| &p.steps)
+        .filter(|s| s.command.starts_with("coc "))
+        .map(|s| s.wait_secs.is_some())
+        .collect();
+    let c = FakeConsole::start().unwrap();
+    let model = std::sync::Mutex::new(SendOrder {
+        settled_cocs,
+        cocs: 0,
+        busy: 0,
+        queue: Vec::new(),
+        reversed,
+    });
+    c.respond_with(move |cmd| Some(model.lock().unwrap().answer(cmd, busy)));
+    let f = fixture(&format!("send-order-{busy}-{reversed}"));
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-11-10-T01");
+    p.timeouts.probe_secs = 4;
+    p.probes = pf.clone();
+    // The waits are the game's settle time; the model settles by the `coc`s instead.
+    for probe in &mut p.probes.probes {
+        for s in &mut probe.steps {
+            s.wait_secs = None;
+        }
+    }
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let _ = std::fs::remove_dir_all(&f.root);
+    let rows: Vec<&str> = report.rows.iter().map(|r| r.row.as_str()).collect();
+    let predicted: Vec<&str> = PREDICTED.iter().map(|(r, _)| *r).collect();
+    assert_eq!(rows, predicted, "busy {busy}, reversed {reversed}");
+    (
+        verdicts(&report.rows),
+        report.rows.iter().map(|r| r.seen.clone()).collect(),
+    )
+}
+
+#[test]
+fn the_send_order_probes_file_parses_and_names_the_rename_plugin() {
+    let pf = ProbeFile::parse(SEND_ORDER).unwrap();
+    assert_eq!(pf.plugin, "OldSovietMarksmanRifle.esm");
+    // docs/smoke-rename.md: the 2,221-byte plugin as built.
+    assert_eq!(
+        pf.sha256,
+        "9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27"
+    );
+    let rows: Vec<&str> = pf.probes.iter().map(|p| p.row.as_str()).collect();
+    let predicted: Vec<&str> = PREDICTED.iter().map(|(r, _)| *r).collect();
+    assert_eq!(rows, predicted);
+    // Each row's prediction is written in the file too, for the run sheet's reader.
+    let notes = pf.notes.join("\n");
+    for (row, want) in PREDICTED {
+        assert!(
+            notes.contains(&format!("{row} {want}")),
+            "the notes do not predict `{row} {want}`"
+        );
+    }
+    // Late on purpose: every `coc` but the first is sent with no wait, and no `load` follows
+    // an unsettled `coc` in its row (a late `load` failure would land in the readiness poll).
+    let cocs: Vec<bool> = pf
+        .probes
+        .iter()
+        .flat_map(|p| &p.steps)
+        .filter(|s| s.command.starts_with("coc "))
+        .map(|s| s.wait_secs.is_some())
+        .collect();
+    assert_eq!(cocs, [true, false, false, false]);
+    for p in &pf.probes {
+        let unsettled = p
+            .steps
+            .iter()
+            .any(|s| s.command.starts_with("coc ") && s.wait_secs.is_none());
+        let loads = p.steps.iter().any(|s| s.command.starts_with("load "));
+        assert!(!(unsettled && loads), "row {} loads behind a move", p.row);
+    }
+}
+
+#[test]
+fn the_send_order_probes_grade_as_the_ruling_predicts() {
+    let pf = ProbeFile::parse(SEND_ORDER).unwrap();
+    // How many sends answer only their echo after an unsettled move is the game's (a matter
+    // of time); the predictions must hold for each, from none to past the row's end.
+    for busy in 0..=6usize {
+        let (got, _) = send_order_session(&pf, busy, false);
+        for ((row, want), v) in PREDICTED.iter().zip(&got) {
+            assert!(
+                holds(want, v),
+                "busy {busy}: {row} predicted {want}, graded {v}\n{got:#?}"
+            );
+        }
+    }
+}
+
+/// What the run sheet says a contradiction looks like. A console out of send order changes
+/// the replies whenever a line comes late, but the grades only when the late stretch crosses
+/// a row: then the FR3 pair breaks its prediction (SO-05, whose `enable` failed, passes, and
+/// SO-06 fails on SO-05's line). Short of that the grades match send order's, so the order
+/// is read off the replies.
+#[test]
+fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_row() {
+    let pf = ProbeFile::parse(SEND_ORDER).unwrap();
+    let label = |v: &String| v.split(' ').next().unwrap_or_default().to_string();
+    for busy in [0usize, 3] {
+        let (in_order, seen_in_order) = send_order_session(&pf, busy, false);
+        let (reversed, seen_reversed) = send_order_session(&pf, busy, true);
+        assert_eq!(
+            in_order.iter().map(label).collect::<Vec<_>>(),
+            reversed.iter().map(label).collect::<Vec<_>>(),
+            "busy {busy}"
+        );
+        if busy > 0 {
+            assert_ne!(seen_in_order, seen_reversed, "busy {busy}");
+        }
+    }
+    let (reversed, _) = send_order_session(&pf, 5, true);
+    let so = |row: &str| {
+        PREDICTED
+            .iter()
+            .position(|(r, _)| *r == row)
+            .and_then(|i| reversed.get(i))
+            .map(label)
+            .unwrap_or_default()
+    };
+    assert_eq!(so("SO-05"), "pass", "{reversed:#?}");
+    assert_eq!(so("SO-06"), "fail", "{reversed:#?}");
+}
