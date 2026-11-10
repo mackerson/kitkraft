@@ -1062,3 +1062,94 @@ control are **not** evidence any more; T10's T-22 (the mini-site's save in the L
 reload) is. Request (session lane): before the next getter of a function that still has
 sends without answers, wait for those answers (bounded), so a persistence row is not left
 ambiguous by a retry earlier in the session.
+
+### game-20261110-01: agent session 2026-11-10-T01 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-10-T01`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-10 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261110-01` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `C:\Modding\kitkraft-worktrees\x\crates\game\probes\send-order.toml` SHA-256 `a8638979acccf83615e02ec81ba60465bf46ea93470390439b354da4f0a1350c` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-10-T01` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| SO-01 | control: coc to the Lodge, settle, then player.getincell on time | CityNewAtlantisLodgeInt, 0006BB29 | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-02 | order: three player.getpos sent behind an unsettled coc answer late, X then Y then Z | CityNewAtlantisApartmentTEMPLATE, 0021966F | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-03 | FR4 shape: prid of the rename's base EditorID behind an unsettled coc fails late | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle, CityNewAtlantisLodgeInt | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-04 | FR4 shape: the same prid again, settled; its reply carries SO-03's late lines first | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-05 | FR3 shape: a reference-prefix command on a reference that does not exist fails late | KitKraftSendOrderRef, CityNewAtlantisApartmentTEMPLATE | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-06 | FR3 shape: the next row's getter, whose reply carries SO-05's late failure and getter line first | CityNewAtlantisApartmentTEMPLATE, 0021966F | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-07 | FR2 shape on time: load of the session save before it exists answers `Save file not found.` | KitKraftSession-* | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+| SO-08 | FR2 shape late: load of the session save behind an unsettled coc and a waiting getter | KitKraftSession-*, CityNewAtlantisLodgeInt, 0006BB29 | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |
+
+Finding: timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-10-T01\backup\01-plugins.txt
+
+Writer's reading (sprint 2026-11-09, pipeline G, OW-1; the send-order confirming session, P2).
+
+**Result: every row `not-run`; no probe ran.** Ruling 2 (send order) is untested by this
+session; it was neither held nor contradicted.
+
+What the transcript shows. This is the first session with a recorded transcript (M4.T7):
+`C:\Modding\kitkraft-observe\2026-11-10-T01\report.json`, 38 sends, SHA-256
+`0bd7f1d6e0003ee2381bbbf071a72f90b94da6d70ac63756bde866f2011993d0`.
+- Send 1, the launch poll at 91 s: `GetSFSEVersion` answered its echo and
+  `SFSE version: 0.2.21, release idx 26, runtime 01100F40`. Ready.
+- Send 2, `load KitKraftBase`: answered its echo only, as the load always does.
+- Sends 3 and 4, the base-save wait's first polls: answered only their echo; the game was
+  loading the save.
+- Sends 5 to 38, one every 5 s for about 170 s: each answered its echo and exactly **one**
+  `SFSE version` line. The two lines sends 3 and 4 owed never arrived.
+
+So the game **dropped** the answers of the polls it got while loading the save; it did not send
+them late. The controller's readiness count (3b fix rounds 2 and 3: an echo-only poll owes its
+line, and a reply is ready only when no older poll is owed) counted sends 3 and 4 as owed
+forever. Every later line paid only its own poll, so the base-save wait timed out at 180 s and
+all eight rows were `not-run`. This is the "lost readiness line ends the session at the next
+wait" case that review L1'' named. It is now observed: the game loses an echo-only poll's
+answer, which is the opposite of the late delivery that the count assumes.
+
+Why this is not a contradiction of ruling 2: no line arrived out of order; two answers never
+arrived at all. It does contradict the readiness count's premise that every poll's answer
+eventually arrives, so as it stands any session whose base load produces an echo-only poll
+cannot run. The fix is a grader decision (reported to the director at once, 15:25): for
+example, an echo-only poll owes nothing, as the game has shown, or the debt is cleared at
+each new wait. It needs a reviewed change before the next window.
+
+Run facts.
+- Binaries: `kit` and `kit-ui` built from `sprint/2026-11-09` @ `46519937` (`kit.exe`
+  `c23c43cb241eb62a803a84c1ced177fa548c800320fb20cdd9f8fe674c14dbf5`, `kit-ui.exe`
+  `a49770955f65f38bc20179bb3322086929167b61a780c173030034a79d9ab84f`).
+- Probes: `crates/game/probes/send-order.toml` SHA-256
+  `a8638979acccf83615e02ec81ba60465bf46ea93470390439b354da4f0a1350c`.
+- Plugin `9c0b28a6...78ea27`; base save `fbed2cc2...eb5ccf`.
+- Preflight, 15:02 to 15:19:
+  - `Default` was refused (`live-profile`).
+  - The first dev dry run was refused for `selected-profile` (MO2 selected `Default`; the
+    owner changed it to `Kitkraft Dev` and closed MO2, confirmed 15:15) and for
+    `plugin-not-deployed` (cleared by `deploy enable`).
+  - Launched 15:19:13; the game window was up at 91 s; ended 15:23:48.
+- List files (SHA-256):
+
+  | File | Before enable | After enable | After disable |
+  | ---- | ------------- | ------------ | ------------- |
+  | `modlist.txt` | `14271bda...8344` | `4c97ae05...698f` | `9fae148b...a7f1` |
+  | `plugins.txt` | `a3ff729f...b7e7` | `286a54cf...b2d` | `55912d83...a290` |
+  | `loadorder.txt` | `672775b1...71b7` | `46b28b56...cd27` | `46b28b56...cd27` |
+
+  - During the session MO2 rewrote `plugins.txt` (`286a54cf` → `e98f0a79`); the controller
+    restored it. This is the known MO2 rewrite at launch (`game-20261103-01`).
+  - After `deploy disable`, `plugins.txt` and `loadorder.txt` keep an inactive
+    `OldSovietMarksmanRifle.esm` line: disable deactivates the plugin, it does not remove it.
+  - `modlist.txt` also has two new disabled lines that no KitKraft command wrote:
+    `-GRiNDTerra Planetary POI Generation` and `-Community Spaceship Expansion`. They are
+    probably MO2's own, from the owner opening it to select the profile.
