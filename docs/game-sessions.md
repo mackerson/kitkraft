@@ -86,9 +86,10 @@ ledger entry's "Console port" line say what was not checked.
    - then polls the readiness command (`GetSFSEVersion`) every `ready_poll_secs` (5 s).
      An empty or blank body is not ready, and neither is one holding only the command's
      echo (the shape of every late reply); with `ready_expect` empty any other answer is,
-     otherwise the answer must contain it. Starfield's `ready_expect` is `SFSE version`,
-     the text `game-20261101-T1` row b observed after the echo (`SFSE version: 0.2.21,
-     release idx 26, runtime 01100F40`; G 3b review M1);
+     otherwise the answer must contain it. Starfield's `ready_expect` is still empty; it
+     becomes `SFSE version`, the text `game-20261101-T1` row b observed after the echo
+     (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`), together with the engine's
+     test fakes answering the same (G 3b review M1);
    - gives up after `ready_secs` from launch (300 s), which covers the window, the settle
      and the polls (the first answer came at 91 s). A profile whose `settle_secs` is not
      below `ready_secs` is an error. The row reasons then name what was still missing (no

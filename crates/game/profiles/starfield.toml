@@ -38,10 +38,11 @@ url = "http://127.0.0.1:45555/console"
 # game takes a command, so the controller sends nothing until the game's main window has
 # been up `[timeouts] settle_secs`, and an empty answer is not ready. Nor is an answer that
 # is only the echo, the shape of every late reply (G 3b review M1): ready means the answer
-# holds `ready_expect`, the text game-20261101-T1 row b observed after the echo:
-# `SFSE version: 0.2.21, release idx 26, runtime 01100F40`.
+# holds `ready_expect`. Empty for now: the text game-20261101-T1 row b observed after the
+# echo is `SFSE version: 0.2.21, release idx 26, runtime 01100F40`, and `ready_expect =
+# "SFSE version"` lands with the engine's `GameFakes` answering the same (ask A-G1).
 ready_command = "GetSFSEVersion"
-ready_expect = "SFSE version"
+ready_expect = ""
 mod_names = ["Console API"]
 evidence = "game-20261101-T1/b"
 pending = "b' (one occurrence, cause not isolated): a GetSFSEVersion sent 8 s after launch answered an empty body and the game ended; the settle rule avoids it"

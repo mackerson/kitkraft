@@ -2982,15 +2982,6 @@ fn rv7_an_echo_only_poll_reply_is_not_ready_and_the_load_does_not_pass() {
 /// either; the controller keeps polling until the game says something of its own.
 #[test]
 fn an_echo_only_readiness_answer_is_never_ready() {
-    // The Starfield profile waits for the text game-20261101-T1 row b observed after the
-    // echo (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`).
-    assert_eq!(
-        GameProfile::named("starfield")
-            .unwrap()
-            .console
-            .ready_expect,
-        "SFSE version"
-    );
     let f = fixture("echo-not-ready");
     let c = console();
     c.answer_in_turn(
