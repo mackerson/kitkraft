@@ -630,7 +630,9 @@ fn an_empty_answer_is_not_ready() {
     c.answer("GetSFSEVersion", " \r\n");
     let h = host();
     let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T10");
-    assert!(p.game.console.ready_expect.is_empty());
+    // Even when any non-empty answer would do (no `ready_expect`), an empty one is not
+    // ready. (The Starfield profile now names the text it waits for, G 3b review M1.)
+    p.game.console.ready_expect.clear();
     p.timeouts.ready_secs = 1;
     let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
     let why = first_rows_reason(&report);
@@ -2925,4 +2927,83 @@ fn a_quiet_readiness_poll_changes_no_grade() {
         )],
     );
     assert_eq!(v[0], "pass", "{v:?}");
+}
+
+// ------------------------------------------------- fix round of 3b (review `g-3b.md`)
+
+/// Review M1 (probe rv7): an answer holding only the poll's echo is not the game answering;
+/// it is the shape every late reply takes. Were it "ready", the load's late `Save file not
+/// found.` would skip the poll and land in the next row, and the load's row would pass.
+#[test]
+fn rv7_an_echo_only_poll_reply_is_not_ready_and_the_load_does_not_pass() {
+    let c = console();
+    let armed = std::sync::Mutex::new(false);
+    c.respond_with(move |cmd| {
+        let l = cmd.to_ascii_lowercase();
+        let mut a = armed.lock().unwrap();
+        if l.starts_with("load kitkraftsession") {
+            *a = true;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if l.starts_with("getsfseversion") && *a {
+            return Some("GetSFSEVersion\nCommand: GetSFSEVersion".into());
+        }
+        if l.starts_with("getpos y") && *a {
+            *a = false;
+            return Some(
+                "getpos y\nSave file not found.\nSFSE version: 0.2.21\nGetPos: Y >> -4.00".into(),
+            );
+        }
+        None
+    });
+    let (v, _) = rx_run(
+        "rv7",
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "rv7 {v:?}");
+}
+
+/// Review M1: an echo-only answer to the readiness command is never readiness, at launch
+/// either; the controller keeps polling until the game says something of its own.
+#[test]
+fn an_echo_only_readiness_answer_is_never_ready() {
+    // The Starfield profile waits for the text game-20261101-T1 row b observed after the
+    // echo (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`).
+    assert_eq!(
+        GameProfile::named("starfield")
+            .unwrap()
+            .console
+            .ready_expect,
+        "SFSE version"
+    );
+    let f = fixture("echo-not-ready");
+    let c = console();
+    c.answer_in_turn(
+        "GetSFSEVersion",
+        &[
+            "GetSFSEVersion\nCommand: GetSFSEVersion",
+            "Command: GetSFSEVersion",
+            "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+        ],
+    );
+    let h = host();
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T12");
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    let sent = c.received();
+    assert_eq!(
+        sent[..4],
+        [
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "load KitKraftBase"
+        ],
+        "{sent:?}"
+    );
+    assert_eq!(report.rows[0].verdict, Verdict::Pass);
+    std::fs::remove_dir_all(&f.root).unwrap();
 }

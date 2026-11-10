@@ -225,7 +225,7 @@ fn verified_game(s: &Setup, c: &FakeConsole) -> PathBuf {
 fn with_a_verified_profile_the_session_runs_and_each_probe_has_a_verdict() {
     let s = setup("live", RENAME);
     let c = FakeConsole::start().unwrap();
-    c.answer("GetSFSEVersion", "SFSE 0.2.21");
+    c.answer("GetSFSEVersion", "SFSE version: 0.2.21");
     // The rename's probe: the weapon's name finds its runtime ID.
     c.answer("help", "WEAP: (00000800) 'Old Soviet Marksman Rifle'");
     c.answer("player.getincell", "GetInCell >> 1.00");

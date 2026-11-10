@@ -436,7 +436,8 @@ impl Run<'_> {
     }
 
     /// Polls the readiness command until it answers with a non-empty body (that contains
-    /// `ready_expect`, when set): an empty or blank answer is not ready. With `window`
+    /// `ready_expect`, when set): an empty or blank answer is not ready, and neither is one
+    /// holding only the command's echo. With `window`
     /// (after the launch), nothing is sent until the game's main window has existed for
     /// `settle_secs` (game-20261101-T1/b': the port opens long before the game can take a
     /// command, and a command sent then ended the game once). One deadline, `limit`, covers
@@ -512,6 +513,14 @@ impl Run<'_> {
                 match self.deps.console.run(&cmd, left.min(secs(5))) {
                     Ok(out) if out.trim().is_empty() => {
                         last = format!("`{cmd}` answered an empty body, not ready");
+                    }
+                    // Only the echo is not the game answering: it is the shape every late
+                    // reply takes, and a late failure of the `load` before it would slip
+                    // past the poll into the next row (review M1 of G 3b). Kept: it is a
+                    // reply all the same.
+                    Ok(out) if crate::probes::echo_only(&cmd, &out) => {
+                        last = format!("`{cmd}` answered only its echo, not ready");
+                        replies.push(out);
                     }
                     Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
                         self.shared
