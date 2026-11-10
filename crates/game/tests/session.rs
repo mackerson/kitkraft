@@ -2594,6 +2594,7 @@ const PREDICTED: &[(&str, &str)] = &[
     ("SO-05", "not pass"),
     ("SO-06", "not fail"),
     ("SO-07", "fail"),
+    ("SO-08", "not pass"),
 ];
 
 fn holds(prediction: &str, verdict: &str) -> bool {
@@ -2742,8 +2743,9 @@ fn the_send_order_probes_file_parses_and_names_the_rename_plugin() {
             "the notes do not predict `{row} {want}`"
         );
     }
-    // Late on purpose: every `coc` but the first is sent with no wait, and no `load` follows
-    // an unsettled `coc` in its row (a late `load` failure would land in the readiness poll).
+    // Late on purpose: every `coc` but the first is sent with no wait. The `load`s: SO-07
+    // on time (settled), SO-08 behind a move and a waiting getter, FR2's late shape, whose
+    // failure the readiness poll's routing (G ticket 3b) brings to its row.
     let cocs: Vec<bool> = pf
         .probes
         .iter()
@@ -2751,15 +2753,20 @@ fn the_send_order_probes_file_parses_and_names_the_rename_plugin() {
         .filter(|s| s.command.starts_with("coc "))
         .map(|s| s.wait_secs.is_some())
         .collect();
-    assert_eq!(cocs, [true, false, false, false]);
-    for p in &pf.probes {
-        let unsettled = p
-            .steps
-            .iter()
-            .any(|s| s.command.starts_with("coc ") && s.wait_secs.is_none());
-        let loads = p.steps.iter().any(|s| s.command.starts_with("load "));
-        assert!(!(unsettled && loads), "row {} loads behind a move", p.row);
-    }
+    assert_eq!(cocs, [true, false, false, false, false]);
+    let late_loads: Vec<&str> = pf
+        .probes
+        .iter()
+        .filter(|p| {
+            let unsettled = p
+                .steps
+                .iter()
+                .any(|s| s.command.starts_with("coc ") && s.wait_secs.is_none());
+            unsettled && p.steps.iter().any(|s| s.command.starts_with("load "))
+        })
+        .map(|p| p.row.as_str())
+        .collect();
+    assert_eq!(late_loads, ["SO-08"]);
 }
 
 #[test]
@@ -2775,14 +2782,23 @@ fn the_send_order_probes_grade_as_the_ruling_predicts() {
                 "busy {busy}: {row} predicted {want}, graded {v}\n{got:#?}"
             );
         }
+        // FR2 late (SO-08): wherever the load's itemless failure arrives, its own reply, the
+        // readiness poll (G ticket 3b) or a later reply, the row's grade names it. Without
+        // the poll's routing, at busy 4 it lands in the poll and is lost.
+        let so08 = got.get(7).cloned().unwrap_or_default();
+        assert!(
+            so08.contains("Save file not found."),
+            "busy {busy}: SO-08 lost its load's failure: {so08}"
+        );
     }
 }
 
 /// What the run sheet says a contradiction looks like. A console out of send order changes
-/// the replies whenever a line comes late, but the grades only when the late stretch crosses
-/// a row: then the FR3 pair breaks its prediction (SO-05, whose `enable` failed, passes, and
-/// SO-06 fails on SO-05's line). Short of that the grades match send order's, so the order
-/// is read off the replies.
+/// the replies whenever a line comes late, but breaks a prediction only when the late
+/// stretch crosses a row: then the FR3 pair does (SO-05, whose `enable` failed, passes, and
+/// SO-06 fails on SO-05's line). Short of that every prediction still holds (a grade may
+/// move within one, as SO-08's between `fail` and `inconclusive`), so the order is read off
+/// the replies.
 #[test]
 fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_row() {
     let pf = ProbeFile::parse(SEND_ORDER).unwrap();
@@ -2790,12 +2806,15 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
     for busy in [0usize, 3] {
         let (in_order, seen_in_order) = send_order_session("order", &pf, busy, false);
         let (reversed, seen_reversed) = send_order_session("order", &pf, busy, true);
-        assert_eq!(
-            in_order.iter().map(label).collect::<Vec<_>>(),
-            reversed.iter().map(label).collect::<Vec<_>>(),
-            "busy {busy}"
-        );
-        if busy > 0 {
+        for ((row, want), v) in PREDICTED.iter().zip(&reversed) {
+            assert!(
+                holds(want, v),
+                "busy {busy}: {row} predicted {want}, graded {v}"
+            );
+        }
+        if busy == 0 {
+            assert_eq!(in_order, reversed, "nothing is late, nothing can differ");
+        } else {
             assert_ne!(seen_in_order, seen_reversed, "busy {busy}");
         }
     }
