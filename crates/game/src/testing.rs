@@ -16,6 +16,7 @@ use crate::error::{GameError, Result};
 use crate::host::{Host, Launched};
 
 type Hook = Box<dyn Fn(&str) + Send + Sync>;
+type Responder = Box<dyn Fn(&str) -> Option<String> + Send + Sync>;
 
 #[derive(Default)]
 struct FakeState {
@@ -25,6 +26,7 @@ struct FakeState {
     received: Mutex<Vec<String>>,
     down: AtomicBool,
     hooks: Mutex<Vec<Hook>>,
+    responder: Mutex<Option<Responder>>,
 }
 
 fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -105,6 +107,13 @@ impl FakeConsole {
         lock(&self.state.hooks).push(Box::new(hook));
     }
 
+    /// Answers every command `respond` gives text for, before [`FakeConsole::answer_in_turn`]
+    /// and [`FakeConsole::answer`]: a console with state (one that answers in send order,
+    /// late, as a model of the game) rather than a table.
+    pub fn respond_with(&self, respond: impl Fn(&str) -> Option<String> + Send + Sync + 'static) {
+        *lock(&self.state.responder) = Some(Box::new(respond));
+    }
+
     /// While down, connections are closed without an answer.
     pub fn set_down(&self, down: bool) {
         self.state.down.store(down, Ordering::SeqCst);
@@ -161,7 +170,10 @@ fn serve(mut stream: TcpStream, state: &FakeState) {
     if let Some(d) = delay {
         std::thread::sleep(d);
     }
-    let turn = {
+    let dynamic = lock(&state.responder)
+        .as_ref()
+        .and_then(|respond| respond(&command));
+    let turn = dynamic.or_else(|| {
         let mut turns = lock(&state.turns);
         let c = command.to_ascii_lowercase();
         turns
@@ -175,7 +187,7 @@ fn serve(mut stream: TcpStream, state: &FakeState) {
                     q.front().cloned()
                 }
             })
-    };
+    });
     let text = turn
         .or_else(|| best(&lock(&state.answers), &command).cloned())
         .unwrap_or_default();

@@ -1,65 +1,113 @@
-# Edit-dialog layout for REFR (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
-# Tabs, groups and field order are KitKraft's own arrangement in the style of the
-# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
-# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
-# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
-# Fields are subrecord signatures from the record schema (a test checks each one);
-# a subrecord the layout does not place shows on an "Other" tab. Read-only until
-# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+# Edit-dialog layout for REFR (M7.W4, sprint 2026-11-09 D7; dialogs/mod.rs reads it).
+# From the Reference dialog CK sitting ck-20261101-03 observed (docs/ck-parity.md, row
+# "Reference dialog (a placed reference)"): the tab names below are the CK's, in its
+# order, and the "3D Data" tab holds what the sitting saw on it. The four fields the CK
+# shows above its tabs (Reference Editor ID, Base Object, Layer, Location Override) are
+# placed first on "3D Data", since a layout has no area above its tabs. A tab or field
+# the sitting saw but no schema member holds is left out (Extra, Reflected by, Linked
+# From, MultiBound, Keywords, NavMesh Import Option; Test Radius; the 22 flag boxes,
+# which the sitting did not name one by one), and what the sitting did not record on a
+# tab (every tab but 3D Data) is ours: one field named after its tab. Group names are
+# labels; `members` is the `set` field path each edits. Rotation is stored in radians;
+# the CK's dialog shows degrees, so the labels name the unit shown and the dialog keeps
+# the rotation read-only (dialogs::layouts::READ_ONLY).
+# observed = false: the tab names are observed, their contents mostly not.
 type = "REFR"
-parity = "Edit dialog: REFR"
+parity = "Reference dialog (a placed reference)"
 observed = false
 
 [[tab]]
-name = "Reference"
+name = "3D Data"
 [[tab.group]]
-name = "Base and placement"
-fields = ["NAME", "EDID", "DATA", "XSCL"]
+name = "Reference Editor ID"
+fields = ["EDID"]
+members = ["EDID"]
 [[tab.group]]
-name = "Enable parent"
+name = "Base Object"
+fields = ["NAME"]
+members = ["NAME"]
+[[tab.group]]
+name = "Layer"
+fields = ["XLYR"]
+members = ["XLYR"]
+[[tab.group]]
+name = "Location Override"
+fields = ["XEZN"]
+members = ["XEZN"]
+[[tab.group]]
+name = "Position X"
+fields = ["DATA"]
+members = ["DATA.Position.X"]
+[[tab.group]]
+name = "Position Y"
+fields = ["DATA"]
+members = ["DATA.Position.Y"]
+[[tab.group]]
+name = "Position Z"
+fields = ["DATA"]
+members = ["DATA.Position.Z"]
+[[tab.group]]
+name = "Rotation X (radians)"
+fields = ["DATA"]
+members = ["DATA.Rotation.X"]
+[[tab.group]]
+name = "Rotation Y (radians)"
+fields = ["DATA"]
+members = ["DATA.Rotation.Y"]
+[[tab.group]]
+name = "Rotation Z (radians)"
+fields = ["DATA"]
+members = ["DATA.Rotation.Z"]
+[[tab.group]]
+name = "Scale"
+fields = ["XSCL"]
+members = ["XSCL"]
+
+[[tab]]
+name = "Linked Ref"
+[[tab.group]]
+name = "Linked Ref"
+fields = ["XLKR"]
+members = ["XLKR"]
+
+[[tab]]
+name = "Enable Parent"
+[[tab.group]]
+name = "Enable Parent"
 fields = ["XESP"]
-[[tab.group]]
-name = "Ownership"
-fields = ["XOWN", "XRNK"]
-[[tab.group]]
-name = "Layer and group"
-fields = ["XLYR", "XRFG", "XPCS"]
+members = ["XESP"]
 
 [[tab]]
-name = "Location"
+name = "Emittance"
 [[tab.group]]
-name = "Location"
-fields = ["XLCN", "XLRT", "XEZN", "XLRL"]
-[[tab.group]]
-name = "Map marker"
-fields = ["XMRK", "FNAM", "FULL", "TNAM", "VNAM", "UNAM", "VISI"]
+name = "Emittance"
+fields = ["XEMI"]
+members = ["XEMI"]
 
 [[tab]]
-name = "Teleport and Lock"
+name = "Location Ref Type"
 [[tab.group]]
-name = "Teleport"
-fields = ["XTEL", "XTNM", "XNDP"]
-[[tab.group]]
-name = "Lock"
-fields = ["XLOC"]
+name = "Location Ref Type"
+fields = ["XLRT"]
+members = ["XLRT"]
 
 [[tab]]
-name = "Light"
+name = "Attach Ref"
 [[tab.group]]
-name = "Light"
-fields = ["XRDS", "XLIG", "XLCD", "XLFD", "XEMI", "XALD"]
+name = "Attach Ref"
+fields = ["XATR"]
+members = ["XATR"]
 
 [[tab]]
-name = "Links"
+name = "Comments"
 [[tab.group]]
-name = "Linked references"
-fields = ["XLKR", "XLKT"]
-[[tab.group]]
-name = "Activation and power"
-fields = ["XACT", "XATR", "XPLK"]
+name = "Comments"
+fields = ["MNAM"]
+members = ["MNAM"]
 
 [[tab]]
 name = "Scripts"
 [[tab.group]]
-name = "Scripts and properties"
-fields = ["VMAD", "XPPS", "MNAM"]
+name = "Scripts"
+fields = ["VMAD"]
+members = ["VMAD"]

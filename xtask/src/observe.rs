@@ -44,7 +44,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     match args.first().map(String::as_str) {
         None | Some("-h" | "--help" | "help") => {
             println!("cargo xtask observe <fixture-dir>...");
-            println!("cargo xtask observe new <F00..F14> [--root <dir>] [--date <yyyy-mm-dd>]");
+            println!("cargo xtask observe new <F00..F14, F20, F23, F27, F28, F31> [--root <dir>] [--date <yyyy-mm-dd>]");
             println!();
             println!("  The kit binary is KITKRAFT_KIT, else `cargo run --release -p kit-cli`.");
             println!("  Masters are found through KITKRAFT_DATA_DIR (read only).");
@@ -54,7 +54,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
             let rest = args.get(1..).unwrap_or_default();
             let id = rest
                 .first()
-                .context("observe new: name a fixture id (F00..F14)")?;
+                .context("observe new: name a fixture id (F00..F14, F20, F23, F27, F28, F31)")?;
             let mut out_root = root.join("observe");
             let mut date = None;
             let mut it = rest.iter().skip(1);
@@ -134,6 +134,12 @@ const AMMO: &str = "Starfield.esm:002B559B";
 const GMST: &str = "Starfield.esm:000ABEF6";
 const NPC: &str = "Starfield.esm:0000BD3B";
 const WRLD: &str = "Starfield.esm:0027CFA2";
+/// STAT `Crate_MilitarySupply_01`, the F29 crate (F20).
+const CRATE: &str = "Starfield.esm:001E4FBD";
+/// STAT `CoffeeBrewingMachine01`, built by the outpost recipe `co_Outpost_Decor_CoffeeMaker01` (F28).
+const COFFEE: &str = "Starfield.esm:00136FDF";
+/// CELL `CityNewAtlantisFreestarEmbassy`, the ownership recipe's cell (F27).
+const EMBASSY: &str = "Starfield.esm:00017307";
 
 const NUMERIC: &str = "float field: 1234.5 / 2345.25; integer field: 4321 / 1234";
 
@@ -165,7 +171,8 @@ const MATRIX: &[FixtureSpec] = &[
             kit: &[],
         }],
         compare: &[],
-        notes: "",
+        notes: "The base of F20, F23, F27 and F28 (M4.H1); never saved so far (sprint \
+                2026-11-09: not among the owner's OK'd saves).",
     },
     FixtureSpec {
         id: "F02",
@@ -476,6 +483,117 @@ const MATRIX: &[FixtureSpec] = &[
                 SHA-256 9C0B28A6...4078EA27). Record every warning the CK shows on load; \
                 nothing needs saving. Copy the CK's log or warning text here if it offers one.",
     },
+    // M4.O1's fixtures the owner OK'd for the CK sitting of plan/owner-sitting-2026-11-06.md
+    // (2026-11-05 item 11), and F31, the M7 exit plugin's re-export (sprint 2026-11-09, R13).
+    // Forms are that plan's proposals, the defaults until the owner says otherwise (R20).
+    FixtureSpec {
+        id: "F20",
+        title: "New interior cell with one placed vanilla STAT",
+        base: Some(("F01", "KC_F01.esp")),
+        masters: &["Starfield.esm"],
+        plugins: &[PluginSpec {
+            file: "KC_F20.esp",
+            form: CRATE,
+            editor_id: "Crate_MilitarySupply_01",
+            action: "Create a new interior cell with EditorID KC_F20_Cell (the CK's way is \
+                     unobserved: say what you clicked); load it in the Render Window; drag \
+                     Crate_MilitarySupply_01 from the Object Window into it and leave it where it \
+                     drops; change nothing on the reference; File > Save Plugin as KC_F20.esp",
+            sentinel: "KC_F20_Cell",
+            kit: &[],
+        }],
+        compare: &[],
+        notes: "First question: the group structure of a new interior cell, block and \
+                sub-block, INCC, and whether the reference is persistent or temporary by \
+                default. Record the cell dialog's fields, the reference's FormID and the flags \
+                ticked by default. No kit_equivalent until the CK's choices are read (M4.A1, \
+                M4.A5). F01 was never saved: leave base empty if KC_F01.esp does not exist.",
+    },
+    FixtureSpec {
+        id: "F23",
+        title: "One vanilla reference moved",
+        base: Some(("F01", "KC_F01.esp")),
+        masters: &["Starfield.esm"],
+        plugins: &[PluginSpec {
+            file: "KC_F23.esp",
+            form: "",
+            editor_id: "",
+            action: "Cell View, Interior, CityNewAtlantisApartmentTEMPLATE \
+                     (Starfield.esm:0021966F): open one temporary vanilla reference's \
+                     Reference dialog; 3D Data: set Position X to 1234.5, nothing else (not \
+                     the EditorID); OK; File > Save Plugin as KC_F23.esp",
+            sentinel: "1234.5",
+            kit: &[],
+        }],
+        compare: &[],
+        notes: "First question: ONAM membership for an overridden temporary child (M4.A6). \
+                Fill form and editor_id with the reference chosen, and record its base and \
+                old position. F01 was never saved: leave base empty if KC_F01.esp does not \
+                exist.",
+    },
+    FixtureSpec {
+        id: "F27",
+        title: "The owner of one vanilla interior cell changed",
+        base: Some(("F01", "KC_F01.esp")),
+        masters: &["Starfield.esm"],
+        plugins: &[PluginSpec {
+            file: "KC_F27.esp",
+            form: EMBASSY,
+            editor_id: "CityNewAtlantisFreestarEmbassy",
+            action: "Open the cell's own properties (the CK's way is unobserved: say what you \
+                     clicked); set its owner to PlayerFaction (Starfield.esm:0001C21C), nothing \
+                     else; OK; File > Save Plugin as KC_F27.esp",
+            sentinel: "PlayerFaction",
+            kit: &[],
+        }],
+        compare: &[],
+        notes: "First question: the ownership members M4.E8 writes \
+                (docs/recipes/ownership.md); the owner before is Starfield.esm:0024F839. F01 \
+                was never saved: leave base empty if KC_F01.esp does not exist.",
+    },
+    FixtureSpec {
+        id: "F28",
+        title: "A vanilla outpost object duplicated in the CK",
+        base: Some(("F01", "KC_F01.esp")),
+        masters: &["Starfield.esm"],
+        plugins: &[PluginSpec {
+            file: "KC_F28.esp",
+            form: COFFEE,
+            editor_id: "CoffeeBrewingMachine01",
+            action: "Object Window, *All, Text Filter CoffeeBrewingMachine01; right-click the \
+                     STAT row, Duplicate (not Duplicate and Rename); File > Save Plugin as \
+                     KC_F28.esp",
+            sentinel: "",
+            kit: &[],
+        }],
+        compare: &[],
+        notes: "First question: the CK's clone choices (FormID, EditorID, what is copied) \
+                against `clone` (M7.E3); record the new row's EditorID, FormID and type. F01 \
+                was never saved: leave base empty if KC_F01.esp does not exist.",
+    },
+    FixtureSpec {
+        id: "F31",
+        title: "The M7 exit plugin opened in the CK and re-exported",
+        base: None,
+        masters: &["Starfield.esm", "KC_F31.esp"],
+        plugins: &[PluginSpec {
+            file: "KC_F31.esp",
+            form: "",
+            editor_id: "",
+            action: "File > Data: tick Starfield.esm and KC_F31.esp (KitKraft's, deployed with \
+                     kit deploy --dev), Set as Active File; OK; change nothing; File > Save \
+                     Plugin (an existing active file saves in place)",
+            sentinel: "",
+            kit: &[],
+        }],
+        compare: &[("kitkraft.esp", "KC_F31.esp")],
+        notes: "The M7 exit plugin (one set, one clone, one place, made in the workbench): \
+                copy KitKraft's KC_F31.esp into this folder as kitkraft.esp before the launch \
+                (its SHA-256 from the G2 ledger entry). Exit status ck_open and ck_reexport. \
+                For cargo xtask oracle ck add ours = \"kitkraft.esp\" and ck = \"KC_F31.esp\". \
+                If File > Save Plugin writes nothing (no * in the title, the file time \
+                unchanged), record it: ck_reexport is then inconclusive, not pass.",
+    },
 ];
 
 /// TOML basic string.
@@ -611,7 +729,11 @@ fn new_fixture(root: &Path, id: &str, date: &str) -> Result<PathBuf> {
     let spec = MATRIX
         .iter()
         .find(|s| s.id.eq_ignore_ascii_case(id))
-        .ok_or_else(|| anyhow!("observe new: `{id}` is not a matrix fixture (F00..F14)"))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "observe new: `{id}` is not a matrix fixture (F00..F14, F20, F23, F27, F28, F31)"
+            )
+        })?;
     let valid_date = date.len() == 10
         && date.chars().enumerate().all(|(i, c)| {
             if i == 4 || i == 7 {
@@ -1684,7 +1806,10 @@ pub(crate) mod tests {
     #[test]
     fn every_matrix_template_parses() {
         let ids: Vec<&str> = MATRIX.iter().map(|s| s.id).collect();
-        let expected: Vec<String> = (0..=14).map(|n| format!("F{n:02}")).collect();
+        let expected: Vec<String> = (0..=14)
+            .chain([20, 23, 27, 28, 31])
+            .map(|n| format!("F{n:02}"))
+            .collect();
         assert_eq!(ids, expected);
         for spec in MATRIX {
             let text = template(spec, "2026-10-20", None);
@@ -1764,6 +1889,9 @@ pub(crate) mod tests {
             "Constellation.esm:000041",
             "SFBGS004.esm:000EE4",
             "SFBGS006.esm:000800",
+            CRATE,
+            COFFEE,
+            EMBASSY,
         ] {
             assert!(text.contains(form), "docs/ck-observations.md lacks {form}");
         }
