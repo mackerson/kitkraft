@@ -251,3 +251,33 @@ fn m7_r4_meshes_replace_boxes_and_a_refused_base_is_a_limitation() {
     assert!(status_has(&h, "2 limitation(s) on the others"));
     assert_wholly_in_view(&h, "2 mesh limitation(s)");
 }
+
+/// Review H1 of M7.R4: with the gate open (ask A-R4), the meshes' progress line must not
+/// read as the model boxes' "bases answered" line, which the R3 tests assert is gone once
+/// every box is in.
+#[test]
+fn m7_r4_the_meshes_line_is_not_the_model_boxes_line() {
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    assert_eq!(quiet_cell(&mut h, &cell_env()), 2);
+    {
+        let render = &mut h.state_mut().app.render;
+        render.assume_geometry_asked();
+        render.receive_bounds(&bounds_env(
+            "T.esm:000800",
+            "Test/Crate.nif",
+            json!({"min": [-2.0, -2.0, 0.0], "max": [2.0, 2.0, 3.0]}),
+            "a note",
+        ));
+        render.receive_bounds(&bounds_env(
+            "T.esm:000801",
+            "Markers/Idle.nif",
+            Value::Null,
+            "no bound in the model: it has no geometry block",
+        ));
+    }
+    h.run_steps(4);
+    assert_eq!(h.state().app.render.bounds_progress(), (2, 2));
+    assert!(status_has(&h, "0 of 2 geometry replies in"));
+    assert!(!status_has(&h, "bases answered"));
+}

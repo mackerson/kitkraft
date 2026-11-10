@@ -1042,7 +1042,7 @@ impl RenderTab {
                 lines.push((
                     theme::Status::Unknown,
                     format!(
-                        "meshes: {g_answered} of {g_asked} bases answered (mesh.geometry); boxes until then"
+                        "meshes: {g_answered} of {g_asked} geometry replies in (mesh.geometry); boxes until then"
                     ),
                 ));
             }
@@ -1195,6 +1195,12 @@ impl RenderTab {
     /// [`RenderTab::take_bounds_queue`] does for the boxes.
     pub(crate) fn take_geometry_queue(&mut self) -> Vec<Request> {
         std::mem::take(&mut self.geometry_queue)
+    }
+
+    /// Marks every asked base as asked for its geometry too, as the tab does once the gate
+    /// allows `mesh.geometry` (ask A-R4), so a test sees the gate-open status row.
+    pub(crate) fn assume_geometry_asked(&mut self) {
+        self.geometry_asked = self.asked.clone();
     }
 
     /// The shown cell's references.
