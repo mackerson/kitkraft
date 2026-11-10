@@ -1365,3 +1365,26 @@ fn stale_mesh_index_temp_files_of_other_processes_are_swept() {
     assert!(!dead.exists());
     assert!(own.exists() && recent.exists() && other.exists());
 }
+
+/// Re-review M1 of M7.R5: a model that is in no archive at all makes a session built
+/// from the cache rebuild once (the file may have omitted it), but the rebuilt index is
+/// the same, so the file is not written again; and a second miss in the same session
+/// does not rebuild again.
+#[test]
+fn a_model_in_no_archive_rebuilds_once_per_session_and_rewrites_nothing() {
+    let (data, cache) = cached_dir("mesh-index-absent");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let written = std::fs::metadata(&file).unwrap().modified().unwrap();
+    let args = json!({"model": r"Test\Nowhere.nif", "data_dir": data.display().to_string()});
+    for round in 0..3 {
+        let mut session = crate::Session::default();
+        session.insert(build(&data, Some(&cache)));
+        assert!(geometry(&mut session, &args).is_err(), "round {round}");
+        assert!(!session.get::<MeshIndex>().unwrap().from_cache);
+        // The same session's second miss: the index is already the archives' own.
+        assert!(geometry(&mut session, &args).is_err());
+        let now = std::fs::metadata(&file).unwrap().modified().unwrap();
+        assert_eq!(now, written, "round {round}: the file was written again");
+    }
+}

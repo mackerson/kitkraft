@@ -540,9 +540,14 @@ pub(super) fn cache_file(cache_dir: &Path, data_dir: &Path) -> PathBuf {
 }
 
 /// Writes the cache file through a temporary file and a rename, so a reader never sees
-/// half a file; any error leaves the cache as it was (it is only an optimization).
+/// half a file; any error leaves the cache as it was (it is only an optimization). A file
+/// already holding these bytes (same length, same checksum trailer) is not written again
+/// (re-review M1 of M7.R5: a rebuild for a model in no archive gives the same index).
 fn write_cache_file(file: &Path, bytes: &[u8]) {
     static SERIAL: AtomicU64 = AtomicU64::new(0);
+    if same_file(file, bytes) {
+        return;
+    }
     let Some(dir) = file.parent() else { return };
     if std::fs::create_dir_all(dir).is_err() {
         return;
@@ -557,6 +562,24 @@ fn write_cache_file(file: &Path, bytes: &[u8]) {
     if written.is_err() || std::fs::rename(&tmp, file).is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
+}
+
+/// Whether `file` already holds `bytes`: the same length and the same last 8 bytes (the
+/// checksum trailer [`encode_stored`] writes); read with one bounded seek, not whole.
+fn same_file(file: &Path, bytes: &[u8]) -> bool {
+    use std::io::{Seek, SeekFrom};
+    let Some(want) = bytes.len().checked_sub(8).and_then(|at| bytes.get(at..)) else {
+        return false;
+    };
+    let Ok(mut f) = File::open(file) else {
+        return false;
+    };
+    let len = f.metadata().map(|m| m.len()).ok();
+    if len != u64::try_from(bytes.len()).ok() {
+        return false;
+    }
+    let mut have = [0u8; 8];
+    f.seek(SeekFrom::End(-8)).is_ok() && f.read_exact(&mut have).is_ok() && have.as_slice() == want
 }
 
 /// Removes the mesh index temp files (`mesh-index-*.tmp<pid>-<serial>`) in `dir` that
