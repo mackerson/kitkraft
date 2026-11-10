@@ -86,10 +86,9 @@ ledger entry's "Console port" line say what was not checked.
    - then polls the readiness command (`GetSFSEVersion`) every `ready_poll_secs` (5 s).
      An empty or blank body is not ready, and neither is one holding only the command's
      echo (the shape of every late reply); with `ready_expect` empty any other answer is,
-     otherwise the answer must contain it. Starfield's `ready_expect` is still empty; it
-     becomes `SFSE version`, the text `game-20261101-T1` row b observed after the echo
-     (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`), together with the engine's
-     test fakes answering the same (G 3b review M1). With `ready_expect` set, the polls'
+     otherwise the answer must contain it. Starfield's is `SFSE version`, the text
+     `game-20261101-T1` row b observed after the echo (`SFSE version: 0.2.21, release idx
+     26, runtime 01100F40`) (G 3b review M1). With `ready_expect` set, the polls'
      answers are counted in send order over the whole session: a poll answered only by its
      echo owes its line to a later reply, each `ready_expect` line pays the oldest poll still
      owed one, and a reply makes the game ready only when no older poll is owed, so its line

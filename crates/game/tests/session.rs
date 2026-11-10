@@ -2985,6 +2985,15 @@ fn rv7_an_echo_only_poll_reply_is_not_ready_and_the_load_does_not_pass() {
 /// either; the controller keeps polling until the game says something of its own.
 #[test]
 fn an_echo_only_readiness_answer_is_never_ready() {
+    // The Starfield profile waits for the text game-20261101-T1 row b observed after the
+    // echo (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`).
+    assert_eq!(
+        GameProfile::named("starfield")
+            .unwrap()
+            .console
+            .ready_expect,
+        "SFSE version"
+    );
     let f = fixture("echo-not-ready");
     let c = console();
     c.answer_in_turn(
@@ -3202,4 +3211,68 @@ fn rv_empty_body_poll_line_arrives_late() {
     let c = rv_fifo(vec![usize::MAX, usize::MAX, 0, 1, 0, 1], vec![], vec![2]);
     let v = rv_run("rv-empty", &c, 3);
     assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
+}
+
+// ------------------------------------------------- A-G1 (3b fix review M1', probes fx1a, fx1d)
+// With `ready_expect` set, a poll is ready only on the game's own readiness text, so nothing
+// else landing in it (a stray line, a getter's late value) lets the load's late failure
+// slide past the poll to the next row. Red with `ready_expect` empty.
+
+/// A console in send order with lag after a row's `load`: the load answers its echo only;
+/// the next send (the readiness poll) answers its echo and `first`; the send after that
+/// answers its echo, then the load's `Save file not found.`, then its own answer.
+fn fx_after_load(c: &FakeConsole, first: &'static str) {
+    let state = std::sync::Mutex::new(0u8);
+    c.respond_with(move |cmd| {
+        let mut s = state.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        if l.starts_with("load kitkraftsession") && *s == 0 {
+            *s = 1;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if *s == 1 {
+            *s = 2;
+            return Some(format!("{cmd}\nCommand: {cmd}\n{first}"));
+        }
+        if *s == 2 {
+            *s = 9;
+            let own = if l.starts_with("getsfseversion") {
+                "SFSE version: 0.2.21, release idx 26, runtime 01100F40"
+            } else if l.starts_with("getpos y") {
+                "GetPos: Y >> -4.00"
+            } else {
+                ""
+            };
+            return Some(format!(
+                "{cmd}\nCommand: {cmd}\nSave file not found.\n{own}"
+            ));
+        }
+        None
+    });
+}
+
+fn fx_case(tag: &str, first: &'static str) -> Vec<String> {
+    let c = console();
+    fx_after_load(&c, first);
+    let (v, _) = rx_run(
+        tag,
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    v
+}
+
+#[test]
+fn fx1a_a_stray_line_in_the_readiness_poll_does_not_make_it_ready() {
+    let v = fx_case("fx1a", "Unrelated console line.");
+    assert_ne!(v[0], "pass", "fx1a {v:?}");
+}
+
+#[test]
+fn fx1d_a_getters_late_value_in_the_readiness_poll_does_not_make_it_ready() {
+    let v = fx_case("fx1d", "GetPos: X >> -17.00");
+    assert_ne!(v[0], "pass", "fx1d {v:?}");
 }
