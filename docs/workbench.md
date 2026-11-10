@@ -639,7 +639,7 @@ revisited once a sitting observes how the CK docks. Code:
   Render Window" does, while a world or "Interior" opens on a click or a double-click.
 - **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
-  LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
+  LCTN, TERM, FACT, PKIN, CELL, REFR, AMMO, COBJ, CONT, STAT, KYWD ship now); any other type gets a default layout
   built from its `schema` (one group per schema group). Every tab and group name is
   KitKraft's own and marked "built, unobserved" until sitting 2 (M7.O3) (its parity
   row has that status, ADR 0012 Amendment 1); labels are the
@@ -654,6 +654,15 @@ revisited once a sitting observes how the CK docks. Code:
   sitting did not tie to one field); the
   members test `dialogs::layouts::tests::every_observed_label_is_mapped_or_reported_as_a_gap`
   pins both, and the edit dialog's header names the counts.
+  Six of them are drawn by label since D6 (sprint 2026-11-09, M7.W4): AMMO, COBJ, CONT,
+  STAT, KYWD and TERM are one page each, named after the dialog's observed title, one
+  line per mapped label in the record's order with the field path it edits and its value;
+  a whole subrecord edits in place as above, and a numeric member inside a struct
+  (`DATA.Value`) too. A field whose signature a base-form component block of the record
+  also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
+  labels follow, read-only, with their reasons, and what no label shows goes to "Other".
+  AMMO's and COBJ's pages say observed (the sitting recorded no tab control); the other
+  four do not, since the sitting did not record whether they have tabs.
 
 ## Screenshot tour (development aid)
 

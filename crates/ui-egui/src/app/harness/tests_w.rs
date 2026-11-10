@@ -1082,3 +1082,134 @@ fn type_ahead_takes_keys_only_from_the_list() {
     settle(&mut h);
     assert_in_view(&h, "Author: KitAuthor");
 }
+
+// ---- the six observed edit-dialog layouts (M7.W4, D6) ---------------------------------------
+
+/// A plugin with one record of each D6 type at FormIDs 0x800.. in this order: AMMO,
+/// COBJ, TERM, CONT, STAT, KYWD. Each has an `EDID` and a `FULL`; the AMMO also a `DATA`
+/// (Value 12, Weight 0.5).
+fn d6_plugin(types: &[&str]) -> Vec<u8> {
+    fn sub(sig: &[u8], data: &[u8]) -> Vec<u8> {
+        let mut v = sig.to_vec();
+        v.extend((data.len() as u16).to_le_bytes());
+        v.extend(data);
+        v
+    }
+    fn record(sig: &[u8], flags: u32, id: u32, body: &[u8]) -> Vec<u8> {
+        let mut r = sig.to_vec();
+        r.extend((body.len() as u32).to_le_bytes());
+        r.extend(flags.to_le_bytes());
+        r.extend(id.to_le_bytes());
+        r.extend([0u8; 4]);
+        r.extend(0x0200u16.to_le_bytes());
+        r.extend(0u16.to_le_bytes());
+        r.extend(body);
+        r
+    }
+    let mut hedr = Vec::new();
+    hedr.extend(0.96f32.to_le_bytes());
+    hedr.extend((types.len() as u32).to_le_bytes());
+    hedr.extend(0x900u32.to_le_bytes());
+    let mut out = record(b"TES4", 0, 0, &sub(b"HEDR", &hedr));
+    for (i, t) in types.iter().enumerate() {
+        let mut b = sub(b"EDID", format!("D6{t}\0").as_bytes());
+        b.extend(sub(b"FULL", format!("D6 {t} name\0").as_bytes()));
+        if *t == "AMMO" {
+            let mut data = 12u32.to_le_bytes().to_vec();
+            data.extend(0.5f32.to_le_bytes());
+            b.extend(sub(b"DATA", &data));
+        }
+        let rec = record(t.as_bytes(), 0, 0x800 + i as u32, &b);
+        let mut grup = b"GRUP".to_vec();
+        grup.extend(((rec.len() + 24) as u32).to_le_bytes());
+        grup.extend(t.as_bytes());
+        grup.extend(0u32.to_le_bytes());
+        grup.extend([0u8; 8]);
+        grup.extend(rec);
+        out.extend(grup);
+    }
+    out
+}
+
+/// M7.W4 (D6): each of the six types opens in the edit dialog on its one observed page
+/// (named after the dialog's title), its labels in the record's order with the field path
+/// each edits, the unmapped labels listed read-only; AMMO's `Value` label edits the member
+/// `DATA.Value` in place (the change is the field path `set` would preview). Nothing is
+/// written.
+#[test]
+fn the_six_observed_layouts_open_in_the_edit_dialog() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("d6");
+    let types = ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"];
+    let plugin = dir.write("D6.esp", &d6_plugin(&types));
+    let before = dir.snapshot();
+    let load = Request::new("load", json!({"plugins": [plugin], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    let pages = [
+        ("AMMO", "Ammo", "Short name"),
+        ("COBJ", "Constructible Object", "Created Object Count"),
+        ("TERM", "Terminal", "Marker Model"),
+        ("CONT", "Container", "Contains Only"),
+        ("STAT", "Static", "Object Palette Defaults"),
+        ("KYWD", "Keyword", "Linkage Name"),
+    ];
+    for (i, (t, title, label)) in pages.into_iter().enumerate() {
+        let form = format!("D6.esp:{:06X}", 0x800 + i);
+        let app = &mut h.state_mut().app;
+        app.apply(vec![Action::Inspect(form.clone())]);
+        app.shell.set_open(WindowKind::EditDialog, true);
+        settle(&mut h);
+        assert_in_view(&h, &format!("D6{t}"));
+        assert_in_view(&h, &format!("{title} ("));
+        assert_in_view(&h, label);
+        assert_in_view(&h, "Not editable here (M7.K4 gaps)");
+        // Each unmapped label is listed with its reason (below the fold for most types).
+        let o = crate::dialogs::layouts::observation(t).unwrap();
+        for (gap, why) in &o.gaps {
+            assert!(
+                !nodes_with(&h, gap).is_empty(),
+                "{t}: gap `{gap}` not listed"
+            );
+            assert!(
+                !nodes_with(&h, why).is_empty(),
+                "{t}: reason `{why}` not listed"
+            );
+        }
+    }
+    // AMMO: `Value` edits `DATA.Value` in place.
+    let form = "D6.esp:000800".to_string();
+    h.state_mut().app.apply(vec![Action::Inspect(form.clone())]);
+    settle(&mut h);
+    assert_in_view(&h, "DATA.Value");
+    let boxes = |h: &Bench, v: &str| -> usize {
+        h.query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some(v)
+        })
+        .count()
+    };
+    assert_eq!(boxes(&h, "12"), 1, "one edit box for DATA.Value");
+    assert_eq!(boxes(&h, "0.5"), 1, "one edit box for DATA.Weight");
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
+    })
+    .next()
+    .expect("checked above")
+    .focus();
+    h.run_steps(2);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run_steps(1);
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
+    })
+    .next()
+    .expect("still there")
+    .type_text("13");
+    h.run_steps(3);
+    let changed = crate::dialogs::edit::changed_fields(&h.ctx, &form).unwrap();
+    assert_eq!(changed.get("DATA.Value"), Some(&json!(13)), "{changed:?}");
+    assert_eq!(changed.len(), 1);
+    assert_eq!(dir.snapshot(), before, "nothing is written");
+}

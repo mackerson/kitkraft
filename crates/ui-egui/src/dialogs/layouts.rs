@@ -20,6 +20,21 @@
 //! caption, a record header flag (`set` edits subrecords only), a member the schema lacks,
 //! or a label the sitting did not tie to one field. A label is never both, and never
 //! neither (the members test).
+//!
+//! M7.W4, six layouts (sprint 2026-11-09, D6): AMMO, COBJ, CONT, STAT, KYWD (new) and TERM
+//! (rewritten) are one page each, named after the dialog's observed title: one group per
+//! mapped label, in the record's order, whose field is the signature the label edits and
+//! whose `members` is its `set` field path. The edit dialog places such a layout by member
+//! ([`place_members`]): each label shows the subrecords of its signature outside the
+//! base-form component blocks, and edits the member it names in place when the value is
+//! a number or plain text. A field whose signature a component block of the record also
+//! holds is read-only (`set` addresses `SIG[n]` across the whole record; D1 review L4).
+//! The unmapped labels are listed read-only with their reasons. AMMO's and COBJ's pages
+//! are observed (the sitting recorded no tab control); the other four say unobserved,
+//! since the sitting did not record whether they have tabs.
+
+use super::Layout;
+use crate::panels::records::SubRow;
 
 /// What a CK sitting recorded of a type's edit dialog (a `[[dialog]]` of
 /// `layouts/sitting2.toml`).
@@ -161,7 +176,178 @@ pub const SHIPPED: &[(&str, &str)] = &[
         "REFR",
         include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/REFR.toml")),
     ),
+    (
+        "AMMO",
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/AMMO.toml")),
+    ),
+    (
+        "COBJ",
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/COBJ.toml")),
+    ),
+    (
+        "CONT",
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/CONT.toml")),
+    ),
+    (
+        "STAT",
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/STAT.toml")),
+    ),
+    (
+        "KYWD",
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/layouts/KYWD.toml")),
+    ),
 ];
+
+/// Which of `subrows` lie inside a base-form component block (`BFCB` to `BFCE`, both
+/// included), whose subrecords may reuse a signature the record also has at the top level.
+pub fn in_component(subrows: &[SubRow]) -> Vec<bool> {
+    let mut inside = false;
+    subrows
+        .iter()
+        .map(|s| {
+            if s.signature == "BFCB" {
+                inside = true;
+            }
+            let here = inside;
+            if s.signature == "BFCE" {
+                inside = false;
+            }
+            here
+        })
+        .collect()
+}
+
+/// The text of the member `steps` name inside a struct value as the Records inspector
+/// formats it (`{A: 1, B: {C: 2}}`, `panels::fmt_value`); the value itself for no steps.
+/// `None` for a value that is no such struct, a cut one (`...`), or a member it lacks.
+pub fn member_text(value: &str, steps: &[&str]) -> Option<String> {
+    let Some((first, rest)) = steps.split_first() else {
+        return Some(value.to_string());
+    };
+    if value.ends_with("...") {
+        return None;
+    }
+    let inner = value.strip_prefix('{')?.strip_suffix('}')?;
+    let mut depth = 0u32;
+    let mut start = 0usize;
+    let mut items = Vec::new();
+    for (i, c) in inner.char_indices() {
+        match c {
+            '{' | '[' => depth = depth.saturating_add(1),
+            '}' | ']' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                items.push(inner.get(start..i)?);
+                start = i.saturating_add(1);
+            }
+            _ => {}
+        }
+    }
+    items.push(inner.get(start..)?);
+    let v = items.iter().find_map(|item| {
+        let (k, v) = item.trim().split_once(": ")?;
+        (k == *first).then_some(v)
+    })?;
+    member_text(v, rest)
+}
+
+/// One subrecord a labelled field shows (a field of a member layout).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemberRow<'a> {
+    /// Its position in the version's subrecords (for its `set` occurrence).
+    pub index: usize,
+    pub sub: &'a SubRow,
+    /// The member steps inside the subrecord (`["Value"]` for `DATA.Value`).
+    pub steps: Vec<String>,
+    /// A component block of the record holds the signature too: read-only here.
+    pub blocked: bool,
+}
+
+/// One labelled field: the observed label, the `set` field path it edits, and the
+/// subrecords it shows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemberGroup<'a> {
+    pub label: String,
+    pub path: String,
+    pub rows: Vec<MemberRow<'a>>,
+}
+
+/// One page of a member layout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MemberPage<'a> {
+    pub name: String,
+    pub groups: Vec<MemberGroup<'a>>,
+}
+
+/// The placement of a layout whose groups name the member each label edits (`members`):
+/// `None` for a layout without (the signature placement, `super::place`). Each label
+/// shows every subrecord of its signature outside the component blocks; a signature a
+/// component block also holds makes the field read-only. Returned last: the subrecords no
+/// label shows (component blocks included), for the "Other" page.
+pub fn place_members<'a>(
+    layout: &Layout,
+    subrows: &'a [SubRow],
+) -> Option<(Vec<MemberPage<'a>>, Vec<&'a SubRow>)> {
+    if !layout
+        .tabs
+        .iter()
+        .any(|t| t.groups.iter().any(|g| g.members.is_some()))
+    {
+        return None;
+    }
+    let comp = in_component(subrows);
+    let inside = |i: usize| comp.get(i).copied().unwrap_or(true);
+    let mut shown = vec![false; subrows.len()];
+    let mut pages = Vec::new();
+    for t in &layout.tabs {
+        let mut groups = Vec::new();
+        for g in &t.groups {
+            let path = g
+                .members
+                .as_ref()
+                .and_then(|m| m.first())
+                .or_else(|| g.fields.first())
+                .cloned()
+                .unwrap_or_default();
+            let mut parts = path.split('.');
+            let sig = parts.next().unwrap_or_default().to_string();
+            let steps: Vec<String> = parts.map(str::to_string).collect();
+            let blocked = subrows
+                .iter()
+                .enumerate()
+                .any(|(i, s)| inside(i) && s.signature == sig);
+            let mut rows = Vec::new();
+            for (i, s) in subrows.iter().enumerate() {
+                if s.signature == sig && !inside(i) {
+                    if let Some(x) = shown.get_mut(i) {
+                        *x = true;
+                    }
+                    rows.push(MemberRow {
+                        index: i,
+                        sub: s,
+                        steps: steps.clone(),
+                        blocked,
+                    });
+                }
+            }
+            groups.push(MemberGroup {
+                label: g.name.clone(),
+                path,
+                rows,
+            });
+        }
+        pages.push(MemberPage {
+            name: t.name.clone(),
+            groups,
+        });
+    }
+    let rest = subrows
+        .iter()
+        .zip(&shown)
+        .filter(|(_, s)| !**s)
+        .map(|(r, _)| r)
+        .collect();
+    Some((pages, rest))
+}
 
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
@@ -202,7 +388,7 @@ mod tests {
             })
             .collect();
         let engine = ReadOnlyEngine::new();
-        assert_eq!(SHIPPED.len(), 8);
+        assert_eq!(SHIPPED.len(), 13);
         for (t, _) in SHIPPED {
             let layout = shipped(t).unwrap().unwrap();
             assert_eq!(&layout.record_type, t);
@@ -305,10 +491,14 @@ mod tests {
             assert_eq!(o.sitting, "ck-20261102-03", "{t}");
             assert_eq!(&o.step, step, "{t}");
             assert!(!o.form.is_empty(), "{t}");
-            // The tabs and groups are ours: a shipped layout says unobserved; the other
-            // types take the default layout from the schema.
+            // A shipped layout says observed only for a dialog the sitting saw without a
+            // tab control (D6: AMMO, COBJ); the others' tabs are ours.
             if let Some(layout) = shipped(t) {
-                assert!(!layout.unwrap().observed, "{t}: the tabs are ours");
+                assert_eq!(
+                    layout.unwrap().observed,
+                    o.tab_control == "none",
+                    "{t}: observed only where no tab control was recorded"
+                );
             }
             if *t == "WEAP" {
                 assert_eq!(o.status, "inconclusive", "WEAP");
@@ -791,5 +981,135 @@ mod tests {
             let err = k4_check("KYWD", &o, &env).unwrap_err();
             assert!(err.contains(want), "{want}: {err}");
         }
+    }
+
+    /// D6 (M7.W4): the six layouts are one page each, named after the observed title, one
+    /// group per mapped label in the record's order: the label, the signature it edits and
+    /// its `set` field path, exactly the `[[dialog]]`'s `map`.
+    #[test]
+    fn the_six_layouts_follow_the_observed_labels() {
+        let titles = [
+            ("AMMO", "Ammo"),
+            ("COBJ", "Constructible Object"),
+            ("TERM", "Terminal"),
+            ("CONT", "Container"),
+            ("STAT", "Static"),
+            ("KYWD", "Keyword"),
+        ];
+        for (t, title) in titles {
+            let o = observation(t).unwrap();
+            let l = shipped(t).unwrap().unwrap();
+            assert_eq!(l.tabs.len(), 1, "{t}: one page");
+            assert_eq!(l.tabs[0].name, title, "{t}");
+            assert_eq!(l.observed, o.tab_control == "none", "{t}");
+            let got: Vec<(String, String)> = l.tabs[0]
+                .groups
+                .iter()
+                .map(|g| {
+                    let m = g.members.clone().unwrap_or_default();
+                    assert_eq!(m.len(), 1, "{t}/{}", g.name);
+                    let sig = m[0].split('.').next().unwrap().to_string();
+                    assert_eq!(g.fields, [sig], "{t}/{}", g.name);
+                    (g.name.clone(), m[0].clone())
+                })
+                .collect();
+            assert_eq!(got, o.map, "{t}: the groups differ from the K4 map");
+        }
+    }
+
+    fn sub(sig: &str, member: &str, value: &str) -> crate::panels::records::SubRow {
+        crate::panels::records::SubRow {
+            signature: sig.to_string(),
+            member: member.to_string(),
+            value: value.to_string(),
+            offset: None,
+            size: None,
+            confidence: None,
+            source: None,
+        }
+    }
+
+    /// A member's text inside a formatted struct: nested, past a list's commas, and
+    /// `None` for a missing member, a cut value or a value that is no struct.
+    #[test]
+    fn member_text_reads_a_formatted_struct() {
+        use super::member_text;
+        let v = "{MaxAngle: 1.5, Value2: [1, 2], Leaf: {LeafAmplitude: 3.5, LeafFrequency: 4}}";
+        assert_eq!(member_text(v, &["MaxAngle"]).as_deref(), Some("1.5"));
+        assert_eq!(
+            member_text(v, &["Leaf", "LeafFrequency"]).as_deref(),
+            Some("4")
+        );
+        assert_eq!(member_text(v, &["Value2"]).as_deref(), Some("[1, 2]"));
+        assert_eq!(member_text(v, &[]).as_deref(), Some(v));
+        assert_eq!(member_text(v, &["Nothing"]), None);
+        assert_eq!(member_text(v, &["Leaf", "Nothing"]), None);
+        assert_eq!(member_text("{Value: 12, Weight: 0.5...", &["Value"]), None);
+        assert_eq!(member_text("12", &["Value"]), None);
+    }
+
+    /// D6's placement, with the D1 review's L4 as a negative: each label shows its
+    /// signature's subrecords outside the component blocks; a signature a component
+    /// block of the record also holds (`DNAM` here) is read-only for every label naming
+    /// it; what no label shows (the block, an unplaced subrecord) is returned last; a
+    /// layout without members is not placed by member.
+    #[test]
+    fn member_placement_skips_component_blocks_and_blocks_a_shared_signature() {
+        use super::{in_component, place_members};
+        let rows = vec![
+            sub("EDID", "EditorId", "AmmoX"),
+            sub("BFCB", "ComponentType", "BGSAnimationGraph_Component"),
+            sub("DNAM", "ResponseFile", "x.txt"),
+            sub("BFCE", "EndMarker", ""),
+            sub("FULL", "Name", "Ammo X"),
+            sub("DATA", "Data", "{Value: 12, Weight: 0.5}"),
+            sub(
+                "DNAM",
+                "AmmoData",
+                "{Projectile: null, Flags: 0, Damage: 4, Health: 1}",
+            ),
+            sub("XXXX", "", "hex 00"),
+        ];
+        assert_eq!(
+            in_component(&rows),
+            [false, true, true, true, false, false, false, false]
+        );
+        let layout = shipped("AMMO").unwrap().unwrap();
+        let (pages, rest) = place_members(&layout, &rows).unwrap();
+        let groups = &pages[0].groups;
+        let g = |label: &str| groups.iter().find(|g| g.label == label).unwrap();
+        assert_eq!(g("ID").rows.len(), 1);
+        assert_eq!(g("ID").rows[0].index, 0);
+        assert!(!g("ID").rows[0].blocked);
+        assert_eq!(g("Weight").path, "DATA.Weight");
+        assert_eq!(g("Weight").rows[0].steps, ["Weight"]);
+        assert!(!g("Weight").rows[0].blocked);
+        // DNAM: the top-level one only, and read-only (the block holds a DNAM too).
+        let damage = g("Damage");
+        assert_eq!(damage.rows.len(), 1);
+        assert_eq!(damage.rows[0].index, 6);
+        assert!(
+            damage.rows[0].blocked,
+            "L4: a signature the block holds is read-only"
+        );
+        assert!(g("Projectile").rows[0].blocked);
+        assert!(g("Short name").rows.is_empty(), "no ONAM in this record");
+        let rest: Vec<&str> = rest.iter().map(|s| s.signature.as_str()).collect();
+        assert_eq!(rest, ["BFCB", "DNAM", "BFCE", "XXXX"]);
+        // A record without the block: DNAM edits.
+        let plain: Vec<_> = rows
+            .iter()
+            .filter(|s| {
+                !matches!(s.signature.as_str(), "BFCB" | "BFCE") && s.member != "ResponseFile"
+            })
+            .cloned()
+            .collect();
+        let (pages, _) = place_members(&layout, &plain).unwrap();
+        assert!(pages[0]
+            .groups
+            .iter()
+            .all(|g| g.rows.iter().all(|r| !r.blocked)));
+        // WEAP's layout names no members: placed by signature.
+        assert!(place_members(&shipped("WEAP").unwrap().unwrap(), &rows).is_none());
     }
 }
