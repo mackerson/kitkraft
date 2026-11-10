@@ -88,26 +88,28 @@ ledger entry's "Console port" line say what was not checked.
      echo (the shape of every late reply); with `ready_expect` empty any other answer is,
      otherwise the answer must contain it. Starfield's is `SFSE version`, the text
      `game-20261101-T1` row b observed after the echo (`SFSE version: 0.2.21, release idx
-     26, runtime 01100F40`) (G 3b review M1). With `ready_expect` set, the polls'
-     answers are counted in send order over the whole session: a poll answered only by its
-     echo owes its line to a later reply, each `ready_expect` line pays the oldest poll still
-     owed one, and a reply makes the game ready only when no older poll is owed, so its line
-     is this poll's own and not an earlier poll's, late (3b fix review L1'). A poll the
-     client gave up on (an HTTP timeout) or one answered with an empty body after a
-     `load` owes its line too: the game took it (3b fix review M1''). A debt is never
-     forgiven: if an owed line never arrives (or lands in a step's reply), every later
-     wait times out, so the session ends at the next wait with every remaining row
-     `not-run`, a lost session but never a false pass (3b fix review L1'');
+     26, runtime 01100F40`) (G 3b review M1). With `ready_expect` set, the launch polls'
+     answers are counted in send order: a poll answered only by its echo owes its line to a
+     later reply, each `ready_expect` line pays the oldest poll still owed one, and a reply
+     makes the game ready only when no older poll is owed (3b fix review L1'). This count
+     is the launch wait's only: nothing has been loaded yet, so no answer is lost;
    - gives up after `ready_secs` from launch (300 s), which covers the window, the settle
      and the polls (the first answer came at 91 s). A profile whose `settle_secs` is not
      below `ready_secs` is an error. The row reasons then name what was still missing (no
      window yet, settling, or the last answer).
 
-   Then it sends `load <base save>` and waits for a non-empty answer again (`load_secs`).
-   A `load` step in a row is followed by the same wait. The poll's replies are replies like
-   any other (G ticket 3b): a late line of an earlier request may arrive in one, so after a
-   row's `load` each reply is routed as described in "Statuses" and noted in the row's
-   `seen` as `(readiness poll) GetSFSEVersion -> ...`.
+   Then it sends `load <base save>` and waits again (`load_secs`), and a `load` step in a
+   row is followed by the same wait: the **pacing poll** (ruling R41). It only shows that
+   the game answers again: the wait is over when `PACING_POLLS` (3) polls in a row had a
+   reply, the echo at least; an empty body, a timeout or an error starts the count again,
+   and the reply's text never decides readiness and carries no debt. Why: in
+   `2026-11-10-T01` the two polls right after the base `load` answered only their echo and
+   the game dropped their answers, so the launch count above never balanced and the base
+   wait timed out with every row `not-run` (`game-20261110-01`); three is the first count
+   that would not have gone on while those answers were being dropped. The poll's replies
+   are still read like any other (G ticket 3b): a late line of an earlier request may
+   arrive in one, so after a row's `load` each reply is routed as described in "Statuses"
+   and noted in the row's `seen` as `(readiness poll) GetSFSEVersion -> ...`.
 4. Run the probes in order. A row has its own deadline (`probe_secs`), and the session
    has a wall-clock budget (`session_secs`). After a step with `wait_secs` the controller
    pauses that long (within the row's deadline; `game.stop` cuts it short) before the next
@@ -152,14 +154,30 @@ except `pass` carries its reason.
   because the player never left the cell.
 - A base save the game does not find (`Save file not found.` after `load <base save>`, in
   the `load`'s own answer or late, in the readiness poll after it) leaves every row
-  `not-run (the base save did not load: ...)`.
+  `not-run (the base save did not load: ...)`. Since the pacing poll (R41) the base wait
+  can end before that line arrives; if it arrives later, in a row's reply, every row's
+  `pass` becomes `inconclusive (the base save did not load: ...)`, and the finding says so.
+  The base `load` stops being a candidate once a `SFSE version` line came in its wait.
 - After a row's `load`, the readiness poll is a request of that step that names nothing,
   and its replies are routed by the send-order rule (`crates/game/src/correlate.rs`): a late
-  getter line reaches its getter, a late failure line re-opens the rows it may belong to
-  (`inconclusive (late failure)`), and a failure line left with the poll is the `load`'s,
-  late, so the row is `inconclusive (late failure: ... in the readiness poll ...)`, never
-  `pass`. Before G ticket 3b these replies were dropped, and a late `Save file not found.`
-  there let the row pass on getters that saw the old state.
+  getter line reaches its getter, and a late failure line re-opens the rows it may belong
+  to (`inconclusive (late failure)`). Before G ticket 3b these replies were dropped, and a
+  late `Save file not found.` there let the row pass on getters that saw the old state.
+- A failure only a `load` prints (`Save file not found.`) belongs to a `load` (ruling R41),
+  so wherever it arrives it goes to the `load` requests not yet known answered (those sent
+  since the newest request with a line of its own; in send order the line comes before any
+  later request's). When those are this row's alone (in a readiness poll before any
+  getter, or in a later getter's reply), the row is `fail (step N `load ...`: the console
+  answered `Save file not found.`, late, in the reply to ...)`; one left with the poll is
+  the `load`'s too. When they span rows, each is re-opened `inconclusive (late failure)`,
+  and the reply's own row is not failed by it.
+- **The limit no grader passes** (R41): a failure line the game never sends, or that is
+  still queued when the session ends, is invisible. `2026-11-10-T01` showed the game
+  dropping answers after a `load`; had the dropped answer been a `load`'s `Save file not
+  found.`, the row would grade on its getters alone and may `pass` on the old state. The
+  enumeration in `crates/game/tests/pacing.rs` (a fifo console with caps 0, 1, 2, all and
+  drop on six sends, three row shapes, 46,875 runs; the gate runs every 16th) shows a
+  delivered failure never leaves its row `pass`, and counts the undelivered runs that do.
 - `inconclusive` means the evidence is missing or ambiguous. Examples: no output to match,
   no number in the output, a Papyrus log that was not written, a screenshot the row asks
   for that was not taken, or a timeout. Missing evidence is never `pass`.
@@ -468,11 +486,12 @@ getter's three sends) cannot be told apart and are evidence neither way.
   `fail` (above). **Stop and send it to the director at
   once** (R17), quoting the reply text, the rows and the send order. Grade nothing else in
   the entry until the director answers.
-- A wait that timed out with "earlier poll(s) still owe their answer" in its reason is
-  the readiness count above, not a game fault: the game took a poll and its
-  `SFSE version` line never came where the controller reads it. Record it in the reading
-  as evidence about send order (which poll, which replies came instead), and grade the
-  rows `not-run` as the controller wrote them.
+- A launch wait that timed out with "earlier poll(s) still owe their answer" in its reason
+  is the launch count above, not a game fault: the game took a poll and its `SFSE
+  version` line never came where the controller reads it. Record it in the reading as
+  evidence about send order (which poll, which replies came instead), and grade the rows
+  `not-run` as the controller wrote them. (Before R41 every wait counted so;
+  `game-20261110-01` is that case.)
 - **Inconclusive**: no line arrived late (every getter answered in its own reply, or the
   clipped replies cut off before the order shows), or SO-01 did not pass. Nothing was
   ordered and the ruling is untested. Run the session once more in the same window if
