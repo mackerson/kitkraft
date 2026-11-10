@@ -631,7 +631,12 @@ revisited once a sitting observes how the CK docks. Code:
   selection changes (a pick in the Render Window shows in the list). "Show in
   Render Window" loads the cell in the Render Window tab, which the shell brings
   to the front; when the Render Window shows a different cell, a "Show this cell"
-  button follows it (KK-037).
+  button follows it (KK-037). As `ck-20261101-03` observed the CK's (sprint 2026-11-09):
+  a "Cell Filter" box above the left list keeps the rows whose EditorID or form contains
+  its text, case ignored (the rows loaded so far: a paged list filters what it has); a
+  row's tooltip names it as `'EditorID' (form)`, with the engine's formref where the CK
+  shows a FormID; a double-click on a cell loads it in the Render Window, as "Show in
+  Render Window" does, while a world or "Interior" opens on a click or a double-click.
 - **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
   LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
