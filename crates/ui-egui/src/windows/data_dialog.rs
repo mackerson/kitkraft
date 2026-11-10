@@ -285,6 +285,9 @@ pub struct DataDialogState {
     pub typeahead_at: f64,
     /// The row the list scrolls to once (a type-ahead selection).
     pub scroll_to: Option<usize>,
+    /// A type-ahead selection whose details are not asked yet: they are asked once the
+    /// prefix settles ([`Self::settled`]), not per key (review M2 of D2).
+    pub details_due: bool,
 }
 
 /// A pause longer than this (seconds) starts a new type-ahead prefix.
@@ -426,11 +429,12 @@ impl DataDialogState {
     /// Type-ahead, as the CK selects a row by typing its name (`ck-20261101-01`): `typed`
     /// extends the prefix typed within [`TYPE_AHEAD_PAUSE`] of the last key (a longer
     /// pause starts a new one) and the first row whose name starts with the prefix,
-    /// ignoring case, is selected as a click selects it (its details asked for). No row
-    /// matches: the selection stays.
-    pub fn type_ahead(&mut self, typed: &str, now: f64) -> Option<DataAsk> {
+    /// ignoring case, is selected. Its details are not asked per key: [`Self::settled`]
+    /// asks them once the prefix settles. No row matches: the selection stays. Returns
+    /// whether a row was selected.
+    pub fn type_ahead(&mut self, typed: &str, now: f64) -> bool {
         if typed.is_empty() || typed.chars().any(char::is_control) {
-            return None;
+            return false;
         }
         if !(self.typeahead_at..=self.typeahead_at + TYPE_AHEAD_PAUSE).contains(&now) {
             self.typeahead.clear();
@@ -440,12 +444,31 @@ impl DataDialogState {
             self.typeahead.push_str(&typed.to_lowercase());
         }
         let prefix = self.typeahead.as_str();
-        let i = self
+        let Some(i) = self
             .rows
             .iter()
-            .position(|r| r.name.to_lowercase().starts_with(prefix))?;
+            .position(|r| r.name.to_lowercase().starts_with(prefix))
+        else {
+            return false;
+        };
         self.scroll_to = Some(i);
-        self.select(i)
+        self.selected = Some(i);
+        self.refusal = None;
+        self.details_due = true;
+        true
+    }
+
+    /// The details of a type-ahead selection, once its prefix has settled (no key for
+    /// [`TYPE_AHEAD_PAUSE`], or a clock that went backwards): one request per settled
+    /// prefix, none while keys keep coming.
+    pub fn settled(&mut self, now: f64) -> Option<DataAsk> {
+        if !self.details_due
+            || (self.typeahead_at..=self.typeahead_at + TYPE_AHEAD_PAUSE).contains(&now)
+        {
+            return None;
+        }
+        self.details_due = false;
+        self.selected.and_then(|i| self.select(i))
     }
 
     /// The active-file field's "Use This File": the path becomes the dialog's choice
@@ -686,6 +709,7 @@ impl DataDialogState {
             );
         }
         let height = theme::view_height(ui, View::Medium);
+        let mut row_ids: Vec<egui::Id> = Vec::new();
         ui.columns(2, |cols| {
             let [left, right] = cols else {
                 return;
@@ -697,6 +721,7 @@ impl DataDialogState {
                 .show(left, |ui| {
                     theme::table(ui, "data-dialog-grid").show(ui, |ui| {
                         for i in 0..self.rows.len() {
+                            let typed_to = self.scroll_to == Some(i);
                             let status = self.status(i);
                             let selected = self.selected == Some(i);
                             let Some(r) = self.rows.get_mut(i) else {
@@ -709,7 +734,13 @@ impl DataDialogState {
                             let name = ui.selectable_label(selected, &r.name);
                             ui.label(status);
                             ui.end_row();
-                            if self.scroll_to == Some(i) {
+                            // The list takes the keyboard on a click, as the CK's list does,
+                            // and keeps it on the row type-ahead moved to.
+                            row_ids.push(name.id);
+                            if name.clicked() || typed_to {
+                                name.request_focus();
+                            }
+                            if typed_to {
                                 name.scroll_to_me(None);
                                 self.scroll_to = None;
                             }
@@ -726,12 +757,14 @@ impl DataDialogState {
                 });
             self.details_ui(right);
         });
-        // Type-ahead: letters typed while no text box has the keyboard, once a row is
-        // selected or the pointer is over the dialog, select a row by its name.
-        if !self.rows.is_empty()
-            && !ui.ctx().text_edit_focused()
-            && (self.selected.is_some() || ui.ui_contains_pointer())
-        {
+        // Type-ahead: letters typed while the list has the keyboard (one of its rows is
+        // focused: never from a text box, the Render Window or another window; review M2
+        // of D2) select a row by its name; its details are asked once the prefix settles.
+        let list_has_keys = ui
+            .ctx()
+            .memory(|m| m.focused())
+            .is_some_and(|id| row_ids.contains(&id));
+        if !self.rows.is_empty() && !ui.ctx().text_edit_focused() && list_has_keys {
             let (typed, now) = ui.input(|i| {
                 let typed: String = i
                     .events
@@ -743,9 +776,15 @@ impl DataDialogState {
                     .collect();
                 (typed, i.time)
             });
-            if let Some(a) = self.type_ahead(&typed, now) {
-                ask = Some(a);
-            }
+            self.type_ahead(&typed, now);
+        }
+        let now = ui.input(|i| i.time);
+        if let Some(a) = self.settled(now) {
+            ask = Some(a);
+        }
+        if self.details_due {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_secs_f64(TYPE_AHEAD_PAUSE));
         }
         // R17: KitKraft's addition (the CK's Data dialog has no such field): a new or
         // existing plugin outside the load order as the active file.
@@ -1366,10 +1405,11 @@ mod tests {
     fn type_ahead_selects_a_row_by_its_name() {
         let mut s = opened("plugins");
         // Rows: Starfield.esm, Base.esm, SFBGS099.esm, Mine.esp, Off.esp.
-        assert!(matches!(
-            s.type_ahead("S", 10.0),
-            Some(DataAsk::Details(..))
-        ));
+        assert!(s.type_ahead("S", 10.0));
+        // No details per key: asked once, after the pause (review M2 of D2).
+        assert!(s.settled(10.5).is_none());
+        assert!(matches!(s.settled(11.5), Some(DataAsk::Details(..))));
+        assert!(s.settled(12.5).is_none(), "once per settled prefix");
         assert_eq!(s.selected, Some(0));
         assert_eq!(s.scroll_to, Some(0));
         s.type_ahead("f", 10.3);
@@ -1378,10 +1418,10 @@ mod tests {
         assert_eq!(s.typeahead, "sfb");
         s.type_ahead("m", 12.0);
         assert_eq!(s.selected, Some(3), "a pause starts `m`");
-        assert!(s.type_ahead("x", 12.2).is_none());
+        assert!(!s.type_ahead("x", 12.2));
         assert_eq!(s.selected, Some(3), "`mx` matches nothing");
-        assert!(s.type_ahead("\u{8}", 20.0).is_none());
-        assert!(s.type_ahead("", 20.0).is_none());
+        assert!(!s.type_ahead("\u{8}", 20.0));
+        assert!(!s.type_ahead("", 20.0));
         assert_eq!(s.selected, Some(3));
         s.type_ahead("BA", 30.0);
         assert_eq!(s.selected, Some(1), "case is ignored");

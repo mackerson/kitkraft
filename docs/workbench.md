@@ -611,10 +611,11 @@ revisited once a sitting observes how the CK docks. Code:
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
   the boxes, "No Active File", "Cancel", the "Active file:" line. Type-ahead (sprint
-  2026-11-09): with a row selected (or the pointer over the dialog) and no text box
-  focused, typed letters select the first row whose name starts with them, case ignored;
-  a pause of more than a second starts a new prefix (the CK selects rows this way,
-  `ck-20261101-01`; its timing was not observed).
+  2026-11-09): while the list has the keyboard (a row was clicked; never from a text box,
+  the Render Window or another window), typed letters select the first row whose name
+  starts with them, case ignored; a pause of more than a second starts a new prefix, and
+  the selected row's header is asked once the prefix settles, not per key (the CK selects
+  rows this way, `ck-20261101-01`; its timing was not observed).
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.

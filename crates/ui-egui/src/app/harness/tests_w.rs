@@ -1012,6 +1012,10 @@ fn typing_a_name_selects_its_row() {
     h.run_steps(2);
     settle(&mut h);
     assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    // The header is asked once the prefix settles (review M2 of D2).
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.run_steps(2);
+    settle(&mut h);
     assert_in_view(&h, "Author: KitAuthor");
     // A letter no row starts with, after a pause: the selection stays.
     h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
@@ -1023,4 +1027,61 @@ fn typing_a_name_selects_its_row() {
     h.run_steps(2);
     settle(&mut h);
     assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+}
+
+/// D2 review M2: type-ahead takes keys only while the dialog's list has the keyboard
+/// (a row clicked, as the CK's list takes its keys), never while focus is elsewhere (the
+/// Render Window flying on W/A/S/D, another window) or nowhere, whatever row was selected
+/// before; and a type-ahead selection asks for no `inspect` per key: the row's details are
+/// asked once, when the prefix settles.
+#[test]
+fn type_ahead_takes_keys_only_from_the_list() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("typeahead-focus");
+    let base = dir.write(
+        "Base.esm",
+        &with_author(plugin_bytes(&[], 1, &[0x800], 1.0), "KitAuthor"),
+    );
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+    click_row(&mut h, "Mine.esp");
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+    // Focus moves away from the list (as a click into the Render Window does), the pointer
+    // leaves: `b` must not reach the dialog.
+    let ctx = h.ctx.clone();
+    ctx.memory_mut(|m| {
+        if let Some(id) = m.focused() {
+            m.surrender_focus(id);
+        }
+    });
+    h.remove_cursor();
+    h.run_steps(1);
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(2);
+    assert_eq!(
+        h.state().app.shell.data_dialog.selected,
+        Some(1),
+        "keys typed elsewhere stay elsewhere"
+    );
+    // Back in the list: `b` selects Base.esm, and no `inspect` goes out per key.
+    click_row(&mut h, "Mine.esp");
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(1);
+    let d = &h.state().app.shell.data_dialog;
+    assert_eq!(d.selected, Some(0));
+    assert!(d.details_pending.is_none(), "no inspect per key");
+    assert!(h.state().app.shell.tickets.is_empty(), "no inspect per key");
+    // The prefix settles: the details are asked once.
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.run_steps(2);
+    settle(&mut h);
+    assert_in_view(&h, "Author: KitAuthor");
 }
