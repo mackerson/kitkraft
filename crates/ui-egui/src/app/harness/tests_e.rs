@@ -1154,9 +1154,10 @@ fn m7_e4_two_placements_in_one_session_both_write() {
 
 // ---- M7.W4: the sitting-2 layouts --------------------------------------------------------
 
-/// M7.W4 in the window's own frame: a KYWD record opens in its dialog (the default layout
-/// from the schema: the tabs are ours), and the dialog says its labels were observed in
-/// CK sitting 2. The KYWD is made here through the gate's confirmed `new`.
+/// M7.W4 in the window's own frame: a KYWD record opens in its dialog (since D6 of sprint
+/// 2026-11-09, `layouts/KYWD.toml`: the observed labels on one page whose tabs the sitting
+/// did not record), and the dialog says its labels were observed in CK sitting 2. The KYWD
+/// is made here through the gate's confirmed `new`.
 #[test]
 fn m7_w4_a_sitting_two_type_opens_in_its_layout_and_says_what_was_observed() {
     use crate::dialogs::new;
@@ -1182,7 +1183,8 @@ fn m7_w4_a_sitting_two_type_opens_in_its_layout_and_says_what_was_observed() {
     app.apply(vec![Action::Inspect("KkKeyword".to_string())]);
     app.shell.set_open(WindowKind::EditDialog, true);
     settle(&mut h);
-    assert_in_view(&h, "default layout from schema");
+    assert_in_view(&h, "layouts/KYWD.toml");
+    assert_in_view(&h, "Linkage Name");
     assert_in_view(&h, "CK labels observed (ck-20261102-03)");
 }
 

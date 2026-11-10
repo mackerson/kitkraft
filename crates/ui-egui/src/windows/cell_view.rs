@@ -4,6 +4,13 @@
 //! world's exterior cells with their grid; the right list shows the references of
 //! the selected cell. Both lists are `virtual_table`s, both paged. No engine logic
 //! here: every value comes from the envelope (the engine's `CELL` data shape).
+//!
+//! M7.W2 rest (sprint 2026-11-09), as `ck-20261101-03` observed the CK's Cell View: a
+//! "Cell Filter" box narrows the left list to the rows whose EditorID or form contains
+//! its text (case ignored; the rows loaded so far, so a paged list filters what it has);
+//! a row's tooltip names it as `'EditorID' (form)`; a double-click on a cell loads it in
+//! the Render Window (as "Show in Render Window" does), while a double-click on a world
+//! or "Interior" opens it as a click does.
 
 use serde_json::{json, Map, Value};
 
@@ -93,6 +100,8 @@ pub struct CellViewState {
     /// The load (`LoadTab::data`) the shown cell's references were last asked under (E's
     /// ask D2).
     pub seen_load: Option<u64>,
+    /// The "Cell Filter" box's text (M7.W2 rest).
+    pub filter: String,
 }
 
 impl CellViewState {
@@ -516,6 +525,49 @@ fn message_of(e: &str) -> &str {
     }
 }
 
+impl Entry {
+    /// The row's tooltip, as the CK's Cell View names a cell (`'EditorID' (FormID)`,
+    /// `ck-20261101-03`): here the engine's formref in the parentheses.
+    pub fn hover(&self) -> String {
+        match &self.form {
+            Some(f) => format!("'{}' ({f})", self.editor_id),
+            None => "the interior cells".to_string(),
+        }
+    }
+
+    /// What a click (`double: false`) or a double-click on the row asks: a world opens
+    /// its exterior cells and "Interior" the interior cells either way; a cell shows its
+    /// references on a click and loads in the Render Window on a double-click.
+    pub fn activate(&self, double: bool) -> CellViewAsk {
+        match (self.form.as_deref(), self.kind) {
+            (Some(f), "world") => CellViewAsk::World(f.to_string()),
+            (Some(f), _) if double => CellViewAsk::ShowCell(f.to_string()),
+            (Some(f), _) => CellViewAsk::Cell(f.to_string()),
+            (None, _) => CellViewAsk::Interiors,
+        }
+    }
+}
+
+impl CellViewState {
+    /// The left list's rows the "Cell Filter" box keeps, by index: every row when the
+    /// box is empty, else those whose EditorID or form contains its text, case ignored.
+    pub fn shown_rows(&self) -> Vec<usize> {
+        let f = self.filter.trim().to_lowercase();
+        self.list
+            .iter()
+            .enumerate()
+            .filter(|(_, e)| {
+                f.is_empty()
+                    || e.editor_id.to_lowercase().contains(&f)
+                    || e.form
+                        .as_deref()
+                        .is_some_and(|x| x.to_lowercase().contains(&f))
+            })
+            .map(|(i, _)| i)
+            .collect()
+    }
+}
+
 impl CellViewState {
     /// Draws the window's content: the list on the left, the selected cell's
     /// references on the right. `inspected` is the shared selection (the
@@ -588,7 +640,7 @@ impl CellViewState {
 
     /// The list on the left: worldspaces (with "Interior" first), the interior
     /// cells, or one world's exterior cells with their grid, paged.
-    fn left_list(&self, ui: &mut egui::Ui, busy: bool, ask: &mut Option<CellViewAsk>) {
+    fn left_list(&mut self, ui: &mut egui::Ui, busy: bool, ask: &mut Option<CellViewAsk>) {
         let heading = match self.list_mode {
             Some(ListMode::Worlds) => "worldspaces",
             Some(ListMode::Interior) => "interior cells",
@@ -602,14 +654,31 @@ impl CellViewState {
             }
             ui.weak(format!("{} row(s)", self.list_total));
         });
+        ui.horizontal(|ui| {
+            let label = ui.label("Cell Filter");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.filter)
+                    .hint_text("EditorID or form")
+                    .desired_width(ui.available_width()),
+            )
+            .labelled_by(label.id);
+        });
+        let shown = self.shown_rows();
+        if shown.len() < self.list.len() {
+            ui.weak(format!(
+                "{} of {} loaded row(s) match",
+                shown.len(),
+                self.list.len()
+            ));
+        }
         virtual_table(
             ui,
             "cell-view-list",
             &["kind", "editor id", "grid", "refs"],
-            self.list.len(),
+            shown.len(),
             View::Tall,
-            |row, i| {
-                let Some(e) = self.list.get(i) else {
+            |row, k| {
+                let Some(e) = shown.get(k).and_then(|i| self.list.get(*i)) else {
                     return;
                 };
                 row.cell(|ui| ui.label(e.kind));
@@ -621,12 +690,11 @@ impl CellViewState {
                 });
                 row.cell(|ui| ui.label(e.grid.as_deref().unwrap_or("")));
                 row.num(e.records.map(|n| n.to_string()).unwrap_or_default());
-                if id.clicked() {
-                    *ask = Some(match (e.form.as_deref(), e.kind) {
-                        (Some(f), "world") => CellViewAsk::World(f.to_string()),
-                        (Some(f), _) => CellViewAsk::Cell(f.to_string()),
-                        (None, _) => CellViewAsk::Interiors,
-                    });
+                let id = id.on_hover_text(e.hover());
+                if id.double_clicked() {
+                    *ask = Some(e.activate(true));
+                } else if id.clicked() {
+                    *ask = Some(e.activate(false));
                 }
             },
         );
@@ -1034,6 +1102,60 @@ mod tests {
         // A form not in the list, and no selection, mark nothing.
         assert_eq!(s.selected_row(Some("Starfield.esm:0A6F09")), None);
         assert_eq!(s.selected_row(None), None);
+    }
+
+    /// M7.W2 rest: the "Cell Filter" box keeps the rows whose EditorID or form contains its
+    /// text, case ignored (an empty box keeps every row; no match keeps none).
+    #[test]
+    fn the_cell_filter_narrows_the_list() {
+        let mut s = CellViewState::default();
+        s.interiors();
+        s.receive(Ok(&interiors_env()));
+        assert_eq!(s.shown_rows(), [0, 1]);
+        s.filter = "office".into();
+        assert_eq!(s.shown_rows(), [1]);
+        s.filter = " APARTMENT ".into();
+        assert_eq!(s.shown_rows(), [0]);
+        s.filter = "21967".into();
+        assert_eq!(s.shown_rows(), [1], "by form too");
+        s.filter = "nothing like it".into();
+        assert!(s.shown_rows().is_empty());
+        s.filter.clear();
+        assert_eq!(s.shown_rows().len(), 2);
+    }
+
+    /// M7.W2 rest: a cell row's tooltip names it as the CK does (`'EditorID' (FormID)`,
+    /// with the engine's formref), and a double-click on a cell loads it in the Render
+    /// Window while a click shows its references; a world opens on either.
+    #[test]
+    fn a_cells_tooltip_names_it_and_a_double_click_loads_it() {
+        let mut s = CellViewState::default();
+        s.interiors();
+        s.receive(Ok(&interiors_env()));
+        let cell = &s.list[0];
+        assert_eq!(
+            cell.hover(),
+            "'CityNewAtlantisApartmentTEMPLATE' (Starfield.esm:21966F)"
+        );
+        assert!(
+            matches!(cell.activate(true), CellViewAsk::ShowCell(f) if f == "Starfield.esm:21966F")
+        );
+        assert!(
+            matches!(cell.activate(false), CellViewAsk::Cell(f) if f == "Starfield.esm:21966F")
+        );
+        s.worlds();
+        s.receive(Ok(&worlds_env()));
+        assert_eq!(s.list[0].hover(), "the interior cells");
+        assert!(matches!(s.list[0].activate(true), CellViewAsk::Interiors));
+        assert!(
+            matches!(s.list[1].activate(true), CellViewAsk::World(f) if f == "Starfield.esm:000001")
+        );
+        assert!(matches!(s.list[1].activate(false), CellViewAsk::World(_)));
+        s.world("Starfield.esm:000001");
+        s.receive(Ok(&world_env()));
+        assert!(
+            matches!(s.list[1].activate(true), CellViewAsk::ShowCell(f) if f == "Starfield.esm:219672")
+        );
     }
 }
 

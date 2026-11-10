@@ -1,0 +1,90 @@
+# Edit-dialog layout for CONT (M7.W4, sprint 2026-11-09 D6; dialogs/mod.rs reads it).
+# One page: one group per label that CK sitting 2 (ck-20261102-03) recorded and
+# M7.K4 mapped (layouts/sitting2.toml `map`), in the record's order. The
+# group's name is the observed label, its field the signature the label edits and
+# its member the `set` field path. Labels M7.K4 could not map are listed by the dialog
+# from sitting2.toml's `gaps`, read-only, with their reasons. The page's name is the
+# dialog's observed title ("Container").
+# The sitting did not record whether the dialog has tabs: one page is ours (observed = false).
+type = "CONT"
+parity = "Edit dialog: CONT"
+observed = false
+
+[[tab]]
+name = "Container"
+[[tab.group]]
+name = "ID"
+fields = ["EDID"]
+members = ["EDID"]
+[[tab.group]]
+name = "Name"
+fields = ["FULL"]
+members = ["FULL"]
+[[tab.group]]
+name = "Model"
+fields = ["MODL"]
+members = ["MODL"]
+[[tab.group]]
+name = "Object"
+fields = ["CNTO"]
+members = ["CNTO.Item"]
+[[tab.group]]
+name = "Count"
+fields = ["CNTO"]
+members = ["CNTO.Count"]
+[[tab.group]]
+name = "Item List"
+fields = ["CNTO"]
+members = ["CNTO"]
+[[tab.group]]
+name = "Owner"
+fields = ["COED"]
+members = ["COED.Owner"]
+[[tab.group]]
+name = "Health %"
+fields = ["COED"]
+members = ["COED.ItemCondition"]
+[[tab.group]]
+name = "Papyrus Scripts:"
+fields = ["VMAD"]
+members = ["VMAD"]
+[[tab.group]]
+name = "Keywords"
+fields = ["KWDA"]
+members = ["KWDA"]
+[[tab.group]]
+name = "Preview Transform"
+fields = ["PTT2"]
+members = ["PTT2.Preview"]
+[[tab.group]]
+name = "Native Terminal"
+fields = ["NTRM"]
+members = ["NTRM"]
+[[tab.group]]
+name = "Contains Only"
+fields = ["ONAM"]
+members = ["ONAM"]
+[[tab.group]]
+name = "Actor Values"
+fields = ["PRPS"]
+members = ["PRPS"]
+[[tab.group]]
+name = "Forced Loc Ref Types:"
+fields = ["FTYP"]
+members = ["FTYP"]
+[[tab.group]]
+name = "Attach Parent Slots"
+fields = ["APPR"]
+members = ["APPR"]
+[[tab.group]]
+name = "Snap Template"
+fields = ["SNTP"]
+members = ["SNTP"]
+[[tab.group]]
+name = "Respawns"
+fields = ["DATA"]
+members = ["DATA"]
+[[tab.group]]
+name = "Show Owner"
+fields = ["DATA"]
+members = ["DATA"]

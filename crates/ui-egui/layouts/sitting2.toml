@@ -5,10 +5,17 @@
 # dialogs' tabs and groups stay KitKraft's (layouts/<TYPE>.toml, or the default layout
 # from the schema); M7.K4 maps each label to a schema member.
 #
-# M7.K4's mapping goes in each [[dialog]] as explicit pairs, one per label:
+# M7.K4's mapping (sprint 2026-11-09) goes in each [[dialog]] as explicit pairs:
 #   map = [{ label = "ID", member = "EDID" }, ...]
-# where `member` is a `set` field path of the type (`SIG` or `SIG.Member`). A label
-# without a pair is a gap (dialogs::layouts::tests, the members check, pins the list).
+# where `member` is a `set` field path of the type (`SIG`, `SIG.Member` or
+# `SIG.Member.Member`), and every other label is a gap with its reason:
+#   gaps = [{ label = "Edit", reason = "a button or control, not a field" }, ...]
+# A label is mapped only where the type's schema has the member and the label plainly
+# names it; a flag label names the flags member that holds its bit. A list's column is
+# mapped when a field path reaches it row by row (CNTO[n].Item); a PRPS list's columns
+# are gaps, since `set` takes PRPS whole. Buttons, captions, record header flags (`set`
+# edits subrecords only) and labels the sitting did not tie to one field are gaps. Both lists follow the labels' order;
+# dialogs::layouts::tests (the members check) pins the pairs and the counts.
 
 [[dialog]]
 type = "WEAP"
@@ -51,6 +58,31 @@ labels = [
   "Sound",
   "Add Destruction Data",
 ]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Name", member = "FULL" },
+  { label = "Short name", member = "ONAM" },
+  { label = "Value", member = "DATA.Value" },
+  { label = "Model", member = "MODL" },
+  { label = "Pickup Sound", member = "PUSH" },
+  { label = "Putdown Sound", member = "PDSH" },
+  { label = "Projectile", member = "DNAM.Projectile" },
+  { label = "Damage", member = "DNAM.Damage" },
+  { label = "Description", member = "DESC" },
+  { label = "Keywords", member = "KWDA" },
+  { label = "Preview Transform", member = "PTT2.Preview" },
+  { label = "Shell Casing", member = "NAM1" },
+  { label = "Health", member = "DNAM.Health" },
+  { label = "Weight", member = "DATA.Weight" },
+  { label = "Flags (Playable, Has Count Based 3D)", member = "DNAM.Flags" },
+]
+gaps = [
+  { label = "Edit", reason = "a button or control, not a field" },
+  { label = "Properties", reason = "AMMO's schema has no PRPS; not known which field it edits" },
+  { label = "Art", reason = "not known which field it edits" },
+  { label = "Sound", reason = "not known which field it edits" },
+  { label = "Add Destruction Data", reason = "a button or control, not a field (it adds the DEST group)" },
+]
 
 [[dialog]]
 type = "COBJ"
@@ -84,6 +116,33 @@ labels = [
   "Value",
   "Exclude From Workshop LOD",
   "New",
+]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Created Object", member = "CNAM" },
+  { label = "Created Object Count", member = "NNAM" },
+  { label = "Required Item List", member = "FVPA" },
+  { label = "Workbench Keyword", member = "BNAM" },
+  { label = "Recipe Filters", member = "FNAM" },
+  { label = "Pickup Sound:", member = "PUSH" },
+  { label = "Putdown Sound:", member = "PDSH" },
+  { label = "Crafting Sound: (each with Select Audio Data)", member = "CUSH" },
+  { label = "Priority", member = "SNAM" },
+  { label = "Menu Art Object", member = "ANAM" },
+  { label = "Description", member = "DESC" },
+  { label = "Learned From", member = "GNAM" },
+  { label = "Base Return Scale Table", member = "CVT0" },
+  { label = "Required Perks", member = "RQPK" },
+  { label = "Max Build Count", member = "JNAM" },
+  { label = "Value", member = "DATA" },
+  { label = "Exclude From Workshop LOD", member = "RECF" },
+]
+gaps = [
+  { label = "List Contains Variants", reason = "no member of this type's schema" },
+  { label = "Match Conditions", reason = "not known which field it edits (the CTDA conditions or a flag)" },
+  { label = "Extra Scrapping Items", reason = "no member of this type's schema" },
+  { label = "Workbench Repair Recipe", reason = "not known which field it edits (REPR holds repair components, not a recipe)" },
+  { label = "New", reason = "a button or control, not a field" },
 ]
 
 [[dialog]]
@@ -132,6 +191,46 @@ labels = [
   "Public Area",
   "Off Limits",
 ]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Name", member = "FULL" },
+  { label = "Parent Location", member = "PNAM" },
+  { label = "World Location Marker Ref", member = "MNAM" },
+  { label = "Music Type", member = "NAM1" },
+  { label = "Unreported Crime Faction", member = "FNAM" },
+  { label = "Actor Fade Mult", member = "ANAM" },
+  { label = "World Location Radius", member = "RNAM" },
+  { label = "Random Conversation Timer", member = "TNAM" },
+  { label = "Color (R, G, B, Select)", member = "CNAM" },
+  { label = "Keywords", member = "KWDA" },
+  { label = "Match PC Below Minimum Level", member = "DATA.LevelFlags" },
+  { label = "Never Resets", member = "DATA.LevelFlags" },
+  { label = "Disable Combat Boundary", member = "DATA.LevelFlags" },
+  { label = "Workshop", member = "DATA.LevelFlags" },
+  { label = "Min Level:", member = "DATA.MinLevel" },
+  { label = "Max Level:", member = "DATA.MaxLevel" },
+  { label = "Required Rank", member = "DATA.FactionRank" },
+  { label = "Use parent", member = "DATA.LevelFlags" },
+]
+gaps = [
+  { label = "Encounter Zone", reason = "no member of this type's schema" },
+  { label = "Select Reference", reason = "a button or control, not a field" },
+  { label = "Horse Marker Ref", reason = "no member of this type's schema" },
+  { label = "Select Horse Marker", reason = "a button or control, not a field" },
+  { label = "Interior cells use ref location for world map player marker", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Actor Value", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Amount", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Base Actor Values", reason = "LCTN has two PRPS lists; not known which one it edits" },
+  { label = "Encounter Leveling Data", reason = "a group caption, not a field" },
+  { label = "Analyze Loot", reason = "a button or control, not a field" },
+  { label = "Level", reason = "not known which field it edits" },
+  { label = "NPC", reason = "an owner kind; both kinds edit DATA.Owner and the sitting did not record which is chosen" },
+  { label = "Faction", reason = "an owner kind; both kinds edit DATA.Owner and the sitting did not record which is chosen" },
+  { label = "Ownership", reason = "a group caption, not a field" },
+  { label = "Location Ref Type Filter", reason = "no member of this type's schema" },
+  { label = "Public Area", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Off Limits", reason = "a record header flag; `set` edits subrecords only" },
+]
 
 [[dialog]]
 type = "TERM"
@@ -168,6 +267,36 @@ labels = [
   "Add",
   "Remove",
   "Properties",
+]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Name", member = "FULL" },
+  { label = "Model", member = "MODL" },
+  { label = "Marker Model", member = "XMRK" },
+  { label = "Looping Sound (Select Audio Data)", member = "ALSH" },
+  { label = "Papyrus Scripts:", member = "VMAD" },
+  { label = "Keywords", member = "KWDA" },
+  { label = "Actor Values", member = "PRPS" },
+  { label = "Preview Transform", member = "PTT2.Preview" },
+  { label = "Forced Loc Ref Types:", member = "FTYP" },
+  { label = "Art Theme", member = "NAM1" },
+  { label = "Furniture Template", member = "FTMP" },
+  { label = "Ignored By Sandbox", member = "FNAM" },
+  { label = "Active Markers", member = "MNAM" },
+]
+gaps = [
+  { label = "Edit", reason = "a button or control, not a field" },
+  { label = "Actor Value", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Amount", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Desktop Menu", reason = "two terminal-menu members (DNAM, NTRM); not known which one it edits" },
+  { label = "Animation Graph Component", reason = "a base-form component, kept raw in the BFCB block" },
+  { label = "Make Wall Terminal", reason = "not known which field it edits" },
+  { label = "Make Desk Terminal", reason = "not known which field it edits" },
+  { label = "Random Anim Start", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Add Destruction Data", reason = "a button or control, not a field (it adds the DEST group)" },
+  { label = "Add", reason = "a button or control, not a field" },
+  { label = "Remove", reason = "a button or control, not a field" },
+  { label = "Properties", reason = "not known which field it edits" },
 ]
 
 [[dialog]]
@@ -227,6 +356,57 @@ labels = [
   "Remove",
   "Properties",
 ]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Name", member = "FULL" },
+  { label = "Model", member = "MODL" },
+  { label = "Object", member = "CNTO.Item" },
+  { label = "Count", member = "CNTO.Count" },
+  { label = "Item List", member = "CNTO" },
+  { label = "Owner", member = "COED.Owner" },
+  { label = "Health %", member = "COED.ItemCondition" },
+  { label = "Papyrus Scripts:", member = "VMAD" },
+  { label = "Keywords", member = "KWDA" },
+  { label = "Preview Transform", member = "PTT2.Preview" },
+  { label = "Native Terminal", member = "NTRM" },
+  { label = "Contains Only", member = "ONAM" },
+  { label = "Actor Values", member = "PRPS" },
+  { label = "Forced Loc Ref Types:", member = "FTYP" },
+  { label = "Attach Parent Slots", member = "APPR" },
+  { label = "Snap Template", member = "SNTP" },
+  { label = "Respawns", member = "DATA" },
+  { label = "Show Owner", member = "DATA" },
+]
+gaps = [
+  { label = "Edit", reason = "a button or control, not a field" },
+  { label = "Preview Level", reason = "a button or control, not a field" },
+  { label = "Preview Calculated Result", reason = "a button or control, not a field" },
+  { label = "NPC", reason = "an owner kind; both kinds edit COED.Owner and the sitting did not record which is chosen" },
+  { label = "Global Variable", reason = "COED.GlobalOrRank is kept raw (a global or a rank)" },
+  { label = "Faction", reason = "an owner kind; both kinds edit COED.Owner and the sitting did not record which is chosen" },
+  { label = "Required Rank", reason = "COED.GlobalOrRank is kept raw (a global or a rank)" },
+  { label = "Sounds (Open, Close, Select Audio Data)", reason = "one label for two members (WED0, WED1)" },
+  { label = "Collision Geometry", reason = "a navmesh import option; no header flag or member of this type's schema holds it" },
+  { label = "Bounding Box", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Filter", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Only Cut", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "NavMesh Generation Import Option", reason = "a group caption, not a field" },
+  { label = "Ground", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Collect From 3D", reason = "a button or control, not a field" },
+  { label = "Scripts", reason = "a group caption, not a field" },
+  { label = "Take All", reason = "no member of this type's schema" },
+  { label = "Actor Value", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Amount", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Mod Data", reason = "no member of this type's schema" },
+  { label = "Display Slots", reason = "no member of this type's schema" },
+  { label = "Object Template", reason = "the OBTE block is a group of combinations, not one field" },
+  { label = "Random Anim Start", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Obstacle", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Add Destruction Data", reason = "a button or control, not a field (it adds the DEST group)" },
+  { label = "Add", reason = "a button or control, not a field" },
+  { label = "Remove", reason = "a button or control, not a field" },
+  { label = "Properties", reason = "not known which field it edits" },
+]
 
 [[dialog]]
 type = "STAT"
@@ -275,6 +455,47 @@ labels = [
   "Show in world map (ref must be in sky cell)",
   "Has Currents",
 ]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Display Name", member = "FULL" },
+  { label = "Model", member = "MODL" },
+  { label = "Object Palette Defaults", member = "OPDS" },
+  { label = "Actor Values", member = "PRPS" },
+  { label = "Preview Transform", member = "PTT2.Preview" },
+  { label = "Leaf Amplitude", member = "DNAM.Leaf.LeafAmplitude" },
+  { label = "Leaf Frequency", member = "DNAM.Leaf.LeafFrequency" },
+  { label = "Default Layer", member = "DEFL" },
+  { label = "Snap Template", member = "SNTP" },
+  { label = "Snap Behavior", member = "SNBH" },
+  { label = "Forced Loc Ref Type", member = "FTYP" },
+]
+gaps = [
+  { label = "Edit", reason = "a button or control, not a field" },
+  { label = "Collision Geometry", reason = "a navmesh import option; no header flag or member of this type's schema holds it" },
+  { label = "Bounding Box", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Filter", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Only Cut", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Ignore Erosion", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "Ground", reason = "a navmesh import option, kept in the record header flags; `set` edits subrecords only" },
+  { label = "NavMesh Generation Import Option", reason = "a group caption, not a field" },
+  { label = "Actor Value", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Amount", reason = "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" },
+  { label = "Pack-In Use Only", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Flutter Data", reason = "a group caption, not a field" },
+  { label = "Used As Platform", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Keywords", reason = "STAT's schema has no Keywords (KSIZ, KWDA) member" },
+  { label = "High cost Path", reason = "no member of this type's schema" },
+  { label = "Looping Sound (Select Audio Data)", reason = "not known whether it edits STLS (the schema's AmbientSound)" },
+  { label = "On Local Map", reason = "probably the inverse of the HiddenFromLocalMap record header flag; `set` edits subrecords only" },
+  { label = "Obstacle", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Is Marker", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Headtrack Marker", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Has Platform/Language Specific Textures", reason = "no member of this type's schema" },
+  { label = "Non Occluder", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Heading Marker", reason = "a record header flag; `set` edits subrecords only" },
+  { label = "Show in world map (ref must be in sky cell)", reason = "no member of this type's schema" },
+  { label = "Has Currents", reason = "a record header flag; `set` edits subrecords only" },
+]
 
 [[dialog]]
 type = "KYWD"
@@ -293,4 +514,16 @@ labels = [
   "Notes",
   "Editor Color (R, G, B, Select Color)",
   "Restricted",
+]
+map = [
+  { label = "ID", member = "EDID" },
+  { label = "Display Name", member = "FULL" },
+  { label = "Type", member = "TNAM" },
+  { label = "Rule", member = "DATA" },
+  { label = "Linkage Name", member = "ENAM" },
+  { label = "Notes", member = "DNAM" },
+  { label = "Editor Color (R, G, B, Select Color)", member = "CNAM" },
+]
+gaps = [
+  { label = "Restricted", reason = "a record header flag; `set` edits subrecords only" },
 ]
