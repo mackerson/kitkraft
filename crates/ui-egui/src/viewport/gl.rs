@@ -34,6 +34,7 @@ use std::time::{Duration, Instant};
 use eframe::egui_glow::{self, ShaderVersion};
 use eframe::glow::{self, HasContext};
 
+use super::mesh;
 use super::scene::{self, SceneColors, Shape, INSTANCE_FLOATS, LINE_LAYOUT};
 use super::shaders::{self, ProgramSrc};
 use super::Frame;
@@ -532,6 +533,12 @@ struct GlScene {
     grid: Mesh,
     axes: Mesh,
     shapes: Vec<ShapeGl>,
+    /// M7.R4: the bases' triangles in world space, as wireframe lines and flat faces,
+    /// and the program for the faces; the generation uploaded.
+    mesh_faces_program: Program,
+    mesh_lines: Mesh,
+    mesh_faces: Mesh,
+    meshes_uploaded: Option<u64>,
     /// The generation of the markers uploaded, and of the selection.
     uploaded: Option<u64>,
     selected: Option<(Shape, [f32; INSTANCE_FLOATS])>,
@@ -637,6 +644,10 @@ impl GlScene {
                 &scene::line_floats(&scene::axis_lines(colors)),
             )?,
             shapes,
+            mesh_faces_program: Program::new(gl, made, &shaders::MESH_FACES, header)?,
+            mesh_lines: Mesh::new(gl, made, &LINE_LAYOUT, &[])?,
+            mesh_faces: Mesh::new(gl, made, &mesh::FACE_LAYOUT, &[])?,
+            meshes_uploaded: None,
             uploaded: None,
             selected: None,
             colors: *colors,
@@ -670,6 +681,11 @@ impl GlScene {
                 gl_shape.all.upload(gl, floats)?;
             }
             self.uploaded = Some(frame.markers.generation);
+        }
+        if self.meshes_uploaded != Some(frame.meshes.generation) {
+            self.mesh_lines.upload(gl, &frame.meshes.lines)?;
+            self.mesh_faces.upload(gl, &frame.meshes.faces)?;
+            self.meshes_uploaded = Some(frame.meshes.generation);
         }
         if frame.selected != self.selected {
             for (shape, gl_shape) in Shape::ALL.iter().zip(&mut self.shapes) {
@@ -746,6 +762,9 @@ impl GlScene {
             if solid {
                 gl.depth_mask(true);
                 calls = calls.saturating_add(self.draw_faces(gl, frame, &mut instances));
+                // A mesh's winding is not known to face outward: both sides are drawn.
+                gl.disable(glow::CULL_FACE);
+                calls = calls.saturating_add(self.draw_mesh_faces(gl, frame));
             }
             gl.disable(glow::POLYGON_OFFSET_FILL);
             gl.disable(glow::CULL_FACE);
@@ -778,6 +797,13 @@ impl GlScene {
             gl.depth_mask(true);
             self.axes.draw(gl, glow::LINES);
             calls = calls.saturating_add(2);
+            // The meshes' wireframe (M7.R4), already in world space, in the modes that
+            // draw outlines.
+            if !solid && self.mesh_lines.count > 0 {
+                gl.uniform_matrix_4_f32_slice(self.lines.at(shaders::U_MODEL), false, &IDENTITY);
+                self.mesh_lines.draw(gl, glow::LINES);
+                calls = calls.saturating_add(1);
+            }
 
             // 4. Marker outlines (dark in the solid mode, each marker's color otherwise),
             //    then the see-through faces over them without writing depth.
@@ -799,6 +825,7 @@ impl GlScene {
             if !solid && frame.face_alpha > 0.0 {
                 gl.depth_mask(false);
                 calls = calls.saturating_add(self.draw_faces(gl, frame, &mut instances));
+                calls = calls.saturating_add(self.draw_mesh_faces(gl, frame));
                 gl.depth_mask(true);
             } else if !solid {
                 instances = self.shapes.iter().fold(0u32, |n, s| {
@@ -868,8 +895,33 @@ impl GlScene {
     }
 }
 
+impl GlScene {
+    /// The meshes' flat faces (M7.R4), at the frame's face opacity; returns the draw calls
+    /// (0 when there are none).
+    fn draw_mesh_faces(&self, gl: &glow::Context, frame: &Frame) -> u32 {
+        if self.mesh_faces.count == 0 {
+            return 0;
+        }
+        let p = &self.mesh_faces_program;
+        // SAFETY: see the module docs; the vertex count is the uploaded one.
+        unsafe {
+            gl.use_program(Some(p.program));
+            gl.uniform_matrix_4_f32_slice(p.at(shaders::U_VIEW_PROJ), false, &frame.view_proj);
+            gl.uniform_3_f32_slice(p.at(shaders::U_LIGHT), &frame.light);
+            gl.uniform_1_f32(p.at(shaders::U_ALPHA), frame.face_alpha);
+        }
+        self.mesh_faces.draw(gl, glow::TRIANGLES);
+        1
+    }
+}
+
 /// A fade range no line reaches.
 const NO_FADE: [f32; 2] = [1.0e9, 2.0e9];
+
+/// The identity model matrix (column-major), for lines already in world space.
+const IDENTITY: [f32; 16] = [
+    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+];
 
 #[cfg(test)]
 mod tests {
