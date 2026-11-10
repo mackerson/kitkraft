@@ -224,6 +224,9 @@ impl BaseMesh {
             .map(|l| {
                 l.iter()
                     .filter_map(Value::as_str)
+                    // Mirrors the wording of the engine's `format!` lines in `handlers/mesh.rs`
+                    // `geometry` (no shared constant): "block {n}: ..." for a skipped block and
+                    // "... are not reached from the root ..." (review I4 of the R4 fix round).
                     .filter(|s| {
                         s.starts_with("block ") || s.contains("are not reached from the root")
                     })
