@@ -1333,3 +1333,35 @@ fn a_mesh_index_file_over_the_cap_is_refused() {
         .unwrap();
     assert!(!build(&data, Some(&cache)).from_cache);
 }
+
+/// Review L2 of M7.R5: a temp file another process left mid-write (killed between the
+/// write and the rename) is swept once it is old; this process's own, a recent one and
+/// any other file are kept.
+#[test]
+fn stale_mesh_index_temp_files_of_other_processes_are_swept() {
+    use std::time::{Duration, SystemTime};
+    let d = dir("mesh-index-sweep");
+    let old = SystemTime::now() - Duration::from_secs(600);
+    let make = |name: &str, aged: bool| {
+        let p = d.join(name);
+        std::fs::write(&p, b"x").unwrap();
+        if aged {
+            std::fs::File::options()
+                .write(true)
+                .open(&p)
+                .unwrap()
+                .set_modified(old)
+                .unwrap();
+        }
+        p
+    };
+    let pid = std::process::id();
+    let dead = make("mesh-index-v2-0123456789abcdef.tmp999999-0", true);
+    let own = make(&format!("mesh-index-v2-0123456789abcdef.tmp{pid}-3"), true);
+    let recent = make("mesh-index-v2-0123456789abcdef.tmp999998-0", false);
+    let other = make("0123456789abcdef.kcidx", true);
+    let removed = super::mesh::sweep_mesh_temps(&d, Duration::from_secs(120));
+    assert_eq!(removed, 1);
+    assert!(!dead.exists());
+    assert!(own.exists() && recent.exists() && other.exists());
+}

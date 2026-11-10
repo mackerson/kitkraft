@@ -549,17 +549,58 @@ fn write_cache_file(file: &Path, bytes: &[u8]) {
     }
     let serial = SERIAL.fetch_add(1, Ordering::Relaxed);
     let tmp = file.with_extension(format!("tmp{}-{serial}", std::process::id()));
-    if std::fs::write(&tmp, bytes).is_err() || std::fs::rename(&tmp, file).is_err() {
+    // On disk before the rename (review L2 of M7.R5), as `IndexCache::store` does.
+    let written = File::create(&tmp).and_then(|mut f| {
+        std::io::Write::write_all(&mut f, bytes)?;
+        f.sync_all()
+    });
+    if written.is_err() || std::fs::rename(&tmp, file).is_err() {
         let _ = std::fs::remove_file(&tmp);
     }
 }
 
-/// The index-cache folder the mesh index uses, or none when `no_cache` is set.
+/// Removes the mesh index temp files (`mesh-index-*.tmp<pid>-<serial>`) in `dir` that
+/// another process left (killed between its write and its rename) and that have not
+/// changed for `min_age`; this process's own are kept. Returns how many were removed
+/// (review L2 of M7.R5: `IndexCache::sweep_stale_temps` matches only its own names).
+pub(super) fn sweep_mesh_temps(dir: &Path, min_age: std::time::Duration) -> usize {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let own = format!(".tmp{}-", std::process::id());
+    let now = std::time::SystemTime::now();
+    let mut removed = 0usize;
+    for path in entries.filter_map(|e| e.ok().map(|e| e.path())) {
+        let Some(name) = path.file_name().map(|n| n.to_string_lossy().into_owned()) else {
+            continue;
+        };
+        if !name.starts_with("mesh-index-") || !name.contains(".tmp") || name.contains(&own) {
+            continue;
+        }
+        let old = std::fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| now.duration_since(t).ok())
+            .is_some_and(|age| age >= min_age);
+        if old && std::fs::remove_file(&path).is_ok() {
+            removed = removed.saturating_add(1);
+        }
+    }
+    removed
+}
+
+/// The index-cache folder the mesh index uses, or none when `no_cache` is set. The first
+/// call of the process sweeps the temp files other processes left there.
 pub(super) fn mesh_cache_dir(args: &Value) -> Option<PathBuf> {
+    static SWEPT: std::sync::Once = std::sync::Once::new();
     if args.get("no_cache").and_then(Value::as_bool) == Some(true) {
         return None;
     }
-    IndexCache::default_location().map(|c| c.dir().to_path_buf())
+    let dir = IndexCache::default_location().map(|c| c.dir().to_path_buf())?;
+    SWEPT.call_once(|| {
+        let _ = sweep_mesh_temps(&dir, std::time::Duration::from_secs(120));
+    });
+    Some(dir)
 }
 
 /// The holder [`rank`] prefers: (archive index, entry index).
