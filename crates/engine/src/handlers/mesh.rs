@@ -824,10 +824,14 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
 
     let cache_dir = mesh_cache_dir(args);
     // Review L1 of M7.R5: with `no_cache`, a session index read from the cache is
-    // replaced too, so the call neither reads nor writes the file.
+    // replaced too, so the call neither reads nor writes the file. Decided on the
+    // argument, not on `cache_dir`: with no cache folder for this process (no
+    // `LOCALAPPDATA` or `KITKRAFT_CACHE_DIR`, as on Linux) the session's index is kept
+    // and checked like any other (LX-1).
+    let no_cache = args.get("no_cache").and_then(Value::as_bool) == Some(true);
     if session
         .get::<MeshIndex>()
-        .is_none_or(|i| i.data_dir != data_dir || (cache_dir.is_none() && i.from_cache))
+        .is_none_or(|i| i.data_dir != data_dir || (no_cache && i.from_cache))
     {
         let built = MeshIndex::build_cached(&data_dir, cache_dir.as_deref(), true, id)?;
         session.insert(built);
@@ -861,7 +865,7 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
             "the cached mesh index {why}: the index was built again from the archives"
         ));
         // Written back where the stale index came from (review H1 of M7.R5).
-        let rewrite = cache_dir.as_ref().and(index_cache);
+        let rewrite = if no_cache { None } else { index_cache };
         let built = MeshIndex::build_cached(&data_dir, rewrite.as_deref(), false, id)?;
         session.insert(built);
     }
