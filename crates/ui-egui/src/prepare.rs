@@ -120,7 +120,8 @@ pub(crate) fn build(
             | Slot::EditorPreview
             | Slot::EditorWrite
             | Slot::EditorValidate
-            | Slot::MeshBounds => View::None,
+            | Slot::MeshBounds
+            | Slot::MeshGeometry => View::None,
         },
     };
     Built { prepared, view }

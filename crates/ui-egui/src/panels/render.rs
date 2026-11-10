@@ -550,6 +550,15 @@ impl RenderTab {
         self.dirty = true;
     }
 
+    /// A `mesh.geometry` reply (`Slot::MeshGeometry`): the base's triangles for the
+    /// wireframe and flat-shaded modes. A no-op until M7.R4 (step 0 of sprint 2026-11-09).
+    #[allow(dead_code)]
+    pub(crate) fn receive_geometry(&mut self, _env: &Value) {}
+
+    /// A `mesh.geometry` request failed: the base keeps its box. A no-op until M7.R4.
+    #[allow(dead_code)]
+    pub(crate) fn geometry_failed(&mut self, _request: &Request, _error: &str) {}
+
     /// The request failed (the shell keeps its error in the results).
     pub(crate) fn failed(&mut self) {
         self.loading = false;
