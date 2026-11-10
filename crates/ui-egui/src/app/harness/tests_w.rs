@@ -846,3 +846,170 @@ fn the_place_bar_answer_becomes_place_in_cell() {
         "no request of its own"
     );
 }
+
+/// The Data dialog's "Active file path:" field (the one text box labelled so).
+fn path_input(h: &mut Bench, text: &str) {
+    let find = |h: &Bench| -> usize {
+        h.query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Active file path:")
+        })
+        .count()
+    };
+    assert_eq!(find(h), 1, "one active-file field");
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput
+            && n.label().as_deref() == Some("Active file path:")
+    })
+    .next()
+    .expect("checked above")
+    .focus();
+    h.run_steps(1);
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput
+            && n.label().as_deref() == Some("Active file path:")
+    })
+    .next()
+    .expect("checked above")
+    .type_text(text);
+    h.run_steps(2);
+}
+
+/// P1 (RULINGS, sprint 2026-11-09; owner ruling 2026-11-07 item 3) over the real engine,
+/// both behaviours: the CK-shaped list keeps the CK's rule (the master-flagged listed row
+/// "Set as Active File" refuses), while the "Active file path:" field takes a
+/// master-flagged file of the owner's own, says that the engine decides by A6, and OK
+/// makes it the active file. Negatives in the same field: an official master's name, and
+/// typing in the field never moves the list's selection. Nothing on disk changes.
+#[test]
+fn the_path_field_takes_an_own_master_the_list_still_refuses_one() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("p1");
+    let base = dir.write("Base.esm", &plugin_bytes(&[], 1, &[0x800], 1.0));
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let own = dir.write("work/Own.esm", &plugin_bytes(&[], 1, &[0x900], 1.0));
+    let official = dir
+        .0
+        .join("work")
+        .join("Starfield.esm")
+        .display()
+        .to_string();
+    let before = dir.snapshot();
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+
+    // The list: the master-flagged row is refused, as in the CK.
+    click_row(&mut h, "Base.esm");
+    click_button(&mut h, "Set as Active File");
+    assert_in_view(&h, "has the master flag");
+    assert_eq!(h.state().app.shell.data_dialog.active, None);
+
+    // The path field: an official master's name is refused.
+    path_input(&mut h, &official);
+    click_button(&mut h, "Use This File");
+    assert_in_view(&h, "is an official master's name");
+    assert_eq!(h.state().app.shell.data_dialog.active, None);
+    // Typing in the field did not move the list's selection (type-ahead is off there).
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+
+    // The path field: the owner's own master-flagged file is taken; its TES4 is read and
+    // the engine's A6 conditions are named beside the choice.
+    let d = &mut h.state_mut().app.shell.data_dialog;
+    d.path_field.clear();
+    h.run_steps(1);
+    path_input(&mut h, &own);
+    click_button(&mut h, "Use This File");
+    settle(&mut h);
+    let d = &h.state().app.shell.data_dialog;
+    assert_eq!(d.active.as_deref(), Some(own.as_str()));
+    assert!(
+        d.details.as_ref().is_some_and(|x| x.master_flag()),
+        "{:?}",
+        d.details
+    );
+    assert!(d.refusal.is_none(), "{:?}", d.refusal);
+    assert_in_view(
+        &h,
+        "master-flagged: the engine writes it as the active file only",
+    );
+    click_button(&mut h, "OK");
+    assert_eq!(h.state().app.active_file.as_deref(), Some(own.as_str()));
+    assert_eq!(dir.snapshot(), before, "the dialog writes nothing");
+}
+
+/// P1's negative for a `Default`-sourced session: the path field refuses even the owner's
+/// own master-flagged file (and any file) while the session came from `Default`.
+#[test]
+fn the_path_field_refuses_an_own_master_under_default() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("p1-default");
+    let profile = dir.0.join("profiles").join("Default");
+    dir.write("profiles/Default/plugins.txt", b"*Mine.esp\r\n");
+    let mine = dir.write("mods/Mine/Mine.esp", &plugin_bytes(&[], 0, &[0x800], 1.0));
+    let own = dir.write("work/Own.esm", &plugin_bytes(&[], 1, &[0x900], 1.0));
+    let before = dir.snapshot();
+    let env = json!({
+        "command": "load",
+        "data": {"loaded": true, "source": format!("profile:{}", profile.display()),
+                 "plugins": [{"index": 0, "name": "Mine.esp", "path": mine, "flag_names": [],
+                              "active": "plugins.txt", "provider": "mod:Mine"}]},
+        "limitations": [], "coverage": {},
+    });
+    let req = Request::new("load", json!({"profile": profile.display().to_string()}));
+    inject(&mut h, Slot::Load, req, Ok(env));
+    open_data_dialog(&mut h);
+    path_input(&mut h, &own);
+    click_button(&mut h, "Use This File");
+    assert_in_view(&h, "`Default`, the owner's live game");
+    click_button(&mut h, "OK");
+    assert_eq!(h.state().app.active_file, None);
+    assert_eq!(dir.snapshot(), before);
+}
+
+/// M7.M2 rest: the CK's type-ahead row selection (`ck-20261101-01` driving notes). With a
+/// row selected and no text box focused, typed letters select the first row whose name
+/// starts with them (case ignored) and show its `TES4`; a letter no row starts with leaves
+/// the selection where it was.
+#[test]
+fn typing_a_name_selects_its_row() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("typeahead");
+    let base = dir.write(
+        "Base.esm",
+        &with_author(plugin_bytes(&[], 1, &[0x800], 1.0), "KitAuthor"),
+    );
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+    click_row(&mut h, "Mine.esp");
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(2);
+    settle(&mut h);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    assert_in_view(&h, "Author: KitAuthor");
+    // A letter no row starts with, after a pause: the selection stays.
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.event(egui::Event::Text("z".into()));
+    h.run_steps(2);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.event(egui::Event::Text("M".into()));
+    h.run_steps(2);
+    settle(&mut h);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+}

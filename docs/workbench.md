@@ -596,17 +596,25 @@ revisited once a sitting observes how the CK docks. Code:
   2026-11-02; KitKraft's addition, the CK's Data dialog has no such field) take a new or
   existing `.esp` or `.esm` outside the load order as the active file: a full path, not
   an official master's name, not inside a Starfield Data folder (the game's or
-  `My Games\Starfield\Data`) or an MO2 instance, not master-flagged (an existing file's
-  `TES4` is read with `inspect`); a new file is created by the editor's first write. The
-  engine's output guard has the final word. Once such a file is loaded as the last plugin
+  `My Games\Starfield\Data`) or an MO2 instance; a new file is created by the editor's
+  first write. A master-flagged file of the owner's own is taken here (P1 of sprint
+  2026-11-09, following owner ruling 2026-11-07 item 3), a listed one typed in included:
+  an existing file's `TES4` is read with `inspect`, and a master-flagged choice shows a
+  note that the engine writes it only as the last plugin of a plugin list, after
+  master-flagged plugins only, and named as a master by none (A6). The list keeps the
+  CK's rule ("Set as Active File" refuses a master-flagged row). The engine's output
+  guard has the final word. Once such a file is loaded as the last plugin
   of the order, `set`, `new` and `clone` keep writing into it (A6, owner decision
   2026-11-05): the editor names it as the active file, and the engine re-reads the load
   order after each write. Loaded anywhere else in the order, or from a profile, it is
   refused; `place`, `build` and `revert` refuse it once loaded.
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
-  the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row
-  selection is not built.
+  the boxes, "No Active File", "Cancel", the "Active file:" line. Type-ahead (sprint
+  2026-11-09): with a row selected (or the pointer over the dialog) and no text box
+  focused, typed letters select the first row whose name starts with them, case ignored;
+  a pause of more than a second starts a new prefix (the CK selects rows this way,
+  `ck-20261101-01`; its timing was not observed).
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.

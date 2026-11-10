@@ -8,8 +8,8 @@
 //! be the active file. Not observed (KitKraft's own until a sitting shows the CK's):
 //! the details pane's layout and labels, the check boxes as boxes (the CK ticks by
 //! double-click; how it draws a tick was not exposed), "No Active File", "Cancel", the
-//! "Active file:" line above the list, and the type-ahead selection (typing a name
-//! selects its row in the CK; not built).
+//! "Active file:" line above the list. The type-ahead selection (typing a name selects
+//! its row in the CK, `ck-20261101-01` driving notes) is built: [`DataDialogState::type_ahead`].
 //!
 //! The list is the session's load order (the Load tab's `load` result) and the plugins
 //! its profile lists but does not activate (these cannot be ticked: the engine reports
@@ -22,12 +22,17 @@
 //! The active-file path field (director ruling R17, sprint 2026-11-02; KitKraft's
 //! addition, not a CK element) takes a new or existing `.esp`/`.esm` outside the load
 //! order: never relative, never an official master's name, never inside a Starfield Data
-//! folder (the game's or the user's) or an MO2 instance, never master-flagged by the
-//! engine's `inspect` of an existing file's `TES4`; a listed plugin typed in takes its
-//! row's refusal. The engine's output guard has the final word when the editor writes.
+//! folder (the game's or the user's) or an MO2 instance; a listed plugin typed in takes
+//! its row's refusal, except the master flag. A master-flagged file of the owner's own is
+//! taken (owner ruling 2026-11-07 item 3; RULINGS P1 of sprint 2026-11-09): the engine
+//! decides on each write whether it may be the active file (A6: the last plugin of a
+//! `plugins` load order, after master-flagged plugins only, named as a master by none),
+//! and the dialog says so beside the choice. The engine's output guard has the final word
+//! when the editor writes.
 //!
-//! Refused as the active file, before anything is sent: a plugin the engine's `load`
-//! result marks master-flagged (`flag_names` has `master`); an official master or
+//! Refused as the active file, before anything is sent: a listed plugin the engine's
+//! `load` result marks master-flagged (`flag_names` has `master`), set with "Set as
+//! Active File" (the CK's rule for its list, kept by P1); an official master or
 //! Creation, by the engine's activation rule (`hardcoded-official`, `Starfield.ccc`,
 //! `blueprint-companion-of:`) or by name (the names ADR 0007 Amendment 4's gate check
 //! lists); and anything while the session was loaded from the `Default` profile (the
@@ -275,7 +280,15 @@ pub struct DataDialogState {
     /// The active-file path field (R17; KitKraft's addition, not a CK element): a new or
     /// existing plugin outside the load order.
     pub path_field: String,
+    /// The type-ahead prefix (lowercase) and when its last key came (`egui` time, s).
+    pub typeahead: String,
+    pub typeahead_at: f64,
+    /// The row the list scrolls to once (a type-ahead selection).
+    pub scroll_to: Option<usize>,
 }
+
+/// A pause longer than this (seconds) starts a new type-ahead prefix.
+const TYPE_AHEAD_PAUSE: f64 = 1.0;
 
 /// What the Data dialog asks the shell for.
 #[derive(Debug, PartialEq)]
@@ -340,19 +353,22 @@ impl DataDialogState {
     }
 
     /// Whether `path` may stay the active file under this load: never while the session
-    /// came from `Default`, and never when the load lists it on a refused row.
+    /// came from `Default`, and never when the load lists it on a refused row (the
+    /// master flag aside: a master-flagged active file was taken by the path field, P1).
     fn active_ok(&self, path: &str) -> bool {
         match self.rows.iter().position(|r| r.path == path) {
-            Some(i) => self.refused(i).is_none(),
+            Some(i) => self.refusal_of(i, false).is_none(),
             None => self.refused_path(path).is_none(),
         }
     }
 
     /// Why `path`, typed in the active-file field, cannot be the active file (R17): the
     /// `Default` session, a relative path, no `.esm`/`.esp`, an official master's name, a
-    /// listed plugin's own refusal, a plugin the engine's `inspect` read as
-    /// master-flagged, or a place inside the game's or the user's Data folder or an MO2
-    /// instance. The engine's output guard has the final word on the write.
+    /// listed plugin's own refusal (but not its master flag), or a place inside the
+    /// game's or the user's Data folder or an MO2 instance. A master-flagged file is not
+    /// refused here (owner ruling 2026-11-07 item 3, P1): the engine decides on each
+    /// write (A6), and [`Self::master_note`] says so. The engine's output guard has the
+    /// final word on the write.
     pub fn refused_path(&self, path: &str) -> Option<String> {
         let path = path.trim();
         if path.is_empty() {
@@ -363,7 +379,7 @@ impl DataDialogState {
             .iter()
             .position(|r| !r.path.is_empty() && r.path.eq_ignore_ascii_case(path))
         {
-            return self.refused(i);
+            return self.refusal_of(i, false);
         }
         if live_source(&self.source) {
             return Some(live_refusal());
@@ -388,16 +404,48 @@ impl DataDialogState {
                 "{name} is an official master's name: never the active file"
             ));
         }
-        if self
+        refused_location(p)
+    }
+
+    /// What the dialog says beside a master-flagged active file chosen in the path field
+    /// (P1): the engine, not the dialog, decides whether it may be written, by A6's
+    /// conditions. `None` when the choice is not known to be master-flagged (a listed
+    /// row's `load` flags, or the engine's `inspect` of an existing file's `TES4`).
+    pub fn master_note(&self) -> Option<String> {
+        let a = self.active.as_deref()?;
+        let listed = self.rows.iter().any(|r| r.path == a && r.master);
+        let read = self
             .details
             .as_ref()
-            .is_some_and(|d| d.path == path && d.master_flag())
-        {
-            return Some(format!(
-                "{name} has the master flag (the engine's `inspect` of its TES4): a master-flagged plugin cannot be the active file"
-            ));
+            .is_some_and(|d| d.path == a && d.master_flag());
+        (listed || read).then(|| {
+            "master-flagged: the engine writes it as the active file only as the last plugin of a plugin list, after master-flagged plugins only, and named as a master by none (A6; owner ruling 2026-11-07 item 3); it decides on each write".to_string()
+        })
+    }
+
+    /// Type-ahead, as the CK selects a row by typing its name (`ck-20261101-01`): `typed`
+    /// extends the prefix typed within [`TYPE_AHEAD_PAUSE`] of the last key (a longer
+    /// pause starts a new one) and the first row whose name starts with the prefix,
+    /// ignoring case, is selected as a click selects it (its details asked for). No row
+    /// matches: the selection stays.
+    pub fn type_ahead(&mut self, typed: &str, now: f64) -> Option<DataAsk> {
+        if typed.is_empty() || typed.chars().any(char::is_control) {
+            return None;
         }
-        refused_location(p)
+        if !(self.typeahead_at..=self.typeahead_at + TYPE_AHEAD_PAUSE).contains(&now) {
+            self.typeahead.clear();
+        }
+        self.typeahead_at = now;
+        if self.typeahead.len() < 256 {
+            self.typeahead.push_str(&typed.to_lowercase());
+        }
+        let prefix = self.typeahead.as_str();
+        let i = self
+            .rows
+            .iter()
+            .position(|r| r.name.to_lowercase().starts_with(prefix))?;
+        self.scroll_to = Some(i);
+        self.select(i)
     }
 
     /// The active-file field's "Use This File": the path becomes the dialog's choice
@@ -476,8 +524,15 @@ impl DataDialogState {
         !live_source(&self.source)
     }
 
-    /// Why row `i` cannot be the active file, if it cannot.
+    /// Why row `i` cannot be set as the active file from the list, if it cannot.
     pub fn refused(&self, i: usize) -> Option<String> {
+        self.refusal_of(i, true)
+    }
+
+    /// Why row `i` cannot be the active file. `list`: the CK's rule for its list applies
+    /// too, a master-flagged row cannot be set active (`ck-20261101-01`); the path field
+    /// passes `false` (P1).
+    fn refusal_of(&self, i: usize, list: bool) -> Option<String> {
         let Some(r) = self.rows.get(i) else {
             return Some("select a plugin first".to_string());
         };
@@ -490,7 +545,7 @@ impl DataDialogState {
                 r.name
             ));
         }
-        if r.master {
+        if list && r.master {
             return Some(format!(
                 "{} has the master flag: a master-flagged plugin cannot be the active file (as in the CK, ck-20261101-01)",
                 r.name
@@ -569,11 +624,8 @@ impl DataDialogState {
                 ..Details::default()
             },
         });
-        // A typed active file the engine reads as master-flagged is refused now.
-        if self.active.as_deref() == Some(path.as_str()) && !self.active_ok(path) {
-            self.refusal = self.refused_path(path);
-            self.active = None;
-        }
+        // Nothing in the details refuses a typed file since P1: a master flag read here
+        // shows as `master_note`, and the engine decides on each write.
     }
 
     /// Takes a successful reply that came back on `Slot::DataLoad` or
@@ -657,6 +709,10 @@ impl DataDialogState {
                             let name = ui.selectable_label(selected, &r.name);
                             ui.label(status);
                             ui.end_row();
+                            if self.scroll_to == Some(i) {
+                                name.scroll_to_me(None);
+                                self.scroll_to = None;
+                            }
                             if name.double_clicked() {
                                 self.toggle(i);
                             }
@@ -670,6 +726,27 @@ impl DataDialogState {
                 });
             self.details_ui(right);
         });
+        // Type-ahead: letters typed while no text box has the keyboard, once a row is
+        // selected or the pointer is over the dialog, select a row by its name.
+        if !self.rows.is_empty()
+            && !ui.ctx().text_edit_focused()
+            && (self.selected.is_some() || ui.ui_contains_pointer())
+        {
+            let (typed, now) = ui.input(|i| {
+                let typed: String = i
+                    .events
+                    .iter()
+                    .filter_map(|e| match e {
+                        egui::Event::Text(t) => Some(t.as_str()),
+                        _ => None,
+                    })
+                    .collect();
+                (typed, i.time)
+            });
+            if let Some(a) = self.type_ahead(&typed, now) {
+                ask = Some(a);
+            }
+        }
         // R17: KitKraft's addition (the CK's Data dialog has no such field): a new or
         // existing plugin outside the load order as the active file.
         ui.horizontal(|ui| {
@@ -697,6 +774,9 @@ impl DataDialogState {
                 "new file: the first write creates it"
             };
             ui.weak(format!("chosen, not in the load order: {a} ({new})"));
+        }
+        if let Some(note) = self.master_note() {
+            theme::status_line(ui, Status::Warn, &note);
         }
         if let Some(why) = &self.refusal {
             theme::status_line(ui, Status::Fail, why);
@@ -1023,9 +1103,9 @@ mod tests {
         refused(&mut s, user.display().to_string(), "Data folder");
         let modded = mo2.join("mods").join("A").join("Patch.esp");
         refused(&mut s, modded.display().to_string(), "Mod Organizer");
-        // A listed plugin typed in takes its row's refusal.
-        let listed = s.rows[1].path.clone();
-        refused(&mut s, listed, "master flag");
+        // A listed plugin typed in takes its row's refusal (an official one here).
+        let listed = s.rows[2].path.clone();
+        refused(&mut s, listed, "official master");
 
         let scratch = base.join("work").join("Scratch.esp").display().to_string();
         s.path_field = format!("  {scratch} ");
@@ -1037,7 +1117,8 @@ mod tests {
         };
         assert_eq!(active.as_deref(), Some(scratch.as_str()));
 
-        // An existing file the engine reads as master-flagged is refused on the reply.
+        // An existing file the engine reads as master-flagged stays the choice (P1): the
+        // engine decides on each write, and the note says by which conditions.
         std::fs::create_dir_all(base.join("work")).unwrap();
         let master = base.join("work").join("Flagged.esp");
         std::fs::write(&master, b"TES4").unwrap();
@@ -1047,10 +1128,12 @@ mod tests {
             panic!("an existing file's TES4 is asked for");
         };
         assert_eq!(s.active.as_deref(), Some(master.as_str()));
+        assert!(s.master_note().is_none(), "not known before the reply");
         let env = json!({"data": {"record": {"signature": "TES4", "flags": "0x00000001"}}});
         s.receive(&DataTicket::Details(p), Ok(&env));
-        assert_eq!(s.active, None);
-        assert!(s.refusal.clone().unwrap().contains("master flag"));
+        assert_eq!(s.active.as_deref(), Some(master.as_str()));
+        assert!(s.refusal.is_none());
+        assert!(s.master_note().unwrap().contains("A6"));
 
         // Never while the session came from `Default`.
         let live = std::env::temp_dir().join("profiles").join("Default");
@@ -1229,5 +1312,86 @@ mod tests {
         s.closed();
         s.sync(None, 3, None);
         assert!(s.rows.is_empty() && s.active.is_none());
+    }
+
+    /// P1 (RULINGS, sprint 2026-11-09): the list keeps the CK's rule, the path field takes
+    /// a master-flagged file of the owner's own (the listed `Base.esm` typed in), keeps it
+    /// through OK and a reload that lists it, and names A6 beside it. Still refused in the
+    /// field: an official master listed or by name, and anything under `Default`.
+    #[test]
+    fn the_path_field_takes_an_own_master_and_the_list_keeps_the_cks_rule() {
+        let mut s = opened("plugins");
+        s.select(1);
+        assert!(s.set_active().unwrap_err().contains("master flag"));
+        assert_eq!(s.active, None);
+        let base = s.rows[1].path.clone();
+        s.path_field = base.clone();
+        s.use_path();
+        assert_eq!(s.active.as_deref(), Some(base.as_str()));
+        assert!(s.refusal.is_none(), "{:?}", s.refusal);
+        assert!(s.master_note().unwrap().contains("last plugin"));
+        assert_eq!(s.status(1), "Active File");
+        let DataAsk::Accept { active, .. } = s.accept(None) else {
+            panic!("accept");
+        };
+        assert_eq!(active.as_deref(), Some(base.as_str()));
+        // A new load that lists it keeps it (the engine, not the list rule, decides now).
+        s.sync(Some(&view("plugins")), 2, Some(base.as_str()));
+        assert_eq!(s.active.as_deref(), Some(base.as_str()));
+        // The list's own button still refuses that row.
+        s.select(1);
+        assert!(s.set_active().is_err());
+        // Negatives: an official master, listed (by the engine's rule) or by name.
+        for (i, want) in [(0, "hardcoded-official"), (2, "official master")] {
+            let mut t = opened("plugins");
+            t.path_field = t.rows[i].path.clone();
+            assert!(t.use_path().is_none());
+            assert!(t.refusal.clone().unwrap().contains(want), "{i}");
+            assert_eq!(t.active, None);
+            assert!(t.master_note().is_none());
+        }
+        // And nothing under `Default`, the master flag included.
+        let live = std::env::temp_dir().join("profiles").join("Default");
+        let mut d = opened(&format!("profile:{}", live.display()));
+        d.path_field = d.rows[1].path.clone();
+        assert!(d.use_path().is_none());
+        assert!(d.refusal.clone().unwrap().contains("`Default`"));
+        assert_eq!(d.active, None);
+    }
+
+    /// M7.M2 rest: type-ahead selects the first row whose name starts with the prefix
+    /// typed within the pause, ignoring case; a longer pause starts a new prefix; no match
+    /// or a control character leaves the selection; a selection asks for the details.
+    #[test]
+    fn type_ahead_selects_a_row_by_its_name() {
+        let mut s = opened("plugins");
+        // Rows: Starfield.esm, Base.esm, SFBGS099.esm, Mine.esp, Off.esp.
+        assert!(matches!(
+            s.type_ahead("S", 10.0),
+            Some(DataAsk::Details(..))
+        ));
+        assert_eq!(s.selected, Some(0));
+        assert_eq!(s.scroll_to, Some(0));
+        s.type_ahead("f", 10.3);
+        s.type_ahead("b", 10.6);
+        assert_eq!(s.selected, Some(2), "`sfb` within the pause");
+        assert_eq!(s.typeahead, "sfb");
+        s.type_ahead("m", 12.0);
+        assert_eq!(s.selected, Some(3), "a pause starts `m`");
+        assert!(s.type_ahead("x", 12.2).is_none());
+        assert_eq!(s.selected, Some(3), "`mx` matches nothing");
+        assert!(s.type_ahead("\u{8}", 20.0).is_none());
+        assert!(s.type_ahead("", 20.0).is_none());
+        assert_eq!(s.selected, Some(3));
+        s.type_ahead("BA", 30.0);
+        assert_eq!(s.selected, Some(1), "case is ignored");
+        // A clock that went backwards starts a new prefix too.
+        s.type_ahead("o", 1.0);
+        assert_eq!(s.selected, Some(4));
+        // The prefix stops growing at its cap.
+        for k in 0..400 {
+            s.type_ahead("q", 40.0 + f64::from(k) * 0.01);
+        }
+        assert!(s.typeahead.len() <= 256);
     }
 }
