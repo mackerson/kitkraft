@@ -1,68 +1,70 @@
-# Edit-dialog layout for TERM (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
-# Tabs, groups and field order are KitKraft's own arrangement in the style of the
-# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
-# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
-# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
-# Fields are subrecord signatures from the record schema (a test checks each one);
-# a subrecord the layout does not place shows on an "Other" tab. Read-only until
-# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+# Edit-dialog layout for TERM (M7.W4, sprint 2026-11-09 D6; dialogs/mod.rs reads it).
+# One page: one group per label that CK sitting 2 (ck-20261102-03) recorded and
+# M7.K4 mapped (layouts/sitting2.toml `map`), in the record's order. The
+# group's name is the observed label, its field the signature the label edits and
+# its member the `set` field path. Labels M7.K4 could not map are listed by the dialog
+# from sitting2.toml's `gaps`, read-only, with their reasons. The page's name is the
+# dialog's observed title ("Terminal").
+# The sitting did not record whether the dialog has tabs: one page is ours (observed = false).
 type = "TERM"
 parity = "Edit dialog: TERM"
 observed = false
 
 [[tab]]
-name = "Object"
-[[tab.group]]
-name = "Identity"
-fields = ["EDID", "FULL", "ATTX"]
-[[tab.group]]
-name = "Bounds and placement"
-fields = ["OBND", "ODTY", "OPDS", "PTT2", "SNTP", "SNBH", "DEFL", "XALG"]
-[[tab.group]]
 name = "Terminal"
-fields = ["DNAM", "NTRM", "NAM1"]
-
-[[tab]]
-name = "Furniture"
 [[tab.group]]
-name = "Activation"
-fields = ["FNAM", "JNAM", "GNAM", "MNAM"]
+name = "ID"
+fields = ["EDID"]
+members = ["EDID"]
 [[tab.group]]
-name = "Markers"
-fields = ["FNPR", "XMRK", "SNAM", "FTMP"]
-[[tab.group]]
-name = "Workbench"
-fields = ["WBDT"]
-
-[[tab]]
-name = "Art and Sound"
+name = "Name"
+fields = ["FULL"]
+members = ["FULL"]
 [[tab.group]]
 name = "Model"
-fields = ["MODL", "MOLM", "FLLD", "MODC", "XFLG"]
+fields = ["MODL"]
+members = ["MODL"]
 [[tab.group]]
-name = "Color and water"
-fields = ["PNAM", "WTFM"]
+name = "Marker Model"
+fields = ["XMRK"]
+members = ["XMRK"]
 [[tab.group]]
-name = "Sounds"
-fields = ["ALSH", "ACSH", "RADR"]
-
-[[tab]]
-name = "Keywords"
+name = "Looping Sound (Select Audio Data)"
+fields = ["ALSH"]
+members = ["ALSH"]
 [[tab.group]]
-name = "Keywords"
-fields = ["KSIZ", "KWDA", "FTYP"]
-[[tab.group]]
-name = "Properties"
-fields = ["PRPS"]
-
-[[tab]]
-name = "Conditions"
-[[tab.group]]
-name = "Conditions"
-fields = ["CITC", "CTDA", "CIS1", "CIS2"]
-
-[[tab]]
-name = "Scripts"
-[[tab.group]]
-name = "Scripts"
+name = "Papyrus Scripts:"
 fields = ["VMAD"]
+members = ["VMAD"]
+[[tab.group]]
+name = "Keywords"
+fields = ["KWDA"]
+members = ["KWDA"]
+[[tab.group]]
+name = "Actor Values"
+fields = ["PRPS"]
+members = ["PRPS"]
+[[tab.group]]
+name = "Preview Transform"
+fields = ["PTT2"]
+members = ["PTT2.Preview"]
+[[tab.group]]
+name = "Forced Loc Ref Types:"
+fields = ["FTYP"]
+members = ["FTYP"]
+[[tab.group]]
+name = "Art Theme"
+fields = ["NAM1"]
+members = ["NAM1"]
+[[tab.group]]
+name = "Furniture Template"
+fields = ["FTMP"]
+members = ["FTMP"]
+[[tab.group]]
+name = "Ignored By Sandbox"
+fields = ["FNAM"]
+members = ["FNAM"]
+[[tab.group]]
+name = "Active Markers"
+fields = ["MNAM"]
+members = ["MNAM"]
