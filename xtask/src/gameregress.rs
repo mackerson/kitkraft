@@ -395,8 +395,21 @@ pub(crate) fn replay_session(
         session_save: &save,
         papyrus: papyrus.as_deref(),
     };
-    let replayed = session_replay::replay(&rec, work)
-        .with_context(|| format!("{}: replaying {}", r.name, r.session))?;
+    let replayed = match session_replay::replay(&rec, work) {
+        Ok(replayed) => replayed,
+        // A report the replay refuses (its session id is not one plain folder name) is
+        // ambiguous evidence, not a grade (review M1 of part 3, R29).
+        Err(e @ kitkraft_game::GameError::Replay(_)) => {
+            return Ok((
+                "inconclusive".to_string(),
+                Vec::new(),
+                vec![format!("session {}: inconclusive ({e})", r.session)],
+            ));
+        }
+        Err(e) => {
+            return Err(e).with_context(|| format!("{}: replaying {}", r.name, r.session));
+        }
+    };
     let Some(labels) = row_labels(ledger, &r.session) else {
         return Ok((
             "fail".to_string(),
@@ -956,6 +969,41 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
         assert!(o.failures.is_empty(), "{o:?}");
         assert!(
             o.notes.iter().any(|n| n.contains("no report.json")),
+            "{o:?}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // ---------------------------------------------- part 3 review fixes (g-M4.T7p3)
+
+    /// Rewrites the recorded session's report.json.
+    fn set_report(root: &Path, f: impl FnOnce(&mut Value)) {
+        let p = root
+            .join("observe")
+            .join("2026-11-10-T01")
+            .join("report.json");
+        let mut v: Value = serde_json::from_str(&std::fs::read_to_string(&p).unwrap()).unwrap();
+        f(&mut v);
+        std::fs::write(&p, v.to_string()).unwrap();
+    }
+
+    /// Review M1 (probe P1): a report whose `session` is a path must not direct the replay's
+    /// writes outside its work folder; the replay is refused (inconclusive), never a pass.
+    #[test]
+    fn a_report_session_that_is_a_path_writes_nothing_outside_the_work_folder() {
+        let root = tmp("p1");
+        let ledger = recorded_session(&root, "**pass**", true, "");
+        let escaped = root.join("escaped-elsewhere");
+        let s = escaped.display().to_string();
+        set_report(&root, |v| v["session"] = Value::String(s.clone()));
+        let o = run_session(&root, &ledger);
+        assert!(
+            !escaped.exists(),
+            "the replay wrote outside its work folder: {o:?}"
+        );
+        assert_eq!(o.session, "inconclusive", "{o:?}");
+        assert!(
+            o.notes.iter().any(|n| n.contains("plain folder name")),
             "{o:?}"
         );
         let _ = std::fs::remove_dir_all(&root);

@@ -3590,3 +3590,45 @@ fn a_replay_that_leaves_recorded_sends_unsent_is_not_a_pass() {
         "{outcome:?}"
     );
 }
+
+/// Review M1 of M4.T7 part 3: the session id names the replay's observe folder; anything but
+/// one plain folder name inside the work folder's observe root is refused with a typed error,
+/// and nothing is written outside the work folder.
+#[test]
+fn a_replay_refuses_a_session_id_that_is_not_one_plain_folder_name() {
+    let (report, probes, _, _) = recorded("t4-session-id");
+    let base =
+        std::env::temp_dir().join(format!("kitkraft-game-replay-sid-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let work = base.join("work");
+    let outside = base.join("outside");
+    let absolute = outside.display().to_string();
+    for bad in [
+        absolute.as_str(),
+        "..\\outside",
+        "../outside",
+        "a\\b",
+        "a/b",
+        "..",
+        ".",
+        "",
+        "C:outside",
+    ] {
+        let rec = Recorded {
+            session: bad,
+            probes: &probes,
+            transcript: &report.transcript,
+            base_save: "KitKraftBase",
+            session_save: "KitKraftSession-20261016-01",
+            papyrus: None,
+        };
+        let r = replay_transcript(&rec, &work);
+        assert!(!outside.exists(), "`{bad}` wrote outside the work folder");
+        let e = r.expect_err(bad);
+        assert!(
+            matches!(e, kitkraft_game::GameError::Replay(_)),
+            "`{bad}`: {e}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&base);
+}
