@@ -1019,9 +1019,11 @@ fn a_mesh_index_naming_an_entry_the_archive_lacks_is_rebuilt() {
     let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
     // The model's name now points at the mesh's entry index, and the reverse.
     let kept = &mut stored.kept[0];
-    let (a, b) = (kept.entries[0].0, kept.entries[1].0);
-    kept.entries[0].0 = b;
-    kept.entries[1].0 = a;
+    // Names and kinds swapped (indices stay increasing, so the file is well-formed).
+    let (n0, k0) = (kept.entries[0].1.clone(), kept.entries[0].2);
+    let (n1, k1) = (kept.entries[1].1.clone(), kept.entries[1].2);
+    (kept.entries[0].1, kept.entries[0].2) = (n1, k1);
+    (kept.entries[1].1, kept.entries[1].2) = (n0, k0);
     std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
     let lied = build(&data, Some(&cache));
     assert!(lied.from_cache, "it parses and its keys match");
@@ -1088,9 +1090,11 @@ fn a_stale_mesh_archive_is_rebuilt_at_once_and_the_file_rewritten() {
         .iter_mut()
         .find(|k| k.entries.iter().any(|e| e.1.ends_with(".mesh")))
         .unwrap();
-    let (a, b) = (kept.entries[0].0, kept.entries[1].0);
-    kept.entries[0].0 = b;
-    kept.entries[1].0 = a;
+    // Names and kinds swapped (indices stay increasing, so the file is well-formed).
+    let (n0, k0) = (kept.entries[0].1.clone(), kept.entries[0].2);
+    let (n1, k1) = (kept.entries[1].1.clone(), kept.entries[1].2);
+    (kept.entries[0].1, kept.entries[0].2) = (n1, k1);
+    (kept.entries[1].1, kept.entries[1].2) = (n0, k0);
     std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
 
     let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
@@ -1123,4 +1127,134 @@ fn a_stale_mesh_archive_is_rebuilt_at_once_and_the_file_rewritten() {
         .limitations
         .iter()
         .any(|l| l.contains("cached mesh index")));
+}
+
+/// Rewrites the cache file of `data` in `cache` after `edit` (a well-formed file, encoded
+/// again, so only the open-time checks or the parser's rules can catch it).
+fn edit_cache(data: &Path, cache: &Path, edit: impl FnOnce(&mut super::mesh::Stored)) {
+    let file = cache_file(cache, data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    edit(&mut stored);
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+}
+
+/// One `mesh.geometry` call of the model in a session seeded from the cache.
+fn geometry_from_cache(data: &Path, cache: &Path) -> crate::Outcome {
+    let mut session = crate::Session::default();
+    let index = build(data, Some(cache));
+    assert!(index.from_cache, "the edited file still parses");
+    session.insert(index);
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    geometry(&mut session, &args).unwrap()
+}
+
+/// Review M1 of M7.R5 (1): a `.mesh` the file omits from an archive that gets opened is
+/// caught by the open-time check (the archive's indexed count differs), and the index is
+/// built again, so the mesh is read.
+#[test]
+fn a_cache_omitting_an_entry_of_an_opened_archive_is_rebuilt() {
+    let (data, cache) = cached_dir("mesh-index-omit");
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        s.kept[0].entries.retain(|e| !e.1.ends_with(".mesh"));
+    });
+    let out = geometry_from_cache(&data, &cache);
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+/// Review M1 of M7.R5 (2): a model the file does not list is not refused on the file's
+/// word: the index is built again from the archives first.
+#[test]
+fn a_cache_missing_a_model_is_rebuilt_before_the_model_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-renamed");
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        for e in &mut s.kept[0].entries {
+            if e.1.ends_with(".nif") {
+                e.1 = "meshes/test/renamed.nif".into();
+            }
+        }
+    });
+    let out = geometry_from_cache(&data, &cache);
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+/// Review M1 of M7.R5 (3): `MeshesPatch` outranks `Meshes01` for the same model. A file
+/// that keeps the Patch archive with no entry (which the writer never does) is refused, so
+/// the Patch copy is read, never Meshes01's on the file's word.
+#[test]
+fn a_cache_dropping_a_higher_ranked_copy_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-patch");
+    archive(
+        &data,
+        "Starfield - MeshesPatch.ba2",
+        &[(r"meshes\test\tri.nif", nif([0.0; 3], &[BOXED]))],
+    );
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        let patch = s
+            .keys
+            .iter()
+            .position(|k| k.name == "Starfield - MeshesPatch.ba2")
+            .unwrap();
+        for k in &mut s.kept {
+            if k.key == patch {
+                k.entries.clear();
+            }
+        }
+    });
+    let built = build(&data, Some(&cache));
+    assert!(!built.from_cache, "a kept archive with no entry is refused");
+    let mut session = crate::Session::default();
+    session.insert(built);
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["source"]["archive"], "Starfield - MeshesPatch.ba2");
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("2 archives hold this model")));
+}
+
+/// Review M1 of M7.R5 (4): a file whose bytes changed after it was written (its checksum
+/// fails), one that repeats a kept archive or an entry index, or one written for another
+/// Data dir, is ignored.
+#[test]
+fn a_cache_failing_its_checksum_or_repeating_a_record_is_ignored() {
+    let (data, cache) = cached_dir("mesh-index-checksum");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let good = std::fs::read(&file).unwrap();
+    let stored = parse_stored(&good).unwrap();
+    // One byte flipped in the middle of the body.
+    let mut flipped = good.clone();
+    let mid = flipped.len() / 2;
+    flipped[mid] ^= 0x01;
+    assert!(parse_stored(&flipped).is_none());
+    // A kept archive twice.
+    let mut twice = stored.clone();
+    twice.kept.push(twice.kept[0].clone());
+    assert!(parse_stored(&encode_stored(&twice).unwrap()).is_none());
+    // An entry index twice in one archive.
+    let mut dup = stored.clone();
+    let first = dup.kept[0].entries[0].clone();
+    dup.kept[0].entries.push(first);
+    assert!(parse_stored(&encode_stored(&dup).unwrap()).is_none());
+    for bad in [flipped, encode_stored(&twice).unwrap()] {
+        std::fs::write(&file, &bad).unwrap();
+        assert!(!build(&data, Some(&cache)).from_cache);
+    }
+    // Another Data dir's file under this one's name.
+    let mut other = stored;
+    other.data_dir = "C:/Elsewhere/Data".into();
+    std::fs::write(&file, encode_stored(&other).unwrap()).unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
 }
