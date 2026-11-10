@@ -48,7 +48,8 @@ pub struct BaseMesh {
     pub edges: Vec<[u32; 2]>,
     /// Triangles dropped as degenerate (no area, so no face normal).
     pub degenerate: usize,
-    /// The engine's lines about blocks it skipped (`block <n>: ...`): the mesh is drawn
+    /// The engine's lines about blocks it skipped (`block <n>: ...`) or did not reach from
+    /// the root (review L1 of M7.R4): the mesh is drawn
     /// in part, and each is shown as a limitation.
     pub skipped_blocks: Vec<String>,
 }
@@ -221,7 +222,9 @@ impl BaseMesh {
             .map(|l| {
                 l.iter()
                     .filter_map(Value::as_str)
-                    .filter(|s| s.starts_with("block "))
+                    .filter(|s| {
+                        s.starts_with("block ") || s.contains("are not reached from the root")
+                    })
                     .map(str::to_string)
                     .collect()
             })
@@ -416,5 +419,16 @@ pub(crate) mod tests {
             .unwrap_err()
             .contains("mesh budget of 1"));
         assert!(reason(json!({"data": {}})).contains("base form"));
+    }
+
+    /// Review L1 of M7.R4: the engine's line about blocks not reached from the root means
+    /// the mesh drawn is partial, so it is carried like a skipped block's line.
+    #[test]
+    fn unreached_blocks_are_a_limitation_of_the_mesh() {
+        let mut env = quad("F");
+        let unreached = "2 geometry block(s) are not reached from the root and 0 child reference(s) repeat (none in the official models): their meshes are not read";
+        env["limitations"] = json!([unreached, "normals are grade B"]);
+        let m = BaseMesh::from_envelope(&env, 100).unwrap();
+        assert_eq!(m.skipped_blocks, [unreached]);
     }
 }
