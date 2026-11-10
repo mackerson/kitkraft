@@ -3357,7 +3357,9 @@ fn a_replay_of_a_recorded_session_passes_twice() {
 }
 
 /// M4.T7's deliberate break: a wrong `FULL` makes today's probes send another `help`, so the
-/// replay leaves the transcript there and the replay fails, naming the send and the row.
+/// replay leaves the transcript there. Under R29 that is `Inconclusive`, naming the send, never
+/// a pass. (The desk half's own check, `xtask` `gameregress` `a_wrong_full_fails_the_replay`,
+/// fails the same break on the plugin's bytes and the probe rows.)
 #[test]
 fn a_wrong_full_fails_the_replay_against_its_transcript() {
     let (report, mut probes, ledger, _) = recorded("t4-full");
@@ -3369,9 +3371,11 @@ fn a_wrong_full_fails_the_replay_against_its_transcript() {
         d.contains("help \"Old Earth Hunting Rifle\" 4") && d.contains(RIGHT_FULL),
         "{d}"
     );
-    let diff = fail_lines(compare(&row_labels(&ledger, &id).unwrap(), &r, &[]));
-    assert!(diff.iter().any(|x| x.contains("diverged")), "{diff:?}");
-    assert!(diff.iter().any(|x| x.starts_with("T-01:")), "{diff:?}");
+    let outcome = compare(&row_labels(&ledger, &id).unwrap(), &r, &[]);
+    assert!(
+        matches!(&outcome, Outcome::Inconclusive(why) if why.contains("diverged") && why.contains("help \"Old Earth Hunting Rifle\" 4")),
+        "{outcome:?}"
+    );
 }
 
 #[test]
@@ -3463,5 +3467,23 @@ fn a_session_without_a_transcript_is_not_run() {
     assert_eq!(
         compare(&row_labels(&ledger, &id).unwrap(), &r, &[]),
         Outcome::NotRun(NO_TRANSCRIPT.into())
+    );
+}
+
+/// Review L4 of M4.T7: a replay that leaves recorded sends unsent did not reproduce the
+/// session (a dropped retry or step at the tail), so it is not a pass; with a divergence it is
+/// inconclusive (R29), never graded on the rows it did run.
+#[test]
+fn a_replay_that_leaves_recorded_sends_unsent_is_not_a_pass() {
+    let (mut report, probes, ledger, _) = recorded("t4-unsent");
+    let id = report.ledger_entry.clone().unwrap();
+    let extra = report.transcript.last().cloned().unwrap();
+    report.transcript.push(extra);
+    let r = replay_of(&report, &probes, "unsent");
+    assert_eq!(r.unused, 1, "{r:?}");
+    let outcome = compare(&row_labels(&ledger, &id).unwrap(), &r, &[]);
+    assert!(
+        matches!(&outcome, Outcome::Inconclusive(why) if why.contains("1 recorded send(s) unsent")),
+        "{outcome:?}"
     );
 }

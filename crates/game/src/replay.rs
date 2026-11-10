@@ -193,6 +193,9 @@ pub enum Outcome {
     Pass,
     /// What differs, one line each.
     Fail(Vec<String>),
+    /// The replay did not reproduce the session's sends (a divergence, or recorded sends left
+    /// unsent), so its grades say nothing about the ledger's (R29).
+    Inconclusive(String),
     /// Nothing was replayed, with why: neither a pass nor a fail (R29).
     NotRun(String),
 }
@@ -323,11 +326,12 @@ pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
     })
 }
 
-/// The ledger's labels against a replay's, row by row: `Pass` when every row grades as
-/// recorded; `Fail` with a line for each row whose replayed label differs, each row only one
-/// side has, and a divergence; `NotRun` when nothing was replayed. `regraded` lists rows whose
-/// grade a deliberate grader change moved: `(row, label now)`; such a row is compared with
-/// that label instead.
+/// The ledger's labels against a replay's, row by row: `NotRun` when nothing was replayed;
+/// `Inconclusive` when the replay did not make the session's sends (it diverged, or left
+/// recorded sends unsent: R29, review L4); otherwise `Pass` when every row grades as recorded,
+/// or `Fail` with a line for each row whose replayed label differs and each row only one side
+/// has. `regraded` lists rows whose grade a deliberate grader change moved: `(row, label
+/// now)`; such a row is compared with that label instead.
 pub fn compare(
     ledger: &[(String, String)],
     replayed: &Replayed,
@@ -336,10 +340,16 @@ pub fn compare(
     if let Some(why) = &replayed.not_run {
         return Outcome::NotRun(why.clone());
     }
-    let mut out = Vec::new();
     if let Some(d) = &replayed.diverged {
-        out.push(format!("the replay diverged from the transcript at {d}"));
+        return Outcome::Inconclusive(format!("the replay diverged from the transcript at {d}"));
     }
+    if replayed.unused > 0 {
+        return Outcome::Inconclusive(format!(
+            "the replay left {} recorded send(s) unsent",
+            replayed.unused
+        ));
+    }
+    let mut out = Vec::new();
     for (row, recorded) in ledger {
         let want = regraded
             .iter()
