@@ -7,6 +7,8 @@
 //!   (placement and picking), colors.
 //! - [`cell`]: a `cell` envelope's references as markers, by base record type (M7.R2,
 //!   M7.R3).
+//! - [`mesh`]: a base's triangles from the engine's `mesh.geometry` (M7.R4), decoded,
+//!   checked and placed as wireframe lines and flat faces.
 //! - [`shaders`]: the GLSL, with a test that parses its declarations.
 //! - `gl`: the GL calls (the one file of the workspace allowed `unsafe`, ADR 0013).
 //! - [`Viewport`]: the widget: mouse and keys to camera, a click to pick, one paint
@@ -24,9 +26,11 @@
 pub mod camera;
 pub mod cell;
 mod gl;
+pub mod mesh;
 pub mod scene;
 pub mod shaders;
 
+use std::collections::BTreeSet;
 use std::ops::{Mul, Sub};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -83,9 +87,13 @@ pub(crate) struct Instances {
 }
 
 impl Instances {
-    fn of(markers: &[Marker], generation: u64) -> Self {
+    /// The markers' instance data, leaving out those `covered` by a mesh (M7.R4).
+    fn of(markers: &[Marker], generation: u64, covered: &BTreeSet<usize>) -> Self {
         let mut per_shape: [Vec<f32>; 3] = Default::default();
-        for m in markers {
+        for (i, m) in markers.iter().enumerate() {
+            if covered.contains(&i) {
+                continue;
+            }
             if let Some(v) = per_shape.get_mut(m.shape.index()) {
                 v.extend_from_slice(&m.instance());
             }
@@ -95,6 +103,16 @@ impl Instances {
             per_shape,
         }
     }
+}
+
+/// The references drawn as their base's triangles (M7.R4), already placed in world space:
+/// wireframe lines (`scene::LINE_FLOATS` a vertex) and flat faces (`mesh::FACE_FLOATS` a
+/// vertex), with the generation that tells the GL side when to upload again.
+#[derive(Debug, Default)]
+pub(crate) struct MeshDraw {
+    pub generation: u64,
+    pub lines: Vec<f32>,
+    pub faces: Vec<f32>,
 }
 
 /// The controls, as shown in the tab and in `docs/ck-parity.md`. None of them has been
@@ -124,6 +142,8 @@ pub(crate) struct Frame {
     pub axes_model: [f32; 16],
     /// Every marker, as instance data (shared, uploaded when its generation changes).
     pub markers: Arc<Instances>,
+    /// The meshes drawn instead of their references' boxes (M7.R4).
+    pub meshes: Arc<MeshDraw>,
     /// The selected marker's shape and instance data.
     pub selected: Option<(Shape, [f32; INSTANCE_FLOATS])>,
     /// Face opacity and outline color mix ([`FaceMode`]).
@@ -139,6 +159,7 @@ impl Frame {
         aspect: f32,
         colors: SceneColors,
         markers: Arc<Instances>,
+        meshes: Arc<MeshDraw>,
         floor: f32,
     ) -> Self {
         let vp = cam.view_proj(aspect);
@@ -163,6 +184,7 @@ impl Frame {
             grid_model: scene::grid_model(step, cam.target, floor).to_cols_array(),
             axes_model: Mat4::from_scale(Vec3::splat(step)).to_cols_array(),
             markers,
+            meshes,
             selected: None,
             face_alpha,
             edge_mix,
@@ -242,6 +264,9 @@ pub struct Viewport {
     /// What is drawn besides the grid and the axes ([`Viewport::set_markers`]).
     markers: Vec<Marker>,
     instances: Arc<Instances>,
+    /// The meshes drawn ([`Viewport::set_meshes`]) and the markers they cover.
+    meshes: Arc<MeshDraw>,
+    covered: BTreeSet<usize>,
     /// The selected marker (an index into the markers).
     selected: Option<usize>,
     /// What the last click picked: `Some(None)` for empty space; taken by the tab.
@@ -263,8 +288,10 @@ impl Default for Viewport {
         let markers = vec![Marker::placeholder()];
         Self {
             camera: OrbitCamera::default(),
-            instances: Arc::new(Instances::of(&markers, 0)),
+            instances: Arc::new(Instances::of(&markers, 0, &BTreeSet::new())),
             markers,
+            meshes: Arc::default(),
+            covered: BTreeSet::new(),
             selected: None,
             picked: None,
             faces: FaceMode::default(),
@@ -340,11 +367,45 @@ impl Viewport {
         } else {
             markers
         };
+        // New markers: no mesh covers them until the tab builds the meshes again.
+        self.covered.clear();
+        self.meshes = Arc::new(MeshDraw {
+            generation: self.meshes.generation.wrapping_add(1),
+            ..MeshDraw::default()
+        });
         let generation = self.instances.generation.wrapping_add(1);
-        self.instances = Arc::new(Instances::of(&self.markers, generation));
+        self.instances = Arc::new(Instances::of(&self.markers, generation, &self.covered));
         self.selected = None;
         self.floor = scene::bounds_of(&self.markers).map_or(0.0, |(lo, _)| lo.z);
         self.request_repaint();
+    }
+
+    /// Draws the markers in `covered` (indices into the markers) as the given meshes
+    /// instead of their boxes (M7.R4): `lines` and `faces` already placed in world space.
+    /// The markers stay as they are for picking and the selection; uploaded on the next
+    /// frame.
+    pub fn set_meshes(&mut self, lines: Vec<f32>, faces: Vec<f32>, covered: BTreeSet<usize>) {
+        self.covered = covered
+            .into_iter()
+            .filter(|i| *i < self.markers.len())
+            .collect();
+        self.meshes = Arc::new(MeshDraw {
+            generation: self.meshes.generation.wrapping_add(1),
+            lines,
+            faces,
+        });
+        let generation = self.instances.generation.wrapping_add(1);
+        self.instances = Arc::new(Instances::of(&self.markers, generation, &self.covered));
+        self.request_repaint();
+    }
+
+    /// The markers drawn as meshes, and the line and face vertices uploaded for them.
+    pub fn mesh_counts(&self) -> (usize, usize, usize) {
+        (
+            self.covered.len(),
+            self.meshes.lines.len() / scene::LINE_FLOATS,
+            self.meshes.faces.len() / mesh::FACE_FLOATS,
+        )
     }
 
     /// The markers drawn.
@@ -500,6 +561,7 @@ impl Viewport {
             aspect,
             SceneColors::for_mode(ui.visuals().dark_mode),
             Arc::clone(&self.instances),
+            Arc::clone(&self.meshes),
             self.floor,
         );
         (frame.face_alpha, frame.edge_mix) = self.faces.alpha_and_mix();
@@ -598,6 +660,36 @@ mod tests {
         assert_eq!(axis(false, true), -1.0);
     }
 
+    /// M7.R4: markers covered by a mesh leave the instance upload but stay for picking
+    /// and the selection; new markers drop the meshes.
+    #[test]
+    fn meshes_cover_their_markers_until_the_markers_change() {
+        let mut vp = Viewport::default();
+        let a = Marker::placeholder();
+        let b = Marker {
+            position: Vec3::new(10.0, 0.0, 0.65),
+            ..Marker::placeholder()
+        };
+        vp.set_markers(vec![a, b]);
+        let boxes = |vp: &Viewport| vp.instances.per_shape[0].len() / INSTANCE_FLOATS;
+        assert_eq!(boxes(&vp), 2);
+        let gen = vp.meshes.generation;
+        vp.set_meshes(vec![0.0; 14], vec![0.0; 30], [1, 7].into_iter().collect());
+        assert_eq!(
+            vp.mesh_counts(),
+            (1, 2, 3),
+            "an index past the markers is dropped"
+        );
+        assert_eq!(boxes(&vp), 1);
+        assert_ne!(vp.meshes.generation, gen);
+        assert_eq!(vp.markers().len(), 2);
+        vp.select(Some(1));
+        assert_eq!(vp.selected(), Some(1));
+        vp.set_markers(vec![a]);
+        assert_eq!(vp.mesh_counts(), (0, 0, 0));
+        assert_eq!(boxes(&vp), 1);
+    }
+
     #[test]
     fn the_frame_carries_finite_matrices_for_every_marker() {
         let cam = OrbitCamera::default();
@@ -612,7 +704,8 @@ mod tests {
             &cam,
             1.5,
             SceneColors::DARK,
-            Arc::new(Instances::of(&markers, 7)),
+            Arc::new(Instances::of(&markers, 7, &BTreeSet::new())),
+            Arc::default(),
             0.0,
         );
         assert_eq!(f.markers.generation, 7);
