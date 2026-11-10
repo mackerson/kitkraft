@@ -172,3 +172,113 @@ shortcut for editing real plugins (it silently drops data and its own check does
 notice). Our own container (`crates/esm`, `kit roundtrip --verify`) is the roundtrip
 reference; Spriggit output may be used only as a hint, and any plugin it writes must be
 diffed against the input before use.
+
+## Interface gaps (M7)
+
+The M7 exit (ROADMAP M7, bullets 1 and 2) asks every observed row of `docs/ck-parity.md`
+"Interface parity" to be `reproduced` or `improved`, or to name a documented gap here with
+its reason. Each row of the first table quotes one `gap:` reason of that table verbatim (the
+text after `` `gap:` `` in "Maps to", which a test holds equal to `CK_ITEMS` in
+`crates/ui-egui/src/menu.rs`), lists the parity rows that give it, and names what owns it:
+a ticket or milestone, "permanent" (by design, no command will be added), "out of scope"
+(ROADMAP M7 excludes it) or "unscheduled" (not in M7, no ticket yet). A reason is never
+reworded here: a row and its quote change together, with `CK_ITEMS`.
+
+Counted 2026-11-10 (sprint 2026-11-09, C2): 47 reasons covering 102 `menu item` rows;
+4 more gaps named by a pointer from 5 rows that map a command; 4 rows with no reason yet; 10 rows
+whose mapping is not known yet; 4 `unresearched` rows. The NavMesh `menu` row is `reproduced` (the
+menu is drawn with its items disabled and the reason, as ROADMAP M7 asks), not a gap row.
+
+| Reason (verbatim from `docs/ck-parity.md`) | Parity rows (`menu item`) | Rows | Owned by |
+| ------------------------------------------ | ------------------------- | ---- | -------- |
+| "no command: the Preferences window (M7.M3) keeps workbench settings in ui.json" | File > Preferences... | 1 | permanent: UI state in ui.json (M7.M3) |
+| "no command: the workbench theme is a UI setting (M6)" | File > Theme (experimental) | 1 | permanent: UI state in ui.json (M6) |
+| "no command compacts FormIDs" | File > Compact Active File Form IDs for ... | 1 | unscheduled: not in M7, no ticket |
+| "no command converts an existing file's header (see the row "Convert the active file to a master")" | File > Convert Active File to ... | 1 | unscheduled: not in M7, no ticket |
+| "not offered: KitKraft has no Bethesda.net upload or login. Observed disabled (data loaded, no active file)" | File > Upload Plugin and Archive to Bethesda.net, File > Logout | 2 | permanent: not offered |
+| "not offered: KitKraft has no Bethesda.net upload or login" | File > Login to Bethesda.net | 1 | permanent: not offered |
+| "no command: closing the window" | File > Exit | 1 | permanent: the window's own close, not a command |
+| "no redo (M7.E6 undoes the last edit only)" | Edit > Redo | 1 | M8.3 (undo history) |
+| "no command: moving and copying references in the Render Window is M8 (ROADMAP M7)" | Edit > Cut Render, Edit > Copy Render, Edit > Paste Render, Edit > Paste in Place | 4 | M8.7 (placement editing in the viewport) |
+| "no search-and-replace command" | Edit > Search & Replace... | 1 | M8.1 (search everywhere); the replace half needs a further ADR 0007 amendment |
+| "no search by condition" | Edit > Find by Condition | 1 | M8.1 (search everywhere) |
+| "no command: the Render Window tab lists its own bindings (M7.R1)" | Edit > Render Window Hotkeys | 1 | M7.M5 (shortcuts), after OW-C B2 |
+| "no command: the Render Window tab is read-only (M7.R) and has no such view option yet" | View > Toggle Render Features, View > Refresh Render Window, View > Depth Biasing | 3 | unscheduled: no M7.R ticket names it |
+| "no command: KitKraft has no toolbar" | View > Toolbar | 1 | permanent: KitKraft has no toolbar |
+| "no command: window arrangement is workbench UI state, kept in ui.json (M7.M0)" | View > Statusbar, View > Open Windows..., View > Object Window Layouts, Docks > Save Current Layout, Docks > Save Layout as..., Docks > Recent Layouts, Docks > Manage Layouts..., Help > Snap Windows | 8 | permanent: UI state, not a catalog command (M7.M0) |
+| "no command: no preview window yet" | View > Preview Window | 1 | unscheduled: not in M7, no ticket |
+| "no command: animation is not in M7" | View > Preview Animations, Gameplay > Animations... | 2 | unscheduled: not in M7, no ticket |
+| "no batch action over references" | View > Reference Batch Action Window | 1 | unscheduled: not in M7, no ticket |
+| "no command for editor layers" | View > Layers | 1 | unscheduled: not in M7, no ticket |
+| "no command for editor layers. Observed disabled (data loaded, no active file)" | View > Default Layer Manager | 1 | unscheduled: not in M7, no ticket |
+| "no command: materials are M8 (ROADMAP M7)" | View > Material Editor, View > Material Palette, View > Material Swap Editor | 3 | M8.6 (materials, textures, lighting) |
+| "no command: the Render Window tab is read-only (M7.R) and has no such view option yet. Observed disabled (data loaded, no active file)" | View > Current Cell Only | 1 | unscheduled: no M7.R ticket names it |
+| "no command: the Render Window camera (M7.R1) has no fixed views yet" | View > Isometric, View > Top | 2 | M7.R1 rest (camera, after OW-C B9) |
+| "no command: particle effects are not in M7" | View > Particle Editor | 1 | unscheduled: not in M7, no ticket |
+| "no command: no galaxy view (`planet` reads one planet's content)" | Galaxy > Galaxy View | 1 | unscheduled: not in M7, no ticket |
+| "no command: world generation, tests and exports are not in M7" | Galaxy > Block Pattern Editor, Galaxy > Generate Locations, Galaxy > Gen Overlay Placement Data, Galaxy > Generate Biome Placements, World > World Testing And Reports, World > View Render Test Failures..., World > Create Local Maps, World > Validate Room/Portal Alignment, World > Generate LOS, World > Generate Max Height Data, World > Export MapMarker Data | 11 | unscheduled: not in M7, no ticket |
+| "no command: the Render Window shows the cell chosen in the Cell View" | World > Go to Location | 1 | permanent: the Cell View chooses the cell (M7.W2) |
+| "no command: physics simulation is not in M7" | World > Run Havok Sim | 1 | unscheduled: not in M7, no ticket |
+| "no command: lighting is M8 (ROADMAP M7)" | World > Animate Lighting and Effects | 1 | M8.6 (materials, textures, lighting) |
+| "no command: world generation, tests and exports are not in M7. Observed disabled (data loaded, no active file)" | World > Align Tanget Space at NIF Intersection | 1 | unscheduled: not in M7, no ticket |
+| "no command: the Render Window draws no weather" | World > Force Weather, World > Toggle Wind | 2 | unscheduled: not in M7, no ticket |
+| "no command: terrain editing is not in M7" | Terrain > Landscape Editing, Terrain > Landscape Cutting, Terrain > Heightmap Autopaint, Terrain > Heightmap Import, Terrain > Export Landscape..., Terrain > Reimport All Blocks, Terrain > Cell Terrain Data Viewer | 7 | out of scope: ROADMAP M7 "Deliberately not in M7" |
+| "no command: object palettes are not in M7" | Terrain > Object Palette Editing (Qt) | 1 | unscheduled: not in M7, no ticket |
+| "navmesh generation is out of scope (ROADMAP M7)" | NavMesh > Generate Current Cell, NavMesh > Generate Loaded Area, NavMesh > Generate WorldSpace, NavMesh > Cycle View Mode, NavMesh > Draw Cover, NavMesh > Draw Traversal, NavMesh > Other Options, NavMesh > Clean NavMesh Splines | 8 | out of scope: ROADMAP M7 "Deliberately not in M7" |
+| "no command: dialogue and voice tools are not in M7" | Character > Filtered Dialogue..., Character > Export Dialogue..., Character > Export Speech Challenge Scenes..., Character > Export Dialogue For Specific Voices, Character > Export Companion Affinity Event, Character > List Neutral Emotion Dialogue, Character > List Dialogue Needing Review, Character > Quest Voice Asset Totals, Character > Edit Player Dialogue, Character > Generate Player Address Lip Files | 10 | unscheduled: not in M7, no ticket |
+| "no command: character data exports are not in M7" | Character > Export Relationship Data | 1 | unscheduled: not in M7, no ticket |
+| "no command: character appearance tools are not in M7" | Character > Update NPC Body Tint Colors, Character > Update FaceBones Model Availability | 2 | unscheduled: not in M7, no ticket |
+| "no command: character appearance tools are not in M7. Observed disabled (data loaded, no active file)" | Character > Export FaceGen Customization Textures | 1 | unscheduled: not in M7, no ticket |
+| "no command for quest aliases" | Character > Quest Aliases | 1 | unscheduled: not in M7, no ticket |
+| "no script list; `papyrus.disasm` reads one compiled script" | Gameplay > Papyrus Script Manager | 1 | unscheduled: not in M7, no ticket |
+| "no command: no export of script attachments" | Gameplay > Export Papyrus Attach Data... | 1 | unscheduled: not in M7, no ticket |
+| "no command: creature tools are not in M7" | Gameplay > Creature Creator | 1 | unscheduled: not in M7, no ticket |
+| "no command for the default objects list" | Gameplay > Default Objects... | 1 | unscheduled: not in M7, no ticket |
+| "no command: workshop tools are not in M7" | Gameplay > Workshop Editor | 1 | unscheduled: not in M7, no ticket |
+| "no command: audio tools (Wwise, FaceFX, voice files) are not in M7" | Audio > Animation Sound Tag Overrides..., Audio > Process Local Voice WAVs, Audio > Build Soundbank for Active File, Audio > Reload Wwise Data, Audio > Run FaceFX Compiler | 5 | unscheduled: not in M7, no ticket |
+| "no CK help text is reproduced; KitKraft's Help menu has its own (`schema`, `doctor`)" | Help > Contents | 1 | permanent: clean room (ADR 0012) |
+| "no command: KitKraft lists its own in ATTRIBUTION.md" | Help > Third-Party Software Licenses | 1 | permanent: ATTRIBUTION.md |
+
+Rows that map a command and still lack what the CK does; their "Maps to" points here:
+
+| Gap | Parity rows | Owned by |
+| --- | ----------- | -------- |
+| No save step: each confirmed edit is written into the active file when it is made (ADR 0007 Amendment 4, model A), so there is nothing unsaved for File > Save Plugin to write | menu item "File > Save Plugin"; workflow "Save the active file" | permanent: ADR 0007 Amendment 4, model A |
+| No "Select Target Plugin" file dialog: a new active file is named before any edit, in the Data dialog's "Active file path:" field (KitKraft's addition, outside the game's `Data` folder), not chosen when saving | dialog "Select Target Plugin (File > Save Plugin with no active file)" | permanent: the Data dialog's path field (M7.M2) |
+| No drag placement: `place` takes the base and a typed position from the Cell View's place bar (M7.E4); dragging an Object Window row into the Render Window is not built, the Render Window being read-only | workflow "Place an object into a cell" | M8.7 (placement editing in the viewport) |
+| No conversion of an existing file's header to a master; `build` sets the header flags of a file it writes | workflow "Convert the active file to a master" | unscheduled: no ticket |
+
+Not yet a documented gap: these rows give no reason ("Maps to" reads `` `gap:` no command `` or
+`` `gap:` no command yet ``). Each gets one with `CK_ITEMS` in a single commit (sprint 2026-11-09,
+C2's ask to D); until then they stay open:
+
+- World > View BetaComment Data ("no command")
+- Gameplay > Migrate Papyrus Property Data... ("no command")
+- Gameplay > Camera Paths... ("no command")
+- Help > About ("no command yet")
+
+Observed, mapping not known yet (not a KitKraft gap): the item's window or submenu was never
+opened. They stay `observed` until a sitting opens them:
+
+| Reason (verbatim) | Parity row | Observed by |
+| ----------------- | ---------- | ----------- |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | File > Import/Export | OW-C launch 1, B10 (submenus, optional; `plan/owner-sitting-2026-11-06.md`) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | Edit > Picking Preferences | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Packin | OW-C launch 1, B10 (submenus, optional; `plan/owner-sitting-2026-11-06.md`) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Scene Info Window | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Show/Hide | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Inspector | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Properties | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Volumes | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: its window or submenu was not opened (sitting 1 rest, M7.O2)" | View > Reflection Probe | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+| "not known yet: grouped with the material items, its window not opened (sitting 1 rest, M7.O2)" | View > AVMS | no OW-C step names it: the rest of sitting 1 (M7.O2) |
+
+`unresearched` rows, with the step of the owner's CK window (OW-C, `plan/owner-sitting-2026-11-06.md`)
+that observes each:
+
+| Parity row | Observed by |
+| ---------- | ----------- |
+| window "Render Window" | OW-C launch 1: B8 loads a cell into it, B9 tries the camera on it |
+| control "Render Window camera: orbit, pan, zoom, fly (mouse and keys)" | OW-C launch 1: B9 (camera inputs), B2 (Render Window Hotkeys bindings) |
+| shortcut "Keyboard shortcuts, every one observed" | OW-C launch 1: B1 (menu shortcuts), B2 (Render Window Hotkeys bindings) |
+| workflow "New form, duplicate form" | OW-C launch 2: A1 (F28, a vanilla object duplicated); no step makes a new form |
