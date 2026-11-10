@@ -22,7 +22,9 @@ use super::scene::LineVertex;
 pub const MESH_SCENE_TRIANGLES: usize = 500_000;
 
 /// Most triangles placed per frame while a scene's meshes are built; the rest wait for
-/// the next frames, and the GPU upload happens once, when the build is complete.
+/// the next frames, and the GPU upload happens once, when the build is complete. The
+/// budget is soft: it is checked after each reference is placed, so one base of up to
+/// [`MESH_SCENE_TRIANGLES`] is placed whole in a single frame (review I3 of M7.R4).
 pub const MESH_FRAME_TRIANGLES: usize = 100_000;
 
 /// The engine's own caps (`handlers/mesh.rs`: `MAX_GEOMETRY_VERTICES`,
