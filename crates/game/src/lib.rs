@@ -33,6 +33,7 @@ pub mod ledger;
 pub mod preflight;
 pub mod probes;
 pub mod profile;
+pub mod replay;
 pub mod testing;
 
 pub use error::{GameError, Result};

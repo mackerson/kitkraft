@@ -3203,3 +3203,193 @@ fn rv_empty_body_poll_line_arrives_late() {
     let v = rv_run("rv-empty", &c, 3);
     assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
 }
+
+// ------------------------------------------------- M4.T7: the transcript and its replay (R29)
+// A session records every send and its full reply; `replay` runs today's controller over
+// that transcript with no game and `compare` sets its labels against the ledger's.
+
+use kitkraft_game::controller::Report;
+use kitkraft_game::ledger::row_labels;
+use kitkraft_game::replay::{compare, replay as replay_transcript, Recorded, Replayed as Rerun};
+
+const RIGHT_FULL: &str = "Old Soviet Marksman Rifle";
+
+/// The rename's rows (`docs/smoke-rename.md`): `help "<FULL>" 4` finds the weapon, a
+/// reference's position, and a manual row.
+fn rename_rows(full: &str) -> Vec<Probe> {
+    let mut manual = probe("T-03", false, vec![]);
+    manual.matcher = Some("manual".into());
+    manual.reason = Some("the inventory screen is UI".into());
+    vec![
+        one(
+            "T-01",
+            &format!("help \"{full}\" 4"),
+            Matcher::Contains,
+            "0021BBCD",
+            None,
+        ),
+        probe(
+            "T-02",
+            false,
+            vec![
+                step("prid KitKraftCrate", None, "", None),
+                step("getpos x", Some(Matcher::Number), "-17.0", Some(0.5)),
+            ],
+        ),
+        manual,
+    ]
+}
+
+/// A recorded rename session on the fakes: its report, its probes and its ledger text.
+fn recorded(tag: &str) -> (Report, ProbeFile, String, Vec<String>) {
+    let f = fixture(tag);
+    let c = console();
+    let help = format!("help \"{RIGHT_FULL}\" 4");
+    c.answer(
+        &help,
+        &format!("{help}\nCommand: {help}\nWEAP: (0021BBCD) '{RIGHT_FULL}'"),
+    );
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-11-10-T01");
+    p.probes.probes = rename_rows(RIGHT_FULL);
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let ledger = std::fs::read_to_string(&f.ledger).unwrap();
+    let received = c.received();
+    std::fs::remove_dir_all(&f.root).unwrap();
+    (report, p.probes.clone(), ledger, received)
+}
+
+fn labels(report: &Report) -> Vec<(String, String)> {
+    report
+        .rows
+        .iter()
+        .map(|r| (r.row.clone(), r.verdict.label().to_string()))
+        .collect()
+}
+
+fn replay_of(report: &Report, probes: &ProbeFile, tag: &str) -> Rerun {
+    let work =
+        std::env::temp_dir().join(format!("kitkraft-game-replay-{tag}-{}", std::process::id()));
+    let rec = Recorded {
+        session: &report.session,
+        probes,
+        transcript: &report.transcript,
+        base_save: "KitKraftBase",
+        session_save: "KitKraftSession-20261016-01",
+        papyrus: None,
+    };
+    let r = replay_transcript(&rec, &work).unwrap();
+    let _ = std::fs::remove_dir_all(&work);
+    r
+}
+
+#[test]
+fn a_session_records_every_send_and_its_full_reply() {
+    let (report, _, _, received) = recorded("t4-record");
+    let sent: Vec<&str> = report
+        .transcript
+        .iter()
+        .map(|s| s.command.as_str())
+        .collect();
+    assert_eq!(
+        sent,
+        received.iter().map(String::as_str).collect::<Vec<_>>()
+    );
+    assert_eq!(sent.first().copied(), Some("GetSFSEVersion"));
+    let help = report
+        .transcript
+        .iter()
+        .find(|s| s.command.starts_with("help "))
+        .unwrap();
+    // In full, not clipped as `seen` is.
+    assert_eq!(
+        help.reply.as_deref(),
+        Some("help \"Old Soviet Marksman Rifle\" 4\nCommand: help \"Old Soviet Marksman Rifle\" 4\nWEAP: (0021BBCD) 'Old Soviet Marksman Rifle'")
+    );
+    assert!(report
+        .transcript
+        .iter()
+        .all(|s| s.reply.is_some() || s.error.is_some()));
+    assert!(report.transcript.windows(2).all(|w| w[0].ms <= w[1].ms));
+}
+
+#[test]
+fn the_ledger_table_reads_back_as_the_reports_labels() {
+    let (report, _, ledger, _) = recorded("t4-ledger");
+    let id = report.ledger_entry.clone().unwrap();
+    let got = row_labels(&ledger, &id).unwrap();
+    assert_eq!(got, labels(&report));
+    assert_eq!(got[0].1, "pass", "a `**pass**` cell reads pass");
+    assert_eq!(got[2].1, "not-run", "a `not-run (...)` cell reads not-run");
+    assert!(row_labels(&ledger, "game-19990101-01").is_none());
+}
+
+#[test]
+fn a_replay_of_a_recorded_session_passes_twice() {
+    let (report, probes, ledger, _) = recorded("t4-twice");
+    let id = report.ledger_entry.clone().unwrap();
+    let recorded_labels = row_labels(&ledger, &id).unwrap();
+    for n in 0..2 {
+        let r = replay_of(&report, &probes, &format!("twice-{n}"));
+        assert_eq!(r.diverged, None, "run {n}");
+        assert_eq!(r.unused, 0, "run {n}");
+        let diff = compare(&recorded_labels, &r, &[]);
+        assert!(diff.is_empty(), "run {n}: {diff:?}");
+    }
+}
+
+/// M4.T7's deliberate break: a wrong `FULL` makes today's probes send another `help`, so the
+/// replay leaves the transcript there and the replay fails, naming the send and the row.
+#[test]
+fn a_wrong_full_fails_the_replay_against_its_transcript() {
+    let (report, mut probes, ledger, _) = recorded("t4-full");
+    probes.probes = rename_rows("Old Earth Hunting Rifle");
+    let id = report.ledger_entry.clone().unwrap();
+    let r = replay_of(&report, &probes, "full");
+    let d = r.diverged.clone().unwrap_or_default();
+    assert!(
+        d.contains("help \"Old Earth Hunting Rifle\" 4") && d.contains(RIGHT_FULL),
+        "{d}"
+    );
+    let diff = compare(&row_labels(&ledger, &id).unwrap(), &r, &[]);
+    assert!(diff.iter().any(|x| x.contains("diverged")), "{diff:?}");
+    assert!(diff.iter().any(|x| x.starts_with("T-01:")), "{diff:?}");
+}
+
+#[test]
+fn a_grade_the_ledger_did_not_record_fails_unless_regraded_by_name() {
+    let (report, probes, _, _) = recorded("t4-regrade");
+    let r = replay_of(&report, &probes, "regrade");
+    let mut ledger = labels(&report);
+    ledger[0].1 = "fail".into();
+    let diff = compare(&ledger, &r, &[]);
+    assert_eq!(diff.len(), 1, "{diff:?}");
+    assert!(
+        diff[0].starts_with("T-01: the ledger says fail"),
+        "{diff:?}"
+    );
+    // A deliberate grader change, listed by name, is accepted for that row only.
+    assert!(compare(&ledger, &r, &[("T-01".into(), "pass".into())]).is_empty());
+    assert_eq!(
+        compare(&ledger, &r, &[("T-02".into(), "pass".into())]).len(),
+        1
+    );
+}
+
+#[test]
+fn a_transcript_that_runs_out_diverges_and_its_rows_do_not_pass() {
+    let (mut report, probes, _, _) = recorded("t4-short");
+    let keep = report
+        .transcript
+        .iter()
+        .position(|s| s.command.starts_with("prid "))
+        .unwrap();
+    report.transcript.truncate(keep);
+    let r = replay_of(&report, &probes, "short");
+    assert!(
+        r.diverged
+            .as_deref()
+            .is_some_and(|d| d.contains("after the transcript's last send")),
+        "{r:?}"
+    );
+    assert_ne!(r.rows[1].1, Verdict::Pass, "{r:?}");
+}

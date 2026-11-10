@@ -242,6 +242,9 @@ pub struct Report {
     pub ledger_text: String,
     /// Every path the controller wrote.
     pub written: Vec<PathBuf>,
+    /// Every command sent to the console and its full reply, in order (M4.T7): what a
+    /// replay of the session answers from (`crate::replay`).
+    pub transcript: Vec<crate::replay::Sent>,
 }
 
 /// What `game.status` shows.
@@ -1286,7 +1289,13 @@ impl Run<'_> {
 }
 
 /// Runs a whole session. Never panics; every failure becomes a row status or a finding.
-pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
+pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
+    // Every send and its reply, in full, for the report (M4.T7, ruling R29).
+    let transcript = crate::replay::Transcript::default();
+    deps.console = Box::new(crate::replay::Recording::new(
+        deps.console,
+        transcript.clone(),
+    ));
     let papyrus = plan
         .logs
         .iter()
@@ -1477,6 +1486,7 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
         ledger_entry,
         ledger_text,
         written: Vec::new(),
+        transcript: transcript.sends(),
     };
     let report_path = plan.observe.join("report.json");
     if let Ok(text) = serde_json::to_string_pretty(&report) {
