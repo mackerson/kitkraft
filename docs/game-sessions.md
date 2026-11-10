@@ -125,6 +125,13 @@ ledger entry's "Console port" line say what was not checked.
    "Requests"), and the session is then `inconclusive`. The plugin under test is rolled
    back only with `kit deploy rollback`.
 9. Append one entry to `docs/game-observations.md` and write `observe\<id>\report.json`.
+   Since M4.T7 the report holds `transcript`: every command sent to the console (the
+   readiness polls, the base `load`, each step and retry) and its reply in full, in
+   order. `seen` keeps each reply clipped to 120 characters for the ledger; the
+   transcript is what a replay answers from (`kitkraft_game::replay`: today's
+   controller run again over it with no game, its labels compared with the ledger
+   entry's Result column; a command that differs from the recorded one ends the replay
+   there). Sessions recorded before M4.T7 have no transcript and are not replayed.
 
 ### Statuses
 
