@@ -1175,9 +1175,16 @@ mod tests {
         let mut now = Instant::now();
         let mut polls = 0u64;
         let mut turns = 0u64;
+        // Bounded by wall time, not a turn count: a turn is as fast as the worker, and since
+        // ruling R41 each `load` wait takes three polls (the engine's 250 ms apart), so a
+        // loaded gate ran the session past 400 fast turns.
+        let following = Instant::now();
         while state.phase.as_deref() != Some("idle") {
             turns = turns.saturating_add(1);
-            assert!(turns < 400, "still running after {turns} turns");
+            assert!(
+                following.elapsed() < WAIT,
+                "still running after {turns} turns"
+            );
             let poll = state.poll_due(now).expect("a poll is due this turn");
             assert!(
                 state.poll_due(now).is_none(),

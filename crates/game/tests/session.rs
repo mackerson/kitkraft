@@ -2889,8 +2889,10 @@ fn a_late_failure_in_the_readiness_poll_after_a_load_is_not_a_pass() {
             ],
         )],
     );
-    assert!(v[0].starts_with("inconclusive"), "{v:?}");
-    assert!(v[0].contains("readiness poll"), "{v:?}");
+    // R41: a load failure in the poll before any getter fails the row's load (it was
+    // inconclusive before R41).
+    assert!(v[0].starts_with("fail"), "{v:?}");
+    assert!(v[0].contains("Save file not found."), "{v:?}");
     assert!(seen[0].contains("Save file not found."), "{seen:?}");
 }
 
@@ -3277,6 +3279,21 @@ fn fx1d_a_getters_late_value_in_the_readiness_poll_does_not_make_it_ready() {
     assert_ne!(v[0], "pass", "fx1d {v:?}");
 }
 
+/// Review L1' (probe fx1h): an earlier poll's stale `SFSE version` line in the first poll
+/// after the load. Under R41 no line makes a poll ready; the load's failure in the next poll's
+/// reply is a failure only a `load` prints, with this row's `load` its one candidate: the row
+/// fails on it.
+#[test]
+fn fx1h_a_stale_readiness_line_after_the_load_still_fails_its_row() {
+    let v = fx_case(
+        "fx1h",
+        "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+    );
+    assert!(v[0].starts_with("fail"), "fx1h {v:?}");
+    assert!(v[0].contains("Save file not found."), "fx1h {v:?}");
+    assert!(!v[1].starts_with("fail"), "fx1h {v:?}");
+}
+
 // ------------------------------------------------- M4.T7: the transcript and its replay (R29)
 // A session records every send and its full reply; `replay` runs today's controller over
 // that transcript with no game and `compare` sets its labels against the ledger's.
@@ -3631,4 +3648,82 @@ fn a_replay_refuses_a_session_id_that_is_not_one_plain_folder_name() {
         );
     }
     let _ = std::fs::remove_dir_all(&base);
+}
+
+// ------------------------------------------------- R41: the pacing poll on T01's transcript
+
+/// 2026-11-10-T01 (ledger `game-20261110-01`), `report.json` as the session wrote it
+/// (sha256 0bd7f1d6e0003ee2381bbbf071a72f90b94da6d70ac63756bde866f2011993d0).
+const T01_REPORT: &str = include_str!("fixtures/2026-11-10-T01-report.json");
+
+/// R41: T01's base wait (sends 3 and 4 only their echo, the game dropping their answers;
+/// send 5 on, one `SFSE version` line each) is ready at send 5, the third poll in a row with
+/// a reply, and the session goes on to SO-01's first step at send 6, where the replay leaves
+/// the transcript (the live session went on polling). Before R41 the poll debt stayed at two
+/// and the wait timed out: every row not-run, the replay past the transcript's last send.
+#[test]
+fn r41_t01s_base_wait_is_ready_at_send_5_and_the_session_goes_on() {
+    let report: serde_json::Value = serde_json::from_str(T01_REPORT).unwrap();
+    assert_eq!(report["session"], "2026-11-10-T01");
+    let transcript: Vec<kitkraft_game::replay::Sent> =
+        serde_json::from_value(report["transcript"].clone()).unwrap();
+    assert_eq!(transcript.len(), 38);
+    let probes = ProbeFile::parse(SEND_ORDER).unwrap();
+    let work = std::env::temp_dir().join(format!(
+        "kitkraft-game-replay-r41-t01-{}",
+        std::process::id()
+    ));
+    let rec = Recorded {
+        session: "2026-11-10-T01",
+        probes: &probes,
+        transcript: &transcript,
+        base_save: "KitKraftBase",
+        session_save: "KitKraftSession-20261110-01",
+        papyrus: None,
+    };
+    let r = replay_transcript(&rec, &work).unwrap();
+    let _ = std::fs::remove_dir_all(&work);
+    assert_eq!(
+        r.diverged.as_deref(),
+        Some("send 6: sent `coc CityNewAtlantisLodgeInt`, recorded `GetSFSEVersion`"),
+        "{r:?}"
+    );
+    for (row, v) in &r.rows {
+        assert!(
+            !v.text().contains("waiting for the base save"),
+            "{row}: {}",
+            v.text()
+        );
+        assert_ne!(v.label(), "not-run", "{row}: {}", v.text());
+    }
+}
+
+/// Review R41 N1 and N2: what Windows refuses or rewrites is refused on every OS (a control
+/// character, a trailing `.` or space), and the refusal quotes the id, escaping a control
+/// character.
+#[test]
+fn a_replay_refuses_the_same_session_ids_on_every_os() {
+    let (report, probes, _, _) = recorded("t4-session-id-os");
+    let work = std::env::temp_dir().join(format!(
+        "kitkraft-game-replay-sid-os-{}",
+        std::process::id()
+    ));
+    for bad in ["...", "x.", "x ", "a\u{1}b", "a\tb"] {
+        let rec = Recorded {
+            session: bad,
+            probes: &probes,
+            transcript: &report.transcript,
+            base_save: "KitKraftBase",
+            session_save: "KitKraftSession-20261016-01",
+            papyrus: None,
+        };
+        let e = replay_transcript(&rec, &work).expect_err(bad);
+        let text = e.to_string();
+        assert!(
+            matches!(e, kitkraft_game::GameError::Replay(_)),
+            "{bad:?}: {text}"
+        );
+        assert!(!text.chars().any(char::is_control), "{bad:?}: {text}");
+    }
+    let _ = std::fs::remove_dir_all(&work);
 }
