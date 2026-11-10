@@ -9,7 +9,8 @@
 # which the sitting did not name one by one), and what the sitting did not record on a
 # tab (every tab but 3D Data) is ours: one field named after its tab. Group names are
 # labels; `members` is the `set` field path each edits. Rotation is stored in radians;
-# the CK's dialog shows degrees, so the labels say which unit is edited here.
+# the CK's dialog shows degrees, so the labels name the unit shown and the dialog keeps
+# the rotation read-only (dialogs::layouts::READ_ONLY).
 # observed = false: the tab names are observed, their contents mostly not.
 type = "REFR"
 parity = "Reference dialog (a placed reference)"

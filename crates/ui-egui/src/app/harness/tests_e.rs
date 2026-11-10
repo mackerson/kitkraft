@@ -1296,6 +1296,8 @@ fn d7_a_placed_reference_opens_on_its_3d_data_page() {
     };
     ask_place(&mut h, STAT, CELL);
     type_into(&mut h, "X", "12.5");
+    type_into(&mut h, "Y", "7");
+    type_into(&mut h, "Z", "3");
     press(&mut h, "Preview");
     press(&mut h, "Write to Patch.esp");
     assert_in_view(&h, "placed: Patch.esp:");
@@ -1317,6 +1319,18 @@ fn d7_a_placed_reference_opens_on_its_3d_data_page() {
     assert_in_view(&h, "Base Object");
     assert_in_view(&h, "Rotation Z (radians)");
     assert_in_view(&h, "DATA.Position.X");
+    // D7 review M1: the rotation (stored in radians, shown by the CK in degrees) is
+    // read-only here: the placed rotation is 0, and no edit box holds a zero (the
+    // position's boxes hold 12.5, 7 and 3).
+    assert_in_view(&h, "DATA.Rotation.X");
+    let zeros = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.value()
+                    .is_some_and(|v| v.trim().parse::<f64>() == Ok(0.0))
+        })
+        .count();
+    assert_eq!(zeros, 0, "no rotation edit box");
     retype(&mut h, "12.5", "13");
     let changed = crate::dialogs::edit::changed_fields(&h.ctx, &form).unwrap();
     assert_eq!(

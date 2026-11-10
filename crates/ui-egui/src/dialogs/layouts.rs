@@ -213,11 +213,21 @@ pub const NOT_NUMBERS: &[(&str, &str)] = &[
     ("CONT", "DATA"),
 ];
 
+/// Numeric fields the edit dialog shows read-only although they are plain numbers: REFR's
+/// rotation is stored in radians while the CK's Reference dialog edits it in degrees, so
+/// a CK user typing `90` would write 90 radians (D7 review M1). No conversion is offered.
+pub const READ_ONLY: &[(&str, &str)] = &[
+    ("REFR", "DATA.Rotation.X"),
+    ("REFR", "DATA.Rotation.Y"),
+    ("REFR", "DATA.Rotation.Z"),
+];
+
 /// Whether the edit dialog may offer `path` of `record_type` as a number to type: not a
-/// flags or enum member ([`NOT_NUMBERS`]).
+/// flags or enum member ([`NOT_NUMBERS`]) and not held read-only ([`READ_ONLY`]).
 pub fn edits_as_number(record_type: &str, path: &str) -> bool {
     !NOT_NUMBERS
         .iter()
+        .chain(READ_ONLY)
         .any(|(t, p)| *t == record_type && *p == path)
 }
 
@@ -1233,6 +1243,9 @@ mod tests {
         assert!(!edits_as_number("AMMO", "DNAM.Flags"));
         assert!(edits_as_number("AMMO", "DNAM.Damage"));
         assert!(edits_as_number("AMMO", "DATA.Value"));
+        // D7 review M1: REFR's rotation is read-only, its position is not.
+        assert!(!edits_as_number("REFR", "DATA.Rotation.Z"));
+        assert!(edits_as_number("REFR", "DATA.Position.X"));
     }
 
     /// D2-fix review L3: a member page's lines follow the observed labels, mapped and
