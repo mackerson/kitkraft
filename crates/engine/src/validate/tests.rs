@@ -177,7 +177,10 @@ fn masters_unflagged() {
     let plain = patch(&d, "Patch.esp", &["Plain.esp"], vec![]);
     assert_eq!(found(&check(&plain, &["masters.unflagged"])), []);
     let missing = write_plugin(&d, "Lost.esm", &["Nope.esp"], FLAG_MASTER, vec![]);
-    assert_eq!(found(&check(&missing, &["masters.unflagged"])), []);
+    assert_eq!(
+        found(&check(&missing, &["masters.missing", "masters.unflagged"])),
+        [pair("masters.missing", "error")]
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
 
