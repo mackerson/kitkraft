@@ -14,7 +14,8 @@
 //! M7.W4 (sprint 2026-11-09, D6): a layout whose groups name members (AMMO, COBJ, CONT,
 //! STAT, KYWD, TERM) is drawn by label, not by schema member name: each observed label on
 //! one line with the `set` field path it edits, a numeric member inside a struct edited in
-//! place (`DATA.Value`), and the labels M7.K4 could not map listed read-only with their
+//! place (`DATA.Value`; flags and enums stay read-only, `super::layouts::NOT_NUMBERS`),
+//! and the labels M7.K4 could not map listed read-only with their
 //! reasons (`super::layouts::place_members`).
 
 use std::collections::BTreeMap;
@@ -420,7 +421,11 @@ fn member_tab(
                         value: shown.clone().unwrap_or_else(|| r.sub.value.clone()),
                         ..r.sub.clone()
                     };
-                    let edit = if r.blocked || shown.is_none() {
+                    // Flags and enums show as raw numbers: never typed here (L2).
+                    let edit = if r.blocked
+                        || shown.is_none()
+                        || !super::layouts::edits_as_number(record_type, &g.path)
+                    {
                         None
                     } else if steps.is_empty() {
                         editable(&view)

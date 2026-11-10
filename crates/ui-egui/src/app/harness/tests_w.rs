@@ -1118,6 +1118,12 @@ fn d6_plugin(types: &[&str]) -> Vec<u8> {
             let mut data = 12u32.to_le_bytes().to_vec();
             data.extend(0.5f32.to_le_bytes());
             b.extend(sub(b"DATA", &data));
+            // DNAM AmmoData: Projectile (none), Flags 5, Unused, Damage 4, Health 7.
+            let mut dnam = 0u32.to_le_bytes().to_vec();
+            dnam.extend([5u8, 0, 0, 0]);
+            dnam.extend(4.0f32.to_le_bytes());
+            dnam.extend(7u32.to_le_bytes());
+            b.extend(sub(b"DNAM", &dnam));
         }
         let rec = record(t.as_bytes(), 0, 0x800 + i as u32, &b);
         let mut grup = b"GRUP".to_vec();
@@ -1192,6 +1198,12 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
     };
     assert_eq!(boxes(&h, "12"), 1, "one edit box for DATA.Value");
     assert_eq!(boxes(&h, "0.5"), 1, "one edit box for DATA.Weight");
+    // D2-fix review L2: a flags member is never an edit box (its value shows read-only);
+    // the numbers beside it are.
+    assert_eq!(boxes(&h, "4.0"), 1, "DNAM.Damage edits");
+    assert_eq!(boxes(&h, "7"), 1, "DNAM.Health edits");
+    assert_eq!(boxes(&h, "5"), 0, "DNAM.Flags is read-only");
+    assert!(!nodes_with(&h, "DNAM.Flags").is_empty());
     h.query_all_by(|n| {
         n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
     })

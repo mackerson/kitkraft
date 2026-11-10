@@ -198,6 +198,29 @@ pub const SHIPPED: &[(&str, &str)] = &[
     ),
 ];
 
+/// The field paths of the six member layouts whose value is a set of flags or an enum.
+/// The engine shows such a value as a plain number (the raw bits, the raw value), so the
+/// edit dialog would offer it as a number to type; it stays read-only instead (D2-fix
+/// review L2: typing `1` into AMMO's flags sets IgnoresNormalWeaponResistance, not
+/// Playable). Pinned against the schema by the test
+/// `flags_and_enums_are_pinned_from_the_schema`.
+pub const NOT_NUMBERS: &[(&str, &str)] = &[
+    ("AMMO", "DNAM.Flags"),
+    ("COBJ", "RECF"),
+    ("TERM", "NAM1"),
+    ("TERM", "FNAM"),
+    ("TERM", "MNAM"),
+    ("CONT", "DATA"),
+];
+
+/// Whether the edit dialog may offer `path` of `record_type` as a number to type: not a
+/// flags or enum member ([`NOT_NUMBERS`]).
+pub fn edits_as_number(record_type: &str, path: &str) -> bool {
+    !NOT_NUMBERS
+        .iter()
+        .any(|(t, p)| *t == record_type && *p == path)
+}
+
 /// Which of `subrows` lie inside a base-form component block (`BFCB` to `BFCE`, both
 /// included), whose subrecords may reuse a signature the record also has at the top level.
 pub fn in_component(subrows: &[SubRow]) -> Vec<bool> {
@@ -1111,5 +1134,65 @@ mod tests {
             .all(|g| g.rows.iter().all(|r| !r.blocked)));
         // WEAP's layout names no members: placed by signature.
         assert!(place_members(&shipped("WEAP").unwrap().unwrap(), &rows).is_none());
+    }
+
+    /// The type of the leaf `path` names in a deep `schema` envelope (the subrecord at the
+    /// top level or in a group outside the component block, then each member step).
+    fn leaf_type(env: &serde_json::Value, path: &str) -> Option<String> {
+        use serde_json::Value;
+        fn find<'a>(members: &'a Value, sig: &str) -> Option<&'a Value> {
+            for m in members.as_array().into_iter().flatten() {
+                if m.get("signature").and_then(Value::as_str) == Some(sig) {
+                    return Some(m);
+                }
+                if m.get("kind").and_then(Value::as_str) == Some("group")
+                    && m.get("name").and_then(Value::as_str) != Some("BfcbBlock")
+                {
+                    if let Some(f) = find(&m["members"], sig) {
+                        return Some(f);
+                    }
+                }
+            }
+            None
+        }
+        let mut steps = path.split('.');
+        let mut v = find(&env["data"]["members"], steps.next()?)?;
+        for step in steps {
+            v = ["members", "fields"]
+                .iter()
+                .flat_map(|k| v.get(*k).and_then(Value::as_array).into_iter().flatten())
+                .find(|m| m.get("name").and_then(Value::as_str) == Some(step))?;
+        }
+        v.get("type").and_then(Value::as_str).map(str::to_string)
+    }
+
+    /// D2-fix review L2: every mapped field path of the six member layouts whose schema
+    /// type is flags or an enum is in [`super::NOT_NUMBERS`], and nothing else is, so the
+    /// edit dialog never offers raw bits as a number to type.
+    #[test]
+    fn flags_and_enums_are_pinned_from_the_schema() {
+        use super::{edits_as_number, NOT_NUMBERS};
+        let engine = ReadOnlyEngine::new();
+        let mut found = Vec::new();
+        for t in ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"] {
+            let env = engine
+                .run(&Request::new("schema", json!({"type": t, "deep": true})))
+                .unwrap();
+            for (_, path) in observation(t).unwrap().map {
+                let ty = leaf_type(&env, &path).unwrap_or_else(|| panic!("{t}: {path}"));
+                if ty.contains("flags<") || ty.contains("enum<") {
+                    found.push((t.to_string(), path));
+                }
+            }
+        }
+        found.dedup();
+        let pinned: Vec<(String, String)> = NOT_NUMBERS
+            .iter()
+            .map(|(t, p)| ((*t).to_string(), (*p).to_string()))
+            .collect();
+        assert_eq!(pinned, found);
+        assert!(!edits_as_number("AMMO", "DNAM.Flags"));
+        assert!(edits_as_number("AMMO", "DNAM.Damage"));
+        assert!(edits_as_number("AMMO", "DATA.Value"));
     }
 }

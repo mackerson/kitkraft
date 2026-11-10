@@ -658,7 +658,8 @@ revisited once a sitting observes how the CK docks. Code:
   STAT, KYWD and TERM are one page each, named after the dialog's observed title, one
   line per mapped label in the record's order with the field path it edits and its value;
   a whole subrecord edits in place as above, and a numeric member inside a struct
-  (`DATA.Value`) too. A field whose signature a base-form component block of the record
+  (`DATA.Value`) too; flags and enums, which the engine shows as raw numbers, stay
+  read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema). A field whose signature a base-form component block of the record
   also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
   labels follow, read-only, with their reasons, and what no label shows goes to "Other".
   AMMO's and COBJ's pages say observed (the sitting recorded no tab control); the other
