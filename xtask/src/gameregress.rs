@@ -316,17 +316,35 @@ pub(crate) fn replay_desk(
 }
 
 /// The recorded session `id` under `observe`: the `report.json` whose `ledger_entry` is `id`.
-fn find_report(observe: &Path, id: &str) -> Option<(PathBuf, Value)> {
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(observe)
-        .ok()?
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .collect();
+/// Also returns a note for each `report.json` it could not read or parse on the way, so an
+/// unreadable report is named, not passed over (review L1 of part 3).
+fn find_report(observe: &Path, id: &str) -> (Option<(PathBuf, Value)>, Vec<String>) {
+    let mut skipped = Vec::new();
+    let Ok(entries) = std::fs::read_dir(observe) else {
+        return (None, skipped);
+    };
+    let mut dirs: Vec<PathBuf> = entries.filter_map(|e| e.ok().map(|e| e.path())).collect();
     dirs.sort();
-    dirs.into_iter().find_map(|d| {
+    for d in dirs {
         let p = d.join("report.json");
-        let v: Value = serde_json::from_str(&std::fs::read_to_string(&p).ok()?).ok()?;
-        (v.get("ledger_entry").and_then(Value::as_str) == Some(id)).then_some((p, v))
-    })
+        if !p.is_file() {
+            continue;
+        }
+        let parsed = std::fs::read_to_string(&p)
+            .map_err(|e| e.to_string())
+            .and_then(|t| serde_json::from_str::<Value>(&t).map_err(|e| e.to_string()));
+        match parsed {
+            Ok(v) if v.get("ledger_entry").and_then(Value::as_str) == Some(id) => {
+                return (Some((p, v)), skipped);
+            }
+            Ok(_) => {}
+            Err(e) => skipped.push(format!(
+                "{}: unreadable report.json skipped ({e})",
+                p.display()
+            )),
+        }
+    }
+    (None, skipped)
 }
 
 /// The text between the backticks right after `key` in the ledger entry's `Save` field
@@ -354,12 +372,15 @@ pub(crate) fn replay_session(
         Ok(text) => text,
         Err(why) => return not_run(format!("session {}: not-run (the ledger {why})", r.session)),
     };
-    let Some((path, report)) = find_report(observe, &r.session) else {
-        return not_run(format!(
+    let (found, skipped) = find_report(observe, &r.session);
+    let Some((path, report)) = found else {
+        let mut notes = skipped;
+        notes.push(format!(
             "session {}: not-run (no report.json naming it under {})",
             r.session,
             observe.display()
         ));
+        return Ok(("not-run".to_string(), Vec::new(), notes));
     };
     let transcript: Vec<Sent> = match report.get("transcript") {
         Some(t) => serde_json::from_value(t.clone())
@@ -1043,5 +1064,29 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
             );
             let _ = std::fs::remove_dir_all(&root);
         }
+    }
+
+    /// Review L1 (probe P2): a malformed report.json stays not-run, but is named, not passed
+    /// over as "no report.json naming it".
+    #[test]
+    fn an_unreadable_report_json_is_named_not_passed_over() {
+        let root = tmp("p2");
+        let ledger = recorded_session(&root, "**pass**", true, "");
+        std::fs::write(
+            root.join("observe")
+                .join("2026-11-10-T01")
+                .join("report.json"),
+            "{ not json",
+        )
+        .unwrap();
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "not-run", "{o:?}");
+        assert!(
+            o.notes
+                .iter()
+                .any(|n| n.contains("unreadable report.json skipped")),
+            "{o:?}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
