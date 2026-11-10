@@ -27,7 +27,7 @@ use std::sync::Arc;
 use kitkraft_esm::bridge::{has_definition, Ctx};
 use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
-use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
+use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER};
 use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
 use serde::Serialize;
 
@@ -99,6 +99,12 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "A master is listed before one of its own masters",
+    },
+    RuleInfo {
+        id: "masters.unflagged",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A master-flagged plugin lists a master without the master flag: if the game loads master-flagged plugins first (masters-load-first, grade D), it loads before its own master",
     },
     RuleInfo {
         id: "formid.dangling",
@@ -663,6 +669,22 @@ fn validate_plugin(
                         format!("master {m} is listed before its own master {dep}"),
                     ));
                 }
+            }
+        }
+    }
+    // A master not found has no flags: masters.missing reports it.
+    if rules.contains(&"masters.unflagged") && flags & FLAG_MASTER != 0 {
+        for m in &masters {
+            let mflags = files.get(&m.to_ascii_lowercase()).and_then(|f| f.flags);
+            if mflags.is_some_and(|f| f & FLAG_MASTER == 0) {
+                report.findings.push(finding(
+                    "masters.unflagged",
+                    Severity::Warning,
+                    None,
+                    Some("MAST".into()),
+                    None,
+                    format!("{name} is master-flagged but its master {m} is not: if the game loads master-flagged plugins first (assumption masters-load-first, grade D), {name} loads before {m}"),
+                ));
             }
         }
     }
