@@ -3309,7 +3309,10 @@ fn a_session_records_every_send_and_its_full_reply() {
         .transcript
         .iter()
         .all(|s| s.reply.is_some() || s.error.is_some()));
-    assert!(report.transcript.windows(2).all(|w| w[0].ms <= w[1].ms));
+    assert!(report
+        .transcript
+        .windows(2)
+        .all(|w| w[0].elapsed_ms <= w[1].elapsed_ms));
 }
 
 #[test]

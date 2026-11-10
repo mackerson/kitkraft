@@ -45,7 +45,7 @@ pub struct Sent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     /// Milliseconds since the session started.
-    pub ms: u64,
+    pub elapsed_ms: u64,
 }
 
 /// The sends of a session, shared between the recording console and the report.
@@ -98,7 +98,7 @@ impl Console for Recording {
             command: command.to_string(),
             reply: answer.as_ref().ok().cloned(),
             error: answer.as_ref().err().map(ToString::to_string),
-            ms: u64::try_from(self.start.elapsed().as_millis()).unwrap_or(u64::MAX),
+            elapsed_ms: u64::try_from(self.start.elapsed().as_millis()).unwrap_or(u64::MAX),
         });
         answer
     }
