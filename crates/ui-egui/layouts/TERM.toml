@@ -5,10 +5,10 @@
 # its member the `set` field path. Labels M7.K4 could not map are listed by the dialog
 # from sitting2.toml's `gaps`, read-only, with their reasons. The page's name is the
 # dialog's observed title ("Terminal").
-# The sitting did not record whether the dialog has tabs: one page is ours (observed = false).
+# The sitting recorded no tab control (ledger amended by C, ask A-D1), so the one page is as observed.
 type = "TERM"
 parity = "Edit dialog: TERM"
-observed = false
+observed = true
 
 [[tab]]
 name = "Terminal"

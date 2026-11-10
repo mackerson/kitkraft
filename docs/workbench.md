@@ -569,7 +569,11 @@ revisited once a sitting observes how the CK docks. Code:
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
   severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
-  double-click a finding to inspect its record.
+  double-click a finding to inspect its record. Its columns (sprint 2026-11-09) are the
+  ones the CK's Warnings window showed in `ck-20261101-01`, in its order (Time, Type,
+  Form, Form ID, File, Last User, Current User, Last Touched, Text, Source File, Line
+  Number), with "-" where KitKraft has no value, then KitKraft's own "Check" (`load` or
+  `validate <rule>`); copy writes the same columns.
 - **Data dialog (M7.M2)**: View > Data Dialog. The session's load order (the Load tab's
   `load`) and the plugins its profile lists but does not activate, each with its status as
   the CK names it ("Master File", "Plugin File", "Active File") and a tick: a double-click
@@ -658,11 +662,20 @@ revisited once a sitting observes how the CK docks. Code:
   STAT, KYWD and TERM are one page each, named after the dialog's observed title, one
   line per mapped label in the record's order with the field path it edits and its value;
   a whole subrecord edits in place as above, and a numeric member inside a struct
-  (`DATA.Value`) too. A field whose signature a base-form component block of the record
+  (`DATA.Value`) too; flags and enums, which the engine shows as raw numbers, stay
+  read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema), on the label
+  lines and on "Other" alike. A field whose signature a base-form component block of the record
   also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
-  labels follow, read-only, with their reasons, and what no label shows goes to "Other".
-  AMMO's and COBJ's pages say observed (the sitting recorded no tab control); the other
-  four do not, since the sitting did not record whether they have tabs.
+  labels sit among them in the observed order, read-only, with their reasons, and what no
+  label shows goes to "Other".
+  All six pages say observed: the sitting recorded no tab control for any of them
+  (`ck-20261102-03`, rows S2-02 to S2-08 as amended).
+  REFR's layout (D7) follows the Reference dialog `ck-20261101-03` observed: its tabs are
+  the CK's tab names in the CK's order (those no schema member holds left out), "3D Data"
+  first with the four fields the CK shows above its tabs, then Position and Rotation X,
+  Y, Z (rotation in radians, as stored, and read-only: the CK edits degrees) and Scale; each other tab
+  holds the one field named after it. It says unobserved: only "3D Data"'s contents were
+  seen.
 
 ## Screenshot tour (development aid)
 

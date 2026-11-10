@@ -154,7 +154,10 @@ fn plan(f: &Fixture, console: &FakeConsole, papyrus: &Path, session: &str) -> Pl
 
 fn console() -> FakeConsole {
     let c = FakeConsole::start().unwrap();
-    c.answer("GetSFSEVersion", "SFSE version: 0.2.21");
+    c.answer(
+        "GetSFSEVersion",
+        "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+    );
     c.answer("help KitKraftCrate", "REFR: KitKraftCrate (04001000)");
     c.answer("getpos x", "GetPos: X >> -17.10");
     c
@@ -630,7 +633,9 @@ fn an_empty_answer_is_not_ready() {
     c.answer("GetSFSEVersion", " \r\n");
     let h = host();
     let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T10");
-    assert!(p.game.console.ready_expect.is_empty());
+    // Even when any non-empty answer would do (no `ready_expect`), an empty one is not
+    // ready. (The Starfield profile now names the text it waits for, G 3b review M1.)
+    p.game.console.ready_expect.clear();
     p.timeouts.ready_secs = 1;
     let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
     let why = first_rows_reason(&report);
@@ -2594,6 +2599,7 @@ const PREDICTED: &[(&str, &str)] = &[
     ("SO-05", "not pass"),
     ("SO-06", "not fail"),
     ("SO-07", "fail"),
+    ("SO-08", "not pass"),
 ];
 
 fn holds(prediction: &str, verdict: &str) -> bool {
@@ -2678,7 +2684,12 @@ impl SendOrder {
 }
 
 /// Runs the send-order probes file against the model; the rows' verdicts and `seen`.
-fn send_order_session(pf: &ProbeFile, busy: usize, reversed: bool) -> (Vec<String>, Vec<String>) {
+fn send_order_session(
+    tag: &str,
+    pf: &ProbeFile,
+    busy: usize,
+    reversed: bool,
+) -> (Vec<String>, Vec<String>) {
     let settled_cocs: Vec<bool> = pf
         .probes
         .iter()
@@ -2695,7 +2706,8 @@ fn send_order_session(pf: &ProbeFile, busy: usize, reversed: bool) -> (Vec<Strin
         reversed,
     });
     c.respond_with(move |cmd| Some(model.lock().unwrap().answer(cmd, busy)));
-    let f = fixture(&format!("send-order-{busy}-{reversed}"));
+    // One folder per test (`tag`): the tests run in parallel in one process.
+    let f = fixture(&format!("send-order-{tag}-{busy}-{reversed}"));
     let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-11-10-T01");
     p.timeouts.probe_secs = 4;
     p.probes = pf.clone();
@@ -2736,8 +2748,9 @@ fn the_send_order_probes_file_parses_and_names_the_rename_plugin() {
             "the notes do not predict `{row} {want}`"
         );
     }
-    // Late on purpose: every `coc` but the first is sent with no wait, and no `load` follows
-    // an unsettled `coc` in its row (a late `load` failure would land in the readiness poll).
+    // Late on purpose: every `coc` but the first is sent with no wait. The `load`s: SO-07
+    // on time (settled), SO-08 behind a move and a waiting getter, FR2's late shape, whose
+    // failure the readiness poll's routing (G ticket 3b) brings to its row.
     let cocs: Vec<bool> = pf
         .probes
         .iter()
@@ -2745,15 +2758,20 @@ fn the_send_order_probes_file_parses_and_names_the_rename_plugin() {
         .filter(|s| s.command.starts_with("coc "))
         .map(|s| s.wait_secs.is_some())
         .collect();
-    assert_eq!(cocs, [true, false, false, false]);
-    for p in &pf.probes {
-        let unsettled = p
-            .steps
-            .iter()
-            .any(|s| s.command.starts_with("coc ") && s.wait_secs.is_none());
-        let loads = p.steps.iter().any(|s| s.command.starts_with("load "));
-        assert!(!(unsettled && loads), "row {} loads behind a move", p.row);
-    }
+    assert_eq!(cocs, [true, false, false, false, false]);
+    let late_loads: Vec<&str> = pf
+        .probes
+        .iter()
+        .filter(|p| {
+            let unsettled = p
+                .steps
+                .iter()
+                .any(|s| s.command.starts_with("coc ") && s.wait_secs.is_none());
+            unsettled && p.steps.iter().any(|s| s.command.starts_with("load "))
+        })
+        .map(|p| p.row.as_str())
+        .collect();
+    assert_eq!(late_loads, ["SO-08"]);
 }
 
 #[test]
@@ -2762,38 +2780,61 @@ fn the_send_order_probes_grade_as_the_ruling_predicts() {
     // How many sends answer only their echo after an unsettled move is the game's (a matter
     // of time); the predictions must hold for each, from none to past the row's end.
     for busy in 0..=6usize {
-        let (got, _) = send_order_session(&pf, busy, false);
+        let (got, _) = send_order_session("grade", &pf, busy, false);
         for ((row, want), v) in PREDICTED.iter().zip(&got) {
             assert!(
                 holds(want, v),
                 "busy {busy}: {row} predicted {want}, graded {v}\n{got:#?}"
             );
         }
+        // FR2 late (SO-08): wherever the load's itemless failure arrives, its own reply, the
+        // readiness poll (G ticket 3b) or a later reply, the row's grade names it. Without
+        // the poll's routing, at busy 4 it lands in the poll and is lost.
+        let so08 = got.get(7).cloned().unwrap_or_default();
+        assert!(
+            so08.contains("Save file not found."),
+            "busy {busy}: SO-08 lost its load's failure: {so08}"
+        );
     }
 }
 
 /// What the run sheet says a contradiction looks like. A console out of send order changes
-/// the replies whenever a line comes late, but the grades only when the late stretch crosses
-/// a row: then the FR3 pair breaks its prediction (SO-05, whose `enable` failed, passes, and
-/// SO-06 fails on SO-05's line). Short of that the grades match send order's, so the order
-/// is read off the replies.
+/// the replies whenever a line comes late, but breaks a prediction only when the late
+/// stretch crosses a row: then the FR3 pair does (SO-05, whose `enable` failed, passes, and
+/// SO-06 fails on SO-05's line). Short of that every prediction still holds (a grade may
+/// move within one, as SO-08's between `fail` and `inconclusive`), so the order is read off
+/// the replies.
 #[test]
 fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_row() {
     let pf = ProbeFile::parse(SEND_ORDER).unwrap();
     let label = |v: &String| v.split(' ').next().unwrap_or_default().to_string();
     for busy in [0usize, 3] {
-        let (in_order, seen_in_order) = send_order_session(&pf, busy, false);
-        let (reversed, seen_reversed) = send_order_session(&pf, busy, true);
-        assert_eq!(
-            in_order.iter().map(label).collect::<Vec<_>>(),
-            reversed.iter().map(label).collect::<Vec<_>>(),
-            "busy {busy}"
-        );
-        if busy > 0 {
+        let (in_order, seen_in_order) = send_order_session("order", &pf, busy, false);
+        let (reversed, seen_reversed) = send_order_session("order", &pf, busy, true);
+        for ((row, want), v) in PREDICTED.iter().zip(&reversed) {
+            assert!(
+                holds(want, v),
+                "busy {busy}: {row} predicted {want}, graded {v}"
+            );
+        }
+        // Below the FR3 threshold every row but SO-08 keeps its very label; SO-08's may move
+        // between `fail` and `inconclusive`, both inside its prediction (review L3 of G 3b).
+        let so08 = PREDICTED.iter().position(|(r, _)| *r == "SO-08");
+        let labels = |v: &[String]| -> Vec<String> {
+            v.iter()
+                .enumerate()
+                .filter(|(i, _)| Some(*i) != so08)
+                .map(|(_, x)| label(x))
+                .collect()
+        };
+        assert_eq!(labels(&in_order), labels(&reversed), "busy {busy}");
+        if busy == 0 {
+            assert_eq!(in_order, reversed, "nothing is late, nothing can differ");
+        } else {
             assert_ne!(seen_in_order, seen_reversed, "busy {busy}");
         }
     }
-    let (reversed, _) = send_order_session(&pf, 5, true);
+    let (reversed, _) = send_order_session("order", &pf, 5, true);
     let so = |row: &str| {
         PREDICTED
             .iter()
@@ -2804,4 +2845,434 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
     };
     assert_eq!(so("SO-05"), "pass", "{reversed:#?}");
     assert_eq!(so("SO-06"), "fail", "{reversed:#?}");
+}
+
+// ------------------------------------------------- the readiness poll (G ticket 3b, ruling R28)
+// After a `load` the controller polls the readiness command until the game answers. Those
+// replies are replies like any other: a late failure line or a late getter line in them is
+// routed by the send-order rule, never dropped (review M1 of `ws/g` hand-off 1).
+
+/// A console whose next readiness answer after a command starting with `trigger` carries
+/// `late` first, as the game's late lines do.
+fn poll_carries(c: &FakeConsole, trigger: &'static str, late: &'static str) {
+    let armed = std::sync::Mutex::new(false);
+    c.respond_with(move |cmd| {
+        let mut armed = armed.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        if l.starts_with(trigger) {
+            *armed = true;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if l.starts_with("getsfseversion") && *armed {
+            *armed = false;
+            return Some(format!(
+                "GetSFSEVersion\nCommand: GetSFSEVersion\n{late}\nSFSE version: 0.2.21"
+            ));
+        }
+        None
+    });
+}
+
+#[test]
+fn a_late_failure_in_the_readiness_poll_after_a_load_is_not_a_pass() {
+    let c = console();
+    poll_carries(&c, "load kitkraftsession", "Save file not found.");
+    let (v, seen) = rx_run(
+        "poll-load",
+        &c,
+        vec![probe(
+            "T-01",
+            false,
+            vec![
+                step("load {save}", None, "", None),
+                step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+            ],
+        )],
+    );
+    assert!(v[0].starts_with("inconclusive"), "{v:?}");
+    assert!(v[0].contains("readiness poll"), "{v:?}");
+    assert!(seen[0].contains("Save file not found."), "{seen:?}");
+}
+
+#[test]
+fn a_late_base_save_failure_in_the_readiness_poll_leaves_every_row_not_run() {
+    let c = console();
+    poll_carries(&c, "load kitkraftbase", "Save file not found.");
+    let (v, _) = rx_run(
+        "poll-base",
+        &c,
+        vec![one("T-01", "getpos x", Matcher::Number, "-17", Some(0.5))],
+    );
+    assert!(v[0].starts_with("not-run"), "{v:?}");
+    assert!(v[0].contains("the base save did not load"), "{v:?}");
+}
+
+#[test]
+fn a_late_getter_line_in_the_readiness_poll_goes_to_its_getter() {
+    let c = console();
+    c.answer("getpos x", "getpos x\nCommand: getpos x");
+    poll_carries(&c, "load kitkraftsession", "GetPos: X >> -17.00");
+    let (v, seen) = rx_run(
+        "poll-getter",
+        &c,
+        vec![
+            one("T-01", "getpos x", Matcher::Number, "-17", Some(0.5)),
+            probe("T-02", false, vec![step("load {save}", None, "", None)]),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?} {seen:?}");
+    assert!(seen[0].contains("GetSFSEVersion"), "{seen:?}");
+}
+
+#[test]
+fn a_quiet_readiness_poll_changes_no_grade() {
+    let c = console();
+    c.answer("load KitKraftSession", "load KitKraftSession-20261016-01");
+    let (v, _) = rx_run(
+        "poll-quiet",
+        &c,
+        vec![probe(
+            "T-01",
+            false,
+            vec![
+                step("load {save}", None, "", None),
+                step("getpos x", Some(Matcher::Number), "-17", Some(0.5)),
+            ],
+        )],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+}
+
+// ------------------------------------------------- fix round of 3b (review `g-3b.md`)
+
+/// Review M1 (probe rv7): an answer holding only the poll's echo is not the game answering;
+/// it is the shape every late reply takes. Were it "ready", the load's late `Save file not
+/// found.` would skip the poll and land in the next row, and the load's row would pass.
+#[test]
+fn rv7_an_echo_only_poll_reply_is_not_ready_and_the_load_does_not_pass() {
+    let c = console();
+    let armed = std::sync::Mutex::new(false);
+    c.respond_with(move |cmd| {
+        let l = cmd.to_ascii_lowercase();
+        let mut a = armed.lock().unwrap();
+        if l.starts_with("load kitkraftsession") {
+            *a = true;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if l.starts_with("getsfseversion") && *a {
+            return Some("GetSFSEVersion\nCommand: GetSFSEVersion".into());
+        }
+        if l.starts_with("getpos y") && *a {
+            *a = false;
+            return Some(
+                "getpos y\nSave file not found.\nSFSE version: 0.2.21\nGetPos: Y >> -4.00".into(),
+            );
+        }
+        None
+    });
+    let (v, _) = rx_run(
+        "rv7",
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    assert_ne!(v[0], "pass", "rv7 {v:?}");
+}
+
+/// Review M1: an echo-only answer to the readiness command is never readiness, at launch
+/// either; the controller keeps polling until the game says something of its own.
+#[test]
+fn an_echo_only_readiness_answer_is_never_ready() {
+    // The Starfield profile waits for the text game-20261101-T1 row b observed after the
+    // echo (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`).
+    assert_eq!(
+        GameProfile::named("starfield")
+            .unwrap()
+            .console
+            .ready_expect,
+        "SFSE version"
+    );
+    let f = fixture("echo-not-ready");
+    let c = console();
+    c.answer_in_turn(
+        "GetSFSEVersion",
+        &[
+            "GetSFSEVersion\nCommand: GetSFSEVersion",
+            "Command: GetSFSEVersion",
+            // The two echo-only polls' answers, late, in send order, then this one's own.
+            "SFSE version: 0.2.21, release idx 26, runtime 01100F40
+SFSE version: 0.2.21, release idx 26, runtime 01100F40
+SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+        ],
+    );
+    let h = host();
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T12");
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    let sent = c.received();
+    assert_eq!(
+        sent[..4],
+        [
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "GetSFSEVersion",
+            "load KitKraftBase"
+        ],
+        "{sent:?}"
+    );
+    assert_eq!(report.rows[0].verdict, Verdict::Pass);
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+/// Review L1 (probe rv9): the poll must not wait as a getter. After a quiet load and poll,
+/// a later row's own on-time failure is its own, and the load's row keeps its pass. Red if
+/// the poll is opened with `Correlator::open` (a `GetSFSEVersion` getter left waiting).
+#[test]
+fn rv9_a_quiet_poll_does_not_hold_a_later_failure() {
+    let c = console();
+    c.answer(
+        "prid KitKraftFoo",
+        "prid KitKraftFoo\nItem 'KitKraftFoo' not found for parameter ObjectReferenceID.",
+    );
+    let (v, _) = rx_run(
+        "rv9",
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            probe(
+                "T-02",
+                false,
+                vec![step("prid KitKraftFoo", None, "", None)],
+            ),
+        ],
+    );
+    assert_eq!(v[0], "pass", "{v:?}");
+    assert!(v[1].starts_with("fail"), "{v:?}");
+}
+
+// ------------------------------------------------- 3b fix round, review L1' (`g-3bfix.md`)
+
+/// A console in send order whose late answers drain slowly: each send's answer joins a
+/// queue, and a reply carries the oldest queued answers, at most `caps[k]` of them for the
+/// k-th send (none: only the echo; past the list: all). So a reply can carry an older
+/// poll's `SFSE version` line while the newer poll's own is still queued.
+fn fifo_console(caps: &'static [usize]) -> FakeConsole {
+    let c = console();
+    let state = std::sync::Mutex::new((0usize, std::collections::VecDeque::<Vec<String>>::new()));
+    c.respond_with(move |cmd| {
+        let mut st = state.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        let own: Vec<String> = if l.starts_with("getsfseversion") {
+            vec!["SFSE version: 0.2.21, release idx 26, runtime 01100F40".into()]
+        } else if l.starts_with("load kitkraftsession") {
+            vec!["Save file not found.".into()]
+        } else if l.starts_with("getpos y") {
+            vec!["GetPos: Y >> -4.00".into()]
+        } else {
+            vec![]
+        };
+        let k = st.0;
+        st.0 += 1;
+        st.1.push_back(own);
+        let cap = caps.get(k).copied().unwrap_or(usize::MAX);
+        let mut reply = format!("{cmd}\nCommand: {cmd}");
+        for _ in 0..cap {
+            let Some(lines) = st.1.pop_front() else { break };
+            for line in lines {
+                reply.push('\n');
+                reply.push_str(&line);
+            }
+        }
+        Some(reply)
+    });
+    c
+}
+
+/// Review L1': a stale `SFSE version` line, an earlier poll's answer arriving late, must not
+/// make a later poll ready. Sends: the launch poll; the base `load`; the base wait's first
+/// poll (only its echo); its second, which carries only the first one's late line; then,
+/// under the old rule, the `load` of T-01 (only its echo) and the poll after it, which
+/// carries the second poll's stale line: ready on it, T-01 passed, and T-02 failed on the
+/// load's line. With the polls' answers counted in send order no poll is ready on a line
+/// owed to an older one, and the load's failure reaches its own row.
+#[test]
+fn a_stale_readiness_line_of_an_earlier_poll_does_not_make_a_later_poll_ready() {
+    let c = fifo_console(&[usize::MAX, usize::MAX, 0, 1, 0, 1]);
+    let f = fixture("stale-ready");
+    let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-10-16-T14");
+    // A test-fixture profile that names its readiness text, as A-G1 makes Starfield's.
+    p.game.console.ready_expect = "SFSE version".into();
+    p.probes.probes = vec![
+        probe("T-01", false, vec![step("load {save}", None, "", None)]),
+        one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+    ];
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let v = verdicts(&report.rows);
+    std::fs::remove_dir_all(&f.root).unwrap();
+    assert_ne!(v[0], "pass", "L1' {v:?} sent {:?}", c.received());
+    assert!(
+        !v[1].starts_with("fail"),
+        "L1' {v:?} sent {:?}",
+        c.received()
+    );
+}
+
+// ------------------------------------------------- 3b fix round 3, review M1'' (`g-3bfix2.md`)
+// The reviewer's probes as tests: a readiness poll whose reply the client never reads (an
+// HTTP timeout) or reads as an empty body after a `load` still reached the game, so in send
+// order its line comes later and must pay its own debt, never make a later poll ready.
+
+/// A console in send order: each send's own lines join a queue; the k-th send's reply is its
+/// echo, then at most `caps[k]` queued answers (oldest first; past the list: all). `lost`:
+/// sends whose reply the client never receives (the server sleeps 5.6 s after queueing, the
+/// client times out at 5 s; the command reached the game). `empty`: sends answered with an
+/// empty body (own line queued all the same).
+fn rv_fifo(caps: Vec<usize>, lost: Vec<usize>, empty: Vec<usize>) -> FakeConsole {
+    let c = console();
+    let state = std::sync::Arc::new(std::sync::Mutex::new((
+        0usize,
+        std::collections::VecDeque::<Vec<String>>::new(),
+    )));
+    c.respond_with(move |cmd| {
+        let (k, reply) = {
+            let mut st = state.lock().unwrap();
+            let l = cmd.to_ascii_lowercase();
+            let own: Vec<String> = if l.starts_with("getsfseversion") {
+                vec!["SFSE version: 0.2.21, release idx 26, runtime 01100F40".into()]
+            } else if l.starts_with("load kitkraftsession") {
+                vec!["Save file not found.".into()]
+            } else if l.starts_with("getpos y") {
+                vec!["GetPos: Y >> -4.00".into()]
+            } else {
+                vec![]
+            };
+            let k = st.0;
+            st.0 += 1;
+            st.1.push_back(own);
+            let cap = if lost.contains(&k) || empty.contains(&k) {
+                0
+            } else {
+                caps.get(k).copied().unwrap_or(usize::MAX)
+            };
+            let mut reply = format!("{cmd}\nCommand: {cmd}");
+            for _ in 0..cap {
+                let Some(lines) = st.1.pop_front() else { break };
+                for line in lines {
+                    reply.push('\n');
+                    reply.push_str(&line);
+                }
+            }
+            (k, reply)
+        };
+        if lost.contains(&k) {
+            std::thread::sleep(Duration::from_millis(5600));
+        }
+        if empty.contains(&k) {
+            return Some(String::new());
+        }
+        Some(reply)
+    });
+    c
+}
+
+fn rv_run(tag: &str, c: &FakeConsole, ready_secs: u64) -> Vec<String> {
+    let f = fixture(tag);
+    let mut p = plan(&f, c, &f.root.join("p.log"), "2026-10-16-T15");
+    // A test-fixture profile that names its readiness text, as A-G1 makes Starfield's.
+    p.game.console.ready_expect = "SFSE version".into();
+    p.game.timeouts.ready_secs = ready_secs;
+    p.timeouts.ready_secs = ready_secs;
+    // A wait long enough to outlast one poll the client gave up on (5 s).
+    p.game.timeouts.load_secs = ready_secs;
+    p.timeouts.load_secs = ready_secs;
+    p.probes.probes = vec![
+        probe("T-01", false, vec![step("load {save}", None, "", None)]),
+        one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+    ];
+    let report = run(&p, deps(&host(), c), &Shared::new(&p.session));
+    let _ = std::fs::remove_dir_all(&f.root);
+    verdicts(&report.rows)
+}
+
+/// M1'': the base wait's first poll times out at the client; its line arrives later and must
+/// pay its own debt, so no later poll is ready on it and the load's failure is not left to
+/// the next row.
+#[test]
+fn rv_timeout_poll_line_arrives_late() {
+    let c = rv_fifo(vec![usize::MAX, usize::MAX, 0, 1, 0, 1], vec![2], vec![]);
+    let v = rv_run("rv-timeout", &c, 20);
+    assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
+}
+
+/// M1'': as above with an empty body after the base `load` instead of a timeout.
+#[test]
+fn rv_empty_body_poll_line_arrives_late() {
+    let c = rv_fifo(vec![usize::MAX, usize::MAX, 0, 1, 0, 1], vec![], vec![2]);
+    let v = rv_run("rv-empty", &c, 3);
+    assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
+}
+
+// ------------------------------------------------- A-G1 (3b fix review M1', probes fx1a, fx1d)
+// With `ready_expect` set, a poll is ready only on the game's own readiness text, so nothing
+// else landing in it (a stray line, a getter's late value) lets the load's late failure
+// slide past the poll to the next row. Red with `ready_expect` empty.
+
+/// A console in send order with lag after a row's `load`: the load answers its echo only;
+/// the next send (the readiness poll) answers its echo and `first`; the send after that
+/// answers its echo, then the load's `Save file not found.`, then its own answer.
+fn fx_after_load(c: &FakeConsole, first: &'static str) {
+    let state = std::sync::Mutex::new(0u8);
+    c.respond_with(move |cmd| {
+        let mut s = state.lock().unwrap();
+        let l = cmd.to_ascii_lowercase();
+        if l.starts_with("load kitkraftsession") && *s == 0 {
+            *s = 1;
+            return Some(format!("{cmd}\nCommand: {cmd}"));
+        }
+        if *s == 1 {
+            *s = 2;
+            return Some(format!("{cmd}\nCommand: {cmd}\n{first}"));
+        }
+        if *s == 2 {
+            *s = 9;
+            let own = if l.starts_with("getsfseversion") {
+                "SFSE version: 0.2.21, release idx 26, runtime 01100F40"
+            } else if l.starts_with("getpos y") {
+                "GetPos: Y >> -4.00"
+            } else {
+                ""
+            };
+            return Some(format!(
+                "{cmd}\nCommand: {cmd}\nSave file not found.\n{own}"
+            ));
+        }
+        None
+    });
+}
+
+fn fx_case(tag: &str, first: &'static str) -> Vec<String> {
+    let c = console();
+    fx_after_load(&c, first);
+    let (v, _) = rx_run(
+        tag,
+        &c,
+        vec![
+            probe("T-01", false, vec![step("load {save}", None, "", None)]),
+            one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+        ],
+    );
+    v
+}
+
+#[test]
+fn fx1a_a_stray_line_in_the_readiness_poll_does_not_make_it_ready() {
+    let v = fx_case("fx1a", "Unrelated console line.");
+    assert_ne!(v[0], "pass", "fx1a {v:?}");
+}
+
+#[test]
+fn fx1d_a_getters_late_value_in_the_readiness_poll_does_not_make_it_ready() {
+    let v = fx_case("fx1d", "GetPos: X >> -17.00");
+    assert_ne!(v[0], "pass", "fx1d {v:?}");
 }

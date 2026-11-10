@@ -197,8 +197,40 @@ void main() {
     uniforms: &[U_VIEW_PROJ, U_EDGE, U_MIX],
 };
 
+/// A base's flat-shaded triangles (M7.R4), already placed in world space: each vertex
+/// carries its triangle's normal and its reference's color; lit as the marker faces are.
+pub const MESH_FACES: ProgramSrc = ProgramSrc {
+    name: "mesh faces",
+    vertex: "
+uniform mat4 u_view_proj;
+in vec3 a_pos;
+in vec3 a_normal;
+in vec4 a_color;
+out vec3 v_normal;
+out vec4 v_color;
+void main() {
+    v_normal = a_normal;
+    v_color = a_color;
+    gl_Position = u_view_proj * vec4(a_pos, 1.0);
+}
+",
+    fragment: "
+uniform vec3 u_light;
+uniform float u_alpha;
+in vec3 v_normal;
+in vec4 v_color;
+out vec4 o_color;
+void main() {
+    float light = 0.35 + 0.65 * abs(dot(normalize(v_normal), u_light));
+    o_color = vec4(v_color.rgb * light, v_color.a * u_alpha);
+}
+",
+    attributes: &[A_POS, A_NORMAL, A_COLOR],
+    uniforms: &[U_VIEW_PROJ, U_LIGHT, U_ALPHA],
+};
+
 /// Every program the viewport builds.
-pub const PROGRAMS: [ProgramSrc; 4] = [SKY, LINES, MARKER_FACES, MARKER_EDGES];
+pub const PROGRAMS: [ProgramSrc; 5] = [SKY, LINES, MARKER_FACES, MARKER_EDGES, MESH_FACES];
 
 /// The text put before every stage: the context's `#version` line, and a default float
 /// precision on OpenGL ES (which requires one in fragment shaders).

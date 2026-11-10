@@ -1113,11 +1113,22 @@ fn d6_plugin(types: &[&str]) -> Vec<u8> {
     let mut out = record(b"TES4", 0, 0, &sub(b"HEDR", &hedr));
     for (i, t) in types.iter().enumerate() {
         let mut b = sub(b"EDID", format!("D6{t}\0").as_bytes());
+        if *t == "AMMO" {
+            // ODTY (DirtinessScale), where AMMO's definition places it: no AMMO label
+            // names it, so it shows on "Other".
+            b.extend(sub(b"ODTY", &0.25f32.to_le_bytes()));
+        }
         b.extend(sub(b"FULL", format!("D6 {t} name\0").as_bytes()));
         if *t == "AMMO" {
             let mut data = 12u32.to_le_bytes().to_vec();
             data.extend(0.5f32.to_le_bytes());
             b.extend(sub(b"DATA", &data));
+            // DNAM AmmoData: Projectile (none), Flags 5, Unused, Damage 4, Health 7.
+            let mut dnam = 0u32.to_le_bytes().to_vec();
+            dnam.extend([5u8, 0, 0, 0]);
+            dnam.extend(4.0f32.to_le_bytes());
+            dnam.extend(7u32.to_le_bytes());
+            b.extend(sub(b"DNAM", &dnam));
         }
         let rec = record(t.as_bytes(), 0, 0x800 + i as u32, &b);
         let mut grup = b"GRUP".to_vec();
@@ -1152,7 +1163,7 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
         ("AMMO", "Ammo", "Short name"),
         ("COBJ", "Constructible Object", "Created Object Count"),
         ("TERM", "Terminal", "Marker Model"),
-        ("CONT", "Container", "Contains Only"),
+        ("CONT", "Container", "Item List"),
         ("STAT", "Static", "Object Palette Defaults"),
         ("KYWD", "Keyword", "Linkage Name"),
     ];
@@ -1165,7 +1176,6 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
         assert_in_view(&h, &format!("D6{t}"));
         assert_in_view(&h, &format!("{title} ("));
         assert_in_view(&h, label);
-        assert_in_view(&h, "Not editable here (M7.K4 gaps)");
         // Each unmapped label is listed with its reason (below the fold for most types).
         let o = crate::dialogs::layouts::observation(t).unwrap();
         for (gap, why) in &o.gaps {
@@ -1192,6 +1202,25 @@ fn the_six_observed_layouts_open_in_the_edit_dialog() {
     };
     assert_eq!(boxes(&h, "12"), 1, "one edit box for DATA.Value");
     assert_eq!(boxes(&h, "0.5"), 1, "one edit box for DATA.Weight");
+    // D2-fix review L2: a flags member is never an edit box (its value shows read-only);
+    // the numbers beside it are.
+    assert_eq!(boxes(&h, "4.0"), 1, "DNAM.Damage edits");
+    assert_eq!(boxes(&h, "7"), 1, "DNAM.Health edits");
+    assert_eq!(boxes(&h, "5"), 0, "DNAM.Flags is read-only");
+    assert!(!nodes_with(&h, "DNAM.Flags").is_empty());
+    // D2-fix review L4: "Other" edits a number as any layout's fields do.
+    let other: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Other (")))
+        .collect();
+    assert_eq!(other.len(), 1, "one Other page");
+    other[0].click();
+    h.run_steps(3);
+    assert_eq!(boxes(&h, "0.25"), 1, "ODTY edits on Other");
+    let page: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Ammo (")))
+        .collect();
+    page[0].click();
+    h.run_steps(3);
     h.query_all_by(|n| {
         n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
     })

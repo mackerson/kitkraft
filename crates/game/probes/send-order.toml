@@ -18,10 +18,10 @@ generated_by = "hand-written (sprint 2026-11-09, G1; ruling 2026-11-07 item 2)"
 profile = "KitKraft Dev"
 runtime_id_basis = "confirmed-by-save: 0006BB29 (CityNewAtlantisLodgeInt) and 0021966F (CityNewAtlantisApartmentTEMPLATE) answered player.getincell in game-20261101-T1 and 2026-11-01-T03; 0021BBCD is Starfield.esm's WEAP, a base form, never a reference"
 notes = [
-    "Prediction under the ruling (send order): SO-01 pass; SO-02 pass; SO-03 not pass (its own prid failed, late); SO-04 not pass (its own prid fails too); SO-05 not pass (its own enable failed, late); SO-06 not fail (only its own getter, which answers); SO-07 fail on its own step (`Save file not found.`).",
+    "Prediction under the ruling (send order): SO-01 pass; SO-02 pass; SO-03 not pass (its own prid failed, late); SO-04 not pass (its own prid fails too); SO-05 not pass (its own enable failed, late); SO-06 not fail (only its own getter, which answers); SO-07 fail on its own step (`Save file not found.`); SO-08 not pass (its own load failed, late).",
     "A contradiction of the ruling is read off the replies: a line answering a later request arriving before the line of an earlier request that was still waiting. The grades show one only as SO-05 pass with SO-06 fail (the late stretch crossing the row). The run sheet lists the shape for each row.",
     "Grade D (not observed yet): `player.getpos <axis>` answering `GetPos: <axis> >> n`; `prid` of a base form's EditorID answering `Item '...' not found for parameter ObjectReferenceID.`; a `<name>.enable` prefix on a reference that does not exist failing the same way.",
-    "No `load` is sent behind a move: a `load` whose reply is only its echo is followed by the readiness poll (`GetSFSEVersion`), whose reply is not routed, so a late `Save file not found.` there would be lost to the grader (report g.md, G1 finding). SO-07 sends its `load` on time.",
+    "A `load` whose reply is only its echo is followed by the readiness poll (`GetSFSEVersion`). Its replies are routed by the send-order rule since G ticket 3b, so a late `Save file not found.` there reaches the load's row. SO-07 sends its `load` on time and SO-08 late.",
 ]
 
 # Control: a settled move, then a getter on time. Everything after this row starts in the Lodge.
@@ -139,8 +139,7 @@ why = "its own getter answers; a failure line for SO-05 in its reply does not fa
 wait_secs = 10
 
 # FR2's shape, on time: the one failure line that names no item. The session save does not
-# exist yet, so the load fails on its own line. (Sent late, the line would land in the
-# readiness poll; see the notes.)
+# exist yet, so the load fails on its own line. SO-08 sends the same load late.
 [[probe]]
 row = "SO-07"
 title = "FR2 shape on time: load of the session save before it exists answers `Save file not found.`"
@@ -161,3 +160,32 @@ command = "player.getincell 0021966F"
 matcher = "regex"
 expected = '(?m)>>\s*1(\.0+)?\s*$'
 why = "the failed load left the player where it was; the row fails on the load's own line (prediction: fail)"
+
+# FR2's shape, late: the itemless failure line behind a waiting getter. The load is sent
+# behind an unsettled coc, after a getter that answers late, so its `Save file not found.`
+# comes late too: in the readiness poll the controller sends after a `load`, or in a later
+# reply. The poll's replies are routed like any other (G ticket 3b), so the line reaches
+# the load's row by the send-order rule.
+[[probe]]
+row = "SO-08"
+title = "FR2 shape late: load of the session save behind an unsettled coc and a waiting getter"
+forms = ["KitKraftSession-*", "CityNewAtlantisLodgeInt", "0006BB29"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "late on purpose: the getter older than the load, still waiting when the failure arrives"
+
+[[probe.step]]
+command = "load {save}"
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the failed load left the player in the Lodge; the row cannot pass, since its load failed (prediction: not pass)"
+wait_secs = 10

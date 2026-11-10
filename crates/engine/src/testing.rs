@@ -44,7 +44,10 @@ impl GameFakes {
         ));
         let fixture = mo2_fixture(&root).map_err(|e| e.to_string())?;
         let console = FakeConsole::start().map_err(|e| format!("fake /console endpoint: {e}"))?;
-        console.answer("GetSFSEVersion", "SFSE 0.2.21");
+        console.answer(
+            "GetSFSEVersion",
+            "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+        );
         console.answer("help KitKraftCrate", "REFR KitKraftCrate (04001000)");
         console.answer("getpos x", "GetPos >> -17.00");
         let host = Arc::new(FakeHost::new(

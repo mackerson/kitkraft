@@ -1010,7 +1010,7 @@ vertex_count, index_count}, positions, normals, indices, summary}`.
   Unreached blocks are named too.
 - Evidence: each mesh's position bytes.
 
-The workbench does not run it yet (unused read-only in the gate).
+The Render Window asks it once per distinct base of the drawn references (M7.R4) and draws the triangles as wireframe or flat faces.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 

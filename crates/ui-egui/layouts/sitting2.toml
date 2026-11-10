@@ -238,7 +238,7 @@ sitting = "ck-20261102-03"
 step = "S2-05"
 form = "LC017_RobotTurretControl"
 status = "observed"
-tab_control = "not recorded"
+tab_control = "none"
 buttons = ["OK", "Cancel"]
 labels = [
   "ID",
@@ -305,7 +305,7 @@ sitting = "ck-20261102-03"
 step = "S2-06"
 form = "SQ_TreasureMap_SpaceCrate"
 status = "observed"
-tab_control = "not recorded"
+tab_control = "none"
 buttons = ["OK", "Cancel"]
 labels = [
   "ID",
@@ -414,7 +414,7 @@ sitting = "ck-20261102-03"
 step = "S2-07"
 form = "Crate_MilitarySupply_01"
 status = "observed"
-tab_control = "not recorded"
+tab_control = "none"
 buttons = ["OK", "Cancel"]
 labels = [
   "ID",
@@ -503,7 +503,7 @@ sitting = "ck-20261102-03"
 step = "S2-08"
 form = "WeaponTypeRifle"
 status = "observed"
-tab_control = "not recorded"
+tab_control = "none"
 buttons = ["OK", "Cancel"]
 labels = [
   "ID",

@@ -454,21 +454,33 @@ impl Marker {
         }
     }
 
-    /// The model matrix: the -1..1 shape to world space, `T(position) * R * S(scale) *
-    /// T(offset) * S(half_extents)`. Non-finite values fall back to identity parts, so a
-    /// hostile value never reaches the GPU as NaN.
-    pub fn model(&self) -> Mat4 {
-        let finite = |v: Vec3, or: Vec3| if v.is_finite() { v } else { or };
+    /// The reference's own placement, `T(position) * R * S(scale)`: its base's model root
+    /// frame to world space (M7.R4 places a base's triangles with it). Non-finite values
+    /// fall back to identity parts, as in [`Marker::model`].
+    pub fn placement(&self) -> Mat4 {
         let scale = if self.scale.is_finite() && self.scale > 0.0 {
             self.scale
         } else {
             1.0
         };
-        let placed = Mat4::from_scale_rotation_translation(
+        let position = if self.position.is_finite() {
+            self.position
+        } else {
+            Vec3::ZERO
+        };
+        Mat4::from_scale_rotation_translation(
             Vec3::splat(scale),
             ref_rotation(self.rotation),
-            finite(self.position, Vec3::ZERO),
-        );
+            position,
+        )
+    }
+
+    /// The model matrix: the -1..1 shape to world space, `T(position) * R * S(scale) *
+    /// T(offset) * S(half_extents)`. Non-finite values fall back to identity parts, so a
+    /// hostile value never reaches the GPU as NaN.
+    pub fn model(&self) -> Mat4 {
+        let finite = |v: Vec3, or: Vec3| if v.is_finite() { v } else { or };
+        let placed = self.placement();
         let local = Mat4::from_scale_rotation_translation(
             finite(self.half_extents, Vec3::ONE).abs(),
             Quat::IDENTITY,
