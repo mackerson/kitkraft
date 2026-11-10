@@ -154,7 +154,10 @@ fn plan(f: &Fixture, console: &FakeConsole, papyrus: &Path, session: &str) -> Pl
 
 fn console() -> FakeConsole {
     let c = FakeConsole::start().unwrap();
-    c.answer("GetSFSEVersion", "SFSE version: 0.2.21");
+    c.answer(
+        "GetSFSEVersion",
+        "SFSE version: 0.2.21, release idx 26, runtime 01100F40",
+    );
     c.answer("help KitKraftCrate", "REFR: KitKraftCrate (04001000)");
     c.answer("getpos x", "GetPos: X >> -17.10");
     c
