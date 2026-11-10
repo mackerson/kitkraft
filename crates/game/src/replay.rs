@@ -179,6 +179,22 @@ pub struct Replayed {
     pub diverged: Option<String>,
     /// Sends of the transcript the replay never made.
     pub unused: usize,
+    /// Why nothing was replayed (a session recorded before M4.T7 has no transcript).
+    pub not_run: Option<String>,
+}
+
+/// Why a session with no transcript is not replayed (R29).
+pub const NO_TRANSCRIPT: &str = "no transcript: recorded before M4.T7";
+
+/// What a replay's comparison with the ledger found.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Outcome {
+    /// Every row grades as the ledger recorded it.
+    Pass,
+    /// What differs, one line each.
+    Fail(Vec<String>),
+    /// Nothing was replayed, with why: neither a pass nor a fail (R29).
+    NotRun(String),
 }
 
 fn digest(b: &[u8]) -> String {
@@ -192,6 +208,22 @@ fn digest(b: &[u8]) -> String {
 
 /// Replays `rec` in `work` (created, and its fixture removed after) with today's controller.
 pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
+    // A session recorded before M4.T7 has no transcript: nothing to answer from, so nothing
+    // is sent and every row is `not-run` (R29; review M1 of M4.T7). Replaying it would only
+    // diverge at the first send.
+    if rec.transcript.is_empty() {
+        return Ok(Replayed {
+            rows: rec
+                .probes
+                .probes
+                .iter()
+                .map(|p| (p.row.clone(), Verdict::NotRun(NO_TRANSCRIPT.into())))
+                .collect(),
+            diverged: None,
+            unused: 0,
+            not_run: Some(NO_TRANSCRIPT.into()),
+        });
+    }
     let f = mo2_fixture(&work.join("mo2"))?;
     let mut game = GameProfile::named("starfield")?;
     game.launch.evidence = "replay".into();
@@ -287,18 +319,23 @@ pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
             .collect(),
         diverged: st.diverged.clone(),
         unused: rec.transcript.len().saturating_sub(st.next),
+        not_run: None,
     })
 }
 
-/// The differences between the ledger's labels and a replay's, row by row: a row whose
-/// replayed label differs, a row only one side has, and a divergence. `regraded` lists rows
-/// whose grade a deliberate grader change moved: `(row, label now)`; such a row is compared
-/// with that label instead. Empty: the replay grades the session as the ledger recorded it.
+/// The ledger's labels against a replay's, row by row: `Pass` when every row grades as
+/// recorded; `Fail` with a line for each row whose replayed label differs, each row only one
+/// side has, and a divergence; `NotRun` when nothing was replayed. `regraded` lists rows whose
+/// grade a deliberate grader change moved: `(row, label now)`; such a row is compared with
+/// that label instead.
 pub fn compare(
     ledger: &[(String, String)],
     replayed: &Replayed,
     regraded: &[(String, String)],
-) -> Vec<String> {
+) -> Outcome {
+    if let Some(why) = &replayed.not_run {
+        return Outcome::NotRun(why.clone());
+    }
     let mut out = Vec::new();
     if let Some(d) = &replayed.diverged {
         out.push(format!("the replay diverged from the transcript at {d}"));
@@ -325,5 +362,9 @@ pub fn compare(
             ));
         }
     }
-    out
+    if out.is_empty() {
+        Outcome::Pass
+    } else {
+        Outcome::Fail(out)
+    }
 }

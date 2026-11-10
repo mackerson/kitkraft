@@ -3210,7 +3210,9 @@ fn rv_empty_body_poll_line_arrives_late() {
 
 use kitkraft_game::controller::Report;
 use kitkraft_game::ledger::row_labels;
-use kitkraft_game::replay::{compare, replay as replay_transcript, Recorded, Replayed as Rerun};
+use kitkraft_game::replay::{
+    compare, replay as replay_transcript, Outcome, Recorded, Replayed as Rerun, NO_TRANSCRIPT,
+};
 
 const RIGHT_FULL: &str = "Old Soviet Marksman Rifle";
 
@@ -3348,8 +3350,8 @@ fn a_replay_of_a_recorded_session_passes_twice() {
         let r = replay_transcript(&rec, &work).unwrap();
         assert_eq!(r.diverged, None, "run {n}");
         assert_eq!(r.unused, 0, "run {n}");
-        let diff = compare(&recorded_labels, &r, &[]);
-        assert!(diff.is_empty(), "run {n}: {diff:?}");
+        let outcome = compare(&recorded_labels, &r, &[]);
+        assert_eq!(outcome, Outcome::Pass, "run {n}");
     }
     let _ = std::fs::remove_dir_all(&work);
 }
@@ -3367,7 +3369,7 @@ fn a_wrong_full_fails_the_replay_against_its_transcript() {
         d.contains("help \"Old Earth Hunting Rifle\" 4") && d.contains(RIGHT_FULL),
         "{d}"
     );
-    let diff = compare(&row_labels(&ledger, &id).unwrap(), &r, &[]);
+    let diff = fail_lines(compare(&row_labels(&ledger, &id).unwrap(), &r, &[]));
     assert!(diff.iter().any(|x| x.contains("diverged")), "{diff:?}");
     assert!(diff.iter().any(|x| x.starts_with("T-01:")), "{diff:?}");
 }
@@ -3378,16 +3380,19 @@ fn a_grade_the_ledger_did_not_record_fails_unless_regraded_by_name() {
     let r = replay_of(&report, &probes, "regrade");
     let mut ledger = labels(&report);
     ledger[0].1 = "fail".into();
-    let diff = compare(&ledger, &r, &[]);
+    let diff = fail_lines(compare(&ledger, &r, &[]));
     assert_eq!(diff.len(), 1, "{diff:?}");
     assert!(
         diff[0].starts_with("T-01: the ledger says fail"),
         "{diff:?}"
     );
     // A deliberate grader change, listed by name, is accepted for that row only.
-    assert!(compare(&ledger, &r, &[("T-01".into(), "pass".into())]).is_empty());
     assert_eq!(
-        compare(&ledger, &r, &[("T-02".into(), "pass".into())]).len(),
+        compare(&ledger, &r, &[("T-01".into(), "pass".into())]),
+        Outcome::Pass
+    );
+    assert_eq!(
+        fail_lines(compare(&ledger, &r, &[("T-02".into(), "pass".into())])).len(),
         1
     );
 }
@@ -3426,5 +3431,37 @@ fn an_entry_without_a_row_table_has_no_rows_not_the_next_entrys() {
     assert_eq!(
         row_labels(ledger, "game-2"),
         Some(vec![("T-01".to_string(), "pass".to_string())])
+    );
+}
+
+/// The lines of a `Fail`; none for any other outcome.
+fn fail_lines(o: Outcome) -> Vec<String> {
+    match o {
+        Outcome::Fail(lines) => lines,
+        _ => Vec::new(),
+    }
+}
+
+/// Review M1 of M4.T7 (R29): a session recorded before M4.T7 has no transcript. Its replay
+/// sends nothing, every row is `not-run` with why, and the comparison is `NotRun`, neither a
+/// pass nor a fail. (Before: every send diverged, the rows timed out `not-run` and the
+/// comparison listed differences, a fail.)
+#[test]
+fn a_session_without_a_transcript_is_not_run() {
+    let (mut report, probes, ledger, _) = recorded("t4-no-transcript");
+    let id = report.ledger_entry.clone().unwrap();
+    report.transcript.clear();
+    let r = replay_of(&report, &probes, "no-transcript");
+    assert_eq!(r.diverged, None);
+    assert_eq!(r.not_run.as_deref(), Some(NO_TRANSCRIPT));
+    assert!(
+        r.rows
+            .iter()
+            .all(|(_, v)| *v == Verdict::NotRun(NO_TRANSCRIPT.into())),
+        "{r:?}"
+    );
+    assert_eq!(
+        compare(&row_labels(&ledger, &id).unwrap(), &r, &[]),
+        Outcome::NotRun(NO_TRANSCRIPT.into())
     );
 }
