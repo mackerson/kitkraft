@@ -185,7 +185,12 @@ pub fn render(e: &Entry) -> String {
 /// entry or its table is not there.
 pub fn row_labels(ledger: &str, id: &str) -> Option<Vec<(String, String)>> {
     let head = format!("### {id}:");
-    let mut lines = ledger.lines().skip_while(|l| !l.starts_with(&head)).skip(1);
+    // Only this entry's lines: up to the next entry's heading (review L2 of M4.T7).
+    let mut lines = ledger
+        .lines()
+        .skip_while(|l| !l.starts_with(&head))
+        .skip(1)
+        .take_while(|l| !l.starts_with("### "));
     lines.by_ref().find(|l| l.starts_with("| Row | Step |"))?;
     let mut out = Vec::new();
     for line in lines.skip(1) {

@@ -3396,3 +3396,21 @@ fn a_transcript_that_runs_out_diverges_and_its_rows_do_not_pass() {
     );
     assert_ne!(r.rows[1].1, Verdict::Pass, "{r:?}");
 }
+
+// ------------------------------------------------- M4.T7 review fixes (`g-M4.T7.md`)
+
+/// Review L2: an entry whose table is not the agent row table (a desk entry's `| Row | Fact |`)
+/// has no rows, never the next entry's.
+#[test]
+fn an_entry_without_a_row_table_has_no_rows_not_the_next_entrys() {
+    let ledger = "### game-1: a desk entry\n\n| Row | Fact |\n| --- | ---- |\n| a | x |\n\n\
+                  ### game-2: agent session\n\n\
+                  | Row | Step | Forms | Expected | Seen | Result | Evidence |\n\
+                  | --- | ---- | ----- | -------- | ---- | ------ | -------- |\n\
+                  | T-01 | `x` | - | - | - | **pass** | - |\n";
+    assert_eq!(row_labels(ledger, "game-1"), None);
+    assert_eq!(
+        row_labels(ledger, "game-2"),
+        Some(vec![("T-01".to_string(), "pass".to_string())])
+    );
+}
