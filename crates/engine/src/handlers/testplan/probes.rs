@@ -5,7 +5,9 @@
 //!
 //! Expected values come from the plugin's own records: the reference's runtime ID and its
 //! base's (`prid <ID>`, `getisid <base ID>`), its `DATA` position (`getpos x|y|z`, within
-//! [`POSITION_TOLERANCE`]), its cell's runtime ID (`player.getincell <cell ID>`), an
+//! [`POSITION_TOLERANCE`]; an actor's within [`ACTOR_TOLERANCE`] on each axis, then
+//! `player.moveto` and `player.getincell` on its interior cell, KK-251), its cell's
+//! runtime ID (`player.getincell <cell ID>`), an
 //! item's runtime ID (`player.getitemcount` after `player.additem`), an armor's equipped
 //! state (`player.getequipped` after `player.equipitem`), a form's inline `FULL`
 //! (`help "<FULL>" 4`), a quest's stage (`getstage`). The persistence protocol
@@ -20,6 +22,8 @@
 //! [`super::traces`]) each get a row after its `getpos` row: a `papyrus-log` step per
 //! `Debug.Trace` line the compiled script next to the plugin is known to write, or a
 //! manual row naming why none is predicted.
+//! A reference placed from a pack-in (`PKIN`) gets a manual base row, no `getisid`
+//! (KK-250, [`PACK_IN_BASE`]): whether the game reports the PKIN as its base is open.
 //!
 //! What the console does, observed on Starfield 1.16.244 (game-20261101-T1):
 //!
@@ -63,6 +67,14 @@ pub(super) const FLAG_INITIALLY_DISABLED: u32 = 0x0000_0800;
 /// Largest difference accepted between a `getpos` answer and the plugin's position.
 pub(super) const POSITION_TOLERANCE: f64 = 0.5;
 
+/// Largest difference accepted on each axis between an actor's (`ACHR`) `getpos` answer and
+/// its placed `DATA` position (KK-251). An actor walks or settles: game-20261103-06 saw 1.2
+/// units of settling, and an actor that steps off its marker moves much more. 128 units is
+/// about a body length, set by the director 2026-11-07 when the owner released the ticket;
+/// the cell step after the `getpos` steps catches an actor that wandered farther. Per axis,
+/// so a box, not a sphere: the `number` matcher checks one number at a time.
+pub(super) const ACTOR_TOLERANCE: f64 = 128.0;
+
 /// The cell the persistence protocol leaves to (docs/game-observations.md, step 1).
 pub(super) const LEAVE_CELL: &str = "CityNewAtlantisLodgeInt";
 
@@ -83,6 +95,18 @@ pub(super) const SAVE_SECS: u64 = 10;
 
 /// The evidence for the console facts above.
 pub(super) const EVIDENCE: &str = "game-20261101-T1";
+
+/// The reason of a pack-in reference's base row (KK-250): `getisid` on the PKIN answered
+/// 0.00 in game while the reference stood where the plugin puts it.
+pub(super) const PACK_IN_BASE: &str = "Whether the game reports a pack-in (PKIN) as the base of a reference placed from it is an open question. Its evidence: `getisid` on the PKIN's runtime ID answered 0.00 in game-20261103-03 and game-20261103-08, cause open. The reference itself is checked by its player.moveto and getpos rows. Click the reference in the console and write down the base it shows.";
+
+/// The checklist's extra sentence on a pack-in reference's "click the object" step.
+pub(super) const PACK_IN_STEP: &str = "\n   Its base is a pack-in (PKIN): whether the console reports the PKIN as its base is an\n   open question (game-20261103-03, -08); write down the base the console shows.";
+
+/// Whether `f` is a reference whose base record is a pack-in (`PKIN`).
+pub(super) fn is_pack_in(f: &Form) -> bool {
+    is_ref(f) && f.base_signature.as_deref() == Some("PKIN")
+}
 
 /// A console answer of 1 on its line (`GetInCell >> 1.00`).
 const ONE: &str = r"(?m)>>\s*1(\.0+)?\s*$";
@@ -147,11 +171,15 @@ fn check(command: String, matcher: Matcher, expected: String, why: &str) -> Step
 }
 
 fn number(command: String, expected: f32, why: &str) -> Step {
+    number_within(command, expected, POSITION_TOLERANCE, why)
+}
+
+fn number_within(command: String, expected: f32, tolerance: f64, why: &str) -> Step {
     Step {
         command,
         matcher: Some(Matcher::Number),
         expected: Some(format!("{expected}")),
-        tolerance: Some(POSITION_TOLERANCE),
+        tolerance: Some(tolerance),
         why: Some(why.to_string()),
         wait_secs: None,
     }
@@ -199,6 +227,39 @@ fn getpos(t: &str, p: [f32; 3]) -> Vec<Step> {
         number("getpos y".into(), p[1], why),
         number("getpos z".into(), p[2], why),
     ]
+}
+
+/// The runtime ID of an actor's (`ACHR`) cell when its cell step can run: an interior cell
+/// with a console-safe EditorID and a runtime ID (the cell row's own condition), KK-251.
+pub(super) fn actor_cell(f: &Form) -> Option<u32> {
+    if f.signature != "ACHR" {
+        return None;
+    }
+    let cell = f.cell.as_ref()?;
+    let ok = cell.interior && cell.editor_id.as_deref().is_some_and(token);
+    ok.then_some(cell.runtime).flatten()
+}
+
+/// An actor's position steps (KK-251): `prid`, `getpos x|y|z` within [`ACTOR_TOLERANCE`],
+/// then, when `cell` is known, `player.moveto` and `player.getincell` on it.
+fn actor_steps(t: &str, p: [f32; 3], cell: Option<u32>) -> Vec<Step> {
+    let why = format!(
+        "the actor's DATA position in the plugin, within {ACTOR_TOLERANCE} units on each axis: an actor walks or settles (game-20261103-06: about 1.2 units off its placed spot)"
+    );
+    let mut steps = vec![
+        set(format!("prid {t}")),
+        number_within("getpos x".into(), p[0], ACTOR_TOLERANCE, &why),
+        number_within("getpos y".into(), p[1], ACTOR_TOLERANCE, &why),
+        number_within("getpos z".into(), p[2], ACTOR_TOLERANCE, &why),
+    ];
+    if let Some(c) = cell {
+        steps.push(settle(format!("player.moveto {t}")));
+        steps.push(in_cell(
+            c,
+            "player.moveto puts the player beside the actor (game-20261103-06, row T-02: GetDistance >> 2.56), so the player's cell is the actor's cell",
+        ));
+    }
+    steps
 }
 
 /// `player.getincell <ID>` answering 1.
@@ -385,6 +446,16 @@ pub(super) fn build(
             // plugin's reference, with the plugin's base.
             let row = next(&mut n);
             match (&t, f.base_runtime) {
+                // KK-250: not asserted either way while the cause is open.
+                _ if is_pack_in(f) => probes.push(manual(
+                    row,
+                    format!(
+                        "click {what} in the console and write down its base, the pack-in {} (PKIN)",
+                        f.base_edid.as_deref().unwrap_or("base")
+                    ),
+                    ids.clone(),
+                    PACK_IN_BASE,
+                )),
                 (Some(t), Some(b)) => probes.push(probe(
                     row,
                     format!(
@@ -415,6 +486,33 @@ pub(super) fn build(
             // `isdisabled` is not a Starfield console command (game-20261101-T1).
             let row = next(&mut n);
             match (&t, f.position) {
+                // KK-251: an actor by its cell and a distance, not its exact position.
+                (Some(t), Some(p)) if f.signature == "ACHR" => {
+                    let cell = actor_cell(f);
+                    probes.push(probe(
+                        row,
+                        format!(
+                            "prid {t}; getpos x/y/z{}: {what} {}within {ACTOR_TOLERANCE} units of ({:.1}, {:.1}, {:.1}) on each axis{}",
+                            if cell.is_some() {
+                                ", player.moveto, player.getincell"
+                            } else {
+                                ""
+                            },
+                            if cell.is_some() { "in its cell and " } else { "" },
+                            p[0],
+                            p[1],
+                            p[2],
+                            if f.disabled {
+                                "; placed initially disabled (not probed: no isdisabled)"
+                            } else {
+                                ""
+                            }
+                        ),
+                        ids.clone(),
+                        true,
+                        actor_steps(t, p, cell),
+                    ));
+                }
                 (Some(t), Some(p)) => probes.push(probe(
                     row,
                     format!(
@@ -640,7 +738,11 @@ pub(super) fn build(
         {
             back.push(settle(format!("coc {c}")));
         }
-        back.extend(getpos(&hex(r), p));
+        if f.signature == "ACHR" {
+            back.extend(actor_steps(&hex(r), p, actor_cell(f)));
+        } else {
+            back.extend(getpos(&hex(r), p));
+        }
         if let Some(e) = &f.editor_id {
             back_ids.push(e.clone());
         }
