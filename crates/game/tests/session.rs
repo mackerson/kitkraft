@@ -3331,13 +3331,27 @@ fn a_replay_of_a_recorded_session_passes_twice() {
     let (report, probes, ledger, _) = recorded("t4-twice");
     let id = report.ledger_entry.clone().unwrap();
     let recorded_labels = row_labels(&ledger, &id).unwrap();
+    // One work folder, replayed twice without clearing it in between: nothing a first replay
+    // leaves there changes the second (review L5 of M4.T7).
+    let work =
+        std::env::temp_dir().join(format!("kitkraft-game-replay-twice-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&work);
+    let rec = Recorded {
+        session: &report.session,
+        probes: &probes,
+        transcript: &report.transcript,
+        base_save: "KitKraftBase",
+        session_save: "KitKraftSession-20261016-01",
+        papyrus: None,
+    };
     for n in 0..2 {
-        let r = replay_of(&report, &probes, &format!("twice-{n}"));
+        let r = replay_transcript(&rec, &work).unwrap();
         assert_eq!(r.diverged, None, "run {n}");
         assert_eq!(r.unused, 0, "run {n}");
         let diff = compare(&recorded_labels, &r, &[]);
         assert!(diff.is_empty(), "run {n}: {diff:?}");
     }
+    let _ = std::fs::remove_dir_all(&work);
 }
 
 /// M4.T7's deliberate break: a wrong `FULL` makes today's probes send another `help`, so the
