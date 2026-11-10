@@ -1258,3 +1258,44 @@ fn a_cache_failing_its_checksum_or_repeating_a_record_is_ignored() {
     std::fs::write(&file, encode_stored(&other).unwrap()).unwrap();
     assert!(!build(&data, Some(&cache)).from_cache);
 }
+
+/// Review M2 of M7.R5: a well-formed file must not make the parser hold far more than
+/// its own size: empty names, a name whose extension is not its kind's, and more entries
+/// than any official Data dir has are refused.
+#[test]
+fn a_cache_file_built_to_amplify_memory_is_refused() {
+    use super::mesh::{ArchiveKey, Stored, StoredArchive, MAX_ENTRIES};
+    let file = |entries: Vec<(u32, String, u8)>| {
+        let count = u32::try_from(entries.len()).unwrap() + 1;
+        encode_stored(&Stored {
+            data_dir: "d".into(),
+            keys: vec![ArchiveKey {
+                name: "A.ba2".into(),
+                len: 1,
+                secs: 1,
+                nanos: 0,
+            }],
+            kept: vec![StoredArchive {
+                key: 0,
+                entry_count: count,
+                entries,
+            }],
+        })
+        .unwrap()
+    };
+    // The probe: 2,000,000 entries with empty names (14 MB of file).
+    let empty = file((0..2_000_000u32).map(|i| (i, String::new(), 0)).collect());
+    assert!(parse_stored(&empty).is_none());
+    // A `.mesh` name stored as a `.nif` entry.
+    assert!(parse_stored(&file(vec![(0, "geometries/a.mesh".into(), 0)])).is_none());
+    // One entry past the cap, every name well-formed.
+    let over = MAX_ENTRIES + 1;
+    let many = file(
+        (0..u32::try_from(over).unwrap())
+            .map(|i| (i, "a.nif".to_string(), 0))
+            .collect(),
+    );
+    assert!(parse_stored(&many).is_none());
+    // The same shape under the cap parses.
+    assert!(parse_stored(&file(vec![(0, "meshes/a.nif".into(), 0)])).is_some());
+}

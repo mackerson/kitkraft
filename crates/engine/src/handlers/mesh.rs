@@ -335,11 +335,16 @@ fn key_of(path: &Path) -> Option<ArchiveKey> {
 /// The cache file's first bytes (format version 2: the Data dir path and a checksum).
 pub(super) const CACHE_MAGIC: &[u8; 8] = b"KKMIDX02";
 /// Largest cache file read.
-const MAX_CACHE_FILE: u64 = 256 << 20;
+const MAX_CACHE_FILE: u64 = 128 << 20;
 /// Longest entry or archive name accepted from the cache file.
 const MAX_NAME: usize = 1_024;
 /// Longest Data dir path accepted from the cache file.
 const MAX_PATH: usize = 4_096;
+/// Most entries the cache file may hold, all archives together (review M2 of M7.R5): 2.4x
+/// the official Data dir's 841,500 `.nif` and `.mesh` entries (13 of its 90 archives, 2026-11-10),
+/// so a file cannot make the parser
+/// hold far more memory than an honest one.
+pub(super) const MAX_ENTRIES: usize = 2_000_000;
 
 /// One kept archive as stored: its position in the key list, entry count, entries.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -441,14 +446,17 @@ pub(super) fn parse_stored(file: &[u8]) -> Option<Stored> {
     // A kept archive: key index (4), entry count (4), entry count stored (4).
     let nkept = r.count(12)?;
     let mut kept: Vec<StoredArchive> = Vec::with_capacity(nkept);
+    let mut total = 0usize;
     for _ in 0..nkept {
         let key = usize::try_from(r.u32()?).ok().filter(|k| *k < keys.len())?;
         if kept.last().is_some_and(|p| p.key >= key) {
             return None;
         }
         let entry_count = r.u32()?;
-        // An entry: kind (1), index (4), name length (2).
-        let n = r.count(7)?;
+        // An entry: kind (1), index (4), name length (2), a name of at least `.nif` (4).
+        let n = r.count(11)?;
+        // Review M2: all archives together hold at most MAX_ENTRIES entries.
+        total = total.checked_add(n).filter(|t| *t <= MAX_ENTRIES)?;
         if n == 0 {
             return None;
         }
@@ -459,7 +467,9 @@ pub(super) fn parse_stored(file: &[u8]) -> Option<Stored> {
             if entries.last().is_some_and(|p| p.0 >= index) {
                 return None;
             }
-            entries.push((index, r.name()?, kind));
+            // A name the writer would have kept: non-empty, of the kind it is stored as.
+            let name = r.name().filter(|n| kind_of(n) == Some(kind))?;
+            entries.push((index, name, kind));
         }
         kept.push(StoredArchive {
             key,
