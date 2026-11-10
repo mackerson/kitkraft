@@ -212,6 +212,7 @@ fn data_dir(name: &str) -> PathBuf {
 fn run(data: &Path, args: Value) -> Result<Value, crate::EngineError> {
     let mut args = args;
     args["data_dir"] = json!(data.display().to_string());
+    args["no_cache"] = json!(true);
     execute("mesh.bounds", args)
 }
 
@@ -334,7 +335,10 @@ fn a_base_objects_modl_names_the_model() {
     assert_eq!(ev[0]["length"], 15);
     // A base without MODL is refused, named.
     let err = engine
-        .execute("mesh.bounds", json!({"form": "MB_NoModel", "data_dir": d}))
+        .execute(
+            "mesh.bounds",
+            json!({"form": "MB_NoModel", "data_dir": d, "no_cache": true}),
+        )
         .unwrap_err();
     assert!(err.to_string().contains("has no MODL"), "{err}");
 }
@@ -389,7 +393,7 @@ fn mesh_geometry_through_the_catalog() {
     let d = data.display().to_string();
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": d}),
+        json!({"model": "Test\\Tri.nif", "data_dir": d, "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["command"], "mesh.geometry");
@@ -415,7 +419,7 @@ fn mesh_geometry_through_the_catalog() {
     );
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": skinned.display().to_string()}),
+        json!({"model": "Test\\Tri.nif", "data_dir": skinned.display().to_string(), "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["coverage"]["status"], "partial");
@@ -434,7 +438,7 @@ fn mesh_geometry_through_the_catalog() {
     archive(&over, "Starfield - Meshes01.ba2", &files);
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": over.display().to_string()}),
+        json!({"model": "Test\\Tri.nif", "data_dir": over.display().to_string(), "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["coverage"]["status"], "partial");
@@ -442,7 +446,11 @@ fn mesh_geometry_through_the_catalog() {
 
     // Paths leaving Meshes are refused before any file is opened, naming the command.
     for bad in [r"..\Starfield.esm", r"C:\x.nif", ""] {
-        let err = execute("mesh.geometry", json!({"model": bad, "data_dir": d})).unwrap_err();
+        let err = execute(
+            "mesh.geometry",
+            json!({"model": bad, "data_dir": d, "no_cache": true}),
+        )
+        .unwrap_err();
         assert!(
             err.to_string().contains("not a path inside Meshes"),
             "{bad}: {err}"
@@ -568,7 +576,7 @@ fn geometry_dir_with(
 
 fn run_geometry(data: &Path, model: &str) -> Result<Value, crate::EngineError> {
     let mut session = crate::Session::default();
-    let args = json!({"model": model, "data_dir": data.display().to_string()});
+    let args = json!({"model": model, "data_dir": data.display().to_string(), "no_cache": true});
     geometry(&mut session, &args).map(|o| o.data)
 }
 
@@ -635,7 +643,8 @@ fn geometry_skips_a_missing_or_broken_mesh_and_says_so() {
         ],
     );
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -741,7 +750,8 @@ fn geometry_skips_skinned_blocks_whose_frame_the_study_does_not_show() {
         ],
     );
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     assert_eq!(out.data["meshes"].as_array().unwrap().len(), 1);
@@ -789,7 +799,8 @@ fn geometry_budgets_indices_as_well_as_vertices() {
     files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["index_count"], 6_000_000);
     let l = out.limitations.join("\n");
@@ -819,7 +830,8 @@ fn geometry_skips_a_mesh_past_the_vertex_budget_and_one_whose_counts_disagree() 
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     let l = out.limitations.join("\n");
     assert!(l.contains("vertex budget"), "{l}");
@@ -846,7 +858,8 @@ fn geometry_names_unreached_blocks_and_stays_partial() {
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -878,7 +891,8 @@ fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -929,7 +943,8 @@ fn the_mesh_index_is_read_back_from_the_cache_without_opening_an_archive() {
     assert!(second.archives.iter().all(|k| k.archive.get().is_none()));
     assert!(second.archives.iter().all(|k| k.open().is_some()));
     // A session's geometry through the cached index reads the same triangles.
-    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let mut session = crate::Session::default();
     session.insert(build(&data, Some(&cache)));
     let out = geometry(&mut session, &args).unwrap();
@@ -1015,7 +1030,8 @@ fn a_mesh_index_naming_an_entry_the_archive_lacks_is_rebuilt() {
         "but the archive does not match it"
     );
     // Through the command: the model still reads, from an index built again.
-    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let mut session = crate::Session::default();
     session.insert(lied);
     let out = geometry(&mut session, &args).unwrap();
