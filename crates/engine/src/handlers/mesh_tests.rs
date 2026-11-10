@@ -1189,9 +1189,11 @@ fn a_cache_missing_a_model_is_rebuilt_before_the_model_is_refused() {
 
 /// Review M1 of M7.R5 (3): `MeshesPatch` outranks `Meshes01` for the same model. A file
 /// that keeps the Patch archive with no entry (which the writer never does) is refused, so
-/// the Patch copy is read, never Meshes01's on the file's word.
+/// the Patch copy is read. A file with a valid checksum that omits the Patch copy (its
+/// record or its entry) is not caught: Patch is never opened (the stated residual, the
+/// same trust as `.kcidx`; re-review L2).
 #[test]
-fn a_cache_dropping_a_higher_ranked_copy_is_refused() {
+fn a_cache_keeping_an_archive_with_no_entry_is_refused() {
     let (data, cache) = cached_dir("mesh-index-patch");
     archive(
         &data,
