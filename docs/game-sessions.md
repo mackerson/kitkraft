@@ -440,3 +440,100 @@ getter's three sends) cannot be told apart and are evidence neither way.
 
 Grades follow AGENTS.md "Reporting": a row with no observation is `not-run`; ambiguous
 evidence is `inconclusive`, never `pass`.
+
+## Run sheet OW-2: M6 end to end from the window, and the M7 exit plugin (G2)
+
+Written at the desk on 2026-11-10 (sprint 2026-11-09, G2); **nothing in it has been run.**
+The owner is at the desk and watches; an agent drives the release `kit-ui` by computer use,
+and nothing else (no game window, no MO2, no CK by computer use). It closes M6's "game
+loop, end to end" (M6.G4, M4.T4) up to the owner's M6.O4 sign-off, which is offered at the
+end, and makes the M7 exit plugin `KC_F31.esp` (fixture F31, R13) that the CK sitting
+opens and re-exports later (pipeline C, OW-C launch 2). It runs after OW-1 (G1), never
+before it: a contradiction of the send-order ruling changes how the window's grades read.
+
+The six-status column names the cell of AGENTS.md's hand-off block a step fills: `parse`,
+`byte_roundtrip`, `ck_open`, `ck_reexport`, `game_runtime`, `save_reload`; "-" for a step
+that fills none. `ck_open` and `ck_reexport` stay `not-run` in this window (pipeline C's).
+
+### Gates and inputs
+
+- The director's message says "window open: OW-2, until hh:mm" and the owner is at the
+  desk. Computer use is granted for `kit-ui` alone.
+- MO2 is closed (R22); no `Starfield.exe`, `sfse_loader.exe`, `CreationKit.exe` or
+  `ModOrganizer.exe` runs. At most two cargo builds, `CARGO_BUILD_JOBS=4`, no cold build.
+- Release `kit.exe` and `kit-ui.exe` in `.targets\x\release`, their SHA-256 in the sprint's
+  G report, built before the window.
+- Base save `KitKraftBase`, SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`.
+- Before the window, from the worktree (no game, no window): `kit build docs\smoke-rename.toml out\OldSovietMarksmanRifle.esm --overwrite`
+  (SHA-256 `9c0b28a6...78ea27`) and `kit testplan out\OldSovietMarksmanRifle.esm out\rename-plan --plugins Starfield.esm`
+  (record the `probes.toml` SHA-256; `d84e011a...a55dc05` on 2026-11-02).
+- `kit deploy enable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev"`
+  (`--dry-run` first): the window has no enable button (ADR 0007 Amendment 3 lists
+  `deploy`, `deploy.rollback` and the session commands only).
+
+### Part 1: V1 (the rename plugin) from the Cockpit
+
+| Step | Command (what the window sends) | Expected | Six-status cell |
+| ---- | ------------------------------- | -------- | --------------- |
+| 1.1 | `.targets\x\release\kit.exe ui --dev`, from the worktree | the window opens on the `KitKraft Dev` profile; record the seconds from start to "loaded" (KK-040's start-up timing) | - |
+| 1.2 | Cockpit: pick `out\OldSovietMarksmanRifle.esm`; **Review** (`validate`, `roundtrip --verify`, then `diff` against `Starfield.esm` since the plugin is not in the loaded order) | `validate` 0 errors, 0 warnings; roundtrip identical; the diff shows one WEAP, `FULL` changed; the validation block shows `parse` pass, `byte_roundtrip` pass, the other four `not-run` | `parse`, `byte_roundtrip` |
+| 1.3 | **Status** (`deploy.status`), then **Preview deploy** (`deploy --dry-run`) | the dev mod `KitKraft Dev - OldSovietMarksmanRifle` exists, enabled after the gate step; the preview lists every path and the plugin's SHA-256 `9c0b28a6...` | - |
+| 1.4 | **Deploy...**, then the confirm box's button (one confirmed `deploy`) | one request per click; the panel reads the dev mod back; the button is enabled only while idle (KK-034) | - |
+| 1.5 | Game session: probes `out\rename-plan\probes.toml`, base save SHA-256 as above; **Preview session** (`game.session --dry-run`) | the result draws under the button: `would_start`, no `[rule]` refusal, the plan's authorized writes are `observe\<id>\`, the session save and one ledger entry | - |
+| 1.6 | **Launch...**, then the confirm button (`game.session` with `start: true`) | the session id returns at once; the window polls `game.status` every second and shows the phase, the current row, rows done, elapsed seconds and the last events (KK-032) | - |
+| 1.7 | Wait for the probes to finish (phase idle) | T-01 (`help "Old Soviet Marksman Rifle" 4` contains `0021BBCD`) and T-02 (persistence by the cell) graded with their reasons; T-03 `not-run (manual: ...)` | `game_runtime` (T-01), `save_reload` (T-02) |
+| 1.8 | Select T-02's row, then its **Screenshot** button and the confirm (`game.probe` with `screenshot: true`) | the re-run joins the table as the latest; its screenshot shows below the table, scaled to the panel; a missing or undecodable file is `inconclusive` with its reason, never hidden (KK-033) | - (evidence for T-02) |
+| 1.9 | T-03's **Record in Ledger** | the Ledger tab opens with a pre-filled `custom` row (`note`); nothing is written until its own confirmed `ledger` write; the owner says what the row records and the agent confirms it | - |
+| 1.10 | **Preview stop** (`game.stop --dry-run`), then **Stop...** and the confirm | the `would` lines, then the stop report: the game ended, logs copied, the profile verified, one ledger entry `game-2026111x-nn` started from the window | the entry's six rows |
+| 1.11 | Relaunch: **Preview session** and **Launch...** again, then **Stop...** at once | the same flow a second time in one window (KK-032's relaunch); its entry may be `not-run` rows only | - |
+
+Acceptance of part 1: a ledger entry started from the window with the six statuses filled
+(`ck_open`, `ck_reexport` `not-run`), the screenshot shown, and the manual row recorded.
+A T-01 that answers only its echo again is `inconclusive` (R20), as in `game-20261103-09`;
+it does not block M6's "end to end", which is about the loop, but the entry says so.
+
+### Part 2: the M7 exit plugin `KC_F31.esp`, made in the window
+
+The active file is new and outside the load order. `set`, `clone` and `place` each write
+it once per confirmed OK. `place` refuses a loaded active file, so it goes last and the
+file is never loaded before it (the track's order).
+
+| Step | Command (what the window sends) | Expected | Six-status cell |
+| ---- | ------------------------------- | -------- | --------------- |
+| 2.1 | File > Data...: "Active file path:" `<worktree>\out\f31\KC_F31.esp`, then "Use This File" | the active-file line names it; nothing is written yet (a new file is created by the editor's first write); the CK-shaped list is unchanged (P1: a new, non-master file is unaffected by either rule) | - |
+| 2.2 | Records: inspect `Starfield.esm:0021BBCD`; Edit dialog: `FULL` to `KC F31 Marksman Rifle`; OK (`set --dry-run` into the active file), then the confirm (`set`) | the confirm box lists `KC_F31.esp` as the one path changed, the validate findings of the staged result (0 errors) and the limitations; after the write the file exists with one WEAP override. If OK is disabled, record why and stop part 2 (`blocked`) | - |
+| 2.3 | Edit > Duplicate on the same WEAP (the editor's `clone`), EditorID `KC_F31_Rifle`; preview, then confirm | one new WEAP in `KC_F31.esp` at its next object ID, its `FULL` as 2.2 left it or as the master's (record which) | - |
+| 2.4 | Cell View: Interior, `CityNewAtlantisApartmentTEMPLATE`; Records: inspect `Starfield.esm:1E4FBD` (`Crate_MilitarySupply_01`); Cell View "Place Starfield.esm:1E4FBD here"; position -17, -4, 4.63; preview (`place --dry-run`), then confirm (`place`) | one REFR in the cell's override, temporary (the default, owner decision 2026-11-02); the active file was never loaded | - |
+| 2.5 | Close the window. `kit validate --plugin out\f31\KC_F31.esp --plugins Starfield.esm` | 0 errors; warnings listed in the entry | `parse` |
+| 2.6 | `kit roundtrip out\f31\KC_F31.esp --verify`; `Get-FileHash -Algorithm SHA256 out\f31\KC_F31.esp` | identical; the SHA-256 recorded in the entry and the G report (C's OW-C launch 2 opens this file) | `byte_roundtrip` |
+| 2.7 | `kit testplan out\f31\KC_F31.esp out\f31-plan --plugins Starfield.esm` | `checklist.md` and `probes.toml` (record its SHA-256), with rows for the clone and the placed reference as `kit testplan` writes them (for a reference: `player.moveto`, `prid`, `getisid`, `getpos`), and the persistence row | - |
+| 2.8 | Reopen the window; Cockpit: pick `out\f31\KC_F31.esp`; **Review**; **Preview deploy**, **Deploy...** and the confirm (`deploy --dev`) | the dev mod `KitKraft Dev - KC_F31` is made; the window reads it back | `parse`, `byte_roundtrip` (again, from the window) |
+| 2.9 | Close the window; `kit deploy enable C:\Modding\MO2-Starfield --mods KC_F31 --dev --profile "Kitkraft Dev"` (`--dry-run` first) | only that mod's lines in the three list files, backed up first | - |
+| 2.10 | Reopen the window (`kit ui --dev`): Cell View, `CityNewAtlantisApartmentTEMPLATE` | the placed reference is listed (EditorID, base, position) and draws in the Render Window (STATUS.md: "a placed reference showing in the Cell View and viewport") | - |
+| 2.11 | Cockpit: session with `out\f31-plan\probes.toml`; Preview session, Launch..., the poll, Stop... as 1.5 to 1.10 | a second ledger entry from the window: the clone and reference rows graded | `game_runtime` |
+| 2.12 | The persistence row of the same session (G3) | `pass`, or `inconclusive` with its reason (an ambiguous `GetInCell` after a retry, `game-20261103-04`) | `save_reload` |
+| 2.13 | After: `kit deploy disable C:\Modding\MO2-Starfield --mods KC_F31 --dev --profile "Kitkraft Dev"`; the list files hash as before 2.9 | `KC_F31.esp` owns forms, but only `KitKraftSession-*` saves ever held them, and those are disposable | - |
+
+Acceptance of part 2: `KC_F31.esp` SHA-256 recorded; `parse`, `byte_roundtrip` and
+`game_runtime` filled; `save_reload` filled by G3; `ck_open` and `ck_reexport` `not-run`
+until C's launch 2.
+
+### Part 3: the real-window checks (`plan/STATUS.md`, "To try in a real window", and the 2026-11-07 list)
+
+Each is a note in the writer's reading with what the owner and the agent saw; none is a
+six-status cell.
+
+| Check | Where in this sheet | What to record |
+| ----- | ------------------- | -------------- |
+| KK-032: launch, follow, stop and relaunch | 1.6 to 1.11 | the poll's phases in order; whether the relaunch reused the panel cleanly |
+| KK-033: the probe table and screenshots | 1.7, 1.8 | rows, re-runs marked, the screenshot drawn |
+| KK-034: the confirm box | 1.4, 1.6, 1.10, 2.2 to 2.4 | one request per click; buttons enabled only while idle |
+| KK-036: the Cell View | 2.4, 2.10 | whether the Base column should show the EditorID rather than the formref (the owner's call) |
+| KK-040: start-up load timing | 1.1, 2.10 | seconds to loaded, warm or cold |
+| a load from a real MO2 profile in the window | 1.1 | the profile named and any limitation line |
+| the Object Window's speed | after 2.10: View > Object Windows | seconds to list a large type (WEAP) |
+| the viewport's V3 on the dev profile | 2.10 | what the Render Window shows for the apartment cell, and its frame time if shown |
+| a placed reference in the Cell View and viewport | 2.10 | listed and drawn, or not |
+
+Then offer the owner M6.O4's sign-off, with the revised T3 (`docs/design/workbench-performance.md`).
+Missing evidence is `inconclusive`, never `pass`; a step not reached is `not-run` with why.
