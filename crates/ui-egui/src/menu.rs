@@ -1524,6 +1524,84 @@ mod tests {
         assert_eq!(interface_rows(&fixture("")).len(), 4);
         assert!(!parity_problems("# no table", FIXTURE_OBSERVATIONS, &has).is_empty());
     }
+
+    /// The text of the `docs/gaps.md` section whose heading names "Interface gaps (M7)",
+    /// up to the next heading of the same or a higher level; `None` without one.
+    fn interface_gaps_section(doc: &str) -> Option<String> {
+        let mut lines = doc.lines();
+        let level = lines
+            .by_ref()
+            .find(|l| l.starts_with('#') && l.contains("Interface gaps (M7)"))?
+            .chars()
+            .take_while(|c| *c == '#')
+            .count();
+        let body: Vec<&str> = lines
+            .take_while(|l| {
+                let hashes = l.chars().take_while(|c| *c == '#').count();
+                hashes == 0 || hashes > level
+            })
+            .collect();
+        Some(body.join("\n"))
+    }
+
+    /// The `CkMapping::Gap` reasons of `items` that `section` does not quote verbatim
+    /// (`"reason"`), each once, in `items`' order.
+    fn reasons_missing_from(items: &[CkItem], section: &str) -> Vec<&'static str> {
+        let mut out: Vec<&'static str> = Vec::new();
+        for i in items {
+            if let CkMapping::Gap(why) = i.mapping {
+                if !section.contains(&format!("\"{why}\"")) && !out.contains(&why) {
+                    out.push(why);
+                }
+            }
+        }
+        out
+    }
+
+    /// M7 exit bullet 2 (sprint 2026-11-09, D5): every gap reason `CK_ITEMS` gives appears
+    /// verbatim in `docs/gaps.md`'s "Interface gaps (M7)" section, so each item drawn
+    /// disabled names a documented gap. The section is C's (C2): until it is on this
+    /// branch the test is ignored.
+    #[test]
+    #[ignore = "waits on C2"]
+    fn every_ck_item_gap_reason_is_a_documented_gap() {
+        let doc = std::fs::read_to_string(repo().join("docs").join("gaps.md")).unwrap();
+        let section = interface_gaps_section(&doc).expect("an \"Interface gaps (M7)\" section");
+        let missing = reasons_missing_from(CK_ITEMS, &section);
+        assert!(
+            missing.is_empty(),
+            "CK_ITEMS reasons not in docs/gaps.md \"Interface gaps (M7)\":\n  {}",
+            missing.join("\n  ")
+        );
+    }
+
+    /// The documented-gap check on planted fixtures: a reason the section lacks is named
+    /// (red), a quoted one passes, a reason quoted only outside the section does not count,
+    /// and a document without the section has none.
+    #[test]
+    fn the_documented_gap_check_names_a_planted_missing_reason() {
+        const ITEMS: &[CkItem] = &[
+            ck("World", "A", CkMapping::Gap("no command: alpha")),
+            ck("World", "B", CkMapping::Gap("no command: beta")),
+            ck("World", "C", CkMapping::Command("query")),
+            ck("World", "D", CkMapping::Gap("no command: alpha")),
+        ];
+        let doc = "# Known gaps\n\n\"no command: beta\" is quoted above the section.\n\n## Interface gaps (M7)\n\n| Reason | Rows |\n| --- | --- |\n| \"no command: alpha\" | World > A, World > D |\n\n### A subsection\n\n| \"no command: gamma\" | x |\n\n## Next section\n\n| \"no command: beta\" | late |\n";
+        let section = interface_gaps_section(doc).unwrap();
+        assert!(
+            section.contains("no command: gamma"),
+            "a subsection belongs to it"
+        );
+        assert!(!section.contains("late"), "the next section does not");
+        assert_eq!(reasons_missing_from(ITEMS, &section), ["no command: beta"]);
+        let fixed = doc.replace(
+            "| \"no command: alpha\" |",
+            "| \"no command: alpha\" |\n| \"no command: beta\" | World > B |",
+        );
+        let section = interface_gaps_section(&fixed).unwrap();
+        assert!(reasons_missing_from(ITEMS, &section).is_empty());
+        assert!(interface_gaps_section("# Known gaps\n\nnothing\n").is_none());
+    }
 }
 
 #[cfg(test)]
