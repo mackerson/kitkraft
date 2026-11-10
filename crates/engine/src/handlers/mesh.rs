@@ -348,6 +348,9 @@ pub(super) const MAX_CACHE_FILE: u64 = 128 << 20;
 const MAX_NAME: usize = 1_024;
 /// Longest Data dir path accepted from the cache file.
 const MAX_PATH: usize = 4_096;
+/// Most archive keys the cache file may hold (re-review L1 of M7.R5; the official Data dir
+/// has 90 archives).
+pub(super) const MAX_KEYS: usize = 65_536;
 /// Most entries the cache file may hold, all archives together (review M2 of M7.R5):
 /// 2.4x the official Data dir's 841,500 `.nif` and `.mesh` entries (13 of its 90
 /// archives, 2026-11-10), so a file cannot make the parser hold far more memory than an
@@ -441,7 +444,7 @@ pub(super) fn parse_stored(file: &[u8]) -> Option<Stored> {
     }
     let data_dir = r.text(MAX_PATH)?;
     // A key: name length (2), length (8), seconds (8), nanoseconds (4).
-    let nkeys = r.count(22)?;
+    let nkeys = r.count(22).filter(|n| *n <= MAX_KEYS)?;
     let mut keys = Vec::with_capacity(nkeys);
     for _ in 0..nkeys {
         keys.push(ArchiveKey {
@@ -452,7 +455,7 @@ pub(super) fn parse_stored(file: &[u8]) -> Option<Stored> {
         });
     }
     // A kept archive: key index (4), entry count (4), entry count stored (4).
-    let nkept = r.count(12)?;
+    let nkept = r.count(12).filter(|n| *n <= keys.len())?;
     let mut kept: Vec<StoredArchive> = Vec::with_capacity(nkept);
     let mut total = 0usize;
     for _ in 0..nkept {

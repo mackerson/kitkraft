@@ -1388,3 +1388,49 @@ fn a_model_in_no_archive_rebuilds_once_per_session_and_rewrites_nothing() {
         assert_eq!(now, written, "round {round}: the file was written again");
     }
 }
+
+/// Re-review L1 of M7.R5: the key and kept-archive counts are capped before anything is
+/// reserved for them: more keys than `MAX_KEYS`, or more kept archives than keys, is
+/// refused.
+#[test]
+fn a_cache_file_claiming_too_many_keys_or_kept_archives_is_refused() {
+    use super::mesh::{ArchiveKey, Stored, StoredArchive, MAX_KEYS};
+    let key = |i: usize| ArchiveKey {
+        name: format!("A{i}.ba2"),
+        len: 1,
+        secs: 1,
+        nanos: 0,
+    };
+    let kept = vec![StoredArchive {
+        key: 0,
+        entry_count: 1,
+        entries: vec![(0, "meshes/a.nif".into(), 0)],
+    }];
+    let with_keys = |n: usize| {
+        encode_stored(&Stored {
+            data_dir: "d".into(),
+            keys: (0..n).map(key).collect(),
+            kept: kept.clone(),
+        })
+        .unwrap()
+    };
+    assert!(parse_stored(&with_keys(MAX_KEYS)).is_some());
+    assert!(parse_stored(&with_keys(MAX_KEYS + 1)).is_none());
+    // One key, then a kept-archive count of 1,000 (the file holds the bytes for them),
+    // with a valid checksum: refused at the count.
+    let mut body = encode_stored(&Stored {
+        data_dir: "d".into(),
+        keys: vec![key(0)],
+        kept: Vec::new(),
+    })
+    .unwrap();
+    body.truncate(body.len() - 8 - 4);
+    body.extend(1_000u32.to_le_bytes());
+    body.extend(vec![0u8; 1_000 * 12]);
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in &body {
+        h = (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+    }
+    body.extend(h.to_le_bytes());
+    assert!(parse_stored(&body).is_none());
+}
