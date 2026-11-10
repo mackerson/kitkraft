@@ -57,9 +57,20 @@ pub(super) struct MeshIndex {
     pub(super) meshes: HashMap<String, Vec<(usize, usize)>>,
     /// Read from the index cache, not from the archives.
     pub(super) from_cache: bool,
-    /// Archives the cached index named but that no longer match it, found on use: the
-    /// caller drops this index so the next call builds it from the archives.
-    pub(super) stale: Vec<String>,
+    /// The index-cache folder this index was read from or written to (`None`: no cache);
+    /// a rebuild after a stale archive writes the file there again (review H1 of M7.R5).
+    pub(super) cache_dir: Option<PathBuf>,
+}
+
+/// Why [`MeshIndex::read_mesh`] returned no mesh.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum MeshMiss {
+    /// No indexed archive holds the entry.
+    Absent,
+    /// The archive holding it no longer matches the cached index (the index is built again).
+    Stale(String),
+    /// The archive holding it did not open or the entry did not extract.
+    Unread(String),
 }
 
 /// An archive that holds models or meshes. One read from the archives keeps the archive
@@ -128,7 +139,8 @@ impl MeshIndex {
             .zip(keys.as_ref())
             .map(|(dir, _)| cache_file(dir, data_dir));
         if let (true, Some(f), Some(keys)) = (read_cache, &file, &keys) {
-            if let Some(index) = Self::from_cache_file(data_dir, &paths, keys, f) {
+            if let Some(mut index) = Self::from_cache_file(data_dir, &paths, keys, f) {
+                index.cache_dir = cache_dir.map(Path::to_path_buf);
                 return Ok(index);
             }
         }
@@ -139,7 +151,7 @@ impl MeshIndex {
             unreadable: Vec::new(),
             meshes: HashMap::new(),
             from_cache: false,
-            stale: Vec::new(),
+            cache_dir: cache_dir.map(Path::to_path_buf),
         };
         let mut stored = Stored {
             keys: keys.clone().unwrap_or_default(),
@@ -251,7 +263,7 @@ impl MeshIndex {
             unreadable: Vec::new(),
             meshes: HashMap::new(),
             from_cache: true,
-            stale: Vec::new(),
+            cache_dir: None,
         };
         for a in stored.kept {
             let path = paths.get(a.key)?.clone();
@@ -262,29 +274,22 @@ impl MeshIndex {
     }
 
     /// The `.mesh` entry `entry` (normalized), from the archive [`rank`] prefers, with
-    /// that archive's name; `None` when no indexed archive holds it or it does not read.
-    /// An archive that no longer matches the cached index is recorded in `stale`.
-    fn read_mesh(&mut self, entry: &str, cap: u64) -> Option<(String, Vec<u8>)> {
-        let holders = self.meshes.get(entry)?;
-        let (a, e) = holders
-            .iter()
-            .enumerate()
-            .max_by_key(|(order, (a, _))| {
-                let name = self.archives.get(*a).map_or("", |k| k.name.as_str());
-                (rank(name), *order)
-            })
-            .map(|(_, h)| *h)?;
-        let kept = self.archives.get(a)?;
+    /// that archive's name, or why there is none ([`MeshMiss`]).
+    fn read_mesh(&self, entry: &str, cap: u64) -> Result<(String, Vec<u8>), MeshMiss> {
+        let holders = self.meshes.get(entry).ok_or(MeshMiss::Absent)?;
+        let (a, e) = best_holder(self, holders).ok_or(MeshMiss::Absent)?;
+        let kept = self.archives.get(a).ok_or(MeshMiss::Absent)?;
         let Some(archive) = kept.open() else {
-            if self.from_cache && !self.stale.contains(&kept.name) {
-                let name = kept.name.clone();
-                self.stale.push(name);
-            }
-            return None;
+            return Err(if self.from_cache {
+                MeshMiss::Stale(kept.name.clone())
+            } else {
+                MeshMiss::Unread(kept.name.clone())
+            });
         };
-        let mut f = File::open(&kept.path).ok()?;
-        let bytes = archive.extract_vec(&mut f, e, cap).ok()?;
-        Some((kept.name.clone(), bytes))
+        let unread = || MeshMiss::Unread(kept.name.clone());
+        let mut f = File::open(&kept.path).map_err(|_| unread())?;
+        let bytes = archive.extract_vec(&mut f, e, cap).map_err(|_| unread())?;
+        Ok((kept.name.clone(), bytes))
     }
 }
 
@@ -684,13 +689,16 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
     let stale = session.get::<MeshIndex>().and_then(|index| {
         let a = best_holder(index, index.by_path.get(&wanted)?)?.0;
         let kept = index.archives.get(a)?;
-        (loose.is_none() && index.from_cache && kept.open().is_none()).then(|| kept.name.clone())
+        (loose.is_none() && index.from_cache && kept.open().is_none())
+            .then(|| (kept.name.clone(), index.cache_dir.clone()))
     });
-    if let Some(name) = stale {
+    if let Some((name, index_cache)) = stale {
         limitations.push(format!(
             "the cached mesh index does not match the archive {name}: the index was built again from the archives"
         ));
-        let built = MeshIndex::build_cached(&data_dir, cache_dir.as_deref(), false, id)?;
+        // Written back where the stale index came from (review H1 of M7.R5).
+        let rewrite = cache_dir.as_ref().and(index_cache);
+        let built = MeshIndex::build_cached(&data_dir, rewrite.as_deref(), false, id)?;
         session.insert(built);
     }
     let index = session
@@ -967,6 +975,7 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
     let mb = nif
         .model_bounds()
         .map_err(|e| failed(GEOMETRY_ID, format!("{}: {e}", r.file)))?;
+    let no_cache = args.get("no_cache").and_then(Value::as_bool) == Some(true);
     let index = session
         .get_mut::<MeshIndex>()
         .ok_or_else(|| failed(GEOMETRY_ID, "the archive index did not build"))?;
@@ -1026,12 +1035,37 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
             skipped = skipped.saturating_add(1);
             continue;
         }
-        let Some((name, bytes)) = index.read_mesh(&entry, MAX_MESH_BYTES) else {
+        let mut got = index.read_mesh(&entry, MAX_MESH_BYTES);
+        // M7.R5 (review H1): an archive that no longer matches the cached index: the
+        // index is built again from the archives at once (which rewrites the cache file),
+        // and the read retried.
+        if let Err(MeshMiss::Stale(archive)) = &got {
             limitations.push(format!(
-                "block {block}: {entry} is in no archive of the Data dir: skipped"
+                "the cached mesh index does not match the archive {archive}: the index was built again from the archives"
             ));
-            skipped = skipped.saturating_add(1);
-            continue;
+            let cache = if no_cache {
+                None
+            } else {
+                index.cache_dir.clone()
+            };
+            let data_dir = index.data_dir.clone();
+            *index = MeshIndex::build_cached(&data_dir, cache.as_deref(), false, GEOMETRY_ID)?;
+            got = index.read_mesh(&entry, MAX_MESH_BYTES);
+        }
+        let (name, bytes) = match got {
+            Ok(read) => read,
+            Err(miss) => {
+                limitations.push(match miss {
+                    MeshMiss::Absent => {
+                        format!("block {block}: {entry} is in no archive of the Data dir: skipped")
+                    }
+                    MeshMiss::Stale(a) | MeshMiss::Unread(a) => {
+                        format!("block {block}: {entry} in {a} does not read: skipped")
+                    }
+                });
+                skipped = skipped.saturating_add(1);
+                continue;
+            }
         };
         let mesh = match Mesh::parse(&bytes) {
             Ok(m) => m,
@@ -1082,17 +1116,6 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
         }));
         vertices = vertices.saturating_add(nv);
         index_total = index_total.saturating_add(mesh.indices.len());
-    }
-    // M7.R5: an archive the cached index named that no longer matches it: those meshes
-    // were not read (each named above as in no archive); the next call builds the index
-    // again from the archives.
-    let stale = std::mem::take(&mut index.stale);
-    if !stale.is_empty() {
-        limitations.push(format!(
-            "the cached mesh index does not match the archive(s) {}: their meshes were not read; the next call builds the index again from the archives",
-            stale.join(", ")
-        ));
-        session.remove::<MeshIndex>();
     }
     if mb.geometries.is_empty() {
         limitations.push("the model has no geometry block: no triangles".to_string());

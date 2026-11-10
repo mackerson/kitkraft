@@ -1056,3 +1056,71 @@ fn no_cache_neither_reads_nor_writes_the_mesh_index() {
         None
     );
 }
+
+/// Review H1 of M7.R5: a model in one archive and its mesh in another; the cache file's
+/// two `.mesh` entry indices of the second archive swapped (well-formed, keys match). The
+/// mesh archive fails its open-time check while `mesh.geometry` reads: the index is
+/// built again at once (this call reads the mesh) and the file rewritten (the next
+/// session reads it from the cache with no stale line).
+#[test]
+fn a_stale_mesh_archive_is_rebuilt_at_once_and_the_file_rewritten() {
+    let data = dir("mesh-index-stale-mesh").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    archive(
+        &data,
+        "Starfield - Meshes01.ba2",
+        &[(r"meshes\test\tri.nif", nif([0.0; 3], &[BOXED]))],
+    );
+    archive(
+        &data,
+        "Starfield - Meshes02.ba2",
+        &[
+            (r"geometries\test\mesh0.mesh", triangle_mesh(1.0)),
+            (r"geometries\test\mesh1.mesh", triangle_mesh(2.0)),
+        ],
+    );
+    let cache = data.parent().unwrap().join("cache");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    let kept = stored
+        .kept
+        .iter_mut()
+        .find(|k| k.entries.iter().any(|e| e.1.ends_with(".mesh")))
+        .unwrap();
+    let (a, b) = (kept.entries[0].0, kept.entries[1].0);
+    kept.entries[0].0 = b;
+    kept.entries[1].0 = a;
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(
+        out.limitations
+            .iter()
+            .any(|l| l.contains("cached mesh index") && l.contains("built again")),
+        "{:?}",
+        out.limitations
+    );
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("is in no archive")));
+    assert!(!session.get::<MeshIndex>().unwrap().from_cache);
+
+    let mut next = crate::Session::default();
+    next.insert(build(&data, Some(&cache)));
+    assert!(
+        next.get::<MeshIndex>().unwrap().from_cache,
+        "the file was rewritten"
+    );
+    let out = geometry(&mut next, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
