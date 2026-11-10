@@ -3211,7 +3211,8 @@ fn rv_empty_body_poll_line_arrives_late() {
 use kitkraft_game::controller::Report;
 use kitkraft_game::ledger::row_labels;
 use kitkraft_game::replay::{
-    compare, replay as replay_transcript, Outcome, Recorded, Replayed as Rerun, NO_TRANSCRIPT,
+    compare, replay as replay_transcript, Outcome, Recorded, Regrade, Replayed as Rerun,
+    NO_TRANSCRIPT,
 };
 
 const RIGHT_FULL: &str = "Old Soviet Marksman Rifle";
@@ -3391,12 +3392,35 @@ fn a_grade_the_ledger_did_not_record_fails_unless_regraded_by_name() {
         "{diff:?}"
     );
     // A deliberate grader change, listed by name, is accepted for that row only.
+    let regrade = |row: &str, now: &str, why: &str| Regrade {
+        row: row.into(),
+        now: now.into(),
+        why: why.into(),
+    };
     assert_eq!(
-        compare(&ledger, &r, &[("T-01".into(), "pass".into())]),
+        compare(
+            &ledger,
+            &r,
+            &[regrade(
+                "T-01",
+                "pass",
+                "the grader of commit X counts late lines"
+            )]
+        ),
         Outcome::Pass
     );
+    // Review L3: a re-grade with no reason is not accepted; the row still differs, and the
+    // missing reason is named.
+    let blank = fail_lines(compare(&ledger, &r, &[regrade("T-01", "pass", "  ")]));
+    assert!(
+        blank.iter().any(|x| x.contains("with no reason"))
+            && blank
+                .iter()
+                .any(|x| x.starts_with("T-01: the ledger says fail")),
+        "{blank:?}"
+    );
     assert_eq!(
-        fail_lines(compare(&ledger, &r, &[("T-02".into(), "pass".into())])).len(),
+        fail_lines(compare(&ledger, &r, &[regrade("T-02", "pass", "a reason")])).len(),
         1
     );
 }

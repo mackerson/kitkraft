@@ -186,6 +186,18 @@ pub struct Replayed {
 /// Why a session with no transcript is not replayed (R29).
 pub const NO_TRANSCRIPT: &str = "no transcript: recorded before M4.T7";
 
+/// A row whose grade a deliberate grader change moved since the session (R29: listed by name
+/// with a reason). One without a reason is not accepted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Regrade {
+    /// The row.
+    pub row: String,
+    /// Its label under today's grader.
+    pub now: String,
+    /// Why it moved (the ruling or commit that moved it).
+    pub why: String,
+}
+
 /// What a replay's comparison with the ledger found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
@@ -330,13 +342,10 @@ pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
 /// `Inconclusive` when the replay did not make the session's sends (it diverged, or left
 /// recorded sends unsent: R29, review L4); otherwise `Pass` when every row grades as recorded,
 /// or `Fail` with a line for each row whose replayed label differs and each row only one side
-/// has. `regraded` lists rows whose grade a deliberate grader change moved: `(row, label
-/// now)`; such a row is compared with that label instead.
-pub fn compare(
-    ledger: &[(String, String)],
-    replayed: &Replayed,
-    regraded: &[(String, String)],
-) -> Outcome {
+/// has. `regraded` lists rows whose grade a deliberate grader change moved; such a row is
+/// compared with its label now, and a re-grade with no reason is itself a difference (review
+/// L3 of M4.T7).
+pub fn compare(ledger: &[(String, String)], replayed: &Replayed, regraded: &[Regrade]) -> Outcome {
     if let Some(why) = &replayed.not_run {
         return Outcome::NotRun(why.clone());
     }
@@ -350,11 +359,19 @@ pub fn compare(
         ));
     }
     let mut out = Vec::new();
+    for g in regraded {
+        if g.why.trim().is_empty() {
+            out.push(format!(
+                "{}: re-graded to {} with no reason (R29 wants one)",
+                g.row, g.now
+            ));
+        }
+    }
     for (row, recorded) in ledger {
         let want = regraded
             .iter()
-            .find(|(r, _)| r == row)
-            .map_or(recorded.as_str(), |(_, now)| now.as_str());
+            .find(|g| &g.row == row && !g.why.trim().is_empty())
+            .map_or(recorded.as_str(), |g| g.now.as_str());
         match replayed.rows.iter().find(|(r, _)| r == row) {
             Some((_, v)) if v.label() == want => {}
             Some((_, v)) => out.push(format!(
