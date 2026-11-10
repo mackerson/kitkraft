@@ -282,3 +282,37 @@ that observes each:
 | control "Render Window camera: orbit, pan, zoom, fly (mouse and keys)" | OW-C launch 1: B9 (camera inputs), B2 (Render Window Hotkeys bindings) |
 | shortcut "Keyboard shortcuts, every one observed" | OW-C launch 1: B1 (menu shortcuts), B2 (Render Window Hotkeys bindings) |
 | workflow "New form, duplicate form" | OW-C launch 2: A1 (F28, a vanilla object duplicated); no step makes a new form |
+
+### Edit dialog labels with no field path (M7.K4)
+
+Sitting 2 (`ck-20261102-03`) observed the labels of seven edit dialogs; M7.K4
+(`crates/ui-egui/layouts/sitting2.toml`) maps each label to the `set` field path it edits or
+names it a gap with its reason. These are the gaps, one row per distinct reason (verbatim from
+the TOML), with the labels it covers. Counted 2026-11-10 from D's K4 fix round (`b0364b2b`, with `09a71528`'s wording of "On Local Map"; as merged at `51d5af8b`):
+23 reasons covering 93 labels (105 labels are mapped). WEAP was not observed and has none.
+
+| Reason (verbatim from `sitting2.toml`) | Labels (type "label") | Labels | Owned by |
+| ------------------------------------ | --------------------- | ------ | -------- |
+| "a button or control, not a field" | AMMO "Edit", COBJ "New", LCTN "Select Reference", LCTN "Select Horse Marker", LCTN "Analyze Loot", TERM "Edit", TERM "Add", TERM "Remove", CONT "Edit", CONT "Preview Level", CONT "Preview Calculated Result", CONT "Collect From 3D", CONT "Add", CONT "Remove", STAT "Edit" | 15 | permanent: not a field |
+| "AMMO's schema has no PRPS; not known which field it edits" | AMMO "Properties" | 1 | schema (lane B): no typed member yet |
+| "not known which field it edits" | AMMO "Art", AMMO "Sound", LCTN "Level", TERM "Make Wall Terminal", TERM "Make Desk Terminal", TERM "Properties", CONT "Properties" | 7 | a CK edit of the field (no OW-C step names one) |
+| "a button or control, not a field (it adds the DEST group)" | AMMO "Add Destruction Data", TERM "Add Destruction Data", CONT "Add Destruction Data" | 3 | permanent: not a field |
+| "no member of this type's schema" | COBJ "List Contains Variants", COBJ "Extra Scrapping Items", LCTN "Encounter Zone", LCTN "Horse Marker Ref", LCTN "Location Ref Type Filter", CONT "Take All", CONT "Mod Data", CONT "Display Slots", STAT "High cost Path", STAT "Has Platform/Language Specific Textures", STAT "Show in world map (ref must be in sky cell)" | 11 | schema (lane B): no typed member yet |
+| "not known which field it edits (the CTDA conditions or a flag)" | COBJ "Match Conditions" | 1 | a CK edit of the field (no OW-C step names one) |
+| "not known which field it edits (REPR holds repair components, not a recipe)" | COBJ "Workbench Repair Recipe" | 1 | a CK edit of the field (no OW-C step names one) |
+| "a record header flag; `set` edits subrecords only" | LCTN "Interior cells use ref location for world map player marker", LCTN "Public Area", LCTN "Off Limits", TERM "Random Anim Start", CONT "Random Anim Start", CONT "Obstacle", STAT "Pack-In Use Only", STAT "Used As Platform", STAT "Obstacle", STAT "Is Marker", STAT "Headtrack Marker", STAT "Non Occluder", STAT "Heading Marker", STAT "Has Currents", KYWD "Restricted" | 15 | unscheduled: `set` edits no record header flag |
+| "a column of the PRPS list: `set` takes the list whole (PRPS = [...]); no field path names one row's member" | LCTN "Actor Value", LCTN "Amount", TERM "Actor Value", TERM "Amount", CONT "Actor Value", CONT "Amount", STAT "Actor Value", STAT "Amount" | 8 | unscheduled: `set` names no row of a list subrecord |
+| "LCTN has two PRPS lists; not known which one it edits" | LCTN "Base Actor Values" | 1 | a CK edit of the field (no OW-C step names one) |
+| "a group caption, not a field" | LCTN "Encounter Leveling Data", LCTN "Ownership", CONT "NavMesh Generation Import Option", CONT "Scripts", STAT "NavMesh Generation Import Option", STAT "Flutter Data" | 6 | permanent: not a field |
+| "an owner kind; both kinds edit DATA.Owner and the sitting did not record which is chosen" | LCTN "NPC", LCTN "Faction" | 2 | a CK edit of the field (no OW-C step names one) |
+| "two terminal-menu members (DNAM, NTRM); not known which one it edits" | TERM "Desktop Menu" | 1 | a CK edit of the field (no OW-C step names one) |
+| "a base-form component, kept raw in the BFCB block" | TERM "Animation Graph Component" | 1 | schema (lane B): no typed member yet |
+| "an owner kind; both kinds edit COED.Owner and the sitting did not record which is chosen" | CONT "NPC", CONT "Faction" | 2 | a CK edit of the field (no OW-C step names one) |
+| "COED.GlobalOrRank is kept raw (a global or a rank)" | CONT "Global Variable", CONT "Required Rank" | 2 | schema (lane B): no typed member yet |
+| "one label for two members (WED0, WED1)" | CONT "Sounds (Open, Close, Select Audio Data)" | 1 | a CK edit of the field (no OW-C step names one) |
+| "a navmesh import option; no header flag or member of this type's schema holds it" | CONT "Collision Geometry", STAT "Collision Geometry" | 2 | schema (lane B): no typed member yet |
+| "a navmesh import option, kept in the record header flags; `set` edits subrecords only" | CONT "Bounding Box", CONT "Filter", CONT "Only Cut", CONT "Ground", STAT "Bounding Box", STAT "Filter", STAT "Only Cut", STAT "Ignore Erosion", STAT "Ground" | 9 | unscheduled: `set` edits no record header flag |
+| "the OBTE block is a group of combinations, not one field" | CONT "Object Template" | 1 | schema (lane B): no typed member yet |
+| "STAT's schema has no Keywords (KSIZ, KWDA) member" | STAT "Keywords" | 1 | schema (lane B): no typed member yet |
+| "not known whether it edits STLS (the schema's AmbientSound)" | STAT "Looping Sound (Select Audio Data)" | 1 | a CK edit of the field (no OW-C step names one) |
+| "probably the inverse of the HiddenFromLocalMap record header flag; `set` edits subrecords only" | STAT "On Local Map" | 1 | unscheduled: `set` edits no record header flag |
