@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
@@ -262,11 +263,18 @@ impl MeshIndex {
         keys: &[ArchiveKey],
         file: &Path,
     ) -> Option<Self> {
-        let len = std::fs::metadata(file).ok()?.len();
-        if len > MAX_CACHE_FILE {
+        // One open, read through a bound (review L3 of M7.R5): a file swapped or grown
+        // after a size check is never read whole.
+        let mut bytes = Vec::new();
+        File::open(file)
+            .ok()?
+            .take(MAX_CACHE_FILE.saturating_add(1))
+            .read_to_end(&mut bytes)
+            .ok()?;
+        if u64::try_from(bytes.len()).ok()? > MAX_CACHE_FILE {
             return None;
         }
-        let stored = parse_stored(&std::fs::read(file).ok()?)?;
+        let stored = parse_stored(&bytes)?;
         if stored.keys != keys || stored.data_dir != data_dir_text(data_dir) {
             return None;
         }
@@ -335,15 +343,15 @@ fn key_of(path: &Path) -> Option<ArchiveKey> {
 /// The cache file's first bytes (format version 2: the Data dir path and a checksum).
 pub(super) const CACHE_MAGIC: &[u8; 8] = b"KKMIDX02";
 /// Largest cache file read.
-const MAX_CACHE_FILE: u64 = 128 << 20;
+pub(super) const MAX_CACHE_FILE: u64 = 128 << 20;
 /// Longest entry or archive name accepted from the cache file.
 const MAX_NAME: usize = 1_024;
 /// Longest Data dir path accepted from the cache file.
 const MAX_PATH: usize = 4_096;
-/// Most entries the cache file may hold, all archives together (review M2 of M7.R5): 2.4x
-/// the official Data dir's 841,500 `.nif` and `.mesh` entries (13 of its 90 archives, 2026-11-10),
-/// so a file cannot make the parser
-/// hold far more memory than an honest one.
+/// Most entries the cache file may hold, all archives together (review M2 of M7.R5):
+/// 2.4x the official Data dir's 841,500 `.nif` and `.mesh` entries (13 of its 90
+/// archives, 2026-11-10), so a file cannot make the parser hold far more memory than an
+/// honest one.
 pub(super) const MAX_ENTRIES: usize = 2_000_000;
 
 /// One kept archive as stored: its position in the key list, entry count, entries.

@@ -1317,3 +1317,19 @@ fn no_cache_replaces_a_session_index_read_from_the_cache() {
     assert!(!index.from_cache);
     assert!(index.cache_dir.is_none());
 }
+
+/// Review L3 of M7.R5: a cache file longer than the cap is refused (read through a bound,
+/// one open).
+#[test]
+fn a_mesh_index_file_over_the_cap_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-oversize");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_len(super::mesh::MAX_CACHE_FILE + 1)
+        .unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
+}
