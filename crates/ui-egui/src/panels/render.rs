@@ -165,8 +165,9 @@ struct MeshBuild {
     faces: Vec<f32>,
     covered: BTreeSet<usize>,
     triangles: usize,
-    /// Bases this build could not place, with why.
-    skipped: BTreeMap<String, String>,
+    /// Bases this build could not place, with how many of their references were past the
+    /// scene budget (review L2 of M7.R4).
+    skipped: BTreeMap<String, usize>,
 }
 
 /// The overlay's lines: frame time (CPU: preparing the frame and issuing GL calls; GPU
@@ -347,7 +348,7 @@ pub struct RenderTab {
     /// bases the last finished build could not place.
     build: Option<MeshBuild>,
     mesh_mode: Option<FaceMode>,
-    mesh_skipped: BTreeMap<String, String>,
+    mesh_skipped: BTreeMap<String, usize>,
     /// [`MESH_SCENE_TRIANGLES`] and [`MESH_FRAME_TRIANGLES`] (fields so tests lower them).
     mesh_scene_budget: usize,
     mesh_frame_budget: usize,
@@ -681,12 +682,8 @@ impl RenderTab {
             };
             let n = mesh.triangles.len();
             if b.triangles.saturating_add(n) > self.mesh_scene_budget {
-                b.skipped.entry(base.clone()).or_insert_with(|| {
-                    format!(
-                        "the scene's mesh budget ({} triangles, MESH_SCENE_TRIANGLES) is spent",
-                        self.mesh_scene_budget
-                    )
-                });
+                let past = b.skipped.entry(base.clone()).or_insert(0);
+                *past = past.saturating_add(1);
                 continue;
             }
             let place = m.placement();
@@ -726,9 +723,12 @@ impl RenderTab {
                     "geometry of {base} not drawn: {why}; drawn as its box"
                 )),
                 Ok(m) => {
-                    if let Some(why) = self.mesh_skipped.get(base) {
+                    // Review L2 of M7.R4: other references of the base may be drawn as
+                    // its mesh, so the line counts the ones that are not.
+                    if let Some(k) = self.mesh_skipped.get(base) {
                         out.push(format!(
-                            "geometry of {base} not drawn: {why}; drawn as its box"
+                            "geometry of {base}: {k} reference(s) past the scene's mesh budget ({} triangles, MESH_SCENE_TRIANGLES); those drawn as their box",
+                            self.mesh_scene_budget
                         ));
                     }
                     for block in &m.skipped_blocks {
@@ -1761,7 +1761,7 @@ mod tests {
         assert_eq!(
             tab.mesh_limitations(),
             [
-                "geometry of Test.esm:000800 not drawn: the scene's mesh budget (4 triangles, MESH_SCENE_TRIANGLES) is spent; drawn as its box",
+                "geometry of Test.esm:000800: 1 reference(s) past the scene's mesh budget (4 triangles, MESH_SCENE_TRIANGLES); those drawn as their box",
                 "geometry of Test.esm:000800 drawn in part: block 2: Test/Skin.mesh skipped: it is skinned",
             ]
         );
@@ -1781,5 +1781,23 @@ mod tests {
         assert_eq!(tab.viewport.mesh_counts().0, 3);
         tab.follow_load("another load".into());
         assert!(tab.geometry.is_empty() && tab.mesh_limitations().is_empty());
+    }
+
+    /// Review L2 of M7.R4: when the scene budget lets only some of a base's references be
+    /// drawn as its mesh, the line counts the ones drawn as boxes, not "not drawn".
+    #[test]
+    fn a_base_partly_past_the_scene_budget_counts_its_boxed_references() {
+        use crate::viewport::mesh::tests::quad;
+        let ctx = egui::Context::default();
+        let mut tab = meshed_tab(&ctx);
+        tab.viewport.faces = FaceMode::Solid;
+        tab.mesh_scene_budget = 2;
+        tab.receive_geometry(&quad("Test.esm:000800"));
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts(), (1, 0, 6));
+        assert_eq!(
+            tab.mesh_limitations()[0],
+            "geometry of Test.esm:000800: 2 reference(s) past the scene's mesh budget (2 triangles, MESH_SCENE_TRIANGLES); those drawn as their box"
+        );
     }
 }
