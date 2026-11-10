@@ -1031,9 +1031,9 @@ fn a_mesh_index_naming_an_entry_the_archive_lacks_is_rebuilt() {
         lied.archives[0].open().is_none(),
         "but the archive does not match it"
     );
-    // Through the command: the model still reads, from an index built again.
-    let args =
-        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
+    // Through the command: the model still reads, from an index built again (written back
+    // to the test's own cache dir, where the stale index came from).
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
     let mut session = crate::Session::default();
     session.insert(lied);
     let out = geometry(&mut session, &args).unwrap();
@@ -1298,4 +1298,22 @@ fn a_cache_file_built_to_amplify_memory_is_refused() {
     assert!(parse_stored(&many).is_none());
     // The same shape under the cap parses.
     assert!(parse_stored(&file(vec![(0, "meshes/a.nif".into(), 0)])).is_some());
+}
+
+/// Review L1 of M7.R5: `no_cache` on a call also replaces a session index that was read
+/// from the cache, so the call neither reads nor writes the file.
+#[test]
+fn no_cache_replaces_a_session_index_read_from_the_cache() {
+    let (data, cache) = cached_dir("mesh-index-nocache-session");
+    build(&data, Some(&cache));
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    assert!(session.get::<MeshIndex>().unwrap().from_cache);
+    let args =
+        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let index = session.get::<MeshIndex>().unwrap();
+    assert!(!index.from_cache);
+    assert!(index.cache_dir.is_none());
 }

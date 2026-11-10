@@ -748,9 +748,11 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
     let loose = kitkraft_io::overlay::find_ci(&data_dir, &wanted);
 
     let cache_dir = mesh_cache_dir(args);
+    // Review L1 of M7.R5: with `no_cache`, a session index read from the cache is
+    // replaced too, so the call neither reads nor writes the file.
     if session
         .get::<MeshIndex>()
-        .is_none_or(|i| i.data_dir != data_dir)
+        .is_none_or(|i| i.data_dir != data_dir || (cache_dir.is_none() && i.from_cache))
     {
         let built = MeshIndex::build_cached(&data_dir, cache_dir.as_deref(), true, id)?;
         session.insert(built);
