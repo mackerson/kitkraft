@@ -1560,10 +1560,9 @@ mod tests {
 
     /// M7 exit bullet 2 (sprint 2026-11-09, D5): every gap reason `CK_ITEMS` gives appears
     /// verbatim in `docs/gaps.md`'s "Interface gaps (M7)" section, so each item drawn
-    /// disabled names a documented gap. The section is C's (C2): until it is on this
-    /// branch the test is ignored.
+    /// disabled names a documented gap. The section is C's (C2, merged with wave 1 of
+    /// sprint 2026-11-09).
     #[test]
-    #[ignore = "waits on C2"]
     fn every_ck_item_gap_reason_is_a_documented_gap() {
         let doc = std::fs::read_to_string(repo().join("docs").join("gaps.md")).unwrap();
         let section = interface_gaps_section(&doc).expect("an \"Interface gaps (M7)\" section");
