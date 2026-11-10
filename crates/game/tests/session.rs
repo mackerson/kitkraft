@@ -2814,6 +2814,17 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
                 "busy {busy}: {row} predicted {want}, graded {v}"
             );
         }
+        // Below the FR3 threshold every row but SO-08 keeps its very label; SO-08's may move
+        // between `fail` and `inconclusive`, both inside its prediction (review L3 of G 3b).
+        let so08 = PREDICTED.iter().position(|(r, _)| *r == "SO-08");
+        let labels = |v: &[String]| -> Vec<String> {
+            v.iter()
+                .enumerate()
+                .filter(|(i, _)| Some(*i) != so08)
+                .map(|(_, x)| label(x))
+                .collect()
+        };
+        assert_eq!(labels(&in_order), labels(&reversed), "busy {busy}");
         if busy == 0 {
             assert_eq!(in_order, reversed, "nothing is late, nothing can differ");
         } else {
