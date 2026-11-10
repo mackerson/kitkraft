@@ -850,3 +850,41 @@ fn the_transcript_stays_in_report_json_and_out_of_the_envelope() {
     );
     std::fs::remove_dir_all(&f.root).unwrap();
 }
+
+/// Review L1' of the M4.T7 fix round: `game.status` carries the finished session's report
+/// without the transcript, as `game.session` and `game.stop` do. A started session whose base
+/// save the game does not find ends without idling, so its status shows the report.
+#[test]
+fn the_status_envelope_carries_no_transcript() {
+    let c = console();
+    c.answer(
+        "load KitKraftBase",
+        "load KitKraftBase\nCommand: load KitKraftBase\nSave file not found.",
+    );
+    let f = fixture("status-transcript");
+    let probes = probes_file(&f);
+    let game = game_file(&f, &c);
+    let (e, _) = engine(&["explorer.exe"]);
+    let r = e
+        .execute(
+            "game.session",
+            args(&f, &probes, &game, json!({"start": true})),
+        )
+        .unwrap();
+    let id = r["data"]["session"].as_str().unwrap().to_string();
+    let mut polls = 0;
+    let status = loop {
+        let s = e.execute("game.status", json!({"id": id})).unwrap();
+        if s["data"]["phase"] == json!("finished") {
+            break s;
+        }
+        polls += 1;
+        assert!(polls < 400, "{s}");
+        std::thread::sleep(Duration::from_millis(25));
+    };
+    let report = &status["data"]["report"];
+    assert!(report.is_object(), "{status}");
+    assert!(report.get("transcript").is_none(), "{report}");
+    let _ = e.execute("game.stop", json!({"id": id}));
+    let _ = std::fs::remove_dir_all(&f.root);
+}
