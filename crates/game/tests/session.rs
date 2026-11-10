@@ -2655,7 +2655,7 @@ impl SendOrder {
             self.busy -= 1;
             self.queue.extend(own);
         } else {
-            let late: Vec<String> = self.queue.drain(..).collect();
+            let late = std::mem::take(&mut self.queue);
             let lines: Vec<String> = if self.reversed {
                 own.into_iter().chain(late.into_iter().rev()).collect()
             } else {
