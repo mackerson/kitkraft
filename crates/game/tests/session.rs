@@ -3697,3 +3697,33 @@ fn r41_t01s_base_wait_is_ready_at_send_5_and_the_session_goes_on() {
         assert_ne!(v.label(), "not-run", "{row}: {}", v.text());
     }
 }
+
+/// Review R41 N1 and N2: what Windows refuses or rewrites is refused on every OS (a control
+/// character, a trailing `.` or space), and the refusal quotes the id, escaping a control
+/// character.
+#[test]
+fn a_replay_refuses_the_same_session_ids_on_every_os() {
+    let (report, probes, _, _) = recorded("t4-session-id-os");
+    let work = std::env::temp_dir().join(format!(
+        "kitkraft-game-replay-sid-os-{}",
+        std::process::id()
+    ));
+    for bad in ["...", "x.", "x ", "a\u{1}b", "a\tb"] {
+        let rec = Recorded {
+            session: bad,
+            probes: &probes,
+            transcript: &report.transcript,
+            base_save: "KitKraftBase",
+            session_save: "KitKraftSession-20261016-01",
+            papyrus: None,
+        };
+        let e = replay_transcript(&rec, &work).expect_err(bad);
+        let text = e.to_string();
+        assert!(
+            matches!(e, kitkraft_game::GameError::Replay(_)),
+            "{bad:?}: {text}"
+        );
+        assert!(!text.chars().any(char::is_control), "{bad:?}: {text}");
+    }
+    let _ = std::fs::remove_dir_all(&work);
+}

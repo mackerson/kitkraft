@@ -229,15 +229,21 @@ fn digest(b: &[u8]) -> String {
 /// report could send the replay's writes anywhere (review M1 of M4.T7 part 3). `\`, `/` and
 /// `:` are refused on every OS, so an id is one plain folder name everywhere (review LX-2).
 fn session_folder(work: &Path, session: &str) -> Result<PathBuf> {
+    // Quoted, so a control character in the id is escaped, not printed (review R41 N2).
     let refuse = |why: &str| {
         GameError::Replay(format!(
-            "session id `{session}` is not one plain folder name ({why})"
+            "session id {session:?} is not one plain folder name ({why})"
         ))
     };
     // A separator or a drive colon on any OS (review LX-2: on Linux `\` is an ordinary
     // filename character, so `..\outside` was one component there).
     if session.contains(['\\', '/', ':']) {
         return Err(refuse("a path separator or a drive colon"));
+    }
+    // What Windows refuses or rewrites, refused on every OS too (review R41 N1): a control
+    // character, and a trailing `.` or space (`x.` and `x ` are `x` there).
+    if session.chars().any(char::is_control) || session.ends_with(['.', ' ']) {
+        return Err(refuse("a control character, or a trailing `.` or space"));
     }
     let mut parts = Path::new(session).components();
     if !matches!(
