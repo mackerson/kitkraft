@@ -12,6 +12,16 @@
 //! recipe or builder change moved what the passing session checked. A wrong `FULL`, for
 //! example, changes both.
 //!
+//! The session half (M4.T7 part 3, ruling R29): the replay's `session` names its ledger
+//! entry. The task finds that session's `report.json` under the observe folder (the one whose
+//! `ledger_entry` is the id), replays its transcript with today's controller and the recorded
+//! probe file (`kitkraft_game::replay`, no game), and compares each row's grade with the
+//! ledger entry's Result column. A grade that differs fails the replay; a replay that cannot
+//! reproduce the session's sends is `inconclusive`, and a session with no transcript
+//! (recorded before M4.T7) or no `report.json` is `not-run`: neither fails it. A grader
+//! change that moves a row on purpose is listed in the replay as `[[regraded]]` with `row`,
+//! `now` and `why`; one without a reason is itself a difference.
+//!
 //! The live half, the session run twice on the same base save (M4.T7's "passes twice in a
 //! row"), is not built: it would run only when `KITKRAFT_GAME_PROFILE` names the dev profile,
 //! and until it is built every replay's live part is reported `not-run`. `cargo xtask ci`
@@ -22,6 +32,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde_json::Value;
+
+use kitkraft_game::ledger::row_labels;
+use kitkraft_game::probes::ProbeFile;
+use kitkraft_game::replay as session_replay;
+use kitkraft_game::replay::{Recorded, Regrade, Sent};
 
 use crate::evidence::{sha256_hex, KitBinary, Runner};
 
@@ -45,6 +60,8 @@ pub(crate) struct Replay {
     pub plugin_sha256: String,
     pub probes_sha256: String,
     pub session: String,
+    /// Rows a deliberate grader change moved since the session (`[[regraded]]`).
+    pub regraded: Vec<Regrade>,
 }
 
 fn text(t: &toml::Table, key: &str, file: &Path) -> Result<String> {
@@ -63,6 +80,33 @@ fn list(t: &toml::Table, key: &str, file: &Path) -> Result<Vec<String>> {
         .map(|v| {
             v.as_str().map(str::to_string).ok_or_else(|| {
                 anyhow!("{}: `{key}` holds a value that is not text", file.display())
+            })
+        })
+        .collect()
+}
+
+/// The `[[regraded]]` entries: `row` and `now` are required, `why` may be empty here (the
+/// comparison then reports the missing reason as a difference).
+fn regrades(t: &toml::Table, file: &Path) -> Result<Vec<Regrade>> {
+    let Some(list) = t.get("regraded") else {
+        return Ok(Vec::new());
+    };
+    let list = list
+        .as_array()
+        .ok_or_else(|| anyhow!("{}: `regraded` is a list of tables", file.display()))?;
+    list.iter()
+        .map(|g| {
+            let g = g
+                .as_table()
+                .ok_or_else(|| anyhow!("{}: a `regraded` entry is not a table", file.display()))?;
+            Ok(Regrade {
+                row: text(g, "row", file)?,
+                now: text(g, "now", file)?,
+                why: g
+                    .get("why")
+                    .and_then(toml::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
             })
         })
         .collect()
@@ -119,6 +163,7 @@ impl Replay {
             plugin_sha256: text(&t, "plugin_sha256", file)?.to_ascii_lowercase(),
             probes_sha256: text(&t, "probes_sha256", file)?.to_ascii_lowercase(),
             session: text(&t, "session", file)?,
+            regraded: regrades(&t, file)?,
         })
     }
 }
@@ -131,6 +176,8 @@ pub(crate) struct Outcome {
     pub failures: Vec<String>,
     /// Lines for the report (hashes, rows compared).
     pub notes: Vec<String>,
+    /// The session half: `pass`, `fail`, `inconclusive` or `not-run`.
+    pub session: String,
 }
 
 /// The probe rows of a probe file, `row -> {title, matcher, step}` (the header's notes and
@@ -268,6 +315,131 @@ pub(crate) fn replay_desk(
     Ok(o)
 }
 
+/// The recorded session `id` under `observe`: the `report.json` whose `ledger_entry` is `id`.
+fn find_report(observe: &Path, id: &str) -> Option<(PathBuf, Value)> {
+    let mut dirs: Vec<PathBuf> = std::fs::read_dir(observe)
+        .ok()?
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .collect();
+    dirs.sort();
+    dirs.into_iter().find_map(|d| {
+        let p = d.join("report.json");
+        let v: Value = serde_json::from_str(&std::fs::read_to_string(&p).ok()?).ok()?;
+        (v.get("ledger_entry").and_then(Value::as_str) == Some(id)).then_some((p, v))
+    })
+}
+
+/// The text between the backticks right after `key` in the ledger entry's `Save` field
+/// (`| Save | base `KitKraftBase` SHA-256 `...`; session save `KitKraftSession-...` |`).
+fn save_field(ledger_text: &str, key: &str) -> Option<String> {
+    let line = ledger_text.lines().find(|l| l.starts_with("| Save |"))?;
+    let at = line.find(key)?.checked_add(key.len())?;
+    let rest = line.get(at..)?.strip_prefix('`')?;
+    rest.split('`').next().map(str::to_string)
+}
+
+/// The session half of one replay (M4.T7 part 3): today's controller over the recorded
+/// session's transcript, its grades against the ledger. Returns the label, failures and notes.
+pub(crate) fn replay_session(
+    r: &Replay,
+    recorded_probes: &str,
+    observe: &Path,
+    ledger: &str,
+    work: &Path,
+) -> Result<(String, Vec<String>, Vec<String>)> {
+    let not_run = |why: String| Ok(("not-run".to_string(), Vec::new(), vec![why]));
+    let Some((path, report)) = find_report(observe, &r.session) else {
+        return not_run(format!(
+            "session {}: not-run (no report.json naming it under {})",
+            r.session,
+            observe.display()
+        ));
+    };
+    let transcript: Vec<Sent> = match report.get("transcript") {
+        Some(t) => serde_json::from_value(t.clone())
+            .with_context(|| format!("{}: transcript", path.display()))?,
+        None => Vec::new(),
+    };
+    let probes = ProbeFile::parse(recorded_probes)
+        .with_context(|| format!("{}: the recorded probe file", r.name))?;
+    let text = report
+        .get("ledger_text")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let base = save_field(text, "base ").unwrap_or_else(|| "KitKraftBase".to_string());
+    let save = save_field(text, "session save ").unwrap_or_default();
+    // The session's Papyrus log as copied at its end, for `papyrus-log` steps.
+    let papyrus = report
+        .get("logs")
+        .and_then(Value::as_array)
+        .and_then(|logs| {
+            logs.iter()
+                .find_map(|l| match l.as_array().map(Vec::as_slice) {
+                    Some([name, path]) if name.as_str() == Some("papyrus") => {
+                        path.as_str().map(str::to_string)
+                    }
+                    _ => None,
+                })
+        })
+        .and_then(|p| std::fs::read_to_string(p).ok());
+    let session = report
+        .get("session")
+        .and_then(Value::as_str)
+        .unwrap_or(&r.session)
+        .to_string();
+    let rec = Recorded {
+        session: &session,
+        probes: &probes,
+        transcript: &transcript,
+        base_save: &base,
+        session_save: &save,
+        papyrus: papyrus.as_deref(),
+    };
+    let replayed = session_replay::replay(&rec, work)
+        .with_context(|| format!("{}: replaying {}", r.name, r.session))?;
+    let Some(labels) = row_labels(ledger, &r.session) else {
+        return Ok((
+            "fail".to_string(),
+            vec![format!(
+                "session {}: no ledger entry with a row table",
+                r.session
+            )],
+            Vec::new(),
+        ));
+    };
+    Ok(
+        match session_replay::compare(&labels, &replayed, &r.regraded) {
+            session_replay::Outcome::Pass => (
+                "pass".to_string(),
+                Vec::new(),
+                vec![format!(
+                    "session {} replayed from {}: every row as the ledger recorded it",
+                    r.session,
+                    path.display()
+                )],
+            ),
+            session_replay::Outcome::Fail(lines) => (
+                "fail".to_string(),
+                lines
+                    .into_iter()
+                    .map(|l| format!("session {}: {l}", r.session))
+                    .collect(),
+                Vec::new(),
+            ),
+            session_replay::Outcome::Inconclusive(why) => (
+                "inconclusive".to_string(),
+                Vec::new(),
+                vec![format!("session {}: inconclusive ({why})", r.session)],
+            ),
+            session_replay::Outcome::NotRun(why) => (
+                "not-run".to_string(),
+                Vec::new(),
+                vec![format!("session {}: not-run ({why})", r.session)],
+            ),
+        },
+    )
+}
+
 /// Every replay in `dir` with its recorded probe file, in name order.
 fn read_all(dir: &Path) -> Result<Vec<(Replay, String)>> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
@@ -292,11 +464,25 @@ fn read_all(dir: &Path) -> Result<Vec<(Replay, String)>> {
 }
 
 /// Every replay in `dir`, in name order; each works in `<root>/out/game-regress/<name>/`.
-pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<Outcome>> {
+/// `observe` holds the recorded sessions, `ledger` is `docs/game-observations.md`.
+pub(crate) fn run_all(
+    root: &Path,
+    dir: &Path,
+    observe: &Path,
+    ledger: &Path,
+    kit: &dyn Runner,
+) -> Result<Vec<Outcome>> {
+    let ledger = std::fs::read_to_string(ledger).unwrap_or_default();
     let mut out = Vec::new();
     for (r, recorded) in read_all(dir)? {
         let work = root.join("out").join("game-regress").join(&r.name);
-        out.push(replay_desk(&r, &recorded, &work, kit)?);
+        let mut o = replay_desk(&r, &recorded, &work, kit)?;
+        let (label, failures, notes) =
+            replay_session(&r, &recorded, observe, &ledger, &work.join("session"))?;
+        o.session = label;
+        o.failures.extend(failures);
+        o.notes.extend(notes);
+        out.push(o);
     }
     Ok(out)
 }
@@ -304,6 +490,8 @@ pub(crate) fn run_all(root: &Path, dir: &Path, kit: &dyn Runner) -> Result<Vec<O
 /// `cargo xtask game-regress [--replays <dir>] [--dry-run]`.
 pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     let mut replays = root.join("observe").join("replays");
+    let mut observe = root.join("observe");
+    let mut ledger = root.join("docs").join("game-observations.md");
     let mut dry = false;
     let mut it = args.iter();
     while let Some(a) = it.next() {
@@ -314,16 +502,31 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
                         .ok_or_else(|| anyhow!("--replays needs a folder"))?,
                 )
             }
+            "--observe" => {
+                observe = PathBuf::from(
+                    it.next()
+                        .ok_or_else(|| anyhow!("--observe needs a folder"))?,
+                )
+            }
+            "--ledger" => {
+                ledger = PathBuf::from(it.next().ok_or_else(|| anyhow!("--ledger needs a file"))?)
+            }
             "--dry-run" => dry = true,
             "--help" | "-h" => {
-                println!("cargo xtask game-regress [--replays <dir>] [--dry-run]");
+                println!(
+                    "cargo xtask game-regress [--replays <dir>] [--observe <dir>] [--ledger <file>] [--dry-run]"
+                );
                 println!("  --dry-run prints each replay's commands and runs nothing.");
                 println!(
                     "  Rebuilds each replay's plugin, reruns kit testplan, and fails on a changed"
                 );
                 println!(
-                    "  plugin or probe row (the desk half of M4.T7). The live half (the session"
+                    "  plugin or probe row (the desk half of M4.T7), then replays the recorded"
                 );
+                println!(
+                    "  session's transcript and fails on a grade the ledger did not record (no"
+                );
+                println!("  transcript or report: not-run). The live half (the session");
                 println!(
                     "  twice on the base save) needs {PROFILE_VAR} and is not built yet: not-run."
                 );
@@ -345,7 +548,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         return Ok(());
     }
     let kit = KitBinary::from_env(root);
-    let outcomes = run_all(root, &replays, &kit)?;
+    let outcomes = run_all(root, &replays, &observe, &ledger, &kit)?;
     let failed = outcomes.iter().filter(|o| !o.failures.is_empty()).count();
     let live = std::env::var(PROFILE_VAR).ok();
     for o in &outcomes {
@@ -354,7 +557,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         } else {
             "FAIL"
         };
-        println!("{}: desk {verdict}", o.name);
+        println!("{}: {verdict} (session replay: {})", o.name, o.session);
         for n in &o.notes {
             println!("  {n}");
         }
@@ -369,11 +572,11 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         }
     }
     println!(
-        "game-regress: {} replay(s), {failed} failed at the desk",
+        "game-regress: {} replay(s), {failed} failed",
         outcomes.len()
     );
     if failed > 0 {
-        bail!("{failed} replay(s) changed what their passing session checked");
+        bail!("{failed} replay(s) changed what their passing session checked or graded");
     }
     Ok(())
 }
@@ -461,7 +664,14 @@ mod tests {
         let fake = Fake {
             calls: RefCell::new(Vec::new()),
         };
-        let out = run_all(&root, &root.join("replays"), &fake).unwrap();
+        let out = run_all(
+            &root,
+            &root.join("replays"),
+            &root.join("observe"),
+            &root.join("ledger.md"),
+            &fake,
+        )
+        .unwrap();
         assert_eq!(out.len(), 1);
         assert!(out[0].failures.is_empty(), "{:?}", out[0]);
         assert!(out[0].notes.iter().any(|n| n.contains("every probe row")));
@@ -478,7 +688,14 @@ mod tests {
             calls: RefCell::new(Vec::new()),
         };
         for _ in 0..2 {
-            let out = run_all(&root, &root.join("replays"), &fake).unwrap();
+            let out = run_all(
+                &root,
+                &root.join("replays"),
+                &root.join("observe"),
+                &root.join("ledger.md"),
+                &fake,
+            )
+            .unwrap();
             assert!(out[0].failures.is_empty(), "{:?}", out[0]);
         }
         let _ = std::fs::remove_dir_all(&root);
@@ -492,7 +709,14 @@ mod tests {
         let fake = Fake {
             calls: RefCell::new(Vec::new()),
         };
-        let out = run_all(&root, &root.join("replays"), &fake).unwrap();
+        let out = run_all(
+            &root,
+            &root.join("replays"),
+            &root.join("observe"),
+            &root.join("ledger.md"),
+            &fake,
+        )
+        .unwrap();
         let f = &out[0].failures;
         assert!(
             f.iter().any(|x| x.contains("plugin Rename.esm changed")),
@@ -578,5 +802,162 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
         let d = compare_rows(&a, b).unwrap();
         assert!(d.iter().any(|x| x.starts_with("T-01: gone")), "{d:?}");
         assert!(d.iter().any(|x| x.starts_with("T-02: new")), "{d:?}");
+    }
+
+    // ---------------------------------------------- the session half (M4.T7 part 3, R29)
+
+    const FULL: &str = "Old Soviet Marksman Rifle";
+    const SESSION: &str = "game-20261110-01";
+
+    /// The recorded probe file of the session (a complete `probes.toml`).
+    fn session_probes() -> String {
+        format!(
+            "format = 1\nplugin = \"Rename.esm\"\nsha256 = \"00\"\n\n[[probe]]\nrow = \"T-01\"\ntitle = 'help \"{FULL}\" 4'\n\n[[probe.step]]\ncommand = 'help \"{FULL}\" 4'\nmatcher = \"contains\"\nexpected = \"0021BBCD\"\n"
+        )
+    }
+
+    fn sent(command: &str, reply: &str) -> Value {
+        serde_json::json!({"command": command, "reply": reply, "elapsed_ms": 0})
+    }
+
+    /// A recorded session on disk: the replay, its probe file, `observe/<id>/report.json`
+    /// (with a transcript unless `transcript` is false) and a ledger whose T-01 Result is
+    /// `result`. `extra` is appended to the replay file.
+    fn recorded_session(root: &Path, result: &str, transcript: bool, extra: &str) -> PathBuf {
+        let replays = root.join("replays");
+        replay(&replays, FULL);
+        let file = replays.join("rename.toml");
+        let src = std::fs::read_to_string(&file).unwrap();
+        std::fs::write(
+            &file,
+            format!("{}{extra}", src.replace("game-20261102-02", SESSION)),
+        )
+        .unwrap();
+        std::fs::write(replays.join("rename.probes.toml"), session_probes()).unwrap();
+        let ready = "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40";
+        let help = format!("help \"{FULL}\" 4");
+        let mut report = serde_json::json!({
+            "session": "2026-11-10-T01",
+            "ledger_entry": SESSION,
+            "ledger_text": format!("### {SESSION}: x\n\n| Field | Content |\n| ----- | ------- |\n| Save | base `KitKraftBase` SHA-256 `ab`; session save `KitKraftSession-20261110-01` |\n"),
+            "logs": [],
+        });
+        if transcript {
+            report["transcript"] = serde_json::json!([
+                sent("GetSFSEVersion", ready),
+                sent(
+                    "load KitKraftBase",
+                    "load KitKraftBase\nCommand: load KitKraftBase"
+                ),
+                sent("GetSFSEVersion", ready),
+                sent(
+                    &help,
+                    &format!("{help}\nCommand: {help}\nWEAP: (0021BBCD) '{FULL}'")
+                ),
+            ]);
+        }
+        let dir = root.join("observe").join("2026-11-10-T01");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("report.json"), report.to_string()).unwrap();
+        let ledger = root.join("ledger.md");
+        std::fs::write(
+            &ledger,
+            format!(
+                "### {SESSION}: agent session\n\n| Row | Step | Forms | Expected | Seen | Result | Evidence |\n| --- | ---- | ----- | -------- | ---- | ------ | -------- |\n| T-01 | `x` | - | - | - | {result} | - |\n"
+            ),
+        )
+        .unwrap();
+        ledger
+    }
+
+    fn run_session(root: &Path, ledger: &Path) -> Outcome {
+        let fake = Fake {
+            calls: RefCell::new(Vec::new()),
+        };
+        let mut out = run_all(
+            root,
+            &root.join("replays"),
+            &root.join("observe"),
+            ledger,
+            &fake,
+        )
+        .unwrap();
+        out.remove(0)
+    }
+
+    #[test]
+    fn a_recorded_session_replays_as_its_ledger_recorded_it() {
+        let root = tmp("session-pass");
+        let ledger = recorded_session(&root, "**pass**", true, "");
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "pass", "{o:?}");
+        assert!(o.failures.is_empty(), "{o:?}");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The point of part 3: a grade today's controller gives differently from the ledger fails
+    /// the replay, naming the row.
+    #[test]
+    fn a_grade_the_ledger_recorded_differently_fails_the_replay() {
+        let root = tmp("session-fail");
+        let ledger = recorded_session(&root, "fail (x)", true, "");
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "fail", "{o:?}");
+        assert!(
+            o.failures
+                .iter()
+                .any(|f| f.contains("T-01: the ledger says fail")),
+            "{o:?}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A deliberate re-grade listed by name with a reason is accepted; without one it is not.
+    #[test]
+    fn a_regrade_with_a_reason_is_accepted_and_one_without_is_not() {
+        let root = tmp("session-regrade");
+        let ledger = recorded_session(
+            &root,
+            "fail (x)",
+            true,
+            "\n[[regraded]]\nrow = \"T-01\"\nnow = \"pass\"\nwhy = \"ruling R28 routes the poll\"\n",
+        );
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "pass", "{o:?}");
+        let _ = std::fs::remove_dir_all(&root);
+        let root = tmp("session-regrade-blank");
+        let ledger = recorded_session(
+            &root,
+            "fail (x)",
+            true,
+            "\n[[regraded]]\nrow = \"T-01\"\nnow = \"pass\"\n",
+        );
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "fail", "{o:?}");
+        assert!(
+            o.failures.iter().any(|f| f.contains("with no reason")),
+            "{o:?}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// R29: a session recorded before M4.T7 (its report has no transcript) is not-run, and so
+    /// is one with no report at all; neither fails the replay.
+    #[test]
+    fn a_session_without_a_transcript_or_a_report_is_not_run_not_failed() {
+        let root = tmp("session-old");
+        let ledger = recorded_session(&root, "**pass**", false, "");
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "not-run", "{o:?}");
+        assert!(o.failures.is_empty(), "{o:?}");
+        std::fs::remove_dir_all(root.join("observe")).unwrap();
+        let o = run_session(&root, &ledger);
+        assert_eq!(o.session, "not-run", "{o:?}");
+        assert!(o.failures.is_empty(), "{o:?}");
+        assert!(
+            o.notes.iter().any(|n| n.contains("no report.json")),
+            "{o:?}"
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 }
