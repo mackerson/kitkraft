@@ -415,8 +415,6 @@ struct Run<'a> {
     waiting: Vec<Waiting>,
     /// The last row's parts, for `waiting` once the row has its place.
     last: Option<Waiting>,
-    /// The base `load`, as a request: its failure may arrive in any later reply (R41).
-    base_load: Option<usize>,
     /// A late failure of the base `load`: no row's `pass` stands (R41).
     base_failed: Option<String>,
 }
@@ -1048,9 +1046,9 @@ impl Run<'_> {
                 .iter()
                 .filter(|(_, l)| l == line)
                 .all(|(to, _)| {
-                    self.corr.request(*to).is_some_and(|r| {
-                        r.row == row && first_word(&r.command).eq_ignore_ascii_case("load")
-                    })
+                    self.corr
+                        .request(*to)
+                        .is_some_and(|r| r.row == row && r.is_load())
                 })
     }
 
@@ -1454,10 +1452,9 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
         start: Instant::now(),
         papyrus,
         findings: Vec::new(),
-        corr: Correlator::default(),
+        corr: Correlator::new(&plan.game.saves.load_command),
         waiting: Vec::new(),
         last: None,
-        base_load: None,
         base_failed: None,
     };
     let mut rows: Vec<RowReport> = Vec::new();
@@ -1505,7 +1502,6 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
                         let limit = secs(plan.timeouts.load_secs);
                         // A request too: its failure may come in any later reply (R41).
                         let base = r.corr.open(BASE_ROW, 0, &cmd);
-                        r.base_load = Some(base);
                         let answer = r.deps.console.run(&cmd, limit.min(secs(30)));
                         if let Ok(out) = &answer {
                             let _ = r.corr.route(base, out);

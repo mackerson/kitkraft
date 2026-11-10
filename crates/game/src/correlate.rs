@@ -206,6 +206,8 @@ pub struct Request {
     /// The command.
     pub command: String,
     subject: Option<Subject>,
+    /// A `load`: its first word is the profile's load verb (review R41 L2).
+    load: bool,
     /// A failure line in its own reply stayed with it, or its answer is otherwise known to
     /// have arrived: it was answered (send order).
     failed_here: bool,
@@ -237,12 +239,10 @@ impl Request {
         matches!(self.subject, Some(Subject::Getter { .. }))
     }
 
-    /// A `load` (its answer, if any, is a failure line only a `load` prints; R41).
-    fn is_load(&self) -> bool {
-        self.command
-            .split_whitespace()
-            .next()
-            .is_some_and(|w| w.eq_ignore_ascii_case("load"))
+    /// A `load` (its answer, if any, is a failure line only a `load` prints; R41): its first
+    /// word is the load verb of the profile's `load_command` ([`Correlator::new`]).
+    pub fn is_load(&self) -> bool {
+        self.load
     }
 
     /// A getter still waiting for an answer to one of its sends.
@@ -317,12 +317,34 @@ fn names_item(command: &str, item: &str) -> bool {
 }
 
 /// Every request of a session, and the lines that answer each.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Correlator {
     requests: Vec<Request>,
+    /// The first word of the profile's `load_command`, lowercased (review R41 L2).
+    load_verb: String,
+}
+
+impl Default for Correlator {
+    /// A correlator for a profile whose saves load with `load <save>` (Starfield's).
+    fn default() -> Correlator {
+        Correlator::new("load {save}")
+    }
 }
 
 impl Correlator {
+    /// A correlator for a profile whose `load_command` is `load_command` (`load {save}`):
+    /// a request whose first word is that verb is a `load` (ruling R41).
+    pub fn new(load_command: &str) -> Correlator {
+        Correlator {
+            requests: Vec::new(),
+            load_verb: load_command
+                .split_whitespace()
+                .next()
+                .unwrap_or_default()
+                .to_ascii_lowercase(),
+        }
+    }
+
     /// Opens a request (sent once); returns its id.
     pub fn open(&mut self, row: &str, step: usize, command: &str) -> usize {
         self.requests.push(Request {
@@ -330,6 +352,11 @@ impl Correlator {
             step,
             command: command.trim().to_string(),
             subject: subject(command),
+            load: !self.load_verb.is_empty()
+                && command
+                    .split_whitespace()
+                    .next()
+                    .is_some_and(|w| w.eq_ignore_ascii_case(&self.load_verb)),
             failed_here: false,
             sent: 1,
             lines: Vec::new(),
@@ -661,6 +688,24 @@ impl Correlator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Review R41 L2: a request is a `load` by the profile's load verb, not the word `load`.
+    #[test]
+    fn a_load_is_the_profiles_load_verb() {
+        let mut c = Correlator::new("loadgame {save}");
+        let l = c.open("T-01", 0, "loadgame KitKraftSession-1");
+        let g = c.open("T-01", 1, "player.getpos x");
+        let r = c.route(
+            g,
+            "player.getpos x
+Save file not found.",
+        );
+        assert_eq!(r.failures.first().map(|x| x.0), Some(l), "{r:?}");
+        assert!(c.request(l).is_some_and(Request::is_load));
+        let mut d = Correlator::default();
+        let n = d.open("T-01", 0, "loadgame KitKraftSession-1");
+        assert!(!d.request(n).is_some_and(Request::is_load));
+    }
 
     #[test]
     fn subjects_come_from_help_terms_and_getters() {
