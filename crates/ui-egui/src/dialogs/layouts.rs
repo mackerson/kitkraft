@@ -1258,4 +1258,80 @@ mod tests {
         assert!(matches!(&lines[5], Line::Gap(l, _) if l == "Edit"));
         assert!(matches!(lines[4], Line::Mapped(_)));
     }
+
+    /// D7 (M7.W4, REFR): the layout follows the Reference dialog `ck-20261101-03` observed
+    /// (`docs/ck-parity.md`, row "Reference dialog (a placed reference)", read here): its
+    /// tabs are observed tab names in the observed order (those no schema member holds
+    /// left out), "3D Data" first, opening with the four fields shown above the tabs in
+    /// their observed order, then Position and Rotation X, Y, Z and Scale; every group
+    /// names one field path REFR's schema has.
+    #[test]
+    fn the_refr_layout_follows_the_reference_dialog() {
+        let parity = std::fs::read_to_string(repo().join("docs").join("ck-parity.md")).unwrap();
+        let row = parity
+            .lines()
+            .find(|l| l.starts_with("| dialog | Reference dialog (a placed reference) |"))
+            .expect("the Reference dialog row");
+        let after = |key: &str| -> Vec<String> {
+            let start = row.find(key).unwrap() + key.len();
+            let rest = &row[start..];
+            let end = rest.find(';').unwrap();
+            rest[..end].split(", ").map(str::to_string).collect()
+        };
+        let observed_tabs = after("tabs ");
+        let observed_fields = after("Observed: fields ");
+        assert_eq!(observed_tabs.len(), 14, "{observed_tabs:?}");
+        assert_eq!(
+            observed_fields,
+            [
+                "Reference Editor ID",
+                "Base Object",
+                "Layer",
+                "Location Override"
+            ]
+        );
+        let l = shipped("REFR").unwrap().unwrap();
+        assert_eq!(l.parity, "Reference dialog (a placed reference)");
+        assert!(!l.observed, "the tabs' contents are mostly ours");
+        let names: Vec<&str> = l.tabs.iter().map(|t| t.name.as_str()).collect();
+        let mut at = 0;
+        for n in &names {
+            let i = observed_tabs
+                .iter()
+                .position(|o| o == n)
+                .unwrap_or_else(|| panic!("`{n}` is no observed tab"));
+            assert!(i >= at, "`{n}` out of the observed order");
+            at = i;
+        }
+        assert_eq!(names[0], "3D Data");
+        let first: Vec<&str> = l.tabs[0].groups.iter().map(|g| g.name.as_str()).collect();
+        assert_eq!(&first[..4], observed_fields.as_slice());
+        assert_eq!(
+            &first[4..],
+            [
+                "Position X",
+                "Position Y",
+                "Position Z",
+                "Rotation X (radians)",
+                "Rotation Y (radians)",
+                "Rotation Z (radians)",
+                "Scale"
+            ]
+        );
+        let engine = ReadOnlyEngine::new();
+        let env = engine
+            .run(&Request::new(
+                "schema",
+                json!({"type": "REFR", "deep": true}),
+            ))
+            .unwrap();
+        for t in &l.tabs {
+            for g in &t.groups {
+                let m = g.members.clone().unwrap_or_default();
+                assert_eq!(m.len(), 1, "{}", g.name);
+                assert!(schema_has(&env, &m[0]), "{}: {}", g.name, m[0]);
+                assert_eq!(g.fields, [m[0].split('.').next().unwrap()], "{}", g.name);
+            }
+        }
+    }
 }

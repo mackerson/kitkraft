@@ -665,6 +665,12 @@ revisited once a sitting observes how the CK docks. Code:
   label shows goes to "Other".
   AMMO's and COBJ's pages say observed (the sitting recorded no tab control); the other
   four do not, since the sitting did not record whether they have tabs.
+  REFR's layout (D7) follows the Reference dialog `ck-20261101-03` observed: its tabs are
+  the CK's tab names in the CK's order (those no schema member holds left out), "3D Data"
+  first with the four fields the CK shows above its tabs, then Position and Rotation X,
+  Y, Z (rotation in radians, as stored; the CK shows degrees) and Scale; each other tab
+  holds the one field named after it. It says unobserved: only "3D Data"'s contents were
+  seen.
 
 ## Screenshot tour (development aid)
 

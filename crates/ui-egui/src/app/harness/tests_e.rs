@@ -1282,3 +1282,51 @@ fn m7_w4_a_value_that_does_not_fit_an_integer_field_is_refused() {
     assert_absent(&h, "Write to Patch.esp");
     assert!(!Path::new(&patch).exists());
 }
+
+/// D7 (M7.W4, REFR): a reference placed through the editor opens in the edit dialog on
+/// the Reference dialog's "3D Data" page: the observed fields first, then Position X as
+/// an edit box holding the placed X (an edit becomes `DATA.Position.X`) and the rotation
+/// labelled with the unit stored. Nothing is written by the dialog.
+#[test]
+fn d7_a_placed_reference_opens_on_its_3d_data_page() {
+    let s = Scratch::new("refr-layout");
+    let patch = s.path("Patch.esp");
+    let Some(mut h) = placing(&s, Some(patch.clone())) else {
+        return;
+    };
+    ask_place(&mut h, STAT, CELL);
+    type_into(&mut h, "X", "12.5");
+    press(&mut h, "Preview");
+    press(&mut h, "Write to Patch.esp");
+    assert_in_view(&h, "placed: Patch.esp:");
+    let written = std::fs::read(&patch).unwrap();
+    let load = Request::new(
+        "load",
+        json!({"plugins": [s.fixture().display().to_string(), s.path("World.esp"), patch.clone()],
+               "no_cache": true}),
+    );
+    h.state_mut().app.submit(Slot::Load, load);
+    settle(&mut h);
+    let form = "Patch.esp:001000".to_string();
+    let app = &mut h.state_mut().app;
+    app.apply(vec![Action::Inspect(form.clone())]);
+    app.shell.set_open(WindowKind::EditDialog, true);
+    settle(&mut h);
+    assert_in_view(&h, "3D Data (");
+    assert_in_view(&h, "Reference Editor ID");
+    assert_in_view(&h, "Base Object");
+    assert_in_view(&h, "Rotation Z (radians)");
+    assert_in_view(&h, "DATA.Position.X");
+    retype(&mut h, "12.5", "13");
+    let changed = crate::dialogs::edit::changed_fields(&h.ctx, &form).unwrap();
+    assert_eq!(
+        changed.get("DATA.Position.X"),
+        Some(&json!(13)),
+        "{changed:?}"
+    );
+    assert_eq!(
+        std::fs::read(&patch).unwrap(),
+        written,
+        "the dialog writes nothing"
+    );
+}
