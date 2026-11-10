@@ -221,3 +221,31 @@ fn m7_r3_a_refused_mesh_bounds_request_answers_its_base() {
     assert!(!status_has(&h, "bases answered"));
     assert_wholly_in_view(&h, "2 base(s) without a model box");
 }
+
+/// M7.R4: a base's `mesh.geometry` reply draws its references as their mesh, and a base
+/// whose geometry is refused keeps its box with the reason, counted on the status line.
+#[test]
+fn m7_r4_meshes_replace_boxes_and_a_refused_base_is_a_limitation() {
+    use crate::viewport::mesh::tests::quad;
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    assert_eq!(quiet_cell(&mut h, &cell_env()), 2);
+    {
+        let render = &mut h.state_mut().app.render;
+        render.receive_geometry(&quad("T.esm:000800"));
+        render.geometry_failed(
+            &crate::panels::render::geometry_request("T.esm:000801"),
+            "Markers/Idle.nif has no geometry block",
+        );
+    }
+    h.run_steps(4);
+    let render = &h.state().app.render;
+    assert_eq!(
+        render.viewport.mesh_counts().0,
+        2,
+        "both crates drawn as the quad"
+    );
+    assert!(status_has(&h, "2 drawn as their mesh"));
+    assert!(status_has(&h, "2 limitation(s) on the others"));
+    assert_wholly_in_view(&h, "2 mesh limitation(s)");
+}

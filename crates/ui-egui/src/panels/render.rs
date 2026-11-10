@@ -14,6 +14,13 @@
 //! window (M7.W2) drives the same picker: its "Show in Render Window" asks the tab to
 //! [`RenderTab::show_cell`] a listed cell.
 //!
+//! M7.R4: each distinct base is also asked for its triangles (`mesh.geometry`, once the
+//! window's gate allows it), and a reference whose base answers is drawn as its mesh in
+//! place of its box: wireframe lines, flat faces, or both, by the face mode
+//! ([`crate::viewport::mesh`]). The meshes are placed a frame budget at a time
+//! ([`MESH_FRAME_TRIANGLES`]) up to a scene budget ([`MESH_SCENE_TRIANGLES`]); every base
+//! drawn without its mesh, or only in part, is a limitation line under the status row.
+//!
 //! The controls ([`crate::viewport::BINDINGS`]) are not yet observed against the CK's
 //! Render Window (`docs/ck-parity.md`, "Interface parity").
 
@@ -22,12 +29,14 @@ use serde_json::{json, Map, Value};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::{Add, Sub};
+use std::sync::Arc;
 
 use crate::gate::Request;
 use crate::panels::common::{action_bar, link, panel_head, Action, Slot, SlotKey, TabCtx};
 use crate::theme::{self, Field, Palette, Status};
 use crate::viewport::camera::OrbitCamera;
 use crate::viewport::cell::{self, Category, CellPage, CellRef};
+use crate::viewport::mesh::{BaseMesh, MESH_FRAME_TRIANGLES, MESH_SCENE_TRIANGLES};
 use crate::viewport::scene::{self, Marker, Shape};
 use crate::viewport::{FaceMode, Stats, Viewport, BINDINGS};
 
@@ -137,6 +146,27 @@ fn load_key(ctx: &TabCtx) -> String {
 /// through the session's load order.
 pub fn bounds_request(base: &str) -> Request {
     Request::new("mesh.bounds", json!({ "form": base }))
+}
+
+/// The `mesh.geometry` request for a base form (M7.R4): its model's triangles, read by the
+/// engine from the model's NIF and `.mesh` files.
+pub fn geometry_request(base: &str) -> Request {
+    Request::new("mesh.geometry", json!({ "form": base }))
+}
+
+/// The meshes being placed for the drawn markers (M7.R4), a frame budget at a time; shown
+/// once the last marker is placed.
+#[derive(Debug, Default)]
+struct MeshBuild {
+    mode: FaceMode,
+    /// The next marker to look at.
+    next: usize,
+    lines: Vec<scene::LineVertex>,
+    faces: Vec<f32>,
+    covered: BTreeSet<usize>,
+    triangles: usize,
+    /// Bases this build could not place, with why.
+    skipped: BTreeMap<String, String>,
 }
 
 /// The overlay's lines: frame time (CPU: preparing the frame and issuing GL calls; GPU
@@ -307,6 +337,20 @@ pub struct RenderTab {
     /// The load the boxes belong to ([`load_key`]): when it changes (another load, or
     /// the engine restarted with none) the boxes and the asked bases are forgotten.
     load_key: Option<String>,
+    /// M7.R4: `mesh.geometry` replies by base form: the decoded triangles, or why there
+    /// are none (the base keeps its box); the requests not yet handed to the shell.
+    geometry: BTreeMap<String, Result<Arc<BaseMesh>, String>>,
+    geometry_queue: Vec<Request>,
+    /// Bases whose geometry was asked (a subset of `asked`: only while the gate allows it).
+    geometry_asked: BTreeSet<String>,
+    /// The meshes being placed, the face mode the shown ones were placed for, and the
+    /// bases the last finished build could not place.
+    build: Option<MeshBuild>,
+    mesh_mode: Option<FaceMode>,
+    mesh_skipped: BTreeMap<String, String>,
+    /// [`MESH_SCENE_TRIANGLES`] and [`MESH_FRAME_TRIANGLES`] (fields so tests lower them).
+    mesh_scene_budget: usize,
+    mesh_frame_budget: usize,
 }
 
 /// A `mesh.bounds` reply as the tab keeps it: the model, its box in the model's root
@@ -386,6 +430,14 @@ impl Default for RenderTab {
             bounds_queue: Vec::new(),
             dirty: false,
             load_key: None,
+            geometry: BTreeMap::new(),
+            geometry_queue: Vec::new(),
+            geometry_asked: BTreeSet::new(),
+            build: None,
+            mesh_mode: None,
+            mesh_skipped: BTreeMap::new(),
+            mesh_scene_budget: MESH_SCENE_TRIANGLES,
+            mesh_frame_budget: MESH_FRAME_TRIANGLES,
         }
     }
 }
@@ -458,6 +510,13 @@ impl RenderTab {
         {
             if self.asked.insert(base.clone()) {
                 self.bounds_queue.push(bounds_request(base));
+                // M7.R4: the triangles too, once the gate allows `mesh.geometry` (ask
+                // A-R4); until then the status line says the meshes are not asked.
+                let req = geometry_request(base);
+                if crate::gate::check(&req).is_ok() {
+                    self.geometry_asked.insert(base.clone());
+                    self.geometry_queue.push(req);
+                }
             }
         }
     }
@@ -473,6 +532,10 @@ impl RenderTab {
             self.nif.clear();
             self.asked.clear();
             self.bounds_queue.clear();
+            self.geometry.clear();
+            self.geometry_asked.clear();
+            self.geometry_queue.clear();
+            self.mesh_skipped.clear();
             self.apply_nif();
             self.dirty = true;
         }
@@ -550,14 +613,138 @@ impl RenderTab {
         self.dirty = true;
     }
 
-    /// A `mesh.geometry` reply (`Slot::MeshGeometry`): the base's triangles for the
-    /// wireframe and flat-shaded modes. A no-op until M7.R4 (step 0 of sprint 2026-11-09).
-    #[allow(dead_code)]
-    pub(crate) fn receive_geometry(&mut self, _env: &Value) {}
+    /// A `mesh.geometry` reply (`Slot::MeshGeometry`, M7.R4): the base's triangles, drawn
+    /// in place of its box in every face mode. A reply that gives no mesh (refused by
+    /// [`BaseMesh::from_envelope`]) answers its base with the reason: it keeps its box.
+    pub(crate) fn receive_geometry(&mut self, env: &Value) {
+        let form = env
+            .get("data")
+            .and_then(|d| d.get("form"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let Some(form) = form else { return };
+        let mesh = BaseMesh::from_envelope(env, self.mesh_scene_budget).map(Arc::new);
+        self.geometry.insert(form, mesh);
+        self.restart_meshes();
+    }
 
-    /// A `mesh.geometry` request failed: the base keeps its box. A no-op until M7.R4.
-    #[allow(dead_code)]
-    pub(crate) fn geometry_failed(&mut self, _request: &Request, _error: &str) {}
+    /// A `mesh.geometry` request failed (refused, a model in no archive, no geometry
+    /// block): the base keeps its box, and the error is its reason. Routed from `app.rs`.
+    pub(crate) fn geometry_failed(&mut self, request: &Request, error: &str) {
+        let Some(form) = request.args.get("form").and_then(Value::as_str) else {
+            return;
+        };
+        self.geometry.insert(
+            form.to_string(),
+            Err(format!("mesh.geometry failed: {error}")),
+        );
+        self.restart_meshes();
+    }
+
+    /// Starts placing the meshes again from the first marker, in the current face mode.
+    fn restart_meshes(&mut self) {
+        self.build = Some(MeshBuild {
+            mode: self.viewport.faces,
+            ..MeshBuild::default()
+        });
+        self.mesh_mode = Some(self.viewport.faces);
+        self.viewport.request_repaint();
+    }
+
+    /// Places up to the frame budget of triangles (M7.R4); when the last marker is
+    /// placed, hands the meshes to the viewport, which draws them instead of those
+    /// markers' boxes. Not while the stress tiling repeats the markers.
+    fn step_meshes(&mut self) {
+        let Some(mut b) = self.build.take() else {
+            return;
+        };
+        if self.stress > 0 {
+            return;
+        }
+        if !self.geometry.values().any(Result::is_ok) {
+            // No base has a mesh: every marker keeps its box.
+            b.next = usize::MAX;
+        }
+        let refs = self.page.as_ref().map_or(&[][..], |p| p.refs.as_slice());
+        let markers = self.viewport.markers();
+        let mut spent = 0usize;
+        while let Some(m) = markers.get(b.next) {
+            let i = b.next;
+            b.next = b.next.saturating_add(1);
+            let base = self
+                .index
+                .get(i)
+                .and_then(|r| refs.get(*r))
+                .and_then(|r| r.base.as_ref());
+            let Some((base, Some(Ok(mesh)))) = base.map(|x| (x, self.geometry.get(x))) else {
+                continue;
+            };
+            let n = mesh.triangles.len();
+            if b.triangles.saturating_add(n) > self.mesh_scene_budget {
+                b.skipped.entry(base.clone()).or_insert_with(|| {
+                    format!(
+                        "the scene's mesh budget ({} triangles, MESH_SCENE_TRIANGLES) is spent",
+                        self.mesh_scene_budget
+                    )
+                });
+                continue;
+            }
+            let place = m.placement();
+            if b.mode != FaceMode::Solid {
+                mesh.lines(&place, m.color, &mut b.lines);
+            }
+            if b.mode != FaceMode::Wire {
+                mesh.faces(&place, m.color, &mut b.faces);
+            }
+            b.covered.insert(i);
+            b.triangles = b.triangles.saturating_add(n);
+            spent = spent.saturating_add(n);
+            if spent >= self.mesh_frame_budget {
+                break;
+            }
+        }
+        if b.next < markers.len() {
+            self.build = Some(b);
+            self.viewport.request_repaint();
+            return;
+        }
+        self.mesh_skipped = b.skipped;
+        if b.covered.is_empty() && self.viewport.mesh_counts().0 == 0 {
+            // Nothing placed now or before: no upload.
+            return;
+        }
+        self.viewport
+            .set_meshes(scene::line_floats(&b.lines), b.faces, b.covered);
+    }
+
+    /// One limitation line per base drawn without its mesh, or drawn only in part (M7.R4).
+    fn mesh_limitations(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        for (base, g) in &self.geometry {
+            match g {
+                Err(why) => out.push(format!(
+                    "geometry of {base} not drawn: {why}; drawn as its box"
+                )),
+                Ok(m) => {
+                    if let Some(why) = self.mesh_skipped.get(base) {
+                        out.push(format!(
+                            "geometry of {base} not drawn: {why}; drawn as its box"
+                        ));
+                    }
+                    for block in &m.skipped_blocks {
+                        out.push(format!("geometry of {base} drawn in part: {block}"));
+                    }
+                    if m.degenerate > 0 {
+                        out.push(format!(
+                            "geometry of {base}: {} degenerate triangle(s) not drawn",
+                            m.degenerate
+                        ));
+                    }
+                }
+            }
+        }
+        out
+    }
 
     /// The request failed (the shell keeps its error in the results).
     pub(crate) fn failed(&mut self) {
@@ -589,6 +776,8 @@ impl RenderTab {
         self.viewport
             .select(keep.and_then(|r| self.index.iter().position(|i| *i == r)));
         self.palette = Some(*palette);
+        // New markers drop the meshes placed for the old ones (M7.R4).
+        self.restart_meshes();
     }
 
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
@@ -603,6 +792,14 @@ impl RenderTab {
         for req in self.bounds_queue.drain(..) {
             ctx.actions.push(Action::Submit(Slot::MeshBounds, req));
         }
+        for req in self.geometry_queue.drain(..) {
+            ctx.actions.push(Action::Submit(Slot::MeshGeometry, req));
+        }
+        // M7.R4: another face mode needs other vertices; then place a frame's worth.
+        if self.page.is_some() && self.mesh_mode != Some(self.viewport.faces) {
+            self.restart_meshes();
+        }
+        self.step_meshes();
         self.follow_inspector();
         self.toolbar(ui, ctx);
         theme::gap(ui);
@@ -771,14 +968,20 @@ impl RenderTab {
             let drawn = self.index.len();
             let placed = page.refs.iter().filter(|r| r.position.is_some()).count();
             let (nif, obnd, none) = cell::box_sources(&page.refs);
+            let (meshes, _, _) = self.viewport.mesh_counts();
             ui.label(format!(
-                "{} {}{}: {drawn} of {} references drawn; boxes: {nif} model, {obnd} OBND, {none} none",
+                "{} {}{}: {drawn} of {} references drawn; boxes: {nif} model, {obnd} OBND, {none} none{}",
                 page.cell,
                 page.cell_editor_id.as_deref().unwrap_or("(no EditorID)"),
                 page.world
                     .as_deref()
                     .map_or_else(String::new, |w| format!(" in {w}")),
-                page.total
+                page.total,
+                if meshes > 0 {
+                    format!("; {meshes} drawn as their mesh")
+                } else {
+                    String::new()
+                }
             ));
             if page.total > self.cap {
                 lines.push((
@@ -823,6 +1026,41 @@ impl RenderTab {
                 hovers.push((
                     format!("{} base(s) without a model box", no_model.len()),
                     no_model.join("\n"),
+                ));
+            }
+            // M7.R4: the meshes, and each base drawn without its mesh.
+            let (g_asked, g_answered) = (self.geometry_asked.len(), self.geometry.len());
+            if self.asked.len() > g_asked {
+                lines.push((
+                    theme::Status::Unknown,
+                    format!(
+                        "meshes: {} base(s) not asked: the window's gate does not allow mesh.geometry; drawn as boxes",
+                        self.asked.len().saturating_sub(g_asked)
+                    ),
+                ));
+            } else if g_answered < g_asked {
+                lines.push((
+                    theme::Status::Unknown,
+                    format!(
+                        "meshes: {g_answered} of {g_asked} bases answered (mesh.geometry); boxes until then"
+                    ),
+                ));
+            }
+            if self.build.is_some() {
+                lines.push((theme::Status::Unknown, "meshes: placing ...".to_string()));
+            }
+            let not_drawn = self.mesh_limitations();
+            if !not_drawn.is_empty() {
+                lines.push((
+                    theme::Status::Warn,
+                    format!(
+                        "meshes: {meshes} reference(s) drawn as meshes; {} limitation(s) on the others (hover below)",
+                        not_drawn.len()
+                    ),
+                ));
+                hovers.push((
+                    format!("{} mesh limitation(s)", not_drawn.len()),
+                    not_drawn.join("\n"),
                 ));
             }
             let unplaced = page.refs.len().saturating_sub(placed);
@@ -1369,5 +1607,167 @@ mod tests {
         assert_eq!(t.len(), 5);
         assert!(t.iter().any(|x| x.position.x > m.position.x + 1.0));
         assert!(tile(&[], 3).is_empty());
+    }
+
+    // M7.R4: the bases' triangles from `mesh.geometry`.
+
+    /// A tab showing three references of `Test.esm:000800` (one page), after one frame.
+    fn meshed_tab(ctx: &egui::Context) -> RenderTab {
+        let mut tab = RenderTab::default();
+        let _ = tab.start(parse_pick("TestRoom").unwrap());
+        assert!(tab
+            .receive_page(cell::parse_page(&page_env(
+                &[
+                    item("Test.esm:000901", [0.0, 0.0, 0.0], "STAT"),
+                    item("Test.esm:000902", [40.0, 0.0, 0.0], "STAT"),
+                    item("Test.esm:000903", [80.0, 0.0, 0.0], "STAT"),
+                ],
+                None,
+            )))
+            .is_none());
+        run(ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.markers().len(), 3);
+        tab
+    }
+
+    #[test]
+    fn geometry_is_asked_once_per_base_when_the_gate_allows_it() {
+        let ctx = egui::Context::default();
+        let mut tab = RenderTab::default();
+        let _ = tab.start(parse_pick("TestRoom").unwrap());
+        let _ = tab.receive_page(cell::parse_page(&page_env(
+            &[
+                item("Test.esm:000901", [0.0, 0.0, 0.0], "STAT"),
+                item("Test.esm:000902", [40.0, 0.0, 0.0], "STAT"),
+            ],
+            None,
+        )));
+        let allowed = crate::gate::check(&geometry_request("Test.esm:000800")).is_ok();
+        let actions = run(&ctx, &mut tab, Vec::new());
+        let geometry: Vec<&Request> = actions
+            .iter()
+            .filter_map(|a| match a {
+                Action::Submit(Slot::MeshGeometry, r) => Some(r),
+                _ => None,
+            })
+            .collect();
+        // Before ask A-R4 the gate refuses `mesh.geometry`, and the tab does not ask it
+        // (a refused submit would only set the window's notice).
+        if allowed {
+            assert_eq!(geometry.len(), 1, "one base");
+            assert_eq!(geometry[0].args, json!({"form": "Test.esm:000800"}));
+        } else {
+            assert!(geometry.is_empty());
+            assert_eq!(tab.geometry_asked.len(), 0);
+        }
+        assert!(run(&ctx, &mut tab, Vec::new())
+            .iter()
+            .all(|a| !matches!(a, Action::Submit(Slot::MeshGeometry, _))));
+    }
+
+    #[test]
+    fn a_canned_geometry_reply_draws_its_references_as_meshes() {
+        use crate::viewport::mesh::tests::quad;
+        let ctx = egui::Context::default();
+        let mut tab = meshed_tab(&ctx);
+        tab.viewport.faces = FaceMode::SeeThrough;
+        tab.receive_geometry(&quad("Test.esm:000800"));
+        assert!(tab.build.is_some());
+        run(&ctx, &mut tab, Vec::new());
+        assert!(tab.build.is_none(), "three quads fit one frame's budget");
+        // Three references, each 5 edges (10 line vertices) and 2 faces (6 vertices).
+        assert_eq!(tab.viewport.mesh_counts(), (3, 30, 18));
+        // The wire mode places lines only; the solid mode faces only.
+        tab.viewport.faces = FaceMode::Wire;
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts(), (3, 30, 0));
+        tab.viewport.faces = FaceMode::Solid;
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts(), (3, 0, 18));
+        // The engine's skipped block is a limitation line of its base.
+        let lines = tab.mesh_limitations();
+        assert_eq!(
+            lines,
+            ["geometry of Test.esm:000800 drawn in part: block 2: Test/Skin.mesh skipped: it is skinned"]
+        );
+        // The references are still picked by their markers.
+        assert_eq!(tab.viewport.markers().len(), 3);
+    }
+
+    #[test]
+    fn a_refused_or_bad_geometry_keeps_the_box_with_its_reason() {
+        use crate::viewport::mesh::tests::geometry_env;
+        let ctx = egui::Context::default();
+        let mut tab = meshed_tab(&ctx);
+        tab.geometry_failed(
+            &geometry_request("Test.esm:000800"),
+            "Test.nif is in no archive",
+        );
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts(), (0, 0, 0));
+        assert_eq!(
+            tab.mesh_limitations(),
+            ["geometry of Test.esm:000800 not drawn: mesh.geometry failed: Test.nif is in no archive; drawn as its box"]
+        );
+        // A reply whose index names a vertex it does not have: refused, never drawn.
+        tab.receive_geometry(&geometry_env(
+            "Test.esm:000800",
+            &[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            &[[0, 1, 7]],
+        ));
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts(), (0, 0, 0));
+        let lines = tab.mesh_limitations();
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].contains("names vertex 7") && lines[0].ends_with("drawn as its box"));
+        // A request without a form, or a reply without one, changes nothing.
+        tab.geometry_failed(
+            &Request::new("mesh.geometry", json!({"model": "x.nif"})),
+            "x",
+        );
+        tab.receive_geometry(&json!({"data": {}}));
+        assert_eq!(tab.geometry.len(), 1);
+    }
+
+    #[test]
+    fn the_scene_budget_skips_a_mesh_with_a_limitation_and_the_frame_budget_spreads_the_work() {
+        use crate::viewport::mesh::tests::quad;
+        let ctx = egui::Context::default();
+        let mut tab = meshed_tab(&ctx);
+        tab.viewport.faces = FaceMode::Solid;
+        // Room for two quads (4 triangles) in the scene, one quad (2) per frame.
+        tab.mesh_scene_budget = 4;
+        tab.mesh_frame_budget = 2;
+        tab.receive_geometry(&quad("Test.esm:000800"));
+        run(&ctx, &mut tab, Vec::new());
+        assert!(tab.build.is_some(), "one quad placed, more pending");
+        assert_eq!(tab.viewport.mesh_counts(), (0, 0, 0), "shown when complete");
+        run(&ctx, &mut tab, Vec::new());
+        run(&ctx, &mut tab, Vec::new());
+        assert!(tab.build.is_none());
+        assert_eq!(tab.viewport.mesh_counts(), (2, 0, 12));
+        assert_eq!(
+            tab.mesh_limitations(),
+            [
+                "geometry of Test.esm:000800 not drawn: the scene's mesh budget (4 triangles, MESH_SCENE_TRIANGLES) is spent; drawn as its box",
+                "geometry of Test.esm:000800 drawn in part: block 2: Test/Skin.mesh skipped: it is skinned",
+            ]
+        );
+        // A base bigger than the whole scene budget is refused when it arrives.
+        tab.mesh_scene_budget = 1;
+        tab.receive_geometry(&quad("Test.esm:000800"));
+        assert!(tab.mesh_limitations()[0].contains("over the scene's mesh budget of 1"));
+    }
+
+    #[test]
+    fn a_new_load_forgets_the_meshes() {
+        use crate::viewport::mesh::tests::quad;
+        let ctx = egui::Context::default();
+        let mut tab = meshed_tab(&ctx);
+        tab.receive_geometry(&quad("Test.esm:000800"));
+        run(&ctx, &mut tab, Vec::new());
+        assert_eq!(tab.viewport.mesh_counts().0, 3);
+        tab.follow_load("another load".into());
+        assert!(tab.geometry.is_empty() && tab.mesh_limitations().is_empty());
     }
 }
