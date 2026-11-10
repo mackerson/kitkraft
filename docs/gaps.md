@@ -288,7 +288,7 @@ that observes each:
 Sitting 2 (`ck-20261102-03`) observed the labels of seven edit dialogs; M7.K4
 (`crates/ui-egui/layouts/sitting2.toml`) maps each label to the `set` field path it edits or
 names it a gap with its reason. These are the gaps, one row per distinct reason (verbatim from
-the TOML), with the labels it covers. Counted 2026-11-10 from D's K4 fix round (`b0364b2b`):
+the TOML), with the labels it covers. Counted 2026-11-10 from D's K4 fix round (`b0364b2b`, with `09a71528`'s wording of "On Local Map"; as merged at `51d5af8b`):
 23 reasons covering 93 labels (105 labels are mapped). WEAP was not observed and has none.
 
 | Reason (verbatim from `sitting2.toml`) | Labels (type "label") | Labels | Owned by |
