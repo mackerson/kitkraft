@@ -11,9 +11,12 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
+use std::time::UNIX_EPOCH;
 
 use kitkraft_ba2::Archive;
-use kitkraft_doc::RecordReader;
+use kitkraft_doc::{IndexCache, RecordReader};
 use kitkraft_nif::{Bound, Mesh, Nif};
 use serde_json::{json, Value};
 
@@ -38,21 +41,75 @@ const MAX_EVIDENCE: usize = 1_000;
 /// result so the box is never read as the base's `OBND`.
 pub(crate) const OBND_NOTE: &str = "the box is the union of the bounds the model's geometry blocks store, in the model's root frame (docs/research/nif-bounds-2026-11-02.md, C1); it is not the base's OBND: over 33,684 official base objects it matched OBND within 1 cm for 23,261 (69%) and differed for the rest";
 
-/// The `.nif` entries of the Data dir's archives, read once per session and Data dir.
-struct MeshIndex {
-    data_dir: PathBuf,
-    /// Archives holding at least one `.nif`, in name order: (file name, path, archive).
-    archives: Vec<(String, PathBuf, Archive)>,
-    /// Normalized entry path -> (archive index, entry index), in archive name order.
-    by_path: HashMap<String, Vec<(usize, usize)>>,
+/// The `.nif` and `.mesh` entries of the Data dir's archives, read once per session and
+/// Data dir (M7.R5: from the engine's index cache when no archive changed since it was
+/// written, so the first call does not open every archive).
+pub(super) struct MeshIndex {
+    pub(super) data_dir: PathBuf,
+    /// Archives holding at least one `.nif` or `.mesh`, in name order, each opened on
+    /// first use.
+    pub(super) archives: Vec<KeptArchive>,
+    /// Normalized `.nif` entry path -> (archive index, entry index), in archive name order.
+    pub(super) by_path: HashMap<String, Vec<(usize, usize)>>,
     /// Archives that did not open, with the reason.
-    unreadable: Vec<String>,
-    /// The `.mesh` entries, indexed on the first `mesh.geometry` call.
-    meshes: Option<HashMap<String, Vec<(usize, usize)>>>,
+    pub(super) unreadable: Vec<String>,
+    /// Normalized `.mesh` entry path -> (archive index, entry index).
+    pub(super) meshes: HashMap<String, Vec<(usize, usize)>>,
+    /// Read from the index cache, not from the archives.
+    pub(super) from_cache: bool,
+    /// Archives the cached index named but that no longer match it, found on use: the
+    /// caller drops this index so the next call builds it from the archives.
+    pub(super) stale: Vec<String>,
 }
 
+/// An archive that holds models or meshes. One read from the archives keeps the archive
+/// it opened; one taken from the cache is opened on first use and checked then against
+/// what the cache recorded (the cache file's names are never trusted alone).
+pub(super) struct KeptArchive {
+    pub(super) name: String,
+    pub(super) path: PathBuf,
+    /// The entry count when indexed.
+    pub(super) entry_count: u32,
+    /// Every indexed (entry index, normalized name, kind).
+    pub(super) expect: Vec<(u32, String, u8)>,
+    pub(super) archive: OnceLock<Option<Archive>>,
+}
+
+impl KeptArchive {
+    /// The archive, opened once; `None` when it does not open or no longer matches what
+    /// the index recorded (its entry count, or any indexed entry's name).
+    pub(super) fn open(&self) -> Option<&Archive> {
+        self.archive
+            .get_or_init(|| {
+                let (a, _) = Archive::open(&self.path).ok()?;
+                let same_count = u32::try_from(a.entries.len()).ok() == Some(self.entry_count);
+                let same_names = self.expect.iter().all(|(i, n, _)| {
+                    usize::try_from(*i)
+                        .ok()
+                        .and_then(|i| a.entries.get(i))
+                        .is_some_and(|e| kitkraft_ba2::normalize(&e.name) == *n)
+                });
+                (same_count && same_names).then_some(a)
+            })
+            .as_ref()
+    }
+}
+
+/// Entry kinds in the index cache.
+const KIND_NIF: u8 = 0;
+const KIND_MESH: u8 = 1;
+
 impl MeshIndex {
-    fn build(data_dir: &Path, id: &str) -> Result<Self, EngineError> {
+    /// The index for `data_dir`: from the cache file in `cache_dir` when `read_cache` and
+    /// every archive's key (name, length, modification time) matches it, else from the
+    /// archives, written to the cache file afterwards (when `cache_dir` is given and every
+    /// archive opened). A cache file that does not parse is ignored.
+    pub(super) fn build_cached(
+        data_dir: &Path,
+        cache_dir: Option<&Path>,
+        read_cache: bool,
+        id: &str,
+    ) -> Result<Self, EngineError> {
         let listing = std::fs::read_dir(data_dir).map_err(|e| {
             failed(
                 id,
@@ -65,80 +122,372 @@ impl MeshIndex {
             .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("ba2")))
             .collect();
         paths.sort_by_key(|p| p.file_name().map(|n| n.to_ascii_lowercase()));
+        // Every archive's key; one that cannot be read turns the cache off this time.
+        let keys: Option<Vec<ArchiveKey>> = paths.iter().map(|p| key_of(p)).collect();
+        let file = cache_dir
+            .zip(keys.as_ref())
+            .map(|(dir, _)| cache_file(dir, data_dir));
+        if let (true, Some(f), Some(keys)) = (read_cache, &file, &keys) {
+            if let Some(index) = Self::from_cache_file(data_dir, &paths, keys, f) {
+                return Ok(index);
+            }
+        }
         let mut index = MeshIndex {
             data_dir: data_dir.to_path_buf(),
             archives: Vec::new(),
             by_path: HashMap::new(),
             unreadable: Vec::new(),
-            meshes: None,
+            meshes: HashMap::new(),
+            from_cache: false,
+            stale: Vec::new(),
         };
-        for path in paths {
+        let mut stored = Stored {
+            keys: keys.clone().unwrap_or_default(),
+            kept: Vec::new(),
+        };
+        for (k, path) in paths.iter().enumerate() {
             let name = path
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
                 .unwrap_or_default();
-            let archive = match Archive::open(&path) {
+            let archive = match Archive::open(path) {
                 Ok((a, _)) => a,
                 Err(e) => {
                     index.unreadable.push(format!("{name}: {e}"));
                     continue;
                 }
             };
-            let models: Vec<(usize, String)> = archive
+            let expect: Vec<(u32, String, u8)> = archive
                 .entries
                 .iter()
                 .enumerate()
-                .map(|(i, e)| (i, kitkraft_ba2::normalize(&e.name)))
-                .filter(|(_, n)| n.ends_with(".nif"))
+                .filter_map(|(i, e)| {
+                    let n = kitkraft_ba2::normalize(&e.name);
+                    let kind = if n.ends_with(".nif") {
+                        KIND_NIF
+                    } else if n.ends_with(".mesh") {
+                        KIND_MESH
+                    } else {
+                        return None;
+                    };
+                    Some((u32::try_from(i).ok()?, n, kind))
+                })
                 .collect();
-            if models.is_empty() {
+            if expect.is_empty() {
                 continue;
             }
-            let at = index.archives.len();
-            for (i, n) in models {
-                index.by_path.entry(n).or_default().push((at, i));
+            let Ok(entry_count) = u32::try_from(archive.entries.len()) else {
+                index
+                    .unreadable
+                    .push(format!("{name}: more entries than the index records"));
+                continue;
+            };
+            stored.kept.push(StoredArchive {
+                key: k,
+                entry_count,
+                entries: expect.clone(),
+            });
+            index.push_kept(name, path.clone(), entry_count, expect, Some(archive));
+        }
+        if let (Some(f), true, true) = (&file, index.unreadable.is_empty(), keys.is_some()) {
+            if let Some(bytes) = encode_stored(&stored) {
+                write_cache_file(f, &bytes);
             }
-            index.archives.push((name, path, archive));
         }
         Ok(index)
     }
 
-    /// Indexes the `.mesh` entries of the kept archives, once (`mesh.geometry`). Every
-    /// archive that holds a `.mesh` also holds a `.nif` in the official data, so the kept
-    /// archives cover them; a `.mesh`-only archive would not be searched (a limitation).
-    fn index_meshes(&mut self) {
-        if self.meshes.is_some() {
-            return;
+    /// Adds one kept archive and its entries to the maps.
+    fn push_kept(
+        &mut self,
+        name: String,
+        path: PathBuf,
+        entry_count: u32,
+        expect: Vec<(u32, String, u8)>,
+        archive: Option<Archive>,
+    ) {
+        let at = self.archives.len();
+        for (i, n, kind) in &expect {
+            let Ok(i) = usize::try_from(*i) else { continue };
+            let map = if *kind == KIND_NIF {
+                &mut self.by_path
+            } else {
+                &mut self.meshes
+            };
+            map.entry(n.clone()).or_default().push((at, i));
         }
-        let mut map: HashMap<String, Vec<(usize, usize)>> = HashMap::new();
-        for (a, (_, _, archive)) in self.archives.iter().enumerate() {
-            for (i, e) in archive.entries.iter().enumerate() {
-                let n = kitkraft_ba2::normalize(&e.name);
-                if n.ends_with(".mesh") {
-                    map.entry(n).or_default().push((a, i));
-                }
-            }
+        let lock = OnceLock::new();
+        if let Some(a) = archive {
+            let _ = lock.set(Some(a));
         }
-        self.meshes = Some(map);
+        self.archives.push(KeptArchive {
+            name,
+            path,
+            entry_count,
+            expect,
+            archive: lock,
+        });
+    }
+
+    /// The index from the cache file `file`, when it parses and its keys are `keys`.
+    fn from_cache_file(
+        data_dir: &Path,
+        paths: &[PathBuf],
+        keys: &[ArchiveKey],
+        file: &Path,
+    ) -> Option<Self> {
+        let len = std::fs::metadata(file).ok()?.len();
+        if len > MAX_CACHE_FILE {
+            return None;
+        }
+        let stored = parse_stored(&std::fs::read(file).ok()?)?;
+        if stored.keys != keys {
+            return None;
+        }
+        let mut index = MeshIndex {
+            data_dir: data_dir.to_path_buf(),
+            archives: Vec::new(),
+            by_path: HashMap::new(),
+            unreadable: Vec::new(),
+            meshes: HashMap::new(),
+            from_cache: true,
+            stale: Vec::new(),
+        };
+        for a in stored.kept {
+            let path = paths.get(a.key)?.clone();
+            let name = keys.get(a.key)?.name.clone();
+            index.push_kept(name, path, a.entry_count, a.entries, None);
+        }
+        Some(index)
     }
 
     /// The `.mesh` entry `entry` (normalized), from the archive [`rank`] prefers, with
     /// that archive's name; `None` when no indexed archive holds it or it does not read.
-    fn read_mesh(&self, entry: &str, cap: u64) -> Option<(String, Vec<u8>)> {
-        let holders = self.meshes.as_ref()?.get(entry)?;
+    /// An archive that no longer matches the cached index is recorded in `stale`.
+    fn read_mesh(&mut self, entry: &str, cap: u64) -> Option<(String, Vec<u8>)> {
+        let holders = self.meshes.get(entry)?;
         let (a, e) = holders
             .iter()
             .enumerate()
             .max_by_key(|(order, (a, _))| {
-                let name = self.archives.get(*a).map_or("", |(n, _, _)| n.as_str());
+                let name = self.archives.get(*a).map_or("", |k| k.name.as_str());
                 (rank(name), *order)
             })
             .map(|(_, h)| *h)?;
-        let (name, path, archive) = self.archives.get(a)?;
-        let mut f = File::open(path).ok()?;
+        let kept = self.archives.get(a)?;
+        let Some(archive) = kept.open() else {
+            if self.from_cache && !self.stale.contains(&kept.name) {
+                let name = kept.name.clone();
+                self.stale.push(name);
+            }
+            return None;
+        };
+        let mut f = File::open(&kept.path).ok()?;
         let bytes = archive.extract_vec(&mut f, e, cap).ok()?;
-        Some((name.clone(), bytes))
+        Some((kept.name.clone(), bytes))
     }
+}
+
+/// What identifies an archive's contents without reading it: name, length, modified.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ArchiveKey {
+    pub(super) name: String,
+    pub(super) len: u64,
+    pub(super) secs: u64,
+    pub(super) nanos: u32,
+}
+
+fn key_of(path: &Path) -> Option<ArchiveKey> {
+    let meta = std::fs::metadata(path).ok()?;
+    let since = meta.modified().ok()?.duration_since(UNIX_EPOCH).ok()?;
+    Some(ArchiveKey {
+        name: path.file_name()?.to_string_lossy().into_owned(),
+        len: meta.len(),
+        secs: since.as_secs(),
+        nanos: since.subsec_nanos(),
+    })
+}
+
+/// The cache file's first bytes (format version 1).
+pub(super) const CACHE_MAGIC: &[u8; 8] = b"KKMIDX01";
+/// Largest cache file read.
+const MAX_CACHE_FILE: u64 = 256 << 20;
+/// Longest entry or archive name accepted from the cache file.
+const MAX_NAME: usize = 1_024;
+
+/// One kept archive as stored: its position in the key list, entry count, entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct StoredArchive {
+    pub(super) key: usize,
+    pub(super) entry_count: u32,
+    pub(super) entries: Vec<(u32, String, u8)>,
+}
+
+/// The cache file's contents: every archive's key (so a new or changed one is seen),
+/// then each kept archive's entries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct Stored {
+    pub(super) keys: Vec<ArchiveKey>,
+    pub(super) kept: Vec<StoredArchive>,
+}
+
+/// A bounded little-endian reader over the cache file's bytes; every read is checked.
+struct CacheReader<'a> {
+    b: &'a [u8],
+    at: usize,
+}
+
+impl<'a> CacheReader<'a> {
+    fn take(&mut self, n: usize) -> Option<&'a [u8]> {
+        let end = self.at.checked_add(n)?;
+        let s = self.b.get(self.at..end)?;
+        self.at = end;
+        Some(s)
+    }
+    fn u8(&mut self) -> Option<u8> {
+        self.take(1)?.first().copied()
+    }
+    fn u16(&mut self) -> Option<u16> {
+        Some(u16::from_le_bytes(self.take(2)?.try_into().ok()?))
+    }
+    fn u32(&mut self) -> Option<u32> {
+        Some(u32::from_le_bytes(self.take(4)?.try_into().ok()?))
+    }
+    fn u64(&mut self) -> Option<u64> {
+        Some(u64::from_le_bytes(self.take(8)?.try_into().ok()?))
+    }
+    fn left(&self) -> usize {
+        self.b.len().saturating_sub(self.at)
+    }
+    fn name(&mut self) -> Option<String> {
+        let n = usize::from(self.u16()?);
+        if n > MAX_NAME {
+            return None;
+        }
+        String::from_utf8(self.take(n)?.to_vec()).ok()
+    }
+    /// A count no larger than what the bytes left can hold at `min_item` bytes each.
+    fn count(&mut self, min_item: usize) -> Option<usize> {
+        let n = usize::try_from(self.u32()?).ok()?;
+        (n.checked_mul(min_item)? <= self.left()).then_some(n)
+    }
+}
+
+/// Parses a cache file; `None` for anything malformed (the index is then rebuilt).
+pub(super) fn parse_stored(b: &[u8]) -> Option<Stored> {
+    let mut r = CacheReader { b, at: 0 };
+    if r.take(CACHE_MAGIC.len())? != CACHE_MAGIC {
+        return None;
+    }
+    // A key: name length (2), length (8), seconds (8), nanoseconds (4).
+    let nkeys = r.count(22)?;
+    let mut keys = Vec::with_capacity(nkeys);
+    for _ in 0..nkeys {
+        keys.push(ArchiveKey {
+            name: r.name()?,
+            len: r.u64()?,
+            secs: r.u64()?,
+            nanos: r.u32()?,
+        });
+    }
+    // A kept archive: key index (4), entry count (4), entry count stored (4).
+    let nkept = r.count(12)?;
+    let mut kept = Vec::with_capacity(nkept);
+    for _ in 0..nkept {
+        let key = usize::try_from(r.u32()?).ok().filter(|k| *k < keys.len())?;
+        let entry_count = r.u32()?;
+        // An entry: kind (1), index (4), name length (2).
+        let n = r.count(7)?;
+        let mut entries = Vec::with_capacity(n);
+        for _ in 0..n {
+            let kind = r.u8().filter(|k| *k == KIND_NIF || *k == KIND_MESH)?;
+            let index = r.u32().filter(|i| *i < entry_count)?;
+            entries.push((index, r.name()?, kind));
+        }
+        kept.push(StoredArchive {
+            key,
+            entry_count,
+            entries,
+        });
+    }
+    (r.left() == 0).then_some(Stored { keys, kept })
+}
+
+/// The cache file's bytes; `None` when a name or a count does not fit the format.
+pub(super) fn encode_stored(s: &Stored) -> Option<Vec<u8>> {
+    fn name(out: &mut Vec<u8>, n: &str) -> Option<()> {
+        let len = u16::try_from(n.len())
+            .ok()
+            .filter(|l| usize::from(*l) <= MAX_NAME)?;
+        out.extend(len.to_le_bytes());
+        out.extend(n.as_bytes());
+        Some(())
+    }
+    let mut out = CACHE_MAGIC.to_vec();
+    out.extend(u32::try_from(s.keys.len()).ok()?.to_le_bytes());
+    for k in &s.keys {
+        name(&mut out, &k.name)?;
+        out.extend(k.len.to_le_bytes());
+        out.extend(k.secs.to_le_bytes());
+        out.extend(k.nanos.to_le_bytes());
+    }
+    out.extend(u32::try_from(s.kept.len()).ok()?.to_le_bytes());
+    for a in &s.kept {
+        out.extend(u32::try_from(a.key).ok()?.to_le_bytes());
+        out.extend(a.entry_count.to_le_bytes());
+        out.extend(u32::try_from(a.entries.len()).ok()?.to_le_bytes());
+        for (index, n, kind) in &a.entries {
+            out.push(*kind);
+            out.extend(index.to_le_bytes());
+            name(&mut out, n)?;
+        }
+    }
+    Some(out)
+}
+
+/// The cache file for `data_dir` in `cache_dir`: one per Data dir (its path hashed).
+pub(super) fn cache_file(cache_dir: &Path, data_dir: &Path) -> PathBuf {
+    // FNV-1a over the path's text, lowercased (Windows paths ignore case).
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in data_dir.to_string_lossy().to_lowercase().bytes() {
+        h = (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3);
+    }
+    cache_dir.join(format!("mesh-index-v1-{h:016x}.bin"))
+}
+
+/// Writes the cache file through a temporary file and a rename, so a reader never sees
+/// half a file; any error leaves the cache as it was (it is only an optimization).
+fn write_cache_file(file: &Path, bytes: &[u8]) {
+    static SERIAL: AtomicU64 = AtomicU64::new(0);
+    let Some(dir) = file.parent() else { return };
+    if std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    let serial = SERIAL.fetch_add(1, Ordering::Relaxed);
+    let tmp = file.with_extension(format!("tmp{}-{serial}", std::process::id()));
+    if std::fs::write(&tmp, bytes).is_err() || std::fs::rename(&tmp, file).is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+}
+
+/// The index-cache folder the mesh index uses, or none when `no_cache` is set.
+pub(super) fn mesh_cache_dir(args: &Value) -> Option<PathBuf> {
+    if args.get("no_cache").and_then(Value::as_bool) == Some(true) {
+        return None;
+    }
+    IndexCache::default_location().map(|c| c.dir().to_path_buf())
+}
+
+/// The holder [`rank`] prefers: (archive index, entry index).
+fn best_holder(index: &MeshIndex, holders: &[(usize, usize)]) -> Option<(usize, usize)> {
+    holders
+        .iter()
+        .enumerate()
+        .max_by_key(|(order, (a, _))| {
+            let name = index.archives.get(*a).map_or("", |k| k.name.as_str());
+            (rank(name), *order)
+        })
+        .map(|(_, h)| *h)
 }
 
 /// Which archive's copy is read when several hold a model: a plugin's own archive
@@ -322,11 +671,26 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
     // case, as Windows does, so a case-sensitive file system finds the file too.
     let loose = kitkraft_io::overlay::find_ci(&data_dir, &wanted);
 
+    let cache_dir = mesh_cache_dir(args);
     if session
         .get::<MeshIndex>()
         .is_none_or(|i| i.data_dir != data_dir)
     {
-        let built = MeshIndex::build(&data_dir, id)?;
+        let built = MeshIndex::build_cached(&data_dir, cache_dir.as_deref(), true, id)?;
+        session.insert(built);
+    }
+    // M7.R5: an index read from the cache whose archive for this model no longer matches
+    // it is built again from the archives (once), and the call says so.
+    let stale = session.get::<MeshIndex>().and_then(|index| {
+        let a = best_holder(index, index.by_path.get(&wanted)?)?.0;
+        let kept = index.archives.get(a)?;
+        (loose.is_none() && index.from_cache && kept.open().is_none()).then(|| kept.name.clone())
+    });
+    if let Some(name) = stale {
+        limitations.push(format!(
+            "the cached mesh index does not match the archive {name}: the index was built again from the archives"
+        ));
+        let built = MeshIndex::build_cached(&data_dir, cache_dir.as_deref(), false, id)?;
         session.insert(built);
     }
     let index = session
@@ -342,7 +706,7 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
     let holders: Vec<(usize, usize)> = index.by_path.get(&wanted).cloned().unwrap_or_default();
     let also_in: Vec<String> = holders
         .iter()
-        .filter_map(|(a, _)| index.archives.get(*a).map(|(n, _, _)| n.clone()))
+        .filter_map(|(a, _)| index.archives.get(*a).map(|k| k.name.clone()))
         .collect();
 
     let (bytes, file, source) = if let Some(loose) = loose {
@@ -369,15 +733,7 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
         }
         (bytes, shown, source)
     } else {
-        let pick = holders
-            .iter()
-            .enumerate()
-            .max_by_key(|(order, (a, _))| {
-                let name = index.archives.get(*a).map_or("", |(n, _, _)| n.as_str());
-                (rank(name), *order)
-            })
-            .map(|(_, h)| *h);
-        let Some((a, e)) = pick else {
+        let Some((a, e)) = best_holder(index, &holders) else {
             return Err(failed(
                 id,
                 format!(
@@ -386,10 +742,17 @@ fn read_model(session: &mut Session, args: &Value, id: &str) -> Result<ModelRead
                 ),
             ));
         };
-        let Some((name, path, archive)) = index.archives.get(a) else {
+        let Some(kept) = index.archives.get(a) else {
             return Err(failed(id, "the archive index is inconsistent"));
         };
-        let mut f = File::open(path).map_err(|err| failed(id, format!("{name}: {err}")))?;
+        let name = &kept.name;
+        let Some(archive) = kept.open() else {
+            return Err(failed(
+                id,
+                format!("{name}: the archive does not open or no longer matches its index"),
+            ));
+        };
+        let mut f = File::open(&kept.path).map_err(|err| failed(id, format!("{name}: {err}")))?;
         let bytes = archive
             .extract_vec(&mut f, e, MAX_MODEL_BYTES)
             .map_err(|err| failed(id, format!("{name}: {err}")))?;
@@ -607,7 +970,6 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
     let index = session
         .get_mut::<MeshIndex>()
         .ok_or_else(|| failed(GEOMETRY_ID, "the archive index did not build"))?;
-    index.index_meshes();
     let mut positions: Vec<u8> = Vec::new();
     let mut normals: Vec<u8> = Vec::new();
     let mut indices: Vec<u8> = Vec::new();
@@ -720,6 +1082,17 @@ pub(super) fn geometry(session: &mut Session, args: &Value) -> Result<Outcome, E
         }));
         vertices = vertices.saturating_add(nv);
         index_total = index_total.saturating_add(mesh.indices.len());
+    }
+    // M7.R5: an archive the cached index named that no longer matches it: those meshes
+    // were not read (each named above as in no archive); the next call builds the index
+    // again from the archives.
+    let stale = std::mem::take(&mut index.stale);
+    if !stale.is_empty() {
+        limitations.push(format!(
+            "the cached mesh index does not match the archive(s) {}: their meshes were not read; the next call builds the index again from the archives",
+            stale.join(", ")
+        ));
+        session.remove::<MeshIndex>();
     }
     if mb.geometries.is_empty() {
         limitations.push("the model has no geometry block: no triangles".to_string());

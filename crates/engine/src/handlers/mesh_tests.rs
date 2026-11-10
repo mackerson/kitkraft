@@ -888,3 +888,155 @@ fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
         crate::envelope::CoverageStatus::Partial
     ));
 }
+
+// M7.R5: the mesh index kept in the engine's index cache.
+
+use super::mesh::{cache_file, encode_stored, parse_stored, MeshIndex, CACHE_MAGIC};
+
+/// A Data dir with one archive holding a model and its mesh, and an empty cache dir.
+fn cached_dir(name: &str) -> (PathBuf, PathBuf) {
+    let data = geometry_dir(
+        name,
+        [0.0; 3],
+        1,
+        &[(r"geometries\test\mesh0.mesh", triangle_mesh(1.0))],
+    );
+    let cache = data.parent().unwrap().join("cache");
+    let _ = std::fs::remove_dir_all(&cache);
+    (data, cache)
+}
+
+fn build(data: &Path, cache: Option<&Path>) -> MeshIndex {
+    MeshIndex::build_cached(data, cache, true, "mesh.geometry").unwrap()
+}
+
+#[test]
+fn the_mesh_index_is_read_back_from_the_cache_without_opening_an_archive() {
+    let (data, cache) = cached_dir("mesh-index-cache");
+    let first = build(&data, Some(&cache));
+    assert!(!first.from_cache);
+    assert!(
+        cache_file(&cache, &data).is_file(),
+        "written after the build"
+    );
+    let second = build(&data, Some(&cache));
+    assert!(second.from_cache);
+    assert_eq!(second.by_path, first.by_path);
+    assert_eq!(second.meshes, first.meshes);
+    assert!(second.by_path.contains_key("meshes/test/tri.nif"));
+    assert!(second.meshes.contains_key("geometries/test/mesh0.mesh"));
+    // Nothing is opened until a read needs it; then it opens and matches.
+    assert!(second.archives.iter().all(|k| k.archive.get().is_none()));
+    assert!(second.archives.iter().all(|k| k.open().is_some()));
+    // A session's geometry through the cached index reads the same triangles.
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+#[test]
+fn a_changed_archive_rebuilds_the_mesh_index() {
+    let (data, cache) = cached_dir("mesh-index-changed");
+    build(&data, Some(&cache));
+    // One more byte at the end of the archive: its length, so its key, changes.
+    let ba2 = data.join("Starfield - Meshes01.ba2");
+    let mut bytes = std::fs::read(&ba2).unwrap();
+    bytes.push(0);
+    std::fs::write(&ba2, bytes).unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
+    // A new archive in the Data dir changes the key list too.
+    let (data2, cache2) = cached_dir("mesh-index-added");
+    build(&data2, Some(&cache2));
+    std::fs::copy(
+        data2.join("Starfield - Meshes01.ba2"),
+        data2.join("Starfield - Meshes02.ba2"),
+    )
+    .unwrap();
+    assert!(!build(&data2, Some(&cache2)).from_cache);
+}
+
+/// Negative: every malformed cache file is ignored and the index built from the archives.
+#[test]
+fn a_corrupt_mesh_index_file_is_ignored() {
+    let (data, cache) = cached_dir("mesh-index-corrupt");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let good = std::fs::read(&file).unwrap();
+    assert!(parse_stored(&good).is_some());
+    let mut huge_count = good.clone();
+    huge_count[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
+    let mut long_name = CACHE_MAGIC.to_vec();
+    long_name.extend(1u32.to_le_bytes());
+    long_name.extend(2_000u16.to_le_bytes());
+    long_name.extend(vec![b'a'; 2_000 + 20]);
+    let mut trailing = good.clone();
+    trailing.push(0);
+    for bad in [
+        good[..good.len() / 2].to_vec(),
+        vec![0xA5; 64],
+        Vec::new(),
+        [b"NOTMAGIC".as_slice(), &good[8..]].concat(),
+        huge_count,
+        long_name,
+        trailing,
+    ] {
+        assert!(parse_stored(&bad).is_none());
+        std::fs::write(&file, &bad).unwrap();
+        let built = build(&data, Some(&cache));
+        assert!(!built.from_cache);
+        assert!(built.by_path.contains_key("meshes/test/tri.nif"));
+    }
+}
+
+/// Negative: a well-formed cache file whose entry is not what the archive holds is refused
+/// when the archive is opened, and the call builds the index again from the archives.
+#[test]
+fn a_mesh_index_naming_an_entry_the_archive_lacks_is_rebuilt() {
+    let (data, cache) = cached_dir("mesh-index-lie");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    // The model's name now points at the mesh's entry index, and the reverse.
+    let kept = &mut stored.kept[0];
+    let (a, b) = (kept.entries[0].0, kept.entries[1].0);
+    kept.entries[0].0 = b;
+    kept.entries[1].0 = a;
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+    let lied = build(&data, Some(&cache));
+    assert!(lied.from_cache, "it parses and its keys match");
+    assert!(
+        lied.archives[0].open().is_none(),
+        "but the archive does not match it"
+    );
+    // Through the command: the model still reads, from an index built again.
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let mut session = crate::Session::default();
+    session.insert(lied);
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(
+        out.limitations.iter().any(|l| l
+            .contains("the cached mesh index does not match the archive Starfield - Meshes01.ba2")),
+        "{:?}",
+        out.limitations
+    );
+}
+
+#[test]
+fn no_cache_neither_reads_nor_writes_the_mesh_index() {
+    let (data, cache) = cached_dir("mesh-index-nocache");
+    let built = build(&data, None);
+    assert!(!built.from_cache);
+    assert!(!cache_file(&cache, &data).exists());
+    // `no_cache: true` on the command turns it off too.
+    assert_eq!(
+        super::mesh::mesh_cache_dir(&json!({"no_cache": true})),
+        None
+    );
+}
