@@ -34,6 +34,9 @@ pub enum GameError {
     /// A process operation failed.
     #[error("process: {0}")]
     Process(String),
+    /// A replay refused its input (M4.T7).
+    #[error("replay: {0}")]
+    Replay(String),
 }
 
 impl GameError {

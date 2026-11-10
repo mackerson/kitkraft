@@ -20,7 +20,7 @@
 //! (written when the replay sends its first command); the replay waits nothing, so a live
 //! retry cut short by its row's deadline can make the replay diverge.
 
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::console::{Console, ConsoleError};
 use crate::controller::{run, Deps, Plan, Shared};
-use crate::error::Result;
+use crate::error::{GameError, Result};
 use crate::probes::{ProbeFile, Verdict};
 use crate::testing::{mo2_fixture, FakeHost};
 use crate::GameProfile;
@@ -223,8 +223,42 @@ fn digest(b: &[u8]) -> String {
     format!("{h:016x}")
 }
 
+/// The replay's observe folder, `<work>/observe/<session>`. The session id comes from a
+/// `report.json` and is data: it must be one plain folder name, and the folder it names must
+/// resolve (canonical paths compared) to a direct child of the canonical observe root, or a
+/// report could send the replay's writes anywhere (review M1 of M4.T7 part 3).
+fn session_folder(work: &Path, session: &str) -> Result<PathBuf> {
+    let refuse = |why: &str| {
+        GameError::Replay(format!(
+            "session id `{session}` is not one plain folder name ({why})"
+        ))
+    };
+    let mut parts = Path::new(session).components();
+    if !matches!(
+        (parts.next(), parts.next()),
+        (Some(Component::Normal(_)), None)
+    ) {
+        return Err(refuse("a path, a prefix, `.`, `..` or empty"));
+    }
+    let root = work.join("observe");
+    std::fs::create_dir_all(&root).map_err(|e| GameError::io(&root, e))?;
+    let canonical_root = root.canonicalize().map_err(|e| GameError::io(&root, e))?;
+    let target = root.join(session);
+    std::fs::create_dir_all(&target).map_err(|_| refuse("not a folder name here"))?;
+    let resolved = target
+        .canonicalize()
+        .map_err(|_| refuse("does not resolve"))?;
+    if resolved.parent() != Some(canonical_root.as_path()) {
+        return Err(refuse("resolves outside the observe folder"));
+    }
+    // The plain spelling goes to the controller (a canonical `\?\` path is a verbatim one).
+    Ok(target)
+}
+
 /// Replays `rec` in `work` (created, and its fixture removed after) with today's controller.
+/// A session id that is not one plain folder name is refused (`GameError::Replay`).
 pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
+    let observe = session_folder(work, rec.session)?;
     // A session recorded before M4.T7 has no transcript, nor does a later one that failed
     // before it sent anything: nothing to answer from, so nothing
     // is sent and every row is `not-run` (R29; review M1 of M4.T7). Replaying it would only
@@ -284,7 +318,7 @@ pub fn replay(rec: &Recorded<'_>, work: &Path) -> Result<Replayed> {
         mod_manager: f.instance.join("ModOrganizer.exe"),
         profile: f.profile.clone(),
         profile_dir: f.profile_dir.clone(),
-        observe: work.join("observe").join(rec.session),
+        observe,
         ledger: None,
         base_save: rec.base_save.to_string(),
         base_save_sha256: String::new(),
