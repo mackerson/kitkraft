@@ -524,13 +524,22 @@ pub(crate) fn run_all(
     for (r, recorded) in read_all(dir)? {
         let work = root.join("out").join("game-regress").join(&r.name);
         let mut o = replay_desk(&r, &recorded, &work, kit)?;
+        // An error in one session half (a damaged transcript, a probe file it cannot read) is
+        // ambiguous evidence for that replay, and the other replays still run (review L3).
         let (label, failures, notes) = replay_session(
             &r,
             &recorded,
             observe,
             ledger_text.as_deref().map_err(String::as_str),
             &work.join("session"),
-        )?;
+        )
+        .unwrap_or_else(|e| {
+            (
+                "inconclusive".to_string(),
+                Vec::new(),
+                vec![format!("session {}: inconclusive ({e:#})", r.session)],
+            )
+        });
         o.session = label;
         o.failures.extend(failures);
         o.notes.extend(notes);
@@ -1088,5 +1097,38 @@ testplan = [\"--profile\", \"P\", \"--plugins\", \"Starfield.esm\"]
             "{o:?}"
         );
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Review L3 (probe P3): a malformed transcript makes that replay's session half
+    /// inconclusive, and the other replays still run; it never ends the whole task.
+    #[test]
+    fn a_malformed_transcript_is_inconclusive_and_the_other_replays_still_run() {
+        for bad in [serde_json::json!(5), serde_json::json!([{"command": 7}])] {
+            let root = tmp("p3");
+            let ledger = recorded_session(&root, "**pass**", true, "");
+            let replays = root.join("replays");
+            // A second replay (no recorded session) after the damaged one, in name order.
+            for ext in ["toml", "probes.toml"] {
+                std::fs::copy(
+                    replays.join(format!("rename.{ext}")),
+                    replays.join(format!("zother.{ext}")),
+                )
+                .unwrap();
+            }
+            let other = replays.join("zother.toml");
+            let src = std::fs::read_to_string(&other).unwrap();
+            std::fs::write(&other, src.replace(SESSION, "game-19990101-01")).unwrap();
+            set_report(&root, |v| v["transcript"] = bad.clone());
+            let fake = Fake {
+                calls: RefCell::new(Vec::new()),
+            };
+            let out = run_all(&root, &replays, &root.join("observe"), &ledger, &fake)
+                .expect("a damaged transcript must not end the run");
+            assert_eq!(out.len(), 2, "{out:?}");
+            assert_eq!(out[0].session, "inconclusive", "{out:?}");
+            assert!(out[0].failures.is_empty(), "{out:?}");
+            assert_eq!(out[1].session, "not-run", "{out:?}");
+            let _ = std::fs::remove_dir_all(&root);
+        }
     }
 }
