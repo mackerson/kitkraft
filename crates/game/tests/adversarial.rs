@@ -454,6 +454,13 @@ fn a6b_base_failure_late_in_first_getter() {
     ];
     let (l, _, f) = go("a6b", rows, acts, Act::Cap(usize::MAX), true);
     assert!(l.iter().all(|x| !pass(x)), "{l:?} {f:?}");
+    // Review R41 L1: the late base failure is the session's finding, and each row says why.
+    assert!(
+        f.iter()
+            .any(|x| x.contains("the base save did not load") && x.contains("(R41)")),
+        "{f:?}"
+    );
+    assert!(l.iter().all(|x| x.contains("base save")), "{l:?}");
 }
 
 /// A7: queued at session end: cross, A's load line still queued when the session ends.
