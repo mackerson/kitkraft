@@ -89,7 +89,11 @@ ledger entry's "Console port" line say what was not checked.
      otherwise the answer must contain it. Starfield's `ready_expect` is still empty; it
      becomes `SFSE version`, the text `game-20261101-T1` row b observed after the echo
      (`SFSE version: 0.2.21, release idx 26, runtime 01100F40`), together with the engine's
-     test fakes answering the same (G 3b review M1);
+     test fakes answering the same (G 3b review M1). With `ready_expect` set, the polls'
+     answers are counted in send order over the whole session: a poll answered only by its
+     echo owes its line to a later reply, each `ready_expect` line pays the oldest poll still
+     owed one, and a reply makes the game ready only when no older poll is owed, so its line
+     is this poll's own and not an earlier poll's, late (3b fix review L1');
    - gives up after `ready_secs` from launch (300 s), which covers the window, the settle
      and the polls (the first answer came at 91 s). A profile whose `settle_secs` is not
      below `ready_secs` is an error. The row reasons then name what was still missing (no
