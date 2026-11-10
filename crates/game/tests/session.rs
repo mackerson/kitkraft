@@ -3108,3 +3108,98 @@ fn a_stale_readiness_line_of_an_earlier_poll_does_not_make_a_later_poll_ready() 
         c.received()
     );
 }
+
+// ------------------------------------------------- 3b fix round 3, review M1'' (`g-3bfix2.md`)
+// The reviewer's probes as tests: a readiness poll whose reply the client never reads (an
+// HTTP timeout) or reads as an empty body after a `load` still reached the game, so in send
+// order its line comes later and must pay its own debt, never make a later poll ready.
+
+/// A console in send order: each send's own lines join a queue; the k-th send's reply is its
+/// echo, then at most `caps[k]` queued answers (oldest first; past the list: all). `lost`:
+/// sends whose reply the client never receives (the server sleeps 5.6 s after queueing, the
+/// client times out at 5 s; the command reached the game). `empty`: sends answered with an
+/// empty body (own line queued all the same).
+fn rv_fifo(caps: Vec<usize>, lost: Vec<usize>, empty: Vec<usize>) -> FakeConsole {
+    let c = console();
+    let state = std::sync::Arc::new(std::sync::Mutex::new((
+        0usize,
+        std::collections::VecDeque::<Vec<String>>::new(),
+    )));
+    c.respond_with(move |cmd| {
+        let (k, reply) = {
+            let mut st = state.lock().unwrap();
+            let l = cmd.to_ascii_lowercase();
+            let own: Vec<String> = if l.starts_with("getsfseversion") {
+                vec!["SFSE version: 0.2.21, release idx 26, runtime 01100F40".into()]
+            } else if l.starts_with("load kitkraftsession") {
+                vec!["Save file not found.".into()]
+            } else if l.starts_with("getpos y") {
+                vec!["GetPos: Y >> -4.00".into()]
+            } else {
+                vec![]
+            };
+            let k = st.0;
+            st.0 += 1;
+            st.1.push_back(own);
+            let cap = if lost.contains(&k) || empty.contains(&k) {
+                0
+            } else {
+                caps.get(k).copied().unwrap_or(usize::MAX)
+            };
+            let mut reply = format!("{cmd}\nCommand: {cmd}");
+            for _ in 0..cap {
+                let Some(lines) = st.1.pop_front() else { break };
+                for line in lines {
+                    reply.push('\n');
+                    reply.push_str(&line);
+                }
+            }
+            (k, reply)
+        };
+        if lost.contains(&k) {
+            std::thread::sleep(Duration::from_millis(5600));
+        }
+        if empty.contains(&k) {
+            return Some(String::new());
+        }
+        Some(reply)
+    });
+    c
+}
+
+fn rv_run(tag: &str, c: &FakeConsole, ready_secs: u64) -> Vec<String> {
+    let f = fixture(tag);
+    let mut p = plan(&f, c, &f.root.join("p.log"), "2026-10-16-T15");
+    // A test-fixture profile that names its readiness text, as A-G1 makes Starfield's.
+    p.game.console.ready_expect = "SFSE version".into();
+    p.game.timeouts.ready_secs = ready_secs;
+    p.timeouts.ready_secs = ready_secs;
+    // A wait long enough to outlast one poll the client gave up on (5 s).
+    p.game.timeouts.load_secs = ready_secs;
+    p.timeouts.load_secs = ready_secs;
+    p.probes.probes = vec![
+        probe("T-01", false, vec![step("load {save}", None, "", None)]),
+        one("T-02", "getpos y", Matcher::Number, "-4", Some(0.5)),
+    ];
+    let report = run(&p, deps(&host(), c), &Shared::new(&p.session));
+    let _ = std::fs::remove_dir_all(&f.root);
+    verdicts(&report.rows)
+}
+
+/// M1'': the base wait's first poll times out at the client; its line arrives later and must
+/// pay its own debt, so no later poll is ready on it and the load's failure is not left to
+/// the next row.
+#[test]
+fn rv_timeout_poll_line_arrives_late() {
+    let c = rv_fifo(vec![usize::MAX, usize::MAX, 0, 1, 0, 1], vec![2], vec![]);
+    let v = rv_run("rv-timeout", &c, 20);
+    assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
+}
+
+/// M1'': as above with an empty body after the base `load` instead of a timeout.
+#[test]
+fn rv_empty_body_poll_line_arrives_late() {
+    let c = rv_fifo(vec![usize::MAX, usize::MAX, 0, 1, 0, 1], vec![], vec![2]);
+    let v = rv_run("rv-empty", &c, 3);
+    assert_ne!(v[0], "pass", "{v:?} sent {:?}", c.received());
+}

@@ -515,6 +515,9 @@ impl Run<'_> {
             } else {
                 match self.deps.console.run(&cmd, left.min(secs(5))) {
                     Ok(out) if out.trim().is_empty() => {
+                        if !expect.is_empty() && !window {
+                            self.polls_owed = self.polls_owed.saturating_add(1);
+                        }
                         last = format!("`{cmd}` answered an empty body, not ready");
                     }
                     Ok(out) => {
@@ -559,7 +562,12 @@ impl Run<'_> {
                         // Kept either way: it is a reply all the same (G 3b).
                         replies.push(out);
                     }
-                    Err(e) => last = e.to_string(),
+                    Err(e) => {
+                        if !expect.is_empty() && matches!(e, ConsoleError::Timeout) {
+                            self.polls_owed = self.polls_owed.saturating_add(1);
+                        }
+                        last = e.to_string();
+                    }
                 }
             }
             std::thread::sleep(wait.min(limit.saturating_sub(started.elapsed())));
