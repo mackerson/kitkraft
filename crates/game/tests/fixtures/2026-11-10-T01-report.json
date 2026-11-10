@@ -1,0 +1,418 @@
+{
+  "session": "2026-11-10-T01",
+  "status": {
+    "status": "inconclusive",
+    "reason": "1 profile file(s) changed during the session and were restored or reported"
+  },
+  "rows": [
+    {
+      "row": "SO-01",
+      "title": "control: coc to the Lodge, settle, then player.getincell on time",
+      "forms": [
+        "CityNewAtlantisLodgeInt",
+        "0006BB29"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-02",
+      "title": "order: three player.getpos sent behind an unsettled coc answer late, X then Y then Z",
+      "forms": [
+        "CityNewAtlantisApartmentTEMPLATE",
+        "0021966F"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-03",
+      "title": "FR4 shape: prid of the rename's base EditorID behind an unsettled coc fails late",
+      "forms": [
+        "OldSovietMarksmanRifle.esm:0021BBCD",
+        "RussianHuntingRifle",
+        "CityNewAtlantisLodgeInt"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-04",
+      "title": "FR4 shape: the same prid again, settled; its reply carries SO-03's late lines first",
+      "forms": [
+        "OldSovietMarksmanRifle.esm:0021BBCD",
+        "RussianHuntingRifle"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-05",
+      "title": "FR3 shape: a reference-prefix command on a reference that does not exist fails late",
+      "forms": [
+        "KitKraftSendOrderRef",
+        "CityNewAtlantisApartmentTEMPLATE"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-06",
+      "title": "FR3 shape: the next row's getter, whose reply carries SO-05's late failure and getter line first",
+      "forms": [
+        "CityNewAtlantisApartmentTEMPLATE",
+        "0021966F"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-07",
+      "title": "FR2 shape on time: load of the session save before it exists answers `Save file not found.`",
+      "forms": [
+        "KitKraftSession-*"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "SO-08",
+      "title": "FR2 shape late: load of the session save behind an unsettled coc and a waiting getter",
+      "forms": [
+        "KitKraftSession-*",
+        "CityNewAtlantisLodgeInt",
+        "0006BB29"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "not-run",
+        "reason": "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)"
+      },
+      "screenshots": []
+    }
+  ],
+  "reruns": [],
+  "changes": [
+    {
+      "path": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\plugins.txt",
+      "before": "286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d",
+      "after": "e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72",
+      "restored": true,
+      "note": "restored from C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\01-plugins.txt"
+    }
+  ],
+  "backups": [
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\modlist.txt",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\00-modlist.txt",
+      "sha256": "bfa10ad4e23fc9ca4b1fef0c4c3e69aad079b7d8a268aacac8da040d337bb204",
+      "size": 4188
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\plugins.txt",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\01-plugins.txt",
+      "sha256": "286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d",
+      "size": 330
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\loadorder.txt",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\02-loadorder.txt",
+      "sha256": "46b28b56b0f5226d913ee655ff5632ec5f86e064f5623a73a62f245945dfcd27",
+      "size": 457
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\lockedorder.txt",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\03-lockedorder.txt",
+      "sha256": "9962fbb07e4c40c4c39b6fe7cedf3f1527cdda5ad0a60d7d53a872b5ae52812d",
+      "size": 59
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\StarfieldCustom.ini",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\04-StarfieldCustom.ini",
+      "sha256": "44550d59846016957e60c76cfde7b2cf240063cf4ae19d08a03d30dd25e586ed",
+      "size": 211
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\StarfieldPrefs.ini",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\05-StarfieldPrefs.ini",
+      "sha256": "f557f282dd6429c046263d6a4edf4cc87c0139ea042eb19fe7e671584ce37e3c",
+      "size": 1959
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\initweaks.ini",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\06-initweaks.ini",
+      "sha256": "c35e72b526cf46723f3559435de33c388f431966e48f66dfb6556283609cd27c",
+      "size": 36
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\settings.ini",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\07-settings.ini",
+      "sha256": "a46c95cbb3da8cbaef34066dd99a7a8eaa8304fc7f4bd3be22bd1305692deea6",
+      "size": 83
+    },
+    {
+      "source": "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\saves\\KitKraftBase.sfs",
+      "copy": "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\08-KitKraftBase.sfs",
+      "sha256": "fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf",
+      "size": 1190240
+    }
+  ],
+  "findings": [
+    "timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)",
+    "C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\plugins.txt changed during the session (286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\01-plugins.txt"
+  ],
+  "terminated": [
+    "Starfield.exe",
+    "ModOrganizer.exe",
+    "pid 44416"
+  ],
+  "logs": [
+    [
+      "papyrus",
+      "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\logs\\papyrus-Papyrus.0.log"
+    ],
+    [
+      "console-history",
+      "C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\logs\\console-history-StarfieldConsoleHistory.log"
+    ]
+  ],
+  "ledger_entry": "game-20261110-01",
+  "ledger_text": "\n### game-20261110-01: agent session 2026-11-10-T01 (`kit game session`), OldSovietMarksmanRifle.esm\n\n| Field | Content |\n| ----- | ------- |\n| Session | `2026-11-10-T01`, run by the session controller (ADR 0010, lane C); not an owner sitting |\n| Date | 2026-11-10 |\n| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |\n| Game build | `Starfield.exe` 1.16.244.0 |\n| Script extender | `sfse_loader.exe` 0.1.1.1 |\n| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |\n| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |\n| MO2 profile | `Kitkraft Dev` (instance C:\\Modding\\MO2-Starfield) |\n| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261110-01` |\n| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |\n| Probes | `C:\\Modding\\kitkraft-worktrees\\x\\crates\\game\\probes\\send-order.toml` SHA-256 `a8638979acccf83615e02ec81ba60465bf46ea93470390439b354da4f0a1350c` |\n| Screenshots | `C:\\Modding\\kitkraft-observe\\2026-11-10-T01` |\n\n| Row | Step | Forms | Expected | Seen | Result | Evidence |\n| --- | ---- | ----- | -------- | ---- | ------ | -------- |\n| SO-01 | control: coc to the Lodge, settle, then player.getincell on time | CityNewAtlantisLodgeInt, 0006BB29 | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-02 | order: three player.getpos sent behind an unsettled coc answer late, X then Y then Z | CityNewAtlantisApartmentTEMPLATE, 0021966F | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-03 | FR4 shape: prid of the rename's base EditorID behind an unsettled coc fails late | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle, CityNewAtlantisLodgeInt | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-04 | FR4 shape: the same prid again, settled; its reply carries SO-03's late lines first | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-05 | FR3 shape: a reference-prefix command on a reference that does not exist fails late | KitKraftSendOrderRef, CityNewAtlantisApartmentTEMPLATE | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-06 | FR3 shape: the next row's getter, whose reply carries SO-05's late failure and getter line first | CityNewAtlantisApartmentTEMPLATE, 0021966F | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-07 | FR2 shape on time: load of the session save before it exists answers `Save file not found.` | KitKraftSession-* | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n| SO-08 | FR2 shape late: load of the session save behind an unsettled coc and a waiting getter | KitKraftSession-*, CityNewAtlantisLodgeInt, 0006BB29 | - | - | not-run (timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)) | - |\n\nFinding: timeout after 180s waiting for the base save to load (`GetSFSEVersion` answered `GetSFSEVersion Command: GetSFSEVersion SFSE version: 0.2.21,...`, but 2 earlier poll(s) still owe their answer, so the line is theirs (send order), not ready)\nFinding: C:\\Modding\\MO2-Starfield\\profiles\\Kitkraft Dev\\plugins.txt changed during the session (286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\\Modding\\kitkraft-observe\\2026-11-10-T01\\backup\\01-plugins.txt\n",
+  "written": [],
+  "transcript": [
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 91485
+    },
+    {
+      "command": "load KitKraftBase",
+      "reply": "load KitKraftBase\nCommand: load KitKraftBase\n",
+      "elapsed_ms": 91589
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\n",
+      "elapsed_ms": 91695
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\n",
+      "elapsed_ms": 96799
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 101913
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 107021
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 112137
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 117244
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 122354
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 127468
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 132582
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 137690
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 142802
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 147911
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 153026
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 158136
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 163249
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 168356
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 173464
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 178575
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 183690
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 188805
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 193920
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 199027
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 204138
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 209246
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 214352
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 219457
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 224563
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 229668
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 234774
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 239882
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 244988
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 250095
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 255211
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 260316
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 265430
+    },
+    {
+      "command": "GetSFSEVersion",
+      "reply": "GetSFSEVersion\nCommand: GetSFSEVersion\nSFSE version: 0.2.21, release idx 26, runtime 01100F40\n",
+      "elapsed_ms": 270538
+    }
+  ]
+}

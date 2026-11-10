@@ -3649,3 +3649,51 @@ fn a_replay_refuses_a_session_id_that_is_not_one_plain_folder_name() {
     }
     let _ = std::fs::remove_dir_all(&base);
 }
+
+// ------------------------------------------------- R41: the pacing poll on T01's transcript
+
+/// 2026-11-10-T01 (ledger `game-20261110-01`), `report.json` as the session wrote it
+/// (sha256 0bd7f1d6e0003ee2381bbbf071a72f90b94da6d70ac63756bde866f2011993d0).
+const T01_REPORT: &str = include_str!("fixtures/2026-11-10-T01-report.json");
+
+/// R41: T01's base wait (sends 3 and 4 only their echo, the game dropping their answers;
+/// send 5 on, one `SFSE version` line each) is ready at send 5, the third poll in a row with
+/// a reply, and the session goes on to SO-01's first step at send 6, where the replay leaves
+/// the transcript (the live session went on polling). Before R41 the poll debt stayed at two
+/// and the wait timed out: every row not-run, the replay past the transcript's last send.
+#[test]
+fn r41_t01s_base_wait_is_ready_at_send_5_and_the_session_goes_on() {
+    let report: serde_json::Value = serde_json::from_str(T01_REPORT).unwrap();
+    assert_eq!(report["session"], "2026-11-10-T01");
+    let transcript: Vec<kitkraft_game::replay::Sent> =
+        serde_json::from_value(report["transcript"].clone()).unwrap();
+    assert_eq!(transcript.len(), 38);
+    let probes = ProbeFile::parse(SEND_ORDER).unwrap();
+    let work = std::env::temp_dir().join(format!(
+        "kitkraft-game-replay-r41-t01-{}",
+        std::process::id()
+    ));
+    let rec = Recorded {
+        session: "2026-11-10-T01",
+        probes: &probes,
+        transcript: &transcript,
+        base_save: "KitKraftBase",
+        session_save: "KitKraftSession-20261110-01",
+        papyrus: None,
+    };
+    let r = replay_transcript(&rec, &work).unwrap();
+    let _ = std::fs::remove_dir_all(&work);
+    assert_eq!(
+        r.diverged.as_deref(),
+        Some("send 6: sent `coc CityNewAtlantisLodgeInt`, recorded `GetSFSEVersion`"),
+        "{r:?}"
+    );
+    for (row, v) in &r.rows {
+        assert!(
+            !v.text().contains("waiting for the base save"),
+            "{row}: {}",
+            v.text()
+        );
+        assert_ne!(v.label(), "not-run", "{row}: {}", v.text());
+    }
+}
