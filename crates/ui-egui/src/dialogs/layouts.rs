@@ -411,6 +411,7 @@ mod tests {
                 ("Min Level:", "DATA.MinLevel"),
                 ("Max Level:", "DATA.MaxLevel"),
                 ("Required Rank", "DATA.FactionRank"),
+                ("Use parent", "DATA.LevelFlags"),
             ],
         ),
         (
@@ -442,6 +443,7 @@ mod tests {
                 ("Count", "CNTO.Count"),
                 ("Item List", "CNTO"),
                 ("Owner", "COED.Owner"),
+                ("Health %", "COED.ItemCondition"),
                 ("Papyrus Scripts:", "VMAD"),
                 ("Keywords", "KWDA"),
                 ("Preview Transform", "PTT2.Preview"),
@@ -490,9 +492,9 @@ mod tests {
     const COUNTS: &[(&str, usize, usize)] = &[
         ("AMMO", 16, 5),
         ("COBJ", 18, 5),
-        ("LCTN", 18, 18),
+        ("LCTN", 19, 17),
         ("TERM", 14, 12),
-        ("CONT", 18, 29),
+        ("CONT", 19, 28),
         ("STAT", 12, 25),
         ("KYWD", 7, 1),
     ];
@@ -650,7 +652,7 @@ mod tests {
             gap_total += o.gaps.len();
         }
         eprintln!("M7.K4 gaps:\n  {}", gaps.join("\n  "));
-        assert_eq!((mapped_total, gap_total), (103, 95));
+        assert_eq!((mapped_total, gap_total), (105, 93));
         assert_eq!(gaps[0], "WEAP: unobserved (ck-20261102-03 inconclusive)");
         assert!(gaps[1].starts_with("AMMO: 16 mapped, 5 gaps (M7.K4): Edit (a button"));
         assert!(
@@ -687,6 +689,55 @@ mod tests {
         assert!(schema_has(&cont, "CNTO.Item"));
         assert!(schema_has(&cont, "COED.Owner"));
         assert!(!schema_has(&cont, "CNTO.Owner"));
+        // A PRPS row's member is no field path: `set` takes the array subrecord whole.
+        assert!(schema_has(&cont, "PRPS"));
+        assert!(!schema_has(&cont, "PRPS.ActorValue"));
+    }
+
+    /// D1 review L2: a gap that blames a record header flag names one the type's schema
+    /// has (the label without spaces or dashes, case ignored; `Navmesh` before it for a
+    /// navmesh import option; the named flag for an inverse), so `docs/gaps.md` never
+    /// cites a flag that does not exist.
+    #[test]
+    fn a_header_flag_gap_names_a_flag_the_schema_has() {
+        let engine = ReadOnlyEngine::new();
+        let squash = |t: &str| -> String {
+            t.chars()
+                .filter(char::is_ascii_alphanumeric)
+                .collect::<String>()
+                .to_lowercase()
+        };
+        let mut checked = 0;
+        for (t, _) in SITTING2 {
+            let o = observation(t).unwrap();
+            let env = engine
+                .run(&Request::new("schema", json!({"type": t, "deep": true})))
+                .unwrap();
+            let flags: Vec<String> = env["data"]["header_flags"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(|f| f["name"].as_str().map(squash))
+                .collect();
+            for (label, reason) in &o.gaps {
+                if !reason.contains("header flag") || reason.contains("no header flag") {
+                    continue;
+                }
+                let want = if let Some(rest) = reason.strip_prefix("the inverse of the ") {
+                    squash(rest.split_whitespace().next().unwrap_or_default())
+                } else if reason.starts_with("a navmesh import option") {
+                    format!("navmesh{}", squash(label))
+                } else {
+                    squash(label)
+                };
+                assert!(
+                    flags.contains(&want),
+                    "{t}: `{label}` blames a header flag `{want}` the schema lacks: {flags:?}"
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked >= 25, "{checked}");
     }
 
     /// Every rule of [`k4_check`] refuses its planted break: a label mapped to no field,
