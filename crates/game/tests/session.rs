@@ -2678,7 +2678,12 @@ impl SendOrder {
 }
 
 /// Runs the send-order probes file against the model; the rows' verdicts and `seen`.
-fn send_order_session(pf: &ProbeFile, busy: usize, reversed: bool) -> (Vec<String>, Vec<String>) {
+fn send_order_session(
+    tag: &str,
+    pf: &ProbeFile,
+    busy: usize,
+    reversed: bool,
+) -> (Vec<String>, Vec<String>) {
     let settled_cocs: Vec<bool> = pf
         .probes
         .iter()
@@ -2695,7 +2700,8 @@ fn send_order_session(pf: &ProbeFile, busy: usize, reversed: bool) -> (Vec<Strin
         reversed,
     });
     c.respond_with(move |cmd| Some(model.lock().unwrap().answer(cmd, busy)));
-    let f = fixture(&format!("send-order-{busy}-{reversed}"));
+    // One folder per test (`tag`): the tests run in parallel in one process.
+    let f = fixture(&format!("send-order-{tag}-{busy}-{reversed}"));
     let mut p = plan(&f, &c, &f.root.join("p.log"), "2026-11-10-T01");
     p.timeouts.probe_secs = 4;
     p.probes = pf.clone();
@@ -2762,7 +2768,7 @@ fn the_send_order_probes_grade_as_the_ruling_predicts() {
     // How many sends answer only their echo after an unsettled move is the game's (a matter
     // of time); the predictions must hold for each, from none to past the row's end.
     for busy in 0..=6usize {
-        let (got, _) = send_order_session(&pf, busy, false);
+        let (got, _) = send_order_session("grade", &pf, busy, false);
         for ((row, want), v) in PREDICTED.iter().zip(&got) {
             assert!(
                 holds(want, v),
@@ -2782,8 +2788,8 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
     let pf = ProbeFile::parse(SEND_ORDER).unwrap();
     let label = |v: &String| v.split(' ').next().unwrap_or_default().to_string();
     for busy in [0usize, 3] {
-        let (in_order, seen_in_order) = send_order_session(&pf, busy, false);
-        let (reversed, seen_reversed) = send_order_session(&pf, busy, true);
+        let (in_order, seen_in_order) = send_order_session("order", &pf, busy, false);
+        let (reversed, seen_reversed) = send_order_session("order", &pf, busy, true);
         assert_eq!(
             in_order.iter().map(label).collect::<Vec<_>>(),
             reversed.iter().map(label).collect::<Vec<_>>(),
@@ -2793,7 +2799,7 @@ fn a_console_out_of_send_order_breaks_the_fr3_pair_only_when_lateness_crosses_a_
             assert_ne!(seen_in_order, seen_reversed, "busy {busy}");
         }
     }
-    let (reversed, _) = send_order_session(&pf, 5, true);
+    let (reversed, _) = send_order_session("order", &pf, 5, true);
     let so = |row: &str| {
         PREDICTED
             .iter()
