@@ -4,7 +4,7 @@
 #
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L14701-L14722 - member order, EDID (L14702), the
-#     script data (L14703, kept opaque), the base form components (L14704, kept raw),
+#     script data (L14703, kept opaque), the base form components (L14704, the shared BfcbBlock),
 #     FNAM (L14705-L14713, its seven flag bits), PNAM (L14714-L14717), WNAM (L14718),
 #     VNAM (L14719), UNAM (L14720) and TNAM (L14721, the track list).
 #
@@ -104,5 +104,8 @@ element = "formid"
 targets = ["MUST"]
 count = "rest"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14721-L14721"]
+evidence = [
+  "corpus: musc_types_full (crates/esm/tests/musc_types.rs), 2026-11-12: in 117 of 117 official MUSC records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14721-L14721",
+]
 note = "one FormID per track (MUST); optional although all 117 official records carry it, since the pinned xEdit file does not require it (owner ruling 2026-11-07)"
