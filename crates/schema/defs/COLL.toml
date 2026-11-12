@@ -134,7 +134,8 @@ targets = ["COLL"]
 count = "rest"
 card = "optional"
 evidence = [
-  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-12: in 59 of 62 official COLL records (59 occurrences), at most 1 per record, 4..160 bytes",
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 59 of 62 official COLL records",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 59 of 62 official COLL records (59 occurrences), 4..160 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968",
 ]
 confidence = "corpus"
