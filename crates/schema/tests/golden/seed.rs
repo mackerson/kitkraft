@@ -25654,6 +25654,29 @@ impl Field for CollFlags {
 
 impl Visit for CollFlags {}
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CollCollidesWith(pub Vec<FormId>);
+
+impl Field for CollCollidesWith {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for CollCollidesWith {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CollRecord {
     /// `EDID`, required.
@@ -25672,8 +25695,8 @@ pub struct CollRecord {
     pub flags: Option<Sub<CollFlags>>,
     /// `MNAM`, required.
     pub name: Option<Sub<ZString>>,
-    /// `CNAM`, repeated.
-    pub collides_with: Vec<Sub<FormId>>,
+    /// `CNAM`, optional.
+    pub collides_with: Option<Sub<CollCollidesWith>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -25718,7 +25741,7 @@ impl CollRecord {
         },
         MemberDesc::Sub {
             sig: *b"CNAM",
-            card: Card::Repeated,
+            card: Card::Optional,
         },
     ];
 
@@ -25762,7 +25785,7 @@ impl CollRecord {
                 Hit::Sub { member: 7, index } => {
                     put(&mut self.name, subs, *index, "COLL.MNAM", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => push(
+                Hit::Sub { member: 8, index } => put(
                     &mut self.collides_with,
                     subs,
                     *index,
@@ -25786,9 +25809,7 @@ impl CollRecord {
         emit(out, *b"FNAM", self.debug_color.as_ref());
         emit(out, *b"GNAM", self.flags.as_ref());
         emit(out, *b"MNAM", self.name.as_ref());
-        for value in &self.collides_with {
-            emit(out, *b"CNAM", Some(value));
-        }
+        emit(out, *b"CNAM", self.collides_with.as_ref());
     }
 }
 
