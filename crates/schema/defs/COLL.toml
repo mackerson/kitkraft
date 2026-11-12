@@ -21,7 +21,10 @@
 signature = "COLL"
 name = "CollisionLayerForm"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969"
-confidence = "reference"
+evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: every official COLL record (62) decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
@@ -63,30 +66,35 @@ sig = "NLDT"
 name = "ContextNotes"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10958-L10958"
 evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 55 of 62 official COLL records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10958-L10958",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183",
 ]
-confidence = "reference"
+confidence = "corpus"
 
 [[member]]
 sig = "BNAM"
 name = "Index"
 type = "u32"
 card = "required"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10959-L10959"
-confidence = "reference"
+evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 62 of 62 official COLL records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10959-L10959",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FNAM"
 name = "DebugColor"
 type = "ref:ColorRgb"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10960-L10960"
 evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 62 of 62 official COLL records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10960-L10960",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968",
 ]
-confidence = "reference"
+confidence = "corpus"
 note = "four bytes: red, green, blue, unused"
 
 [[member]]
@@ -100,16 +108,22 @@ bits = [
   ["Sensor", 0x2],
   ["NavmeshObstacle", 0x4],
 ]
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10961-L10965"
-confidence = "reference"
+evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 62 of 62 official COLL records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10961-L10965",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "MNAM"
 name = "Name"
 type = "zstring"
 card = "required"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10966-L10966"
-confidence = "reference"
+evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 62 of 62 official COLL records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10966-L10966",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "CNAM"
@@ -119,6 +133,9 @@ element = "formid"
 targets = ["COLL"]
 count = "rest"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968"
-confidence = "reference"
+evidence = [
+  "corpus: coll_types_full (crates/esm/tests/coll_types.rs), 2026-11-12: in 59 of 62 official COLL records, payloads 4..160 bytes, all multiples of 4 (one subrecord holding the FormID list)",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968",
+]
+confidence = "corpus"
 note = "one FormID per 4 bytes, filling the subrecord; each a COLL record"

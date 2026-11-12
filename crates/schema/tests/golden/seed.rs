@@ -77,7 +77,7 @@
 // - CLMT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLMT record (48) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CNDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official CNDF record (1055) decodes with every subrecord placed and re-encodes identically; corpus)
 // - COBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950; corpus)
-// - COLL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969; reference)
+// - COLL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969; corpus)
 // - CONT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10982-L11028; corpus)
 // - CPTH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11031-L11049; corpus)
 // - CSTY (corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically; corpus)
