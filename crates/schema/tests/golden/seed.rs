@@ -152,7 +152,7 @@
 // - MRPH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MRPH record (1145) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MSTT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14652-L14698; corpus)
 // - MTPT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MTPT record (906) decodes with every subrecord placed and re-encodes identically; corpus)
-// - MUSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUSC record (117) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MUSC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14701-L14722; reference)
 // - MUST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744; corpus)
 // - NAVI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NAVI record (8) decodes with every subrecord placed and re-encodes identically; corpus)
 // - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
@@ -55090,22 +55090,104 @@ impl MtptRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct MuscFlags(pub u32);
+
+impl MuscFlags {
+    pub const PLAYS_ONE_SELECTION: u32 = 0x1;
+    pub const ABRUPT_TRANSITION: u32 = 0x2;
+    pub const CYCLE_TRACKS: u32 = 0x4;
+    pub const MAINTAIN_TRACK_ORDER: u32 = 0x8;
+    pub const REMOVAL_QUEUED: u32 = 0x10;
+    pub const DUCKS_CURRENT_TRACK: u32 = 0x20;
+    pub const DONT_QUEUE: u32 = 0x40;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for MuscFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for MuscFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MuscData {
+    pub priority: u16,
+    pub ducking: u16,
+}
+
+impl Field for MuscData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "MUSC.PNAM.Priority", ctx)?;
+        let f1 = u16::read(r, "MUSC.PNAM.Ducking", ctx)?;
+        Ok(Self {
+            priority: f0,
+            ducking: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.priority.write(out);
+        self.ducking.write(out);
+    }
+}
+
+impl Visit for MuscData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MuscMusicTracks(pub Vec<FormId>);
+
+impl Field for MuscMusicTracks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for MuscMusicTracks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MuscRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<MuscFlags>>,
     /// `PNAM`, required.
-    pub pnam: Option<Sub<Bytes>>,
+    pub data: Option<Sub<MuscData>>,
     /// `WNAM`, required.
-    pub wnam: Option<Sub<Bytes>>,
+    pub fade_duration: Option<Sub<f32>>,
     /// `VNAM`, required.
-    pub vnam: Option<Sub<Bytes>>,
+    pub re_evaluate_interval: Option<Sub<u64>>,
     /// `UNAM`, required.
-    pub unam: Option<Sub<Bytes>>,
-    /// `TNAM`, required.
-    pub tnam: Option<Sub<Bytes>>,
+    pub stability_interval: Option<Sub<u64>>,
+    /// `TNAM`, optional.
+    pub music_tracks: Option<Sub<MuscMusicTracks>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -55119,6 +55201,14 @@ impl MuscRecord {
         MemberDesc::Sub {
             sig: *b"EDID",
             card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"FNAM",
@@ -55142,7 +55232,7 @@ impl MuscRecord {
         },
         MemberDesc::Sub {
             sig: *b"TNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -55159,23 +55249,51 @@ impl MuscRecord {
                     put(&mut self.editor_id, subs, *index, "MUSC.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.fnam, subs, *index, "MUSC.FNAM", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "MUSC.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.pnam, subs, *index, "MUSC.PNAM", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.wnam, subs, *index, "MUSC.WNAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "MUSC.FNAM", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.vnam, subs, *index, "MUSC.VNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "MUSC.PNAM", ctx, extra)
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.unam, subs, *index, "MUSC.UNAM", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.tnam, subs, *index, "MUSC.TNAM", ctx, extra)
-                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.fade_duration,
+                    subs,
+                    *index,
+                    "MUSC.WNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.re_evaluate_interval,
+                    subs,
+                    *index,
+                    "MUSC.VNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.stability_interval,
+                    subs,
+                    *index,
+                    "MUSC.UNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.music_tracks,
+                    subs,
+                    *index,
+                    "MUSC.TNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -55183,16 +55301,30 @@ impl MuscRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"WNAM", self.wnam.as_ref());
-        emit(out, *b"VNAM", self.vnam.as_ref());
-        emit(out, *b"UNAM", self.unam.as_ref());
-        emit(out, *b"TNAM", self.tnam.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FNAM", self.flags.as_ref());
+        emit(out, *b"PNAM", self.data.as_ref());
+        emit(out, *b"WNAM", self.fade_duration.as_ref());
+        emit(out, *b"VNAM", self.re_evaluate_interval.as_ref());
+        emit(out, *b"UNAM", self.stability_interval.as_ref());
+        emit(out, *b"TNAM", self.music_tracks.as_ref());
     }
 }
 
-impl Visit for MuscRecord {}
+impl Visit for MuscRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "MUSC.BfcbBlock", out);
+        visit_form_ids(&self.music_tracks, "MUSC.TNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "MUSC.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.music_tracks, "MUSC.TNAM", out);
+    }
+}
 
 impl MuscRecord {
     /// Record signature.
