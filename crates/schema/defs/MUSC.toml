@@ -1,109 +1,108 @@
-# MUSC: MusicTypeForm, inventory definition (KK-105).
+# MUSC: Music Type, the music-type form of the audio engine's music system: it groups
+# the tracks (MUST) that play for a situation and carries the playback flags, the
+# priority and ducking, the fade duration, and the re-evaluation intervals.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-105 scan of every official MUSC record (117 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the MUSC definition of wbDefinitionsSF1.pas at the pinned revision (L14701-L14722),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14701-L14722 - member order, EDID (L14702), the
+#     script data (L14703, kept opaque), the base form components (L14704, kept raw),
+#     FNAM (L14705-L14713, its seven flag bits), PNAM (L14714-L14717), WNAM (L14718),
+#     VNAM (L14719), UNAM (L14720) and TNAM (L14721, the track list).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out (VMAD and the
-# base form components); a plugin that has one keeps it raw. Every official MUSC record
-# holds the seven subrecords in the same order, EDID FNAM PNAM WNAM VNAM UNAM TNAM.
+# The 14 official ESMs hold 117 MUSC records; the musc_types scan in
+# crates/esm/tests/musc_types.rs checks this definition against them: every
+# subrecord is placed, every placed subrecord decodes, and the re-encoding
+# reproduces every record.
 signature = "MUSC"
 name = "MusicTypeForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MUSC record (117) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14701-L14722",
-]
-confidence = "corpus"
-note = "inventory definition (KK-105): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14701-L14722"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 6..49 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14702-L14702",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14705-L14705",
+bits = [
+  ["PlaysOneSelection", 0x1],
+  ["AbruptTransition", 0x2],
+  ["CycleTracks", 0x4],
+  ["MaintainTrackOrder", 0x8],
+  ["RemovalQueued", 0x10],
+  ["DucksCurrentTrack", 0x20],
+  ["DontQueue", 0x40],
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14705-L14713"]
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "Data"
+type = "struct"
+size = 4
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14714-L14714",
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14714-L14717"]
+field = [
+  { name = "Priority", type = "u16" },
+  { name = "Ducking", type = "u16", note = "displayed upstream divided by 100 (hundredths of a decibel)" },
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
 
 [[member]]
 sig = "WNAM"
-name = "Wnam"
-type = "opaque"
+name = "FadeDuration"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14718-L14718",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14718-L14718"]
 
 [[member]]
 sig = "VNAM"
-name = "Vnam"
-type = "opaque"
+name = "ReEvaluateInterval"
+type = "u64"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14719-L14719",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14719-L14719"]
+note = "displayed upstream divided by 1000"
 
 [[member]]
 sig = "UNAM"
-name = "Unam"
-type = "opaque"
+name = "StabilityInterval"
+type = "u64"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14720-L14720",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14720-L14720"]
+note = "displayed upstream divided by 1000"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 117 of 117 official MUSC records (117 occurrences), 4..108 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14721-L14721",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+name = "MusicTracks"
+type = "array"
+element = "formid"
+targets = ["MUST"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14721-L14721"]
+note = "one FormID per track (MUST); optional although all 117 official records carry it, since the pinned xEdit file does not require it (owner ruling 2026-11-07)"
