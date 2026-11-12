@@ -194,5 +194,6 @@ fn musc_types_full() {
         check_file(&f.path, &mut t);
     }
     report(&t);
+    assert!(t.records > 0, "no MUSC record");
     assert_clean(&t);
 }
