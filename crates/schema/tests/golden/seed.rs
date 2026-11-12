@@ -77,7 +77,7 @@
 // - CLMT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLMT record (48) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CNDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official CNDF record (1055) decodes with every subrecord placed and re-encodes identically; corpus)
 // - COBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950; corpus)
-// - COLL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official COLL record (62) decodes with every subrecord placed and re-encodes identically; corpus)
+// - COLL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969; reference)
 // - CONT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10982-L11028; corpus)
 // - CPTH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11031-L11049; corpus)
 // - CSTY (corpus: csty_types_full (crates/esm/tests/csty_types.rs), 2026-11-03: every official CSTY record (177) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -25627,22 +25627,53 @@ impl CobjRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CollFlags(pub u32);
+
+impl CollFlags {
+    pub const TRIGGER_VOLUME: u32 = 0x1;
+    pub const SENSOR: u32 = 0x2;
+    pub const NAVMESH_OBSTACLE: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for CollFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for CollFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CollRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `NLDT`, optional.
-    pub nldt: Option<Sub<Bytes>>,
+    pub context_notes: Option<Sub<ZString>>,
     /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
-    /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub index: Option<Sub<u32>>,
+    /// `FNAM`, optional.
+    pub debug_color: Option<Sub<ColorRgb>>,
     /// `GNAM`, required.
-    pub gnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<CollFlags>>,
     /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
-    /// `CNAM`, optional.
-    pub cnam: Option<Sub<Bytes>>,
+    pub name: Option<Sub<ZString>>,
+    /// `CNAM`, repeated.
+    pub collides_with: Vec<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -25658,6 +25689,14 @@ impl CollRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
             sig: *b"NLDT",
             card: Card::Optional,
         },
@@ -25667,7 +25706,7 @@ impl CollRecord {
         },
         MemberDesc::Sub {
             sig: *b"FNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"GNAM",
@@ -25679,7 +25718,7 @@ impl CollRecord {
         },
         MemberDesc::Sub {
             sig: *b"CNAM",
-            card: Card::Optional,
+            card: Card::Repeated,
         },
     ];
 
@@ -25696,23 +25735,41 @@ impl CollRecord {
                     put(&mut self.editor_id, subs, *index, "COLL.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.nldt, subs, *index, "COLL.NLDT", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "COLL.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.bnam, subs, *index, "COLL.BNAM", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.fnam, subs, *index, "COLL.FNAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.context_notes,
+                    subs,
+                    *index,
+                    "COLL.NLDT",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.gnam, subs, *index, "COLL.GNAM", ctx, extra)
+                    put(&mut self.index, subs, *index, "COLL.BNAM", ctx, extra)
                 }
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.mnam, subs, *index, "COLL.MNAM", ctx, extra)
+                    put(&mut self.debug_color, subs, *index, "COLL.FNAM", ctx, extra)
                 }
                 Hit::Sub { member: 6, index } => {
-                    put(&mut self.cnam, subs, *index, "COLL.CNAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "COLL.GNAM", ctx, extra)
                 }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.name, subs, *index, "COLL.MNAM", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => push(
+                    &mut self.collides_with,
+                    subs,
+                    *index,
+                    "COLL.CNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -25720,16 +25777,32 @@ impl CollRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"NLDT", self.nldt.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"GNAM", self.gnam.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"NLDT", self.context_notes.as_ref());
+        emit(out, *b"BNAM", self.index.as_ref());
+        emit(out, *b"FNAM", self.debug_color.as_ref());
+        emit(out, *b"GNAM", self.flags.as_ref());
+        emit(out, *b"MNAM", self.name.as_ref());
+        for value in &self.collides_with {
+            emit(out, *b"CNAM", Some(value));
+        }
     }
 }
 
-impl Visit for CollRecord {}
+impl Visit for CollRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "COLL.BfcbBlock", out);
+        visit_form_ids(&self.collides_with, "COLL.CNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "COLL.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.collides_with, "COLL.CNAM", out);
+    }
+}
 
 impl CollRecord {
     /// Record signature.

@@ -1,27 +1,27 @@
-# COLL: CollisionLayerForm, inventory definition (KK-107).
+# COLL: CollisionLayerForm, a collision layer of the physics world: its index,
+# debug colour, flags (trigger volume, sensor, navmesh obstacle), name, and the
+# other collision layers it collides with.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-107 scan of every official COLL record (62 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the COLL definition of wbDefinitionsSF1.pas at the pinned revision (L10953-L10969),
-#     cited per member for its position where it lists the subrecord.
+#   xedit: the COLL definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L10953-L10969): member order and cardinality, the BNAM u32 (L10959), the
+#     FNAM byte colour (L10960, the byte colour helper of wbDefinitionsCommon.pas
+#     L6954-L6968), the GNAM flags and their three bits (L10961-L10965), the MNAM
+#     string (L10966), the CNAM FormID list targeting COLL (L10968), the script
+#     data helper (L3407-L3411) and the base form component block (L5984-L6832).
+#   corpus: the scans of every official COLL record; each member's corpus line
+#     cites the scan that printed it (crates/esm/tests/coll_types.rs,
+#     coll_types_full).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has — VMAD and the base form
-# component block — are left out; a plugin that has one keeps it raw.
+# Names are ours, UpperCamelCase, CK wording where it exists; no xEdit code or
+# comments are copied. VMAD and the base form component block have xEdit layouts,
+# but no official record has either, so both stay at reference confidence.
 signature = "COLL"
 name = "CollisionLayerForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official COLL record (62) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969",
-]
-confidence = "corpus"
-note = "inventory definition (KK-107): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -37,73 +37,86 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-sig = "NLDT"
-name = "Nldt"
+sig = "VMAD"
+name = "Scripts"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 55 of 62 official COLL records (55 occurrences), 6..124 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10955-L10955"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10958-L10958",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 6..124 bytes"
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official COLL records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10956-L10956"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
+note = "base form components; not present in the official COLL records"
+
+[[member]]
+sig = "NLDT"
+name = "ContextNotes"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10958-L10958"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183",
+]
+confidence = "reference"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "Index"
+type = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10959-L10959",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10959-L10959"
+confidence = "reference"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
+name = "DebugColor"
+type = "ref:ColorRgb"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10960-L10960"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10960-L10960",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+confidence = "reference"
+note = "four bytes: red, green, blue, unused"
 
 [[member]]
 sig = "GNAM"
-name = "Gnam"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10961-L10961",
+bits = [
+  ["TriggerVolume", 0x1],
+  ["Sensor", 0x2],
+  ["NavmeshObstacle", 0x4],
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10961-L10965"
+confidence = "reference"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "Name"
+type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 62 of 62 official COLL records (62 occurrences), 6..25 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10966-L10966",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 6..25 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10966-L10966"
+confidence = "reference"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 59 of 62 official COLL records (59 occurrences), 4..160 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4..160 bytes"
+name = "CollidesWith"
+type = "formid"
+card = "repeated"
+targets = ["COLL"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10968-L10968"
+confidence = "reference"
+note = "one FormID per CNAM, each a COLL record"

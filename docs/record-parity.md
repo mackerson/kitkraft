@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 77: AACT, AAMD, AAPD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, COLL, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MOVT, MRPH, MTPT, MUSC, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 76: AACT, AAMD, AAPD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MOVT, MRPH, MTPT, MUSC, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 77:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    652,091 |   420,314 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,207,612 | 2,497,807 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    652,453 |   419,952 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,207,974 | 2,497,445 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 77:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:e2097cd6d4fe9d26` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:b2d9b78c1c1f1b06` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -183,7 +183,7 @@ Columns:
 | `PMFT`        | PhotoModeFeature               |        75 |          0 |     5 |     2 |      0 |       3 |
 | `BMMO`        | BiomeMarker                    |        71 |          0 |    15 |    14 |      1 |       0 |
 | `ANIO`        | AnimatedObject                 |        66 |          0 |     9 |     8 |      1 |       0 |
-| `COLL`        | CollisionLayerForm             |        62 |          0 |     7 |     1 |      6 |       0 |
+| `COLL`        | CollisionLayerForm             |        62 |          0 |     7 |     7 |      0 |       0 |
 | `SFPC`        | SurfacePatternConfig           |        62 |          0 |     5 |     1 |      4 |       0 |
 | `SUNP`        | SunPreset                      |        53 |          0 |     4 |     2 |      2 |       0 |
 | `LVLP`        | LeveledPackIn                  |        52 |          0 |    32 |    31 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,261 |    340 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,267 |    334 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,207,612 typed (0 of them failed to decode), 2,497,807 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,207,974 typed (54 of them failed to decode), 2,497,445 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -385,7 +385,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `PMFT`    | PhotoModeFeature               |            75 |        150 |      0 |         0 |         0 |                   0 |        150 |       0 |        0 |
 | `BMMO`    | BiomeMarker                    |            71 |        847 |      0 |         0 |         0 |                   0 |        847 |       0 |        0 |
 | `ANIO`    | AnimatedObject                 |            66 |        239 |      0 |         0 |         0 |                   0 |        239 |       0 |        0 |
-| `COLL`    | CollisionLayerForm             |            62 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
+| `COLL`    | CollisionLayerForm             |            62 |        370 |     54 |         0 |       308 |                   0 |         62 |       0 |        0 |
 | `SFPC`    | SurfacePatternConfig           |            62 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `SUNP`    | SunPreset                      |            53 |         99 |      0 |         0 |         0 |                   0 |         99 |       0 |        0 |
 | `LVLP`    | LeveledPackIn                  |            52 |      1,072 |      0 |         0 |         0 |                   0 |      1,072 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,207,612 |      0 |         0 |   232,876 |                   0 | 46,974,736 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,207,920 |     54 |         0 |   233,184 |                   0 | 46,974,736 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -500,7 +500,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CLMT`    | ClimateForm                    |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `CNDF`    | ConditionForm                  |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `COBJ`    | ConstructibleObject            |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
-| `COLL`    | CollisionLayerForm             |              7 |     1 |      6 |         0 |                   0 |      7 |       0 |        0 |
+| `COLL`    | CollisionLayerForm             |             41 |    37 |      4 |         7 |                   0 |     34 |       0 |        0 |
 | `CONT`    | Container                      |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath                     |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |             18 |    17 |      1 |         0 |                   0 |     18 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,256 | 5,589 |    667 |       491 |                   2 |  5,763 |       0 |        0 |
+| **Total** |                                |          6,290 | 5,625 |    665 |       498 |                   2 |  5,790 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
