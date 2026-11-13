@@ -626,7 +626,6 @@ const BX2_INVENTORY: &[&str] = &[
     "GBFT",
     "GCVR",
     "GPOG",
-    "GRAS",
     "GWED",
     "IDLM",
     "IMAD",
@@ -679,7 +678,6 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "LMSW",
     "MRPH",
     "MTPT",
-    "REGN",
     "VTYP",
 ];
 
