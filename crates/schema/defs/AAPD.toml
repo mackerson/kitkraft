@@ -1,167 +1,127 @@
-# AAPD: AimAssistPoseDataForm, inventory definition (KK-108).
+# AAPD: AimAssistPoseDataForm, aim-assist pose data: it holds the one aim-assist pill
+# (a marker, the start and end bone names, the radius and the weight), the count of the
+# bullet-bending pills, and the pills themselves (a bone pair, a radius and a weight each).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official AAPD record (22 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AAPD definition of wbDefinitionsSF1.pas at the pinned revision (L9117-L9150),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9117-L9150 - member order, the record flags
+#     (L9118-L9129, its ten flag bits), EDID (L9134), the base form components
+#     (L9135, the shared BfcbBlock), the required aim-assist pill (L9136-L9142), the
+#     count (L9143) and the repeated bullet-bending pills (L9144-L9149, repeated per
+#     count).
 signature = "AAPD"
 name = "AimAssistPoseDataForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAPD record (22) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences), 12..20 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9134-L9134",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
 
 [[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+group = "AimAssistPill"
+card = "required"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9136-L9142"]
+note = "the one aim-assist pill"
+
+[[member.member]]
 sig = "AAAP"
-name = "Aaap"
-type = "opaque"
+name = "AimAssistPillMarker"
+type = "empty"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences), 0 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9137-L9137",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 0 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9137-L9137"]
 
-[[member]]
+[[member.member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "StartBoneName"
+type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences, up to 1 per record), 6..12 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9138-L9138",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 6..12 bytes (this position and the Pills group combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9138-L9138"]
 
-[[member]]
+[[member.member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "EndBoneName"
+type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences, up to 1 per record), 5..15 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9139-L9139",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 5..15 bytes (this position and the Pills group combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9139-L9139"]
 
-[[member]]
+[[member.member]]
 sig = "RADR"
-name = "Radr"
-type = "opaque"
+name = "Radius"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences, up to 1 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9140-L9140",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes (this position and the Pills group combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9140-L9140"]
 
-[[member]]
+[[member.member]]
 sig = "WTMX"
-name = "Wtmx"
-type = "opaque"
+name = "Weight"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences, up to 1 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9141-L9141",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes (this position and the Pills group combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9141-L9141"]
 
 [[member]]
 sig = "AAPS"
-name = "Aaps"
-type = "opaque"
+name = "Count"
+type = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (22 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9143-L9143",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9143-L9143"]
 
 [[member]]
-group = "Pills"
+group = "BulletBendingPills"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (122 occurrences, up to 11 per record)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9144-L9144",
-]
-confidence = "corpus"
-note = "one pill: ANAM then BNAM then RADR then WTMX; the corpus shows the same four subrecords once, before AAPS, as well"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9144-L9149"]
+note = "the bullet-bending pills, repeated per the count"
 
 [[member.member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "StartBoneName"
+type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (122 occurrences, up to 11 per record), 6..12 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9145-L9145",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 6..12 bytes (this position and the top-level ANAM combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9145-L9145"]
 
 [[member.member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "EndBoneName"
+type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (122 occurrences, up to 11 per record), 5..15 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9146-L9146",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 5..15 bytes (this position and the top-level BNAM combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9146-L9146"]
 
 [[member.member]]
 sig = "RADR"
-name = "Radr"
-type = "opaque"
+name = "Radius"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (122 occurrences, up to 11 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9147-L9147",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes (this position and the top-level RADR combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9147-L9147"]
 
 [[member.member]]
 sig = "WTMX"
-name = "Wtmx"
-type = "opaque"
+name = "Weight"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 22 of 22 official AAPD records (122 occurrences, up to 11 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9148-L9148",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes (this position and the top-level WTMX combined)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9148-L9148"]
