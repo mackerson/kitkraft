@@ -42,7 +42,7 @@
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - AACT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AACT record (222) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AAMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAMD record (7) decodes with every subrecord placed and re-encodes identically; corpus)
-// - AAPD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAPD record (22) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AAPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150; reference)
 // - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
 // - ACTI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9199-L9274; corpus)
 // - ADDN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9277-L9296; corpus)
@@ -9445,106 +9445,22 @@ impl AamdRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct AapdPills {
-    /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
-    /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
-    /// `RADR`, required.
-    pub radr: Option<Sub<Bytes>>,
-    /// `WTMX`, required.
-    pub wtmx: Option<Sub<Bytes>>,
-}
-
-impl AapdPills {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"ANAM",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"BNAM",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"RADR",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"WTMX",
-            card: Card::Required,
-        },
-    ];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => {
-                    put(&mut self.anam, subs, *index, "AAPD.Pills.ANAM", ctx, extra)
-                }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.bnam, subs, *index, "AAPD.Pills.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.radr, subs, *index, "AAPD.Pills.RADR", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.wtmx, subs, *index, "AAPD.Pills.WTMX", ctx, extra)
-                }
-                _ => unmatched(hit, subs, extra),
-            }
-        }
-    }
-
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"RADR", self.radr.as_ref());
-        emit(out, *b"WTMX", self.wtmx.as_ref());
-    }
-}
-
-impl Visit for AapdPills {}
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct AapdRecord {
-    /// `EDID`, required.
-    pub editor_id: Option<Sub<ZString>>,
+pub struct AapdAimAssistPill {
     /// `AAAP`, required.
-    pub aaap: Option<Sub<Bytes>>,
+    pub aim_assist_pill_marker: Option<Sub<Empty>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub start_bone_name: Option<Sub<ZString>>,
     /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
+    pub end_bone_name: Option<Sub<ZString>>,
     /// `RADR`, required.
-    pub radr: Option<Sub<Bytes>>,
+    pub radius: Option<Sub<f32>>,
     /// `WTMX`, required.
-    pub wtmx: Option<Sub<Bytes>>,
-    /// `AAPS`, required.
-    pub aaps: Option<Sub<Bytes>>,
-    /// Group `Pills`, repeated.
-    pub pills: Vec<AapdPills>,
-    /// Subrecords that matched no member or failed to decode, each with its index
-    /// in the record body as read. `encode` re-inserts them at those indexes (see
-    /// `merge_extra`); when typed values are added or removed, an index stays a number,
-    /// so the entry may land next to different neighbours.
-    pub extra: Vec<(usize, OwnedSub)>,
+    pub weight: Option<Sub<f32>>,
 }
 
-impl AapdRecord {
+impl AapdAimAssistPill {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"EDID",
-            card: Card::Required,
-        },
         MemberDesc::Sub {
             sig: *b"AAAP",
             card: Card::Required,
@@ -9565,13 +9481,203 @@ impl AapdRecord {
             sig: *b"WTMX",
             card: Card::Required,
         },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.aim_assist_pill_marker,
+                    subs,
+                    *index,
+                    "AAPD.AimAssistPill.AAAP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.start_bone_name,
+                    subs,
+                    *index,
+                    "AAPD.AimAssistPill.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.end_bone_name,
+                    subs,
+                    *index,
+                    "AAPD.AimAssistPill.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.radius,
+                    subs,
+                    *index,
+                    "AAPD.AimAssistPill.RADR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.weight,
+                    subs,
+                    *index,
+                    "AAPD.AimAssistPill.WTMX",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"AAAP", self.aim_assist_pill_marker.as_ref());
+        emit(out, *b"ANAM", self.start_bone_name.as_ref());
+        emit(out, *b"BNAM", self.end_bone_name.as_ref());
+        emit(out, *b"RADR", self.radius.as_ref());
+        emit(out, *b"WTMX", self.weight.as_ref());
+    }
+}
+
+impl Visit for AapdAimAssistPill {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AapdBulletBendingPills {
+    /// `ANAM`, required.
+    pub start_bone_name: Option<Sub<ZString>>,
+    /// `BNAM`, required.
+    pub end_bone_name: Option<Sub<ZString>>,
+    /// `RADR`, required.
+    pub radius: Option<Sub<f32>>,
+    /// `WTMX`, required.
+    pub weight: Option<Sub<f32>>,
+}
+
+impl AapdBulletBendingPills {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"RADR",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"WTMX",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.start_bone_name,
+                    subs,
+                    *index,
+                    "AAPD.BulletBendingPills.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.end_bone_name,
+                    subs,
+                    *index,
+                    "AAPD.BulletBendingPills.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.radius,
+                    subs,
+                    *index,
+                    "AAPD.BulletBendingPills.RADR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.weight,
+                    subs,
+                    *index,
+                    "AAPD.BulletBendingPills.WTMX",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"ANAM", self.start_bone_name.as_ref());
+        emit(out, *b"BNAM", self.end_bone_name.as_ref());
+        emit(out, *b"RADR", self.radius.as_ref());
+        emit(out, *b"WTMX", self.weight.as_ref());
+    }
+}
+
+impl Visit for AapdBulletBendingPills {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AapdRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// Group `AimAssistPill`, required.
+    pub aim_assist_pill: Option<AapdAimAssistPill>,
+    /// `AAPS`, required.
+    pub bullet_bending_pill_count: Option<Sub<u32>>,
+    /// Group `BulletBendingPills`, repeated.
+    pub bullet_bending_pills: Vec<AapdBulletBendingPills>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl AapdRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: AapdAimAssistPill::MEMBERS,
+        },
         MemberDesc::Sub {
             sig: *b"AAPS",
             card: Card::Required,
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: AapdPills::MEMBERS,
+            members: AapdBulletBendingPills::MEMBERS,
         },
     ];
 
@@ -9587,28 +9693,28 @@ impl AapdRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "AAPD.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.aaap, subs, *index, "AAPD.AAAP", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.anam, subs, *index, "AAPD.ANAM", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.bnam, subs, *index, "AAPD.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.radr, subs, *index, "AAPD.RADR", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.wtmx, subs, *index, "AAPD.WTMX", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.aaps, subs, *index, "AAPD.AAPS", ctx, extra)
-                }
-                Hit::Group { member: 7, hits } => {
-                    let mut group = AapdPills::default();
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.pills.push(group);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Group { member: 2, hits } if self.aim_assist_pill.is_none() => {
+                    let mut group = AapdAimAssistPill::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.aim_assist_pill = Some(group);
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.bullet_bending_pill_count,
+                    subs,
+                    *index,
+                    "AAPD.AAPS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 4, hits } => {
+                    let mut group = AapdBulletBendingPills::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bullet_bending_pills.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -9617,23 +9723,52 @@ impl AapdRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"AAAP", self.aaap.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"RADR", self.radr.as_ref());
-        emit(out, *b"WTMX", self.wtmx.as_ref());
-        emit(out, *b"AAPS", self.aaps.as_ref());
-        for group in &self.pills {
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        if let Some(group) = &self.aim_assist_pill {
+            group.emit(out);
+        }
+        emit(out, *b"AAPS", self.bullet_bending_pill_count.as_ref());
+        for group in &self.bullet_bending_pills {
             group.emit(out);
         }
     }
 }
 
-impl Visit for AapdRecord {}
+impl Visit for AapdRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "AAPD.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "AAPD.BfcbBlock", out);
+    }
+}
 
 impl AapdRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"AAPD";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

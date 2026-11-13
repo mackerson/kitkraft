@@ -600,7 +600,6 @@ const LSTRING_ONLY: &[&str] = &["DMGT", "FXPD", "PMFT"];
 const BX2_INVENTORY: &[&str] = &[
     "AACT",
     "AAMD",
-    "AAPD",
     "AMBS",
     "AOPF",
     "AOPS",
