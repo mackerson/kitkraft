@@ -2,6 +2,7 @@
 id = "KK-245"
 title = "Type REGN and GRAS from the pinned xEdit file, corpus-checked"
 timeout_min = 60
+base = "kk/KK-245-wip"
 owns = [
   "crates/schema/defs/REGN.toml",
   "crates/schema/defs/GRAS.toml",
