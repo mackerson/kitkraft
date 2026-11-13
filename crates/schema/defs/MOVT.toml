@@ -1,108 +1,173 @@
-# MOVT: MovementTypeForm, inventory definition (KK-107).
+# MOVT: MovementTypeForm, the movement-type form of the creature movement system: it
+# names the type, carries the full movement data (maximum speed, acceleration and
+# rotation speed for each of the six directions plus the forward axis), the flight
+# angle gain, the fast-walk multiplier, a clamp flag and the character-only display
+# marker.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-107 scan of every official MOVT record (43 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the MOVT definition of wbDefinitionsSF1.pas at the pinned revision (L14608-L14619),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14608-L14619 - member order, EDID (L14609),
+#     MNAM (L14610), SPED (L14611, its layout L7771-L7789, the movement-speed group
+#     L7757-L7769 and the rotation-speed group L7743-L7755), LNAM (L14612), KNAM
+#     (L14613), INTV (L14614-L14617, its first field the shared Bool8 enumeration,
+#     wbDefinitionsCommon.pas L7514-L7521) and BOLV (L14618).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md).
+# The 14 official ESMs hold 43 MOVT records; the movt_types scan in
+# crates/esm/tests/movt_types.rs checks this definition against them: every
+# subrecord is placed, every placed subrecord decodes, and the re-encoding
+# reproduces every record.
 signature = "MOVT"
 name = "MovementTypeForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MOVT record (43) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14608-L14619",
-]
-confidence = "corpus"
-note = "inventory definition (KK-107): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14608-L14619"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 13..32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14609-L14609",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-confidence = "corpus"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 9..28 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14610-L14610",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 9..28 bytes"
+name = "Name"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14610-L14610"]
+note = "upstream marks it not required"
 
 [[member]]
 sig = "SPED"
-name = "Sped"
-type = "opaque"
+name = "MovementData"
+type = "struct"
+size = 252
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 252 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14611-L14611",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7771-L7789",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 252 bytes"
+field = [
+  { name = "MaxSpeedForward", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7772-L7780"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Sprint", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxSpeedLeft", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7757-L7769"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Unknown", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxSpeedRight", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7757-L7769"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Unknown", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxSpeedBack", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7757-L7769"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Unknown", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxSpeedUp", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7757-L7769"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Unknown", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxSpeedDown", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7757-L7769"], field = [
+    { name = "Unused", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Unknown", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Deceleration", type = "f32" },
+  ] },
+  { name = "MaxRotationSpeedPitch", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7743-L7755"], field = [
+    { name = "Stand", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Sprint", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Unused", type = "f32" },
+  ] },
+  { name = "MaxRotationSpeedRoll", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7743-L7755"], field = [
+    { name = "Stand", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Sprint", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Unused", type = "f32" },
+  ] },
+  { name = "MaxRotationSpeedYaw", type = "struct", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7743-L7755"], field = [
+    { name = "Stand", type = "f32" },
+    { name = "Walk", type = "f32" },
+    { name = "Jog", type = "f32" },
+    { name = "Run", type = "f32" },
+    { name = "Sprint", type = "f32" },
+    { name = "Acceleration", type = "f32" },
+    { name = "Unused", type = "f32" },
+  ] },
+]
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "FlightAngleGain"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14612-L14612",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14612-L14612"]
+note = "upstream default 0.1"
 
 [[member]]
 sig = "KNAM"
-name = "Knam"
-type = "opaque"
+name = "FastWalk"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14613-L14613",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14613-L14613"]
+note = "upstream default 1.15"
 
 [[member]]
 sig = "INTV"
-name = "Intv"
-type = "opaque"
+name = "Flags"
+type = "struct"
+size = 4
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 43 of 43 official MOVT records (43 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14614-L14614",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14614-L14617",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+field = [
+  { name = "ClampMaxAnimationSpeeds", type = "ref:Bool8" },
+  { name = "Unknown", type = "opaque", size = 3 },
+]
 
 [[member]]
 sig = "BOLV"
-name = "Bolv"
-type = "opaque"
+name = "DisplayCharacterOnly"
+type = "empty"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 43 official MOVT records (14 occurrences), 0 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14618-L14618",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 0 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14618-L14618"]
+note = "marker subrecord: upstream labels it 'Display For Non Characters'; its presence means the movement type is displayed for characters only, its absence is the upstream default"
