@@ -21,7 +21,7 @@
     clippy::indexing_slicing,
     clippy::unwrap_used,
     clippy::panic,
-    clippy::expect_used,
+    clippy::expect_used
 )]
 
 mod common;
@@ -108,7 +108,8 @@ fn check_record(
     if same {
         t.identical += 1;
     } else if t.failures.len() < 20 {
-        t.failures.push(format!("{name} {form_id:08X}: re-encoding differs"));
+        t.failures
+            .push(format!("{name} {form_id:08X}: re-encoding differs"));
     }
 }
 
