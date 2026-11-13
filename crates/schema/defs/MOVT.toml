@@ -29,15 +29,21 @@ card = "required"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14609-L14609",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "MNAM"
 name = "Name"
 type = "zstring"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14610-L14610"]
-note = "upstream marks it not required"
+evidence = [
+  "corpus: movt_types_full (crates/esm/tests/movt_types.rs), 2026-11-13: in 43 of 43 official MOVT records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14610-L14610",
+]
+note = "optional although all 43 official records carry it, since the pinned xEdit file does not require it (owner ruling 2026-11-07)"
 
 [[member]]
 sig = "SPED"
@@ -169,5 +175,8 @@ sig = "BOLV"
 name = "DisplayCharacterOnly"
 type = "empty"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14618-L14618"]
+evidence = [
+  "corpus: movt_types_full (crates/esm/tests/movt_types.rs), 2026-11-13: in 14 of 43 official MOVT records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14618-L14618",
+]
 note = "marker subrecord: upstream labels it 'Display For Non Characters'; its presence means the movement type is displayed for characters only, its absence is the upstream default"
