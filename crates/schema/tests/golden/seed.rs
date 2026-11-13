@@ -148,7 +148,7 @@
 // - MESG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14310-L14358; corpus)
 // - MGEF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554; corpus)
 // - MISC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14557-L14605; corpus)
-// - MOVT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MOVT record (43) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MOVT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14608-L14619; reference)
 // - MRPH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MRPH record (1145) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MSTT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14652-L14698; corpus)
 // - MTPT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MTPT record (906) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -54310,22 +54310,494 @@ impl MiscRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedForward {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub sprint: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedForward {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Sprint", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedForward.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            sprint: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.sprint.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedForward {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedLeft {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub unknown: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedLeft {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Unknown", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedLeft.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            unknown: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.unknown.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedLeft {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedRight {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub unknown: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedRight {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Unknown", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedRight.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            unknown: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.unknown.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedRight {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedBack {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub unknown: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedBack {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Unknown", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedBack.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            unknown: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.unknown.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedBack {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedUp {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub unknown: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedUp {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Unknown", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedUp.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            unknown: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.unknown.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedUp {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxSpeedDown {
+    pub unused: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub unknown: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+}
+
+impl Field for MovtMovementDataMaxSpeedDown {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Unused", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Unknown", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxSpeedDown.Deceleration", ctx)?;
+        Ok(Self {
+            unused: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            unknown: f4,
+            acceleration: f5,
+            deceleration: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.unknown.write(out);
+        self.acceleration.write(out);
+        self.deceleration.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxSpeedDown {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxRotationSpeedPitch {
+    pub stand: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub sprint: f32,
+    pub acceleration: f32,
+    pub unused: f32,
+}
+
+impl Field for MovtMovementDataMaxRotationSpeedPitch {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Stand", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Sprint", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxRotationSpeedPitch.Unused", ctx)?;
+        Ok(Self {
+            stand: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            sprint: f4,
+            acceleration: f5,
+            unused: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.stand.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.sprint.write(out);
+        self.acceleration.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxRotationSpeedPitch {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxRotationSpeedRoll {
+    pub stand: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub sprint: f32,
+    pub acceleration: f32,
+    pub unused: f32,
+}
+
+impl Field for MovtMovementDataMaxRotationSpeedRoll {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Stand", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Sprint", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxRotationSpeedRoll.Unused", ctx)?;
+        Ok(Self {
+            stand: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            sprint: f4,
+            acceleration: f5,
+            unused: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.stand.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.sprint.write(out);
+        self.acceleration.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxRotationSpeedRoll {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementDataMaxRotationSpeedYaw {
+    pub stand: f32,
+    pub walk: f32,
+    pub jog: f32,
+    pub run: f32,
+    pub sprint: f32,
+    pub acceleration: f32,
+    pub unused: f32,
+}
+
+impl Field for MovtMovementDataMaxRotationSpeedYaw {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Stand", ctx)?;
+        let f1 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Walk", ctx)?;
+        let f2 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Jog", ctx)?;
+        let f3 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Run", ctx)?;
+        let f4 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Sprint", ctx)?;
+        let f5 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Acceleration", ctx)?;
+        let f6 = f32::read(r, "MOVT.SPED.MaxRotationSpeedYaw.Unused", ctx)?;
+        Ok(Self {
+            stand: f0,
+            walk: f1,
+            jog: f2,
+            run: f3,
+            sprint: f4,
+            acceleration: f5,
+            unused: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.stand.write(out);
+        self.walk.write(out);
+        self.jog.write(out);
+        self.run.write(out);
+        self.sprint.write(out);
+        self.acceleration.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for MovtMovementDataMaxRotationSpeedYaw {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtMovementData {
+    pub max_speed_forward: MovtMovementDataMaxSpeedForward,
+    pub max_speed_left: MovtMovementDataMaxSpeedLeft,
+    pub max_speed_right: MovtMovementDataMaxSpeedRight,
+    pub max_speed_back: MovtMovementDataMaxSpeedBack,
+    pub max_speed_up: MovtMovementDataMaxSpeedUp,
+    pub max_speed_down: MovtMovementDataMaxSpeedDown,
+    pub max_rotation_speed_pitch: MovtMovementDataMaxRotationSpeedPitch,
+    pub max_rotation_speed_roll: MovtMovementDataMaxRotationSpeedRoll,
+    pub max_rotation_speed_yaw: MovtMovementDataMaxRotationSpeedYaw,
+}
+
+impl Field for MovtMovementData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "MOVT.SPED.MaxSpeedForward", ctx)?;
+        let f1 = Field::read(r, "MOVT.SPED.MaxSpeedLeft", ctx)?;
+        let f2 = Field::read(r, "MOVT.SPED.MaxSpeedRight", ctx)?;
+        let f3 = Field::read(r, "MOVT.SPED.MaxSpeedBack", ctx)?;
+        let f4 = Field::read(r, "MOVT.SPED.MaxSpeedUp", ctx)?;
+        let f5 = Field::read(r, "MOVT.SPED.MaxSpeedDown", ctx)?;
+        let f6 = Field::read(r, "MOVT.SPED.MaxRotationSpeedPitch", ctx)?;
+        let f7 = Field::read(r, "MOVT.SPED.MaxRotationSpeedRoll", ctx)?;
+        let f8 = Field::read(r, "MOVT.SPED.MaxRotationSpeedYaw", ctx)?;
+        Ok(Self {
+            max_speed_forward: f0,
+            max_speed_left: f1,
+            max_speed_right: f2,
+            max_speed_back: f3,
+            max_speed_up: f4,
+            max_speed_down: f5,
+            max_rotation_speed_pitch: f6,
+            max_rotation_speed_roll: f7,
+            max_rotation_speed_yaw: f8,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.max_speed_forward.write(out);
+        self.max_speed_left.write(out);
+        self.max_speed_right.write(out);
+        self.max_speed_back.write(out);
+        self.max_speed_up.write(out);
+        self.max_speed_down.write(out);
+        self.max_rotation_speed_pitch.write(out);
+        self.max_rotation_speed_roll.write(out);
+        self.max_rotation_speed_yaw.write(out);
+    }
+}
+
+impl Visit for MovtMovementData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MovtFlags {
+    pub clamp_max_animation_speeds: Bool8,
+    pub unknown: [u8; 3],
+}
+
+impl Field for MovtFlags {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "MOVT.INTV.ClampMaxAnimationSpeeds", ctx)?;
+        let f1 = Field::read(r, "MOVT.INTV.Unknown", ctx)?;
+        Ok(Self {
+            clamp_max_animation_speeds: f0,
+            unknown: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.clamp_max_animation_speeds.write(out);
+        self.unknown.write(out);
+    }
+}
+
+impl Visit for MovtFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MovtRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
+    /// `MNAM`, optional.
+    pub name: Option<Sub<ZString>>,
     /// `SPED`, required.
-    pub sped: Option<Sub<Bytes>>,
+    pub movement_data: Option<Sub<MovtMovementData>>,
     /// `LNAM`, required.
-    pub lnam: Option<Sub<Bytes>>,
+    pub flight_angle_gain: Option<Sub<f32>>,
     /// `KNAM`, required.
-    pub knam: Option<Sub<Bytes>>,
+    pub fast_walk: Option<Sub<f32>>,
     /// `INTV`, required.
-    pub intv: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<MovtFlags>>,
     /// `BOLV`, optional.
-    pub bolv: Option<Sub<Bytes>>,
+    pub display_character_only: Option<Sub<Empty>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -54342,7 +54814,7 @@ impl MovtRecord {
         },
         MemberDesc::Sub {
             sig: *b"MNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"SPED",
@@ -54379,23 +54851,38 @@ impl MovtRecord {
                     put(&mut self.editor_id, subs, *index, "MOVT.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.mnam, subs, *index, "MOVT.MNAM", ctx, extra)
+                    put(&mut self.name, subs, *index, "MOVT.MNAM", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.sped, subs, *index, "MOVT.SPED", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.lnam, subs, *index, "MOVT.LNAM", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.movement_data,
+                    subs,
+                    *index,
+                    "MOVT.SPED",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.flight_angle_gain,
+                    subs,
+                    *index,
+                    "MOVT.LNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.knam, subs, *index, "MOVT.KNAM", ctx, extra)
+                    put(&mut self.fast_walk, subs, *index, "MOVT.KNAM", ctx, extra)
                 }
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.intv, subs, *index, "MOVT.INTV", ctx, extra)
+                    put(&mut self.flags, subs, *index, "MOVT.INTV", ctx, extra)
                 }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.bolv, subs, *index, "MOVT.BOLV", ctx, extra)
-                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.display_character_only,
+                    subs,
+                    *index,
+                    "MOVT.BOLV",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -54403,12 +54890,12 @@ impl MovtRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"SPED", self.sped.as_ref());
-        emit(out, *b"LNAM", self.lnam.as_ref());
-        emit(out, *b"KNAM", self.knam.as_ref());
-        emit(out, *b"INTV", self.intv.as_ref());
-        emit(out, *b"BOLV", self.bolv.as_ref());
+        emit(out, *b"MNAM", self.name.as_ref());
+        emit(out, *b"SPED", self.movement_data.as_ref());
+        emit(out, *b"LNAM", self.flight_angle_gain.as_ref());
+        emit(out, *b"KNAM", self.fast_walk.as_ref());
+        emit(out, *b"INTV", self.flags.as_ref());
+        emit(out, *b"BOLV", self.display_character_only.as_ref());
     }
 }
 
