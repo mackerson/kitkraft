@@ -8,6 +8,13 @@
 #     (L9135, the shared BfcbBlock), the required aim-assist pill (L9136-L9142), the
 #     count (L9143) and the repeated bullet-bending pills (L9144-L9149, repeated per
 #     count).
+#
+# The 14 official ESMs hold 22 AAPD records; the aapd_types scan in
+# crates/esm/tests/aapd_types.rs checks this definition against them: every
+# subrecord is placed, every placed subrecord decodes, and the re-encoding
+# reproduces every record. In all 22 the count (AAPS) equals the number of
+# bullet-bending pills held (1 to 11 per record, 122 in total), and none has a
+# base form component.
 signature = "AAPD"
 name = "AimAssistPoseDataForm"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150"
@@ -41,13 +48,21 @@ confidence = "corpus"
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
-note = "base form components"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: aapd_types_full (crates/esm/tests/aapd_types.rs), 2026-11-13: 0 of the 22 official AAPD records have a base form component (no BFCB, no BFCE)",
+]
+confidence = "reference"
+note = "base form components, not present in the official 22 AAPD records"
 
 [[member]]
 group = "AimAssistPill"
 card = "required"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9136-L9142"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9136-L9142",
+  "corpus: aapd_types_full (crates/esm/tests/aapd_types.rs), 2026-11-13: all 22 official AAPD records hold the aim-assist pill (AAAP, ANAM, BNAM, RADR and WTMX)",
+]
+confidence = "corpus"
 note = "the one aim-assist pill"
 
 [[member.member]]
@@ -87,15 +102,23 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 
 [[member]]
 sig = "AAPS"
-name = "Count"
+name = "BulletBendingPillCount"
 type = "u32"
 card = "required"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9143-L9143"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9143-L9143",
+  "corpus: aapd_types_full (crates/esm/tests/aapd_types.rs), 2026-11-13: in all 22 official AAPD records the count equals the number of bullet-bending pills held (1 to 11 per record, 122 in total)",
+]
+confidence = "corpus"
 
 [[member]]
 group = "BulletBendingPills"
 card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9144-L9149"]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9144-L9149",
+  "corpus: aapd_types_full (crates/esm/tests/aapd_types.rs), 2026-11-13: in all 22 official AAPD records the pills are repeated exactly the AAPS times (1 to 11 per record, 122 in total)",
+]
+confidence = "corpus"
 note = "the bullet-bending pills, repeated per the count"
 
 [[member.member]]

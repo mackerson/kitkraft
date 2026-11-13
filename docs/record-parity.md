@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 74:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:14d81d1a1fc6a235` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:4811f08a1f1c35d2` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -407,7 +407,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
 | `TRAV`    | Traversal                      |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
 | `TXST`    | TextureSet                     |            23 |        191 |      0 |         0 |         0 |                   0 |        191 |       0 |        0 |
-| `AAPD`    | AimAssistPoseDataForm          |            22 |        642 |      0 |         0 |       620 |                   0 |         22 |       0 |        0 |
+| `AAPD`    | AimAssistPoseDataForm          |            22 |        642 |      0 |         0 |         0 |                   0 |        642 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode          |            22 |        142 |      0 |         0 |         0 |                   0 |        142 |       0 |        0 |
 | `AOPS`    | AimOpticalSightMarker          |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `CLDF`    | Clouds                         |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,209,296 |      0 |         0 |   234,198 |                   0 | 46,975,098 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,209,296 |      0 |         0 |   233,578 |                   0 | 46,975,718 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -465,7 +465,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | --------- | ------------------------------ | -------------: | ----: | -----: | --------: | ------------------: | -----: | ------: | -------: |
 | `AACT`    | ActionForm                     |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `AAMD`    | AimAssistModelData             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `AAPD`    | AimAssistPoseDataForm          |             44 |    41 |      3 |        10 |                   0 |     34 |       0 |        0 |
+| `AAPD`    | AimAssistPoseDataForm          |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `ACHR`    | PlacedNpc                      |             76 |    70 |      6 |        11 |                   0 |     65 |       0 |        0 |
 | `ACTI`    | Activator                      |             78 |    73 |      5 |         9 |                   0 |     69 |       0 |        0 |
 | `ADDN`    | AddonNode                      |             46 |    41 |      5 |         2 |                   0 |     44 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,357 | 5,701 |    656 |       509 |                   2 |  5,846 |       0 |        0 |
+| **Total** |                                |          6,357 | 5,701 |    656 |       499 |                   2 |  5,856 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
