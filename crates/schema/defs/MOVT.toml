@@ -179,4 +179,4 @@ evidence = [
   "corpus: movt_types_full (crates/esm/tests/movt_types.rs), 2026-11-13: in 14 of 43 official MOVT records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14618-L14618",
 ]
-note = "marker subrecord: upstream labels it 'Display For Non Characters'; its presence means the movement type is displayed for characters only, its absence is the upstream default"
+note = "marker subrecord, upstream 'Display For Non Characters': the CK's Display Character Only option is on where it is missing (the default) and off where it is present; the member keeps the CK name, so present means that option is off"
