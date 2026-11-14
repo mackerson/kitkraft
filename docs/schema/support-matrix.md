@@ -46,8 +46,9 @@ that is still pending is not a row.
 
 Seeded 2026-10-15 from what `main` proves:
 
-- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA and OTFT
-  (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
+  KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
+  MESG, ENCH, IRES and HAZD (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -283,3 +284,104 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
   `arma_dangling_link_is_reported` (the race `RNAM`, the additional races `MODL`) and
   `otft_dangling_link_is_reported` (the outfit items `INAM`): each link is reported by
   `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## ALCH, BOOK and KEYM (KK-258, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), ALCH and BOOK on the `ContactShadow`
+component layout; KEYM has no base form component block, so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ALCH | not-run | pass |
+| BOOK | not-run | pass |
+| KEYM | not-run | pass |
+
+- `alch_new_sets_every_typed_member_and_reads_back` (46 subrecords),
+  `book_new_sets_every_typed_member_and_reads_back` (38) and
+  `keym_new_sets_every_typed_member_and_reads_back` (32): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. BOOK's
+  `CNAM` is whole-opaque, which `validate` counts as its one unchecked subrecord; the
+  `VMAD` kept opaque in ALCH and KEYM is not written.
+- `alch_dangling_link_is_reported` (the equipment type `ETYP`, the effect data's
+  addiction spell `ENIT.Addiction`, an effect's base effect `EFID`),
+  `book_dangling_link_is_reported` (`DEFL`, `FIMD`, the inventory art `INAM`, the scene
+  `GNAM`) and `keym_dangling_link_is_reported` (`FIMD`, the keywords `KWDA`): each link is
+  reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## FLOR, DOOR and LIGH (KK-259, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the `ContactShadow` component
+layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| FLOR | not-run | pass |
+| DOOR | not-run | pass |
+| LIGH | not-run | pass |
+
+- `flor_new_sets_every_typed_member_and_reads_back` (47 subrecords),
+  `door_new_sets_every_typed_member_and_reads_back` (39) and
+  `ligh_new_sets_every_typed_member_and_reads_back` (38): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. DOOR's
+  three whole-opaque members (`ONAM`, `CNAM`, `NVNM`) are its unchecked subrecords.
+  LIGH keeps `FULL` opaque in its definition, but `validate` reads a `FULL` with only
+  opaque bytes in the schema through the engine's lstring fallback, so the test
+  (`writes_and_reads_back_with`, `FULL` named) expects it checked: LIGH has no
+  unchecked subrecord.
+- `flor_dangling_link_is_reported` (the ingredient `PFIG`, the maximum-count global
+  `FMAG`, the explosion `FLXP`), `door_dangling_link_is_reported` (the snap template
+  `SNTP`, the native terminal `NTRM`, the keywords `KWDA`) and
+  `ligh_dangling_link_is_reported` (the default layer `DEFL`, the lens `LNAM`, `KWDA`):
+  each link is reported by `validate`'s `formid.dangling` and listed as `missing` by
+  `refs`.
+
+## FURN, MSTT and MESG (KK-260, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the `ContactShadow` component
+layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| FURN | not-run | pass |
+| MSTT | not-run | pass |
+| MESG | not-run | pass |
+
+- `furn_new_sets_every_typed_member_and_reads_back` (51 subrecords),
+  `mstt_new_sets_every_typed_member_and_reads_back` (34) and
+  `mesg_new_sets_every_typed_member_and_reads_back` (20): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. FURN's
+  marker files (`NNAM`, whole-opaque) are its one unchecked subrecord; the `VMAD` the
+  three definitions keep raw is not written.
+- `furn_dangling_link_is_reported` (the snap template `SNTP`, the native terminal
+  `NTRM`, the water `WTFM`), `mstt_dangling_link_is_reported` (`SNTP`, the snap behavior
+  `SNBH`, the default layer `DEFL`) and `mesg_dangling_link_is_reported` (the icon `INAM`,
+  the owner quest `QNAM`, the reference `DODT`): each link is reported by `validate`'s
+  `formid.dangling` and listed as `missing` by `refs`.
+
+## ENCH, IRES and HAZD (KK-265, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), ENCH and HAZD on the `ContactShadow`
+component layout; IRES has no base form component block, so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ENCH | not-run | pass |
+| IRES | not-run | pass |
+| HAZD | not-run | pass |
+
+- `ench_new_sets_every_typed_member_and_reads_back` (18 subrecords),
+  `ires_new_sets_every_typed_member_and_reads_back` (14) and
+  `hazd_new_sets_every_typed_member_and_reads_back` (24): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding and no
+  unchecked subrecord (the `VMAD` ENCH and HAZD keep raw is not written).
+- `ench_dangling_link_is_reported` (the effect data's base enchantment
+  `ENIT.BaseEnchantment` and worn restrictions `ENIT.WornRestrictions`, an effect's base
+  effect `EFID`), `ires_dangling_link_is_reported` (the surface item `FNAM`, the resource
+  actor value `NAM1`, the resource item `NAM2`, the production interval `NAM3`) and
+  `hazd_dangling_link_is_reported` (the snap template `SNTP`, the default layer `DEFL`,
+  the image space modifier `MNAM`): each link is reported by `validate`'s
+  `formid.dangling` and listed as `missing` by `refs`.

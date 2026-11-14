@@ -2,7 +2,10 @@
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
-//! ARMO, ARMA and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the
+//! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
+//! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
+//! ENCH, IRES and HAZD (KK-265, 2026-11-14)
+//! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //!
@@ -382,6 +385,15 @@ pub(super) fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a
 
 /// The checks every typed-write test makes (module docs).
 fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
+    writes_and_reads_back_with(sig, layout, component, &[]);
+}
+
+/// [`writes_and_reads_back`], where the top-level whole-opaque members `lstring_fallback`
+/// (FULL or DESC kept opaque in the schema) are read by `validate` through the engine's
+/// lstring fallback (`edit::fields::finish`: FULL and DESC by the uesp-skyrim fact), so
+/// they are checked, not unchecked. Each must be a whole-opaque member of the definition;
+/// the unchecked count stays an exact equality.
+fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_fallback: &[&str]) {
     // The layout in the name: two layouts of one type (QUST) must not share a dir,
     // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
     let d = dir(&format!(
@@ -394,7 +406,19 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
     // asset.missing-model does not fire (KK-018).
     std::fs::create_dir_all(d.join("meshes")).unwrap();
     std::fs::write(d.join("meshes").join("Typed"), []).unwrap();
-    let p = plan(sig, layout, component);
+    let mut p = plan(sig, layout, component);
+    let def = kitkraft_schema::builtin()
+        .unwrap()
+        .record(kitkraft_schema::Signature::parse(sig).unwrap())
+        .unwrap();
+    for s in lstring_fallback {
+        let opaque = def.members.iter().any(|m| {
+            matches!(m, Member::Subrecord(sub) if sub.signature.as_str() == *s && sub.ty.is_opaque())
+        });
+        assert!(opaque, "{sig} {s}: not a top-level whole-opaque member");
+        assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
+        p.opaque -= 1;
+    }
     let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(
         r["data"]["validate"]["passed"],
@@ -1065,6 +1089,164 @@ fn lvli_dangling_link_is_reported() {
     );
 }
 
+#[test]
+fn alch_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ALCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn alch_dangling_link_is_reported() {
+    // The equipment type, the addiction spell (a field of the effect data) and an
+    // effect's base effect.
+    dangling(
+        "ALCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("ETYP", json!(MISSING)),
+            ("ENIT.Addiction", json!(MISSING)),
+            ("EFID", json!(MISSING)),
+        ],
+        &["ETYP", "ENIT", "EFID"],
+    );
+}
+
+#[test]
+fn book_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "BOOK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn book_dangling_link_is_reported() {
+    // The default layer, the featured-item message, the inventory art and the scene.
+    dangling(
+        "BOOK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("DEFL", json!(MISSING)),
+            ("FIMD", json!(MISSING)),
+            ("INAM", json!(MISSING)),
+            ("GNAM", json!(MISSING)),
+        ],
+        &["DEFL", "FIMD", "INAM", "GNAM"],
+    );
+}
+
+// KEYM has no base form component block of its own, so the layout and component name are
+// inert here; every other typed member of the definition is written and read back.
+#[test]
+fn keym_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "KEYM",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn keym_dangling_link_is_reported() {
+    // The featured-item message and the keyword list (a formid array, set whole as a JSON
+    // array of its elements).
+    dangling(
+        "KEYM",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("FIMD", json!(MISSING)), ("KWDA", json!([MISSING]))],
+        &["FIMD", "KWDA"],
+    );
+}
+
+#[test]
+fn flor_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FLOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn flor_dangling_link_is_reported() {
+    // The harvested ingredient, the maximum-count global and the explosion.
+    dangling(
+        "FLOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("PFIG", json!(MISSING)),
+            ("FMAG", json!(MISSING)),
+            ("FLXP", json!(MISSING)),
+        ],
+        &["PFIG", "FMAG", "FLXP"],
+    );
+}
+
+#[test]
+fn door_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "DOOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn door_dangling_link_is_reported() {
+    // The snap template, the native terminal and the keyword list (a formid array, set
+    // whole as a JSON array of its elements).
+    dangling(
+        "DOOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("NTRM", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+        ],
+        &["SNTP", "NTRM", "KWDA"],
+    );
+}
+
+// LIGH keeps FULL opaque (its definition: upstream types it as a localized string, absent
+// from every official LIGH record). The plan writes it as one opaque byte and would count
+// it unchecked, but `validate` reads a FULL with only opaque bytes in the schema through
+// the engine's lstring fallback, so it is checked (one NUL: an empty inline string in
+// this non-localized plugin) and reported as no unchecked subrecord.
+#[test]
+fn ligh_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with(
+        "LIGH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &["FULL"],
+    );
+}
+
+#[test]
+fn ligh_dangling_link_is_reported() {
+    // The default layer, the lens and the keyword list.
+    dangling(
+        "LIGH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("DEFL", json!(MISSING)),
+            ("LNAM", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+        ],
+        &["DEFL", "LNAM", "KWDA"],
+    );
+}
+
 /// The whole-array payloads the hex tests write: (record, subrecord, bytes, what the
 /// refusal and the finding must say). ACPR and LCPR entries are 16 bytes (Ref,
 /// WorldOrCell, two i16 grid values, 4 bytes), PRIS entries 20 (five REFR FormIDs), and
@@ -1279,4 +1461,159 @@ fn a_new_lvli_without_a_component_puts_each_condition_in_its_own_group() {
         .collect();
     assert_eq!(ctda, ["Conditions.Data", "Entries.Conditions.Data"]);
     let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn furn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FURN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn furn_dangling_link_is_reported() {
+    // The snap template, the native terminal and the water.
+    dangling(
+        "FURN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("NTRM", json!(MISSING)),
+            ("WTFM", json!(MISSING)),
+        ],
+        &["SNTP", "NTRM", "WTFM"],
+    );
+}
+
+#[test]
+fn mstt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MSTT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn mstt_dangling_link_is_reported() {
+    // The snap template, the snap behavior and the default layer.
+    dangling(
+        "MSTT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+        ],
+        &["SNTP", "SNBH", "DEFL"],
+    );
+}
+
+#[test]
+fn mesg_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MESG",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn mesg_dangling_link_is_reported() {
+    // The icon, the owner quest and the reference.
+    dangling(
+        "MESG",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("INAM", json!(MISSING)),
+            ("QNAM", json!(MISSING)),
+            ("DODT", json!(MISSING)),
+        ],
+        &["INAM", "QNAM", "DODT"],
+    );
+}
+
+#[test]
+fn ench_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ENCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn ench_dangling_link_is_reported() {
+    // The base enchantment and the worn restrictions (fields of the effect data) and an
+    // effect's base effect.
+    dangling(
+        "ENCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("ENIT.BaseEnchantment", json!(MISSING)),
+            ("ENIT.WornRestrictions", json!(MISSING)),
+            ("EFID", json!(MISSING)),
+        ],
+        &["BaseEnchantment", "WornRestrictions", "EFID"],
+    );
+}
+
+// IRES has no base form component block of its own, so the layout and component name are
+// inert here; every other typed member of the definition is written and read back.
+#[test]
+fn ires_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "IRES",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn ires_dangling_link_is_reported() {
+    // The surface item, the resource actor value, the resource item and the production
+    // interval global.
+    dangling(
+        "IRES",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("FNAM", json!(MISSING)),
+            ("NAM1", json!(MISSING)),
+            ("NAM2", json!(MISSING)),
+            ("NAM3", json!(MISSING)),
+        ],
+        &["FNAM", "NAM1", "NAM2", "NAM3"],
+    );
+}
+
+#[test]
+fn hazd_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "HAZD",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn hazd_dangling_link_is_reported() {
+    // The snap template, the default layer and the image space modifier.
+    dangling(
+        "HAZD",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+            ("MNAM", json!(MISSING)),
+        ],
+        &["SNTP", "DEFL", "MNAM"],
+    );
 }
