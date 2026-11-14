@@ -70,6 +70,42 @@ fn click(h: &mut Bench, label: &str) {
     settle(h);
 }
 
+/// The tab's button labelled `label`: the tab bar's toggle of the same name carries a
+/// toggled state, the button lacks it.
+fn plain_button<'a>(h: &'a Bench, label: &'a str) -> Node<'a> {
+    let all: Vec<Node<'a>> = h
+        .query_all_by_label(label)
+        .filter(|n| n.accesskit_node().role() == egui::accesskit::Role::Button)
+        .filter(|n| n.accesskit_node().toggled().is_none())
+        .collect();
+    assert_eq!(all.len(), 1, "one plain `{label}` button");
+    all.into_iter().next().expect("checked above")
+}
+
+/// `click` for a button that shares its label with a tab bar toggle (Load's "Load").
+fn click_plain(h: &mut Bench, label: &str) {
+    plain_button(h, label).scroll_to_me();
+    h.run_steps(3);
+    plain_button(h, label).click();
+    h.run_steps(2);
+    settle(h);
+}
+
+/// Principle 2 (audit A1): some node showing `text` is in view and starts below
+/// `button`, within a sixth of the window's height.
+fn refused_by(h: &Bench, text: &str, button: &egui::Rect) {
+    assert_in_view(h, text);
+    let first = nodes_with(h, text)
+        .into_iter()
+        .find(|n| in_view(n))
+        .expect("the refusal is in view")
+        .rect();
+    assert!(
+        first.min.y >= button.max.y && first.min.y - button.max.y < SIZE[1] / 6.0,
+        "the refusal starts below its button: {first:?} vs {button:?}"
+    );
+}
+
 // ---- the owner's findings, 2026-11-01 ------------------------------------------------------
 
 /// Finding 1 (principle 8): the Cell View has a tab-bar button and draws in the main
@@ -605,6 +641,34 @@ fn audit_every_tab() {
             open_tab(&mut h, tab);
         }
     }
+}
+
+/// Audit A1 (principle 2): a form a button refuses is shown by that button — in view,
+/// starting below it within a sixth of the window's height — not only in the notice
+/// line under the tabs.
+#[test]
+fn audit_a1_a_refused_form_is_shown_by_its_button() {
+    let Some(mut h) = workbench() else { return };
+
+    // Load: "Load" with an empty form.
+    open_tab(&mut h, Tab::Load);
+    let button = plain_button(&h, "Load").rect();
+    click_plain(&mut h, "Load");
+    refused_by(&h, "give an MO2 profile or at least one plugin", &button);
+
+    // Validate: "validate" with no plugin.
+    open_tab(&mut h, Tab::Validate);
+    let button = one(&h, "validate").rect();
+    click(&mut h, "validate");
+    refused_by(&h, "give a plugin", &button);
+
+    // Diff: "Compare" with one plugin (the other side is empty).
+    open_tab(&mut h, Tab::Diff);
+    h.state_mut().app.diff.form.a = "A.esm".to_string();
+    h.run_steps(2);
+    let button = one(&h, "Compare").rect();
+    click(&mut h, "Compare");
+    refused_by(&h, "give two plugins", &button);
 }
 
 /// Audit A2 (principle 1): "List" on a folder with no profiles says so by the button.
