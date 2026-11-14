@@ -792,7 +792,7 @@ pub(crate) fn envelope_block(
         Some(line) => {
             ui.horizontal(|ui| {
                 ui.weak(format!("{} ms", shown.elapsed.as_millis()));
-                if ui.small_button("copy").clicked() {
+                if ui.small_button("copy kit line").clicked() {
                     ui.ctx().copy_text(line.text.clone());
                 }
                 ui.monospace(&line.text);
@@ -816,7 +816,7 @@ pub(crate) fn envelope_block(
         }
     }
     ui.horizontal(|ui| {
-        if ui.small_button("copy").clicked() {
+        if ui.small_button("copy MCP call").clicked() {
             ui.ctx().copy_text(shown.mcp.clone());
         }
         ui.weak("MCP execute:");

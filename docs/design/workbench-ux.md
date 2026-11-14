@@ -104,13 +104,13 @@ that failed before the fix and passes after it.
 | A2 | Load | List | 1 | `load.png` | "List" on a folder with no profiles showed nothing. | Fixed: a line by the button says so. `audit_a2_an_empty_profiles_listing_says_so` |
 | A3 | Records | Query > Run | 1 | `records.png` | "Record types" opened expanded, which put the query form's Run at y 876 of 900, under the status line. | Fixed: "Record types" starts folded (as the tour already drew it). `audit_a3_the_records_query_opens_in_view` |
 | A4 | Help | Reload | 1 | `help.png` | "Reload" gave no visible sign it ran. | Fixed: the info line names what it reread. `audit_a4_help_reload_says_what_it_reread` |
-| A5 | every result block | copy, copy | 3 | `records.png` | Two buttons labelled "copy" per result (the `kit` line and the MCP call): same label, different actions. | Ticket `KK-247`. |
+| A5 | every result block | copy, copy | 3 | `records.png` | Two buttons labelled "copy" per result (the `kit` line and the MCP call): same label, different actions. | Fixed: the buttons read "copy kit line" and "copy MCP call" (`envelope_block`). `audit_a5_each_result_block_has_distinct_copy_buttons` |
 | A6 | any | Warnings, Use Info, Edit Dialog windows | 1, 8 | `ck-layout.png` | The CK-style windows open at fixed places over the current tab and over each other; with all open, the tab under them is unreadable. | Ticket `KK-248`. |
 | A7 | Cockpit, Validate | plugin path fields | 6 | `cockpit.png`, `validate.png` | A single-line field cuts a long path (`...\KitKraftMELDL`) with no way to read the rest but scrolling the caret. | Ticket `KK-249`. |
 | A8 | every tab with a table | `virtual_table` | 5, 7 | `cockpit.png` | egui sizes a nested scroll area from the space left in the visible window, so any table low on a scrolled page shrank to a few rows (the cause behind O2 and O5). | Fixed in `virtual_table_for` (a minimum height equal to its view's); `finding_5_...`, `finding_2_...` |
 | A9 | Records, Validate, Diff | wide tables | 5 | `records.png`, `validate.png` | Wide columns (plugin, message) end at the pane's edge; they scroll sideways. | No action: horizontal scroll is the table's design (style guide, "virtual table"). |
 
 The audit's inventory (`audit_every_tab`, engine with nothing loaded): no tab has two
-buttons with one label except "copy" (A5); every tab's heading opens in view; the Cockpit
-runs to y 1028 at 900 (its later groups scroll, by design); the Help tab to y 5967 (the
-docs).
+buttons with one label (A5's "copy" pair is now distinct); every tab's heading opens in
+view; the Cockpit runs to y 1028 at 900 (its later groups scroll, by design); the Help tab
+to y 5967 (the docs).

@@ -732,3 +732,23 @@ fn audit_a3_the_records_query_opens_in_view() {
     h.run_steps(4);
     assert_in_view(&h, "AACT");
 }
+
+/// Audit A5 (principle 3): the two copy buttons of a result block are labelled by what
+/// they copy, so one action has one button.
+#[test]
+fn audit_a5_each_result_block_has_distinct_copy_buttons() {
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Schema);
+    click(&mut h, "Show");
+    one(&h, "copy kit line");
+    one(&h, "copy MCP call");
+    // `assert_absent` is a substring check, so the old label is queried for exactly.
+    let old: Vec<Node> = h
+        .query_all_by(|n| text_of(n).as_deref() == Some("copy"))
+        .collect();
+    assert!(
+        old.is_empty(),
+        "a node still reads `copy`: {:?}",
+        old.iter().map(Node::rect).collect::<Vec<_>>()
+    );
+}
