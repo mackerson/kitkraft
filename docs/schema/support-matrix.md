@@ -47,8 +47,8 @@ that is still pending is not a row.
 Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
-  KEYM, FLOR, DOOR, LIGH, FURN, MSTT
-  and MESG (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
+  MESG, ENCH, IRES and HAZD (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -359,4 +359,29 @@ layout:
   `NTRM`, the water `WTFM`), `mstt_dangling_link_is_reported` (`SNTP`, the snap behavior
   `SNBH`, the default layer `DEFL`) and `mesg_dangling_link_is_reported` (the icon `INAM`,
   the owner quest `QNAM`, the reference `DODT`): each link is reported by `validate`'s
+  `formid.dangling` and listed as `missing` by `refs`.
+
+## ENCH, IRES and HAZD (KK-265, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), ENCH and HAZD on the `ContactShadow`
+component layout; IRES has no base form component block, so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ENCH | not-run | pass |
+| IRES | not-run | pass |
+| HAZD | not-run | pass |
+
+- `ench_new_sets_every_typed_member_and_reads_back` (18 subrecords),
+  `ires_new_sets_every_typed_member_and_reads_back` (14) and
+  `hazd_new_sets_every_typed_member_and_reads_back` (24): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding and no
+  unchecked subrecord (the `VMAD` ENCH and HAZD keep raw is not written).
+- `ench_dangling_link_is_reported` (the effect data's base enchantment
+  `ENIT.BaseEnchantment` and worn restrictions `ENIT.WornRestrictions`, an effect's base
+  effect `EFID`), `ires_dangling_link_is_reported` (the surface item `FNAM`, the resource
+  actor value `NAM1`, the resource item `NAM2`, the production interval `NAM3`) and
+  `hazd_dangling_link_is_reported` (the snap template `SNTP`, the default layer `DEFL`,
+  the image space modifier `MNAM`): each link is reported by `validate`'s
   `formid.dangling` and listed as `missing` by `refs`.

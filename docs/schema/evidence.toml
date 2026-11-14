@@ -325,6 +325,36 @@ evidence = [
 ]
 note = "KK-260: new with every typed leaf member (20 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling INAM, QNAM, DODT reported"
 
+[[entry]]
+type = "ENCH"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::ench_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::ench_dangling_link_is_reported",
+]
+note = "KK-265: new with every typed leaf member (18 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling ENIT.BaseEnchantment, ENIT.WornRestrictions, EFID reported"
+
+[[entry]]
+type = "IRES"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::ires_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::ires_dangling_link_is_reported",
+]
+note = "KK-265: new with every typed leaf member (14 subrecords; IRES has no component block), read back identically, validate with no finding; dangling FNAM, NAM1, NAM2, NAM3 reported"
+
+[[entry]]
+type = "HAZD"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::hazd_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::hazd_dangling_link_is_reported",
+]
+note = "KK-265: new with every typed leaf member (24 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling SNTP, DEFL, MNAM reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

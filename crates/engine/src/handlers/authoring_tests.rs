@@ -3,7 +3,8 @@
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
-//! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14)
+//! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
+//! ENCH, IRES and HAZD (KK-265, 2026-11-14)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1534,5 +1535,85 @@ fn mesg_dangling_link_is_reported() {
             ("DODT", json!(MISSING)),
         ],
         &["INAM", "QNAM", "DODT"],
+    );
+}
+
+#[test]
+fn ench_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ENCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn ench_dangling_link_is_reported() {
+    // The base enchantment and the worn restrictions (fields of the effect data) and an
+    // effect's base effect.
+    dangling(
+        "ENCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("ENIT.BaseEnchantment", json!(MISSING)),
+            ("ENIT.WornRestrictions", json!(MISSING)),
+            ("EFID", json!(MISSING)),
+        ],
+        &["BaseEnchantment", "WornRestrictions", "EFID"],
+    );
+}
+
+// IRES has no base form component block of its own, so the layout and component name are
+// inert here; every other typed member of the definition is written and read back.
+#[test]
+fn ires_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "IRES",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn ires_dangling_link_is_reported() {
+    // The surface item, the resource actor value, the resource item and the production
+    // interval global.
+    dangling(
+        "IRES",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("FNAM", json!(MISSING)),
+            ("NAM1", json!(MISSING)),
+            ("NAM2", json!(MISSING)),
+            ("NAM3", json!(MISSING)),
+        ],
+        &["FNAM", "NAM1", "NAM2", "NAM3"],
+    );
+}
+
+#[test]
+fn hazd_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "HAZD",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn hazd_dangling_link_is_reported() {
+    // The snap template, the default layer and the image space modifier.
+    dangling(
+        "HAZD",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+            ("MNAM", json!(MISSING)),
+        ],
+        &["SNTP", "DEFL", "MNAM"],
     );
 }
