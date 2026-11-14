@@ -669,7 +669,6 @@ const BX2_INVENTORY: &[&str] = &[
 /// the other by whether the file cites xEdit.
 #[rustfmt::skip]
 const INVENTORY_CORPUS_ONLY: &[&str] = &[
-    "ASPC",
     "CNDF",
     "CURV",
     "DFOB",
