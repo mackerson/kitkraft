@@ -235,6 +235,36 @@ evidence = [
 ]
 note = "new with every typed leaf member on the ContactShadow component layout, read back identically, validate with no finding (the read-back KK-017 ignored passes since KK-220's layout-aligned slots); a new LVLI with no component puts its list and entry conditions in their own groups; dangling LVLO.Item, DEFL, SNBH reported"
 
+[[entry]]
+type = "ALCH"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::alch_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::alch_dangling_link_is_reported",
+]
+note = "KK-258: new with every typed leaf member (46 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling ETYP, ENIT.Addiction, EFID reported"
+
+[[entry]]
+type = "BOOK"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::book_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::book_dangling_link_is_reported",
+]
+note = "KK-258: new with every typed leaf member (38 subrecords, CNAM whole-opaque and unchecked) on the ContactShadow component layout, read back identically, validate with no finding; dangling DEFL, FIMD, INAM, GNAM reported"
+
+[[entry]]
+type = "KEYM"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::keym_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::keym_dangling_link_is_reported",
+]
+note = "KK-258: new with every typed leaf member (32 subrecords; KEYM has no component block), read back identically, validate with no finding; dangling FIMD, KWDA reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

@@ -2,7 +2,8 @@
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
-//! ARMO, ARMA and OTFT (KK-021, 2026-10-27) (`docs/schema/support-matrix.md`, the
+//! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14)
+//! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //!
@@ -1062,6 +1063,82 @@ fn lvli_dangling_link_is_reported() {
             ("SNBH", json!(MISSING)),
         ],
         &["Item", "DEFL", "SNBH"],
+    );
+}
+
+#[test]
+fn alch_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ALCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn alch_dangling_link_is_reported() {
+    // The equipment type, the addiction spell (a field of the effect data) and an
+    // effect's base effect.
+    dangling(
+        "ALCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("ETYP", json!(MISSING)),
+            ("ENIT.Addiction", json!(MISSING)),
+            ("EFID", json!(MISSING)),
+        ],
+        &["ETYP", "ENIT", "EFID"],
+    );
+}
+
+#[test]
+fn book_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "BOOK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn book_dangling_link_is_reported() {
+    // The default layer, the featured-item message, the inventory art and the scene.
+    dangling(
+        "BOOK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("DEFL", json!(MISSING)),
+            ("FIMD", json!(MISSING)),
+            ("INAM", json!(MISSING)),
+            ("GNAM", json!(MISSING)),
+        ],
+        &["DEFL", "FIMD", "INAM", "GNAM"],
+    );
+}
+
+// KEYM has no base form component block of its own, so the layout and component name are
+// inert here; every other typed member of the definition is written and read back.
+#[test]
+fn keym_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "KEYM",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn keym_dangling_link_is_reported() {
+    // The featured-item message and the keyword list (a formid array, set whole as a JSON
+    // array of its elements).
+    dangling(
+        "KEYM",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("FIMD", json!(MISSING)), ("KWDA", json!([MISSING]))],
+        &["FIMD", "KWDA"],
     );
 }
 

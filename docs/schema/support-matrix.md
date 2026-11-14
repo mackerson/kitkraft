@@ -46,8 +46,8 @@ that is still pending is not a row.
 
 Seeded 2026-10-15 from what `main` proves:
 
-- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA and OTFT
-  (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK
+  and KEYM (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -283,3 +283,27 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
   `arma_dangling_link_is_reported` (the race `RNAM`, the additional races `MODL`) and
   `otft_dangling_link_is_reported` (the outfit items `INAM`): each link is reported by
   `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## ALCH, BOOK and KEYM (KK-258, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), ALCH and BOOK on the `ContactShadow`
+component layout; KEYM has no base form component block, so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ALCH | not-run | pass |
+| BOOK | not-run | pass |
+| KEYM | not-run | pass |
+
+- `alch_new_sets_every_typed_member_and_reads_back` (46 subrecords),
+  `book_new_sets_every_typed_member_and_reads_back` (38) and
+  `keym_new_sets_every_typed_member_and_reads_back` (32): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. BOOK's
+  `CNAM` is whole-opaque, which `validate` counts as its one unchecked subrecord; the
+  `VMAD` kept opaque in ALCH and KEYM is not written.
+- `alch_dangling_link_is_reported` (the equipment type `ETYP`, the effect data's
+  addiction spell `ENIT.Addiction`, an effect's base effect `EFID`),
+  `book_dangling_link_is_reported` (`DEFL`, `FIMD`, the inventory art `INAM`, the scene
+  `GNAM`) and `keym_dangling_link_is_reported` (`FIMD`, the keywords `KWDA`): each link is
+  reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
