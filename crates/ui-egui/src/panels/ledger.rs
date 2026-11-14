@@ -364,8 +364,8 @@ pub fn template_row(observations: &str, row: &str) -> Option<TemplateRow> {
 use eframe::egui::{self, ComboBox, RichText, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, panel_head, refuse, refusal_line, Action,
-    Refusals, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, panel_head, refusal_line, refuse, Action, Refusals,
+    Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status};
 

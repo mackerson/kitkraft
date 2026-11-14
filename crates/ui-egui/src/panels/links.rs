@@ -343,8 +343,8 @@ fn placed_text(p: &Value) -> Option<String> {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, form_cell, formid_status, panel_head, record_actions,
-    refusal_line, virtual_table_for, Action, Refusals, Slot, TabCtx,
+    action_bar, envelope_block, form_cell, formid_status, panel_head, record_actions, refusal_line,
+    virtual_table_for, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 

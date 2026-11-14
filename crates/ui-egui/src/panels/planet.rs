@@ -329,8 +329,8 @@ fn collect_placements(v: &Value, path: &str, out: &mut Vec<PlacementRow>, depth:
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, link, panel_head, record_actions, virtual_table,
-    refusal_line, Action, Refusals, Slot, TabCtx,
+    action_bar, envelope_block, link, panel_head, record_actions, refusal_line, virtual_table,
+    Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 

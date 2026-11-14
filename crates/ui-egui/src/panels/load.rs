@@ -217,8 +217,8 @@ pub fn list_profiles(profiles_dir: &Path) -> Vec<ProfileEntry> {
 use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, panel_head, refuse, refusal_line,
-    virtual_table_for, Action, Refusals, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, panel_head, refusal_line, refuse, virtual_table_for,
+    Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 

@@ -439,7 +439,7 @@ use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
 
 use crate::panels::common::{
     action_bar, clear_refusal, conf_label, envelope_block, link, panel_head, plugin_combo,
-    record_actions, refuse, refusal_line, virtual_table_for, Action, Refusals, Slot, TabCtx,
+    record_actions, refusal_line, refuse, virtual_table_for, Action, Refusals, Slot, TabCtx,
 };
 use crate::panels::planet::PLANET_TYPES;
 use crate::theme::{self, Field, Status, View};

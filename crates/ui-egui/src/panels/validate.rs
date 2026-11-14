@@ -212,7 +212,7 @@ use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
     action_bar, clear_refusal, envelope_block, findings_grid, panel_head, plugin_combo,
-    refuse, refusal_line, Action, Refusals, Slot, TabCtx,
+    refusal_line, refuse, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status};
 

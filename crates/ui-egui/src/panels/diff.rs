@@ -302,9 +302,8 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, link, panel_head, plugin_combo,
-    record_actions, refuse, refusal_line, virtual_table_for, Action, Refusals, Slot,
-    TabCtx,
+    action_bar, clear_refusal, envelope_block, link, panel_head, plugin_combo, record_actions,
+    refusal_line, refuse, virtual_table_for, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, View};
 
