@@ -1,98 +1,169 @@
-# LVSC: LeveledSpaceCell, inventory definition (KK-109).
+# LVSC: LeveledSpaceCell, a leveled list whose entries are space cells (or other leveled
+# space cells): the chance none, the pick flags, conditions on the whole list, an optional
+# global for the chance, and the entries, each with its own conditions.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official LVSC record (20 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LVSC definition of wbDefinitionsSF1.pas at the pinned revision (L14161-L14204),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14161-L14204 - member order, the record flags
+#     (L14162-L14172, ten bits by bit number), EDID (L14178), script data (L14179, kept
+#     opaque), the base form components (L14180, the shared BfcbBlock), the required LVLD
+#     (L14181; L2252), the required LVLM (L14182), the required LVLF flags (L14183-L14193,
+#     only bit 8 named), the list conditions (L14194; L4750-L4840, the shared Condition
+#     group), LVLG (L14195), LLCT (L14196; L2250) and the entries (L14197-L14203), each an
+#     LVLO (wbDefinitionsCommon.pas L9062-L9084) and its own conditions.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# Before KK-257 this was an inventory definition (KK-109): corpus order and cardinality,
+# every payload but EDID opaque. The order here is xEdit's, which is also the order of every
+# official record.
 signature = "LVSC"
 name = "LeveledSpaceCell"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVSC record (20) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14161-L14204",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14161-L14204"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (20 occurrences), 10..39 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14178-L14178",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14179-L14179",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+note = "script data; kept raw: its property values are unions by property type"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14180-L14180",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+note = "base form components"
 
 [[member]]
 sig = "LVLD"
-name = "Lvld"
-type = "opaque"
+name = "ChanceNone"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (20 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14181-L14181",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2252-L2252",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: all 20 official LVSC records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
 
 [[member]]
 sig = "LVLM"
-name = "Lvlm"
-type = "opaque"
+name = "MaxCount"
+type = "u8"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (20 occurrences), 1 byte"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14182-L14182",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: all 20 official LVSC records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 1 byte"
 
 [[member]]
 sig = "LVLF"
-name = "Lvlf"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u16"
+bits = [["DoAllBeforeRepeating", 0x100]]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (20 occurrences), 2 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14183-L14183",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14183-L14193",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: all 20 official LVSC records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 2 bytes"
+note = "upstream names only bit 8 for this record; the other bits are kept as read"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14194-L14194",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+]
+note = "conditions on the whole list"
+
+[[member]]
+sig = "LVLG"
+name = "UseChanceNoneGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14195-L14195"]
 
 [[member]]
 sig = "LLCT"
-name = "Llct"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (20 occurrences), 1 byte"
+name = "EntryCount"
+type = "u8"
+card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14196-L14196",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2250-L2250",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: all 20 official LVSC records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 1 byte"
+note = "number of Entries; stored, not derived: an edit that adds or removes an entry must update it"
 
 [[member]]
-sig = "LVLO"
-name = "Lvlo"
-type = "opaque"
+group = "Entries"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official LVSC records (134 occurrences, up to 16 per record), 12 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14197-L14197",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9065-L9065",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14197-L14203",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: all 20 official LVSC records have entries (LVLO, 12 bytes each), none with conditions, all decoding with this layout",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 12 bytes"
+note = "one entry per LVLO, with the conditions that follow it"
+
+[[member.member]]
+sig = "LVLO"
+name = "Entry"
+type = "struct"
+size = 12
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084"]
+note = "upstream lets the payload end after SpaceCell (the fields from Count on are optional); this layout is the full 12 bytes"
+field = [
+  { name = "Level", type = "u16" },
+  { name = "Unused1", type = "opaque", size = 2 },
+  { name = "SpaceCell", type = "formid", targets = ["CELL", "LVSC"] },
+  { name = "Count", type = "u16" },
+  { name = "ChanceNone", type = "u8" },
+  { name = "Unused2", type = "opaque", size = 1 },
+]
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "no official LVSC entry has conditions"

@@ -1,81 +1,86 @@
-# CNDF: ConditionForm, inventory definition (KK-224).
+# CNDF: ConditionForm, a named, reusable set of conditions other forms point to (sound
+# references, for one), with an optional owner quest or package whose aliases and data the
+# conditions may use.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official CNDF record (1055 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10861-L10883 - member order, the record flags
+#     (L10862-L10872, ten bits by bit number), EDID (L10878), the base form components
+#     (L10879, the shared BfcbBlock), the conditions (L10880; L4750-L4840, the shared
+#     Condition group: CTDA with optional CIS1 and CIS2; no CITC count precedes the list in
+#     this record), QNAM (L10881) and PNAM (L10882).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane decodes the record (docs/gaps.md).
+# Before KK-257 this was a corpus-only inventory definition (KK-224): corpus order and
+# cardinality, every payload but EDID opaque. The order here is xEdit's.
 signature = "CNDF"
 name = "ConditionForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official CNDF record (1055) decodes with every subrecord placed and re-encodes identically"
-confidence = "corpus"
-note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10861-L10883"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1055 of 1055 official CNDF records (1055 occurrences), 12..85 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10878-L10878",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
 
 [[member]]
-group = "CtdaEntries"
+group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1053 of 1055 official CNDF records (3037 occurrences, up to 45 per record), each entry CTDA (32 bytes, repeated), CIS2 (17..24 bytes, optional)"
-confidence = "corpus"
-note = "one entry per CTDA, its members in this order, the entries consecutive; 2 official records have no entries"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10879-L10879",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+note = "base form components"
 
-[[member.member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1053 of 1055 official CNDF records (3037 occurrences, up to 45 per record), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10880-L10880",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: 1053 of the 1055 official CNDF records have conditions (CTDA), CIS1 in 1 and CIS2 in 2, all decoding with the shared Condition layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 32 bytes"
-
-[[member.member]]
-sig = "CIS2"
-name = "Cis2"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 2 of 1055 official CNDF records (3 occurrences, up to 2 per record), 17..24 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 17..24 bytes"
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
+name = "OwnerQuest"
+type = "formid"
+targets = ["QUST"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 256 of 1055 official CNDF records (256 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10881-L10881",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: 256 of the 1055 official CNDF records have it",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "OwnerPackage"
+type = "formid"
+targets = ["PACK"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 2 of 1055 official CNDF records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10882-L10882",
+  "corpus: cndf_lvsc_types_full (crates/esm/tests/cndf_lvsc_types.rs), 2026-11-14: 2 of the 1055 official CNDF records have it, never together with QNAM",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes; never in one record with QNAM, so its order relative to it is not known from the corpus"
-
-[[member]]
-sig = "CIS1"
-name = "Cis1"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1 of 1055 official CNDF records (1 occurrence), 21 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 21 bytes; never in one record with QNAM, PNAM, so its order relative to them is not known from the corpus"

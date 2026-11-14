@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 68: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REGN, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 66: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REGN, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 68:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    667,822 |   404,583 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,223,343 | 2,482,076 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    671,335 |   401,070 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,226,856 | 2,478,563 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 68:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:2f64a9efbdb927d1` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:b6d70b08ed9dab9a` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -106,7 +106,7 @@ Columns:
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | MorphableObject                |     1,145 |          0 |     4 |     1 |      3 |       0 |
 | `SOUN`        | SoundMarker                    |     1,133 |          0 |     8 |     8 |      0 |       0 |
-| `CNDF`        | ConditionForm                  |     1,055 |          0 |     6 |     1 |      5 |       0 |
+| `CNDF`        | ConditionForm                  |     1,055 |          0 |     6 |     6 |      0 |       0 |
 | `FURN`        | Furniture                      |     1,045 |          0 |    50 |    40 |      4 |       6 |
 | `MGEF`        | MagicEffect                    |       989 |          0 |    12 |    10 |      2 |       0 |
 | `TMLM`        | TerminalMenu                   |       974 |          0 |    22 |    21 |      1 |       0 |
@@ -210,7 +210,7 @@ Columns:
 | `AOPS`        | AimOpticalSightMarker          |        21 |          0 |     2 |     1 |      1 |       0 |
 | `CLDF`        | Clouds                         |        21 |          0 |     2 |     1 |      1 |       0 |
 | `AOPF`        | AudioOcclusionPrimitive        |        20 |          0 |     5 |     1 |      4 |       0 |
-| `LVSC`        | LeveledSpaceCell               |        20 |          0 |     6 |     1 |      5 |       0 |
+| `LVSC`        | LeveledSpaceCell               |        20 |          0 |     6 |     6 |      0 |       0 |
 | `FSTS`        | FootstepSet                    |        19 |          0 |     3 |     1 |      2 |       0 |
 | `WATR`        | Water                          |        19 |          0 |    19 |    17 |      2 |       0 |
 | `IDLM`        | IdleMarker                     |        18 |          0 |    13 |    13 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,332 |    269 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,342 |    259 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,223,343 typed (0 of them failed to decode), 2,482,076 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,226,856 typed (0 of them failed to decode), 2,478,563 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -308,7 +308,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
 | `MRPH`    | MorphableObject                |         1,145 |      1,145 |      0 |         0 |         0 |                   0 |      1,145 |       0 |        0 |
 | `SOUN`    | SoundMarker                    |         1,133 |      5,715 |      0 |         0 |         0 |                   0 |      5,715 |       0 |        0 |
-| `CNDF`    | ConditionForm                  |         1,055 |      1,055 |      0 |         0 |         0 |                   0 |      1,055 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |         1,055 |      4,354 |      0 |         0 |         0 |                   0 |      4,354 |       0 |        0 |
 | `FURN`    | Furniture                      |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
 | `MGEF`    | MagicEffect                    |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
@@ -412,7 +412,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AOPS`    | AimOpticalSightMarker          |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `CLDF`    | Clouds                         |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `AOPF`    | AudioOcclusionPrimitive        |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
-| `LVSC`    | LeveledSpaceCell               |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
+| `LVSC`    | LeveledSpaceCell               |            20 |        234 |      0 |         0 |         0 |                   0 |        234 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |            19 |         19 |      0 |         0 |         0 |                   0 |         19 |       0 |        0 |
 | `WATR`    | Water                          |            19 |        299 |      0 |         0 |         0 |                   0 |        299 |       0 |        0 |
 | `IDLM`    | IdleMarker                     |            18 |        121 |      0 |         0 |         0 |                   0 |        121 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,223,343 |      0 |         0 |   233,807 |                   0 | 46,989,536 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,226,856 |      0 |         0 |   233,807 |                   0 | 46,993,049 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -498,7 +498,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CLDF`    | Clouds                         |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CLFM`    | ColorForm                      |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `CLMT`    | ClimateForm                    |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `CNDF`    | ConditionForm                  |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
 | `COBJ`    | ConstructibleObject            |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
 | `COLL`    | CollisionLayerForm             |             41 |    37 |      4 |         1 |                   0 |     40 |       0 |        0 |
 | `CONT`    | Container                      |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
@@ -565,7 +565,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LVLI`    | LeveledItem                    |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
 | `LVLP`    | LeveledPackIn                  |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
-| `LVSC`    | LeveledSpaceCell               |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `LVSC`    | LeveledSpaceCell               |             47 |    43 |      4 |         2 |                   0 |     45 |       0 |        0 |
 | `MAAM`    | MeleeAimAssistModel            |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `MATT`    | MaterialType                   |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
 | `MESG`    | Message                        |             51 |    47 |      4 |         3 |                   0 |     48 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,441 | 5,831 |    610 |       519 |                   2 |  5,920 |       0 |        0 |
+| **Total** |                                |          6,515 | 5,908 |    607 |       521 |                   2 |  5,992 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

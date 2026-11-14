@@ -635,7 +635,6 @@ const BX2_INVENTORY: &[&str] = &[
     "LGTM",
     "LSCR",
     "LTEX",
-    "LVSC",
     "MAAM",
     "NAVI",
     "NOCM",
@@ -666,7 +665,6 @@ const BX2_INVENTORY: &[&str] = &[
 /// the other by whether the file cites xEdit.
 #[rustfmt::skip]
 const INVENTORY_CORPUS_ONLY: &[&str] = &[
-    "CNDF",
     "CURV",
     "DFOB",
     "LMSW",
