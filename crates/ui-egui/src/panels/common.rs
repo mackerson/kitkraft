@@ -113,17 +113,17 @@ pub(crate) enum Action {
     Links(String, bool),
     /// `None` for the cursor, `Some` to page to it; the button that asked (for its
     /// refusal, `None` when a link or the tour asked).
-    LinksPage(Option<String>, Option<egui::Id>),
+    LinksPage(Option<String>, Option<&'static str>),
     Planet(String),
-    PlanetPage(Option<String>, Option<egui::Id>),
+    PlanetPage(Option<String>, Option<&'static str>),
     PickType(String),
-    QueryPage(Option<String>, Option<egui::Id>),
+    QueryPage(Option<String>, Option<&'static str>),
     UseProfile(PathBuf),
     /// A start-screen button: load this profile and remember the choice.
     LoadProfile(StartProfile),
     /// The Ledger panel's confirm click: append this row (the workbench's one write);
     /// the button that asked, for its refusal.
-    LedgerAppend(LedgerForm, Option<egui::Id>),
+    LedgerAppend(LedgerForm, Option<&'static str>),
     /// The Cockpit's "Record in Ledger": pre-fill the Ledger form with this probe row's
     /// form and switch to the Ledger tab (nothing is written; the owner confirms there).
     LedgerPrefill(LedgerForm),
@@ -185,8 +185,11 @@ pub(crate) struct TabCtx<'a> {
 }
 
 /// A tab's refusals (audit A1): the message each button last refused, by the
-/// button's `egui::Id`.
-pub(crate) type Refusals = HashMap<egui::Id, String>;
+/// button's name (`"links-next-page"`), unique within its tab. Not by the button's
+/// `egui::Id`: egui numbers an unnamed widget by its place among the widgets drawn
+/// before it, so a line appearing above the button ("First page", another refusal)
+/// would move its refusal to another button or to none.
+pub(crate) type Refusals = HashMap<&'static str, String>;
 
 /// A form's refusal, attached to the button that caused it: each tab keeps its
 /// buttons' refusals in its own `refusals` (cleared by the button's next click) and
@@ -194,21 +197,21 @@ pub(crate) type Refusals = HashMap<egui::Id, String>;
 ///
 /// `refuse` records `message` on `button` (called from a tab's click); `refusal_line`
 /// draws it, under the button's row.
-pub(crate) fn refuse(refusals: &mut Refusals, button: &egui::Response, message: impl Into<String>) {
-    refusals.insert(button.id, message.into());
+pub(crate) fn refuse(refusals: &mut Refusals, button: &'static str, message: impl Into<String>) {
+    refusals.insert(button, message.into());
 }
 
 /// Draws `refusals`'s refusal for `button`, if any (audit A1: by the button that
 /// caused it, never only in the notice line).
-pub(crate) fn refusal_line(ui: &mut egui::Ui, refusals: &Refusals, button: egui::Id) {
-    if let Some(message) = refusals.get(&button) {
+pub(crate) fn refusal_line(ui: &mut egui::Ui, refusals: &Refusals, button: &str) {
+    if let Some(message) = refusals.get(button) {
         theme::status_line(ui, Status::Fail, message);
     }
 }
 
 /// Clears `button`'s refusal (its click did not refuse).
-pub(crate) fn clear_refusal(refusals: &mut Refusals, button: egui::Id) {
-    refusals.remove(&button);
+pub(crate) fn clear_refusal(refusals: &mut Refusals, button: &str) {
+    refusals.remove(button);
 }
 
 /// The window's title (the OS title bar).

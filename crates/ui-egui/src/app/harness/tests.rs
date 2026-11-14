@@ -671,6 +671,32 @@ fn audit_a1_a_refused_form_is_shown_by_its_button() {
     refused_by(&h, "give two plugins", &button);
 }
 
+/// Audit A1, its review: a refusal is kept under the button's name, not egui's
+/// automatic id, so a line drawn above the button (here the Review refusal, in the
+/// plugin bar) leaves it by its button instead of losing it.
+#[test]
+fn audit_a1_a_refusal_stays_by_its_button_when_a_line_appears_above() {
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Cockpit);
+    h.state_mut().app.cockpit.form.mo2.clear();
+    h.run_steps(2);
+    // `click` scrolls the button into view: its place is read after the click.
+    click(&mut h, "Status");
+    let button = one(&h, "Status").rect();
+    refused_by(&h, "no MO2 instance: load the dev profile", &button);
+
+    // Review refuses only an empty plugin, when its button is disabled: its refusal is
+    // put where its click would put it.
+    h.state_mut().app.cockpit.refusals.insert(
+        "cockpit-review",
+        "pick the plugin under review first".to_string(),
+    );
+    h.run_steps(2);
+    assert_in_view(&h, "pick the plugin under review first");
+    let button = one(&h, "Status").rect();
+    refused_by(&h, "no MO2 instance: load the dev profile", &button);
+}
+
 /// Audit A2 (principle 1): "List" on a folder with no profiles says so by the button.
 #[test]
 fn audit_a2_an_empty_profiles_listing_says_so() {

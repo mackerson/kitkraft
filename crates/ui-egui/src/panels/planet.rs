@@ -340,7 +340,7 @@ pub(crate) struct PlanetTab {
     pub form: PlanetForm,
     pub view: Option<PlanetView>,
     pub cursor: Option<String>,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
 }
@@ -355,7 +355,7 @@ impl PlanetTab {
             "The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.",
         );
         action_bar(ui, |ui| {
-            let mut show_id: Option<egui::Id> = None;
+            let mut show_id: Option<&'static str> = None;
             ui.horizontal_wrapped(|ui| {
                 ui.label("form");
                 ui.add(
@@ -366,7 +366,7 @@ impl PlanetTab {
                 ui.label("nodes per page");
                 ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
                 let show = ui.add_enabled(!busy, egui::Button::new("Show"));
-                show_id = Some(show.id);
+                show_id = Some("planet-show");
                 if show.clicked() {
                     actions.push(Action::PlanetPage(None, show_id));
                 }
@@ -399,19 +399,19 @@ impl PlanetTab {
             for u in &view.unresolved {
                 theme::status(ui, Status::Fail, &format!("unresolved: {u}"));
             }
-            let mut first_id: Option<egui::Id> = None;
-            let mut next_id: Option<egui::Id> = None;
+            let mut first_id: Option<&'static str> = None;
+            let mut next_id: Option<&'static str> = None;
             ui.horizontal(|ui| {
                 if self.cursor.is_some() {
                     let first = ui.add_enabled(!busy, egui::Button::new("First page"));
-                    first_id = Some(first.id);
+                    first_id = Some("planet-first-page");
                     if first.clicked() {
                         actions.push(Action::PlanetPage(None, first_id));
                     }
                 }
                 if let Some(next) = &view.next_cursor {
                     let next_page = ui.add_enabled(!busy, egui::Button::new("Next page"));
-                    next_id = Some(next_page.id);
+                    next_id = Some("planet-next-page");
                     if next_page.clicked() {
                         actions.push(Action::PlanetPage(Some(next.clone()), next_id));
                     }

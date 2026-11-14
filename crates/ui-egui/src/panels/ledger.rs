@@ -380,7 +380,7 @@ pub(crate) struct LedgerTab {
     pub pending: Option<LedgerForm>,
     /// One line saying the form came from a session row (its `prefill` set it).
     pub prefill_source: Option<String>,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
 }
@@ -510,17 +510,17 @@ impl LedgerTab {
                     ui.weak("no template row for this check");
                 }
             }
-            let mut preview_id: Option<egui::Id> = None;
+            let mut preview_id: Option<&'static str> = None;
             ui.horizontal(|ui| {
                 let preview = ui
                     .add_enabled(!busy, egui::Button::new("Preview"))
                     .on_hover_text("`ledger` without confirm: shows the text, writes nothing");
-                preview_id = Some(preview.id);
+                preview_id = Some("ledger-preview");
                 if preview.clicked() {
-                    clear_refusal(refusals, preview.id);
+                    clear_refusal(refusals, "ledger-preview");
                     match form.preview_request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Ledger, req)),
-                        Err(e) => refuse(refusals, &preview, e),
+                        Err(e) => refuse(refusals, "ledger-preview", e),
                     }
                 }
                 if ui
@@ -538,7 +538,7 @@ impl LedgerTab {
             }
         });
         let mut cancel = false;
-        let mut confirm_id: Option<egui::Id> = None;
+        let mut confirm_id: Option<&'static str> = None;
         if let Some(p) = &self.pending {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 theme::status_line(
@@ -561,9 +561,9 @@ impl LedgerTab {
                 ui.horizontal(|ui| {
                     let confirm = ui
                         .add_enabled(!busy, egui::Button::new(RichText::new("Confirm: append").strong()));
-                    confirm_id = Some(confirm.id);
+                    confirm_id = Some("ledger-confirm");
                     if confirm.clicked() {
-                        actions.push(Action::LedgerAppend(p.clone(), Some(confirm.id)));
+                        actions.push(Action::LedgerAppend(p.clone(), Some("ledger-confirm")));
                         cancel = true;
                     }
                     if ui.button("Cancel").clicked() {

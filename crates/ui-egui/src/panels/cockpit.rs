@@ -1045,7 +1045,7 @@ pub(crate) struct CockpitTab {
     pub session_form: session::SessionForm,
     /// What the window knows about the session it started (M6.G4).
     pub session: session::SessionState,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
     /// The probes' drawing state: the selected row and the screenshot textures
@@ -1509,7 +1509,7 @@ impl CockpitTab {
     /// back to empty with one click (owner finding 4, 2026-11-01), and the review.
     fn plugin_bar(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
         let busy = ctx.busy;
-        let mut review_id: Option<egui::Id> = None;
+        let mut review_id: Option<&'static str> = None;
         ui.horizontal_wrapped(|ui| {
             ui.label(theme::subheading(ui, "Plugin under review"));
             let edit = ui.add(
@@ -1564,14 +1564,14 @@ impl CockpitTab {
                 .on_hover_text(
                     "validate, roundtrip --verify, then the plugin against its masters: reads only",
                 );
-            review_id = Some(review.id);
+            review_id = Some("cockpit-review");
             if review.clicked() {
-                clear_refusal(&mut self.refusals, review.id);
+                clear_refusal(&mut self.refusals, "cockpit-review");
                 match self.start_review(ctx.plugins) {
                     Ok(reqs) => ctx
                         .actions
                         .extend(reqs.into_iter().map(|(s, r)| Action::Submit(s, r))),
-                    Err(e) => refuse(&mut self.refusals, &review, e),
+                    Err(e) => refuse(&mut self.refusals, "cockpit-review", e),
                 }
             }
         });
@@ -1686,31 +1686,31 @@ impl CockpitTab {
             .as_ref()
             .map(|m| m.previous_id.clone())
             .filter(|t| !t.is_empty());
-        let mut status_id: Option<egui::Id> = None;
-        let mut deploy_id: Option<egui::Id> = None;
-        let mut rollback_id: Option<egui::Id> = None;
+        let mut status_id: Option<&'static str> = None;
+        let mut deploy_id: Option<&'static str> = None;
+        let mut rollback_id: Option<&'static str> = None;
         ui.horizontal_wrapped(|ui| {
             let status = ui
                 .add_enabled(!busy, egui::Button::new("Status"))
                 .on_hover_text("deploy.status: the dev mod, its live and previous deployments (read-only)");
-            status_id = Some(status.id);
+            status_id = Some("cockpit-status");
             if status.clicked() {
-                clear_refusal(&mut self.refusals, status.id);
+                clear_refusal(&mut self.refusals, "cockpit-status");
                 match self.form.status_request() {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitStatus, r)),
-                    Err(e) => refuse(&mut self.refusals, &status, e),
+                    Err(e) => refuse(&mut self.refusals, "cockpit-status", e),
                 }
             }
             let deploy = ui
                 .add_enabled(!busy, egui::Button::new("Preview deploy"))
                 .on_hover_text("deploy --dev --dry-run: the plan and every path it would touch; writes nothing");
-            deploy_id = Some(deploy.id);
+            deploy_id = Some("cockpit-preview-deploy");
             if deploy.clicked() {
-                clear_refusal(&mut self.refusals, deploy.id);
+                clear_refusal(&mut self.refusals, "cockpit-preview-deploy");
                 self.pending = None;
                 match self.form.preview_request(WriteKind::Deploy, None) {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitDeploy, r)),
-                    Err(e) => refuse(&mut self.refusals, &deploy, e),
+                    Err(e) => refuse(&mut self.refusals, "cockpit-preview-deploy", e),
                 }
             }
             let gate_d = confirm_gate(WriteKind::Deploy, &self.form, &target, self.deploy.as_ref(), None);
@@ -1730,13 +1730,13 @@ impl CockpitTab {
                 .add_enabled(!busy && dev_mod.is_some(), egui::Button::new("Preview roll back"))
                 .on_hover_text("deploy.rollback --dry-run: swap the .previous deployment back in; writes nothing")
                 .on_disabled_hover_text("read the dev mod's Status first: roll back needs its .previous deployment");
-            rollback_id = Some(rollback.id);
+            rollback_id = Some("cockpit-preview-rollback");
             if rollback.clicked() {
-                clear_refusal(&mut self.refusals, rollback.id);
+                clear_refusal(&mut self.refusals, "cockpit-preview-rollback");
                 self.pending = None;
                 match self.form.preview_request(WriteKind::Rollback, to.as_deref()) {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitRollback, r)),
-                    Err(e) => refuse(&mut self.refusals, &rollback, e),
+                    Err(e) => refuse(&mut self.refusals, "cockpit-preview-rollback", e),
                 }
             }
             let gate_r = confirm_gate(

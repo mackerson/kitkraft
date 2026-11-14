@@ -235,7 +235,7 @@ pub(crate) struct LoadTab {
     pub data: u64,
     /// The folder "List" last listed, so an empty listing says so (UX audit A2).
     pub listed: Option<String>,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
 }
@@ -308,13 +308,13 @@ impl LoadTab {
             );
             let resp = ui.add_enabled(!busy, egui::Button::new("Load"));
             if resp.clicked() {
-                clear_refusal(&mut self.refusals, resp.id);
+                clear_refusal(&mut self.refusals, "load-load");
                 match self.form.request() {
                     Ok(req) => actions.push(Action::Submit(Slot::Load, req)),
-                    Err(e) => refuse(&mut self.refusals, &resp, e),
+                    Err(e) => refuse(&mut self.refusals, "load-load", e),
                 }
             }
-            refusal_line(ui, &self.refusals, resp.id);
+            refusal_line(ui, &self.refusals, "load-load");
         });
         envelope_block(ui, ctx.results.get(&Slot::Load.into()), |ui| {
             let Some(view) = &self.view else { return };

@@ -468,7 +468,7 @@ pub(crate) struct RecordsTab {
     /// A new share after a drag of the line between the panes ends, for the shell to
     /// save once.
     pub split_changed: Option<f32>,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
 }
@@ -641,7 +641,7 @@ impl RecordsTab {
             .id_salt("query")
             .default_open(true)
             .show(ui, |ui| {
-                let mut run_id: Option<egui::Id> = None;
+                let mut run_id: Option<&'static str> = None;
                 action_bar(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
                         ui.label("type");
@@ -657,7 +657,7 @@ impl RecordsTab {
                         );
                         ui.checkbox(&mut self.query_form.all_versions, "all versions");
                         let run = ui.add_enabled(!busy, egui::Button::new("Run"));
-                        run_id = Some(run.id);
+                        run_id = Some("records-run");
                         if run.clicked() {
                             actions.push(Action::QueryPage(None, run_id));
                         }
@@ -668,8 +668,8 @@ impl RecordsTab {
                 });
                 envelope_block(ui, ctx.results.get(&Slot::Query.into()), |ui| {
                     let Some(view) = &self.query_view else { return };
-                    let mut first_id: Option<egui::Id> = None;
-                    let mut next_id: Option<egui::Id> = None;
+                    let mut first_id: Option<&'static str> = None;
+                    let mut next_id: Option<&'static str> = None;
                     ui.horizontal(|ui| {
                         ui.label(format!(
                             "{} matched, {} undecided on this page",
@@ -677,14 +677,14 @@ impl RecordsTab {
                         ));
                         if self.query_cursor.is_some() {
                             let first = ui.add_enabled(!busy, egui::Button::new("First page"));
-                            first_id = Some(first.id);
+                            first_id = Some("records-first-page");
                             if first.clicked() {
                                 actions.push(Action::QueryPage(None, first_id));
                             }
                         }
                         if let Some(next) = &view.next_cursor {
                             let next_page = ui.add_enabled(!busy, egui::Button::new("Next page"));
-                            next_id = Some(next_page.id);
+                            next_id = Some("records-next-page");
                             if next_page.clicked() {
                                 actions.push(Action::QueryPage(Some(next.clone()), next_id));
                             }
@@ -760,7 +760,7 @@ impl RecordsTab {
         let actions = &mut ctx.actions;
         ui.strong("Record");
         action_bar(ui, |ui| {
-            let mut inspect_id: Option<egui::Id> = None;
+            let mut inspect_id: Option<&'static str> = None;
             ui.horizontal_wrapped(|ui| {
                 ui.label("form");
                 ui.add(
@@ -774,12 +774,12 @@ impl RecordsTab {
                         .desired_width(theme::width(ui, Field::Short)),
                 );
                 let inspect = ui.add_enabled(!busy, egui::Button::new("Inspect"));
-                inspect_id = Some(inspect.id);
+                inspect_id = Some("records-inspect");
                 if inspect.clicked() {
-                    clear_refusal(&mut self.refusals, inspect.id);
+                    clear_refusal(&mut self.refusals, "records-inspect");
                     match inspect_request(&self.record_form, Some(&self.record_plugin)) {
                         Ok(req) => actions.push(Action::Submit(Slot::Inspect, req)),
-                        Err(e) => refuse(&mut self.refusals, &inspect, e),
+                        Err(e) => refuse(&mut self.refusals, "records-inspect", e),
                     }
                 }
             });

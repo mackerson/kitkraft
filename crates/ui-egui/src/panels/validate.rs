@@ -223,7 +223,7 @@ pub(crate) struct ValidateTab {
     pub form: ValidateForm,
     pub view: Option<ValidateView>,
     pub roundtrip: Option<RoundtripView>,
-    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
     /// each is drawn under that button's row until the button is clicked again.
     pub refusals: Refusals,
 }
@@ -252,25 +252,25 @@ impl ValidateTab {
                         .desired_width(theme::width(ui, Field::Medium)),
                 );
             });
-            let mut validate_id: Option<egui::Id> = None;
-            let mut roundtrip_id: Option<egui::Id> = None;
+            let mut validate_id: Option<&'static str> = None;
+            let mut roundtrip_id: Option<&'static str> = None;
             ui.horizontal_wrapped(|ui| {
                 let v = ui.add_enabled(!busy, egui::Button::new("validate"));
-                validate_id = Some(v.id);
+                validate_id = Some("validate-validate");
                 if v.clicked() {
-                    clear_refusal(&mut self.refusals, v.id);
+                    clear_refusal(&mut self.refusals, "validate-validate");
                     match self.form.request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Validate, req)),
-                        Err(e) => refuse(&mut self.refusals, &v, e),
+                        Err(e) => refuse(&mut self.refusals, "validate-validate", e),
                     }
                 }
                 let r = ui.add_enabled(!busy, egui::Button::new("roundtrip --verify"));
-                roundtrip_id = Some(r.id);
+                roundtrip_id = Some("validate-roundtrip");
                 if r.clicked() {
-                    clear_refusal(&mut self.refusals, r.id);
+                    clear_refusal(&mut self.refusals, "validate-roundtrip");
                     match self.form.roundtrip_request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Roundtrip, req)),
-                        Err(e) => refuse(&mut self.refusals, &r, e),
+                        Err(e) => refuse(&mut self.refusals, "validate-roundtrip", e),
                     }
                 }
                 ui.weak("build --plan is not offered yet (the gate refuses build)");
