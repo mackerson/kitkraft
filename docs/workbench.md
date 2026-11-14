@@ -271,7 +271,7 @@ What the workbench writes, all of it:
 
 Each panel shows the following under its result:
 
-- The `kit` command line that gives the same envelope, with a copy button.
+- The `kit` command line that gives the same envelope, with a **copy kit line** button.
   - For `inspect`, `query`, `conflicts`, `validate`, `refs` and `planet`, the load-order
     arguments are added,
     because each `kit` process starts with an empty session. They are the arguments of the
@@ -279,7 +279,7 @@ Each panel shows the following under its result:
     no load had succeeded, there is no `kit` line, only the MCP call.
   - Plugins picked from the loaded list go in as full paths. That way the line also works
     in a fresh process for a plugin that lives in an MO2 mod folder.
-- The MCP `execute` call, with a copy button.
+- The MCP `execute` call, with a **copy MCP call** button.
 - The summary, and PASSED or FAILED when the result includes `passed`.
 - Coverage. A count of `null` is shown as "not counted".
 - Every limitation, always on screen. A long limitation is cut to one line, and you can
