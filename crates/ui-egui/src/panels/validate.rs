@@ -211,7 +211,8 @@ fn n_of(v: &Value, k: &str) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, findings_grid, panel_head, plugin_combo, Action, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, findings_grid, panel_head, plugin_combo,
+    refusal_line, refuse, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status};
 
@@ -222,6 +223,9 @@ pub(crate) struct ValidateTab {
     pub form: ValidateForm,
     pub view: Option<ValidateView>,
     pub roundtrip: Option<RoundtripView>,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl ValidateTab {
@@ -248,27 +252,35 @@ impl ValidateTab {
                         .desired_width(theme::width(ui, Field::Medium)),
                 );
             });
+            let mut validate_id: Option<&'static str> = None;
+            let mut roundtrip_id: Option<&'static str> = None;
             ui.horizontal_wrapped(|ui| {
-                if ui
-                    .add_enabled(!busy, egui::Button::new("validate"))
-                    .clicked()
-                {
+                let v = ui.add_enabled(!busy, egui::Button::new("validate"));
+                validate_id = Some("validate-validate");
+                if v.clicked() {
+                    clear_refusal(&mut self.refusals, "validate-validate");
                     match self.form.request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Validate, req)),
-                        Err(e) => *ctx.notice = Some(e),
+                        Err(e) => refuse(&mut self.refusals, "validate-validate", e),
                     }
                 }
-                if ui
-                    .add_enabled(!busy, egui::Button::new("roundtrip --verify"))
-                    .clicked()
-                {
+                let r = ui.add_enabled(!busy, egui::Button::new("roundtrip --verify"));
+                roundtrip_id = Some("validate-roundtrip");
+                if r.clicked() {
+                    clear_refusal(&mut self.refusals, "validate-roundtrip");
                     match self.form.roundtrip_request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Roundtrip, req)),
-                        Err(e) => *ctx.notice = Some(e),
+                        Err(e) => refuse(&mut self.refusals, "validate-roundtrip", e),
                     }
                 }
                 ui.weak("build --plan is not offered yet (the gate refuses build)");
             });
+            if let Some(id) = validate_id {
+                refusal_line(ui, &self.refusals, id);
+            }
+            if let Some(id) = roundtrip_id {
+                refusal_line(ui, &self.refusals, id);
+            }
         });
         envelope_block(ui, ctx.results.get(&Slot::Validate.into()), |ui| {
             let Some(view) = &self.view else {

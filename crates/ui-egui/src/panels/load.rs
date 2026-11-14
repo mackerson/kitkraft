@@ -217,7 +217,8 @@ pub fn list_profiles(profiles_dir: &Path) -> Vec<ProfileEntry> {
 use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, panel_head, virtual_table_for, Action, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, panel_head, refusal_line, refuse, virtual_table_for,
+    Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -234,6 +235,9 @@ pub(crate) struct LoadTab {
     pub data: u64,
     /// The folder "List" last listed, so an empty listing says so (UX audit A2).
     pub listed: Option<String>,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's name;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl LoadTab {
@@ -302,12 +306,15 @@ impl LoadTab {
                 &mut self.form.no_cache,
                 "no cache (index every plugin from its file)",
             );
-            if ui.add_enabled(!busy, egui::Button::new("Load")).clicked() {
+            let resp = ui.add_enabled(!busy, egui::Button::new("Load"));
+            if resp.clicked() {
+                clear_refusal(&mut self.refusals, "load-load");
                 match self.form.request() {
                     Ok(req) => actions.push(Action::Submit(Slot::Load, req)),
-                    Err(e) => *ctx.notice = Some(e),
+                    Err(e) => refuse(&mut self.refusals, "load-load", e),
                 }
             }
+            refusal_line(ui, &self.refusals, "load-load");
         });
         envelope_block(ui, ctx.results.get(&Slot::Load.into()), |ui| {
             let Some(view) = &self.view else { return };
