@@ -116,7 +116,7 @@ fn a_clean_patch_passes_every_rule() {
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 21);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 22);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -142,6 +142,45 @@ fn masters_missing_and_order() {
     assert_eq!(
         found(&check(&good, &["masters.missing", "masters.order"])),
         []
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn masters_unflagged_master_of_a_master_flagged_plugin() {
+    let d = dir("validate-masters-unflagged");
+    master(&d);
+    write_plugin(&d, "Plain.esp", &[], 0, vec![]);
+    let rules = ["masters.missing", "masters.unflagged"];
+
+    // A master-flagged plugin listing an unflagged master and a flagged one: one warning.
+    let flagged = write_plugin(
+        &d,
+        "Flagged.esm",
+        &["Master.esm", "Plain.esp"],
+        FLAG_MASTER,
+        vec![],
+    );
+    let data = check(&flagged, &rules);
+    assert_eq!(found(&data), [pair("masters.unflagged", "warning")]);
+    assert_eq!(data["passed"], json!(true));
+    let f = &data["findings"][0];
+    assert_eq!(f["subrecord"], json!("MAST"));
+    assert!(f["message"].as_str().unwrap().contains("Plain.esp"), "{f}");
+
+    // The same plugin without the master flag: nothing.
+    let unflagged = patch(&d, "Unflagged.esp", &["Master.esm", "Plain.esp"], vec![]);
+    assert_eq!(found(&check(&unflagged, &rules)), []);
+
+    // A master-flagged plugin whose masters are all master-flagged: nothing.
+    let clean = write_plugin(&d, "Clean.esm", &["Master.esm"], FLAG_MASTER, vec![]);
+    assert_eq!(found(&check(&clean, &rules)), []);
+
+    // A master that is not found is masters.missing's, not masters.unflagged's.
+    let missing = write_plugin(&d, "Missing.esm", &["Nope.esp"], FLAG_MASTER, vec![]);
+    assert_eq!(
+        found(&check(&missing, &rules)),
+        [pair("masters.missing", "error")]
     );
     let _ = std::fs::remove_dir_all(&d);
 }
