@@ -58,7 +58,7 @@
 // - ARMA (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9619-L9704; reference)
 // - ARMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9707-L9775; corpus)
 // - ARTO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9778-L9804; corpus)
-// - ASPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official ASPC record (814) decodes with every subrecord placed and re-encodes identically; corpus)
+// - ASPC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9807-L9835; reference)
 // - ATMO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AVIF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9877-L9953; corpus)
 // - AVMD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9954-L10097; corpus)
@@ -75,7 +75,7 @@
 // - CLDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLDF record (21) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CLFM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLFM record (12) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CLMT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLMT record (48) decodes with every subrecord placed and re-encodes identically; corpus)
-// - CNDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official CNDF record (1055) decodes with every subrecord placed and re-encodes identically; corpus)
+// - CNDF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10861-L10883; reference)
 // - COBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950; corpus)
 // - COLL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969; corpus)
 // - CONT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10982-L11028; corpus)
@@ -117,7 +117,7 @@
 // - HAZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12531-L12591; corpus)
 // - HDPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12594-L12664; corpus)
 // - IDLE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685; corpus)
-// - IDLM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IDLM record (18) decodes with every subrecord placed and re-encodes identically; corpus)
+// - IDLM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12688-L12703; reference)
 // - IMAD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMAD record (224) decodes with every subrecord placed and re-encodes identically; corpus)
 // - IMGS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMGS record (303) decodes with every subrecord placed and re-encodes identically; corpus)
 // - INFO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12756-L12884; corpus)
@@ -142,7 +142,7 @@
 // - LVLI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14013-L14074; corpus)
 // - LVLN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14077-L14116; corpus)
 // - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14158; corpus)
-// - LVSC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LVSC record (20) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LVSC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14161-L14204; reference)
 // - MAAM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MATT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14291-L14307; corpus)
 // - MESG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14310-L14358; corpus)
@@ -166,7 +166,7 @@
 // - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
-// - PDCL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official PDCL record (732) decodes with every subrecord placed and re-encodes identically; corpus)
+// - PDCL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15829-L15869; reference)
 // - PERK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15872-L15921; corpus)
 // - PERS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically; corpus)
 // - PGRE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132; corpus)
@@ -187,7 +187,7 @@
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
 // - SCCO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
-// - SCOL (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: every official SCOL record (15) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SCOL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431; reference)
 // - SDLT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
@@ -205,7 +205,7 @@
 // - STAT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894; corpus)
 // - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
-// - STMP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official STMP record (696) decodes with every subrecord placed and re-encodes identically; corpus)
+// - STMP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17941-L18006; reference)
 // - STND (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TERM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249; corpus)
@@ -17701,40 +17701,128 @@ impl ArtoRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AspcSoundDetectionLevel {
+    None,
+    Silent,
+    Quiet,
+    Normal,
+    Loud,
+    VeryLoud,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl AspcSoundDetectionLevel {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Silent,
+            2 => Self::Quiet,
+            3 => Self::Normal,
+            4 => Self::Loud,
+            5 => Self::VeryLoud,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Silent => 1,
+            Self::Quiet => 2,
+            Self::Normal => 3,
+            Self::Loud => 4,
+            Self::VeryLoud => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for AspcSoundDetectionLevel {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for AspcSoundDetectionLevel {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct AspcDisableFlags(pub u64);
+
+impl AspcDisableFlags {
+    pub const ENVIRONMENT_TYPE: u64 = 0x1;
+    pub const MUSIC_TYPE: u64 = 0x2;
+    pub const SOUND_DETECTION_LEVEL: u64 = 0x4;
+    pub const LOOPING_SOUND: u64 = 0x8;
+    pub const EXTERIOR_WEATHER_ATTENUATION: u64 = 0x10;
+    pub const IS_INTERIOR: u64 = 0x20;
+    pub const CROWD_WALLA: u64 = 0x40;
+    pub const AFFECTS_PARENTED_SOUND_MARKERS: u64 = 0x80;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u64) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for AspcDisableFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u64::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AspcDisableFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AspcRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// `OPDS`, optional.
-    pub opds: Option<Sub<Bytes>>,
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `ASLS`, optional.
-    pub asls: Option<Sub<Bytes>>,
+    pub looping_sound: Option<Sub<SoundReference>>,
     /// `WED0`, optional.
-    pub wed0: Option<Sub<Bytes>>,
+    pub interior_sound: Option<Sub<SoundReference>>,
     /// `WED1`, optional.
-    pub wed1: Option<Sub<Bytes>>,
+    pub exterior_sound: Option<Sub<SoundReference>>,
     /// `AAMB`, optional.
-    pub aamb: Option<Sub<Bytes>>,
+    pub ambience_set: Option<Sub<FormId>>,
     /// `AMUS`, optional.
-    pub amus: Option<Sub<Bytes>>,
+    pub music_type: Option<Sub<FormId>>,
     /// `BNAM`, optional.
-    pub bnam: Option<Sub<Bytes>>,
+    pub environment_type: Option<Sub<FormId>>,
     /// `AEAR`, required.
-    pub aear: Option<Sub<Bytes>>,
-    /// `FLTV`, required.
-    pub fltv: Option<Sub<Bytes>>,
+    pub exterior_weather_attenuation: Option<Sub<f32>>,
+    /// `FLTV`, optional.
+    pub interior_exterior_ratio: Option<Sub<f32>>,
     /// `XTRI`, required.
-    pub xtri: Option<Sub<Bytes>>,
+    pub is_interior: Option<Sub<Bool8>>,
     /// `BOLV`, required.
-    pub bolv: Option<Sub<Bytes>>,
+    pub allow_exterior: Option<Sub<Bool8>>,
     /// `DEVT`, required.
-    pub devt: Option<Sub<Bytes>>,
+    pub sound_detection_level: Option<Sub<AspcSoundDetectionLevel>>,
     /// `ASDF`, optional.
-    pub asdf: Option<Sub<Bytes>>,
+    pub disable_flags: Option<Sub<AspcDisableFlags>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -17750,6 +17838,10 @@ impl AspcRecord {
             card: Card::Optional,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -17760,6 +17852,10 @@ impl AspcRecord {
         MemberDesc::Sub {
             sig: *b"OPDS",
             card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"ASLS",
@@ -17791,7 +17887,7 @@ impl AspcRecord {
         },
         MemberDesc::Sub {
             sig: *b"FLTV",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"XTRI",
@@ -17824,50 +17920,123 @@ impl AspcRecord {
                     put(&mut self.editor_id, subs, *index, "ASPC.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "ASPC.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "ASPC.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "ASPC.ODTY", ctx, extra)
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "ASPC.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "ASPC.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "ASPC.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 5, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.opds, subs, *index, "ASPC.OPDS", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.asls, subs, *index, "ASPC.ASLS", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.wed0, subs, *index, "ASPC.WED0", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.wed1, subs, *index, "ASPC.WED1", ctx, extra)
-                }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.aamb, subs, *index, "ASPC.AAMB", ctx, extra)
-                }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.amus, subs, *index, "ASPC.AMUS", ctx, extra)
-                }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.bnam, subs, *index, "ASPC.BNAM", ctx, extra)
-                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.looping_sound,
+                    subs,
+                    *index,
+                    "ASPC.ASLS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.interior_sound,
+                    subs,
+                    *index,
+                    "ASPC.WED0",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.exterior_sound,
+                    subs,
+                    *index,
+                    "ASPC.WED1",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.ambience_set,
+                    subs,
+                    *index,
+                    "ASPC.AAMB",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 10, index } => {
-                    put(&mut self.aear, subs, *index, "ASPC.AEAR", ctx, extra)
+                    put(&mut self.music_type, subs, *index, "ASPC.AMUS", ctx, extra)
                 }
-                Hit::Sub { member: 11, index } => {
-                    put(&mut self.fltv, subs, *index, "ASPC.FLTV", ctx, extra)
-                }
-                Hit::Sub { member: 12, index } => {
-                    put(&mut self.xtri, subs, *index, "ASPC.XTRI", ctx, extra)
-                }
-                Hit::Sub { member: 13, index } => {
-                    put(&mut self.bolv, subs, *index, "ASPC.BOLV", ctx, extra)
-                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.environment_type,
+                    subs,
+                    *index,
+                    "ASPC.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.exterior_weather_attenuation,
+                    subs,
+                    *index,
+                    "ASPC.AEAR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.interior_exterior_ratio,
+                    subs,
+                    *index,
+                    "ASPC.FLTV",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 14, index } => {
-                    put(&mut self.devt, subs, *index, "ASPC.DEVT", ctx, extra)
+                    put(&mut self.is_interior, subs, *index, "ASPC.XTRI", ctx, extra)
                 }
-                Hit::Sub { member: 15, index } => {
-                    put(&mut self.asdf, subs, *index, "ASPC.ASDF", ctx, extra)
-                }
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.allow_exterior,
+                    subs,
+                    *index,
+                    "ASPC.BOLV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.sound_detection_level,
+                    subs,
+                    *index,
+                    "ASPC.DEVT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => put(
+                    &mut self.disable_flags,
+                    subs,
+                    *index,
+                    "ASPC.ASDF",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -17875,25 +18044,49 @@ impl AspcRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"OPDS", self.opds.as_ref());
-        emit(out, *b"ASLS", self.asls.as_ref());
-        emit(out, *b"WED0", self.wed0.as_ref());
-        emit(out, *b"WED1", self.wed1.as_ref());
-        emit(out, *b"AAMB", self.aamb.as_ref());
-        emit(out, *b"AMUS", self.amus.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"AEAR", self.aear.as_ref());
-        emit(out, *b"FLTV", self.fltv.as_ref());
-        emit(out, *b"XTRI", self.xtri.as_ref());
-        emit(out, *b"BOLV", self.bolv.as_ref());
-        emit(out, *b"DEVT", self.devt.as_ref());
-        emit(out, *b"ASDF", self.asdf.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"ASLS", self.looping_sound.as_ref());
+        emit(out, *b"WED0", self.interior_sound.as_ref());
+        emit(out, *b"WED1", self.exterior_sound.as_ref());
+        emit(out, *b"AAMB", self.ambience_set.as_ref());
+        emit(out, *b"AMUS", self.music_type.as_ref());
+        emit(out, *b"BNAM", self.environment_type.as_ref());
+        emit(out, *b"AEAR", self.exterior_weather_attenuation.as_ref());
+        emit(out, *b"FLTV", self.interior_exterior_ratio.as_ref());
+        emit(out, *b"XTRI", self.is_interior.as_ref());
+        emit(out, *b"BOLV", self.allow_exterior.as_ref());
+        emit(out, *b"DEVT", self.sound_detection_level.as_ref());
+        emit(out, *b"ASDF", self.disable_flags.as_ref());
     }
 }
 
-impl Visit for AspcRecord {}
+impl Visit for AspcRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ASPC.BfcbBlock", out);
+        visit_form_ids(&self.looping_sound, "ASPC.ASLS", out);
+        visit_form_ids(&self.interior_sound, "ASPC.WED0", out);
+        visit_form_ids(&self.exterior_sound, "ASPC.WED1", out);
+        visit_form_ids(&self.ambience_set, "ASPC.AAMB", out);
+        visit_form_ids(&self.music_type, "ASPC.AMUS", out);
+        visit_form_ids(&self.environment_type, "ASPC.BNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ASPC.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.looping_sound, "ASPC.ASLS", out);
+        visit_form_ids_mut(&mut self.interior_sound, "ASPC.WED0", out);
+        visit_form_ids_mut(&mut self.exterior_sound, "ASPC.WED1", out);
+        visit_form_ids_mut(&mut self.ambience_set, "ASPC.AAMB", out);
+        visit_form_ids_mut(&mut self.music_type, "ASPC.AMUS", out);
+        visit_form_ids_mut(&mut self.environment_type, "ASPC.BNAM", out);
+    }
+}
 
 impl AspcRecord {
     /// Record signature.
@@ -24769,78 +24962,17 @@ impl ClmtRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct CndfCtdaEntries {
-    /// `CTDA`, repeated.
-    pub ctda: Vec<Sub<Bytes>>,
-    /// `CIS2`, optional.
-    pub cis2: Option<Sub<Bytes>>,
-}
-
-impl CndfCtdaEntries {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"CTDA",
-            card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"CIS2",
-            card: Card::Optional,
-        },
-    ];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => push(
-                    &mut self.ctda,
-                    subs,
-                    *index,
-                    "CNDF.CtdaEntries.CTDA",
-                    ctx,
-                    extra,
-                ),
-                Hit::Sub { member: 1, index } => put(
-                    &mut self.cis2,
-                    subs,
-                    *index,
-                    "CNDF.CtdaEntries.CIS2",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
-        }
-    }
-
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        for value in &self.ctda {
-            emit(out, *b"CTDA", Some(value));
-        }
-        emit(out, *b"CIS2", self.cis2.as_ref());
-    }
-}
-
-impl Visit for CndfCtdaEntries {}
-
-#[derive(Debug, Clone, PartialEq, Default)]
 pub struct CndfRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `CtdaEntries`, repeated.
-    pub ctda_entries: Vec<CndfCtdaEntries>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
     /// `QNAM`, optional.
-    pub qnam: Option<Sub<Bytes>>,
+    pub owner_quest: Option<Sub<FormId>>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
-    /// `CIS1`, optional.
-    pub cis1: Option<Sub<Bytes>>,
+    pub owner_package: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -24857,7 +24989,11 @@ impl CndfRecord {
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: CndfCtdaEntries::MEMBERS,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"QNAM",
@@ -24865,10 +25001,6 @@ impl CndfRecord {
         },
         MemberDesc::Sub {
             sig: *b"PNAM",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"CIS1",
             card: Card::Optional,
         },
     ];
@@ -24886,19 +25018,26 @@ impl CndfRecord {
                     put(&mut self.editor_id, subs, *index, "CNDF.EDID", ctx, extra)
                 }
                 Hit::Group { member: 1, hits } => {
-                    let mut group = CndfCtdaEntries::default();
+                    let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.ctda_entries.push(group);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.qnam, subs, *index, "CNDF.QNAM", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.pnam, subs, *index, "CNDF.PNAM", ctx, extra)
+                    put(&mut self.owner_quest, subs, *index, "CNDF.QNAM", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.cis1, subs, *index, "CNDF.CIS1", ctx, extra)
-                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.owner_package,
+                    subs,
+                    *index,
+                    "CNDF.PNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -24906,20 +25045,56 @@ impl CndfRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.ctda_entries {
+        for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"QNAM", self.qnam.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"CIS1", self.cis1.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"QNAM", self.owner_quest.as_ref());
+        emit(out, *b"PNAM", self.owner_package.as_ref());
     }
 }
 
-impl Visit for CndfRecord {}
+impl Visit for CndfRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "CNDF.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "CNDF.Conditions", out);
+        visit_form_ids(&self.owner_quest, "CNDF.QNAM", out);
+        visit_form_ids(&self.owner_package, "CNDF.PNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "CNDF.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "CNDF.Conditions", out);
+        visit_form_ids_mut(&mut self.owner_quest, "CNDF.QNAM", out);
+        visit_form_ids_mut(&mut self.owner_package, "CNDF.PNAM", out);
+    }
+}
 
 impl CndfRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"CNDF";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -38904,32 +39079,178 @@ impl IdleRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct IdlmIdleAnimationsFlags(pub u8);
+
+impl IdlmIdleAnimationsFlags {
+    pub const RUN_IN_SEQUENCE: u8 = 0x1;
+    pub const DO_ONCE: u8 = 0x4;
+    pub const IGNORED_BY_SANDBOX: u8 = 0x10;
+    pub const IGNORE_CONDITIONS_FOR_SANDBOX: u8 = 0x20;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for IdlmIdleAnimationsFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for IdlmIdleAnimationsFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct IdlmIdleAnimationsAnimations(pub Vec<FormId>);
+
+impl Field for IdlmIdleAnimationsAnimations {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for IdlmIdleAnimationsAnimations {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct IdlmIdleAnimations {
+    /// `IDLF`, optional.
+    pub flags: Option<Sub<IdlmIdleAnimationsFlags>>,
+    /// `IDLC`, optional.
+    pub animation_count: Option<Sub<u32>>,
+    /// `IDLT`, optional.
+    pub idle_timer_setting: Option<Sub<f32>>,
+    /// `IDLA`, optional.
+    pub animations: Option<Sub<IdlmIdleAnimationsAnimations>>,
+}
+
+impl IdlmIdleAnimations {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"IDLF",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDLC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDLT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IDLA",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.flags,
+                    subs,
+                    *index,
+                    "IDLM.IdleAnimations.IDLF",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.animation_count,
+                    subs,
+                    *index,
+                    "IDLM.IdleAnimations.IDLC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.idle_timer_setting,
+                    subs,
+                    *index,
+                    "IDLM.IdleAnimations.IDLT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.animations,
+                    subs,
+                    *index,
+                    "IDLM.IdleAnimations.IDLA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"IDLF", self.flags.as_ref());
+        emit(out, *b"IDLC", self.animation_count.as_ref());
+        emit(out, *b"IDLT", self.idle_timer_setting.as_ref());
+        emit(out, *b"IDLA", self.animations.as_ref());
+    }
+}
+
+impl Visit for IdlmIdleAnimations {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.animations, "IDLM.IdleAnimations.IDLA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.animations, "IDLM.IdleAnimations.IDLA", out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct IdlmRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
-    /// `IDLF`, required.
-    pub idlf: Option<Sub<Bytes>>,
-    /// `IDLC`, optional.
-    pub idlc: Option<Sub<Bytes>>,
-    /// `IDLT`, optional.
-    pub idlt: Option<Sub<Bytes>>,
-    /// `IDLA`, optional.
-    pub idla: Option<Sub<Bytes>>,
-    /// `MODL`, optional.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    /// Group `IdleAnimations`, optional.
+    pub idle_animations: Option<IdlmIdleAnimations>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// `RNAM`, optional.
+    pub actor_action: Option<Sub<FormId>>,
     /// `QNAM`, optional.
-    pub qnam: Option<Sub<Bytes>>,
+    pub animation_flavor: Option<Sub<FormId>>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub animation_archetype: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -38945,6 +39266,10 @@ impl IdlmRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -38953,32 +39278,24 @@ impl IdlmRecord {
             card: Card::Required,
         },
         MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Group {
             card: Card::Optional,
             members: Keywords::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"IDLF",
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: IdlmIdleAnimations::MEMBERS,
+        },
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
         MemberDesc::Sub {
-            sig: *b"IDLC",
+            sig: *b"RNAM",
             card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"IDLT",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"IDLA",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"MODL",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FLLD",
-            card: Card::Required,
         },
         MemberDesc::Sub {
             sig: *b"QNAM",
@@ -39003,40 +39320,68 @@ impl IdlmRecord {
                     put(&mut self.editor_id, subs, *index, "IDLM.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "IDLM.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "IDLM.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "IDLM.ODTY", ctx, extra)
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "IDLM.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "IDLM.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 4, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
-                Hit::Group { member: 3, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 5, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.idlf, subs, *index, "IDLM.IDLF", ctx, extra)
+                Hit::Group { member: 6, hits } if self.idle_animations.is_none() => {
+                    let mut group = IdlmIdleAnimations::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.idle_animations = Some(group);
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.idlc, subs, *index, "IDLM.IDLC", ctx, extra)
+                Hit::Group { member: 7, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.idlt, subs, *index, "IDLM.IDLT", ctx, extra)
-                }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.idla, subs, *index, "IDLM.IDLA", ctx, extra)
-                }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.modl, subs, *index, "IDLM.MODL", ctx, extra)
-                }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.flld, subs, *index, "IDLM.FLLD", ctx, extra)
-                }
-                Hit::Sub { member: 10, index } => {
-                    put(&mut self.qnam, subs, *index, "IDLM.QNAM", ctx, extra)
-                }
-                Hit::Sub { member: 11, index } => {
-                    put(&mut self.pnam, subs, *index, "IDLM.PNAM", ctx, extra)
-                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.actor_action,
+                    subs,
+                    *index,
+                    "IDLM.RNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.animation_flavor,
+                    subs,
+                    *index,
+                    "IDLM.QNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.animation_archetype,
+                    subs,
+                    *index,
+                    "IDLM.PNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -39044,35 +39389,54 @@ impl IdlmRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
         if let Some(group) = &self.keywords {
             group.emit(out);
         }
-        emit(out, *b"IDLF", self.idlf.as_ref());
-        emit(out, *b"IDLC", self.idlc.as_ref());
-        emit(out, *b"IDLT", self.idlt.as_ref());
-        emit(out, *b"IDLA", self.idla.as_ref());
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
-        emit(out, *b"QNAM", self.qnam.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
+        if let Some(group) = &self.idle_animations {
+            group.emit(out);
+        }
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"RNAM", self.actor_action.as_ref());
+        emit(out, *b"QNAM", self.animation_flavor.as_ref());
+        emit(out, *b"PNAM", self.animation_archetype.as_ref());
     }
 }
 
 impl Visit for IdlmRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "IDLM.BfcbBlock", out);
         visit_form_ids(&self.keywords, "IDLM.Keywords", out);
+        visit_form_ids(&self.idle_animations, "IDLM.IdleAnimations", out);
+        visit_form_ids(&self.model, "IDLM.Model", out);
+        visit_form_ids(&self.actor_action, "IDLM.RNAM", out);
+        visit_form_ids(&self.animation_flavor, "IDLM.QNAM", out);
+        visit_form_ids(&self.animation_archetype, "IDLM.PNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "IDLM.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "IDLM.Keywords", out);
+        visit_form_ids_mut(&mut self.idle_animations, "IDLM.IdleAnimations", out);
+        visit_form_ids_mut(&mut self.model, "IDLM.Model", out);
+        visit_form_ids_mut(&mut self.actor_action, "IDLM.RNAM", out);
+        visit_form_ids_mut(&mut self.animation_flavor, "IDLM.QNAM", out);
+        visit_form_ids_mut(&mut self.animation_archetype, "IDLM.PNAM", out);
     }
 }
 
 impl IdlmRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"IDLM";
+    /// Record-header flag.
+    pub const FLAG_CHILD_CAN_USE: u32 = 0x20000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -51994,20 +52358,169 @@ impl LvlpRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LvscFlags(pub u16);
+
+impl LvscFlags {
+    pub const DO_ALL_BEFORE_REPEATING: u16 = 0x100;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u16) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LvscFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LvscFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LvscEntriesEntry {
+    pub level: u16,
+    pub unused1: [u8; 2],
+    pub space_cell: FormId,
+    pub count: u16,
+    pub chance_none: u8,
+    pub unused2: [u8; 1],
+}
+
+impl Field for LvscEntriesEntry {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "LVSC.Entries.LVLO.Level", ctx)?;
+        let f1 = Field::read(r, "LVSC.Entries.LVLO.Unused1", ctx)?;
+        let f2 = Field::read(r, "LVSC.Entries.LVLO.SpaceCell", ctx)?;
+        let f3 = u16::read(r, "LVSC.Entries.LVLO.Count", ctx)?;
+        let f4 = u8::read(r, "LVSC.Entries.LVLO.ChanceNone", ctx)?;
+        let f5 = Field::read(r, "LVSC.Entries.LVLO.Unused2", ctx)?;
+        Ok(Self {
+            level: f0,
+            unused1: f1,
+            space_cell: f2,
+            count: f3,
+            chance_none: f4,
+            unused2: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.level.write(out);
+        self.unused1.write(out);
+        self.space_cell.write(out);
+        self.count.write(out);
+        self.chance_none.write(out);
+        self.unused2.write(out);
+    }
+}
+
+impl Visit for LvscEntriesEntry {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.space_cell, "LVSC.Entries.LVLO.SpaceCell", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.space_cell, "LVSC.Entries.LVLO.SpaceCell", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LvscEntries {
+    /// `LVLO`, optional.
+    pub entry: Option<Sub<LvscEntriesEntry>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+}
+
+impl LvscEntries {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"LVLO",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.entry,
+                    subs,
+                    *index,
+                    "LVSC.Entries.LVLO",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 1, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"LVLO", self.entry.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for LvscEntries {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.entry, "LVSC.Entries.LVLO", out);
+        visit_form_ids(&self.conditions, "LVSC.Entries.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.entry, "LVSC.Entries.LVLO", out);
+        visit_form_ids_mut(&mut self.conditions, "LVSC.Entries.Conditions", out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LvscRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `LVLD`, required.
-    pub lvld: Option<Sub<Bytes>>,
+    pub chance_none: Option<Sub<f32>>,
     /// `LVLM`, required.
-    pub lvlm: Option<Sub<Bytes>>,
+    pub max_count: Option<Sub<u8>>,
     /// `LVLF`, required.
-    pub lvlf: Option<Sub<Bytes>>,
-    /// `LLCT`, required.
-    pub llct: Option<Sub<Bytes>>,
-    /// `LVLO`, repeated.
-    pub lvlo: Vec<Sub<Bytes>>,
+    pub flags: Option<Sub<LvscFlags>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `LVLG`, optional.
+    pub use_chance_none_global: Option<Sub<FormId>>,
+    /// `LLCT`, optional.
+    pub entry_count: Option<Sub<u8>>,
+    /// Group `Entries`, repeated.
+    pub entries: Vec<LvscEntries>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -52023,6 +52536,14 @@ impl LvscRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
             sig: *b"LVLD",
             card: Card::Required,
         },
@@ -52034,13 +52555,21 @@ impl LvscRecord {
             sig: *b"LVLF",
             card: Card::Required,
         },
-        MemberDesc::Sub {
-            sig: *b"LLCT",
-            card: Card::Required,
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
         },
         MemberDesc::Sub {
-            sig: *b"LVLO",
+            sig: *b"LVLG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LLCT",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
             card: Card::Repeated,
+            members: LvscEntries::MEMBERS,
         },
     ];
 
@@ -52057,19 +52586,42 @@ impl LvscRecord {
                     put(&mut self.editor_id, subs, *index, "LVSC.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.lvld, subs, *index, "LVSC.LVLD", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "LVSC.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.lvlm, subs, *index, "LVSC.LVLM", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.lvlf, subs, *index, "LVSC.LVLF", ctx, extra)
+                    put(&mut self.chance_none, subs, *index, "LVSC.LVLD", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.llct, subs, *index, "LVSC.LLCT", ctx, extra)
+                    put(&mut self.max_count, subs, *index, "LVSC.LVLM", ctx, extra)
                 }
                 Hit::Sub { member: 5, index } => {
-                    push(&mut self.lvlo, subs, *index, "LVSC.LVLO", ctx, extra)
+                    put(&mut self.flags, subs, *index, "LVSC.LVLF", ctx, extra)
+                }
+                Hit::Group { member: 6, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.use_chance_none_global,
+                    subs,
+                    *index,
+                    "LVSC.LVLG",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.entry_count, subs, *index, "LVSC.LLCT", ctx, extra)
+                }
+                Hit::Group { member: 9, hits } => {
+                    let mut group = LvscEntries::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.entries.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -52078,21 +52630,63 @@ impl LvscRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"LVLD", self.lvld.as_ref());
-        emit(out, *b"LVLM", self.lvlm.as_ref());
-        emit(out, *b"LVLF", self.lvlf.as_ref());
-        emit(out, *b"LLCT", self.llct.as_ref());
-        for value in &self.lvlo {
-            emit(out, *b"LVLO", Some(value));
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"LVLD", self.chance_none.as_ref());
+        emit(out, *b"LVLM", self.max_count.as_ref());
+        emit(out, *b"LVLF", self.flags.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"LVLG", self.use_chance_none_global.as_ref());
+        emit(out, *b"LLCT", self.entry_count.as_ref());
+        for group in &self.entries {
+            group.emit(out);
         }
     }
 }
 
-impl Visit for LvscRecord {}
+impl Visit for LvscRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LVSC.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "LVSC.Conditions", out);
+        visit_form_ids(&self.use_chance_none_global, "LVSC.LVLG", out);
+        visit_form_ids(&self.entries, "LVSC.Entries", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LVSC.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "LVSC.Conditions", out);
+        visit_form_ids_mut(&mut self.use_chance_none_global, "LVSC.LVLG", out);
+        visit_form_ids_mut(&mut self.entries, "LVSC.Entries", out);
+    }
+}
 
 impl LvscRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"LVSC";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -64412,26 +65006,74 @@ impl PcmtRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PdclData {
+    pub min_width: f32,
+    pub max_width: f32,
+    pub min_height: f32,
+    pub max_height: f32,
+    pub depth: f32,
+    pub cutoff_angle: f32,
+}
+
+impl Field for PdclData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "PDCL.DATA.MinWidth", ctx)?;
+        let f1 = f32::read(r, "PDCL.DATA.MaxWidth", ctx)?;
+        let f2 = f32::read(r, "PDCL.DATA.MinHeight", ctx)?;
+        let f3 = f32::read(r, "PDCL.DATA.MaxHeight", ctx)?;
+        let f4 = f32::read(r, "PDCL.DATA.Depth", ctx)?;
+        let f5 = f32::read(r, "PDCL.DATA.CutoffAngle", ctx)?;
+        Ok(Self {
+            min_width: f0,
+            max_width: f1,
+            min_height: f2,
+            max_height: f3,
+            depth: f4,
+            cutoff_angle: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min_width.write(out);
+        self.max_width.write(out);
+        self.min_height.write(out);
+        self.max_height.write(out);
+        self.depth.write(out);
+        self.cutoff_angle.write(out);
+    }
+}
+
+impl Visit for PdclData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PdclRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// `OPDS`, optional.
-    pub opds: Option<Sub<Bytes>>,
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
     /// `PTT2`, optional.
-    pub ptt2: Option<Sub<Bytes>>,
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
     /// `SNBH`, optional.
-    pub snbh: Option<Sub<Bytes>>,
+    pub snap_behavior: Option<Sub<FormId>>,
+    /// `DEFL`, optional.
+    pub default_layer: Option<Sub<FormId>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `DODT`, optional.
-    pub dodt: Option<Sub<Bytes>>,
-    /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub material: Option<Sub<FormId>>,
+    /// `DATA`, optional.
+    pub data: Option<Sub<PdclData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -64444,6 +65086,10 @@ impl PdclRecord {
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
             sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
             card: Card::Optional,
         },
         MemberDesc::Sub {
@@ -64463,7 +65109,19 @@ impl PdclRecord {
             card: Card::Optional,
         },
         MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"SNBH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DEFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
             card: Card::Optional,
         },
         MemberDesc::Group {
@@ -64476,7 +65134,7 @@ impl PdclRecord {
         },
         MemberDesc::Sub {
             sig: *b"DATA",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -64493,29 +65151,71 @@ impl PdclRecord {
                     put(&mut self.editor_id, subs, *index, "PDCL.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "PDCL.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "PDCL.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "PDCL.ODTY", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.opds, subs, *index, "PDCL.OPDS", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.ptt2, subs, *index, "PDCL.PTT2", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "PDCL.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "PDCL.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "PDCL.OPDS",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 5, index } => {
-                    put(&mut self.snbh, subs, *index, "PDCL.SNBH", ctx, extra)
+                    put(&mut self.transforms, subs, *index, "PDCL.PTT2", ctx, extra)
                 }
-                Hit::Group { member: 6, hits } => {
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "PDCL.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.snap_behavior,
+                    subs,
+                    *index,
+                    "PDCL.SNBH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.default_layer,
+                    subs,
+                    *index,
+                    "PDCL.DEFL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "PDCL.XALG", ctx, extra)
+                }
+                Hit::Group { member: 10, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.dodt, subs, *index, "PDCL.DODT", ctx, extra)
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.material, subs, *index, "PDCL.DODT", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
+                Hit::Sub { member: 12, index } => {
                     put(&mut self.data, subs, *index, "PDCL.DATA", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
@@ -64525,32 +65225,72 @@ impl PdclRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"OPDS", self.opds.as_ref());
-        emit(out, *b"PTT2", self.ptt2.as_ref());
-        emit(out, *b"SNBH", self.snbh.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"SNBH", self.snap_behavior.as_ref());
+        emit(out, *b"DEFL", self.default_layer.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"DODT", self.dodt.as_ref());
+        emit(out, *b"DODT", self.material.as_ref());
         emit(out, *b"DATA", self.data.as_ref());
     }
 }
 
 impl Visit for PdclRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "PDCL.PTT2", out);
+        visit_form_ids(&self.snap_template, "PDCL.SNTP", out);
+        visit_form_ids(&self.snap_behavior, "PDCL.SNBH", out);
+        visit_form_ids(&self.default_layer, "PDCL.DEFL", out);
         visit_form_ids(&self.bfcb_block, "PDCL.BfcbBlock", out);
+        visit_form_ids(&self.material, "PDCL.DODT", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "PDCL.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "PDCL.SNTP", out);
+        visit_form_ids_mut(&mut self.snap_behavior, "PDCL.SNBH", out);
+        visit_form_ids_mut(&mut self.default_layer, "PDCL.DEFL", out);
         visit_form_ids_mut(&mut self.bfcb_block, "PDCL.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.material, "PDCL.DODT", out);
     }
 }
 
 impl PdclRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"PDCL";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_RANDOM_ANIM_START: u32 = 0x10000;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_OBSTACLE: u32 = 0x2000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+    /// Record-header flag.
+    pub const FLAG_MUST_BE_UNIQUE: u32 = 0x80000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -84490,12 +85230,87 @@ impl ScenRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScolPartsPart {
+    pub static_: FormId,
+    pub unknown: [u8; 4],
+}
+
+impl Field for ScolPartsPart {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "SCOL.Parts.ONAM.Static", ctx)?;
+        let f1 = Field::read(r, "SCOL.Parts.ONAM.Unknown", ctx)?;
+        Ok(Self {
+            static_: f0,
+            unknown: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.static_.write(out);
+        self.unknown.write(out);
+    }
+}
+
+impl Visit for ScolPartsPart {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.static_, "SCOL.Parts.ONAM.Static", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.static_, "SCOL.Parts.ONAM.Static", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScolPartsPlacementsItem {
+    pub position: Vec3,
+    pub rotation: Vec3,
+    pub scale: f32,
+}
+
+impl Field for ScolPartsPlacementsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "SCOL.Parts.DATA.Position", ctx)?;
+        let f1 = Field::read(r, "SCOL.Parts.DATA.Rotation", ctx)?;
+        let f2 = f32::read(r, "SCOL.Parts.DATA.Scale", ctx)?;
+        Ok(Self {
+            position: f0,
+            rotation: f1,
+            scale: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.position.write(out);
+        self.rotation.write(out);
+        self.scale.write(out);
+    }
+}
+
+impl Visit for ScolPartsPlacementsItem {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScolPartsPlacements(pub Vec<ScolPartsPlacementsItem>);
+
+impl Field for ScolPartsPlacements {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ScolPartsPlacements {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScolParts {
-    /// `ONAM`, required.
-    pub onam: Option<Sub<Bytes>>,
+    /// `ONAM`, optional.
+    pub part: Option<Sub<ScolPartsPart>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub placements: Option<Sub<ScolPartsPlacements>>,
 }
 
 impl ScolParts {
@@ -84503,7 +85318,7 @@ impl ScolParts {
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
             sig: *b"ONAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"DATA",
@@ -84521,42 +85336,57 @@ impl ScolParts {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => {
-                    put(&mut self.onam, subs, *index, "SCOL.Parts.ONAM", ctx, extra)
+                    put(&mut self.part, subs, *index, "SCOL.Parts.ONAM", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.data, subs, *index, "SCOL.Parts.DATA", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.placements,
+                    subs,
+                    *index,
+                    "SCOL.Parts.DATA",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"ONAM", self.onam.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"ONAM", self.part.as_ref());
+        emit(out, *b"DATA", self.placements.as_ref());
     }
 }
 
-impl Visit for ScolParts {}
+impl Visit for ScolParts {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.part, "SCOL.Parts.ONAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.part, "SCOL.Parts.ONAM", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ScolRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// `SNTP`, optional.
-    pub sntp: Option<Sub<Bytes>>,
+    pub snap_template: Option<Sub<FormId>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
-    /// `MODL`, required.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
     /// `FLTR`, optional.
-    pub fltr: Option<Sub<Bytes>>,
+    pub filter: Option<Sub<ZString>>,
     /// Group `Parts`, repeated.
     pub parts: Vec<ScolParts>,
     /// Subrecords that matched no member or failed to decode, each with its index
@@ -84574,6 +85404,10 @@ impl ScolRecord {
             card: Card::Required,
         },
         MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"OBND",
             card: Card::Required,
         },
@@ -84589,13 +85423,13 @@ impl ScolRecord {
             card: Card::Repeated,
             members: BfcbBlock::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"MODL",
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
         MemberDesc::Sub {
-            sig: *b"FLLD",
-            card: Card::Required,
+            sig: *b"FULL",
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"FLTR",
@@ -84620,29 +85454,49 @@ impl ScolRecord {
                     put(&mut self.editor_id, subs, *index, "SCOL.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "SCOL.OBND", ctx, extra)
+                    put(&mut self.scripts, subs, *index, "SCOL.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "SCOL.ODTY", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.sntp, subs, *index, "SCOL.SNTP", ctx, extra)
-                }
-                Hit::Group { member: 4, hits } => {
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "SCOL.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "SCOL.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "SCOL.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 5, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.modl, subs, *index, "SCOL.MODL", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.flld, subs, *index, "SCOL.FLLD", ctx, extra)
+                Hit::Group { member: 6, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
                 Hit::Sub { member: 7, index } => {
-                    put(&mut self.fltr, subs, *index, "SCOL.FLTR", ctx, extra)
+                    put(&mut self.name, subs, *index, "SCOL.FULL", ctx, extra)
                 }
-                Hit::Group { member: 8, hits } => {
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.filter, subs, *index, "SCOL.FLTR", ctx, extra)
+                }
+                Hit::Group { member: 9, hits } => {
                     let mut group = ScolParts::default();
                     group.fill(hits, subs, ctx, extra);
                     self.parts.push(group);
@@ -84654,15 +85508,18 @@ impl ScolRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"SNTP", self.sntp.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
-        emit(out, *b"FLTR", self.fltr.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"FLTR", self.filter.as_ref());
         for group in &self.parts {
             group.emit(out);
         }
@@ -84671,17 +85528,53 @@ impl ScolRecord {
 
 impl Visit for ScolRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.snap_template, "SCOL.SNTP", out);
         visit_form_ids(&self.bfcb_block, "SCOL.BfcbBlock", out);
+        visit_form_ids(&self.model, "SCOL.Model", out);
+        visit_form_ids(&self.parts, "SCOL.Parts", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.snap_template, "SCOL.SNTP", out);
         visit_form_ids_mut(&mut self.bfcb_block, "SCOL.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.model, "SCOL.Model", out);
+        visit_form_ids_mut(&mut self.parts, "SCOL.Parts", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "SCOL.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "SCOL.FULL", out);
     }
 }
 
 impl ScolRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"SCOL";
+    /// Record-header flag.
+    pub const FLAG_NON_OCCLUDER: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_LOADSCREEN: u32 = 0x400;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_DISTANT_LOD: u32 = 0x8000;
+    /// Record-header flag.
+    pub const FLAG_OBSTACLE: u32 = 0x2000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -90263,20 +91156,227 @@ impl StdtRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct StmpRnamEntries {
-    /// `RNAM`, repeated.
-    pub rnam: Vec<Sub<Bytes>>,
-    /// `SNAM`, repeated.
-    pub snam: Vec<Sub<Bytes>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct StmpNodeInstances {
+    pub instance_id: u32,
+    pub template_node: FormId,
+    pub offset: Vec3,
+    pub rotation: Vec3,
+    pub display_case_slot: u32,
+    pub unknown: [u8; 4],
 }
 
-impl StmpRnamEntries {
+impl Field for StmpNodeInstances {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "STMP.ENAM.InstanceId", ctx)?;
+        let f1 = Field::read(r, "STMP.ENAM.TemplateNode", ctx)?;
+        let f2 = Field::read(r, "STMP.ENAM.Offset", ctx)?;
+        let f3 = Field::read(r, "STMP.ENAM.Rotation", ctx)?;
+        let f4 = u32::read(r, "STMP.ENAM.DisplayCaseSlot", ctx)?;
+        let f5 = Field::read(r, "STMP.ENAM.Unknown", ctx)?;
+        Ok(Self {
+            instance_id: f0,
+            template_node: f1,
+            offset: f2,
+            rotation: f3,
+            display_case_slot: f4,
+            unknown: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.instance_id.write(out);
+        self.template_node.write(out);
+        self.offset.write(out);
+        self.rotation.write(out);
+        self.display_case_slot.write(out);
+        self.unknown.write(out);
+    }
+}
+
+impl Visit for StmpNodeInstances {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.template_node, "STMP.ENAM.TemplateNode", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.template_node, "STMP.ENAM.TemplateNode", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StmpInheritedOverridesTransformData {
+    pub offset: Vec3,
+    pub rotation: Vec3,
+}
+
+impl Field for StmpInheritedOverridesTransformData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "STMP.InheritedOverrides.TNAM.Offset", ctx)?;
+        let f1 = Field::read(r, "STMP.InheritedOverrides.TNAM.Rotation", ctx)?;
+        Ok(Self {
+            offset: f0,
+            rotation: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.offset.write(out);
+        self.rotation.write(out);
+    }
+}
+
+impl Visit for StmpInheritedOverridesTransformData {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StmpInheritedOverrides {
+    /// `ONAM`, optional.
+    pub instance_id: Option<Sub<u32>>,
+    /// `TNAM`, optional.
+    pub transform_data: Option<Sub<StmpInheritedOverridesTransformData>>,
+}
+
+impl StmpInheritedOverrides {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"ONAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.instance_id,
+                    subs,
+                    *index,
+                    "STMP.InheritedOverrides.ONAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.transform_data,
+                    subs,
+                    *index,
+                    "STMP.InheritedOverrides.TNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"ONAM", self.instance_id.as_ref());
+        emit(out, *b"TNAM", self.transform_data.as_ref());
+    }
+}
+
+impl Visit for StmpInheritedOverrides {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StmpBoundOverride {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl Field for StmpBoundOverride {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "STMP.BNAM.Min", ctx)?;
+        let f1 = Field::read(r, "STMP.BNAM.Max", ctx)?;
+        Ok(Self { min: f0, max: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min.write(out);
+        self.max.write(out);
+    }
+}
+
+impl Visit for StmpBoundOverride {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StmpSnapPieceType {
+    Invalid,
+    StartingFoundation,
+    Foundation,
+    Floor,
+    Stair,
+    Wall,
+    Roof,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl StmpSnapPieceType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Invalid,
+            1 => Self::StartingFoundation,
+            2 => Self::Foundation,
+            3 => Self::Floor,
+            4 => Self::Stair,
+            5 => Self::Wall,
+            6 => Self::Roof,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Invalid => 0,
+            Self::StartingFoundation => 1,
+            Self::Foundation => 2,
+            Self::Floor => 3,
+            Self::Stair => 4,
+            Self::Wall => 5,
+            Self::Roof => 6,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for StmpSnapPieceType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for StmpSnapPieceType {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StmpTraversalCategoriesTraversalNodes {
+    /// `RNAM`, optional.
+    pub traversal: Option<Sub<FormId>>,
+    /// `SNAM`, repeated.
+    pub instances: Vec<Sub<u32>>,
+}
+
+impl StmpTraversalCategoriesTraversalNodes {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
             sig: *b"RNAM",
-            card: Card::Repeated,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"SNAM",
@@ -90293,19 +91393,19 @@ impl StmpRnamEntries {
     ) {
         for hit in hits {
             match hit {
-                Hit::Sub { member: 0, index } => push(
-                    &mut self.rnam,
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.traversal,
                     subs,
                     *index,
-                    "STMP.RnamEntries.RNAM",
+                    "STMP.TraversalCategories.TraversalNodes.RNAM",
                     ctx,
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => push(
-                    &mut self.snam,
+                    &mut self.instances,
                     subs,
                     *index,
-                    "STMP.RnamEntries.SNAM",
+                    "STMP.TraversalCategories.TraversalNodes.SNAM",
                     ctx,
                     extra,
                 ),
@@ -90315,16 +91415,104 @@ impl StmpRnamEntries {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        for value in &self.rnam {
-            emit(out, *b"RNAM", Some(value));
-        }
-        for value in &self.snam {
+        emit(out, *b"RNAM", self.traversal.as_ref());
+        for value in &self.instances {
             emit(out, *b"SNAM", Some(value));
         }
     }
 }
 
-impl Visit for StmpRnamEntries {}
+impl Visit for StmpTraversalCategoriesTraversalNodes {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.traversal,
+            "STMP.TraversalCategories.TraversalNodes.RNAM",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.traversal,
+            "STMP.TraversalCategories.TraversalNodes.RNAM",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StmpTraversalCategories {
+    /// `CNAM`, optional.
+    pub name: Option<Sub<ZString>>,
+    /// Group `TraversalNodes`, repeated.
+    pub traversal_nodes: Vec<StmpTraversalCategoriesTraversalNodes>,
+}
+
+impl StmpTraversalCategories {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: StmpTraversalCategoriesTraversalNodes::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.name,
+                    subs,
+                    *index,
+                    "STMP.TraversalCategories.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 1, hits } => {
+                    let mut group = StmpTraversalCategoriesTraversalNodes::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.traversal_nodes.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"CNAM", self.name.as_ref());
+        for group in &self.traversal_nodes {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for StmpTraversalCategories {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.traversal_nodes,
+            "STMP.TraversalCategories.TraversalNodes",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.traversal_nodes,
+            "STMP.TraversalCategories.TraversalNodes",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StmpRecord {
@@ -90332,24 +91520,26 @@ pub struct StmpRecord {
     pub editor_id: Option<Sub<ZString>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub parent: Option<Sub<FormId>>,
+    /// `HNAM`, optional.
+    pub snap_template_behavior: Option<Sub<FormId>>,
     /// `ENAM`, repeated.
-    pub enam: Vec<Sub<Bytes>>,
-    /// `ONAM`, repeated.
-    pub onam: Vec<Sub<Bytes>>,
-    /// `TNAM`, optional.
-    pub tnam: Option<Sub<Bytes>>,
+    pub node_instances: Vec<Sub<StmpNodeInstances>>,
+    /// Group `InheritedOverrides`, repeated.
+    pub inherited_overrides: Vec<StmpInheritedOverrides>,
     /// `BNAM`, optional.
-    pub bnam: Option<Sub<Bytes>>,
-    /// `INAM`, required.
-    pub inam: Option<Sub<Bytes>>,
-    /// `STPT`, required.
-    pub stpt: Option<Sub<Bytes>>,
-    /// `CNAM`, optional.
-    pub cnam: Option<Sub<Bytes>>,
-    /// Group `RnamEntries`, repeated.
-    pub rnam_entries: Vec<StmpRnamEntries>,
+    pub bound_override: Option<Sub<StmpBoundOverride>>,
+    /// `GNAM`, optional.
+    pub origin_override: Option<Sub<Vec3>>,
+    /// `INAM`, optional.
+    pub next_node_id: Option<Sub<u32>>,
+    /// `STPT`, optional.
+    pub snap_piece_type: Option<Sub<StmpSnapPieceType>>,
+    /// Group `TraversalCategories`, repeated.
+    pub traversal_categories: Vec<StmpTraversalCategories>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -90369,40 +91559,44 @@ impl StmpRecord {
             members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"PNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
             card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"ENAM",
             card: Card::Repeated,
         },
-        MemberDesc::Sub {
-            sig: *b"ONAM",
+        MemberDesc::Group {
             card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"TNAM",
-            card: Card::Optional,
+            members: StmpInheritedOverrides::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"BNAM",
             card: Card::Optional,
         },
         MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"INAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"STPT",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"CNAM",
             card: Card::Optional,
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: StmpRnamEntries::MEMBERS,
+            members: StmpTraversalCategories::MEMBERS,
         },
     ];
 
@@ -90424,33 +91618,68 @@ impl StmpRecord {
                     self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.pnam, subs, *index, "STMP.PNAM", ctx, extra)
+                    put(&mut self.transforms, subs, *index, "STMP.PTT2", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    push(&mut self.enam, subs, *index, "STMP.ENAM", ctx, extra)
+                    put(&mut self.parent, subs, *index, "STMP.PNAM", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    push(&mut self.onam, subs, *index, "STMP.ONAM", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.tnam, subs, *index, "STMP.TNAM", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.bnam, subs, *index, "STMP.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 7, index } => {
-                    put(&mut self.inam, subs, *index, "STMP.INAM", ctx, extra)
-                }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.stpt, subs, *index, "STMP.STPT", ctx, extra)
-                }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.cnam, subs, *index, "STMP.CNAM", ctx, extra)
-                }
-                Hit::Group { member: 10, hits } => {
-                    let mut group = StmpRnamEntries::default();
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.snap_template_behavior,
+                    subs,
+                    *index,
+                    "STMP.HNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => push(
+                    &mut self.node_instances,
+                    subs,
+                    *index,
+                    "STMP.ENAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 6, hits } => {
+                    let mut group = StmpInheritedOverrides::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.rnam_entries.push(group);
+                    self.inherited_overrides.push(group);
+                }
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.bound_override,
+                    subs,
+                    *index,
+                    "STMP.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.origin_override,
+                    subs,
+                    *index,
+                    "STMP.GNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.next_node_id,
+                    subs,
+                    *index,
+                    "STMP.INAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.snap_piece_type,
+                    subs,
+                    *index,
+                    "STMP.STPT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 11, hits } => {
+                    let mut group = StmpTraversalCategories::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.traversal_categories.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -90462,19 +91691,20 @@ impl StmpRecord {
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        for value in &self.enam {
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"PNAM", self.parent.as_ref());
+        emit(out, *b"HNAM", self.snap_template_behavior.as_ref());
+        for value in &self.node_instances {
             emit(out, *b"ENAM", Some(value));
         }
-        for value in &self.onam {
-            emit(out, *b"ONAM", Some(value));
+        for group in &self.inherited_overrides {
+            group.emit(out);
         }
-        emit(out, *b"TNAM", self.tnam.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"INAM", self.inam.as_ref());
-        emit(out, *b"STPT", self.stpt.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        for group in &self.rnam_entries {
+        emit(out, *b"BNAM", self.bound_override.as_ref());
+        emit(out, *b"GNAM", self.origin_override.as_ref());
+        emit(out, *b"INAM", self.next_node_id.as_ref());
+        emit(out, *b"STPT", self.snap_piece_type.as_ref());
+        for group in &self.traversal_categories {
             group.emit(out);
         }
     }
@@ -90483,16 +91713,50 @@ impl StmpRecord {
 impl Visit for StmpRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "STMP.BfcbBlock", out);
+        visit_form_ids(&self.transforms, "STMP.PTT2", out);
+        visit_form_ids(&self.parent, "STMP.PNAM", out);
+        visit_form_ids(&self.snap_template_behavior, "STMP.HNAM", out);
+        visit_form_ids(&self.node_instances, "STMP.ENAM", out);
+        visit_form_ids(&self.traversal_categories, "STMP.TraversalCategories", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "STMP.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.transforms, "STMP.PTT2", out);
+        visit_form_ids_mut(&mut self.parent, "STMP.PNAM", out);
+        visit_form_ids_mut(&mut self.snap_template_behavior, "STMP.HNAM", out);
+        visit_form_ids_mut(&mut self.node_instances, "STMP.ENAM", out);
+        visit_form_ids_mut(
+            &mut self.traversal_categories,
+            "STMP.TraversalCategories",
+            out,
+        );
     }
 }
 
 impl StmpRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"STMP";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

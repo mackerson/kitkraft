@@ -1,173 +1,185 @@
-# IDLM: IdleMarker, inventory definition (KK-109).
+# IDLM: IdleMarker, a placeable marker where an actor plays idle animations (sit-and-wait
+# spots, lean points); it names the idles, how they are picked and an optional flavor or
+# archetype keyword.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official IDLM record (18 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the IDLM definition of wbDefinitionsSF1.pas at the pinned revision (L12688-L12703),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     group keeps its own provenance.
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12688-L12703 - member order, the one record flag
+#     (bit 29, child can use), EDID (L12692), script data (L12693, kept opaque), object
+#     bounds (L12694; wbDefinitionsCommon.pas L9348-L9365), the required ODTY (L12695;
+#     L3921-L3923), the base form components (L12696, the shared BfcbBlock), keywords
+#     (L12697; wbDefinitionsCommon.pas L8935-L8951), the idle animation block (L12698;
+#     wbDefinitionsCommon.pas L8900-L8933: IDLF flags, IDLC count, IDLT timer, IDLA list),
+#     the required generic model (L12699; L7008-L7029), RNAM (L12700), QNAM (L12701) and
+#     PNAM (L12702).
 #
-# An inventory: EDID and the keyword list are typed; every other payload is opaque (named
-# after its signature, a placeholder) until a family lane transcribes the record from the
-# pinned xEdit file (docs/gaps.md). Members xEdit lists that no official record has are left
-# out; a plugin that has one keeps it raw.
+# Before KK-255 this was an inventory definition (KK-109): corpus order and cardinality,
+# every payload but EDID and the keyword list opaque. The order here is xEdit's, which is
+# also the order of every official record.
 signature = "IDLM"
 name = "IdleMarker"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IDLM record (18) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12688-L12703",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12688-L12703"
+confidence = "reference"
+flags = [
+  ["ChildCanUse", 0x20000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID and keywords typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 18 official IDLM records (18 occurrences), 16..29 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12692-L12692",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12693-L12693",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+note = "script data; kept raw: its property values are unions by property type"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 18 official IDLM records (18 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12694-L12694",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: all 18 official IDLM records have it and decode with this layout",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 18 official IDLM records (18 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12695-L12695",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: all 18 official IDLM records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12696-L12696",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+note = "base form components"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 18 official IDLM records (1 occurrence), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12697-L12697",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: 1 of the 18 official IDLM records has a keyword list",
 ]
 confidence = "corpus"
 
 [[member]]
+group = "IdleAnimations"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12698-L12698",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8900-L8933",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: all 18 official IDLM records have IDLF, 5 have IDLC, IDLT and IDLA; in all 5 the IDLC count equals the number of FormIDs in IDLA (1 in 4 records, 2 in 1)",
+]
+confidence = "corpus"
+note = "the idles the marker plays and how they are picked"
+
+[[member.member]]
 sig = "IDLF"
-name = "Idlf"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 18 official IDLM records (18 occurrences), 1 byte"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12698-L12698",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8904-L8904",
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [
+  ["RunInSequence", 0x1],
+  ["DoOnce", 0x4],
+  ["IgnoredBySandbox", 0x10],
+  ["IgnoreConditionsForSandbox", 0x20],
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 1 byte"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8904-L8913"]
 
-[[member]]
+[[member.member]]
 sig = "IDLC"
-name = "Idlc"
-type = "opaque"
+name = "AnimationCount"
+type = "u32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 5 of 18 official IDLM records (5 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12698-L12698",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8920-L8920",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8920-L8920"]
+note = "number of FormIDs in Animations; stored, not derived"
 
-[[member]]
+[[member.member]]
 sig = "IDLT"
-name = "Idlt"
-type = "opaque"
+name = "IdleTimerSetting"
+type = "f32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 5 of 18 official IDLM records (5 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12698-L12698",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8924-L8924",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8924-L8924"]
 
-[[member]]
+[[member.member]]
 sig = "IDLA"
-name = "Idla"
-type = "opaque"
+name = "Animations"
+type = "array"
+element = "formid"
+targets = ["IDLE"]
+count = "rest"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 5 of 18 official IDLM records (5 occurrences), 4..8 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12698-L12698",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8925-L8925",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4..8 bytes"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8925-L8927"]
+note = "a null FormID is allowed"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 11 of 18 official IDLM records (11 occurrences), 43..46 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12699-L12699",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7014-L7014",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 43..46 bytes"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
+group_ref = "Model"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 18 of 18 official IDLM records (18 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12699-L12699",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7017-L7017",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: all 18 official IDLM records have FLLD, 11 have MODL",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+note = "the generic model block; xEdit requires the block"
+
+[[member]]
+sig = "RNAM"
+name = "ActorAction"
+type = "formid"
+targets = ["AACT"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12700-L12700"]
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
+name = "AnimationFlavor"
+type = "formid"
+targets = ["KYWD"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 18 official IDLM records (2 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12701-L12701",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: 2 of the 18 official IDLM records have it, never together with PNAM",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes; never co-occurs with PNAM in the corpus, so the xEdit order (QNAM before PNAM) is followed"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "AnimationArchetype"
+type = "formid"
+targets = ["KYWD"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 18 official IDLM records (1 occurrence), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12702-L12702",
+  "corpus: idlm_types_full (crates/esm/tests/idlm_types.rs), 2026-11-14: 1 of the 18 official IDLM records has it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes; never co-occurs with QNAM in the corpus"

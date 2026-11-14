@@ -1,126 +1,182 @@
-# SCOL: StaticCollection, inventory definition (KK-109).
+# SCOL: StaticCollection, a set of placed statics merged into one base object: each part
+# names a static (or another placeable form) and lists where its copies sit.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official SCOL record (15 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-30): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431
-#     (cited for the record as a whole).
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
-#     keeps its own provenance.
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17403-L17431 - member order, the record flags
+#     (L17404-L17415, eleven bits by bit number), EDID (L17421), script data (L17422, kept
+#     opaque), object bounds (L17423; wbDefinitionsCommon.pas L9348-L9365), the required
+#     ODTY (L17424; L3921-L3923), SNTP (L17425; L3919), the base form components (L17426,
+#     the shared BfcbBlock), the required generic model (L17427; L7008-L7029), FULL
+#     (L17428; L3184), FLTR (L17429; L5697) and the required parts list (L17430), each part
+#     (L8330-L8338) an ONAM (the part's form and four bytes upstream leaves unnamed) and the
+#     required placements (wbDefinitionsCommon.pas L9497-L9510: position and rotation, the
+#     vector helpers at L6760-L6790, and a scale).
 #
-# An inventory: EDID and the component block frame are typed; every other payload is opaque
-# (named after its signature, a placeholder) until a family lane decodes the record
-# (docs/gaps.md).
+# Before KK-256 this was an inventory definition (KK-109): corpus order and cardinality,
+# every payload but EDID and the component frame opaque. The order here is xEdit's; the
+# official records follow it (none has both SNTP and a component block, so the corpus alone
+# could not order those two).
 signature = "SCOL"
 name = "StaticCollection"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: every official SCOL record (15) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431"
+confidence = "reference"
+flags = [
+  ["NonOccluder", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["Loadscreen", 0x400],
+  ["UsedAsPlatform", 0x800],
+  ["HasDistantLod", 0x8000],
+  ["Obstacle", 0x2000000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 34..56 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17421-L17421",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 confidence = "corpus"
 
 [[member]]
-sig = "OBND"
-name = "Obnd"
+sig = "VMAD"
+name = "Scripts"
 type = "opaque"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17422-L17422",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+note = "script data; kept raw: its property values are unions by property type"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17423-L17423",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: all 15 official SCOL records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17424-L17424",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: all 15 official SCOL records have it",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
 
 [[member]]
 sig = "SNTP"
-name = "Sntp"
-type = "opaque"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 1 of 15 official SCOL records (1 occurrence), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17425-L17425",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: 1 of the 15 official SCOL records has it",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 3 of 15 official SCOL records (3 occurrences), 25 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17426-L17426",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: 3 of the 15 official SCOL records have base form components",
+]
 confidence = "corpus"
-note = "base form components; the component data stays raw; never in one record with SNTP, so its order relative to it is not known from the corpus"
+note = "base form components; the data of the untyped layouts stays raw"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+group_ref = "Model"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 34 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17427-L17427",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: all 15 official SCOL records have MODL and FLLD",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 34 bytes"
+note = "the generic model block; xEdit requires the block"
 
 [[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (15 occurrences), 4 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17428-L17428",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+]
+note = "not present in the official SCOL records"
 
 [[member]]
 sig = "FLTR"
-name = "Fltr"
-type = "opaque"
+name = "Filter"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 5 of 15 official SCOL records (5 occurrences), 13..30 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17429-L17429",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: 5 of the 15 official SCOL records have it",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 13..30 bytes"
 
 [[member]]
 group = "Parts"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), each entry ONAM (8 bytes), DATA (28..728 bytes)"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17430-L17430",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8330-L8338",
+  "corpus: scol_types_full (crates/esm/tests/scol_types.rs), 2026-11-14: all 15 official SCOL records have parts (ONAM and DATA), every part decodes with this layout and re-encodes identically",
 ]
 confidence = "corpus"
-note = "one entry per ONAM, its members in this order, the entries consecutive"
+note = "one entry per part; xEdit requires the list (at least one part), which the cardinalities here cannot say"
 
 [[member.member]]
 sig = "ONAM"
-name = "Onam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), 8 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 8 bytes"
+name = "Part"
+type = "struct"
+size = 8
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8332-L8335"]
+field = [
+  { name = "Static", type = "formid", targets = ["ACTI", "ALCH", "AMMO", "BOOK", "CONT", "DOOR", "FURN", "MISC", "MSTT", "STAT", "TERM", "WEAP", "FLOR"] },
+  { name = "Unknown", type = "opaque", size = 4, note = "kept raw: upstream gives these bytes no layout" },
+]
 
 [[member.member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Placements"
+type = "array"
+element = "struct"
+count = "rest"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-30: in 15 of 15 official SCOL records (83 occurrences, up to 10 per record), 28..728 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 28..728 bytes"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9497-L9510",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6790",
+]
+field = [
+  { name = "Position", type = "ref:Vec3" },
+  { name = "Rotation", type = "ref:Vec3" },
+  { name = "Scale", type = "f32" },
+]
+note = "where each copy of the part sits, 28 bytes each"

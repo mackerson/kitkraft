@@ -1,165 +1,252 @@
-# ASPC: AcousticSpace, inventory definition (KK-224).
+# ASPC: AcousticSpace, a placed volume that sets the sound of the space inside it: a
+# looping sound, interior and exterior sounds, the ambience set, music and reverb
+# (environment type), how much of the exterior and weather comes through, and which of
+# those settings it leaves to others (the disable flags).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official ASPC record (814 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9807-L9835 - member order, EDID (L9808), script
+#     data (L9809, kept opaque), object bounds (L9810; wbDefinitionsCommon.pas
+#     L9348-L9365), the required ODTY (L9811; L3921-L3923), OPDS (L9812; L3925-L3962), the
+#     base form components (L9813, the shared BfcbBlock), the three sound references
+#     (L9814-L9816; L2213-L2232), AAMB, AMUS and BNAM (L9817-L9819), the required AEAR
+#     (L9820), FLTV (L9821), the required XTRI and BOLV booleans (L9822-L9823;
+#     wbDefinitionsCommon.pas L7514-L7521), the required DEVT sound level (L9824; its
+#     names at L2574-L2581) and the ASDF disable flags (L9825-L9834). The record has no
+#     header flags of its own in xEdit.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane decodes the record (docs/gaps.md).
+# Before KK-252 this was a corpus-only inventory definition (KK-224): corpus order and
+# cardinality, every payload but EDID opaque. The order here is xEdit's, which is also the
+# order of every official record.
 signature = "ASPC"
 name = "AcousticSpace"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official ASPC record (814) decodes with every subrecord placed and re-encodes identically"
-confidence = "corpus"
-note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9807-L9835"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 812 of 814 official ASPC records (812 occurrences), 10..73 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9808-L9808",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 812 of 814 official ASPC records",
 ]
 confidence = "corpus"
-note = "2 official records lack it"
+note = "2 official records lack it, so it stays optional (the EditorId convention cannot hold here)"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9809-L9809",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+note = "script data; kept raw: its property values are unions by property type"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9810-L9810",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9811-L9811",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "OPDS"
-name = "Opds"
-type = "opaque"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 6 of 814 official ASPC records (6 occurrences), 80 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9812-L9812",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 6 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 80 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9813-L9813",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+note = "base form components"
 
 [[member]]
 sig = "ASLS"
-name = "Asls"
-type = "opaque"
+name = "LoopingSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 556 of 814 official ASPC records (556 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9814-L9814",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2232",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 556 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 40 bytes"
 
 [[member]]
 sig = "WED0"
-name = "Wed0"
-type = "opaque"
+name = "InteriorSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 21 of 814 official ASPC records (21 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9815-L9815",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2232",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 21 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 40 bytes"
 
 [[member]]
 sig = "WED1"
-name = "Wed1"
-type = "opaque"
+name = "ExteriorSound"
+type = "ref:SoundReference"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 20 of 814 official ASPC records (20 occurrences), 40 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9816-L9816",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2232",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 20 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 40 bytes"
 
 [[member]]
 sig = "AAMB"
-name = "Aamb"
-type = "opaque"
+name = "AmbienceSet"
+type = "formid"
+targets = ["AMBS"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 616 of 814 official ASPC records (616 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9817-L9817",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 616 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "AMUS"
-name = "Amus"
-type = "opaque"
+name = "MusicType"
+type = "formid"
+targets = ["MUSC"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 44 of 814 official ASPC records (44 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9818-L9818",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 44 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "EnvironmentType"
+type = "formid"
+targets = ["REVB"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 796 of 814 official ASPC records (796 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9819-L9819",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 796 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+note = "the reverb parameters of the space"
 
 [[member]]
 sig = "AEAR"
-name = "Aear"
-type = "opaque"
+name = "ExteriorWeatherAttenuation"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9820-L9820",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+note = "a sound-engine parameter (RTPC); xEdit passes the required argument"
 
 [[member]]
 sig = "FLTV"
-name = "Fltv"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+name = "InteriorExteriorRatio"
+type = "f32"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9821-L9821",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
+note = "a sound-engine parameter (RTPC)"
 
 [[member]]
 sig = "XTRI"
-name = "Xtri"
-type = "opaque"
+name = "IsInterior"
+type = "ref:Bool8"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 1 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9822-L9822",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 1 bytes"
 
 [[member]]
 sig = "BOLV"
-name = "Bolv"
-type = "opaque"
+name = "AllowExterior"
+type = "ref:Bool8"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 1 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9823-L9823",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 1 bytes"
 
 [[member]]
 sig = "DEVT"
-name = "Devt"
-type = "opaque"
+name = "SoundDetectionLevel"
+type = "enum"
+base = "u32"
+values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 814 of 814 official ASPC records (814 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9824-L9824",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: all 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "ASDF"
-name = "Asdf"
-type = "opaque"
+name = "DisableFlags"
+type = "flags"
+base = "u64"
+bits = [
+  ["EnvironmentType", 0x1],
+  ["MusicType", 0x2],
+  ["SoundDetectionLevel", 0x4],
+  ["LoopingSound", 0x8],
+  ["ExteriorWeatherAttenuation", 0x10],
+  ["IsInterior", 0x20],
+  ["CrowdWalla", 0x40],
+  ["AffectsParentedSoundMarkers", 0x80],
+]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 598 of 814 official ASPC records (598 occurrences), 8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9825-L9834",
+  "corpus: aspc_types_full (crates/esm/tests/aspc_types.rs), 2026-11-14: 598 of the 814 official ASPC records have it and decode with this layout",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 8 bytes"
+note = "which of the space's settings it does not apply"

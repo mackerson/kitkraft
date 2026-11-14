@@ -1,180 +1,247 @@
-# STMP: SnapTemplateForm, inventory definition (KK-100).
+# STMP: SnapTemplateForm, the layout of a snapping outpost or ship piece: its node
+# instances (each a template node with an offset and rotation), the overrides a child
+# template applies to its parent's instances, bound and origin overrides, the next free
+# instance ID, the piece type, and the traversal categories that link instances.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official STMP record (696 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-29): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17941-L18006
-#     (cited for the record as a whole).
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
-#     keeps its own provenance.
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17941-L18006 - member order, the record flags
+#     (L17942-L17952, ten bits by bit number), EDID (L17958), the base form components
+#     (L17959, the shared BfcbBlock), PTT2 (L17960; L3965-L3978), PNAM (L17961), HNAM
+#     (L17962), the node instances (L17963-L17977: ENAM, an instance ID, a template node,
+#     an offset and rotation in degrees with the vector helpers of wbDefinitionsCommon.pas
+#     L6725-L6740 and L6843-L6857, a display case slot and four bytes upstream leaves
+#     unnamed), the inherited overrides (L17978-L17981: ONAM and TNAM), BNAM (L17982-L17986),
+#     GNAM (L17987), INAM (L17988), STPT and its piece types (L17989-L17997) and the
+#     traversal categories (L17999-L18005: CNAM, then traversal nodes of an RNAM and its
+#     SNAM instance IDs).
 #
-# An inventory: EDID and the component block frame are typed; every other payload is opaque
-# (named after its signature, a placeholder) until a family lane decodes the record
-# (docs/gaps.md).
-# Inside component blocks (kept raw by BfcbBlock): FLTR INTV.
+# Before KK-254 this was an inventory definition (KK-100): corpus order and cardinality,
+# every payload but EDID and the component frame opaque. The order here is xEdit's; the
+# official records follow it (none has BNAM together with ONAM or TNAM, so the corpus alone
+# could not order those). The FLTR and INTV the parity table counts outside the definition
+# sit inside base form components, whose data the shared block keeps raw.
 signature = "STMP"
 name = "SnapTemplateForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official STMP record (696) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17941-L18006",
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17941-L18006"
+confidence = "reference"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
 ]
-confidence = "corpus"
-note = "inventory definition (KK-100): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 695 of 696 official STMP records (695 occurrences), 11..57 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17958-L17958",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 695 of 696 official STMP records",
 ]
 confidence = "corpus"
-note = "1 official record lacks it"
+note = "1 official record lacks it, so it stays optional (the EditorId convention cannot hold here)"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 226 of 696 official STMP records (226 occurrences), 32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17959-L17959",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: 226 of the 696 official STMP records have base form components (FLTR and INTV in all 226, inside the component data)",
 ]
 confidence = "corpus"
-note = "base form components; the component data stays raw"
+note = "base form components; the data of the untyped layouts stays raw"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17960-L17960",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+]
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "Parent"
+type = "formid"
+targets = ["STMP"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 4 of 696 official STMP records (4 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17961-L17961",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: 4 of the 696 official STMP records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
+
+[[member]]
+sig = "HNAM"
+name = "SnapTemplateBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17962-L17962"]
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "NodeInstances"
+type = "struct"
+size = 40
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 696 of 696 official STMP records (3446 occurrences, up to 192 per record), 40 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17964-L17964",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17963-L17977",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6843-L6857",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: all 696 official STMP records have node instances and every one decodes with this layout",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 40 bytes"
+note = "one subrecord per node instance"
+field = [
+  { name = "InstanceId", type = "u32" },
+  { name = "TemplateNode", type = "formid", targets = ["STND"] },
+  { name = "Offset", type = "ref:Vec3" },
+  { name = "Rotation", type = "ref:Vec3", note = "in degrees" },
+  { name = "DisplayCaseSlot", type = "u32" },
+  { name = "Unknown", type = "opaque", size = 4, note = "kept raw: upstream gives these bytes no layout" },
+]
 
 [[member]]
+group = "InheritedOverrides"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17978-L17981",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: ONAM in 4 and TNAM in 3 of the 696 official STMP records, all decoding with this layout",
+]
+confidence = "corpus"
+note = "one entry per parent instance the template overrides"
+
+[[member.member]]
 sig = "ONAM"
-name = "Onam"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 4 of 696 official STMP records (5 occurrences, up to 2 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17979-L17979",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
-
-[[member]]
-sig = "TNAM"
-name = "Tnam"
-type = "opaque"
+name = "InstanceId"
+type = "u32"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 3 of 696 official STMP records (3 occurrences), 24 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17979-L17979"]
+
+[[member.member]]
+sig = "TNAM"
+name = "TransformData"
+type = "struct"
+size = 24
+card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17980-L17980",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6859-L6874",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 24 bytes"
+field = [
+  { name = "Offset", type = "ref:Vec3" },
+  { name = "Rotation", type = "ref:Vec3", note = "in degrees" },
+]
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "BoundOverride"
+type = "struct"
+size = 24
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 3 of 696 official STMP records (3 occurrences), 24 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17982-L17982",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17982-L17986",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: 3 of the 696 official STMP records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 24 bytes; never in one record with ONAM, TNAM, so its order relative to them is not known from the corpus"
+field = [
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
+]
+
+[[member]]
+sig = "GNAM"
+name = "OriginOverride"
+type = "ref:Vec3"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17987-L17987",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+]
 
 [[member]]
 sig = "INAM"
-name = "Inam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 696 of 696 official STMP records (696 occurrences), 4 bytes"
+name = "NextNodeId"
+type = "u32"
+card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17988-L17988",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: all 696 official STMP records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
 
 [[member]]
 sig = "STPT"
-name = "Stpt"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 696 of 696 official STMP records (696 occurrences), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17989-L17989",
+name = "SnapPieceType"
+type = "enum"
+base = "u32"
+values = [
+  ["Invalid", 0],
+  ["StartingFoundation", 1],
+  ["Foundation", 2],
+  ["Floor", 3],
+  ["Stair", 4],
+  ["Wall", 5],
+  ["Roof", 6],
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
-
-[[member]]
-sig = "CNAM"
-name = "Cnam"
-type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 17 of 696 official STMP records (17 occurrences), 7..12 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18000-L18000",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17989-L17997",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: all 696 official STMP records have it",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 7..12 bytes"
 
 [[member]]
-group = "RnamEntries"
+group = "TraversalCategories"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 17 of 696 official STMP records (239 occurrences, up to 96 per record), each entry RNAM (4 bytes, repeated), SNAM (4 bytes, repeated)"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18001-L18001",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17999-L18005",
+  "corpus: stmp_types_full (crates/esm/tests/stmp_types.rs), 2026-11-14: CNAM, RNAM and SNAM in 17 of the 696 official STMP records, all decoding with this layout",
 ]
 confidence = "corpus"
-note = "one entry per RNAM, its members in this order, the entries consecutive; 679 official records have no entries"
+note = "one entry per category"
 
 [[member.member]]
+sig = "CNAM"
+name = "Name"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18000-L18000"]
+
+[[member.member]]
+group = "TraversalNodes"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18001-L18004"]
+note = "one entry per traversal node"
+
+[[member.member.member]]
 sig = "RNAM"
-name = "Rnam"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 17 of 696 official STMP records (239 occurrences, up to 96 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18002-L18002",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
+name = "Traversal"
+type = "formid"
+targets = ["TRAV"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18002-L18002"]
 
-[[member.member]]
+[[member.member.member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
+name = "Instances"
+type = "u32"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 17 of 696 official STMP records (498 occurrences, up to 195 per record), 4 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18003-L18003",
-]
-confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); observed 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18003-L18003"]
+note = "one subrecord per instance ID"

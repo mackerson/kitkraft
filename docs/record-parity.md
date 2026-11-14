@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 71: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 64: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 71:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    654,790 |   417,615 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,210,311 | 2,495,108 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    672,121 |   400,284 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,227,642 | 2,477,777 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 71:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:bcc8b2e83393a3ac` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:4da44d207e7827ff` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -106,7 +106,7 @@ Columns:
 | `ARMO`        | Armor                          |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | MorphableObject                |     1,145 |          0 |     4 |     1 |      3 |       0 |
 | `SOUN`        | SoundMarker                    |     1,133 |          0 |     8 |     8 |      0 |       0 |
-| `CNDF`        | ConditionForm                  |     1,055 |          0 |     6 |     1 |      5 |       0 |
+| `CNDF`        | ConditionForm                  |     1,055 |          0 |     6 |     6 |      0 |       0 |
 | `FURN`        | Furniture                      |     1,045 |          0 |    50 |    40 |      4 |       6 |
 | `MGEF`        | MagicEffect                    |       989 |          0 |    12 |    10 |      2 |       0 |
 | `TMLM`        | TerminalMenu                   |       974 |          0 |    22 |    21 |      1 |       0 |
@@ -114,12 +114,12 @@ Columns:
 | `VTYP`        | VoiceType                      |       915 |          0 |     4 |     1 |      3 |       0 |
 | `MTPT`        | MaterialPath                   |       906 |          0 |     2 |     1 |      1 |       0 |
 | `CONT`        | Container                      |       866 |          0 |    39 |    36 |      3 |       0 |
-| `ASPC`        | AcousticSpace                  |       814 |          0 |    16 |     1 |     15 |       0 |
+| `ASPC`        | AcousticSpace                  |       814 |          0 |    16 |    16 |      0 |       0 |
 | `TRNS`        | Transform                      |       733 |          0 |     4 |     1 |      3 |       0 |
-| `PDCL`        | ProjectedDecal                 |       732 |          0 |    13 |     3 |      8 |       2 |
+| `PDCL`        | ProjectedDecal                 |       732 |          0 |    13 |    10 |      1 |       2 |
 | `EFSQ`        | EffectSequence                 |       728 |          0 |     2 |     1 |      1 |       0 |
 | `OTFT`        | Outfit                         |       698 |          0 |     2 |     2 |      0 |       0 |
-| `STMP`        | SnapTemplateForm               |       696 |          0 |    15 |     6 |      7 |       2 |
+| `STMP`        | SnapTemplateForm               |       696 |          0 |    15 |    13 |      0 |       2 |
 | `WWED`        | WwiseEventData                 |       681 |          0 |     4 |     1 |      3 |       0 |
 | `SPEL`        | Spell                          |       662 |          0 |    19 |    19 |      0 |       0 |
 | `PERK`        | Perk                           |       608 |          0 |    29 |    26 |      3 |       0 |
@@ -210,11 +210,11 @@ Columns:
 | `AOPS`        | AimOpticalSightMarker          |        21 |          0 |     2 |     1 |      1 |       0 |
 | `CLDF`        | Clouds                         |        21 |          0 |     2 |     1 |      1 |       0 |
 | `AOPF`        | AudioOcclusionPrimitive        |        20 |          0 |     5 |     1 |      4 |       0 |
-| `LVSC`        | LeveledSpaceCell               |        20 |          0 |     6 |     1 |      5 |       0 |
+| `LVSC`        | LeveledSpaceCell               |        20 |          0 |     6 |     6 |      0 |       0 |
 | `FSTS`        | FootstepSet                    |        19 |          0 |     3 |     1 |      2 |       0 |
 | `WATR`        | Water                          |        19 |          0 |    19 |    17 |      2 |       0 |
-| `IDLM`        | IdleMarker                     |        18 |          0 |    13 |     3 |     10 |       0 |
-| `SCOL`        | StaticCollection               |        15 |          0 |    11 |     3 |      8 |       0 |
+| `IDLM`        | IdleMarker                     |        18 |          0 |    13 |    13 |      0 |       0 |
+| `SCOL`        | StaticCollection               |        15 |          0 |    11 |    11 |      0 |       0 |
 | `BNDS`        | BendableSplineForm             |        14 |          0 |     5 |     1 |      4 |       0 |
 | `TES4`        | PluginHeader                   |        14 |          0 |     9 |     6 |      3 |       0 |
 | `TODD`        | TimeOfDayDataForm              |        14 |          0 |     6 |     3 |      1 |       2 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,294 |    307 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,351 |    250 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,210,311 typed (0 of them failed to decode), 2,495,108 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,227,642 typed (0 of them failed to decode), 2,477,777 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -308,7 +308,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ARMO`    | Armor                          |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
 | `MRPH`    | MorphableObject                |         1,145 |      1,145 |      0 |         0 |         0 |                   0 |      1,145 |       0 |        0 |
 | `SOUN`    | SoundMarker                    |         1,133 |      5,715 |      0 |         0 |         0 |                   0 |      5,715 |       0 |        0 |
-| `CNDF`    | ConditionForm                  |         1,055 |      1,055 |      0 |         0 |         0 |                   0 |      1,055 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |         1,055 |      4,354 |      0 |         0 |         0 |                   0 |      4,354 |       0 |        0 |
 | `FURN`    | Furniture                      |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
 | `MGEF`    | MagicEffect                    |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
@@ -316,12 +316,12 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `VTYP`    | VoiceType                      |           915 |        915 |      0 |         0 |         0 |                   0 |        915 |       0 |        0 |
 | `MTPT`    | MaterialPath                   |           906 |        906 |      0 |         0 |         0 |                   0 |        906 |       0 |        0 |
 | `CONT`    | Container                      |           866 |     18,190 |      0 |         0 |         0 |                   0 |     18,190 |       0 |        0 |
-| `ASPC`    | AcousticSpace                  |           814 |        812 |      0 |         0 |         0 |                   0 |        812 |       0 |        0 |
+| `ASPC`    | AcousticSpace                  |           814 |      9,167 |      0 |         0 |         0 |                   0 |      9,167 |       0 |        0 |
 | `TRNS`    | Transform                      |           733 |        733 |      0 |         0 |         0 |                   0 |        733 |       0 |        0 |
-| `PDCL`    | ProjectedDecal                 |           732 |        854 |      0 |         0 |         0 |                   0 |        854 |       0 |        0 |
+| `PDCL`    | ProjectedDecal                 |           732 |      3,843 |      0 |         0 |         0 |                   0 |      3,843 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |           728 |        727 |      0 |         0 |         0 |                   0 |        727 |       0 |        0 |
 | `OTFT`    | Outfit                         |           698 |      1,396 |      0 |         0 |         0 |                   0 |      1,396 |       0 |        0 |
-| `STMP`    | SnapTemplateForm               |           696 |      4,613 |      0 |         0 |         0 |                   0 |      4,613 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |           696 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |           681 |        681 |      0 |         0 |         0 |                   0 |        681 |       0 |        0 |
 | `SPEL`    | Spell                          |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
 | `PERK`    | Perk                           |           608 |     27,868 |      0 |         0 |         0 |                   0 |     27,868 |       0 |        0 |
@@ -412,11 +412,11 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AOPS`    | AimOpticalSightMarker          |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `CLDF`    | Clouds                         |            21 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `AOPF`    | AudioOcclusionPrimitive        |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
-| `LVSC`    | LeveledSpaceCell               |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
+| `LVSC`    | LeveledSpaceCell               |            20 |        234 |      0 |         0 |         0 |                   0 |        234 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |            19 |         19 |      0 |         0 |         0 |                   0 |         19 |       0 |        0 |
 | `WATR`    | Water                          |            19 |        299 |      0 |         0 |         0 |                   0 |        299 |       0 |        0 |
-| `IDLM`    | IdleMarker                     |            18 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
-| `SCOL`    | StaticCollection               |            15 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
+| `IDLM`    | IdleMarker                     |            18 |        121 |      0 |         0 |         0 |                   0 |        121 |       0 |        0 |
+| `SCOL`    | StaticCollection               |            15 |        253 |      0 |         0 |         0 |                   0 |        253 |       0 |        0 |
 | `BNDS`    | BendableSplineForm             |            14 |         14 |      0 |         0 |         0 |                   0 |         14 |       0 |        0 |
 | `TES4`    | PluginHeader                   |            14 |         77 |      0 |         0 |         0 |                   0 |         77 |       0 |        0 |
 | `TODD`    | TimeOfDayDataForm              |            14 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,210,311 |      0 |         0 |   233,807 |                   0 | 46,976,504 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,227,642 |      0 |         0 |   233,807 |                   0 | 46,993,835 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -481,7 +481,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `ARMA`    | ArmorAddon                     |             83 |    79 |      4 |        40 |                   0 |     43 |       0 |        0 |
 | `ARMO`    | Armor                          |             85 |    81 |      4 |        11 |                   0 |     74 |       0 |        0 |
 | `ARTO`    | ArtObject                      |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
-| `ASPC`    | AcousticSpace                  |             16 |     1 |     15 |         0 |                   0 |     16 |       0 |        0 |
+| `ASPC`    | AcousticSpace                  |             50 |    46 |      4 |         1 |                   0 |     49 |       0 |        0 |
 | `ATMO`    | Atmosphere                     |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation          |             10 |     9 |      1 |         1 |                   0 |      9 |       0 |        0 |
 | `AVMD`    | AvmsData                       |             43 |    40 |      3 |         0 |                   0 |     43 |       0 |        0 |
@@ -498,7 +498,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CLDF`    | Clouds                         |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CLFM`    | ColorForm                      |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `CLMT`    | ClimateForm                    |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `CNDF`    | ConditionForm                  |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
 | `COBJ`    | ConstructibleObject            |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
 | `COLL`    | CollisionLayerForm             |             41 |    37 |      4 |         1 |                   0 |     40 |       0 |        0 |
 | `CONT`    | Container                      |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
@@ -540,7 +540,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
 | `HDPT`    | HeadPart                       |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
-| `IDLM`    | IdleMarker                     |             13 |     3 |     10 |         0 |                   0 |     13 |       0 |        0 |
+| `IDLM`    | IdleMarker                     |             51 |    47 |      4 |         3 |                   0 |     48 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `INFO`    | DialogResponse                 |             90 |    84 |      6 |         7 |                   0 |     83 |       0 |        0 |
@@ -565,7 +565,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LVLI`    | LeveledItem                    |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
 | `LVLP`    | LeveledPackIn                  |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
-| `LVSC`    | LeveledSpaceCell               |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `LVSC`    | LeveledSpaceCell               |             47 |    43 |      4 |         2 |                   0 |     45 |       0 |        0 |
 | `MAAM`    | MeleeAimAssistModel            |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `MATT`    | MaterialType                   |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
 | `MESG`    | Message                        |             51 |    47 |      4 |         3 |                   0 |     48 |       0 |        0 |
@@ -589,7 +589,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `PCBN`    | PlanetContentBranchNode        |             47 |    44 |      3 |         1 |                   0 |     46 |       0 |        0 |
 | `PCCN`    | PlanetContentNode              |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             43 |    40 |      3 |         2 |                   0 |     41 |       0 |        0 |
-| `PDCL`    | ProjectedDecal                 |             41 |    31 |     10 |         0 |                   0 |     41 |       0 |        0 |
+| `PDCL`    | ProjectedDecal                 |             45 |    41 |      4 |         4 |                   0 |     41 |       0 |        0 |
 | `PERK`    | Perk                           |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
 | `PERS`    | UnknownPers                    |              2 |     0 |      2 |         0 |                   0 |      2 |       0 |        0 |
 | `PGRE`    | PlacedProjectile               |             10 |     9 |      1 |         0 |                   0 |     10 |       0 |        0 |
@@ -610,7 +610,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `RSPJ`    | ResearchProject                |             48 |    45 |      3 |         0 |                   0 |     48 |       0 |        0 |
 | `SCCO`    | SceneCollection                |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SCEN`    | Scene                          |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
-| `SCOL`    | StaticCollection               |             42 |    31 |     11 |         0 |                   0 |     42 |       0 |        0 |
+| `SCOL`    | StaticCollection               |             47 |    43 |      4 |         3 |                   0 |     44 |       0 |        0 |
 | `SDLT`    | SecondaryDamageListForm        |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `SECH`    | SoundEchoMarker                |             60 |    55 |      5 |         9 |                   0 |     51 |       0 |        0 |
 | `SFBK`    | SurfaceBlock                   |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
@@ -628,7 +628,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `STAT`    | Static                         |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |             40 |    31 |      9 |         0 |                   0 |     40 |       0 |        0 |
 | `STDT`    | Star                           |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
-| `STMP`    | SnapTemplateForm               |             44 |    31 |     13 |         0 |                   0 |     44 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |             47 |    44 |      3 |         3 |                   0 |     44 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |             58 |    54 |      4 |         8 |                   0 |     50 |       0 |        0 |
 | `SUNP`    | SunPreset                      |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `TERM`    | Terminal                       |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,362 | 5,722 |    640 |       508 |                   2 |  5,852 |       0 |        0 |
+| **Total** |                                |          6,520 | 5,923 |    597 |       524 |                   2 |  5,994 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
