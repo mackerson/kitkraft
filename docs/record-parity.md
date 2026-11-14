@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 69: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REGN, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 68: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REGN, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 69:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    665,681 |   406,724 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,221,202 | 2,484,217 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    667,822 |   404,583 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,223,343 | 2,482,076 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 69:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:832b5bdff1391859` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:2f64a9efbdb927d1` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -119,7 +119,7 @@ Columns:
 | `PDCL`        | ProjectedDecal                 |       732 |          0 |    13 |    10 |      1 |       2 |
 | `EFSQ`        | EffectSequence                 |       728 |          0 |     2 |     1 |      1 |       0 |
 | `OTFT`        | Outfit                         |       698 |          0 |     2 |     2 |      0 |       0 |
-| `STMP`        | SnapTemplateForm               |       696 |          0 |    15 |     6 |      7 |       2 |
+| `STMP`        | SnapTemplateForm               |       696 |          0 |    15 |    13 |      0 |       2 |
 | `WWED`        | WwiseEventData                 |       681 |          0 |     4 |     1 |      3 |       0 |
 | `SPEL`        | Spell                          |       662 |          0 |    19 |    19 |      0 |       0 |
 | `PERK`        | Perk                           |       608 |          0 |    29 |    26 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,325 |    276 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,332 |    269 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,221,202 typed (0 of them failed to decode), 2,484,217 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,223,343 typed (0 of them failed to decode), 2,482,076 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -321,7 +321,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `PDCL`    | ProjectedDecal                 |           732 |      3,843 |      0 |         0 |         0 |                   0 |      3,843 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |           728 |        727 |      0 |         0 |         0 |                   0 |        727 |       0 |        0 |
 | `OTFT`    | Outfit                         |           698 |      1,396 |      0 |         0 |         0 |                   0 |      1,396 |       0 |        0 |
-| `STMP`    | SnapTemplateForm               |           696 |      4,613 |      0 |         0 |         0 |                   0 |      4,613 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |           696 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |           681 |        681 |      0 |         0 |         0 |                   0 |        681 |       0 |        0 |
 | `SPEL`    | Spell                          |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
 | `PERK`    | Perk                           |           608 |     27,868 |      0 |         0 |         0 |                   0 |     27,868 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,221,202 |      0 |         0 |   233,807 |                   0 | 46,987,395 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,223,343 |      0 |         0 |   233,807 |                   0 | 46,989,536 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -628,7 +628,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `STAT`    | Static                         |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |             40 |    31 |      9 |         0 |                   0 |     40 |       0 |        0 |
 | `STDT`    | Star                           |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
-| `STMP`    | SnapTemplateForm               |             44 |    31 |     13 |         0 |                   0 |     44 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |             47 |    44 |      3 |         3 |                   0 |     44 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |             58 |    54 |      4 |         8 |                   0 |     50 |       0 |        0 |
 | `SUNP`    | SunPreset                      |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `TERM`    | Terminal                       |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,438 | 5,818 |    620 |       516 |                   2 |  5,920 |       0 |        0 |
+| **Total** |                                |          6,441 | 5,831 |    610 |       519 |                   2 |  5,920 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
