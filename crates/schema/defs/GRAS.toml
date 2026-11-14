@@ -60,7 +60,7 @@ sig = "OPDS"
 name = "ObjectPaletteDefaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
-confidence = "corpus"
+confidence = "reference"
 evidence = [
   "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in none of the 193 official GRAS records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12480-L12480",
@@ -73,7 +73,7 @@ sig = "XALG"
 name = "XalgFlags"
 type = "u64"
 card = "optional"
-confidence = "corpus"
+confidence = "reference"
 evidence = [
   "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in none of the 193 official GRAS records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12481-L12481",

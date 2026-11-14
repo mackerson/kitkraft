@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:0f7f49b036bda3ca` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:dbb17a9041799699` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -359,7 +359,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AACT`    | ActionForm                     |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject                      |           212 |      2,021 |      0 |         0 |         0 |                   0 |      2,021 |       0 |        0 |
 | `SPCH`    | SpeechChallengeForm            |           197 |      1,506 |      0 |         0 |         0 |                   0 |      1,506 |       0 |        0 |
-| `GRAS`    | Grass                          |           193 |      1,212 |      0 |         0 |       579 |                   0 |        633 |       0 |        0 |
+| `GRAS`    | Grass                          |           193 |      1,212 |      0 |         0 |         0 |                   0 |      1,212 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |           187 |        187 |      0 |         0 |         0 |                   0 |        187 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |           183 |      2,570 |      0 |         0 |         0 |                   0 |      2,570 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |           177 |      2,947 |      0 |         0 |         0 |                   0 |      2,947 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FORC`    | ForceData                      |             5 |          5 |      0 |         0 |         0 |                   0 |          5 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |             4 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
-| `REGN`    | Region                         |             4 |         17 |      0 |         0 |        14 |                   0 |          3 |       0 |        0 |
+| `REGN`    | Region                         |             4 |         17 |      0 |         0 |         0 |                   0 |         17 |       0 |        0 |
 | `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `WTHR`    | Weather                        |             3 |        164 |      0 |         0 |         0 |                   0 |        164 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,209,462 |      0 |         0 |   234,171 |                   0 | 46,975,291 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,209,462 |      0 |         0 |   233,578 |                   0 | 46,975,884 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -535,7 +535,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GMST`    | GameSetting                    |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |             46 |    43 |      3 |         6 |                   0 |     40 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `GRAS`    | Grass                          |             44 |    41 |      3 |         6 |                   0 |     38 |       0 |        0 |
+| `GRAS`    | Grass                          |             44 |    41 |      3 |         3 |                   0 |     41 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
 | `HDPT`    | HeadPart                       |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
@@ -603,7 +603,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `QUST`    | Quest                          |            215 |   206 |      9 |         3 |                   0 |    212 |       0 |        0 |
 | `RACE`    | Race                           |            156 |   147 |      9 |         7 |                   0 |    149 |       0 |        0 |
 | `REFR`    | PlacedObject                   |            131 |   121 |     10 |         5 |                   0 |    126 |       0 |        0 |
-| `REGN`    | Region                         |              6 |     6 |      0 |         5 |                   0 |      1 |       0 |        0 |
+| `REGN`    | Region                         |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
 | `REVB`    | ReverbParameters               |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `RFGP`    | ReferenceGroup                 |             40 |    35 |      5 |         7 |                   0 |     33 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,329 | 5,676 |    653 |       510 |                   2 |  5,817 |       0 |        0 |
+| **Total** |                                |          6,329 | 5,676 |    653 |       502 |                   2 |  5,825 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
