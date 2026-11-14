@@ -46,8 +46,8 @@ that is still pending is not a row.
 
 Seeded 2026-10-15 from what `main` proves:
 
-- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK
-  and KEYM (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
+  KEYM, FLOR, DOOR and LIGH (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -307,3 +307,31 @@ component layout; KEYM has no base form component block, so the layout names are
   `book_dangling_link_is_reported` (`DEFL`, `FIMD`, the inventory art `INAM`, the scene
   `GNAM`) and `keym_dangling_link_is_reported` (`FIMD`, the keywords `KWDA`): each link is
   reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## FLOR, DOOR and LIGH (KK-259, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the `ContactShadow` component
+layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| FLOR | not-run | pass |
+| DOOR | not-run | pass |
+| LIGH | not-run | pass |
+
+- `flor_new_sets_every_typed_member_and_reads_back` (47 subrecords),
+  `door_new_sets_every_typed_member_and_reads_back` (39) and
+  `ligh_new_sets_every_typed_member_and_reads_back` (38): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. DOOR's
+  three whole-opaque members (`ONAM`, `CNAM`, `NVNM`) are its unchecked subrecords.
+  LIGH keeps `FULL` opaque in its definition, but `validate` reads a `FULL` with only
+  opaque bytes in the schema through the engine's lstring fallback, so the test
+  (`writes_and_reads_back_with`, `FULL` named) expects it checked: LIGH has no
+  unchecked subrecord.
+- `flor_dangling_link_is_reported` (the ingredient `PFIG`, the maximum-count global
+  `FMAG`, the explosion `FLXP`), `door_dangling_link_is_reported` (the snap template
+  `SNTP`, the native terminal `NTRM`, the keywords `KWDA`) and
+  `ligh_dangling_link_is_reported` (the default layer `DEFL`, the lens `LNAM`, `KWDA`):
+  each link is reported by `validate`'s `formid.dangling` and listed as `missing` by
+  `refs`.

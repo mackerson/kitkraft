@@ -2,7 +2,8 @@
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
-//! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14)
+//! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
+//! FLOR, DOOR and LIGH (KK-259, 2026-11-14)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -383,6 +384,15 @@ pub(super) fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a
 
 /// The checks every typed-write test makes (module docs).
 fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
+    writes_and_reads_back_with(sig, layout, component, &[]);
+}
+
+/// [`writes_and_reads_back`], where the top-level whole-opaque members `lstring_fallback`
+/// (FULL or DESC kept opaque in the schema) are read by `validate` through the engine's
+/// lstring fallback (`edit::fields::finish`: FULL and DESC by the uesp-skyrim fact), so
+/// they are checked, not unchecked. Each must be a whole-opaque member of the definition;
+/// the unchecked count stays an exact equality.
+fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_fallback: &[&str]) {
     // The layout in the name: two layouts of one type (QUST) must not share a dir,
     // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
     let d = dir(&format!(
@@ -395,7 +405,19 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
     // asset.missing-model does not fire (KK-018).
     std::fs::create_dir_all(d.join("meshes")).unwrap();
     std::fs::write(d.join("meshes").join("Typed"), []).unwrap();
-    let p = plan(sig, layout, component);
+    let mut p = plan(sig, layout, component);
+    let def = kitkraft_schema::builtin()
+        .unwrap()
+        .record(kitkraft_schema::Signature::parse(sig).unwrap())
+        .unwrap();
+    for s in lstring_fallback {
+        let opaque = def.members.iter().any(|m| {
+            matches!(m, Member::Subrecord(sub) if sub.signature.as_str() == *s && sub.ty.is_opaque())
+        });
+        assert!(opaque, "{sig} {s}: not a top-level whole-opaque member");
+        assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
+        p.opaque -= 1;
+    }
     let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(
         r["data"]["validate"]["passed"],
@@ -1139,6 +1161,88 @@ fn keym_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("FIMD", json!(MISSING)), ("KWDA", json!([MISSING]))],
         &["FIMD", "KWDA"],
+    );
+}
+
+#[test]
+fn flor_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FLOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn flor_dangling_link_is_reported() {
+    // The harvested ingredient, the maximum-count global and the explosion.
+    dangling(
+        "FLOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("PFIG", json!(MISSING)),
+            ("FMAG", json!(MISSING)),
+            ("FLXP", json!(MISSING)),
+        ],
+        &["PFIG", "FMAG", "FLXP"],
+    );
+}
+
+#[test]
+fn door_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "DOOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn door_dangling_link_is_reported() {
+    // The snap template, the native terminal and the keyword list (a formid array, set
+    // whole as a JSON array of its elements).
+    dangling(
+        "DOOR",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("NTRM", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+        ],
+        &["SNTP", "NTRM", "KWDA"],
+    );
+}
+
+// LIGH keeps FULL opaque (its definition: upstream types it as a localized string, absent
+// from every official LIGH record). The plan writes it as one opaque byte and would count
+// it unchecked, but `validate` reads a FULL with only opaque bytes in the schema through
+// the engine's lstring fallback, so it is checked (one NUL: an empty inline string in
+// this non-localized plugin) and reported as no unchecked subrecord.
+#[test]
+fn ligh_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with(
+        "LIGH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &["FULL"],
+    );
+}
+
+#[test]
+fn ligh_dangling_link_is_reported() {
+    // The default layer, the lens and the keyword list.
+    dangling(
+        "LIGH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("DEFL", json!(MISSING)),
+            ("LNAM", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+        ],
+        &["DEFL", "LNAM", "KWDA"],
     );
 }
 
