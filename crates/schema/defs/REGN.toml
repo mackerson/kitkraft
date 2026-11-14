@@ -41,7 +41,7 @@ note = "1 official record lacks it"
 sig = "RCLR"
 name = "MapColor"
 type = "ref:ColorRgb"
-card = "optional"
+card = "required"
 evidence = [
   "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in 4 of 4 official REGN records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16820-L16820",
