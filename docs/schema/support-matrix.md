@@ -112,6 +112,18 @@ The proofs:
   0 explained` over its 812 FACT, in 959.72 s (about 16 minutes). A clone changes only the
   FormID, the `EDID` and the lstrings it inlines from the string tables; every other
   subrecord is byte-identical and the patch validates with 0 errors.
+- `crates/engine/tests/clone_sample_corpus.rs` (KK-261, ignored, `--include-ignored`):
+  `a_sample_of_official_ingestibles_clones_identically` and
+  `a_sample_of_official_books_clones_identically` each clone 100 official records, spread
+  evenly by FormID over `Starfield.esm`, into one patch per type.
+  `clone-sample ALCH: 100 cloned, 100 identical, 0 explained` over Starfield.esm's 353
+  ALCH, in 2947.01 s (about 49 minutes, debug build on a shared machine);
+  `clone-sample BOOK: 100 cloned, 100 identical, 0 explained` over its 992 BOOK, in
+  3645.15 s (about 61 minutes, same). Same claim as above: only the FormID, the `EDID` and
+  the inlined lstrings change, and the patch validates with 0 errors. The ALCH sample is
+  the first with lstrings of ID 0 (98 of its 100 records, in `DNAM` or `DESC`): the writer
+  inlines ID 0 as one NUL (`edit/patch.rs` `inline_lstrings`), and the test's expected
+  payload now does the same (it had put two NULs there, against its own doc comment).
 
 Known limits: `set` paths do not address the elements of a subrecord whose whole payload is
 an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole (`hex:`).

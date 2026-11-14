@@ -182,8 +182,12 @@ fn expected_payload(
             return Err(format!("lstring is {len} bytes, not 4"));
         }
         let id = u32::from_le_bytes(bytes.try_into().unwrap());
+        // ID 0 is the empty string: the writer inlines no text, then the one NUL
+        // (`edit/patch.rs` `inline_lstrings`, `if id == 0 { (Vec::new(), None) }`).
+        // KK-261: this helper used to put a second NUL there; no LCTN, TERM, PKIN
+        // or FACT sample holds an ID-0 lstring, the ALCH sample has 98.
         let text = if id == 0 {
-            vec![0]
+            Vec::new()
         } else {
             let r = tables
                 .lookup("Starfield.esm", id)
@@ -467,4 +471,16 @@ fn a_sample_of_official_packins_clones_identically() {
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_factions_clones_identically() {
     sample_clones("FACT", "Fact");
+}
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_ingestibles_clones_identically() {
+    sample_clones("ALCH", "Alch");
+}
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_books_clones_identically() {
+    sample_clones("BOOK", "Book");
 }
