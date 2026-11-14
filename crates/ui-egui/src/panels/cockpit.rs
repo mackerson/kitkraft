@@ -965,8 +965,9 @@ pub fn game_buttons() -> Vec<ButtonState> {
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, findings_grid, panel_head, virtual_table, virtual_table_for,
-    Action, Shown, Slot, SlotKey, TabCtx,
+    action_bar, clear_refusal, envelope_block, findings_grid, panel_head, refuse,
+    refusal_line, virtual_table, virtual_table_for, Action, Refusals, Shown, Slot, SlotKey,
+    TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -1045,6 +1046,9 @@ pub(crate) struct CockpitTab {
     pub session_form: session::SessionForm,
     /// What the window knows about the session it started (M6.G4).
     pub session: session::SessionState,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
     /// The probes' drawing state: the selected row and the screenshot textures
     /// (M6.G5).
     pub probe_ui: probes::ProbeUi,
@@ -1506,6 +1510,7 @@ impl CockpitTab {
     /// back to empty with one click (owner finding 4, 2026-11-01), and the review.
     fn plugin_bar(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
         let busy = ctx.busy;
+        let mut review_id: Option<egui::Id> = None;
         ui.horizontal_wrapped(|ui| {
             ui.label(theme::subheading(ui, "Plugin under review"));
             let edit = ui.add(
@@ -1552,24 +1557,28 @@ impl CockpitTab {
             {
                 self.found_in = None;
             }
-            if ui
+            let review = ui
                 .add_enabled(
                     !busy && !self.plugin.trim().is_empty(),
                     egui::Button::new("Review"),
                 )
                 .on_hover_text(
                     "validate, roundtrip --verify, then the plugin against its masters: reads only",
-                )
-                .clicked()
-            {
+                );
+            review_id = Some(review.id);
+            if review.clicked() {
+                clear_refusal(&mut self.refusals, review.id);
                 match self.start_review(ctx.plugins) {
                     Ok(reqs) => ctx
                         .actions
                         .extend(reqs.into_iter().map(|(s, r)| Action::Submit(s, r))),
-                    Err(e) => *ctx.notice = Some(e),
+                    Err(e) => refuse(&mut self.refusals, &review, e),
                 }
             }
         });
+        if let Some(id) = review_id {
+            refusal_line(ui, &self.refusals, id);
+        }
         if env.checkout.is_none() {
             ui.weak("no checkout found (Help tab): out\\ is not listed; type a path");
         }
@@ -1678,26 +1687,31 @@ impl CockpitTab {
             .as_ref()
             .map(|m| m.previous_id.clone())
             .filter(|t| !t.is_empty());
+        let mut status_id: Option<egui::Id> = None;
+        let mut deploy_id: Option<egui::Id> = None;
+        let mut rollback_id: Option<egui::Id> = None;
         ui.horizontal_wrapped(|ui| {
-            if ui
+            let status = ui
                 .add_enabled(!busy, egui::Button::new("Status"))
-                .on_hover_text("deploy.status: the dev mod, its live and previous deployments (read-only)")
-                .clicked()
-            {
+                .on_hover_text("deploy.status: the dev mod, its live and previous deployments (read-only)");
+            status_id = Some(status.id);
+            if status.clicked() {
+                clear_refusal(&mut self.refusals, status.id);
                 match self.form.status_request() {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitStatus, r)),
-                    Err(e) => *ctx.notice = Some(e),
+                    Err(e) => refuse(&mut self.refusals, &status, e),
                 }
             }
-            if ui
+            let deploy = ui
                 .add_enabled(!busy, egui::Button::new("Preview deploy"))
-                .on_hover_text("deploy --dev --dry-run: the plan and every path it would touch; writes nothing")
-                .clicked()
-            {
+                .on_hover_text("deploy --dev --dry-run: the plan and every path it would touch; writes nothing");
+            deploy_id = Some(deploy.id);
+            if deploy.clicked() {
+                clear_refusal(&mut self.refusals, deploy.id);
                 self.pending = None;
                 match self.form.preview_request(WriteKind::Deploy, None) {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitDeploy, r)),
-                    Err(e) => *ctx.notice = Some(e),
+                    Err(e) => refuse(&mut self.refusals, &deploy, e),
                 }
             }
             let gate_d = confirm_gate(WriteKind::Deploy, &self.form, &target, self.deploy.as_ref(), None);
@@ -1713,16 +1727,17 @@ impl CockpitTab {
                 }
             }
             ui.separator();
-            if ui
+            let rollback = ui
                 .add_enabled(!busy && dev_mod.is_some(), egui::Button::new("Preview roll back"))
                 .on_hover_text("deploy.rollback --dry-run: swap the .previous deployment back in; writes nothing")
-                .on_disabled_hover_text("read the dev mod's Status first: roll back needs its .previous deployment")
-                .clicked()
-            {
+                .on_disabled_hover_text("read the dev mod's Status first: roll back needs its .previous deployment");
+            rollback_id = Some(rollback.id);
+            if rollback.clicked() {
+                clear_refusal(&mut self.refusals, rollback.id);
                 self.pending = None;
                 match self.form.preview_request(WriteKind::Rollback, to.as_deref()) {
                     Ok(r) => ctx.actions.push(Action::Submit(Slot::CockpitRollback, r)),
-                    Err(e) => *ctx.notice = Some(e),
+                    Err(e) => refuse(&mut self.refusals, &rollback, e),
                 }
             }
             let gate_r = confirm_gate(
@@ -1744,6 +1759,15 @@ impl CockpitTab {
                 }
             }
         });
+        if let Some(id) = status_id {
+            refusal_line(ui, &self.refusals, id);
+        }
+        if let Some(id) = deploy_id {
+            refusal_line(ui, &self.refusals, id);
+        }
+        if let Some(id) = rollback_id {
+            refusal_line(ui, &self.refusals, id);
+        }
         for (kind, plan) in [
             (WriteKind::Deploy, &self.deploy),
             (WriteKind::Rollback, &self.rollback),

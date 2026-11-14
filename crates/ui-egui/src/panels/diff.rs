@@ -302,8 +302,9 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, link, panel_head, plugin_combo, record_actions, virtual_table_for,
-    Action, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, link, panel_head, plugin_combo,
+    record_actions, refuse, refusal_line, virtual_table_for, Action, Refusals, Slot,
+    TabCtx,
 };
 use crate::theme::{self, Field, View};
 
@@ -315,6 +316,9 @@ pub(crate) struct DiffTab {
     /// Bumped each time a result replaces the table's rows, so the table scrolls back to
     /// the top and measures its columns afresh ([`virtual_table_for`]).
     pub data: u64,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl DiffTab {
@@ -340,6 +344,7 @@ impl DiffTab {
                     "a plugin vs the versions before it (conflicts; needs a load)",
                 );
             });
+            let mut compare_id: Option<egui::Id> = None;
             ui.horizontal_wrapped(|ui| {
                 let path = theme::width(ui, Field::Long);
                 match self.form.mode {
@@ -367,16 +372,19 @@ impl DiffTab {
                     TextEdit::singleline(&mut self.form.filter)
                         .desired_width(theme::width(ui, Field::Short)),
                 );
-                if ui
-                    .add_enabled(!busy, egui::Button::new("Compare"))
-                    .clicked()
-                {
+                let c = ui.add_enabled(!busy, egui::Button::new("Compare"));
+                compare_id = Some(c.id);
+                if c.clicked() {
+                    clear_refusal(&mut self.refusals, c.id);
                     match self.form.request(None) {
                         Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
-                        Err(e) => *ctx.notice = Some(e),
+                        Err(e) => refuse(&mut self.refusals, &c, e),
                     }
                 }
             });
+            if let Some(id) = compare_id {
+                refusal_line(ui, &self.refusals, id);
+            }
         });
         envelope_block(ui, ctx.results.get(&Slot::Diff.into()), |ui| {
             let Some(view) = &self.view else { return };
@@ -389,14 +397,15 @@ impl DiffTab {
                 ui.label(format!("removed: {}", view.removed.join(", ")));
             }
             if let Some(next) = &view.next_cursor {
-                if ui
-                    .add_enabled(!busy, egui::Button::new("Next page"))
-                    .clicked()
-                {
-                    if let Ok(req) = self.form.request(Some(next)) {
-                        actions.push(Action::Submit(Slot::Diff, req));
+                let resp = ui.add_enabled(!busy, egui::Button::new("Next page"));
+                if resp.clicked() {
+                    clear_refusal(&mut self.refusals, resp.id);
+                    match self.form.request(Some(next)) {
+                        Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
+                        Err(e) => refuse(&mut self.refusals, &resp, e),
                     }
                 }
+                refusal_line(ui, &self.refusals, resp.id);
             }
             for (i, r) in view.records.iter().enumerate() {
                 let title = format!(

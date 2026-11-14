@@ -438,8 +438,8 @@ fn subrecord(s: &Value) -> SubRow {
 use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    action_bar, conf_label, envelope_block, link, panel_head, plugin_combo, record_actions,
-    virtual_table_for, Action, Slot, TabCtx,
+    action_bar, clear_refusal, conf_label, envelope_block, link, panel_head, plugin_combo,
+    record_actions, refuse, refusal_line, virtual_table_for, Action, Refusals, Slot, TabCtx,
 };
 use crate::panels::planet::PLANET_TYPES;
 use crate::theme::{self, Field, Status, View};
@@ -468,6 +468,9 @@ pub(crate) struct RecordsTab {
     /// A new share after a drag of the line between the panes ends, for the shell to
     /// save once.
     pub split_changed: Option<f32>,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl RecordsTab {
@@ -638,6 +641,7 @@ impl RecordsTab {
             .id_salt("query")
             .default_open(true)
             .show(ui, |ui| {
+                let mut run_id: Option<egui::Id> = None;
                 action_bar(ui, |ui| {
                     ui.horizontal_wrapped(|ui| {
                         ui.label("type");
@@ -652,34 +656,46 @@ impl RecordsTab {
                                 .hint_text("FULL ~ \"Rifle\" and not has KWDA"),
                         );
                         ui.checkbox(&mut self.query_form.all_versions, "all versions");
-                        if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
-                            actions.push(Action::QueryPage(None));
+                        let run = ui.add_enabled(!busy, egui::Button::new("Run"));
+                        run_id = Some(run.id);
+                        if run.clicked() {
+                            actions.push(Action::QueryPage(None, run_id));
                         }
-                    })
+                    });
+                    if let Some(id) = run_id {
+                        refusal_line(ui, &self.refusals, id);
+                    }
                 });
                 envelope_block(ui, ctx.results.get(&Slot::Query.into()), |ui| {
                     let Some(view) = &self.query_view else { return };
+                    let mut first_id: Option<egui::Id> = None;
+                    let mut next_id: Option<egui::Id> = None;
                     ui.horizontal(|ui| {
                         ui.label(format!(
                             "{} matched, {} undecided on this page",
                             view.matched, view.unknown
                         ));
-                        if self.query_cursor.is_some()
-                            && ui
-                                .add_enabled(!busy, egui::Button::new("First page"))
-                                .clicked()
-                        {
-                            actions.push(Action::QueryPage(None));
+                        if self.query_cursor.is_some() {
+                            let first = ui.add_enabled(!busy, egui::Button::new("First page"));
+                            first_id = Some(first.id);
+                            if first.clicked() {
+                                actions.push(Action::QueryPage(None, first_id));
+                            }
                         }
                         if let Some(next) = &view.next_cursor {
-                            if ui
-                                .add_enabled(!busy, egui::Button::new("Next page"))
-                                .clicked()
-                            {
-                                actions.push(Action::QueryPage(Some(next.clone())));
+                            let next_page = ui.add_enabled(!busy, egui::Button::new("Next page"));
+                            next_id = Some(next_page.id);
+                            if next_page.clicked() {
+                                actions.push(Action::QueryPage(Some(next.clone()), next_id));
                             }
                         }
                     });
+                    if let Some(id) = first_id {
+                        refusal_line(ui, &self.refusals, id);
+                    }
+                    if let Some(id) = next_id {
+                        refusal_line(ui, &self.refusals, id);
+                    }
                     for (form, reasons) in &view.unknown_records {
                         theme::status(ui, Status::Unknown, &format!("undecided {form}: {reasons}"));
                     }
@@ -744,6 +760,7 @@ impl RecordsTab {
         let actions = &mut ctx.actions;
         ui.strong("Record");
         action_bar(ui, |ui| {
+            let mut inspect_id: Option<egui::Id> = None;
             ui.horizontal_wrapped(|ui| {
                 ui.label("form");
                 ui.add(
@@ -756,16 +773,19 @@ impl RecordsTab {
                     TextEdit::singleline(&mut self.record_plugin)
                         .desired_width(theme::width(ui, Field::Short)),
                 );
-                if ui
-                    .add_enabled(!busy, egui::Button::new("Inspect"))
-                    .clicked()
-                {
+                let inspect = ui.add_enabled(!busy, egui::Button::new("Inspect"));
+                inspect_id = Some(inspect.id);
+                if inspect.clicked() {
+                    clear_refusal(&mut self.refusals, inspect.id);
                     match inspect_request(&self.record_form, Some(&self.record_plugin)) {
                         Ok(req) => actions.push(Action::Submit(Slot::Inspect, req)),
-                        Err(e) => *ctx.notice = Some(e),
+                        Err(e) => refuse(&mut self.refusals, &inspect, e),
                     }
                 }
-            })
+            });
+            if let Some(id) = inspect_id {
+                refusal_line(ui, &self.refusals, id);
+            }
         });
         if ctx.results.get(&Slot::Inspect.into()).is_none() {
             ui.weak("pick a form in the query table, or type one above");

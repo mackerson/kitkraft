@@ -591,6 +591,7 @@ impl App {
                 view: None,
                 data: 0,
                 listed: None,
+                refusals: Default::default(),
             },
             records,
             links: LinksTab::default(),
@@ -965,26 +966,46 @@ impl App {
                     } else {
                         LinksForm::outgoing(&form)
                     };
-                    self.apply(vec![Action::LinksPage(None)]);
+                    self.apply(vec![Action::LinksPage(None, None)]);
                     self.tab = Tab::Links;
                 }
-                Action::LinksPage(cursor) => {
+                Action::LinksPage(cursor, button) => {
                     self.links.cursor.clone_from(&cursor);
                     match self.links.form.request(cursor.as_deref()) {
-                        Ok(req) => self.submit(Slot::Links, req),
-                        Err(e) => self.notice = Some(e),
+                        Ok(req) => {
+                            if let Some(id) = button {
+                                self.links.refusals.remove(&id);
+                            }
+                            self.submit(Slot::Links, req);
+                        }
+                        Err(e) => match button {
+                            Some(id) => {
+                                self.links.refusals.insert(id, e);
+                            }
+                            None => self.notice = Some(e),
+                        },
                     }
                 }
                 Action::Planet(form) => {
                     self.planet.form.form = form;
-                    self.apply(vec![Action::PlanetPage(None)]);
+                    self.apply(vec![Action::PlanetPage(None, None)]);
                     self.tab = Tab::Planet;
                 }
-                Action::PlanetPage(cursor) => {
+                Action::PlanetPage(cursor, button) => {
                     self.planet.cursor.clone_from(&cursor);
                     match self.planet.form.request(cursor.as_deref()) {
-                        Ok(req) => self.submit(Slot::Planet, req),
-                        Err(e) => self.notice = Some(e),
+                        Ok(req) => {
+                            if let Some(id) = button {
+                                self.planet.refusals.remove(&id);
+                            }
+                            self.submit(Slot::Planet, req);
+                        }
+                        Err(e) => match button {
+                            Some(id) => {
+                                self.planet.refusals.insert(id, e);
+                            }
+                            None => self.notice = Some(e),
+                        },
                     }
                 }
                 Action::PickType(sig) => {
@@ -994,11 +1015,21 @@ impl App {
                         self.submit(Slot::Query, req);
                     }
                 }
-                Action::QueryPage(cursor) => {
+                Action::QueryPage(cursor, button) => {
                     self.records.query_cursor.clone_from(&cursor);
                     match self.records.query_form.request(cursor.as_deref()) {
-                        Ok(req) => self.submit(Slot::Query, req),
-                        Err(e) => self.notice = Some(e),
+                        Ok(req) => {
+                            if let Some(id) = button {
+                                self.records.refusals.remove(&id);
+                            }
+                            self.submit(Slot::Query, req);
+                        }
+                        Err(e) => match button {
+                            Some(id) => {
+                                self.records.refusals.insert(id, e);
+                            }
+                            None => self.notice = Some(e),
+                        },
                     }
                 }
                 Action::UseProfile(path) => {
@@ -1016,9 +1047,19 @@ impl App {
                     }
                     Err(e) => self.notice = Some(e),
                 },
-                Action::LedgerAppend(form) => match form.append_request() {
-                    Ok(req) => self.submit(Slot::Ledger, req),
-                    Err(e) => self.notice = Some(e),
+                Action::LedgerAppend(form, button) => match form.append_request() {
+                    Ok(req) => {
+                        if let Some(id) = button {
+                            self.ledger.refusals.remove(&id);
+                        }
+                        self.submit(Slot::Ledger, req);
+                    }
+                    Err(e) => match button {
+                        Some(id) => {
+                            self.ledger.refusals.insert(id, e);
+                        }
+                        None => self.notice = Some(e),
+                    },
                 },
                 // The Cockpit's "Record in Ledger": nothing is written here — the form is
                 // pre-filled on the Ledger tab, where the owner previews and confirms.
@@ -1577,7 +1618,7 @@ impl App {
                 q.where_text.clear();
                 q.limit = 1000;
                 self.tab = Tab::Records;
-                self.apply(vec![Action::QueryPage(None)]);
+                self.apply(vec![Action::QueryPage(None, None)]);
                 self.perf.bench = Some(Bench::WaitQuery);
             }
             Bench::WaitQuery if !busy && drawn && self.records.query_view.is_some() => {
@@ -1676,7 +1717,7 @@ impl App {
                 q.record_type = "WEAP".into();
                 q.where_text = "FULL ~ 'Rifle'".into();
                 q.limit = 20;
-                self.apply(vec![Action::QueryPage(None)]);
+                self.apply(vec![Action::QueryPage(None, None)]);
                 self.set_step(TourStep::Seeded(1));
             }
             TourStep::Seeded(1) if !busy => {

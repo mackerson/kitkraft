@@ -329,8 +329,8 @@ fn collect_placements(v: &Value, path: &str, out: &mut Vec<PlacementRow>, depth:
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, link, panel_head, record_actions, virtual_table, Action, Slot,
-    TabCtx,
+    action_bar, envelope_block, link, panel_head, record_actions, virtual_table,
+    refusal_line, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -340,6 +340,9 @@ pub(crate) struct PlanetTab {
     pub form: PlanetForm,
     pub view: Option<PlanetView>,
     pub cursor: Option<String>,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl PlanetTab {
@@ -352,6 +355,7 @@ impl PlanetTab {
             "The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.",
         );
         action_bar(ui, |ui| {
+            let mut show_id: Option<egui::Id> = None;
             ui.horizontal_wrapped(|ui| {
                 ui.label("form");
                 ui.add(
@@ -361,10 +365,15 @@ impl PlanetTab {
                 );
                 ui.label("nodes per page");
                 ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
-                if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
-                    actions.push(Action::PlanetPage(None));
+                let show = ui.add_enabled(!busy, egui::Button::new("Show"));
+                show_id = Some(show.id);
+                if show.clicked() {
+                    actions.push(Action::PlanetPage(None, show_id));
                 }
-            })
+            });
+            if let Some(id) = show_id {
+                refusal_line(ui, &self.refusals, id);
+            }
         });
         envelope_block(ui, ctx.results.get(&Slot::Planet.into()), |ui| {
             let Some(view) = &self.view else {
@@ -390,23 +399,30 @@ impl PlanetTab {
             for u in &view.unresolved {
                 theme::status(ui, Status::Fail, &format!("unresolved: {u}"));
             }
+            let mut first_id: Option<egui::Id> = None;
+            let mut next_id: Option<egui::Id> = None;
             ui.horizontal(|ui| {
-                if self.cursor.is_some()
-                    && ui
-                        .add_enabled(!busy, egui::Button::new("First page"))
-                        .clicked()
-                {
-                    actions.push(Action::PlanetPage(None));
+                if self.cursor.is_some() {
+                    let first = ui.add_enabled(!busy, egui::Button::new("First page"));
+                    first_id = Some(first.id);
+                    if first.clicked() {
+                        actions.push(Action::PlanetPage(None, first_id));
+                    }
                 }
                 if let Some(next) = &view.next_cursor {
-                    if ui
-                        .add_enabled(!busy, egui::Button::new("Next page"))
-                        .clicked()
-                    {
-                        actions.push(Action::PlanetPage(Some(next.clone())));
+                    let next_page = ui.add_enabled(!busy, egui::Button::new("Next page"));
+                    next_id = Some(next_page.id);
+                    if next_page.clicked() {
+                        actions.push(Action::PlanetPage(Some(next.clone()), next_id));
                     }
                 }
             });
+            if let Some(id) = first_id {
+                refusal_line(ui, &self.refusals, id);
+            }
+            if let Some(id) = next_id {
+                refusal_line(ui, &self.refusals, id);
+            }
             for (title, rows) in [("ancestors", &view.ancestors), ("nodes", &view.nodes)] {
                 if rows.is_empty() {
                     continue;

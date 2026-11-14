@@ -363,7 +363,10 @@ pub fn template_row(observations: &str, row: &str) -> Option<TemplateRow> {
 
 use eframe::egui::{self, ComboBox, RichText, TextEdit};
 
-use crate::panels::common::{action_bar, envelope_block, panel_head, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, clear_refusal, envelope_block, panel_head, refuse, refusal_line, Action,
+    Refusals, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Status};
 
 /// The Ledger tab's state: the ledger's text as last read (its template rows), the form,
@@ -377,6 +380,9 @@ pub(crate) struct LedgerTab {
     pub pending: Option<LedgerForm>,
     /// One line saying the form came from a session row (its `prefill` set it).
     pub prefill_source: Option<String>,
+    /// Refusals attached to this tab's buttons (audit A1), by the button's `egui::Id`;
+    /// each is drawn under that button's row until the button is clicked again.
+    pub refusals: Refusals,
 }
 
 impl LedgerTab {
@@ -420,6 +426,7 @@ impl LedgerTab {
             .and_then(|t| template_row(t, &self.form.row));
         let form = &mut self.form;
         let pending = &mut self.pending;
+        let refusals = &mut self.refusals;
         let read = self.observations.is_some();
         let wide = theme::width(ui, Field::Wide);
         action_bar(ui, |ui| {
@@ -503,15 +510,17 @@ impl LedgerTab {
                     ui.weak("no template row for this check");
                 }
             }
+            let mut preview_id: Option<egui::Id> = None;
             ui.horizontal(|ui| {
-                if ui
+                let preview = ui
                     .add_enabled(!busy, egui::Button::new("Preview"))
-                    .on_hover_text("`ledger` without confirm: shows the text, writes nothing")
-                    .clicked()
-                {
+                    .on_hover_text("`ledger` without confirm: shows the text, writes nothing");
+                preview_id = Some(preview.id);
+                if preview.clicked() {
+                    clear_refusal(refusals, preview.id);
                     match form.preview_request() {
                         Ok(req) => actions.push(Action::Submit(Slot::Ledger, req)),
-                        Err(e) => *ctx.notice = Some(e),
+                        Err(e) => refuse(refusals, &preview, e),
                     }
                 }
                 if ui
@@ -524,8 +533,12 @@ impl LedgerTab {
                     *pending = Some(form.clone());
                 }
             });
+            if let Some(id) = preview_id {
+                refusal_line(ui, refusals, id);
+            }
         });
         let mut cancel = false;
+        let mut confirm_id: Option<egui::Id> = None;
         if let Some(p) = &self.pending {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 theme::status_line(
@@ -546,11 +559,11 @@ impl LedgerTab {
                 }
                 ui.label(format!("seen: {}", if p.note.trim().is_empty() { "-" } else { p.note.trim() }));
                 ui.horizontal(|ui| {
-                    if ui
-                        .add_enabled(!busy, egui::Button::new(RichText::new("Confirm: append").strong()))
-                        .clicked()
-                    {
-                        actions.push(Action::LedgerAppend(p.clone()));
+                    let confirm = ui
+                        .add_enabled(!busy, egui::Button::new(RichText::new("Confirm: append").strong()));
+                    confirm_id = Some(confirm.id);
+                    if confirm.clicked() {
+                        actions.push(Action::LedgerAppend(p.clone(), Some(confirm.id)));
                         cancel = true;
                     }
                     if ui.button("Cancel").clicked() {
@@ -561,6 +574,9 @@ impl LedgerTab {
         }
         if cancel {
             self.pending = None;
+        }
+        if let Some(id) = confirm_id {
+            refusal_line(ui, &self.refusals, id);
         }
         envelope_block(ui, ctx.results.get(&Slot::Ledger.into()), |ui| {
             let Some(v) = &self.view else { return };
