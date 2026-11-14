@@ -27,7 +27,7 @@ use std::sync::Arc;
 use kitkraft_esm::bridge::{has_definition, Ctx};
 use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
-use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
+use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER};
 use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
 use serde::Serialize;
 
@@ -99,6 +99,12 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "A master is listed before one of its own masters",
+    },
+    RuleInfo {
+        id: "masters.unflagged",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A master-flagged plugin lists a master that has no master flag",
     },
     RuleInfo {
         id: "formid.dangling",
@@ -663,6 +669,27 @@ fn validate_plugin(
                         format!("master {m} is listed before its own master {dep}"),
                     ));
                 }
+            }
+        }
+    }
+    // masters.unflagged: the game loads master-flagged plugins first (the repo's
+    // `masters-load-first` rule, `handlers/set.rs`), so an unflagged master would load after
+    // this master-flagged plugin. Header flag only, as `set.rs` does; a master that was not
+    // found is `masters.missing`'s.
+    if rules.contains(&"masters.unflagged") && flags & FLAG_MASTER != 0 {
+        for m in &masters {
+            let Some(mflags) = files.get(&m.to_ascii_lowercase()).and_then(|f| f.flags) else {
+                continue;
+            };
+            if mflags & FLAG_MASTER == 0 {
+                report.findings.push(finding(
+                    "masters.unflagged",
+                    Severity::Warning,
+                    None,
+                    Some("MAST".into()),
+                    None,
+                    format!("master {m} has no master flag, and this plugin has one: the game loads master-flagged plugins first, so {m} would load after it"),
+                ));
             }
         }
     }
