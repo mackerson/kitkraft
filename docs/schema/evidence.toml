@@ -295,6 +295,36 @@ evidence = [
 ]
 note = "KK-259: new with every typed leaf member (38 subrecords, FULL opaque in the schema but read through validate's lstring fallback, so no subrecord unchecked) on the ContactShadow component layout, read back identically, validate with no finding; dangling DEFL, LNAM, KWDA reported"
 
+[[entry]]
+type = "FURN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::furn_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::furn_dangling_link_is_reported",
+]
+note = "KK-260: new with every typed leaf member (51 subrecords, NNAM whole-opaque and unchecked) on the ContactShadow component layout, read back identically, validate with no finding; dangling SNTP, NTRM, WTFM reported"
+
+[[entry]]
+type = "MSTT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::mstt_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::mstt_dangling_link_is_reported",
+]
+note = "KK-260: new with every typed leaf member (34 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling SNTP, SNBH, DEFL reported"
+
+[[entry]]
+type = "MESG"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::mesg_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::mesg_dangling_link_is_reported",
+]
+note = "KK-260: new with every typed leaf member (20 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling INAM, QNAM, DODT reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

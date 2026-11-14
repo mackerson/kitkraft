@@ -47,7 +47,8 @@ that is still pending is not a row.
 Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
-  KEYM, FLOR, DOOR and LIGH (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  KEYM, FLOR, DOOR, LIGH, FURN, MSTT
+  and MESG (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -335,3 +336,27 @@ layout:
   `ligh_dangling_link_is_reported` (the default layer `DEFL`, the lens `LNAM`, `KWDA`):
   each link is reported by `validate`'s `formid.dangling` and listed as `missing` by
   `refs`.
+
+## FURN, MSTT and MESG (KK-260, 2026-11-14)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the `ContactShadow` component
+layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| FURN | not-run | pass |
+| MSTT | not-run | pass |
+| MESG | not-run | pass |
+
+- `furn_new_sets_every_typed_member_and_reads_back` (51 subrecords),
+  `mstt_new_sets_every_typed_member_and_reads_back` (34) and
+  `mesg_new_sets_every_typed_member_and_reads_back` (20): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding. FURN's
+  marker files (`NNAM`, whole-opaque) are its one unchecked subrecord; the `VMAD` the
+  three definitions keep raw is not written.
+- `furn_dangling_link_is_reported` (the snap template `SNTP`, the native terminal
+  `NTRM`, the water `WTFM`), `mstt_dangling_link_is_reported` (`SNTP`, the snap behavior
+  `SNBH`, the default layer `DEFL`) and `mesg_dangling_link_is_reported` (the icon `INAM`,
+  the owner quest `QNAM`, the reference `DODT`): each link is reported by `validate`'s
+  `formid.dangling` and listed as `missing` by `refs`.

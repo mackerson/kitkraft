@@ -3,7 +3,7 @@
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the two
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
-//! FLOR, DOOR and LIGH (KK-259, 2026-11-14)
+//! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1460,4 +1460,79 @@ fn a_new_lvli_without_a_component_puts_each_condition_in_its_own_group() {
         .collect();
     assert_eq!(ctda, ["Conditions.Data", "Entries.Conditions.Data"]);
     let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn furn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FURN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn furn_dangling_link_is_reported() {
+    // The snap template, the native terminal and the water.
+    dangling(
+        "FURN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("NTRM", json!(MISSING)),
+            ("WTFM", json!(MISSING)),
+        ],
+        &["SNTP", "NTRM", "WTFM"],
+    );
+}
+
+#[test]
+fn mstt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MSTT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn mstt_dangling_link_is_reported() {
+    // The snap template, the snap behavior and the default layer.
+    dangling(
+        "MSTT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+        ],
+        &["SNTP", "SNBH", "DEFL"],
+    );
+}
+
+#[test]
+fn mesg_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MESG",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn mesg_dangling_link_is_reported() {
+    // The icon, the owner quest and the reference.
+    dangling(
+        "MESG",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("INAM", json!(MISSING)),
+            ("QNAM", json!(MISSING)),
+            ("DODT", json!(MISSING)),
+        ],
+        &["INAM", "QNAM", "DODT"],
+    );
 }
