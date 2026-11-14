@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 72: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    654,004 |   418,401 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,209,525 | 2,495,894 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    654,105 |   418,300 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,209,626 | 2,495,793 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:bcefc9b58464d5c9` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:573923b5b40c8428` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -213,7 +213,7 @@ Columns:
 | `LVSC`        | LeveledSpaceCell               |        20 |          0 |     6 |     1 |      5 |       0 |
 | `FSTS`        | FootstepSet                    |        19 |          0 |     3 |     1 |      2 |       0 |
 | `WATR`        | Water                          |        19 |          0 |    19 |    17 |      2 |       0 |
-| `IDLM`        | IdleMarker                     |        18 |          0 |    13 |     3 |     10 |       0 |
+| `IDLM`        | IdleMarker                     |        18 |          0 |    13 |    13 |      0 |       0 |
 | `SCOL`        | StaticCollection               |        15 |          0 |    11 |     3 |      8 |       0 |
 | `BNDS`        | BendableSplineForm             |        14 |          0 |     5 |     1 |      4 |       0 |
 | `TES4`        | PluginHeader                   |        14 |          0 |     9 |     6 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,285 |    316 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,295 |    306 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,209,525 typed (0 of them failed to decode), 2,495,894 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,209,626 typed (0 of them failed to decode), 2,495,793 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -415,7 +415,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LVSC`    | LeveledSpaceCell               |            20 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |            19 |         19 |      0 |         0 |         0 |                   0 |         19 |       0 |        0 |
 | `WATR`    | Water                          |            19 |        299 |      0 |         0 |         0 |                   0 |        299 |       0 |        0 |
-| `IDLM`    | IdleMarker                     |            18 |         20 |      0 |         0 |         0 |                   0 |         20 |       0 |        0 |
+| `IDLM`    | IdleMarker                     |            18 |        121 |      0 |         0 |         0 |                   0 |        121 |       0 |        0 |
 | `SCOL`    | StaticCollection               |            15 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
 | `BNDS`    | BendableSplineForm             |            14 |         14 |      0 |         0 |         0 |                   0 |         14 |       0 |        0 |
 | `TES4`    | PluginHeader                   |            14 |         77 |      0 |         0 |         0 |                   0 |         77 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,209,525 |      0 |         0 |   233,807 |                   0 | 46,975,718 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,209,626 |      0 |         0 |   233,807 |                   0 | 46,975,819 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -540,7 +540,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
 | `HDPT`    | HeadPart                       |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
-| `IDLM`    | IdleMarker                     |             13 |     3 |     10 |         0 |                   0 |     13 |       0 |        0 |
+| `IDLM`    | IdleMarker                     |             51 |    47 |      4 |         3 |                   0 |     48 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `INFO`    | DialogResponse                 |             90 |    84 |      6 |         7 |                   0 |     83 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,357 | 5,707 |    650 |       505 |                   2 |  5,850 |       0 |        0 |
+| **Total** |                                |          6,395 | 5,751 |    644 |       508 |                   2 |  5,885 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
