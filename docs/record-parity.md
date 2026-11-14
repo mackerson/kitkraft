@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GRAS, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REGN, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 71: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ASPC, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CNDF, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GWED, IDLM, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, LVSC, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PDCL, PERS, PSDC, PTST, REVB, SCCO, SCOL, SDLT, SFPC, SFTR, SPGD, STAG, STBH, STMP, TODD, TRNS, VOLI, VTYP, WBAR, WTHS, WWED.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73:
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |  21,492 |
-| container/other |          123 |         123 |   252,710 |    654,004 |   418,401 |   7,434 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,209,525 | 2,495,894 | 714,142 |
+| container/other |          123 |         123 |   252,710 |    654,790 |   417,615 |   7,434 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,210,311 | 2,495,108 | 714,142 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 73:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:bcefc9b58464d5c9` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:bcc8b2e83393a3ac` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -157,7 +157,7 @@ Columns:
 | `AACT`        | ActionForm                     |       222 |          0 |     5 |     1 |      4 |       0 |
 | `ARTO`        | ArtObject                      |       212 |          0 |    21 |    18 |      2 |       1 |
 | `SPCH`        | SpeechChallengeForm            |       197 |          0 |    10 |    10 |      0 |       0 |
-| `GRAS`        | Grass                          |       193 |          0 |    10 |     4 |      4 |       2 |
+| `GRAS`        | Grass                          |       193 |          0 |    10 |     8 |      0 |       2 |
 | `WTHS`        | WeatherSettings                |       187 |          0 |     4 |     1 |      3 |       0 |
 | `STND`        | SnapTemplateNode               |       183 |          0 |    17 |    15 |      0 |       2 |
 | `CSTY`        | CombatStyleForm                |       177 |          0 |    18 |    17 |      1 |       0 |
@@ -233,7 +233,7 @@ Columns:
 | `FORC`        | ForceData                      |         5 |          0 |     2 |     1 |      1 |       0 |
 | `PCMT`        | PlanetContentTree              |         5 |          0 |     6 |     6 |      0 |       0 |
 | `GPOG`        | GameplayOptionsGroup           |         4 |          0 |     4 |     1 |      3 |       0 |
-| `REGN`        | Region                         |         4 |          0 |     6 |     1 |      5 |       0 |
+| `REGN`        | Region                         |         4 |          0 |     6 |     6 |      0 |       0 |
 | `DEBR`        | Debris                         |         3 |          0 |     3 |     1 |      2 |       0 |
 | `OSWP`        | ObjectSwap                     |         3 |          0 |     1 |     1 |      0 |       0 |
 | `WTHR`        | Weather                        |         3 |          0 |    26 |    26 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,285 |    316 |     196 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,294 |    307 |     196 |
 
-Subrecord occurrences: 50,419,561 in total; 47,209,525 typed (0 of them failed to decode), 2,495,894 opaque, 714,142 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,210,311 typed (0 of them failed to decode), 2,495,108 opaque, 714,142 unknown.
 
 ## Decoded through the definitions
 
@@ -359,7 +359,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `AACT`    | ActionForm                     |           222 |        222 |      0 |         0 |         0 |                   0 |        222 |       0 |        0 |
 | `ARTO`    | ArtObject                      |           212 |      2,021 |      0 |         0 |         0 |                   0 |      2,021 |       0 |        0 |
 | `SPCH`    | SpeechChallengeForm            |           197 |      1,506 |      0 |         0 |         0 |                   0 |      1,506 |       0 |        0 |
-| `GRAS`    | Grass                          |           193 |        440 |      0 |         0 |         0 |                   0 |        440 |       0 |        0 |
+| `GRAS`    | Grass                          |           193 |      1,212 |      0 |         0 |         0 |                   0 |      1,212 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |           187 |        187 |      0 |         0 |         0 |                   0 |        187 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |           183 |      2,570 |      0 |         0 |         0 |                   0 |      2,570 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |           177 |      2,947 |      0 |         0 |         0 |                   0 |      2,947 |       0 |        0 |
@@ -435,7 +435,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FORC`    | ForceData                      |             5 |          5 |      0 |         0 |         0 |                   0 |          5 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |             4 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
-| `REGN`    | Region                         |             4 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
+| `REGN`    | Region                         |             4 |         17 |      0 |         0 |         0 |                   0 |         17 |       0 |        0 |
 | `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `WTHR`    | Weather                        |             3 |        164 |      0 |         0 |         0 |                   0 |        164 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,209,525 |      0 |         0 |   233,807 |                   0 | 46,975,718 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,210,311 |      0 |         0 |   233,807 |                   0 | 46,976,504 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -535,7 +535,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GMST`    | GameSetting                    |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |             46 |    43 |      3 |         6 |                   0 |     40 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `GRAS`    | Grass                          |             39 |    31 |      8 |         0 |                   0 |     39 |       0 |        0 |
+| `GRAS`    | Grass                          |             44 |    41 |      3 |         3 |                   0 |     41 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |             55 |    51 |      4 |         8 |                   0 |     47 |       0 |        0 |
 | `HDPT`    | HeadPart                       |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
@@ -603,7 +603,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `QUST`    | Quest                          |            215 |   206 |      9 |         3 |                   0 |    212 |       0 |        0 |
 | `RACE`    | Race                           |            156 |   147 |      9 |         7 |                   0 |    149 |       0 |        0 |
 | `REFR`    | PlacedObject                   |            131 |   121 |     10 |         5 |                   0 |    126 |       0 |        0 |
-| `REGN`    | Region                         |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
+| `REGN`    | Region                         |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
 | `REVB`    | ReverbParameters               |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `RFGP`    | ReferenceGroup                 |             40 |    35 |      5 |         7 |                   0 |     33 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                                |          6,357 | 5,707 |    650 |       505 |                   2 |  5,850 |       0 |        0 |
+| **Total** |                                |          6,362 | 5,722 |    640 |       508 |                   2 |  5,852 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

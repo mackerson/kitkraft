@@ -1,28 +1,24 @@
-# GRAS: Grass, inventory definition (KK-104).
+# GRAS: Grass, a vegetation type the engine scatters across the land.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-104 scan of every official GRAS record (193 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the GRAS definition of wbDefinitionsSF1.pas at the pinned revision (L12473-L12505),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12473-L12505 - member order, the record flag
+#     (bit 15, "Unknown 15"), EDID (L12477), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), XALG (L3230), the base form
+#     component block (L5984-L6832, kept raw), the required generic model (L7008-L7029)
+#     and the data block (L12484-L12504).
+#   corpus: the 193 official GRAS records (crates/esm/tests/regn_gras_types.rs,
+#     regn_gras_types_full: the per-signature counts, no OPDS or XALG occurring;
+#     crates/esm/tests/inventory_types.rs, inventory_types_full: the subrecord order
+#     EDID OBND ODTY [component blocks] MODL FLLD DNAM).
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID and the component block frame are typed; every other payload is opaque
-# (named after its signature, a placeholder) until a family lane transcribes the record from
-# the pinned xEdit file (docs/gaps.md). Members xEdit lists that no official record has are
-# left out; a plugin that has one keeps it raw.
-# Inside component blocks (kept raw by BfcbBlock): KSIZ KWDA.
+# xEdit names the one record-header flag bit 15 as "Unknown 15"; no PascalCase name
+# exists upstream, so no flag is declared here.
 signature = "GRAS"
 name = "Grass"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GRAS record (193) decodes with every subrecord placed and re-encodes identically"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12473-L12505",
-]
-confidence = "corpus"
-note = "inventory definition (KK-104): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12473-L12505"
+confidence = "reference"
 
 [[member]]
 sig = "EDID"
@@ -39,27 +35,51 @@ confidence = "corpus"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 193 of 193 official GRAS records (193 occurrences), 24 bytes"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 evidence = [
+  "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in 193 of 193 official GRAS records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12478-L12478",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 193 of 193 official GRAS records (193 occurrences), 4 bytes"
+name = "DirtinessScale"
+type = "f32"
 evidence = [
+  "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in 193 of 193 official GRAS records",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12479-L12479",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+confidence = "reference"
+evidence = [
+  "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in none of the 193 official GRAS records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12480-L12480",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+]
+note = "not present in the official GRAS records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+confidence = "reference"
+evidence = [
+  "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in none of the 193 official GRAS records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12481-L12481",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official GRAS records"
 
 [[member]]
 group_ref = "BfcbBlock"
@@ -72,34 +92,37 @@ confidence = "corpus"
 note = "base form components; the component data stays raw"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 193 of 193 official GRAS records (193 occurrences), 32..49 bytes"
+group_ref = "Model"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12483-L12483",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 32..49 bytes"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 193 of 193 official GRAS records (193 occurrences), 4 bytes"
-confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 4 bytes"
+note = "the generic model; upstream requires it"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 193 of 193 official GRAS records (193 occurrences), 38 bytes"
+name = "Data"
+type = "struct"
+size = 38
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12484-L12484",
+  "corpus: regn_gras_types_full (crates/esm/tests/regn_gras_types.rs), 2026-11-14: in 193 of 193 official GRAS records",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12484-L12504",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-104 inventory); observed 38 bytes"
+note = "upstream prints the four bytes after the floats at offsets 25-28, overlapping its own seventh float (24-27); the dense layout here matches its later offsets 32, 36 and 37 and the 38-byte corpus size"
+field = [
+  { name = "Contrast", type = "f32" },
+  { name = "ClusterScale", type = "f32" },
+  { name = "HeightRange", type = "f32" },
+  { name = "ColorRange", type = "f32" },
+  { name = "WindFrequency", type = "f32" },
+  { name = "AboveWaterClampValue", type = "f32" },
+  { name = "BelowWaterClampValue", type = "f32" },
+  { name = "MaxDensity", type = "u8" },
+  { name = "MinSlope", type = "u8" },
+  { name = "MaxSlope", type = "u8" },
+  { name = "Flags", type = "flags", base = "u8", bits = [["VertexLighting", 0x1], ["UniformScaling", 0x2], ["FitsSlope", 0x4], ["ApplyBetween", 0x8]] },
+  { name = "Coverage", type = "f32" },
+  { name = "DirtinessMin", type = "u8", note = "stored raw; upstream displays it divided by 255" },
+  { name = "DirtinessMax", type = "u8", note = "stored raw; upstream displays it divided by 255" },
+]
