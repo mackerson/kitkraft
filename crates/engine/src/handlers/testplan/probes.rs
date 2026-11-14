@@ -14,6 +14,10 @@
 //! its own `KitKraftSession-*` name. The reload is proved by the cell: in the other cell
 //! before the load (`player.getincell <other> >> 1`), in the leave cell after it. With no
 //! runtime ID for the two cells that proof is not possible, and the row's `why` says so.
+//! A reference whose base is a pack-in (`PKIN`) gets a `manual` base row instead of
+//! `getisid`: whether the game reports a PKIN as the base of a reference placed from it
+//! is an open question (game-20261103-03 and -08: `getisid` on the PKIN's runtime ID
+//! answered 0.00, cause open), so the plan asserts neither 1 nor 0.
 //! A step with
 //! no console getter (an exterior cell, a reference without a runtime ID) is
 //! `matcher = "manual"` with the reason. A reference's attached scripts (M4.T6,
@@ -83,6 +87,14 @@ pub(super) const SAVE_SECS: u64 = 10;
 
 /// The evidence for the console facts above.
 pub(super) const EVIDENCE: &str = "game-20261101-T1";
+
+/// The reason the base row of a reference placed from a pack-in is manual (the open
+/// question of game-20261103-03 and -08); the docs and the tests quote the same words.
+pub(super) const PKIN_BASE_REASON: &str = "whether the game reports a pack-in (PKIN) as the \
+     base of a reference placed from it is an open question. getisid on the PKIN's \
+     runtime ID answered 0.00 in game-20261103-03 and game-20261103-08, and the cause \
+     is open. The reference itself is checked by its player.moveto and getpos rows. \
+     Click the reference in the console and write down the base it shows.";
 
 /// A console answer of 1 on its line (`GetInCell >> 1.00`).
 const ONE: &str = r"(?m)>>\s*1(\.0+)?\s*$";
@@ -385,6 +397,17 @@ pub(super) fn build(
             // plugin's reference, with the plugin's base.
             let row = next(&mut n);
             match (&t, f.base_runtime) {
+                (Some(_), Some(_)) if f.base_signature.as_deref() == Some("PKIN") => {
+                    // The plan stops asserting the PKIN as the base (open question,
+                    // game-20261103-03, -08) and does not assert 0 either: no getisid.
+                    let base = f.base_edid.as_deref().unwrap_or("base");
+                    probes.push(manual(
+                        row,
+                        format!("click {what} in the console: its base is the pack-in `{base}`"),
+                        ids.clone(),
+                        PKIN_BASE_REASON,
+                    ))
+                }
                 (Some(t), Some(b)) => probes.push(probe(
                     row,
                     format!(

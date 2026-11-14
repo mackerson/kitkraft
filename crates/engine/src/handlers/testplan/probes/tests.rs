@@ -9,12 +9,16 @@
 
 use std::path::Path;
 
+use kitkraft_esm::build::HeaderSpec;
+use kitkraft_esm::cells::{self, CellPlace, Parent, PlacementStyle};
+use kitkraft_esm::tes4::FLAG_MASTER;
+use kitkraft_esm::{Plugin, Record};
 use kitkraft_game::probes::{Matcher, ProbeFile};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::dir;
 use crate::execute;
-use crate::handlers::place_tests::world_master;
+use crate::handlers::place_tests::{data24, rec, sub, world_master, zstr};
 use crate::handlers::set_tests::data as weapons_data;
 
 fn testplan(data: &Path, plugin: &Path, out: &Path, plugins: Value) -> Value {
@@ -325,6 +329,7 @@ fn the_persistence_row_goes_elsewhere_between_the_save_and_the_load() {
         full: None,
         base_edid: None,
         base_runtime: None,
+        base_signature: None,
         disabled: false,
         scripts: Vec::new(),
     };
@@ -1011,4 +1016,154 @@ fn a_script_name_with_dot_dot_is_not_looked_up() {
             .join("KitKraft")
             .join("HelloOnLoad.pex")
     ));
+}
+
+#[test]
+fn a_pack_in_reference_does_not_expect_the_pkin_as_its_base() {
+    let d = dir("probes-pkin");
+    let data = world_master(&d);
+    let plugin = d.join("KC_PackIn.esm");
+    // A master-flagged plugin with no masters, by hand the way `world_master` builds
+    // `World.esm` (which has no PKIN): a PKIN, a STAT, an interior cell, and a reference
+    // of each, by this test's own form IDs.
+    let mut spec = HeaderSpec::new(Vec::new());
+    spec.flags = FLAG_MASTER;
+    let mut pl = Plugin::create(&spec);
+    pl.header_mut()
+        .subrecords_mut()
+        .unwrap()
+        .push(sub(b"INCC", &1u32.to_le_bytes()));
+    let style = PlacementStyle::OFFICIAL;
+    let mut put = |record: Record<'static>, parent: Parent| {
+        let path = cells::placement(&record.header, &parent, &style).unwrap();
+        pl.upsert_styled(&path, record, &style).unwrap();
+    };
+    put(
+        rec(b"PKIN", 0, 0x800, vec![sub(b"EDID", &zstr("KC_Pack"))]),
+        Parent::None,
+    );
+    put(
+        rec(b"STAT", 0, 0x801, vec![sub(b"EDID", &zstr("KC_Box"))]),
+        Parent::None,
+    );
+    put(
+        rec(
+            b"CELL",
+            0,
+            0x802,
+            vec![
+                sub(b"EDID", &zstr("TestPackRoom")),
+                sub(b"FULL", &zstr("Pack Room")),
+            ],
+        ),
+        Parent::CellAt(CellPlace::INTERIOR),
+    );
+    put(
+        rec(
+            b"REFR",
+            0,
+            0x803,
+            vec![
+                sub(b"NAME", &0x800u32.to_le_bytes()),
+                sub(b"DATA", &data24([23.0, 4.0, -7.0])),
+            ],
+        ),
+        Parent::Cell {
+            place: CellPlace::INTERIOR,
+            cell: 0x802,
+        },
+    );
+    put(
+        rec(
+            b"REFR",
+            0,
+            0x804,
+            vec![
+                sub(b"NAME", &0x801u32.to_le_bytes()),
+                sub(b"DATA", &data24([11.0, 12.0, 13.0])),
+            ],
+        ),
+        Parent::Cell {
+            place: CellPlace::INTERIOR,
+            cell: 0x802,
+        },
+    );
+    std::fs::write(&plugin, pl.to_bytes().unwrap()).unwrap();
+
+    let out = d.join("plan");
+    testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(
+        rows(&p),
+        checklist_steps(&out),
+        "one probe per checklist step"
+    );
+
+    let pkin_ref = "01000803";
+    let stat_ref = "01000804";
+    // The pack-in reference's base row: manual (no getisid), naming the reference and
+    // its pack-in base; the reason says the question is open and what the person does.
+    let base_row = p
+        .probes
+        .iter()
+        .find(|x| {
+            x.is_manual() && x.forms.contains(&pkin_ref.to_string()) && x.title.contains("pack-in")
+        })
+        .unwrap();
+    assert!(base_row.title.contains("KC_Pack"), "{}", base_row.title);
+    let reason = base_row.reason.as_deref().unwrap();
+    assert!(reason.contains("open question"), "{reason}");
+    assert!(reason.contains("game-20261103-08"), "{reason}");
+    assert!(base_row.steps.is_empty(), "a manual row runs no commands");
+    // The STAT reference's base row keeps the getisid, with the regex matcher.
+    let stat_base = p
+        .probes
+        .iter()
+        .find(|x| {
+            x.forms.contains(&stat_ref.to_string())
+                && x.title.starts_with(&format!("prid {stat_ref} selects"))
+        })
+        .unwrap();
+    assert_eq!(
+        commands(&p, &stat_base.row),
+        ["prid 01000804", "getisid 01000801"]
+    );
+    assert_eq!(stat_base.steps[1].matcher, Some(Matcher::Regex));
+    // No step in the whole file sends getisid on the PKIN's runtime ID.
+    for x in &p.probes {
+        for s in &x.steps {
+            assert!(!s.command.contains("getisid 01000800"), "{}", s.command);
+        }
+    }
+    // The checklist says it once, for the pack-in reference.
+    let checklist_text = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    assert_eq!(checklist_text.matches("open question").count(), 1);
+    assert!(checklist_text.contains("write down the base the console shows"));
+    // The pack-in reference keeps its player.moveto row and its getpos row (three
+    // getpos steps); its cell and persistence rows are unchanged.
+    let moveto = p
+        .probes
+        .iter()
+        .find(|x| x.forms.contains(&pkin_ref.to_string()) && x.title.starts_with("player.moveto"))
+        .unwrap();
+    assert_eq!(
+        commands(&p, &moveto.row),
+        [
+            "player.moveto 01000803",
+            "prid 01000803",
+            "getdistance player"
+        ]
+    );
+    let getpos = p
+        .probes
+        .iter()
+        .find(|x| {
+            x.forms.contains(&pkin_ref.to_string()) && x.title.starts_with("prid 01000803; getpos")
+        })
+        .unwrap();
+    assert_eq!(
+        commands(&p, &getpos.row),
+        ["prid 01000803", "getpos x", "getpos y", "getpos z"]
+    );
+    std::fs::remove_dir_all(&d).unwrap();
 }

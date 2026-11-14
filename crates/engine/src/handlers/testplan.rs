@@ -93,6 +93,8 @@ struct Form {
     base_edid: Option<String>,
     /// For a reference: the base's runtime ID.
     base_runtime: Option<u32>,
+    /// For a reference: the base record's signature.
+    base_signature: Option<String>,
     /// For a reference: the record's initially-disabled flag (0x800).
     disabled: bool,
     /// For a reference: the scripts its `VMAD` attaches, with the Papyrus log lines they
@@ -354,6 +356,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             full: None,
             base_edid: None,
             base_runtime: None,
+            base_signature: None,
             disabled: is_ref && loc.flags & probes::FLAG_INITIALLY_DISABLED != 0,
             scripts: Vec::new(),
         };
@@ -389,6 +392,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 }
                 form.base_edid = edid_of(&lo, base);
                 form.base_runtime = lo.runtime_id(base);
+                form.base_signature = signature_of(&lo, base);
                 form.base = Some(match edid_of(&lo, base) {
                     Some(e) => format!(
                         "{e} ({}, {})",
@@ -695,9 +699,14 @@ fn checklist(
                 );
                 n = n.saturating_add(1);
             }
+            let pkin = if f.base_signature.as_deref() == Some("PKIN") {
+                "\n   Its base is a pack-in (PKIN); whether the console reports the PKIN as its base is an\n   open question (game-20261103-03, -08): write down the base the console shows."
+            } else {
+                ""
+            };
             let _ = writeln!(
                 s,
-                "{n}. Open the console and click the object: {base} at {pos}.\n   **Expect:** the console shows the reference ID `{runtime}` ({}). Another ID means\n   another slot, not a missing object: write down the ID shown.",
+                "{n}. Open the console and click the object: {base} at {pos}.{pkin}\n   **Expect:** the console shows the reference ID `{runtime}` ({}). Another ID means\n   another slot, not a missing object: write down the ID shown.",
                 id_basis.short
             );
             n = n.saturating_add(1);
