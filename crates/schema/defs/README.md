@@ -148,6 +148,37 @@ signature, kept as raw bytes, up to (not including) the first subrecord with the
 signature. A subrecord member with that signature must follow later in the same list. Use
 it for blocks whose contents are not modelled yet.
 
+**Subrecord union** (`union = "<Name>"`, `decider = "sub:BFCB"`; ADR 0015): runs of
+subrecords whose layout an earlier sibling's string chooses, as upstream chooses a base form
+component's `DATA`/`DAT2` layout by the component name. Each `[[member.variant]]` (nested
+`[[member.member.variant]]` inside a group) takes `name` (PascalCase), `when` (a non-empty
+list of the sibling payloads that select it, printable ASCII without the NUL; no payload in
+two variants of one union), `note`, the provenance keys, and its members in
+`[[member.variant.member]]` tables, laid out as a group's. The union member itself takes only
+`union`, `decider`, `note` and the provenance keys. Rules the loader checks:
+
+- `decider = "sub:<SIG>"` names an **earlier** member of the same list that is a `required`
+  `zstring` subrecord of that signature (BfcbBlock's `ComponentType`).
+- An `any_until` member must follow the union in the same list: it keeps every block no
+  variant reads (the fallback).
+- Variant names share the list's namespace: the loader lowers the union into one optional
+  group per variant, in order (`GroupDef::variant_of`), so a variant's members have paths
+  like any group's (`BfcbBlock.StarData.Star`).
+
+A variant reads a run only when (1) the deciding sibling's payload in the same instance of
+the list, without its terminating NUL, equals one of its `when` strings byte for byte, and
+(2) its members match every subrecord from the one at hand up to the next subrecord with
+the fallback's terminator (`BFCE`). Otherwise those subrecords go to the members after the
+union and stay raw, exactly as read; the decoder never reads a block by another name's
+layout and never rewrites the name. Matching is by signatures, as for every group: a payload
+the variant's type cannot decode is kept raw in the record's `extra`, so re-encoding stays
+byte-identical. Generated code: `MemberDesc::Variant { card, decider, when, until, members }`
+(the matcher passes each member list's hits so far to find the decider), and the variant's
+group struct as for any group. `kitkraft_doc::typed::placements` takes `SubKey`s: a
+signature with its payload (`([u8; 4], &[u8])`, or an `esm::Subrecord`) chooses variants;
+a bare signature (`[u8; 4]`) never does, so its caller sees those subrecords in the raw
+member, as before unions existed.
+
 `card` is `required` (exactly once, the default), `optional` (0..1) or `repeated` (0..n,
 consecutive). In an ordered record the same signature may appear at two positions if the
 members have different names (WEAP has two `FLLD` slots); an unordered record does not
@@ -376,7 +407,8 @@ variants = [
 
 ### Not supported (stays opaque)
 
-Unions decided by another subrecord, by a bit of a second sibling, or by a value outside
+Unions decided by another subrecord's value other than an earlier sibling's string (the
+subrecord union above), by a bit of a second sibling, or by a value outside
 the same struct (COED's owner; CTDA's parameters 1 and 2 when the function's parameter is a
 reference, an actor or a package, which the type byte's alias and packdata bits re-type) are
 not expressible yet. Such payloads stay `opaque`. A decider bit of the deciding field itself

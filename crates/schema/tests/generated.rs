@@ -497,7 +497,7 @@ fn record_dispatch() {
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
     assert_eq!(
         sigs,
-        [*b"EMPT", *b"UNOR", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]
+        [*b"EMPT", *b"SUBU", *b"UNOR", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]
     );
     assert_eq!(fixture::UNORDERED, [*b"UNOR"]);
     assert!(rec.extra().is_empty());
@@ -1111,4 +1111,114 @@ fn field_unions_follow_their_sibling() {
     // Without its decider a field union keeps the bytes as read.
     let lone = fixture::decode::<UuuuPropsItemValue>(&[1, 2, 3, 4], "V", ctx(1, true)).unwrap();
     assert_eq!(lone, UuuuPropsItemValue::Other([1, 2, 3, 4]));
+}
+
+fn subu(subs: &[OwnedSub]) -> fixture::SubuRecord {
+    let raw = raw(subs);
+    let rec = fixture::SubuRecord::decode(&raw, ctx(1, false));
+    let back = rec.encode();
+    assert_eq!(back, subs, "SUBU re-encodes byte for byte");
+    rec
+}
+
+fn block(name: &[u8], data: &[OwnedSub]) -> Vec<OwnedSub> {
+    let mut out = vec![sub(b"BNAM", name)];
+    out.extend_from_slice(data);
+    out.push(sub(b"BEND", &[]));
+    out
+}
+
+#[test]
+fn subrecord_unions_follow_the_block_name() {
+    // Two blocks, two variants: each block's own BNAM decides its data.
+    let mut body = vec![sub(b"EDID", b"Test\0")];
+    body.extend(block(
+        b"Alpha_Component\0",
+        &[sub(b"DATA", &7u32.to_le_bytes())],
+    ));
+    body.extend(block(
+        b"BetaToo\0",
+        &[
+            sub(b"DATA", &0x0100_0F00u32.to_le_bytes()),
+            sub(b"XTRA", &[3]),
+        ],
+    ));
+    let rec = subu(&body);
+    assert!(rec.extra.is_empty(), "{:?}", rec.extra);
+    assert_eq!(rec.block.len(), 2);
+    let alpha = rec.block[0].alpha.as_ref().unwrap();
+    assert_eq!(value(&alpha.data), Some(7));
+    assert!(rec.block[0].beta.is_none() && rec.block[0].raw.is_empty());
+    let beta = rec.block[1].beta.as_ref().unwrap();
+    assert_eq!(value(&beta.target), Some(FormId(0x0100_0F00)));
+    assert_eq!(value(&beta.more), Some(3));
+    assert!(rec.block[1].alpha.is_none());
+    // The variant's FormID is visited under its path.
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(ids, [("SUBU.Block.Beta.DATA", 0x0100_0F00)]);
+    // The lead-signature group before the union still reads by its first subrecord.
+    let lead = subu(&block(b"Anything\0", &[sub(b"LEAD", &[1])]));
+    assert_eq!(value(&lead.block[0].lead.as_ref().unwrap().value), Some(1));
+}
+
+#[test]
+fn subrecord_unions_keep_unread_blocks_raw() {
+    let data = sub(b"DATA", &7u32.to_le_bytes());
+    // A name no variant lists: the data stays in the raw member, as read.
+    let rec = subu(&block(b"Gamma_Component\0", std::slice::from_ref(&data)));
+    assert!(rec.block[0].alpha.is_none() && rec.block[0].beta.is_none());
+    assert_eq!(rec.block[0].raw, std::slice::from_ref(&data));
+    // Names compare byte for byte without the NUL: no prefix, case or NUL-less match.
+    for name in [
+        &b"Alpha\0"[..],
+        b"alpha_component\0",
+        b"Alpha_Component\0\0",
+    ] {
+        let rec = subu(&block(name, std::slice::from_ref(&data)));
+        assert!(rec.block[0].alpha.is_none(), "{name:?}");
+        assert_eq!(rec.block[0].raw.len(), 1);
+    }
+    // The name says Alpha, but the data is not Alpha's from its first subrecord to BEND
+    // (XTRA is Beta's): the whole block stays raw, not read by another name's layout.
+    let mixed = [data.clone(), sub(b"XTRA", &[3])];
+    let rec = subu(&block(b"Alpha_Component\0", &mixed));
+    assert!(rec.block[0].alpha.is_none() && rec.block[0].beta.is_none());
+    assert_eq!(rec.block[0].raw, mixed);
+    // No BEND after the data: nothing to stop at, so the data is not read either.
+    let open = [sub(b"BNAM", b"Alpha_Component\0"), data.clone()];
+    let rec = subu(&open);
+    assert!(rec.block[0].alpha.is_none());
+    // The variant matches by signatures; a payload its layout cannot decode is kept raw in
+    // `extra`, and the record still re-encodes byte for byte.
+    let rec = subu(&block(b"Alpha_Component\0", &[sub(b"DATA", &[1, 2, 3])]));
+    assert_eq!(rec.extra.len(), 1);
+    assert_eq!(rec.extra[0].0, 1);
+}
+
+#[test]
+fn subrecord_union_variants_are_member_descs() {
+    let (_, members) = RECORDS.iter().find(|(s, _)| s == b"SUBU").unwrap();
+    let fixture::MemberDesc::Group { members: block, .. } = members[1] else {
+        panic!("Block is a group");
+    };
+    type Key<'a> = (usize, &'a [&'a [u8]], [u8; 4]);
+    let variants: Vec<Key<'_>> = block
+        .iter()
+        .filter_map(|d| match d {
+            fixture::MemberDesc::Variant {
+                decider,
+                when,
+                until,
+                ..
+            } => Some((*decider, *when, *until)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        variants,
+        [
+            (0, &[&b"Alpha_Component"[..]][..], *b"BEND"),
+            (0, &[&b"Beta_Component"[..], &b"BetaToo"[..]][..], *b"BEND"),
+        ]
+    );
 }

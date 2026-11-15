@@ -4,6 +4,7 @@
 // - common Marker (corpus: synthetic test fixture, not game data; corpus)
 // - common Point (corpus: synthetic test fixture, not game data; corpus)
 // - EMPT (corpus: synthetic test fixture, not game data; corpus)
+// - SUBU (corpus: synthetic test fixture, not game data; corpus)
 // - UNOR (corpus: synthetic test fixture, not game data; corpus)
 // - UUUU (corpus: synthetic test fixture, not game data; corpus)
 // - VVVV (corpus: synthetic test fixture, not game data; corpus)
@@ -476,6 +477,18 @@ pub enum MemberDesc {
     },
     /// Any subrecords up to the first `until`.
     AnyUntil { until: Sig },
+    /// One variant of a subrecord union (ADR 0015): a run of consecutive members, read only
+    /// when the payload of member `decider` in the current instance of the member list (a
+    /// NUL-terminated string; the NUL is dropped) is one of `when`, and only when its
+    /// members match every subrecord from there to the next `until` subrecord. Otherwise
+    /// the subrecords are left to the members after it (the union's raw fallback).
+    Variant {
+        card: Card,
+        decider: usize,
+        when: &'static [&'static [u8]],
+        until: Sig,
+        members: &'static [MemberDesc],
+    },
 }
 
 /// FormID values, each with the path of the member or field that holds it (`WEAP.KWDA`).
@@ -673,6 +686,8 @@ pub enum Hit {
 
 const MAX_GROUP_DEPTH: usize = 16;
 
+/// Whether `desc` can take a subrecord of signature `sig` by its signature alone. A union
+/// variant needs the deciding payload too ([`chosen`]), so it never does here.
 fn accepts(desc: &MemberDesc, sig: Sig, depth: usize) -> bool {
     match desc {
         MemberDesc::Sub { sig: own, .. } => *own == sig,
@@ -680,7 +695,26 @@ fn accepts(desc: &MemberDesc, sig: Sig, depth: usize) -> bool {
         MemberDesc::Group { members, .. } => {
             depth < MAX_GROUP_DEPTH && starts(members, sig, depth.saturating_add(1))
         }
+        MemberDesc::Variant { .. } => false,
     }
+}
+
+/// Whether the payload of member `decider` in `instance` (the hits of the current member
+/// list so far), without its terminating NUL, is one of `when`.
+fn chosen(subs: &[RawSub<'_>], instance: &[Hit], decider: usize, when: &[&[u8]]) -> bool {
+    instance
+        .iter()
+        .find_map(|hit| match hit {
+            Hit::Sub { member, index } if *member == decider => subs.get(*index),
+            _ => None,
+        })
+        .is_some_and(|sub| {
+            let name = match sub.data.split_last() {
+                Some((0, rest)) => rest,
+                _ => sub.data,
+            };
+            when.contains(&name)
+        })
 }
 
 fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
@@ -689,9 +723,9 @@ fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
             return true;
         }
         let required = match desc {
-            MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => {
-                *card == Card::Required
-            }
+            MemberDesc::Sub { card, .. }
+            | MemberDesc::Group { card, .. }
+            | MemberDesc::Variant { card, .. } => *card == Card::Required,
             MemberDesc::AnyUntil { .. } => false,
         };
         if required {
@@ -703,46 +737,89 @@ fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
 
 fn repeats(desc: &MemberDesc) -> bool {
     match desc {
-        MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => *card == Card::Repeated,
+        MemberDesc::Sub { card, .. }
+        | MemberDesc::Group { card, .. }
+        | MemberDesc::Variant { card, .. } => *card == Card::Repeated,
         MemberDesc::AnyUntil { .. } => true,
     }
 }
 
+/// Matches one instance of `members` from `pos`: the hits of its members, in order.
+fn match_run(
+    subs: &[RawSub<'_>],
+    pos: &mut usize,
+    members: &'static [MemberDesc],
+    depth: usize,
+) -> Vec<Hit> {
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    while let Some(hit) = match_one(subs, pos, members, &mut cursor, &hits, depth) {
+        hits.push(hit);
+    }
+    hits
+}
+
+/// Matches the subrecord at `pos` (and for a group the run it starts) to the first member
+/// from `cursor` on that takes it. `instance` holds the hits of the current instance of
+/// `members` so far (a union variant's deciding sibling is among them).
 fn match_one(
     subs: &[RawSub<'_>],
     pos: &mut usize,
     members: &'static [MemberDesc],
     cursor: &mut usize,
+    instance: &[Hit],
     depth: usize,
 ) -> Option<Hit> {
     let sig = subs.get(*pos)?.signature;
-    let (member, desc) = members
-        .iter()
-        .enumerate()
-        .skip(*cursor)
-        .find(|(_, desc)| accepts(desc, sig, depth))?;
-    *cursor = if repeats(desc) {
-        member
-    } else {
-        member.saturating_add(1)
-    };
-    if let MemberDesc::Group { members: inner, .. } = desc {
-        let start = *pos;
-        let mut inner_cursor = 0;
-        let mut hits = Vec::new();
-        while let Some(hit) =
-            match_one(subs, pos, inner, &mut inner_cursor, depth.saturating_add(1))
+    for (member, desc) in members.iter().enumerate().skip(*cursor) {
+        let next = if repeats(desc) {
+            member
+        } else {
+            member.saturating_add(1)
+        };
+        if let MemberDesc::Variant {
+            decider,
+            when,
+            until,
+            members: inner,
+            ..
+        } = desc
         {
-            hits.push(hit);
+            let inner_depth = depth.saturating_add(1);
+            if depth >= MAX_GROUP_DEPTH
+                || !chosen(subs, instance, *decider, when)
+                || !starts(inner, sig, inner_depth)
+            {
+                continue;
+            }
+            let start = *pos;
+            let hits = match_run(subs, pos, inner, inner_depth);
+            if *pos > start && subs.get(*pos).is_some_and(|s| s.signature == *until) {
+                *cursor = next;
+                return Some(Hit::Group { member, hits });
+            }
+            // The data is not this variant's from here to `until`: leave all of it to the
+            // members after the union.
+            *pos = start;
+            continue;
         }
-        if *pos == start {
-            return None;
+        if !accepts(desc, sig, depth) {
+            continue;
         }
-        return Some(Hit::Group { member, hits });
+        *cursor = next;
+        if let MemberDesc::Group { members: inner, .. } = desc {
+            let start = *pos;
+            let hits = match_run(subs, pos, inner, depth.saturating_add(1));
+            if *pos == start {
+                return None;
+            }
+            return Some(Hit::Group { member, hits });
+        }
+        let index = *pos;
+        *pos = pos.saturating_add(1);
+        return Some(Hit::Sub { member, index });
     }
-    let index = *pos;
-    *pos = pos.saturating_add(1);
-    Some(Hit::Sub { member, index })
+    None
 }
 
 /// Assigns subrecords to `members` in order. Returns the hits and the indexes of
@@ -756,7 +833,7 @@ pub fn match_members(
     let mut hits = Vec::new();
     let mut unmatched = Vec::new();
     while pos < subs.len() {
-        match match_one(subs, &mut pos, members, &mut cursor, 0) {
+        match match_one(subs, &mut pos, members, &mut cursor, &hits, 0) {
             Some(hit) => hits.push(hit),
             None => {
                 unmatched.push(pos);
@@ -781,10 +858,10 @@ pub fn match_unordered(
     let mut hits = Vec::new();
     let mut unmatched = Vec::new();
     while pos < subs.len() {
-        let mut hit = match_one(subs, &mut pos, members, &mut cursor, 0);
+        let mut hit = match_one(subs, &mut pos, members, &mut cursor, &hits, 0);
         if hit.is_none() {
             let mut wrapped = 0;
-            hit = match_one(subs, &mut pos, members, &mut wrapped, 0);
+            hit = match_one(subs, &mut pos, members, &mut wrapped, &hits, 0);
             if hit.is_some() {
                 cursor = wrapped;
             }
@@ -1249,6 +1326,392 @@ impl EmptRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("EMPT", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SubuBlockLead {
+    /// `LEAD`, required.
+    pub value: Option<Sub<u8>>,
+}
+
+impl SubuBlockLead {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"LEAD",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.value,
+                    subs,
+                    *index,
+                    "SUBU.Block.Lead.LEAD",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"LEAD", self.value.as_ref());
+    }
+}
+
+impl Visit for SubuBlockLead {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SubuBlockAlpha {
+    /// `DATA`, required.
+    pub data: Option<Sub<u32>>,
+}
+
+impl SubuBlockAlpha {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"DATA",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.data,
+                    subs,
+                    *index,
+                    "SUBU.Block.Alpha.DATA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"DATA", self.data.as_ref());
+    }
+}
+
+impl Visit for SubuBlockAlpha {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SubuBlockBeta {
+    /// `DATA`, required.
+    pub target: Option<Sub<FormId>>,
+    /// `XTRA`, optional.
+    pub more: Option<Sub<u8>>,
+}
+
+impl SubuBlockBeta {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XTRA",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.target,
+                    subs,
+                    *index,
+                    "SUBU.Block.Beta.DATA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.more,
+                    subs,
+                    *index,
+                    "SUBU.Block.Beta.XTRA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"DATA", self.target.as_ref());
+        emit(out, *b"XTRA", self.more.as_ref());
+    }
+}
+
+impl Visit for SubuBlockBeta {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "SUBU.Block.Beta.DATA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "SUBU.Block.Beta.DATA", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SubuBlock {
+    /// `BNAM`, required.
+    pub name: Option<Sub<ZString>>,
+    /// Group `Lead`, optional.
+    pub lead: Option<SubuBlockLead>,
+    /// Group `Alpha`, optional.
+    pub alpha: Option<SubuBlockAlpha>,
+    /// Group `Beta`, optional.
+    pub beta: Option<SubuBlockBeta>,
+    /// Raw subrecords up to `BEND`, in order.
+    pub raw: Vec<OwnedSub>,
+    /// `BEND`, required.
+    pub end: Option<Sub<Empty>>,
+}
+
+impl SubuBlock {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: SubuBlockLead::MEMBERS,
+        },
+        MemberDesc::Variant {
+            card: Card::Optional,
+            decider: 0,
+            when: &[b"Alpha_Component"],
+            until: *b"BEND",
+            members: SubuBlockAlpha::MEMBERS,
+        },
+        MemberDesc::Variant {
+            card: Card::Optional,
+            decider: 0,
+            when: &[b"Beta_Component", b"BetaToo"],
+            until: *b"BEND",
+            members: SubuBlockBeta::MEMBERS,
+        },
+        MemberDesc::AnyUntil { until: *b"BEND" },
+        MemberDesc::Sub {
+            sig: *b"BEND",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.name, subs, *index, "SUBU.Block.BNAM", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } if self.lead.is_none() => {
+                    let mut group = SubuBlockLead::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.lead = Some(group);
+                }
+                Hit::Group { member: 2, hits } if self.alpha.is_none() => {
+                    let mut group = SubuBlockAlpha::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.alpha = Some(group);
+                }
+                Hit::Group { member: 3, hits } if self.beta.is_none() => {
+                    let mut group = SubuBlockBeta::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.beta = Some(group);
+                }
+                Hit::Sub { member: 4, index } => push_raw(&mut self.raw, subs, *index),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.end, subs, *index, "SUBU.Block.BEND", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"BNAM", self.name.as_ref());
+        if let Some(group) = &self.lead {
+            group.emit(out);
+        }
+        if let Some(group) = &self.alpha {
+            group.emit(out);
+        }
+        if let Some(group) = &self.beta {
+            group.emit(out);
+        }
+        out.extend(self.raw.iter().cloned());
+        emit(out, *b"BEND", self.end.as_ref());
+    }
+}
+
+impl Visit for SubuBlock {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.beta, "SUBU.Block.Beta", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.beta, "SUBU.Block.Beta", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SubuRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `Block`, repeated.
+    pub block: Vec<SubuBlock>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SubuRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: SubuBlock::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SUBU.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = SubuBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.block.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.block {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for SubuRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.block, "SUBU.Block", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.block, "SUBU.Block", out);
+    }
+}
+
+impl SubuRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SUBU";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SUBU", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SUBU", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SUBU", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SUBU", &mut out);
         out
     }
 }
@@ -3796,6 +4259,7 @@ impl ZzzzRecord {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Record {
     Empt(Box<EmptRecord>),
+    Subu(Box<SubuRecord>),
     Unor(Box<UnorRecord>),
     Uuuu(Box<UuuuRecord>),
     Vvvv(Box<VvvvRecord>),
@@ -3806,6 +4270,7 @@ pub enum Record {
 /// The member list of every defined record type, by signature.
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"EMPT", EmptRecord::MEMBERS),
+    (*b"SUBU", SubuRecord::MEMBERS),
     (*b"UNOR", UnorRecord::MEMBERS),
     (*b"UUUU", UuuuRecord::MEMBERS),
     (*b"VVVV", VvvvRecord::MEMBERS),
@@ -3837,6 +4302,7 @@ impl Record {
     pub fn decode(signature: Sig, subs: &[RawSub<'_>], ctx: Ctx) -> Option<Self> {
         Some(match &signature {
             b"EMPT" => Self::Empt(Box::new(EmptRecord::decode(subs, ctx))),
+            b"SUBU" => Self::Subu(Box::new(SubuRecord::decode(subs, ctx))),
             b"UNOR" => Self::Unor(Box::new(UnorRecord::decode(subs, ctx))),
             b"UUUU" => Self::Uuuu(Box::new(UuuuRecord::decode(subs, ctx))),
             b"VVVV" => Self::Vvvv(Box::new(VvvvRecord::decode(subs, ctx))),
@@ -3850,6 +4316,7 @@ impl Record {
     pub fn encode(&self) -> Vec<OwnedSub> {
         match self {
             Self::Empt(record) => record.encode(),
+            Self::Subu(record) => record.encode(),
             Self::Unor(record) => record.encode(),
             Self::Uuuu(record) => record.encode(),
             Self::Vvvv(record) => record.encode(),
@@ -3862,6 +4329,7 @@ impl Record {
     pub fn signature(&self) -> Sig {
         match self {
             Self::Empt(_) => EmptRecord::SIGNATURE,
+            Self::Subu(_) => SubuRecord::SIGNATURE,
             Self::Unor(_) => UnorRecord::SIGNATURE,
             Self::Uuuu(_) => UuuuRecord::SIGNATURE,
             Self::Vvvv(_) => VvvvRecord::SIGNATURE,
@@ -3874,6 +4342,7 @@ impl Record {
     pub fn form_ids(&self) -> FormIds<'_> {
         match self {
             Self::Empt(record) => record.form_ids(),
+            Self::Subu(record) => record.form_ids(),
             Self::Unor(record) => record.form_ids(),
             Self::Uuuu(record) => record.form_ids(),
             Self::Vvvv(record) => record.form_ids(),
@@ -3886,6 +4355,7 @@ impl Record {
     pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
         match self {
             Self::Empt(record) => record.form_ids_mut(),
+            Self::Subu(record) => record.form_ids_mut(),
             Self::Unor(record) => record.form_ids_mut(),
             Self::Uuuu(record) => record.form_ids_mut(),
             Self::Vvvv(record) => record.form_ids_mut(),
@@ -3898,6 +4368,7 @@ impl Record {
     pub fn lstrings(&self) -> LStrings<'_> {
         match self {
             Self::Empt(record) => record.lstrings(),
+            Self::Subu(record) => record.lstrings(),
             Self::Unor(record) => record.lstrings(),
             Self::Uuuu(record) => record.lstrings(),
             Self::Vvvv(record) => record.lstrings(),
@@ -3910,6 +4381,7 @@ impl Record {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         match self {
             Self::Empt(record) => record.lstrings_mut(),
+            Self::Subu(record) => record.lstrings_mut(),
             Self::Unor(record) => record.lstrings_mut(),
             Self::Uuuu(record) => record.lstrings_mut(),
             Self::Vvvv(record) => record.lstrings_mut(),
@@ -3923,6 +4395,7 @@ impl Record {
     pub fn extra(&self) -> &[(usize, OwnedSub)] {
         match self {
             Self::Empt(record) => &record.extra,
+            Self::Subu(record) => &record.extra,
             Self::Unor(record) => &record.extra,
             Self::Uuuu(record) => &record.extra,
             Self::Vvvv(record) => &record.extra,

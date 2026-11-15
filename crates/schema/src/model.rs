@@ -619,6 +619,9 @@ pub struct GroupDef {
     pub name: String,
     pub cardinality: Cardinality,
     pub members: Vec<Member>,
+    /// Set on a variant of a subrecord union (`union = "<Name>"`, ADR 0015): the group is
+    /// read only when an earlier sibling's payload names it. `None` for every other group.
+    pub variant_of: Option<VariantOf>,
     /// The `defs/common/` group this was expanded from (`group_ref`), if any. Codegen
     /// emits a shared group's type once, under this name.
     pub shared: Option<String>,
@@ -626,6 +629,42 @@ pub struct GroupDef {
     /// Effective provenance of the group's place in its list (own keys, else inherited).
     /// The members of a shared group keep the shared definition's provenance.
     pub provenance: Provenance,
+}
+
+/// How a variant group of a subrecord union is chosen (`union = "<Name>"` with
+/// `decider = "sub:<SIG>"`, ADR 0015). The loader lowers a union into one optional group
+/// per variant, in variant order, each carrying this; a variant is read when:
+///
+/// - the payload of the deciding sibling (an earlier required `zstring` subrecord member of
+///   the same list, read in the current instance of that list) is, without its NUL, one of
+///   [`VariantOf::when`], compared byte for byte; and
+/// - the variant's members match the whole run from the subrecord at hand to the first
+///   [`VariantOf::until`] subrecord (the fallback `any_until` member's terminator).
+///
+/// Otherwise the subrecords fall to the `any_until` member after the union and stay raw.
+/// A matcher that has no payloads (signatures only) never selects a variant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VariantOf {
+    /// The union's name, shared by its variants.
+    pub union: String,
+    /// The deciding sibling's signature (`sub:BFCB`).
+    pub decider: Signature,
+    /// The sibling's payloads, without the terminating NUL, that select this variant.
+    pub when: Vec<String>,
+    /// The terminator of the `any_until` member that follows the union (`BFCE`).
+    pub until: Signature,
+}
+
+impl VariantOf {
+    /// Whether the deciding sibling's payload `payload` (as stored, NUL included) selects
+    /// this variant: one trailing NUL is dropped and the rest compared byte for byte.
+    pub fn selected_by(&self, payload: &[u8]) -> bool {
+        let name = match payload.split_last() {
+            Some((0, rest)) => rest,
+            _ => payload,
+        };
+        self.when.iter().any(|w| w.as_bytes() == name)
+    }
 }
 
 /// Any number of subrecords of any signature, kept as raw bytes, up to (not including)

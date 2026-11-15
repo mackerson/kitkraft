@@ -1365,11 +1365,38 @@ impl {name} {{
                         group.name,
                         group.cardinality.as_str()
                     );
-                    let _ = writeln!(
-                        descs,
-                        "        MemberDesc::Group {{\n            card: {},\n            members: {group_name}::MEMBERS,\n        }},",
-                        card_desc(group.cardinality)
-                    );
+                    match &group.variant_of {
+                        Some(variant) => {
+                            // The deciding sibling: the loader checked it is an earlier
+                            // required zstring subrecord member of this list.
+                            let decider = members
+                                .iter()
+                                .take(index)
+                                .position(|m| {
+                                    matches!(m, Member::Subrecord(s) if s.signature == variant.decider)
+                                })
+                                .unwrap_or_default();
+                            let when: Vec<String> = variant
+                                .when
+                                .iter()
+                                .map(|w| format!("b{}", lit(w)))
+                                .collect();
+                            let _ = writeln!(
+                                descs,
+                                "        MemberDesc::Variant {{\n            card: {},\n            decider: {decider},\n            when: &[{}],\n            until: {},\n            members: {group_name}::MEMBERS,\n        }},",
+                                card_desc(group.cardinality),
+                                when.join(", "),
+                                sig_lit(variant.until)
+                            );
+                        }
+                        None => {
+                            let _ = writeln!(
+                                descs,
+                                "        MemberDesc::Group {{\n            card: {},\n            members: {group_name}::MEMBERS,\n        }},",
+                                card_desc(group.cardinality)
+                            );
+                        }
+                    }
                     if group.cardinality == Cardinality::Repeated {
                         let _ = writeln!(decls, "    pub {ident}: Vec<{group_name}>,");
                         let _ = writeln!(

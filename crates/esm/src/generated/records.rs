@@ -697,6 +697,18 @@ pub enum MemberDesc {
     },
     /// Any subrecords up to the first `until`.
     AnyUntil { until: Sig },
+    /// One variant of a subrecord union (ADR 0015): a run of consecutive members, read only
+    /// when the payload of member `decider` in the current instance of the member list (a
+    /// NUL-terminated string; the NUL is dropped) is one of `when`, and only when its
+    /// members match every subrecord from there to the next `until` subrecord. Otherwise
+    /// the subrecords are left to the members after it (the union's raw fallback).
+    Variant {
+        card: Card,
+        decider: usize,
+        when: &'static [&'static [u8]],
+        until: Sig,
+        members: &'static [MemberDesc],
+    },
 }
 
 /// FormID values, each with the path of the member or field that holds it (`WEAP.KWDA`).
@@ -894,6 +906,8 @@ pub enum Hit {
 
 const MAX_GROUP_DEPTH: usize = 16;
 
+/// Whether `desc` can take a subrecord of signature `sig` by its signature alone. A union
+/// variant needs the deciding payload too ([`chosen`]), so it never does here.
 fn accepts(desc: &MemberDesc, sig: Sig, depth: usize) -> bool {
     match desc {
         MemberDesc::Sub { sig: own, .. } => *own == sig,
@@ -901,7 +915,26 @@ fn accepts(desc: &MemberDesc, sig: Sig, depth: usize) -> bool {
         MemberDesc::Group { members, .. } => {
             depth < MAX_GROUP_DEPTH && starts(members, sig, depth.saturating_add(1))
         }
+        MemberDesc::Variant { .. } => false,
     }
+}
+
+/// Whether the payload of member `decider` in `instance` (the hits of the current member
+/// list so far), without its terminating NUL, is one of `when`.
+fn chosen(subs: &[RawSub<'_>], instance: &[Hit], decider: usize, when: &[&[u8]]) -> bool {
+    instance
+        .iter()
+        .find_map(|hit| match hit {
+            Hit::Sub { member, index } if *member == decider => subs.get(*index),
+            _ => None,
+        })
+        .is_some_and(|sub| {
+            let name = match sub.data.split_last() {
+                Some((0, rest)) => rest,
+                _ => sub.data,
+            };
+            when.contains(&name)
+        })
 }
 
 fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
@@ -910,9 +943,9 @@ fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
             return true;
         }
         let required = match desc {
-            MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => {
-                *card == Card::Required
-            }
+            MemberDesc::Sub { card, .. }
+            | MemberDesc::Group { card, .. }
+            | MemberDesc::Variant { card, .. } => *card == Card::Required,
             MemberDesc::AnyUntil { .. } => false,
         };
         if required {
@@ -924,46 +957,89 @@ fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
 
 fn repeats(desc: &MemberDesc) -> bool {
     match desc {
-        MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => *card == Card::Repeated,
+        MemberDesc::Sub { card, .. }
+        | MemberDesc::Group { card, .. }
+        | MemberDesc::Variant { card, .. } => *card == Card::Repeated,
         MemberDesc::AnyUntil { .. } => true,
     }
 }
 
+/// Matches one instance of `members` from `pos`: the hits of its members, in order.
+fn match_run(
+    subs: &[RawSub<'_>],
+    pos: &mut usize,
+    members: &'static [MemberDesc],
+    depth: usize,
+) -> Vec<Hit> {
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    while let Some(hit) = match_one(subs, pos, members, &mut cursor, &hits, depth) {
+        hits.push(hit);
+    }
+    hits
+}
+
+/// Matches the subrecord at `pos` (and for a group the run it starts) to the first member
+/// from `cursor` on that takes it. `instance` holds the hits of the current instance of
+/// `members` so far (a union variant's deciding sibling is among them).
 fn match_one(
     subs: &[RawSub<'_>],
     pos: &mut usize,
     members: &'static [MemberDesc],
     cursor: &mut usize,
+    instance: &[Hit],
     depth: usize,
 ) -> Option<Hit> {
     let sig = subs.get(*pos)?.signature;
-    let (member, desc) = members
-        .iter()
-        .enumerate()
-        .skip(*cursor)
-        .find(|(_, desc)| accepts(desc, sig, depth))?;
-    *cursor = if repeats(desc) {
-        member
-    } else {
-        member.saturating_add(1)
-    };
-    if let MemberDesc::Group { members: inner, .. } = desc {
-        let start = *pos;
-        let mut inner_cursor = 0;
-        let mut hits = Vec::new();
-        while let Some(hit) =
-            match_one(subs, pos, inner, &mut inner_cursor, depth.saturating_add(1))
+    for (member, desc) in members.iter().enumerate().skip(*cursor) {
+        let next = if repeats(desc) {
+            member
+        } else {
+            member.saturating_add(1)
+        };
+        if let MemberDesc::Variant {
+            decider,
+            when,
+            until,
+            members: inner,
+            ..
+        } = desc
         {
-            hits.push(hit);
+            let inner_depth = depth.saturating_add(1);
+            if depth >= MAX_GROUP_DEPTH
+                || !chosen(subs, instance, *decider, when)
+                || !starts(inner, sig, inner_depth)
+            {
+                continue;
+            }
+            let start = *pos;
+            let hits = match_run(subs, pos, inner, inner_depth);
+            if *pos > start && subs.get(*pos).is_some_and(|s| s.signature == *until) {
+                *cursor = next;
+                return Some(Hit::Group { member, hits });
+            }
+            // The data is not this variant's from here to `until`: leave all of it to the
+            // members after the union.
+            *pos = start;
+            continue;
         }
-        if *pos == start {
-            return None;
+        if !accepts(desc, sig, depth) {
+            continue;
         }
-        return Some(Hit::Group { member, hits });
+        *cursor = next;
+        if let MemberDesc::Group { members: inner, .. } = desc {
+            let start = *pos;
+            let hits = match_run(subs, pos, inner, depth.saturating_add(1));
+            if *pos == start {
+                return None;
+            }
+            return Some(Hit::Group { member, hits });
+        }
+        let index = *pos;
+        *pos = pos.saturating_add(1);
+        return Some(Hit::Sub { member, index });
     }
-    let index = *pos;
-    *pos = pos.saturating_add(1);
-    Some(Hit::Sub { member, index })
+    None
 }
 
 /// Assigns subrecords to `members` in order. Returns the hits and the indexes of
@@ -977,7 +1053,7 @@ pub fn match_members(
     let mut hits = Vec::new();
     let mut unmatched = Vec::new();
     while pos < subs.len() {
-        match match_one(subs, &mut pos, members, &mut cursor, 0) {
+        match match_one(subs, &mut pos, members, &mut cursor, &hits, 0) {
             Some(hit) => hits.push(hit),
             None => {
                 unmatched.push(pos);
@@ -1002,10 +1078,10 @@ pub fn match_unordered(
     let mut hits = Vec::new();
     let mut unmatched = Vec::new();
     while pos < subs.len() {
-        let mut hit = match_one(subs, &mut pos, members, &mut cursor, 0);
+        let mut hit = match_one(subs, &mut pos, members, &mut cursor, &hits, 0);
         if hit.is_none() {
             let mut wrapped = 0;
-            hit = match_one(subs, &mut pos, members, &mut wrapped, 0);
+            hit = match_one(subs, &mut pos, members, &mut wrapped, &hits, 0);
             if hit.is_some() {
                 cursor = wrapped;
             }
