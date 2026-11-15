@@ -57,6 +57,7 @@
 //! signatures the schema leaves untyped or opaque are lstrings when the corpus lstring
 //! table says so ([`super::lstrings`]), again with a [`Layout::fallback`] note.
 
+use kitkraft_doc::typed::SubKey;
 use kitkraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, PackedPart, Scalar};
 use serde_json::{json, Value};
 
@@ -284,8 +285,12 @@ pub fn fallback_note(signature: &str) -> String {
 /// signature the definition never names, raw bytes inside a component block, or a
 /// position no member accepts: its layout is unknown and the payload opaque) and it is
 /// not an lstring by the fallback.
-pub fn layout_at(record: [u8; 4], subs: &[[u8; 4]], index: usize) -> Option<Layout> {
-    let sub = subs.get(index).copied()?;
+///
+/// `subs` are the record's subrecords ([`kitkraft_doc::typed::SubKey`]): pass payloads
+/// with them wherever the record is at hand, so a subrecord union's variant is chosen by
+/// its deciding sibling (ADR 0015); signatures alone place such data in the raw member.
+pub fn layout_at<K: SubKey>(record: [u8; 4], subs: &[K], index: usize) -> Option<Layout> {
+    let sub = subs.get(index).map(SubKey::signature)?;
     let schema_ty = kitkraft_schema::builtin().ok().and_then(|schema| {
         kitkraft_doc::typed::layout_at(schema, record, subs, index)
             .ok()
@@ -296,7 +301,7 @@ pub fn layout_at(record: [u8; 4], subs: &[[u8; 4]], index: usize) -> Option<Layo
 }
 
 /// [`layout_at`] for every subrecord of a record, in order, with one placement pass.
-pub fn layouts(record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Layout>> {
+pub fn layouts<K: SubKey>(record: [u8; 4], subs: &[K]) -> Vec<Option<Layout>> {
     let schema = kitkraft_schema::builtin().ok();
     let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, record, subs));
     subs.iter()
@@ -304,12 +309,12 @@ pub fn layouts(record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Layout>> {
         .map(|(index, sub)| {
             let schema_ty = schema.and_then(|schema| {
                 let p = placed.as_ref().and_then(|p| p.get(index));
-                kitkraft_doc::typed::layout_of(schema, record, *sub, index, p)
+                kitkraft_doc::typed::layout_of(schema, record, sub.signature(), index, p)
                     .ok()
                     .flatten()
                     .map(|l| l.ty.clone())
             });
-            finish(record, *sub, schema_ty)
+            finish(record, sub.signature(), schema_ty)
         })
         .collect()
 }

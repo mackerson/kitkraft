@@ -873,15 +873,27 @@ fn matched<'s, K: SubKey>(
     Some((m.out, m.gaps))
 }
 
-/// Whether the definition of `record` names subrecord signature `sub` anywhere.
+/// Whether the definition of `record` names subrecord signature `sub` anywhere outside the
+/// variants of a subrecord union. A union variant's members are named only for a block whose
+/// deciding sibling chooses that variant (ADR 0015), so a signature only they carry (a
+/// `DATA` in a WEAP) is unknown to the definition elsewhere, as it was before the union.
 fn names(schema: &Schema, record: [u8; 4], sub: [u8; 4]) -> bool {
+    fn walk(members: &[Member], sig: Signature, depth: usize) -> bool {
+        depth <= MAX_GROUP_DEPTH
+            && members.iter().any(|m| match m {
+                Member::Subrecord(s) => s.signature == sig,
+                Member::Group(g) if g.variant_of.is_some() => false,
+                Member::Group(g) => walk(&g.members, sig, depth.saturating_add(1)),
+                Member::AnyUntil(_) => false,
+            })
+    }
     let (Some(rs), Some(ss)) = (Signature::from_bytes(record), Signature::from_bytes(sub)) else {
         return false;
     };
     schema
         .records
         .get(&rs)
-        .is_some_and(|def| def.leaf_subrecords().iter().any(|(_, s)| s.signature == ss))
+        .is_some_and(|def| walk(&def.members, ss, 0))
 }
 
 /// The layout of one placed subrecord (`placement` from [`placements`]; `None` when the

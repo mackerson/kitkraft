@@ -419,7 +419,9 @@ Base form component data (lane D, 2026-10-15): upstream reads it as a record uni
 layout a run of subrecords recognised by its first one. `common/BfcbBlock.toml` lists the
 typed layouts as optional groups after `ComponentType` and keeps every other layout in the
 `any_until` member after them; a layout's leading signatures must not start any other
-upstream layout (`crates/doc/tests/components.rs` checks the official blocks). Lookups by
+upstream layout (`crates/doc/tests/components.rs` checks the official blocks). The
+layouts upstream chooses by the component name (its `DATA`/`DAT2` ones) are the variants of
+the subrecord union `NamedLayout` after those groups (ADR 0015, KK-294). Lookups by
 signature alone (`build` spec paths, the overhaul scaffold) prefer the record's own member
 over one inside a component layout (`RecordDef::leaves_for`, `in_component_layout`).
 

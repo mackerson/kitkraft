@@ -80,8 +80,7 @@ fn check(plugin: &str, localized: bool, r: &Record<'_>, subs: &[Subrecord<'_>], 
     let g = Generated::decode(r.header.signature.0, &raw, ctx).unwrap();
     assert!(g.extra().is_empty(), "{label}: kept raw {:?}", g.extra());
     let schema = kitkraft_schema::builtin().unwrap();
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    let placed = typed::placements(schema, r.header.signature.0, &sigs).unwrap();
+    let placed = typed::placements(schema, r.header.signature.0, subs).unwrap();
     for (i, p) in placed.iter().enumerate() {
         assert!(
             matches!(p, Placement::Member { .. }),

@@ -468,7 +468,7 @@ pub(super) fn check_written(sig: &str, written: &Path, data: &Path, p: &Plan) {
     // Every planned member is placed in the written record.
     let schema = kitkraft_schema::builtin().unwrap();
     let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    let placed = typed::placements(schema, record.header.signature.0, &sigs).unwrap();
+    let placed = typed::placements(schema, record.header.signature.0, subs).unwrap();
     let got: BTreeSet<String> = placed
         .iter()
         .filter_map(|p| match p {
@@ -580,6 +580,70 @@ fn stdt_planet_model_new_sets_every_typed_member_and_reads_back() {
 #[test]
 fn stdt_light_layer_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STDT", "LightLayer", "TESModel_Component");
+}
+
+// KK-294: the variants of the component block's `NamedLayout` union (ADR 0015), each on a
+// record type whose official records carry it: `new` picks the variant the BFCB name in the
+// fields lists (`scaffold::record_order`), and the read-back places the DATA/DAT2 by that
+// name.
+#[test]
+fn stdt_star_data_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "StarData", "BGSStarDataComponent_Component");
+}
+
+#[test]
+fn stdt_orbited_data_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "OrbitedData", "BGSOrbitedDataComponent_Component");
+}
+
+#[test]
+fn sfpt_unique_overlay_list_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("SFPT", "UniqueOverlayList", "UniqueOverlayList_Component");
+}
+
+#[test]
+fn sfpt_unique_pattern_placement_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SFPT",
+        "UniquePatternPlacement",
+        "UniquePatternPlacementInfo_Component",
+    );
+}
+
+#[test]
+fn sfpt_block_height_adjustment_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SFPT",
+        "BlockHeightAdjustment",
+        "BlockHeightAdjustment_Component",
+    );
+}
+
+#[test]
+fn sftr_surface_tree_pattern_swap_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SFTR",
+        "SurfaceTreePatternSwap",
+        "SurfaceTreePatternSwapInfo_Component",
+    );
+}
+
+#[test]
+fn sfbk_block_editor_metadata_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SFBK",
+        "BlockEditorMetaData",
+        "BGSBlockEditorMetaData_Component",
+    );
+}
+
+#[test]
+fn sfbk_overlay_designated_placement_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SFBK",
+        "OverlayDesignatedPlacement",
+        "BGSOverlayDesignatedPlacementInfo_Component",
+    );
 }
 
 // KK-288: the object window filter component layout (1,053 official LIGH carry one). LIGH's

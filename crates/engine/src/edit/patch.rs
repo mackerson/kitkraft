@@ -687,8 +687,7 @@ fn needs_full_style_self_remap(
         }
         let sig = record.header.signature.0;
         let subs = record.subrecords().unwrap_or_default();
-        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-        if fields::layouts(sig, &sigs)
+        if fields::layouts(sig, subs)
             .iter()
             .any(|l| l.as_ref().is_none_or(|l| has_opaque(&l.ty)))
         {
@@ -2376,7 +2375,6 @@ fn remap_record(
         .map_err(|e| PatchError::Io(format!("{what}: {e}")))?;
     let sig = record.header.signature.0;
     let subs = record.subrecords().unwrap_or_default();
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
     let dctx = kitkraft_doc::typed::Ctx {
         form_version: record.header.form_version,
         localized: source.localized(),
@@ -2385,7 +2383,7 @@ fn remap_record(
             .find(|s| s.signature() == Signature(*b"EDID"))
             .and_then(|s| s.data().first().copied()),
     };
-    for (sub, layout) in subs.iter().zip(fields::layouts(sig, &sigs)) {
+    for (sub, layout) in subs.iter().zip(fields::layouts(sig, subs)) {
         let text = sub.signature().to_string();
         let opaque = match &layout {
             Some(layout) => has_opaque(&layout.ty),
@@ -2480,11 +2478,10 @@ type EditOrder = (u32, usize, Vec<usize>);
 /// before the variant it selects whatever the order of the keys that gave them (a stable
 /// sort: edits the layout cannot order keep theirs).
 pub(crate) fn deciders_first<'e>(record: &Record<'_>, edits: &'e [Edit]) -> Vec<(usize, &'e Edit)> {
-    let sigs: Vec<[u8; 4]> = record
-        .subrecords()
-        .map(|subs| subs.iter().map(|s| s.signature().0).collect())
-        .unwrap_or_default();
-    let layouts = super::fields::layouts(record.header.signature.0, &sigs);
+    let layouts = super::fields::layouts(
+        record.header.signature.0,
+        record.subrecords().unwrap_or_default(),
+    );
     let mut keyed: Vec<(EditOrder, (usize, &Edit))> = edits
         .iter()
         .enumerate()
@@ -2641,8 +2638,8 @@ fn inline_lstrings(
     let mut untyped: Vec<String> = Vec::new();
     let mut notes: Vec<String> = Vec::new();
     let mut updates: Vec<(usize, Vec<u8>)> = Vec::new();
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|(s, _)| s.0).collect();
-    let all = fields::layouts(sig, &sigs);
+    let keys: Vec<([u8; 4], &[u8])> = subs.iter().map(|(s, d)| (s.0, d.as_slice())).collect();
+    let all = fields::layouts(sig, &keys);
     // The source is localized: each lstring is a 4-byte ID wherever it sits.
     let dctx = kitkraft_doc::typed::Ctx {
         form_version,

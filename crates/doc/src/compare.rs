@@ -181,13 +181,10 @@ pub fn diff_subrecords_with<'a>(
     let (sa, sb) = (spans(a), spans(b));
     let record = a.record.header.signature.0;
     // Each subrecord's layout comes from its position in its own version (typed module).
-    let sigs =
-        |r: &LoadedRecord| -> Vec<[u8; 4]> { r.subs.iter().map(|s| s.signature().0).collect() };
-    let (sig_a, sig_b) = (sigs(a), sigs(b));
     let placed = fields.map(|c| {
         (
-            typed::placements(c.schema, record, &sig_a),
-            typed::placements(c.schema, record, &sig_b),
+            typed::placements(c.schema, record, &a.subs),
+            typed::placements(c.schema, record, &b.subs),
         )
     });
     let layout = |c: &FieldCompare<'a>, side: usize, sub: [u8; 4], i: usize| {

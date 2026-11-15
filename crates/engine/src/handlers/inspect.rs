@@ -892,8 +892,7 @@ fn version_subrecords(
     // Each subrecord's layout comes from its position in the record, not its signature
     // alone (`kitkraft_doc::typed::placements`).
     let record_sig = rec.record.header.signature.0;
-    let all_sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
-    let placed = schema.and_then(|sc| typed::placements(sc, record_sig, &all_sigs));
+    let placed = schema.and_then(|sc| typed::placements(sc, record_sig, &rec.subs));
     for (index, (s, span)) in rec.subs.iter().zip(spans(rec)).enumerate() {
         let data = s.data();
         let sig = s.signature().to_string();

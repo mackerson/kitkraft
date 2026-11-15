@@ -341,7 +341,7 @@ pub fn record_links(
     };
     let record_sig = rec.record.header.signature.0;
     let sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
-    let Some(placed) = typed::placements(schema, record_sig, &sigs) else {
+    let Some(placed) = typed::placements(schema, record_sig, &rec.subs) else {
         out.unexamined.extend(
             sigs.iter()
                 .enumerate()
@@ -498,8 +498,7 @@ pub fn decode_record<'s>(
         edid_first,
     };
     let record_sig = rec.record.header.signature.0;
-    let sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
-    let Some(placed) = typed::placements(schema, record_sig, &sigs) else {
+    let Some(placed) = typed::placements(schema, record_sig, &rec.subs) else {
         return Vec::new();
     };
     let mut out = Vec::new();

@@ -78,6 +78,16 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "PlanetModel" => &["TESPlanetModel_Component", "TESModel_Component"],
         "FullName" => &["TESFullName_Component"],
         "ObjectPaletteDefaults" => &["BGSObjectPaletteDefaults_Component"],
+        // The `NamedLayout` union's variants (ADR 0015): the names upstream's DATA and DAT2
+        // deciders list (L1479-L1551).
+        "StarData" => &["BGSStarDataComponent_Component"],
+        "OrbitedData" => &["BGSOrbitedDataComponent_Component"],
+        "UniqueOverlayList" => &["UniqueOverlayList_Component"],
+        "UniquePatternPlacement" => &["UniquePatternPlacementInfo_Component"],
+        "OverlayDesignatedPlacement" => &["BGSOverlayDesignatedPlacementInfo_Component"],
+        "BlockHeightAdjustment" => &["BlockHeightAdjustment_Component"],
+        "SurfaceTreePatternSwap" => &["SurfaceTreePatternSwapInfo_Component"],
+        "BlockEditorMetaData" => &["BGSBlockEditorMetaData_Component"],
         "ParticleSystem" => &["ParticleSystem_Component"],
         // Upstream lists five names on the REFL layout; the corpus has the same one-REFL
         // body under two more names (ReflectionProbes, SpacePhysics).
@@ -129,8 +139,7 @@ fn check_record(
     let schema = kitkraft_schema::builtin().unwrap();
     let sig = r.header.signature.0;
     let label = format!("{plugin} {}:{:08X}", r.header.signature, r.header.form_id);
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    let Some(placed) = typed::placements(schema, sig, &sigs) else {
+    let Some(placed) = typed::placements(schema, sig, subs) else {
         return;
     };
     let raw: Vec<RawSub<'_>> = subs.iter().map(RawSub::from).collect();
@@ -261,13 +270,17 @@ fn component_layouts_full() {
     // The counts common/BfcbBlock.toml cites (2026-10-15; round 4 layouts 2026-10-16; the
     // layouts of KK-282 onward 2026-11-15). Recounted 2026-11-15: the record types typed
     // since round 4 carry 93 more animation graph, 1 more contact shadow, 1,188 more
-    // particle system and 1,150 more reflection blocks; the old counts were stale.
+    // particle system and 1,150 more reflection blocks; the old counts were stale. The
+    // `NamedLayout` union's variants (ADR 0015, KK-294): 1,196 DATA/DAT2 blocks in eight
+    // kinds.
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
         [
             ("AnimationGraph", 4_853),
             ("AttachParentArray", 2_396),
+            ("BlockEditorMetaData", 585),
+            ("BlockHeightAdjustment", 255),
             ("ContactShadow", 147_487),
             ("DisplayCase", 156),
             ("FullName", 5_695),
@@ -275,6 +288,8 @@ fn component_layouts_full() {
             ("LightLayer", 1_868),
             ("ObjectPaletteDefaults", 6_105),
             ("ObjectWindowFilter", 3_062),
+            ("OrbitedData", 123),
+            ("OverlayDesignatedPlacement", 1),
             ("ParticleSystem", 2_733),
             ("PlanetContentProperties", 1_272),
             ("PlanetModel", 3_892),
@@ -282,6 +297,10 @@ fn component_layouts_full() {
             ("QualityUpgrade", 216),
             ("Reflection", 9_651),
             ("SoundTag", 966),
+            ("StarData", 123),
+            ("SurfaceTreePatternSwap", 33),
+            ("UniqueOverlayList", 38),
+            ("UniquePatternPlacement", 38),
         ]
     );
 }
