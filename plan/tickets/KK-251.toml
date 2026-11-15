@@ -1,5 +1,6 @@
 id = "KK-251"
 title = "testplan: check a placed actor (ACHR) by its cell and a distance, not its exact position"
+hold = "done in sprint/2026-11-09 (2e1f8665, landed on main by the merge of sprint/2026-11-09, 2026-11-15): do not run again"
 timeout_min = 45
 budget_h = 1.5
 owns = [
