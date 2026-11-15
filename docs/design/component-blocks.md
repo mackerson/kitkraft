@@ -3,7 +3,7 @@
 Design note for KK-281 (2026-11-15). It compares two ways of typing the data of the base form
 component blocks (`BFCB` .. `BFCE`, `crates/schema/defs/common/BfcbBlock.toml`) and ends with
 one recommendation. Option (a) is a schema-format change and is the owner's to approve:
-its draft is [ADR 0015](../../plan/adr/0015-component-name-decider.md) (Proposed). Nothing
+its draft is [ADR 0015](../../plan/adr/0015-component-name-decider.md) (deferred by the owner, 2026-11-15; the recommendation below was accepted). Nothing
 here builds it.
 
 Sources: the pinned xEdit file `wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e`

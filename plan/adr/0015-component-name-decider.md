@@ -1,8 +1,10 @@
 # ADR 0015: A component-name decider for base form component blocks
 
-- Status: **Proposed** (draft, KK-281, 2026-11-15). Needs the owner's sign-off before anything
-  is built; it changes the schema format (ADR 0003). Not recommended for now: see
-  `docs/design/component-blocks.md`, "Recommendation".
+- Status: **Deferred by the owner, 2026-11-15** (draft, KK-281). The owner accepted the
+  recommendation of `docs/design/component-blocks.md`, "Recommendation": do not build this
+  decider now, and keep adding lead-signature groups. This ADR is not accepted: it changes the
+  schema format (ADR 0003), so it still needs the owner's sign-off before anything is built,
+  when a feature needs the `DATA`/`DAT2` layouts.
 - Date: 2026-11-15
 
 ## Context
