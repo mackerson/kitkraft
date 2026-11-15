@@ -710,10 +710,32 @@ fn checklist(
                 id_basis.short
             );
             n = n.saturating_add(1);
-            let _ = writeln!(
-                s,
-                "{n}. `prid {target}`, then `getpos x`, `getpos y`, `getpos z`.\n   **Expect:** `prid` selects the same object; the positions match {pos}. Screenshot it\n   (into `observe\\`).",
-            );
+            if f.signature == "ACHR" {
+                // KK-251: an actor walks or settles (game-20261103-06).
+                let tolerance = probes::ACTOR_TOLERANCE;
+                let (then, cell) = match (probes::actor_cell(f), &f.cell) {
+                    (Some(id), Some(c)) => (
+                        format!(
+                            ", then `player.moveto {target}` and `player.getincell {}`",
+                            hex(id)
+                        ),
+                        format!(
+                            "; `player.getincell` answers 1: the actor is in its cell {}",
+                            c.label
+                        ),
+                    ),
+                    _ => (String::new(), String::new()),
+                };
+                let _ = writeln!(
+                    s,
+                    "{n}. `prid {target}`, then `getpos x`, `getpos y`, `getpos z`{then}.\n   **Expect:** `prid` selects the same actor; each position is within {tolerance} units of\n   {pos} on each axis (an actor walks or settles){cell}. Screenshot it\n   (into `observe\\`).",
+                );
+            } else {
+                let _ = writeln!(
+                    s,
+                    "{n}. `prid {target}`, then `getpos x`, `getpos y`, `getpos z`.\n   **Expect:** `prid` selects the same object; the positions match {pos}. Screenshot it\n   (into `observe\\`).",
+                );
+            }
             n = n.saturating_add(1);
             // M4.T6: one step per attached script (the probe rows of the same numbers).
             for a in f.scripts.iter().filter(|a| a.found || f.new) {

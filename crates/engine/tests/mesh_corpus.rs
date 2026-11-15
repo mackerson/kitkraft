@@ -31,11 +31,13 @@ fn data_dir() -> Option<PathBuf> {
     dir.join("Starfield.esm").is_file().then_some(dir)
 }
 
+/// `mesh.bounds` of `model`, with `no_cache`: these tests are about the archives' reads,
+/// and must neither read nor write the user's mesh index cache (re-review M1 of M7.R5).
 fn bounds(engine: &Engine, data: &Path, model: &str) -> Value {
     engine
         .execute(
             "mesh.bounds",
-            json!({"model": model, "data_dir": data.display().to_string()}),
+            json!({"model": model, "data_dir": data.display().to_string(), "no_cache": true}),
         )
         .unwrap()
 }
@@ -119,7 +121,7 @@ fn mesh_bounds_reads_official_models_from_the_archives() {
     let err = engine
         .execute(
             "mesh.bounds",
-            json!({"model": "Test\\NotAModel.nif", "data_dir": data.display().to_string()}),
+            json!({"model": "Test\\NotAModel.nif", "data_dir": data.display().to_string(), "no_cache": true}),
         )
         .unwrap_err();
     assert!(err.to_string().contains("in neither"), "{err}");

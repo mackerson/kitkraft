@@ -146,6 +146,44 @@ fn masters_missing_and_order() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// A master-flagged plugin naming a master without the flag (R25; the follow-up of owner
+/// ruling 2026-11-07 item 3): a warning under the masters-load-first assumption. The same
+/// plugin naming a flagged master, an unflagged plugin naming the unflagged one, and a
+/// missing master (left to masters.missing) are not findings.
+#[test]
+fn masters_unflagged() {
+    let d = dir("validate-masters-unflagged-r25");
+    write_plugin(&d, "Plain.esp", &[], 0, vec![]);
+    write_plugin(&d, "Flagged.esm", &[], FLAG_MASTER, vec![]);
+    let bad = write_plugin(
+        &d,
+        "Own.esm",
+        &["Flagged.esm", "Plain.esp"],
+        FLAG_MASTER,
+        vec![],
+    );
+    let data = check(&bad, &["masters.unflagged"]);
+    assert_eq!(found(&data), [pair("masters.unflagged", "warning")]);
+    assert_eq!(
+        data["passed"],
+        json!(true),
+        "a warning does not fail the check"
+    );
+    let f = &data["findings"][0];
+    assert_eq!(f["subrecord"], json!("MAST"));
+    assert!(f["message"].as_str().unwrap().contains("Plain.esp"), "{f}");
+    let good = write_plugin(&d, "Good.esm", &["Flagged.esm"], FLAG_MASTER, vec![]);
+    assert_eq!(found(&check(&good, &["masters.unflagged"])), []);
+    let plain = patch(&d, "Patch.esp", &["Plain.esp"], vec![]);
+    assert_eq!(found(&check(&plain, &["masters.unflagged"])), []);
+    let missing = write_plugin(&d, "Lost.esm", &["Nope.esp"], FLAG_MASTER, vec![]);
+    assert_eq!(
+        found(&check(&missing, &["masters.missing", "masters.unflagged"])),
+        [pair("masters.missing", "error")]
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 #[test]
 fn masters_unflagged_master_of_a_master_flagged_plugin() {
     let d = dir("validate-masters-unflagged");

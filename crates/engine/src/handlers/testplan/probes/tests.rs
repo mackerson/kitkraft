@@ -1167,3 +1167,122 @@ fn a_pack_in_reference_does_not_expect_the_pkin_as_its_base() {
     );
     std::fs::remove_dir_all(&d).unwrap();
 }
+
+/// KK-251 (game-20261103-06: an actor settled 1.2 units off its placed spot, so the exact
+/// `getpos` rows failed while its cell, `player.moveto` and base passed): an `ACHR` is checked
+/// by its cell and within `ACTOR_TOLERANCE` of its position; a `REFR` keeps its exact rows.
+#[test]
+fn an_actor_is_checked_by_cell_and_distance() {
+    use super::ACTOR_TOLERANCE;
+    let d = dir("probes-actor-cell");
+    let data = world_master(&d);
+    let plugin = d.join("KC_ActorCell.esm");
+    place(
+        &data,
+        &plugin,
+        json!({"base": "KC_Npc", "cell": "TestInterior", "position": [10.0, 20.0, 30.0]}),
+    );
+    place(&data, &plugin, json!({"cell": "TestInterior"}));
+    let out = d.join("plan");
+    let r = testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(
+        rows(&p),
+        checklist_steps(&out),
+        "one probe per checklist step"
+    );
+    let runtime = |sig: &str| -> String {
+        r["data"]["forms"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["signature"] == sig)
+            .unwrap()["runtime_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let (actor, crate_ref) = (runtime("ACHR"), runtime("REFR"));
+    let position_row = |id: &str| {
+        p.probes
+            .iter()
+            .find(|x| {
+                x.forms.iter().any(|f| f == id) && x.steps.iter().any(|s| s.command == "getpos x")
+            })
+            .unwrap()
+    };
+
+    // The actor: getpos within ACTOR_TOLERANCE, then its cell after player.moveto.
+    let a = position_row(&actor);
+    assert_eq!(
+        commands(&p, &a.row),
+        [
+            format!("prid {actor}"),
+            "getpos x".into(),
+            "getpos y".into(),
+            "getpos z".into(),
+            format!("player.moveto {actor}"),
+            "player.getincell 00000900".into(),
+        ]
+    );
+    for (step, expected) in a.steps[1..4].iter().zip(["10", "20", "30"]) {
+        assert_eq!(step.tolerance, Some(ACTOR_TOLERANCE));
+        assert_eq!(step.expected.as_deref(), Some(expected));
+        assert_eq!(step.matcher, Some(Matcher::Number));
+        assert!(step.why.as_deref().unwrap().contains("game-20261103-06"));
+    }
+    assert_eq!(a.steps[4].wait_secs, Some(10));
+    assert_eq!(a.steps[5].matcher, Some(Matcher::Regex));
+    assert!(a.screenshot);
+
+    // The crate's row is unchanged.
+    let c = position_row(&crate_ref);
+    assert_eq!(
+        commands(&p, &c.row),
+        [
+            format!("prid {crate_ref}"),
+            "getpos x".into(),
+            "getpos y".into(),
+            "getpos z".into(),
+        ]
+    );
+    assert!(c.steps[1..].iter().all(|s| s.tolerance == Some(0.5)));
+
+    // Persistence 4: the same steps after the reload.
+    let back = p
+        .probes
+        .iter()
+        .find(|x| x.title.starts_with("persistence 4"))
+        .unwrap();
+    let cmds: Vec<&str> = back.steps.iter().map(|s| s.command.as_str()).collect();
+    let at = cmds
+        .iter()
+        .position(|c| *c == format!("prid {actor}"))
+        .unwrap();
+    assert!(back.steps[at + 1..at + 4]
+        .iter()
+        .all(|s| s.tolerance == Some(ACTOR_TOLERANCE)));
+    assert_eq!(
+        cmds[at + 4..at + 6],
+        [
+            format!("player.moveto {actor}").as_str(),
+            "player.getincell 00000900"
+        ]
+    );
+    let at = cmds
+        .iter()
+        .position(|c| *c == format!("prid {crate_ref}"))
+        .unwrap();
+    assert_eq!(cmds[at + 1..at + 4], ["getpos x", "getpos y", "getpos z"]);
+    assert!(back.steps[at + 1..at + 4]
+        .iter()
+        .all(|s| s.tolerance == Some(0.5)));
+
+    // The checklist names the tolerance for the actor's step.
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    assert!(
+        checklist.contains(&format!("within {ACTOR_TOLERANCE} units")),
+        "{checklist}"
+    );
+    std::fs::remove_dir_all(&d).unwrap();
+}

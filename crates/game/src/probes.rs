@@ -395,7 +395,9 @@ pub fn echo_only(command: &str, output: &str) -> bool {
 /// found no save leaves the game where it was, and a later getter would pass on the old
 /// state (2026-11-01-T03, row T-05).
 pub fn console_failure(command: &str, output: &str) -> Option<String> {
-    let re = Regex::new(FAILURE_LINES).ok()?;
+    // Compiled once: the correlator asks this of every reply line.
+    static RE: std::sync::OnceLock<Option<Regex>> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| Regex::new(FAILURE_LINES).ok()).as_ref()?;
     let command = command.trim();
     output.lines().find_map(|line| {
         // Where the command's text is in the line: a match starting there is the echo.
@@ -424,7 +426,10 @@ pub fn console_failure(command: &str, output: &str) -> Option<String> {
 /// (`GetPos: X >> -17.00`). An answer without `>>` (only the echo, an error) has none, so
 /// a digit of the echoed command (`player.moveto 06001000`) is never read as the answer.
 pub fn answer_number(text: &str) -> Option<f64> {
-    let re = Regex::new(r">>\s*(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)").ok()?;
+    static RE: std::sync::OnceLock<Option<Regex>> = std::sync::OnceLock::new();
+    let re = RE
+        .get_or_init(|| Regex::new(r">>\s*(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)").ok())
+        .as_ref()?;
     re.captures_iter(text)
         .last()
         .and_then(|c| c.get(1))

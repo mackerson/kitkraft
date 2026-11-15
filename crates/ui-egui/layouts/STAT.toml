@@ -1,0 +1,62 @@
+# Edit-dialog layout for STAT (M7.W4, sprint 2026-11-09 D6; dialogs/mod.rs reads it).
+# One page: one group per label that CK sitting 2 (ck-20261102-03) recorded and
+# M7.K4 mapped (layouts/sitting2.toml `map`), in the record's order. The
+# group's name is the observed label, its field the signature the label edits and
+# its member the `set` field path. Labels M7.K4 could not map are listed by the dialog
+# from sitting2.toml's `gaps`, read-only, with their reasons. The page's name is the
+# dialog's observed title ("Static").
+# The sitting recorded no tab control (ledger amended by C, ask A-D1), so the one page is as observed.
+type = "STAT"
+parity = "Edit dialog: STAT"
+observed = true
+
+[[tab]]
+name = "Static"
+[[tab.group]]
+name = "ID"
+fields = ["EDID"]
+members = ["EDID"]
+[[tab.group]]
+name = "Display Name"
+fields = ["FULL"]
+members = ["FULL"]
+[[tab.group]]
+name = "Model"
+fields = ["MODL"]
+members = ["MODL"]
+[[tab.group]]
+name = "Object Palette Defaults"
+fields = ["OPDS"]
+members = ["OPDS"]
+[[tab.group]]
+name = "Actor Values"
+fields = ["PRPS"]
+members = ["PRPS"]
+[[tab.group]]
+name = "Preview Transform"
+fields = ["PTT2"]
+members = ["PTT2.Preview"]
+[[tab.group]]
+name = "Leaf Amplitude"
+fields = ["DNAM"]
+members = ["DNAM.Leaf.LeafAmplitude"]
+[[tab.group]]
+name = "Leaf Frequency"
+fields = ["DNAM"]
+members = ["DNAM.Leaf.LeafFrequency"]
+[[tab.group]]
+name = "Default Layer"
+fields = ["DEFL"]
+members = ["DEFL"]
+[[tab.group]]
+name = "Snap Template"
+fields = ["SNTP"]
+members = ["SNTP"]
+[[tab.group]]
+name = "Snap Behavior"
+fields = ["SNBH"]
+members = ["SNBH"]
+[[tab.group]]
+name = "Forced Loc Ref Type"
+fields = ["FTYP"]
+members = ["FTYP"]

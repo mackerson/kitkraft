@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 use crate::authorized::Authorized;
 use crate::backup::{self, Backup, Change, Digest};
 use crate::console::{Console, ConsoleError};
-use crate::correlate::{Correlator, Routed};
+use crate::correlate::{is_load_failure, Correlator, Routed};
 use crate::host::{is_running, Host, Launched};
 use crate::ledger::{self, Entry, RowReport};
 use crate::probes::{clip, console_failure, judge, Matcher, Probe, ProbeFile, Verdict};
@@ -242,6 +242,9 @@ pub struct Report {
     pub ledger_text: String,
     /// Every path the controller wrote.
     pub written: Vec<PathBuf>,
+    /// Every command sent to the console and its full reply, in order (M4.T7): what a
+    /// replay of the session answers from (`crate::replay`).
+    pub transcript: Vec<crate::replay::Sent>,
 }
 
 /// What `game.status` shows.
@@ -412,7 +415,19 @@ struct Run<'a> {
     waiting: Vec<Waiting>,
     /// The last row's parts, for `waiting` once the row has its place.
     last: Option<Waiting>,
+    /// A late failure of the base `load`: no row's `pass` stands (R41).
+    base_failed: Option<String>,
 }
+
+/// After a `load`, the game is taken to answer again when this many readiness polls in a
+/// row have had a reply, the echo at least (ruling R41, the pacing poll). In 2026-11-10-T01
+/// the two polls right after the base `load` answered only their echo and the game dropped
+/// their answers; the third, 10.2 s after the `load`, answered in full. Three is the first
+/// count that would not have gone on while those answers were being dropped.
+pub const PACING_POLLS: u32 = 3;
+
+/// The row name a late failure of the base `load` is noted under (never a probe's row).
+const BASE_ROW: &str = "(base save)";
 
 /// A row with steps that had no correlated reply (ruling R28).
 struct Waiting {
@@ -435,13 +450,28 @@ impl Run<'_> {
         secs(self.plan.timeouts.session_secs).saturating_sub(self.start.elapsed())
     }
 
-    /// Polls the readiness command until it answers with a non-empty body (that contains
-    /// `ready_expect`, when set): an empty or blank answer is not ready. With `window`
+    /// Polls the readiness command until the game answers. At launch (`window`), that is a
+    /// non-empty body containing `ready_expect`, when set, counted in send order: an empty or
+    /// blank answer is not ready, nor is one holding only the command's echo, and the n-th
+    /// `ready_expect` line answers the n-th poll still owed one. After a `load` (no
+    /// `window`), the poll only paces (ruling R41): ready once [`PACING_POLLS`] polls in a
+    /// row had a reply, the echo at least; an empty body, a timeout or an error starts the
+    /// count again, and the reply's text never decides readiness (the caller still reads it
+    /// for failure lines). With `window`
     /// (after the launch), nothing is sent until the game's main window has existed for
     /// `settle_secs` (game-20261101-T1/b': the port opens long before the game can take a
     /// command, and a command sent then ended the game once). One deadline, `limit`, covers
-    /// the window, the settle and the polls.
-    fn wait_ready(&mut self, limit: Duration, what: &str, window: bool) -> Result<(), String> {
+    /// the window, the settle and the polls. Every non-empty answer is pushed onto `replies`,
+    /// in order, whether or not it made the game ready and whether or not the wait timed out:
+    /// a late line of an earlier request may arrive in one, and it is routed like any other
+    /// reply, never dropped (G ticket 3b, ruling R28).
+    fn wait_ready(
+        &mut self,
+        limit: Duration,
+        what: &str,
+        window: bool,
+        replies: &mut Vec<String>,
+    ) -> Result<(), String> {
         let started = Instant::now();
         let limit = limit.min(self.budget_left());
         let cmd = self.plan.game.console.ready_command.clone();
@@ -451,6 +481,11 @@ impl Run<'_> {
         let every = secs(self.plan.timeouts.ready_poll_secs).max(self.plan.poll);
         // When the main window was first seen (only with `window`).
         let mut up: Option<Instant> = None;
+        // Launch only: polls whose `ready_expect` line has not arrived yet (their answers
+        // come in send order, review L1' of the 3b fix round).
+        let mut owed: usize = 0;
+        // After a `load`: polls in a row that had a reply (R41).
+        let mut streak: u32 = 0;
         let mut last = if window {
             format!("no main window of {image} yet; nothing sent")
         } else {
@@ -502,15 +537,70 @@ impl Run<'_> {
             } else {
                 match self.deps.console.run(&cmd, left.min(secs(5))) {
                     Ok(out) if out.trim().is_empty() => {
+                        streak = 0;
                         last = format!("`{cmd}` answered an empty body, not ready");
                     }
-                    Ok(out) if expect.is_empty() || out.to_ascii_lowercase().contains(&expect) => {
-                        self.shared
-                            .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
-                        return Ok(());
+                    Ok(out) if !window => {
+                        // R41: the reply arrived; what it says is the caller's to read.
+                        streak = streak.saturating_add(1);
+                        if streak >= PACING_POLLS {
+                            self.shared.event(format!(
+                                "{what}: `{cmd}` had a reply {streak} times in a row (last `{}`)",
+                                clip(&out, 80)
+                            ));
+                            replies.push(out);
+                            return Ok(());
+                        }
+                        last = format!(
+                            "`{cmd}` had a reply {streak} time(s) in a row of {PACING_POLLS}"
+                        );
+                        replies.push(out);
                     }
-                    Ok(out) => last = format!("answer `{}`", clip(&out, 80)),
-                    Err(e) => last = e.to_string(),
+                    Ok(out) => {
+                        // Only the echo is not the game answering (review M1 of G 3b).
+                        let echo = crate::probes::echo_only(&cmd, &out);
+                        // In send order the n-th `ready_expect` line answers the n-th poll
+                        // still owed one, so a poll answered only by its echo owes its line
+                        // to a later reply, and a line arriving while an older poll is owed
+                        // is that poll's (review L1' of the 3b fix round). With no
+                        // `ready_expect` a line cannot be told apart; any answer but the
+                        // echo is ready.
+                        let answers = if expect.is_empty() {
+                            usize::from(!echo)
+                        } else {
+                            let n = out
+                                .lines()
+                                .filter(|l| l.to_ascii_lowercase().contains(&expect))
+                                .count();
+                            owed = owed.saturating_add(1).saturating_sub(n);
+                            n
+                        };
+                        let ready = answers > 0 && (expect.is_empty() || owed == 0);
+                        if ready {
+                            self.shared
+                                .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
+                            replies.push(out);
+                            return Ok(());
+                        }
+                        last = if echo {
+                            format!("`{cmd}` answered only its echo, not ready")
+                        } else if answers > 0 {
+                            format!(
+                                "`{cmd}` answered `{}`, but {owed} earlier poll(s) still owe their answer, so the line is theirs (send order), not ready",
+                                clip(&out, 60)
+                            )
+                        } else {
+                            format!("answer `{}`", clip(&out, 80))
+                        };
+                        replies.push(out);
+                    }
+                    Err(e) => {
+                        streak = 0;
+                        if window && !expect.is_empty() && matches!(e, ConsoleError::Timeout) {
+                            owed = owed.saturating_add(1);
+                        }
+                        last = e.to_string();
+                    }
                 }
             }
             std::thread::sleep(wait.min(limit.saturating_sub(started.elapsed())));
@@ -632,7 +722,11 @@ impl Run<'_> {
                     let keyed = checks && self.corr.request(id).is_some_and(|r| r.keyed());
                     let mut out = first;
                     let mut routed = self.corr.route(id, &out);
-                    let mut foreign = self.requeued(&routed, &mut seen);
+                    let mut foreign = self.requeued(&routed, &mut seen, &probe.row);
+                    if let Some(v) = self.own_load_failure(&routed, &probe.row, &cmd) {
+                        failed.get_or_insert_with(|| v.clone());
+                        verdicts.push(v);
+                    }
                     let mut all_echo = routed.echo_only;
                     // A console failure line in any of this request's replies is its
                     // answer: it is not re-sent, and no later line can make it a pass
@@ -650,10 +744,15 @@ impl Run<'_> {
                     while checks && unanswered(&self.corr, &routed, &fail_line) && tries < 3 {
                         // Never more than a quarter of what is left of the row's deadline.
                         let left = deadline.saturating_sub(started.elapsed());
-                        let pause = ECHO_RETRY_PAUSE
+                        // A plan polling faster than every 20 ms (a test's, a replay's) scales
+                        // the pause down with it; a live one (250 ms) keeps 2 s and 50 ms.
+                        let unit = ECHO_RETRY_PAUSE.min(self.plan.poll.saturating_mul(100));
+                        let floor =
+                            Duration::from_millis(50).min(self.plan.poll.saturating_mul(10));
+                        let pause = unit
                             .saturating_mul(tries)
                             .min(left.checked_div(4).unwrap_or_default());
-                        if pause < Duration::from_millis(50) || self.shared.stop_requested() {
+                        if pause < floor || self.shared.stop_requested() {
                             break;
                         }
                         seen.push(format!(
@@ -677,7 +776,11 @@ impl Run<'_> {
                             }
                         }
                         routed = self.corr.route(id, &out);
-                        foreign = foreign.or(self.requeued(&routed, &mut seen));
+                        foreign = foreign.or(self.requeued(&routed, &mut seen, &probe.row));
+                        if let Some(v) = self.own_load_failure(&routed, &probe.row, &cmd) {
+                            failed.get_or_insert_with(|| v.clone());
+                            verdicts.push(v);
+                        }
                         all_echo = all_echo && routed.echo_only;
                         fail_line = console_failure(&cmd, &routed.kept());
                         tries = tries.saturating_add(1);
@@ -761,7 +864,49 @@ impl Run<'_> {
                         && first_word(&cmd) == first_word(&self.plan.game.saves.load_command)
                     {
                         let limit = secs(self.plan.timeouts.load_secs);
-                        if let Err(e) = self.wait_ready(limit, "the save to load", false) {
+                        let mut replies = Vec::new();
+                        let waited =
+                            self.wait_ready(limit, "the save to load", false, &mut replies);
+                        // The poll's replies are this row's replies too (G ticket 3b, ruling
+                        // R28): the poll is a request of this step that names nothing, so a
+                        // late line in it goes where the send-order rule sends it. A failure
+                        // line left with it, or one only this row's `load` prints, arriving
+                        // before any getter, is this `load`'s: the row fails (ruling R41).
+                        let poll = self.plan.game.console.ready_command.clone();
+                        let mut poll_id = None;
+                        for reply in &replies {
+                            let pid = match poll_id {
+                                Some(p) => {
+                                    self.corr.resend(p);
+                                    p
+                                }
+                                None => {
+                                    let p = self.corr.open_poll(&probe.row, n, &poll);
+                                    poll_id = Some(p);
+                                    p
+                                }
+                            };
+                            let r = self.corr.route(pid, reply);
+                            seen.push(format!("(readiness poll) {poll} -> {}", clip(reply, 120)));
+                            if let Some(v) = self.own_load_failure(&r, &probe.row, &poll) {
+                                failed.get_or_insert_with(|| v.clone());
+                                verdicts.push(v);
+                            }
+                            if let Some(note) = self.requeued(&r, &mut seen, &probe.row) {
+                                verdicts.push(Verdict::Inconclusive(format!(
+                                    "{note} (a timing anomaly, R20, R28)"
+                                )));
+                            }
+                            if let Some(line) = console_failure(&poll, &r.kept()) {
+                                let v = Verdict::Fail(format!(
+                                    "step {} `{cmd}`: the console answered `{line}`, late, in the readiness poll after it (`{poll}`; R41)",
+                                    n.saturating_add(1)
+                                ));
+                                failed.get_or_insert_with(|| v.clone());
+                                verdicts.push(v);
+                            }
+                        }
+                        if let Err(e) = waited {
                             verdicts.push(Verdict::Inconclusive(format!("timeout: {e}")));
                             break;
                         }
@@ -834,7 +979,7 @@ impl Run<'_> {
     /// Notes, in the row's `seen`, each line of this reply that names another request.
     /// Also notes ambiguous lines, `help` ties and surplus lines; returns a note when a
     /// failure line for another row arrived (review M2).
-    fn requeued(&self, routed: &Routed, seen: &mut Vec<String>) -> Option<String> {
+    fn requeued(&self, routed: &Routed, seen: &mut Vec<String>, row: &str) -> Option<String> {
         let name = |i: &usize| {
             self.corr
                 .request(*i)
@@ -874,6 +1019,13 @@ impl Run<'_> {
         }
         let mut foreign = None;
         for (to, line) in &routed.failures {
+            if self.rows_own_load_failure(routed, line, row) {
+                seen.push(format!(
+                    "(a failure line only this row's `load` prints: {}; it is the load's, late)",
+                    clip(line, 100)
+                ));
+                continue;
+            }
             let note = format!(
                 "a failure line for {} arrived in this reply: `{}`",
                 name(to),
@@ -883,6 +1035,36 @@ impl Run<'_> {
             foreign.get_or_insert(note);
         }
         foreign
+    }
+
+    /// Whether failure `line` of this reply is one only a `load` prints and went to `load`s
+    /// of `row` alone (ruling R41): then it is that row's own, attributable.
+    fn rows_own_load_failure(&self, routed: &Routed, line: &str, row: &str) -> bool {
+        crate::correlate::is_load_failure(line)
+            && routed
+                .failures
+                .iter()
+                .filter(|(_, l)| l == line)
+                .all(|(to, _)| {
+                    self.corr
+                        .request(*to)
+                        .is_some_and(|r| r.row == row && r.is_load())
+                })
+    }
+
+    /// The row's failure when this reply (to `via`) carries a failure line only a `load` of
+    /// this row can have printed (ruling R41: attributable, so the row fails).
+    fn own_load_failure(&self, routed: &Routed, row: &str, via: &str) -> Option<Verdict> {
+        let (to, line) = routed
+            .failures
+            .iter()
+            .find(|(_, l)| self.rows_own_load_failure(routed, l, row))?;
+        let load = self.corr.request(*to)?;
+        Some(Verdict::Fail(format!(
+            "step {} `{}`: the console answered `{line}`, late, in the reply to `{via}` (only this row's `load` prints it; R41)",
+            load.step.saturating_add(1),
+            load.command
+        )))
     }
 
     /// Judges again each waiting step whose line has arrived since, in a later reply
@@ -952,6 +1134,21 @@ impl Run<'_> {
                 continue;
             };
             let (row_name, command) = (r.row.clone(), r.command.clone());
+            if row_name == BASE_ROW {
+                // R41: the base save did not load, though the base wait went on; every row
+                // ran on a game that was not in the base save.
+                for (via, line) in failures.iter().filter(|(_, l)| is_load_failure(l)) {
+                    let why = format!(
+                        "the base save did not load: `{command}` answered `{}`, late, in the reply to `{via}` (R41)",
+                        clip(line, 100)
+                    );
+                    if self.base_failed.is_none() {
+                        self.findings.push(why.clone());
+                        self.base_failed = Some(why);
+                    }
+                }
+                continue;
+            }
             let Some(slot) = rows.iter().rposition(|x| x.row == row_name) else {
                 continue;
             };
@@ -985,6 +1182,14 @@ impl Run<'_> {
             }
             changed.push((slot, row.clone()));
         }
+        if let Some(why) = &self.base_failed {
+            for (slot, row) in rows.iter_mut().enumerate() {
+                if row.verdict == Verdict::Pass {
+                    row.verdict = Verdict::Inconclusive(why.clone());
+                    changed.push((slot, row.clone()));
+                }
+            }
+        }
         for (slot, row) in changed {
             self.shared.event(format!(
                 "row {} judged again on a late answer: {}",
@@ -997,6 +1202,36 @@ impl Run<'_> {
                 }
             });
         }
+    }
+
+    /// Review R41 M1: before the game ends, a `load` whose answer is not known to have
+    /// arrived may still have its failure queued; one more pacing wait reads it.
+    fn drain(&mut self, rows: &mut [RowReport]) {
+        if !self.corr.loads_pending() || self.shared.stop_requested() {
+            return;
+        }
+        let limit = secs(self.plan.timeouts.load_secs).min(self.budget_left());
+        let mut replies = Vec::new();
+        let _ = self.wait_ready(limit, "the last `load`'s answer", false, &mut replies);
+        let poll = self.plan.game.console.ready_command.clone();
+        let mut pid = None;
+        let mut seen = Vec::new();
+        for reply in &replies {
+            let id = match pid {
+                Some(p) => {
+                    self.corr.resend(p);
+                    p
+                }
+                None => {
+                    let p = self.corr.open_poll("(end of session)", 0, &poll);
+                    pid = Some(p);
+                    p
+                }
+            };
+            let r = self.corr.route(id, reply);
+            let _ = self.requeued(&r, &mut seen, "(end of session)");
+        }
+        self.regrade(rows);
     }
 
     fn not_run(&self, from: usize, why: &str) -> Vec<RowReport> {
@@ -1194,7 +1429,13 @@ impl Run<'_> {
 }
 
 /// Runs a whole session. Never panics; every failure becomes a row status or a finding.
-pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
+pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
+    // Every send and its reply, in full, for the report (M4.T7, ruling R29).
+    let transcript = crate::replay::Transcript::default();
+    deps.console = Box::new(crate::replay::Recording::new(
+        deps.console,
+        transcript.clone(),
+    ));
     let papyrus = plan
         .logs
         .iter()
@@ -1211,9 +1452,10 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
         start: Instant::now(),
         papyrus,
         findings: Vec::new(),
-        corr: Correlator::default(),
+        corr: Correlator::new(&plan.game.saves.load_command),
         waiting: Vec::new(),
         last: None,
+        base_failed: None,
     };
     let mut rows: Vec<RowReport> = Vec::new();
     let mut reruns = Vec::new();
@@ -1246,13 +1488,24 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                 }
                 Ok(child) => {
                     shared.phase(Phase::WaitingForConsole, "waiting for the console endpoint");
-                    let ready =
-                        r.wait_ready(secs(plan.timeouts.ready_secs), "the console endpoint", true);
+                    // Nothing but the poll has been sent yet, so its replies hold no other
+                    // request's line.
+                    let ready = r.wait_ready(
+                        secs(plan.timeouts.ready_secs),
+                        "the console endpoint",
+                        true,
+                        &mut Vec::new(),
+                    );
                     let loaded = ready.and_then(|()| {
                         shared.phase(Phase::LoadingSave, "loading the base save");
                         let cmd = fill(&plan.game.saves.load_command, &[("save", &plan.base_save)]);
                         let limit = secs(plan.timeouts.load_secs);
+                        // A request too: its failure may come in any later reply (R41).
+                        let base = r.corr.open(BASE_ROW, 0, &cmd);
                         let answer = r.deps.console.run(&cmd, limit.min(secs(30)));
+                        if let Ok(out) = &answer {
+                            let _ = r.corr.route(base, out);
+                        }
                         // A base save the game did not find leaves it at the main menu;
                         // no row would test the plugin there.
                         if let Some(line) = answer.ok().and_then(|out| console_failure(&cmd, &out))
@@ -1261,7 +1514,33 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                                 "the base save did not load: `{cmd}` answered `{line}`"
                             ));
                         }
-                        r.wait_ready(limit, "the base save to load", false)
+                        // Its failure may also come late, in the readiness poll's reply (G
+                        // ticket 3b): the base `load` is the only request before the poll, so
+                        // the line is the base save's.
+                        let mut replies = Vec::new();
+                        let waited =
+                            r.wait_ready(limit, "the base save to load", false, &mut replies);
+                        let poll = &plan.game.console.ready_command;
+                        if let Some(line) = replies.iter().find_map(|out| console_failure(poll, out))
+                        {
+                            return Err(format!(
+                                "the base save did not load: `{cmd}` answered `{line}`, late, in the readiness poll (`{poll}`)"
+                            ));
+                        }
+                        // A readiness line answers a poll sent after the base `load`, so in
+                        // send order the load's answer, if it had one, came before it (R41).
+                        let expect = plan.game.console.ready_expect.to_ascii_lowercase();
+                        let answered = replies.iter().any(|out| {
+                            if expect.is_empty() {
+                                !crate::probes::echo_only(poll, out)
+                            } else {
+                                out.to_ascii_lowercase().contains(&expect)
+                            }
+                        });
+                        if answered {
+                            r.corr.settle(base);
+                        }
+                        waited
                     });
                     match loaded {
                         Err(why) => {
@@ -1273,6 +1552,7 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
                         Ok(()) => {
                             shared.phase(Phase::Probing, "running the probes");
                             let open = r.probes(&mut rows);
+                            r.drain(&mut rows);
                             if open && plan.stay {
                                 reruns = r.idle();
                             }
@@ -1365,6 +1645,7 @@ pub fn run(plan: &Plan, deps: Deps, shared: &Shared) -> Report {
         ledger_entry,
         ledger_text,
         written: Vec::new(),
+        transcript: transcript.sends(),
     };
     let report_path = plan.observe.join("report.json");
     if let Ok(text) = serde_json::to_string_pretty(&report) {

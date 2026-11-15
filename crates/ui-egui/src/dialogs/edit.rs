@@ -10,13 +10,21 @@
 //! structs stay read-only here (`kit set` and MCP edit them). The edits are UI state:
 //! kept in egui's memory under the record ([`changed_fields`], [`clear_edits`]), never
 //! saved.
+//!
+//! M7.W4 (sprint 2026-11-09, D6): a layout whose groups name members (AMMO, COBJ, CONT,
+//! STAT, KYWD, TERM) is drawn by label, not by schema member name: each observed label on
+//! one line with the `set` field path it edits, a numeric member inside a struct edited in
+//! place (`DATA.Value`; flags and enums stay read-only, `super::layouts::NOT_NUMBERS`),
+//! and the labels M7.K4 could not map listed read-only with their
+//! reasons (`super::layouts::place_members`).
 
 use std::collections::BTreeMap;
 
 use eframe::egui::{self, ScrollArea};
 use serde_json::{Map, Value};
 
-use super::{place, DialogState, Layout};
+use super::layouts::{member_text, place_members, Line, MemberPage};
+use super::{place, DialogState, Layout, OTHER_TAB};
 use crate::panels::common::Action;
 use crate::panels::records::{RecordView, SubRow, VersionView};
 use crate::panels::MAX_CELL;
@@ -187,8 +195,27 @@ impl DialogState {
                 .position(|x| std::ptr::eq(x, s))
                 .and_then(|i| paths.get(i))
         };
-        let placed = place(&layout, &version.subrecords);
+        // D6: a layout naming members is placed by label.
+        let by_member = place_members(&layout, &version.subrecords);
+        let placed = if by_member.is_some() {
+            Vec::new()
+        } else {
+            place(&layout, &version.subrecords)
+        };
         ui.horizontal_wrapped(|ui| {
+            if let Some((pages, rest)) = &by_member {
+                for (i, p) in pages.iter().enumerate() {
+                    let n: usize = p.groups.iter().map(|g| g.rows.len()).sum();
+                    ui.selectable_value(&mut self.tab, i, format!("{} ({n})", p.name));
+                }
+                if !rest.is_empty() {
+                    ui.selectable_value(
+                        &mut self.tab,
+                        pages.len(),
+                        format!("{OTHER_TAB} ({})", rest.len()),
+                    );
+                }
+            }
             for (i, t) in placed.iter().enumerate() {
                 let n: usize = t.groups.iter().map(|g| g.1.len()).sum();
                 ui.selectable_value(&mut self.tab, i, format!("{} ({n})", t.name));
@@ -196,12 +223,25 @@ impl DialogState {
         });
         ui.separator();
         let tab = placed.get(self.tab).or_else(|| placed.first());
+        let tab_index = self.tab;
         let footer = ui.spacing().interact_size.y * 3.5;
         ScrollArea::vertical()
             .id_salt(("edit-dialog", self.tab))
             .auto_shrink([false, false])
             .max_height((ui.available_height() - footer).max(theme::view_height(ui, View::Short)))
             .show(ui, |ui| {
+                if let Some((pages, rest)) = &by_member {
+                    member_tab(
+                        ui,
+                        tab_index,
+                        pages,
+                        rest,
+                        &layout.record_type,
+                        &paths,
+                        &mut edits,
+                    );
+                    return;
+                }
                 let Some(tab) = tab else { return };
                 for (gi, (group, rows)) in tab.groups.iter().enumerate() {
                     ui.label(theme::subheading(ui, group.as_str()));
@@ -309,6 +349,149 @@ impl DialogState {
     }
 }
 
+/// D6: one page of a member layout (or, past its pages, the "Other" page): each label on
+/// one line with the field path it edits and its value, edited in place when it is a
+/// number or plain text (a member inside a struct: a number; never flags or an enum),
+/// read-only when a component block of the record holds its signature too (D1 review
+/// L4); on the first page the labels M7.K4 left unmapped are interleaved in the observed
+/// order, read-only with their reasons.
+fn member_tab(
+    ui: &mut egui::Ui,
+    index: usize,
+    pages: &[MemberPage<'_>],
+    rest: &[(usize, &SubRow)],
+    record_type: &str,
+    paths: &[String],
+    edits: &mut Edits,
+) {
+    let label_w = theme::width(ui, theme::Field::Medium);
+    let path_w = theme::width(ui, theme::Field::Short);
+    let h = ui.spacing().interact_size.y;
+    let left = egui::Layout::left_to_right(egui::Align::Center);
+    let cells = |ui: &mut egui::Ui, label: &str, path: &str| {
+        ui.allocate_ui_with_layout(egui::vec2(label_w, h), left, |ui| {
+            ui.set_min_width(label_w);
+            ui.add(egui::Label::new(label).truncate());
+        });
+        ui.allocate_ui_with_layout(egui::vec2(path_w, h), left, |ui| {
+            ui.set_min_width(path_w);
+            ui.add(egui::Label::new(egui::RichText::new(path).monospace().weak()).truncate());
+        });
+    };
+    let Some(page) = pages.get(index) else {
+        // "Other" edits as under any layout (D2-fix review L4): a number or plain text in
+        // place, through its occurrence path.
+        for (ri, (i, s)) in rest.iter().enumerate() {
+            ui.push_id(("edit-dialog-other", ri), |ui| {
+                ui.horizontal_top(|ui| {
+                    let label = if s.member.is_empty() {
+                        s.signature.as_str()
+                    } else {
+                        s.member.as_str()
+                    };
+                    cells(ui, label, &s.signature);
+                    // Never raw bits or a raw enum value (D7 review L1).
+                    let edit = editable(s)
+                        .filter(|_| super::layouts::edits_as_number(record_type, &s.signature));
+                    match edit.zip(paths.get(*i)) {
+                        Some((number, path)) => field_edit(ui, edits, path, s, number),
+                        None => {
+                            ui.add(
+                                egui::Label::new(egui::RichText::new(&s.value).monospace())
+                                    .wrap_mode(egui::TextWrapMode::Wrap),
+                            );
+                        }
+                    }
+                });
+            });
+        }
+        return;
+    };
+    // The labels in the observed order, mapped and unmapped interleaved (D2-fix review
+    // L3); a page past the first keeps its groups' order.
+    let lines = if index == 0 {
+        super::layouts::observed_lines(record_type, page)
+    } else {
+        (0..page.groups.len()).map(Line::Mapped).collect()
+    };
+    for line in lines {
+        let gi = match line {
+            Line::Mapped(gi) => gi,
+            Line::Gap(label, why) => {
+                ui.horizontal_top(|ui| {
+                    cells(ui, &label, "-");
+                    ui.add(
+                        egui::Label::new(egui::RichText::new(why).weak())
+                            .wrap_mode(egui::TextWrapMode::Wrap),
+                    )
+                    .on_hover_text("not editable here: M7.K4 maps this label to no field (layouts/sitting2.toml `gaps`)");
+                });
+                continue;
+            }
+        };
+        let Some(g) = page.groups.get(gi) else {
+            continue;
+        };
+        if g.rows.is_empty() {
+            ui.horizontal_top(|ui| {
+                cells(ui, &g.label, &g.path);
+                ui.weak("(none in this record)");
+            });
+            continue;
+        }
+        for (ri, r) in g.rows.iter().enumerate() {
+            ui.push_id(("edit-dialog-label", gi, ri), |ui| {
+                ui.horizontal_top(|ui| {
+                    cells(ui, &g.label, &g.path);
+                    let steps: Vec<&str> = r.steps.iter().map(String::as_str).collect();
+                    let shown = member_text(&r.sub.value, &steps);
+                    let full = paths.get(r.index).map(|b| {
+                        if steps.is_empty() {
+                            b.clone()
+                        } else {
+                            format!("{b}.{}", steps.join("."))
+                        }
+                    });
+                    let view = SubRow {
+                        value: shown.clone().unwrap_or_else(|| r.sub.value.clone()),
+                        ..r.sub.clone()
+                    };
+                    // Flags and enums show as raw numbers: never typed here (L2).
+                    let edit = if r.blocked
+                        || shown.is_none()
+                        || !super::layouts::edits_as_number(record_type, &g.path)
+                    {
+                        None
+                    } else if steps.is_empty() {
+                        editable(&view)
+                    } else {
+                        view.value
+                            .trim()
+                            .parse::<f64>()
+                            .is_ok_and(f64::is_finite)
+                            .then_some(true)
+                    };
+                    match edit.zip(full) {
+                        Some((number, path)) => field_edit(ui, edits, &path, &view, number),
+                        None => {
+                            let value = ui.add(
+                                egui::Label::new(egui::RichText::new(&view.value).monospace())
+                                    .wrap_mode(egui::TextWrapMode::Wrap),
+                            );
+                            if r.blocked {
+                                value.on_hover_text(format!(
+                                    "read-only: a component block of this record holds a {} too, and `set` counts {}[n] across the whole record (edit it with `kit set`)",
+                                    r.sub.signature, r.sub.signature
+                                ));
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    }
+}
+
 /// The edit box of one field: the text typed (starting from the value shown), and what it
 /// was when it changed.
 fn field_edit(ui: &mut egui::Ui, edits: &mut Edits, path: &str, s: &SubRow, number: bool) {
@@ -360,11 +543,13 @@ fn header(ui: &mut egui::Ui, layout: &Layout, record: &RecordView) {
             Some(o) if o.status == "observed" => {
                 theme::status(ui, Status::Pass, &format!("CK labels observed ({})", o.sitting))
                     .on_hover_text(format!(
-                        "{} labels recorded at {} on {}: {}. Tabs and groups here are KitKraft's; M7.K4 maps each label to its field.",
+                        "{} labels recorded at {} on {}: {}. Tabs and groups here are KitKraft's; M7.K4 maps {} labels to their fields and names {} as gaps (layouts/sitting2.toml).",
                         o.labels.len(),
                         o.step,
                         o.form,
-                        o.labels.join(", ")
+                        o.labels.join(", "),
+                        o.map.len(),
+                        o.gaps.len()
                     ));
             }
             Some(o) => {

@@ -212,6 +212,7 @@ fn data_dir(name: &str) -> PathBuf {
 fn run(data: &Path, args: Value) -> Result<Value, crate::EngineError> {
     let mut args = args;
     args["data_dir"] = json!(data.display().to_string());
+    args["no_cache"] = json!(true);
     execute("mesh.bounds", args)
 }
 
@@ -334,7 +335,10 @@ fn a_base_objects_modl_names_the_model() {
     assert_eq!(ev[0]["length"], 15);
     // A base without MODL is refused, named.
     let err = engine
-        .execute("mesh.bounds", json!({"form": "MB_NoModel", "data_dir": d}))
+        .execute(
+            "mesh.bounds",
+            json!({"form": "MB_NoModel", "data_dir": d, "no_cache": true}),
+        )
         .unwrap_err();
     assert!(err.to_string().contains("has no MODL"), "{err}");
 }
@@ -389,7 +393,7 @@ fn mesh_geometry_through_the_catalog() {
     let d = data.display().to_string();
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": d}),
+        json!({"model": "Test\\Tri.nif", "data_dir": d, "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["command"], "mesh.geometry");
@@ -415,7 +419,7 @@ fn mesh_geometry_through_the_catalog() {
     );
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": skinned.display().to_string()}),
+        json!({"model": "Test\\Tri.nif", "data_dir": skinned.display().to_string(), "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["coverage"]["status"], "partial");
@@ -434,7 +438,7 @@ fn mesh_geometry_through_the_catalog() {
     archive(&over, "Starfield - Meshes01.ba2", &files);
     let env = execute(
         "mesh.geometry",
-        json!({"model": "Test\\Tri.nif", "data_dir": over.display().to_string()}),
+        json!({"model": "Test\\Tri.nif", "data_dir": over.display().to_string(), "no_cache": true}),
     )
     .unwrap();
     assert_eq!(env["coverage"]["status"], "partial");
@@ -442,7 +446,11 @@ fn mesh_geometry_through_the_catalog() {
 
     // Paths leaving Meshes are refused before any file is opened, naming the command.
     for bad in [r"..\Starfield.esm", r"C:\x.nif", ""] {
-        let err = execute("mesh.geometry", json!({"model": bad, "data_dir": d})).unwrap_err();
+        let err = execute(
+            "mesh.geometry",
+            json!({"model": bad, "data_dir": d, "no_cache": true}),
+        )
+        .unwrap_err();
         assert!(
             err.to_string().contains("not a path inside Meshes"),
             "{bad}: {err}"
@@ -568,7 +576,7 @@ fn geometry_dir_with(
 
 fn run_geometry(data: &Path, model: &str) -> Result<Value, crate::EngineError> {
     let mut session = crate::Session::default();
-    let args = json!({"model": model, "data_dir": data.display().to_string()});
+    let args = json!({"model": model, "data_dir": data.display().to_string(), "no_cache": true});
     geometry(&mut session, &args).map(|o| o.data)
 }
 
@@ -635,7 +643,8 @@ fn geometry_skips_a_missing_or_broken_mesh_and_says_so() {
         ],
     );
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -741,7 +750,8 @@ fn geometry_skips_skinned_blocks_whose_frame_the_study_does_not_show() {
         ],
     );
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     assert_eq!(out.data["meshes"].as_array().unwrap().len(), 1);
@@ -789,7 +799,8 @@ fn geometry_budgets_indices_as_well_as_vertices() {
     files.extend(meshes.iter().map(|(n, b)| (*n, b.clone())));
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["index_count"], 6_000_000);
     let l = out.limitations.join("\n");
@@ -819,7 +830,8 @@ fn geometry_skips_a_mesh_past_the_vertex_budget_and_one_whose_counts_disagree() 
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     let l = out.limitations.join("\n");
     assert!(l.contains("vertex budget"), "{l}");
@@ -846,7 +858,8 @@ fn geometry_names_unreached_blocks_and_stays_partial() {
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -878,7 +891,8 @@ fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
     ];
     archive(&data, "Starfield - Meshes01.ba2", &files);
     let mut session = crate::Session::default();
-    let args = json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string()});
+    let args =
+        json!({"model": "Test\\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
     let out = geometry(&mut session, &args).unwrap();
     assert_eq!(out.data["vertex_count"], 3);
     let l = out.limitations.join("\n");
@@ -887,4 +901,538 @@ fn geometry_skips_a_block_whose_slots_do_not_read_and_keeps_the_rest() {
         out.coverage.status,
         crate::envelope::CoverageStatus::Partial
     ));
+}
+
+// M7.R5: the mesh index kept in the engine's index cache.
+
+use super::mesh::{cache_file, encode_stored, parse_stored, MeshIndex, CACHE_MAGIC};
+
+/// A Data dir with one archive holding a model and its mesh, and an empty cache dir.
+fn cached_dir(name: &str) -> (PathBuf, PathBuf) {
+    let data = geometry_dir(
+        name,
+        [0.0; 3],
+        1,
+        &[(r"geometries\test\mesh0.mesh", triangle_mesh(1.0))],
+    );
+    let cache = data.parent().unwrap().join("cache");
+    let _ = std::fs::remove_dir_all(&cache);
+    (data, cache)
+}
+
+fn build(data: &Path, cache: Option<&Path>) -> MeshIndex {
+    MeshIndex::build_cached(data, cache, true, "mesh.geometry").unwrap()
+}
+
+#[test]
+fn the_mesh_index_is_read_back_from_the_cache_without_opening_an_archive() {
+    let (data, cache) = cached_dir("mesh-index-cache");
+    let first = build(&data, Some(&cache));
+    assert!(!first.from_cache);
+    assert!(
+        cache_file(&cache, &data).is_file(),
+        "written after the build"
+    );
+    let second = build(&data, Some(&cache));
+    assert!(second.from_cache);
+    assert_eq!(second.by_path, first.by_path);
+    assert_eq!(second.meshes, first.meshes);
+    assert!(second.by_path.contains_key("meshes/test/tri.nif"));
+    assert!(second.meshes.contains_key("geometries/test/mesh0.mesh"));
+    // Nothing is opened until a read needs it; then it opens and matches.
+    assert!(second.archives.iter().all(|k| k.archive.get().is_none()));
+    assert!(second.archives.iter().all(|k| k.open().is_some()));
+    // A session's geometry through the cached index reads the same triangles.
+    let args =
+        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+#[test]
+fn a_changed_archive_rebuilds_the_mesh_index() {
+    let (data, cache) = cached_dir("mesh-index-changed");
+    build(&data, Some(&cache));
+    // One more byte at the end of the archive: its length, so its key, changes.
+    let ba2 = data.join("Starfield - Meshes01.ba2");
+    let mut bytes = std::fs::read(&ba2).unwrap();
+    bytes.push(0);
+    std::fs::write(&ba2, bytes).unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
+    // A new archive in the Data dir changes the key list too.
+    let (data2, cache2) = cached_dir("mesh-index-added");
+    build(&data2, Some(&cache2));
+    std::fs::copy(
+        data2.join("Starfield - Meshes01.ba2"),
+        data2.join("Starfield - Meshes02.ba2"),
+    )
+    .unwrap();
+    assert!(!build(&data2, Some(&cache2)).from_cache);
+}
+
+/// Negative: every malformed cache file is ignored and the index built from the archives.
+#[test]
+fn a_corrupt_mesh_index_file_is_ignored() {
+    let (data, cache) = cached_dir("mesh-index-corrupt");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let good = std::fs::read(&file).unwrap();
+    assert!(parse_stored(&good).is_some());
+    let mut huge_count = good.clone();
+    huge_count[8..12].copy_from_slice(&u32::MAX.to_le_bytes());
+    let mut long_name = CACHE_MAGIC.to_vec();
+    long_name.extend(1u32.to_le_bytes());
+    long_name.extend(2_000u16.to_le_bytes());
+    long_name.extend(vec![b'a'; 2_000 + 20]);
+    let mut trailing = good.clone();
+    trailing.push(0);
+    for bad in [
+        good[..good.len() / 2].to_vec(),
+        vec![0xA5; 64],
+        Vec::new(),
+        [b"NOTMAGIC".as_slice(), &good[8..]].concat(),
+        huge_count,
+        long_name,
+        trailing,
+    ] {
+        assert!(parse_stored(&bad).is_none());
+        std::fs::write(&file, &bad).unwrap();
+        let built = build(&data, Some(&cache));
+        assert!(!built.from_cache);
+        assert!(built.by_path.contains_key("meshes/test/tri.nif"));
+    }
+}
+
+/// Negative: a well-formed cache file whose entry is not what the archive holds is refused
+/// when the archive is opened, and the call builds the index again from the archives.
+#[test]
+fn a_mesh_index_naming_an_entry_the_archive_lacks_is_rebuilt() {
+    let (data, cache) = cached_dir("mesh-index-lie");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    // The model's name now points at the mesh's entry index, and the reverse.
+    let kept = &mut stored.kept[0];
+    // Names and kinds swapped (indices stay increasing, so the file is well-formed).
+    let (n0, k0) = (kept.entries[0].1.clone(), kept.entries[0].2);
+    let (n1, k1) = (kept.entries[1].1.clone(), kept.entries[1].2);
+    (kept.entries[0].1, kept.entries[0].2) = (n1, k1);
+    (kept.entries[1].1, kept.entries[1].2) = (n0, k0);
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+    let lied = build(&data, Some(&cache));
+    assert!(lied.from_cache, "it parses and its keys match");
+    assert!(
+        lied.archives[0].open().is_none(),
+        "but the archive does not match it"
+    );
+    // Through the command: the model still reads, from an index built again (written back
+    // to the test's own cache dir, where the stale index came from).
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let mut session = crate::Session::default();
+    session.insert(lied);
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(
+        out.limitations.iter().any(|l| l
+            .contains("the cached mesh index does not match the archive Starfield - Meshes01.ba2")),
+        "{:?}",
+        out.limitations
+    );
+}
+
+#[test]
+fn no_cache_neither_reads_nor_writes_the_mesh_index() {
+    let (data, cache) = cached_dir("mesh-index-nocache");
+    let built = build(&data, None);
+    assert!(!built.from_cache);
+    assert!(!cache_file(&cache, &data).exists());
+    // `no_cache: true` on the command turns it off too.
+    assert_eq!(
+        super::mesh::mesh_cache_dir(&json!({"no_cache": true})),
+        None
+    );
+}
+
+/// Review H1 of M7.R5: a model in one archive and its mesh in another; the cache file's
+/// two `.mesh` entry indices of the second archive swapped (well-formed, keys match). The
+/// mesh archive fails its open-time check while `mesh.geometry` reads: the index is
+/// built again at once (this call reads the mesh) and the file rewritten (the next
+/// session reads it from the cache with no stale line).
+#[test]
+fn a_stale_mesh_archive_is_rebuilt_at_once_and_the_file_rewritten() {
+    let data = dir("mesh-index-stale-mesh").join("Data");
+    std::fs::create_dir_all(&data).unwrap();
+    archive(
+        &data,
+        "Starfield - Meshes01.ba2",
+        &[(r"meshes\test\tri.nif", nif([0.0; 3], &[BOXED]))],
+    );
+    archive(
+        &data,
+        "Starfield - Meshes02.ba2",
+        &[
+            (r"geometries\test\mesh0.mesh", triangle_mesh(1.0)),
+            (r"geometries\test\mesh1.mesh", triangle_mesh(2.0)),
+        ],
+    );
+    let cache = data.parent().unwrap().join("cache");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    let kept = stored
+        .kept
+        .iter_mut()
+        .find(|k| k.entries.iter().any(|e| e.1.ends_with(".mesh")))
+        .unwrap();
+    // Names and kinds swapped (indices stay increasing, so the file is well-formed).
+    let (n0, k0) = (kept.entries[0].1.clone(), kept.entries[0].2);
+    let (n1, k1) = (kept.entries[1].1.clone(), kept.entries[1].2);
+    (kept.entries[0].1, kept.entries[0].2) = (n1, k1);
+    (kept.entries[1].1, kept.entries[1].2) = (n0, k0);
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(
+        out.limitations
+            .iter()
+            .any(|l| l.contains("cached mesh index") && l.contains("built again")),
+        "{:?}",
+        out.limitations
+    );
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("is in no archive")));
+    assert!(!session.get::<MeshIndex>().unwrap().from_cache);
+
+    let mut next = crate::Session::default();
+    next.insert(build(&data, Some(&cache)));
+    assert!(
+        next.get::<MeshIndex>().unwrap().from_cache,
+        "the file was rewritten"
+    );
+    let out = geometry(&mut next, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    assert!(!out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+/// Rewrites the cache file of `data` in `cache` after `edit` (a well-formed file, encoded
+/// again, so only the open-time checks or the parser's rules can catch it).
+fn edit_cache(data: &Path, cache: &Path, edit: impl FnOnce(&mut super::mesh::Stored)) {
+    let file = cache_file(cache, data);
+    let mut stored = parse_stored(&std::fs::read(&file).unwrap()).unwrap();
+    edit(&mut stored);
+    std::fs::write(&file, encode_stored(&stored).unwrap()).unwrap();
+}
+
+/// One `mesh.geometry` call of the model in a session seeded from the cache.
+fn geometry_from_cache(data: &Path, cache: &Path) -> crate::Outcome {
+    let mut session = crate::Session::default();
+    let index = build(data, Some(cache));
+    assert!(index.from_cache, "the edited file still parses");
+    session.insert(index);
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    geometry(&mut session, &args).unwrap()
+}
+
+/// Review M1 of M7.R5 (1): a `.mesh` the file omits from an archive that gets opened is
+/// caught by the open-time check (the archive's indexed count differs), and the index is
+/// built again, so the mesh is read.
+#[test]
+fn a_cache_omitting_an_entry_of_an_opened_archive_is_rebuilt() {
+    let (data, cache) = cached_dir("mesh-index-omit");
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        s.kept[0].entries.retain(|e| !e.1.ends_with(".mesh"));
+    });
+    let out = geometry_from_cache(&data, &cache);
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+/// Review M1 of M7.R5 (2): a model the file does not list is not refused on the file's
+/// word: the index is built again from the archives first.
+#[test]
+fn a_cache_missing_a_model_is_rebuilt_before_the_model_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-renamed");
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        for e in &mut s.kept[0].entries {
+            if e.1.ends_with(".nif") {
+                e.1 = "meshes/test/renamed.nif".into();
+            }
+        }
+    });
+    let out = geometry_from_cache(&data, &cache);
+    assert_eq!(out.data["vertex_count"], 3, "{:?}", out.limitations);
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("cached mesh index")));
+}
+
+/// Review M1 of M7.R5 (3): `MeshesPatch` outranks `Meshes01` for the same model. A file
+/// that keeps the Patch archive with no entry (which the writer never does) is refused, so
+/// the Patch copy is read. A file with a valid checksum that omits the Patch copy (its
+/// record or its entry) is not caught: Patch is never opened (the stated residual, the
+/// same trust as `.kcidx`; re-review L2).
+#[test]
+fn a_cache_keeping_an_archive_with_no_entry_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-patch");
+    archive(
+        &data,
+        "Starfield - MeshesPatch.ba2",
+        &[(r"meshes\test\tri.nif", nif([0.0; 3], &[BOXED]))],
+    );
+    build(&data, Some(&cache));
+    edit_cache(&data, &cache, |s| {
+        let patch = s
+            .keys
+            .iter()
+            .position(|k| k.name == "Starfield - MeshesPatch.ba2")
+            .unwrap();
+        for k in &mut s.kept {
+            if k.key == patch {
+                k.entries.clear();
+            }
+        }
+    });
+    let built = build(&data, Some(&cache));
+    assert!(!built.from_cache, "a kept archive with no entry is refused");
+    let mut session = crate::Session::default();
+    session.insert(built);
+    let args = json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string()});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["source"]["archive"], "Starfield - MeshesPatch.ba2");
+    assert!(out
+        .limitations
+        .iter()
+        .any(|l| l.contains("2 archives hold this model")));
+}
+
+/// Review M1 of M7.R5 (4): a file whose bytes changed after it was written (its checksum
+/// fails), one that repeats a kept archive or an entry index, or one written for another
+/// Data dir, is ignored.
+#[test]
+fn a_cache_failing_its_checksum_or_repeating_a_record_is_ignored() {
+    let (data, cache) = cached_dir("mesh-index-checksum");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let good = std::fs::read(&file).unwrap();
+    let stored = parse_stored(&good).unwrap();
+    // One byte flipped in the middle of the body.
+    let mut flipped = good.clone();
+    let mid = flipped.len() / 2;
+    flipped[mid] ^= 0x01;
+    assert!(parse_stored(&flipped).is_none());
+    // A kept archive twice.
+    let mut twice = stored.clone();
+    twice.kept.push(twice.kept[0].clone());
+    assert!(parse_stored(&encode_stored(&twice).unwrap()).is_none());
+    // An entry index twice in one archive.
+    let mut dup = stored.clone();
+    let first = dup.kept[0].entries[0].clone();
+    dup.kept[0].entries.push(first);
+    assert!(parse_stored(&encode_stored(&dup).unwrap()).is_none());
+    for bad in [flipped, encode_stored(&twice).unwrap()] {
+        std::fs::write(&file, &bad).unwrap();
+        assert!(!build(&data, Some(&cache)).from_cache);
+    }
+    // Another Data dir's file under this one's name.
+    let mut other = stored;
+    other.data_dir = "C:/Elsewhere/Data".into();
+    std::fs::write(&file, encode_stored(&other).unwrap()).unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
+}
+
+/// Review M2 of M7.R5: a well-formed file must not make the parser hold far more than
+/// its own size: empty names, a name whose extension is not its kind's, and more entries
+/// than any official Data dir has are refused.
+#[test]
+fn a_cache_file_built_to_amplify_memory_is_refused() {
+    use super::mesh::{ArchiveKey, Stored, StoredArchive, MAX_ENTRIES};
+    let file = |entries: Vec<(u32, String, u8)>| {
+        let count = u32::try_from(entries.len()).unwrap() + 1;
+        encode_stored(&Stored {
+            data_dir: "d".into(),
+            keys: vec![ArchiveKey {
+                name: "A.ba2".into(),
+                len: 1,
+                secs: 1,
+                nanos: 0,
+            }],
+            kept: vec![StoredArchive {
+                key: 0,
+                entry_count: count,
+                entries,
+            }],
+        })
+        .unwrap()
+    };
+    // The probe: 2,000,000 entries with empty names (14 MB of file).
+    let empty = file((0..2_000_000u32).map(|i| (i, String::new(), 0)).collect());
+    assert!(parse_stored(&empty).is_none());
+    // A `.mesh` name stored as a `.nif` entry.
+    assert!(parse_stored(&file(vec![(0, "geometries/a.mesh".into(), 0)])).is_none());
+    // One entry past the cap, every name well-formed.
+    let over = MAX_ENTRIES + 1;
+    let many = file(
+        (0..u32::try_from(over).unwrap())
+            .map(|i| (i, "a.nif".to_string(), 0))
+            .collect(),
+    );
+    assert!(parse_stored(&many).is_none());
+    // The same shape under the cap parses.
+    assert!(parse_stored(&file(vec![(0, "meshes/a.nif".into(), 0)])).is_some());
+}
+
+/// Review L1 of M7.R5: `no_cache` on a call also replaces a session index that was read
+/// from the cache, so the call neither reads nor writes the file.
+#[test]
+fn no_cache_replaces_a_session_index_read_from_the_cache() {
+    let (data, cache) = cached_dir("mesh-index-nocache-session");
+    build(&data, Some(&cache));
+    let mut session = crate::Session::default();
+    session.insert(build(&data, Some(&cache)));
+    assert!(session.get::<MeshIndex>().unwrap().from_cache);
+    let args =
+        json!({"model": r"Test\Tri.nif", "data_dir": data.display().to_string(), "no_cache": true});
+    let out = geometry(&mut session, &args).unwrap();
+    assert_eq!(out.data["vertex_count"], 3);
+    let index = session.get::<MeshIndex>().unwrap();
+    assert!(!index.from_cache);
+    assert!(index.cache_dir.is_none());
+}
+
+/// Review L3 of M7.R5: a cache file longer than the cap is refused (read through a bound,
+/// one open).
+#[test]
+fn a_mesh_index_file_over_the_cap_is_refused() {
+    let (data, cache) = cached_dir("mesh-index-oversize");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&file)
+        .unwrap()
+        .set_len(super::mesh::MAX_CACHE_FILE + 1)
+        .unwrap();
+    assert!(!build(&data, Some(&cache)).from_cache);
+}
+
+/// Review L2 of M7.R5: a temp file another process left mid-write (killed between the
+/// write and the rename) is swept once it is old; this process's own, a recent one and
+/// any other file are kept.
+#[test]
+fn stale_mesh_index_temp_files_of_other_processes_are_swept() {
+    use std::time::{Duration, SystemTime};
+    let d = dir("mesh-index-sweep");
+    let old = SystemTime::now() - Duration::from_secs(600);
+    let make = |name: &str, aged: bool| {
+        let p = d.join(name);
+        std::fs::write(&p, b"x").unwrap();
+        if aged {
+            std::fs::File::options()
+                .write(true)
+                .open(&p)
+                .unwrap()
+                .set_modified(old)
+                .unwrap();
+        }
+        p
+    };
+    let pid = std::process::id();
+    let dead = make("mesh-index-v2-0123456789abcdef.tmp999999-0", true);
+    let own = make(&format!("mesh-index-v2-0123456789abcdef.tmp{pid}-3"), true);
+    let recent = make("mesh-index-v2-0123456789abcdef.tmp999998-0", false);
+    let other = make("0123456789abcdef.kcidx", true);
+    let removed = super::mesh::sweep_mesh_temps(&d, Duration::from_secs(120));
+    assert_eq!(removed, 1);
+    assert!(!dead.exists());
+    assert!(own.exists() && recent.exists() && other.exists());
+}
+
+/// Re-review M1 of M7.R5: a model that is in no archive at all makes a session built
+/// from the cache rebuild once (the file may have omitted it), but the rebuilt index is
+/// the same, so the file is not written again; and a second miss in the same session
+/// does not rebuild again.
+#[test]
+fn a_model_in_no_archive_rebuilds_once_per_session_and_rewrites_nothing() {
+    let (data, cache) = cached_dir("mesh-index-absent");
+    build(&data, Some(&cache));
+    let file = cache_file(&cache, &data);
+    let written = std::fs::metadata(&file).unwrap().modified().unwrap();
+    let args = json!({"model": r"Test\Nowhere.nif", "data_dir": data.display().to_string()});
+    for round in 0..3 {
+        let mut session = crate::Session::default();
+        session.insert(build(&data, Some(&cache)));
+        assert!(geometry(&mut session, &args).is_err(), "round {round}");
+        assert!(!session.get::<MeshIndex>().unwrap().from_cache);
+        // The same session's second miss: the index is already the archives' own.
+        assert!(geometry(&mut session, &args).is_err());
+        let now = std::fs::metadata(&file).unwrap().modified().unwrap();
+        assert_eq!(now, written, "round {round}: the file was written again");
+    }
+}
+
+/// Re-review L1 of M7.R5: the key and kept-archive counts are capped before anything is
+/// reserved for them: more keys than `MAX_KEYS`, or more kept archives than keys, is
+/// refused.
+#[test]
+fn a_cache_file_claiming_too_many_keys_or_kept_archives_is_refused() {
+    use super::mesh::{ArchiveKey, Stored, StoredArchive, MAX_KEYS};
+    let key = |i: usize| ArchiveKey {
+        name: format!("A{i}.ba2"),
+        len: 1,
+        secs: 1,
+        nanos: 0,
+    };
+    let kept = vec![StoredArchive {
+        key: 0,
+        entry_count: 1,
+        entries: vec![(0, "meshes/a.nif".into(), 0)],
+    }];
+    let with_keys = |n: usize| {
+        encode_stored(&Stored {
+            data_dir: "d".into(),
+            keys: (0..n).map(key).collect(),
+            kept: kept.clone(),
+        })
+        .unwrap()
+    };
+    assert!(parse_stored(&with_keys(MAX_KEYS)).is_some());
+    assert!(parse_stored(&with_keys(MAX_KEYS + 1)).is_none());
+    // One key, then a kept-archive count of 1,000 (the file holds the bytes for them),
+    // with a valid checksum: refused at the count.
+    let mut body = encode_stored(&Stored {
+        data_dir: "d".into(),
+        keys: vec![key(0)],
+        kept: Vec::new(),
+    })
+    .unwrap();
+    body.truncate(body.len() - 8 - 4);
+    body.extend(1_000u32.to_le_bytes());
+    body.extend(vec![0u8; 1_000 * 12]);
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in &body {
+        h = (h ^ u64::from(*b)).wrapping_mul(0x0100_0000_01b3);
+    }
+    body.extend(h.to_le_bytes());
+    assert!(parse_stored(&body).is_none());
 }

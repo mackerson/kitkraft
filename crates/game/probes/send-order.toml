@@ -1,0 +1,191 @@
+# The send-order session (P2; owner ruling 2026-11-07 (midday) item 2: "the game console
+# answers in send order"). Hand-written, not from `kit testplan`: its rows send commands
+# that answer late, in the shapes of FR2 to FR4 (`crates/game/tests/session.rs`), so the
+# order the late lines come back in can be read off the session's `seen` text. The run
+# sheet is `docs/game-sessions.md`, "Run sheet OW-1: the send-order session". The test
+# `the_send_order_probes_grade_as_the_ruling_predicts` replays this file against a console
+# that answers in send order and checks each row's grade.
+#
+# How a late answer is made: `coc` answers at once with its echo and the game then moves;
+# a command sent meanwhile answers with only its echo (game-20261101-T1), and its result
+# lines come later, in the reply to a later request (2026-11-03-T05, -T10). A step with no
+# `wait_secs` right after a `coc` is late on purpose.
+
+format = 1
+plugin = "OldSovietMarksmanRifle.esm"
+sha256 = "9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27"
+generated_by = "hand-written (sprint 2026-11-09, G1; ruling 2026-11-07 item 2)"
+profile = "KitKraft Dev"
+runtime_id_basis = "confirmed-by-save: 0006BB29 (CityNewAtlantisLodgeInt) and 0021966F (CityNewAtlantisApartmentTEMPLATE) answered player.getincell in game-20261101-T1 and 2026-11-01-T03; 0021BBCD is Starfield.esm's WEAP, a base form, never a reference"
+notes = [
+    "Prediction under the ruling (send order): SO-01 pass; SO-02 pass; SO-03 not pass (its own prid failed, late); SO-04 not pass (its own prid fails too); SO-05 not pass (its own enable failed, late); SO-06 not fail (only its own getter, which answers); SO-07 fail on its own step (`Save file not found.`); SO-08 not pass (its own load failed, late).",
+    "A contradiction of the ruling is read off the replies: a line answering a later request arriving before the line of an earlier request that was still waiting. The grades show one only as SO-05 pass with SO-06 fail (the late stretch crossing the row). The run sheet lists the shape for each row.",
+    "Grade D (not observed yet): `player.getpos <axis>` answering `GetPos: <axis> >> n`; `prid` of a base form's EditorID answering `Item '...' not found for parameter ObjectReferenceID.`; a `<name>.enable` prefix on a reference that does not exist failing the same way.",
+    "A `load` whose reply is only its echo is followed by the readiness poll (`GetSFSEVersion`). Its replies are routed by the send-order rule since G ticket 3b, so a late `Save file not found.` there reaches the load's row. SO-07 sends its `load` on time and SO-08 late.",
+]
+
+# Control: a settled move, then a getter on time. Everything after this row starts in the Lodge.
+[[probe]]
+row = "SO-01"
+title = "control: coc to the Lodge, settle, then player.getincell on time"
+forms = ["CityNewAtlantisLodgeInt", "0006BB29"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "settled in the Lodge: the getter answers in its own reply (prediction: pass)"
+
+# Pure order (FR1's shape): three getters sent while the game moves; each answer is late.
+# Send order: the X line before the Y line before the Z line, whatever reply carries them.
+[[probe]]
+row = "SO-02"
+title = "order: three player.getpos sent behind an unsettled coc answer late, X then Y then Z"
+forms = ["CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "late on purpose (no wait after the coc); its line goes to it by the axis wherever it arrives (prediction: pass)"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "as x; in send order its line comes after X's"
+
+[[probe.step]]
+command = "player.getpos z"
+matcher = "regex"
+expected = 'GetPos: Z >> -?\d'
+why = "as x; in send order its line comes after Y's"
+wait_secs = 10
+
+# FR4's shape: the same failing command in two rows. SO-03's prid is sent behind an
+# unsettled coc, so its failure line comes late, in SO-04's prid reply, ahead of SO-03's
+# late getter line. Send order: that failure is SO-03's (the older prid).
+[[probe]]
+row = "SO-03"
+title = "FR4 shape: prid of the rename's base EditorID behind an unsettled coc fails late"
+forms = ["OldSovietMarksmanRifle.esm:0021BBCD", "RussianHuntingRifle", "CityNewAtlantisLodgeInt"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+
+[[probe.step]]
+command = "prid RussianHuntingRifle"
+
+[[probe.step]]
+command = "player.getpos z"
+matcher = "regex"
+expected = 'GetPos: Z >> -?\d'
+why = "late on purpose; the row cannot pass, since its prid fails (prediction: not pass)"
+
+[[probe]]
+row = "SO-04"
+title = "FR4 shape: the same prid again, settled; its reply carries SO-03's late lines first"
+forms = ["OldSovietMarksmanRifle.esm:0021BBCD", "RussianHuntingRifle"]
+
+[[probe.step]]
+command = "prid RussianHuntingRifle"
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "its own prid fails as SO-03's does (prediction: not pass)"
+wait_secs = 10
+
+# FR3's shape: the failing command names its item only as a reference prefix. SO-05's
+# enable is sent behind an unsettled coc; its failure comes late, in SO-06's reply. Its item
+# is not SO-03's: a failure line quoting an item two requests spell goes to both, so the
+# shapes are kept apart. `KitKraftSendOrderRef` names no reference, so `enable` changes
+# nothing in the game.
+[[probe]]
+row = "SO-05"
+title = "FR3 shape: a reference-prefix command on a reference that does not exist fails late"
+forms = ["KitKraftSendOrderRef", "CityNewAtlantisApartmentTEMPLATE"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+
+[[probe.step]]
+command = "KitKraftSendOrderRef.enable"
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "late on purpose; the row cannot pass, since its enable fails (prediction: not pass)"
+
+[[probe]]
+row = "SO-06"
+title = "FR3 shape: the next row's getter, whose reply carries SO-05's late failure and getter line first"
+forms = ["CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "its own getter answers; a failure line for SO-05 in its reply does not fail it (prediction: not fail)"
+wait_secs = 10
+
+# FR2's shape, on time: the one failure line that names no item. The session save does not
+# exist yet, so the load fails on its own line. SO-08 sends the same load late.
+[[probe]]
+row = "SO-07"
+title = "FR2 shape on time: load of the session save before it exists answers `Save file not found.`"
+forms = ["KitKraftSession-*"]
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "settled in the apartment after SO-06's wait"
+
+[[probe.step]]
+command = "load {save}"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the failed load left the player where it was; the row fails on the load's own line (prediction: fail)"
+
+# FR2's shape, late: the itemless failure line behind a waiting getter. The load is sent
+# behind an unsettled coc, after a getter that answers late, so its `Save file not found.`
+# comes late too: in the readiness poll the controller sends after a `load`, or in a later
+# reply. The poll's replies are routed like any other (G ticket 3b), so the line reaches
+# the load's row by the send-order rule.
+[[probe]]
+row = "SO-08"
+title = "FR2 shape late: load of the session save behind an unsettled coc and a waiting getter"
+forms = ["KitKraftSession-*", "CityNewAtlantisLodgeInt", "0006BB29"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "late on purpose: the getter older than the load, still waiting when the failure arrives"
+
+[[probe.step]]
+command = "load {save}"
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the failed load left the player in the Lodge; the row cannot pass, since its load failed (prediction: not pass)"
+wait_secs = 10

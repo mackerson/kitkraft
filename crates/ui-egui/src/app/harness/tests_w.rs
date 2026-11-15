@@ -846,3 +846,399 @@ fn the_place_bar_answer_becomes_place_in_cell() {
         "no request of its own"
     );
 }
+
+/// The Data dialog's "Active file path:" field (the one text box labelled so).
+fn path_input(h: &mut Bench, text: &str) {
+    let find = |h: &Bench| -> usize {
+        h.query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput
+                && n.label().as_deref() == Some("Active file path:")
+        })
+        .count()
+    };
+    assert_eq!(find(h), 1, "one active-file field");
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput
+            && n.label().as_deref() == Some("Active file path:")
+    })
+    .next()
+    .expect("checked above")
+    .focus();
+    h.run_steps(1);
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput
+            && n.label().as_deref() == Some("Active file path:")
+    })
+    .next()
+    .expect("checked above")
+    .type_text(text);
+    h.run_steps(2);
+}
+
+/// P1 (RULINGS, sprint 2026-11-09; owner ruling 2026-11-07 item 3) over the real engine,
+/// both behaviours: the CK-shaped list keeps the CK's rule (the master-flagged listed row
+/// "Set as Active File" refuses), while the "Active file path:" field takes a
+/// master-flagged file of the owner's own, says that the engine decides by A6, and OK
+/// makes it the active file. Negatives in the same field: an official master's name, and
+/// typing in the field never moves the list's selection. Nothing on disk changes.
+#[test]
+fn the_path_field_takes_an_own_master_the_list_still_refuses_one() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("p1");
+    let base = dir.write("Base.esm", &plugin_bytes(&[], 1, &[0x800], 1.0));
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let own = dir.write("work/Own.esm", &plugin_bytes(&[], 1, &[0x900], 1.0));
+    let official = dir
+        .0
+        .join("work")
+        .join("Starfield.esm")
+        .display()
+        .to_string();
+    let before = dir.snapshot();
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+
+    // The list: the master-flagged row is refused, as in the CK.
+    click_row(&mut h, "Base.esm");
+    click_button(&mut h, "Set as Active File");
+    assert_in_view(&h, "has the master flag");
+    assert_eq!(h.state().app.shell.data_dialog.active, None);
+
+    // The path field: an official master's name is refused.
+    path_input(&mut h, &official);
+    click_button(&mut h, "Use This File");
+    assert_in_view(&h, "is an official master's name");
+    assert_eq!(h.state().app.shell.data_dialog.active, None);
+    // Typing in the field never moves the list's selection (type-ahead is off while a
+    // text box has the keyboard; review M1 of D2): `m` starts the row `Mine.esp`.
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    let d = &mut h.state_mut().app.shell.data_dialog;
+    d.path_field.clear();
+    h.run_steps(1);
+    path_input(&mut h, "m");
+    assert_eq!(h.state().app.shell.data_dialog.path_field, "m");
+    assert_eq!(
+        h.state().app.shell.data_dialog.selected,
+        Some(0),
+        "type-ahead is off in a text box"
+    );
+
+    // The path field: the owner's own master-flagged file is taken; its TES4 is read and
+    // the engine's A6 conditions are named beside the choice.
+    let d = &mut h.state_mut().app.shell.data_dialog;
+    d.path_field.clear();
+    h.run_steps(1);
+    path_input(&mut h, &own);
+    click_button(&mut h, "Use This File");
+    settle(&mut h);
+    let d = &h.state().app.shell.data_dialog;
+    assert_eq!(d.active.as_deref(), Some(own.as_str()));
+    assert!(
+        d.details.as_ref().is_some_and(|x| x.master_flag()),
+        "{:?}",
+        d.details
+    );
+    assert!(d.refusal.is_none(), "{:?}", d.refusal);
+    assert_in_view(&h, "master-flagged: while it is in the load order");
+    click_button(&mut h, "OK");
+    assert_eq!(h.state().app.active_file.as_deref(), Some(own.as_str()));
+    assert_eq!(dir.snapshot(), before, "the dialog writes nothing");
+}
+
+/// P1's negative for a `Default`-sourced session: the path field refuses even the owner's
+/// own master-flagged file (and any file) while the session came from `Default`.
+#[test]
+fn the_path_field_refuses_an_own_master_under_default() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("p1-default");
+    let profile = dir.0.join("profiles").join("Default");
+    dir.write("profiles/Default/plugins.txt", b"*Mine.esp\r\n");
+    let mine = dir.write("mods/Mine/Mine.esp", &plugin_bytes(&[], 0, &[0x800], 1.0));
+    let own = dir.write("work/Own.esm", &plugin_bytes(&[], 1, &[0x900], 1.0));
+    let before = dir.snapshot();
+    let env = json!({
+        "command": "load",
+        "data": {"loaded": true, "source": format!("profile:{}", profile.display()),
+                 "plugins": [{"index": 0, "name": "Mine.esp", "path": mine, "flag_names": [],
+                              "active": "plugins.txt", "provider": "mod:Mine"}]},
+        "limitations": [], "coverage": {},
+    });
+    let req = Request::new("load", json!({"profile": profile.display().to_string()}));
+    inject(&mut h, Slot::Load, req, Ok(env));
+    open_data_dialog(&mut h);
+    path_input(&mut h, &own);
+    click_button(&mut h, "Use This File");
+    assert_in_view(&h, "`Default`, the owner's live game");
+    click_button(&mut h, "OK");
+    assert_eq!(h.state().app.active_file, None);
+    assert_eq!(dir.snapshot(), before);
+}
+
+/// M7.M2 rest: the CK's type-ahead row selection (`ck-20261101-01` driving notes). With a
+/// row selected and no text box focused, typed letters select the first row whose name
+/// starts with them (case ignored) and show its `TES4`; a letter no row starts with leaves
+/// the selection where it was.
+#[test]
+fn typing_a_name_selects_its_row() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("typeahead");
+    let base = dir.write(
+        "Base.esm",
+        &with_author(plugin_bytes(&[], 1, &[0x800], 1.0), "KitAuthor"),
+    );
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+    click_row(&mut h, "Mine.esp");
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(2);
+    settle(&mut h);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    // The header is asked once the prefix settles (review M2 of D2).
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.run_steps(2);
+    settle(&mut h);
+    assert_in_view(&h, "Author: KitAuthor");
+    // A letter no row starts with, after a pause: the selection stays.
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.event(egui::Event::Text("z".into()));
+    h.run_steps(2);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(0));
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.event(egui::Event::Text("M".into()));
+    h.run_steps(2);
+    settle(&mut h);
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+}
+
+/// D2 review M2: type-ahead takes keys only while the dialog's list has the keyboard
+/// (a row clicked, as the CK's list takes its keys), never while focus is elsewhere (the
+/// Render Window flying on W/A/S/D, another window) or nowhere, whatever row was selected
+/// before; and a type-ahead selection asks for no `inspect` per key: the row's details are
+/// asked once, when the prefix settles.
+#[test]
+fn type_ahead_takes_keys_only_from_the_list() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("typeahead-focus");
+    let base = dir.write(
+        "Base.esm",
+        &with_author(plugin_bytes(&[], 1, &[0x800], 1.0), "KitAuthor"),
+    );
+    let mine = dir.write(
+        "Mine.esp",
+        &plugin_bytes(&["Base.esm"], 0, &[0x0100_0800], 3.0),
+    );
+    let load = Request::new("load", json!({"plugins": [base, mine], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    open_data_dialog(&mut h);
+    click_row(&mut h, "Mine.esp");
+    assert_eq!(h.state().app.shell.data_dialog.selected, Some(1));
+    // Focus moves away from the list (as a click into the Render Window does), the pointer
+    // leaves: `b` must not reach the dialog.
+    let ctx = h.ctx.clone();
+    ctx.memory_mut(|m| {
+        if let Some(id) = m.focused() {
+            m.surrender_focus(id);
+        }
+    });
+    h.remove_cursor();
+    h.run_steps(1);
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(2);
+    assert_eq!(
+        h.state().app.shell.data_dialog.selected,
+        Some(1),
+        "keys typed elsewhere stay elsewhere"
+    );
+    // Back in the list: `b` selects Base.esm, and no `inspect` goes out per key.
+    click_row(&mut h, "Mine.esp");
+    h.event(egui::Event::Text("b".into()));
+    h.run_steps(1);
+    let d = &h.state().app.shell.data_dialog;
+    assert_eq!(d.selected, Some(0));
+    assert!(d.details_pending.is_none(), "no inspect per key");
+    assert!(h.state().app.shell.tickets.is_empty(), "no inspect per key");
+    // The prefix settles: the details are asked once.
+    h.state_mut().app.shell.data_dialog.typeahead_at = -10.0;
+    h.run_steps(2);
+    settle(&mut h);
+    assert_in_view(&h, "Author: KitAuthor");
+}
+
+// ---- the six observed edit-dialog layouts (M7.W4, D6) ---------------------------------------
+
+/// A plugin with one record of each D6 type at FormIDs 0x800.. in this order: AMMO,
+/// COBJ, TERM, CONT, STAT, KYWD. Each has an `EDID` and a `FULL`; the AMMO also a `DATA`
+/// (Value 12, Weight 0.5).
+fn d6_plugin(types: &[&str]) -> Vec<u8> {
+    fn sub(sig: &[u8], data: &[u8]) -> Vec<u8> {
+        let mut v = sig.to_vec();
+        v.extend((data.len() as u16).to_le_bytes());
+        v.extend(data);
+        v
+    }
+    fn record(sig: &[u8], flags: u32, id: u32, body: &[u8]) -> Vec<u8> {
+        let mut r = sig.to_vec();
+        r.extend((body.len() as u32).to_le_bytes());
+        r.extend(flags.to_le_bytes());
+        r.extend(id.to_le_bytes());
+        r.extend([0u8; 4]);
+        r.extend(0x0200u16.to_le_bytes());
+        r.extend(0u16.to_le_bytes());
+        r.extend(body);
+        r
+    }
+    let mut hedr = Vec::new();
+    hedr.extend(0.96f32.to_le_bytes());
+    hedr.extend((types.len() as u32).to_le_bytes());
+    hedr.extend(0x900u32.to_le_bytes());
+    let mut out = record(b"TES4", 0, 0, &sub(b"HEDR", &hedr));
+    for (i, t) in types.iter().enumerate() {
+        let mut b = sub(b"EDID", format!("D6{t}\0").as_bytes());
+        if *t == "AMMO" {
+            // ODTY (DirtinessScale), where AMMO's definition places it: no AMMO label
+            // names it, so it shows on "Other".
+            b.extend(sub(b"ODTY", &0.25f32.to_le_bytes()));
+        }
+        b.extend(sub(b"FULL", format!("D6 {t} name\0").as_bytes()));
+        if *t == "AMMO" {
+            let mut data = 12u32.to_le_bytes().to_vec();
+            data.extend(0.5f32.to_le_bytes());
+            b.extend(sub(b"DATA", &data));
+            // DNAM AmmoData: Projectile (none), Flags 5, Unused, Damage 4, Health 7.
+            let mut dnam = 0u32.to_le_bytes().to_vec();
+            dnam.extend([5u8, 0, 0, 0]);
+            dnam.extend(4.0f32.to_le_bytes());
+            dnam.extend(7u32.to_le_bytes());
+            b.extend(sub(b"DNAM", &dnam));
+        }
+        let rec = record(t.as_bytes(), 0, 0x800 + i as u32, &b);
+        let mut grup = b"GRUP".to_vec();
+        grup.extend(((rec.len() + 24) as u32).to_le_bytes());
+        grup.extend(t.as_bytes());
+        grup.extend(0u32.to_le_bytes());
+        grup.extend([0u8; 8]);
+        grup.extend(rec);
+        out.extend(grup);
+    }
+    out
+}
+
+/// M7.W4 (D6): each of the six types opens in the edit dialog on its one observed page
+/// (named after the dialog's title), its labels in the record's order with the field path
+/// each edits, the unmapped labels listed read-only; AMMO's `Value` label edits the member
+/// `DATA.Value` in place (the change is the field path `set` would preview). Nothing is
+/// written.
+#[test]
+fn the_six_observed_layouts_open_in_the_edit_dialog() {
+    let Some(mut h) = workbench() else { return };
+    let dir = Scratch::new("d6");
+    let types = ["AMMO", "COBJ", "TERM", "CONT", "STAT", "KYWD"];
+    let plugin = dir.write("D6.esp", &d6_plugin(&types));
+    let before = dir.snapshot();
+    let load = Request::new("load", json!({"plugins": [plugin], "no_cache": true}));
+    h.state_mut()
+        .app
+        .apply(vec![Action::Submit(Slot::Load, load)]);
+    settle(&mut h);
+    let pages = [
+        ("AMMO", "Ammo", "Short name"),
+        ("COBJ", "Constructible Object", "Created Object Count"),
+        ("TERM", "Terminal", "Marker Model"),
+        ("CONT", "Container", "Item List"),
+        ("STAT", "Static", "Object Palette Defaults"),
+        ("KYWD", "Keyword", "Linkage Name"),
+    ];
+    for (i, (t, title, label)) in pages.into_iter().enumerate() {
+        let form = format!("D6.esp:{:06X}", 0x800 + i);
+        let app = &mut h.state_mut().app;
+        app.apply(vec![Action::Inspect(form.clone())]);
+        app.shell.set_open(WindowKind::EditDialog, true);
+        settle(&mut h);
+        assert_in_view(&h, &format!("D6{t}"));
+        assert_in_view(&h, &format!("{title} ("));
+        assert_in_view(&h, label);
+        // Each unmapped label is listed with its reason (below the fold for most types).
+        let o = crate::dialogs::layouts::observation(t).unwrap();
+        for (gap, why) in &o.gaps {
+            assert!(
+                !nodes_with(&h, gap).is_empty(),
+                "{t}: gap `{gap}` not listed"
+            );
+            assert!(
+                !nodes_with(&h, why).is_empty(),
+                "{t}: reason `{why}` not listed"
+            );
+        }
+    }
+    // AMMO: `Value` edits `DATA.Value` in place.
+    let form = "D6.esp:000800".to_string();
+    h.state_mut().app.apply(vec![Action::Inspect(form.clone())]);
+    settle(&mut h);
+    assert_in_view(&h, "DATA.Value");
+    let boxes = |h: &Bench, v: &str| -> usize {
+        h.query_all_by(|n| {
+            n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some(v)
+        })
+        .count()
+    };
+    assert_eq!(boxes(&h, "12"), 1, "one edit box for DATA.Value");
+    assert_eq!(boxes(&h, "0.5"), 1, "one edit box for DATA.Weight");
+    // D2-fix review L2: a flags member is never an edit box (its value shows read-only);
+    // the numbers beside it are.
+    assert_eq!(boxes(&h, "4.0"), 1, "DNAM.Damage edits");
+    assert_eq!(boxes(&h, "7"), 1, "DNAM.Health edits");
+    assert_eq!(boxes(&h, "5"), 0, "DNAM.Flags is read-only");
+    assert!(!nodes_with(&h, "DNAM.Flags").is_empty());
+    // D2-fix review L4: "Other" edits a number as any layout's fields do.
+    let other: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Other (")))
+        .collect();
+    assert_eq!(other.len(), 1, "one Other page");
+    other[0].click();
+    h.run_steps(3);
+    assert_eq!(boxes(&h, "0.25"), 1, "ODTY edits on Other");
+    let page: Vec<Node<'_>> = h
+        .query_all_by(|n| text_of(n).is_some_and(|t| t.starts_with("Ammo (")))
+        .collect();
+    page[0].click();
+    h.run_steps(3);
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
+    })
+    .next()
+    .expect("checked above")
+    .focus();
+    h.run_steps(2);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.run_steps(1);
+    h.query_all_by(|n| {
+        n.role() == egui::accesskit::Role::TextInput && n.value().as_deref() == Some("12")
+    })
+    .next()
+    .expect("still there")
+    .type_text("13");
+    h.run_steps(3);
+    let changed = crate::dialogs::edit::changed_fields(&h.ctx, &form).unwrap();
+    assert_eq!(changed.get("DATA.Value"), Some(&json!(13)), "{changed:?}");
+    assert_eq!(changed.len(), 1);
+    assert_eq!(dir.snapshot(), before, "nothing is written");
+}

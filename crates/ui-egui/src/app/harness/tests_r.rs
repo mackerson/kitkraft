@@ -44,7 +44,8 @@ fn bounds_env(form: &str, model: &str, bounds: Value, limitation: &str) -> Value
            "limitations": [limitation]})
 }
 
-/// Shows `env` as the Render Window's cell without sending its `mesh.bounds` requests:
+/// Shows `env` as the Render Window's cell without sending its `mesh.bounds` (or, M7.R4,
+/// `mesh.geometry`) requests:
 /// the test files the replies it means to test, whatever `App::receive` does with a
 /// refused one (ask A7). Returns how many bases were asked.
 fn quiet_cell(h: &mut Bench, env: &Value) -> usize {
@@ -53,6 +54,7 @@ fn quiet_cell(h: &mut Bench, env: &Value) -> usize {
     let none = render.receive_page(crate::viewport::cell::parse_page(env));
     assert!(none.is_none(), "one page");
     let asked = render.take_bounds_queue().len();
+    let _ = render.take_geometry_queue();
     h.run_steps(4);
     asked
 }
@@ -220,4 +222,62 @@ fn m7_r3_a_refused_mesh_bounds_request_answers_its_base() {
     assert_eq!(box_sources(&render.page_refs()), (0, 2, 1));
     assert!(!status_has(&h, "bases answered"));
     assert_wholly_in_view(&h, "2 base(s) without a model box");
+}
+
+/// M7.R4: a base's `mesh.geometry` reply draws its references as their mesh, and a base
+/// whose geometry is refused keeps its box with the reason, counted on the status line.
+#[test]
+fn m7_r4_meshes_replace_boxes_and_a_refused_base_is_a_limitation() {
+    use crate::viewport::mesh::tests::quad;
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    assert_eq!(quiet_cell(&mut h, &cell_env()), 2);
+    {
+        let render = &mut h.state_mut().app.render;
+        render.receive_geometry(&quad("T.esm:000800"));
+        render.geometry_failed(
+            &crate::panels::render::geometry_request("T.esm:000801"),
+            "Markers/Idle.nif has no geometry block",
+        );
+    }
+    h.run_steps(4);
+    let render = &h.state().app.render;
+    assert_eq!(
+        render.viewport.mesh_counts().0,
+        2,
+        "both crates drawn as the quad"
+    );
+    assert!(status_has(&h, "2 drawn as their mesh"));
+    assert!(status_has(&h, "2 limitation(s) on the others"));
+    assert_wholly_in_view(&h, "2 mesh limitation(s)");
+}
+
+/// Review H1 of M7.R4: with the gate open (ask A-R4), the meshes' progress line must not
+/// read as the model boxes' "bases answered" line, which the R3 tests assert is gone once
+/// every box is in.
+#[test]
+fn m7_r4_the_meshes_line_is_not_the_model_boxes_line() {
+    let Some(mut h) = workbench() else { return };
+    open_tab(&mut h, Tab::Render);
+    assert_eq!(quiet_cell(&mut h, &cell_env()), 2);
+    {
+        let render = &mut h.state_mut().app.render;
+        render.assume_geometry_asked();
+        render.receive_bounds(&bounds_env(
+            "T.esm:000800",
+            "Test/Crate.nif",
+            json!({"min": [-2.0, -2.0, 0.0], "max": [2.0, 2.0, 3.0]}),
+            "a note",
+        ));
+        render.receive_bounds(&bounds_env(
+            "T.esm:000801",
+            "Markers/Idle.nif",
+            Value::Null,
+            "no bound in the model: it has no geometry block",
+        ));
+    }
+    h.run_steps(4);
+    assert_eq!(h.state().app.render.bounds_progress(), (2, 2));
+    assert!(status_has(&h, "0 of 2 geometry replies in"));
+    assert!(!status_has(&h, "bases answered"));
 }

@@ -121,6 +121,7 @@ impl Tab {
             | Slot::EditorWrite
             | Slot::EditorValidate => Tab::Records,
             Slot::MeshBounds => Tab::Render,
+            Slot::MeshGeometry => Tab::Render,
         }
     }
 }
@@ -849,6 +850,8 @@ impl App {
                     }
                     // Pipeline R's NIF box for the Render Window (M7.S4, M7.R3).
                     Slot::MeshBounds => self.render.receive_bounds(env),
+                    // Pipeline R's wireframe and flat-shaded geometry (M7.R4; step 0 seam).
+                    Slot::MeshGeometry => self.render.receive_geometry(env),
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.
@@ -864,6 +867,11 @@ impl App {
             // Pipeline R (M7.R3, ask A7): a refused base keeps its `OBND`, with the reason.
             if let Some(e) = reply.result.as_ref().err() {
                 self.render.bounds_failed(&reply.request, &e.to_string());
+            }
+        } else if slot == Slot::MeshGeometry {
+            // Pipeline R (M7.R4): a base whose geometry is refused keeps its box.
+            if let Some(e) = reply.result.as_ref().err() {
+                self.render.geometry_failed(&reply.request, &e.to_string());
             }
         } else if matches!(
             slot,

@@ -569,7 +569,11 @@ revisited once a sitting observes how the CK docks. Code:
   did not load, active plugins with no file), the `load` limitations, and the Validate
   tab's last `validate` findings, one list with severity as glyph and word, a text filter,
   severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
-  double-click a finding to inspect its record.
+  double-click a finding to inspect its record. Its columns (sprint 2026-11-09) are the
+  ones the CK's Warnings window showed in `ck-20261101-01`, in its order (Time, Type,
+  Form, Form ID, File, Last User, Current User, Last Touched, Text, Source File, Line
+  Number), with "-" where KitKraft has no value, then KitKraft's own "Check" (`load` or
+  `validate <rule>`); copy writes the same columns.
 - **Data dialog (M7.M2)**: View > Data Dialog. The session's load order (the Load tab's
   `load`) and the plugins its profile lists but does not activate, each with its status as
   the CK names it ("Master File", "Plugin File", "Active File") and a tick: a double-click
@@ -596,17 +600,27 @@ revisited once a sitting observes how the CK docks. Code:
   2026-11-02; KitKraft's addition, the CK's Data dialog has no such field) take a new or
   existing `.esp` or `.esm` outside the load order as the active file: a full path, not
   an official master's name, not inside a Starfield Data folder (the game's or
-  `My Games\Starfield\Data`) or an MO2 instance, not master-flagged (an existing file's
-  `TES4` is read with `inspect`); a new file is created by the editor's first write. The
-  engine's output guard has the final word. Once such a file is loaded as the last plugin
+  `My Games\Starfield\Data`) or an MO2 instance; a new file is created by the editor's
+  first write. A master-flagged file of the owner's own is taken here (P1 of sprint
+  2026-11-09, following owner ruling 2026-11-07 item 3), a listed one typed in included:
+  an existing file's `TES4` is read with `inspect`, and a master-flagged choice shows a
+  note that, while it is in the load order, the engine writes it in place only as the
+  last plugin of a plugin list, after master-flagged plugins only, and named as a master
+  by none (A6). The list keeps the
+  CK's rule ("Set as Active File" refuses a master-flagged row). The engine's output
+  guard has the final word. Once such a file is loaded as the last plugin
   of the order, `set`, `new` and `clone` keep writing into it (A6, owner decision
   2026-11-05): the editor names it as the active file, and the engine re-reads the load
   order after each write. Loaded anywhere else in the order, or from a profile, it is
   refused; `place`, `build` and `revert` refuse it once loaded.
   Observed and reproduced: the statuses, the double-click tick, "Set as Active File", OK,
   the master refusal. KitKraft's own until a sitting observes the CK's: the details pane,
-  the boxes, "No Active File", "Cancel", the "Active file:" line; the CK's type-ahead row
-  selection is not built.
+  the boxes, "No Active File", "Cancel", the "Active file:" line. Type-ahead (sprint
+  2026-11-09): while the list has the keyboard (a row was clicked; never from a text box,
+  the Render Window or another window), typed letters select the first row whose name
+  starts with them, case ignored; a pause of more than a second starts a new prefix, and
+  the selected row's header is asked once the prefix settles, not per key (the CK selects
+  rows this way, `ck-20261101-01`; its timing was not observed).
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.
@@ -621,16 +635,47 @@ revisited once a sitting observes how the CK docks. Code:
   selection changes (a pick in the Render Window shows in the list). "Show in
   Render Window" loads the cell in the Render Window tab, which the shell brings
   to the front; when the Render Window shows a different cell, a "Show this cell"
-  button follows it (KK-037).
+  button follows it (KK-037). As `ck-20261101-03` observed the CK's (sprint 2026-11-09):
+  a "Cell Filter" box above the left list keeps the rows whose EditorID or form contains
+  its text, case ignored (the rows loaded so far: a paged list filters what it has); a
+  row's tooltip names it as `'EditorID' (form)`, with the engine's formref where the CK
+  shows a FormID; a double-click on a cell loads it in the Render Window, as "Show in
+  Render Window" does, while a world or "Interior" opens on a click or a double-click.
 - **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
-  LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
+  LCTN, TERM, FACT, PKIN, CELL, REFR, AMMO, COBJ, CONT, STAT, KYWD ship now); any other type gets a default layout
   built from its `schema` (one group per schema group). Every tab and group name is
   KitKraft's own and marked "built, unobserved" until sitting 2 (M7.O3) (its parity
   row has that status, ADR 0012 Amendment 1); labels are the
   schema's member names with the signature beside them; a subrecord the layout does not
   place shows on an "Other" tab. OK stays disabled until M7.E2 lands (the owner accepted
   ADR 0007 Amendment 4 with model A on 2026-11-01, M7.O4).
+  Sitting 2 (`ck-20261102-03`) recorded the labels of seven of these dialogs, held in
+  `crates/ui-egui/layouts/sitting2.toml`. M7.K4 (sprint 2026-11-09) maps each label to
+  the `set` field path it edits (`map`, 105 labels) or names it as a gap with its reason
+  (`gaps`, 93: buttons, the columns of PRPS lists, which `set` takes whole, captions,
+  record header flags, which `set` does not edit, members the schema lacks, and labels the
+  sitting did not tie to one field); the
+  members test `dialogs::layouts::tests::every_observed_label_is_mapped_or_reported_as_a_gap`
+  pins both, and the edit dialog's header names the counts.
+  Six of them are drawn by label since D6 (sprint 2026-11-09, M7.W4): AMMO, COBJ, CONT,
+  STAT, KYWD and TERM are one page each, named after the dialog's observed title, one
+  line per mapped label in the record's order with the field path it edits and its value;
+  a whole subrecord edits in place as above, and a numeric member inside a struct
+  (`DATA.Value`) too; flags and enums, which the engine shows as raw numbers, stay
+  read-only (`dialogs::layouts::NOT_NUMBERS`, pinned against the schema), on the label
+  lines and on "Other" alike. A field whose signature a base-form component block of the record
+  also holds is read-only (`set` counts `SIG[n]` across the whole record). The unmapped
+  labels sit among them in the observed order, read-only, with their reasons, and what no
+  label shows goes to "Other".
+  All six pages say observed: the sitting recorded no tab control for any of them
+  (`ck-20261102-03`, rows S2-02 to S2-08 as amended).
+  REFR's layout (D7) follows the Reference dialog `ck-20261101-03` observed: its tabs are
+  the CK's tab names in the CK's order (those no schema member holds left out), "3D Data"
+  first with the four fields the CK shows above its tabs, then Position and Rotation X,
+  Y, Z (rotation in radians, as stored, and read-only: the CK edits degrees) and Scale; each other tab
+  holds the one field named after it. It says unobserved: only "3D Data"'s contents were
+  seen.
 
 ## Screenshot tour (development aid)
 

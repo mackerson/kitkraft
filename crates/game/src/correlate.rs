@@ -51,6 +51,18 @@
 //! are re-sent; the row keeps the diverted failure as an inconclusive part, so a later line
 //! for the request cannot make it a pass.
 //!
+//! The readiness poll the controller sends after a `load` (`GetSFSEVersion`) is a request
+//! too ([`Correlator::open_poll`], one that names nothing): its replies are routed by these
+//! rules, so a late failure or getter line arriving in one is never dropped, and a failure
+//! line left with the poll is the `load`'s, late (G ticket 3b, ruling R28).
+//!
+//! A failure only a `load` prints (`Save file not found.`, [`is_load_failure`]) arriving in
+//! the reply to anything but a `load` goes to the `load` requests sent since the newest
+//! answered request, and to no other request (ruling R41): a `load` that worked prints
+//! nothing, so its failure line is the only answer it can have, and in send order it comes
+//! before any later request's line. With one candidate, that `load` counts as answered.
+//! When there is no such `load`, the rules above apply.
+//!
 //! The send-order assumption is the owner's ruling of 2026-11-07 (`plan/STATUS.md`, "Owner
 //! rulings, 2026-11-07 (midday)", item 2), drawn from `game-20261103-04` and `-08`; no
 //! session has yet been designed to test it. The rows it decides are those where a failure
@@ -194,7 +206,10 @@ pub struct Request {
     /// The command.
     pub command: String,
     subject: Option<Subject>,
-    /// A failure line in its own reply stayed with it: it was answered (send order).
+    /// A `load`: its first word is the profile's load verb (review R41 L2).
+    load: bool,
+    /// A failure line in its own reply stayed with it, or its answer is otherwise known to
+    /// have arrived: it was answered (send order).
     failed_here: bool,
     /// How many times it was sent (each send may bring one answer, late or not).
     pub sent: usize,
@@ -222,6 +237,12 @@ impl Request {
 
     fn is_getter(&self) -> bool {
         matches!(self.subject, Some(Subject::Getter { .. }))
+    }
+
+    /// A `load` (its answer, if any, is a failure line only a `load` prints; R41): its first
+    /// word is the load verb of the profile's `load_command` ([`Correlator::new`]).
+    pub fn is_load(&self) -> bool {
+        self.load
     }
 
     /// A getter still waiting for an answer to one of its sends.
@@ -279,6 +300,14 @@ fn failure_item(line: &str) -> Option<String> {
     quoted("item ", '\'').or_else(|| quoted("script command ", '"'))
 }
 
+/// Whether `line` is a failure only a `load` prints (`Save file not found.`; R41).
+pub fn is_load_failure(line: &str) -> bool {
+    let l = line.to_ascii_lowercase();
+    let w: Vec<&str> = l.split_whitespace().collect();
+    w.windows(3).any(|x| x == ["save", "file", "not"])
+        && crate::probes::console_failure("", line).is_some()
+}
+
 /// Whether `command` names `item` (lowercased) as a whole word or as its quoted text.
 fn names_item(command: &str, item: &str) -> bool {
     let c = command.to_ascii_lowercase();
@@ -288,12 +317,34 @@ fn names_item(command: &str, item: &str) -> bool {
 }
 
 /// Every request of a session, and the lines that answer each.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Correlator {
     requests: Vec<Request>,
+    /// The first word of the profile's `load_command`, lowercased (review R41 L2).
+    load_verb: String,
+}
+
+impl Default for Correlator {
+    /// A correlator for a profile whose saves load with `load <save>` (Starfield's).
+    fn default() -> Correlator {
+        Correlator::new("load {save}")
+    }
 }
 
 impl Correlator {
+    /// A correlator for a profile whose `load_command` is `load_command` (`load {save}`):
+    /// a request whose first word is that verb is a `load` (ruling R41).
+    pub fn new(load_command: &str) -> Correlator {
+        Correlator {
+            requests: Vec::new(),
+            load_verb: load_command
+                .split_whitespace()
+                .next()
+                .unwrap_or_default()
+                .to_ascii_lowercase(),
+        }
+    }
+
     /// Opens a request (sent once); returns its id.
     pub fn open(&mut self, row: &str, step: usize, command: &str) -> usize {
         self.requests.push(Request {
@@ -301,6 +352,11 @@ impl Correlator {
             step,
             command: command.trim().to_string(),
             subject: subject(command),
+            load: !self.load_verb.is_empty()
+                && command
+                    .split_whitespace()
+                    .next()
+                    .is_some_and(|w| w.eq_ignore_ascii_case(&self.load_verb)),
             failed_here: false,
             sent: 1,
             lines: Vec::new(),
@@ -312,10 +368,31 @@ impl Correlator {
         self.requests.len().saturating_sub(1)
     }
 
+    /// Opens the readiness poll sent for a row's step after a `load` (G ticket 3b, ruling
+    /// R28) as a request whose answer names nothing. `GetSFSEVersion` would parse as a
+    /// getter whose `SFSE version` line it never claims, and a getter left waiting would hand
+    /// every later failure line to the send-order rule. Its replies are routed like any
+    /// other, so a late line in them reaches the request it names.
+    pub fn open_poll(&mut self, row: &str, step: usize, command: &str) -> usize {
+        let id = self.open(row, step, command);
+        if let Some(r) = self.requests.get_mut(id) {
+            r.subject = None;
+        }
+        id
+    }
+
     /// Request `id` was sent again.
     pub fn resend(&mut self, id: usize) {
         if let Some(r) = self.requests.get_mut(id) {
             r.sent = r.sent.saturating_add(1);
+        }
+    }
+
+    /// Request `id`'s answer is known to have arrived, though no line names it (send order:
+    /// a line answering a request sent after it arrived; ruling R41).
+    pub fn settle(&mut self, id: usize) {
+        if let Some(r) = self.requests.get_mut(id) {
+            r.failed_here = true;
         }
     }
 
@@ -366,6 +443,26 @@ impl Correlator {
             Some(_) => (from..id).collect(),
             None => Vec::new(),
         }
+    }
+
+    /// Whether a `load` sent so far has no answer known to have arrived (review R41 M1).
+    pub fn loads_pending(&self) -> bool {
+        !self.loads_before(self.requests.len()).is_empty()
+    }
+
+    /// The `load` requests sent before `id` whose answer is not known to have arrived: every
+    /// one since the newest answered request (ruling R41). A `load` that worked prints
+    /// nothing, so its failure line, the only answer it has, may come in any later reply;
+    /// once a request sent after it has its own line, send order says it came already.
+    fn loads_before(&self, id: usize) -> Vec<usize> {
+        let from = self
+            .requests
+            .iter()
+            .rposition(|r| !r.lines.is_empty() || r.failed_here)
+            .map_or(0, |a| a.saturating_add(1));
+        (from..id)
+            .filter(|i| self.requests.get(*i).is_some_and(Request::is_load))
+            .collect()
     }
 
     /// `line` without the echoes: the reply's own first, then any other command's.
@@ -428,7 +525,35 @@ impl Correlator {
                 // line (fix review FR2 to FR4), and so may every request spelling its item
                 // (fix review S1, RP1 to RP3); each candidate is re-opened.
                 let item = failure_item(&line);
-                let before = self.unanswered_before(id);
+                // R41: a failure only a `load` prints, in the reply to anything but a
+                // `load`, is the failure of a `load` still unanswered, and of no other
+                // request: those loads are its candidates.
+                let own_load = self.requests.get(id).is_some_and(Request::is_load);
+                let loads = if is_load_failure(&line) && !own_load {
+                    let pending = self.loads_before(id);
+                    if pending.is_empty() {
+                        // Review R41 M2: no `load` is pending, yet only a `load` prints this
+                        // line: every earlier `load` may own it, never a getter.
+                        (0..id)
+                            .filter(|i| self.requests.get(*i).is_some_and(Request::is_load))
+                            .collect()
+                    } else {
+                        pending
+                    }
+                } else {
+                    Vec::new()
+                };
+                if let [one] = loads.as_slice() {
+                    // The one candidate: its answer has arrived (send order).
+                    if let Some(r) = self.requests.get_mut(*one) {
+                        r.failed_here = true;
+                    }
+                }
+                let before = if loads.is_empty() {
+                    self.unanswered_before(id)
+                } else {
+                    loads
+                };
                 let others: Vec<usize> = match item.as_ref() {
                     _ if !before.is_empty() => {
                         let mut all = before;
@@ -563,6 +688,24 @@ impl Correlator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Review R41 L2: a request is a `load` by the profile's load verb, not the word `load`.
+    #[test]
+    fn a_load_is_the_profiles_load_verb() {
+        let mut c = Correlator::new("loadgame {save}");
+        let l = c.open("T-01", 0, "loadgame KitKraftSession-1");
+        let g = c.open("T-01", 1, "player.getpos x");
+        let r = c.route(
+            g,
+            "player.getpos x
+Save file not found.",
+        );
+        assert_eq!(r.failures.first().map(|x| x.0), Some(l), "{r:?}");
+        assert!(c.request(l).is_some_and(Request::is_load));
+        let mut d = Correlator::default();
+        let n = d.open("T-01", 0, "loadgame KitKraftSession-1");
+        assert!(!d.request(n).is_some_and(Request::is_load));
+    }
 
     #[test]
     fn subjects_come_from_help_terms_and_getters() {

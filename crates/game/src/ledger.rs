@@ -179,6 +179,62 @@ pub fn render(e: &Entry) -> String {
     s
 }
 
+/// The row table of entry `id` in `ledger` (the text of `docs/game-observations.md`):
+/// `(row, label)` from its Result column, `label` being `pass`, `fail`, `inconclusive` or
+/// `not-run` (a Result is rendered `**pass**` or `<label> (<reason>)`). `None` when the
+/// entry or its table is not there.
+pub fn row_labels(ledger: &str, id: &str) -> Option<Vec<(String, String)>> {
+    let head = format!("### {id}:");
+    // Only this entry's lines: up to the next entry's heading (review L2 of M4.T7).
+    let mut lines = ledger
+        .lines()
+        .skip_while(|l| !l.starts_with(&head))
+        .skip(1)
+        .take_while(|l| !l.starts_with("### "));
+    lines.by_ref().find(|l| l.starts_with("| Row | Step |"))?;
+    let mut out = Vec::new();
+    for line in lines.skip(1) {
+        if !line.starts_with('|') {
+            break;
+        }
+        let cells = table_cells(line);
+        let (Some(row), Some(result)) = (cells.first(), cells.get(5)) else {
+            continue;
+        };
+        let label = result
+            .trim()
+            .trim_matches('*')
+            .split(|c: char| c.is_whitespace() || c == '(')
+            .next()
+            .unwrap_or_default()
+            .to_string();
+        out.push((row.trim().to_string(), label));
+    }
+    Some(out)
+}
+
+/// The cells of one table line, `\|` kept as a literal bar.
+fn table_cells(line: &str) -> Vec<String> {
+    let mut cells = Vec::new();
+    let mut cur = String::new();
+    let mut chars = line.trim().chars().peekable();
+    // The line's leading bar opens the first cell.
+    if chars.peek() == Some(&'|') {
+        chars.next();
+    }
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if chars.peek() == Some(&'|') => {
+                chars.next();
+                cur.push('|');
+            }
+            '|' => cells.push(std::mem::take(&mut cur)),
+            _ => cur.push(c),
+        }
+    }
+    cells
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

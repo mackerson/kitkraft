@@ -4,6 +4,12 @@
 //! envelope the window already holds: the `load` view (missing and late masters, plugin
 //! errors, active plugins with no file) with its limitations, and the Validate tab's
 //! last `validate` findings. Severity is glyph, word and color (`theme::status`).
+//!
+//! M7.M4 rest (sprint 2026-11-09, D4): the list has the columns the CK's Warnings window
+//! showed in `ck-20261101-01` (`docs/ck-observations.md`), in its order, with "-" where
+//! KitKraft has no value (time, users, the CK's own source file and line), then one
+//! column of KitKraft's own, "Check" (`load` or `validate <rule>`), since the CK's
+//! "Source File" names its own code, not a check. Copy writes the same columns.
 
 use crate::panels::load::LoadView;
 use crate::panels::validate::ValidateView;
@@ -139,6 +145,56 @@ pub fn rows(
     out
 }
 
+/// The CK's Warnings columns, as `ck-20261101-01` recorded them, in order.
+pub const CK_COLUMNS: [&str; 11] = [
+    "Time",
+    "Type",
+    "Form",
+    "Form ID",
+    "File",
+    "Last User",
+    "Current User",
+    "Last Touched",
+    "Text",
+    "Source File",
+    "Line Number",
+];
+
+/// KitKraft's own column after the CK's: which check found the row.
+pub const CHECK_COLUMN: &str = "Check";
+
+/// What a cell shows where KitKraft has no value.
+pub const NO_VALUE: &str = "-";
+
+impl WarningRow {
+    /// The row's cells under [`CK_COLUMNS`], then [`CHECK_COLUMN`]: Type is the severity,
+    /// Form ID the record's formref, File its plugin (the plugin itself for a plugin
+    /// row), Text the message; Time, Form (an EditorID; the row holds a formref only),
+    /// the users, Last Touched, Source File and Line Number have no KitKraft value.
+    pub fn cells(&self) -> [String; 12] {
+        let dash = || NO_VALUE.to_string();
+        let (form_id, file) = match self.record.split_once(':') {
+            Some((plugin, _)) => (self.record.clone(), plugin.to_string()),
+            None if self.record.is_empty() => (dash(), dash()),
+            None => (dash(), self.record.clone()),
+        };
+        [
+            dash(),
+            self.severity.word().to_string(),
+            dash(),
+            form_id,
+            file,
+            dash(),
+            dash(),
+            dash(),
+            self.message.clone(),
+            dash(),
+            dash(),
+            self.source.clone(),
+        ]
+    }
+}
+
 /// The window's filter: text (in any column) and which severities show.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Filter {
@@ -175,17 +231,21 @@ impl Filter {
     }
 }
 
-/// The rows as tab-separated text with a header, for the clipboard.
+/// The rows as tab-separated text with a header (the window's columns), for the
+/// clipboard.
 pub fn copy_text<'a>(rows: impl Iterator<Item = &'a WarningRow>) -> String {
-    let mut out = String::from("severity\tsource\trecord\tmessage\n");
+    let mut out = CK_COLUMNS.join("\t");
+    out.push('\t');
+    out.push_str(CHECK_COLUMN);
+    out.push('\n');
     for r in rows {
-        out.push_str(&format!(
-            "{}\t{}\t{}\t{}\n",
-            r.severity.word(),
-            r.source,
-            r.record,
-            r.message.replace(['\t', '\n'], " ")
-        ));
+        let cells: Vec<String> = r
+            .cells()
+            .iter()
+            .map(|c| c.replace(['\t', '\n'], " "))
+            .collect();
+        out.push_str(&cells.join("\t"));
+        out.push('\n');
     }
     out
 }
@@ -298,18 +358,30 @@ impl WarningsState {
             .max_height(theme::view_height(ui, View::Tall))
             .show_rows(ui, row_h, shown.len(), |ui, range| {
                 theme::table(ui, "warnings-grid").show(ui, |ui| {
-                    for h in ["severity", "source", "record", "message"] {
+                    for h in CK_COLUMNS {
                         ui.strong(h);
                     }
+                    ui.strong(CHECK_COLUMN)
+                        .on_hover_text("KitKraft's own column: the check that found the row");
                     ui.end_row();
                     for r in shown.get(range).unwrap_or_default() {
+                        let [time, _, form, form_id, file, last, current, touched, text, src, line, check] =
+                            r.cells();
+                        ui.weak(time);
                         let status = theme::status(ui, r.severity.status(), r.severity.word());
-                        ui.monospace(&r.source);
+                        ui.weak(form);
                         let rec = ui.add(
-                            egui::Label::new(egui::RichText::new(&r.record).monospace())
+                            egui::Label::new(egui::RichText::new(form_id).monospace())
                                 .sense(egui::Sense::click()),
                         );
-                        let msg = ui.add(egui::Label::new(&r.message).sense(egui::Sense::click()));
+                        ui.monospace(file);
+                        for c in [last, current, touched] {
+                            ui.weak(c);
+                        }
+                        let msg = ui.add(egui::Label::new(text).sense(egui::Sense::click()));
+                        ui.weak(src);
+                        ui.weak(line);
+                        ui.monospace(check);
                         ui.end_row();
                         if let Some(form) = &r.inspect {
                             let hover = "double-click: inspect the record";
@@ -402,7 +474,81 @@ mod tests {
         let text = copy_text(kept.into_iter());
         assert_eq!(
             text,
-            "severity\tsource\trecord\tmessage\nerror\tvalidate links\tPatch.esp:000801\tKWDA: names a missing form\n"
+            "Time\tType\tForm\tForm ID\tFile\tLast User\tCurrent User\tLast Touched\tText\tSource File\tLine Number\tCheck\n-\terror\t-\tPatch.esp:000801\tPatch.esp\t-\t-\t-\tKWDA: names a missing form\t-\t-\tvalidate links\n"
+        );
+    }
+
+    /// M7.M4 rest (D4): the columns are the ones `ck-20261101-01` recorded, in its order
+    /// (read from `docs/ck-observations.md`), then KitKraft's "Check"; a record row fills
+    /// Type, Form ID, File and Text, a plugin row File, a limitation only Type and Text;
+    /// every other cell is "-".
+    #[test]
+    fn the_columns_are_the_cks_with_a_dash_where_kitkraft_has_none() {
+        let doc = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .ancestors()
+                .nth(2)
+                .unwrap()
+                .join("docs")
+                .join("ck-observations.md"),
+        )
+        .unwrap();
+        let (_, after) = doc
+            .split_once("Warnings window then held 1,590 rows (")
+            .expect("the record");
+        let (list, _) = after.split_once(')').unwrap();
+        let recorded: Vec<&str> = list.split(", ").collect();
+        assert_eq!(recorded, CK_COLUMNS);
+        let rows = rows(
+            Some(&load_view()),
+            &["a limitation".to_string()],
+            Some(&validate_view()),
+            "Patch.esp",
+        );
+        let record = rows
+            .iter()
+            .find(|r| r.record == "Patch.esp:000801")
+            .unwrap();
+        assert_eq!(
+            record.cells(),
+            [
+                "-",
+                "error",
+                "-",
+                "Patch.esp:000801",
+                "Patch.esp",
+                "-",
+                "-",
+                "-",
+                "KWDA: names a missing form",
+                "-",
+                "-",
+                "validate links"
+            ]
+        );
+        let plugin = &rows[0];
+        assert_eq!(plugin.cells()[3], "-");
+        assert_eq!(plugin.cells()[4], "Patch.esp");
+        let lim = rows
+            .iter()
+            .find(|r| r.severity == Severity::Limitation)
+            .unwrap();
+        assert_eq!(
+            lim.cells(),
+            [
+                "-",
+                "limitation",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "a limitation",
+                "-",
+                "-",
+                "load"
+            ]
         );
     }
 }
