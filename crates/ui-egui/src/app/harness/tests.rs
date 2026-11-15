@@ -784,3 +784,38 @@ fn audit_a6_ck_windows_open_without_overlap() {
         }
     }
 }
+
+/// Audit A7 (principle 6): a long plugin path in the Cockpit's single-line field is
+/// readable in full: the field's hover text is the whole value, and a weak line under
+/// the field shows the path wrapped, in view and no wider than the viewport.
+#[test]
+fn audit_a7_a_long_plugin_path_is_readable() {
+    let Some(mut h) = workbench() else { return };
+    // More than 160 characters, ending in the plugin's name.
+    let path = "D:\\Starfield\\Data\\Mods\\0000_a_mod_with_an_exceedingly_long_folder_name_chosen_to_test_the_readability_of_long_paths_in_the_workbench\\out\\built\\KitKraftAVeryLongPluginName.esm";
+    assert!(path.len() > 160);
+    h.state_mut().app.cockpit.pick(path);
+    open_tab(&mut h, Tab::Cockpit);
+    // The weak line is the Label whose text is the whole path itself: the field is a
+    // text input (its AccessKit value already holds the path, cut or not), and the
+    // ledger row only names the path inside a longer sentence, so the exact text is
+    // what picks out the weak line.
+    let lines: Vec<Node> = h
+        .query_all_by(|n| {
+            n.role() == egui::accesskit::Role::Label && text_of(n).as_deref() == Some(path)
+        })
+        .collect();
+    assert!(
+        !lines.is_empty(),
+        "no weak line shows the whole path under the field\n{}",
+        visible_text(&h)
+    );
+    for n in &lines {
+        assert!(in_view(n), "the weak line is not in view: {:?}", n.rect());
+        assert!(
+            n.rect().width() <= viewport().width(),
+            "the weak line is wider than the viewport: {:?}",
+            n.rect()
+        );
+    }
+}
