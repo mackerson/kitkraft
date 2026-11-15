@@ -69,6 +69,8 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "PlanetContentProperties" => &["BGSPlanetContentManagerContentProperties_Component"],
         "QualityUpgrade" => &["BGSQualityUpgrade_Component"],
         "SoundTag" => &["BGSSoundTag_Component"],
+        // Upstream's keyword layout carries no name comment; the corpus has it only here.
+        "Keywords" => &["BGSKeywordForm_Component"],
         "ParticleSystem" => &["ParticleSystem_Component"],
         // Upstream lists five names on the REFL layout; the corpus has the same one-REFL
         // body under two more names (ReflectionProbes, SpacePhysics).
@@ -249,18 +251,22 @@ fn component_layouts_full() {
         return;
     };
     let t = scan(&dir, &ALL);
-    // The counts common/BfcbBlock.toml cites (2026-10-15; round 4 layouts 2026-10-16).
+    // The counts common/BfcbBlock.toml cites (2026-10-15; round 4 layouts 2026-10-16;
+    // Keywords KK-282, 2026-11-15). Recounted 2026-11-15: the record types typed since
+    // round 4 (KK-2xx) carry 93 more animation graph, 1 more contact shadow, 1,188 more
+    // particle system and 1,150 more reflection blocks; the old counts were stale.
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
         [
-            ("AnimationGraph", 4_760),
-            ("ContactShadow", 147_486),
+            ("AnimationGraph", 4_853),
+            ("ContactShadow", 147_487),
             ("DisplayCase", 156),
-            ("ParticleSystem", 1_545),
+            ("Keywords", 83_015),
+            ("ParticleSystem", 2_733),
             ("PlanetContentProperties", 1_272),
             ("QualityUpgrade", 216),
-            ("Reflection", 8_501),
+            ("Reflection", 9_651),
             ("SoundTag", 966),
         ]
     );

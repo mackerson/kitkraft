@@ -552,6 +552,13 @@ fn stat_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STAT", "DisplayCase", "BGSDisplayCase");
 }
 
+// KK-282: the keyword component layout (a STAT's keywords live in it); STAT has no
+// keyword list of its own, so the KSIZ/KWDA the plan writes select the layout.
+#[test]
+fn stat_keywords_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STAT", "Keywords", "BGSKeywordForm_Component");
+}
+
 #[test]
 fn pkin_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
@@ -940,6 +947,18 @@ fn stat_dangling_link_is_reported() {
             ("DEFL", json!(MISSING)),
         ],
         &["SNTP", "SNBH", "DEFL"],
+    );
+}
+
+// KK-282: a keyword inside the keyword component block is visited like any other.
+#[test]
+fn stat_keywords_dangling_link_is_reported() {
+    dangling(
+        "STAT",
+        "Keywords",
+        "BGSKeywordForm_Component",
+        &[("KWDA", json!([MISSING]))],
+        &["KWDA"],
     );
 }
 
