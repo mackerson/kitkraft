@@ -35,6 +35,8 @@
 #   - `LightLayer` (a lone FLLD, L6682-L6685) and `PlanetModel` (MODL, FLLD, XMPM kept
 #     opaque, ring strings, L6619-L6635; KK-285, 2026-11-15): TESPlanetModel_Component and
 #     TESModel_Component; LightLayer sits before PlanetModel (see its note).
+#   - `PropertySheet` (one PRPS of the shared PropertyValue entries, L6199-L6202; KK-286,
+#     2026-11-15): BGSPropertySheet_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -295,6 +297,25 @@ note = "number of conditions that follow; stored, not derived"
 group_ref = "Condition"
 name = "Conditions"
 card = "repeated"
+
+[[member]]
+group = "PropertySheet"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6199-L6202"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 2,064 BGSPropertySheet_Component blocks with data of the 14 official ESMs (all GBFM; 1,812 more blocks of the name are empty) each hold one PRPS, a whole number of 12-byte properties; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSPropertySheet_Component: actor value properties of a generic base form (ship modules)"
+
+[[member.member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
+card = "optional"
 
 [[member]]
 group = "QualityUpgrade"
