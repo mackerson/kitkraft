@@ -1,0 +1,132 @@
+# Written 2026-11-15 in the shape of KK-244 and KK-245 (depth tickets the local agent finished).
+id = "KK-290"
+title = "Type WWED (WwiseEventData) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/schema/defs/WWED.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/wwed_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+`WWED` (WwiseEventData, the Wwise event data record that a sound reference's start form
+points at; 681 official records, 4 signatures in the corpus: 1 typed, 3 opaque, 0 unknown)
+has an inventory definition: `crates/schema/defs/WWED.toml`. Only `EDID` is typed; `WSED`
+(in 678 of 681 records, 16 bytes), `WTED` (97 records, 16 bytes) and `CNAM` (4 records, 4
+bytes) are `opaque`. Its xEdit definition is at `L19037-L19044` of the pinned file. Parity
+target: the first `WWED` row of `docs/record-parity.md` (the per-type table, columns
+records, ..., signatures, typed, opaque, unknown) must show at least 2 typed (today 1) and
+0 unknown (today 0).
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source
+to cite): EDID; VMAD (script attachment); the base form component block; `WSED`, a Wwise
+event GUID named 'Start'; `CNAM`, a FormID of a `CNDF` (condition form) named 'Condition';
+`WTED`, a Wwise event GUID named 'End'. Type them so:
+
+- `EDID` stays as it is.
+- `CNAM`: `type = "formid"`, `targets = ["CNDF"]`, named `Condition`. This is the member
+  that makes WWED typed: its 4 bytes are a FormID in every official record.
+- `WSED` and `WTED`: name them `StartEvent` and `EndEvent`, `size = 16`, and keep them
+  `opaque` with a `note` that says "kept raw" and why: the pinned files declare a Wwise
+  GUID type but give it no field layout (the type lives in an xEdit unit we do not read),
+  and every Wwise GUID in this repo stays raw (`crates/schema/defs/common/SoundReference.toml`
+  `StartEvent`/`StopEvent`, `SECH.toml` `ECTE`, `ARMO.toml` `AVSG`). Do not invent a
+  layout for them.
+- `VMAD` and the base form component block: no official WWED record has either (the corpus
+  test will confirm it), so leave both out, as KK-225 did for AVIF's component block, and
+  say so in the header comment; a plugin with one keeps it raw. Every member then stays at
+  `corpus` confidence.
+- Keep the member order of the pinned file (WSED, CNAM, WTED); the header comment already
+  notes that CNAM and WTED never occur together in an official record.
+
+Change the record-level `source` to the xEdit citation
+(`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19037-L19044`), as
+`crates/schema/defs/AAPD.toml` (KK-244) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops WWED from the "Inventory definitions"
+list of `docs/record-parity.md`. Remove `"WWED"` from `BX2_INVENTORY` in
+`crates/schema/tests/defs.rs` (WWED is in `BX2_INVENTORY`, not `INVENTORY_CORPUS_ONLY`;
+`BX2_TYPED_BOUNDS` is empty): that list is for definitions that type nothing but EDID,
+lstrings and shared blocks, and `bx2_inventories_type_only_edid_lstrings_and_shared_blocks`
+fails while it is there and `CNAM` is a FormID. Leave `crates/esm/tests/inventory_types.rs`
+and `xtask/src/parity.rs` alone (out of scope). WWED has no lstring; the corpus lstring
+table (`crates/engine/src/edit/lstrings.rs`, which lists WWED's four signatures as not
+lstrings) must still match, so do not edit it.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then `AAPD.toml` (a
+small type KK-244 took from inventory to typed) and `SOUN.toml` (KK-218, the other audio
+record). Use shared blocks only by `group_ref` or `ref:`; do not add or change a shared
+block in `crates/schema/defs/common/`.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e, the one `WWED.toml` already cites). Cite line
+ranges in `source`/`evidence` as `AAPD.toml` does. Clean-room rule (AGENTS.md): read it for
+facts (member order, types, sizes, names) and write the TOML in your own words; never copy
+its code or comments. Names are ours, UpperCamelCase. Write a `corpus:` evidence line only
+after a test of yours has printed the fact it cites; until then cite xEdit with
+`confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/wwed_types.rs`, modelled on
+`crates/esm/tests/aapd_types.rs` (same lint allowances and checks: every subrecord placed in
+a member, every placed subrecord decodes, re-encoding reproduces each record). One new
+test, `wwed_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `wwed WWED: <n>
+records, <m> identical` and, for each signature, `wwed WWED <SIG>: <k> records` (how many
+records have it). It must fail when it reads no record. CNAM's `CNDF` target is xEdit's
+fact: cite the line for it; the corpus line cites only the count and size the test prints.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Then the hand-written docs. In `docs/foothold/gap-matrix.md`, the row whose Type cell reads
+"audio (`WWED`)": change that cell to just `WWED` in backticks (the `cargo xtask parity
+--check` family-table check compares only rows whose Type cell is one backticked type),
+move the word "audio" into its notes, set Typed-readable to `yes` if every member is at
+`corpus` confidence and no unknown signature is left (`partial` otherwise, as the SC key
+says), set Typed-writable to `untested` (no write test yet; KK-291 adds one), and rewrite
+the notes in the style of the `REGN` and audio (`SOUN`, `WKMF`) rows: since KK-290, typed
+from the pinned xEdit file (L19037-L19044), no longer an M4.BX2 inventory, the corpus test
+and its counts, the parity row, the two GUIDs kept raw, "No write test". Update the counts
+of the tally paragraph under the headline ("The 51 rows of the record-family table ...")
+that your row changes, and nothing else in it. In `docs/gaps.md`, the "M4.BX2 inventories
+(LAYR LSCR WWED)" row: drop WWED from it. Add this ticket's one "Landed" line at the end of
+`plan/STATUS.md` (always allowed, so not listed in `owns`), in the form of the KK-244 and
+KK-245 lines.
+
+Do not change any other definition or the output of any command for another record type.
+Other schema tickets may run the same night on other types: touch only the lines of the
+shared lists your type needs.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test wwed_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command
+below passes and `cargo xtask ci` is green; never commit a tree that fails them (the
+harness keeps uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "wwed-full"
+cmd = "cargo test --release -p kitkraft-esm --test wwed_types -- --ignored --exact wwed_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^wwed WWED: 681 records, 681 identical' /tmp/o && grep -Eq '^wwed WWED EDID: 681 records' /tmp/o && grep -Eq '^wwed WWED WSED: 678 records' /tmp/o && grep -Eq '^wwed WWED WTED: 97 records' /tmp/o && grep -Eq '^wwed WWED CNAM: 4 records' /tmp/o"
+
+[[accept]]
+name = "schema-all"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`WWED` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity WWED:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "WwiseEventData" && $7 + 0 >= 2 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]WWED[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "gap-matrix"
+cmd = "grep -Eq '^\\| `WWED` \\| yes \\| (yes|partial) \\| untested \\|' docs/foothold/gap-matrix.md && cargo xtask parity --check"
