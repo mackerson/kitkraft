@@ -1596,6 +1596,87 @@ impl BfcbBlockAnimationGraph {
 impl Visit for BfcbBlockAnimationGraph {}
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockAttachParentArrayAttachParentSlots(pub Vec<FormId>);
+
+impl Field for BfcbBlockAttachParentArrayAttachParentSlots {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockAttachParentArrayAttachParentSlots {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockAttachParentArray {
+    /// `APPR`, optional.
+    pub attach_parent_slots: Option<Sub<BfcbBlockAttachParentArrayAttachParentSlots>>,
+}
+
+impl BfcbBlockAttachParentArray {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"APPR",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.attach_parent_slots,
+                    subs,
+                    *index,
+                    "BfcbBlock.AttachParentArray.APPR",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"APPR", self.attach_parent_slots.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockAttachParentArray {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.attach_parent_slots,
+            "BfcbBlock.AttachParentArray.APPR",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.attach_parent_slots,
+            "BfcbBlock.AttachParentArray.APPR",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BfcbBlockContactShadowContactShadows {
     pub thickness: f32,
     pub fade_length: f32,
@@ -1864,6 +1945,287 @@ impl Visit for BfcbBlockDisplayCase {
         visit_form_ids_mut(&mut self.slot_templates, "BfcbBlock.DisplayCase.DCSD", out);
     }
 }
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ObjectPaletteDefaultsFlags(pub u8);
+
+impl ObjectPaletteDefaultsFlags {
+    pub const CONFORM_TO_SLOPE: u8 = 0x1;
+    pub const ROTATE_Z_TO_SLOPE: u8 = 0x4;
+    pub const SLOPE_LIMIT_IS_MIN_SLOPE: u8 = 0x8;
+    pub const PLACE_AS_MARKER: u8 = 0x10;
+    pub const OUTSIDE_WATER_HEIGHT: u8 = 0x20;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for ObjectPaletteDefaultsFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaultsFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectPaletteDefaultsFootprint {
+    ExtraLarge,
+    Large,
+    Medium,
+    Small,
+    None,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl ObjectPaletteDefaultsFootprint {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::ExtraLarge,
+            1 => Self::Large,
+            2 => Self::Medium,
+            3 => Self::Small,
+            5 => Self::None,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::ExtraLarge => 0,
+            Self::Large => 1,
+            Self::Medium => 2,
+            Self::Small => 3,
+            Self::None => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectPaletteDefaultsFootprint {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaultsFootprint {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectPaletteDefaults {
+    pub flags: ObjectPaletteDefaultsFlags,
+    pub unused: [u8; 3],
+    pub sink: f32,
+    pub sink_variance: f32,
+    pub xy_offset_variance: f32,
+    pub footprint: ObjectPaletteDefaultsFootprint,
+    pub scale_percent: f32,
+    pub scale_variance: f32,
+    pub angle_x: f32,
+    pub angle_x_variance: f32,
+    pub angle_y: f32,
+    pub angle_y_variance: f32,
+    pub angle_z: f32,
+    pub angle_z_variance: f32,
+    pub slope_percent: f32,
+    pub slope_percent_variance: f32,
+    pub density: f32,
+    pub frequency_percent: f32,
+    pub slope_limit: f32,
+    pub distance_below_water: f32,
+    pub distance_above_water: f32,
+}
+
+impl Field for ObjectPaletteDefaults {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "ObjectPaletteDefaults.Flags", ctx)?;
+        let f1 = Field::read(r, "ObjectPaletteDefaults.Unused", ctx)?;
+        let f2 = f32::read(r, "ObjectPaletteDefaults.Sink", ctx)?;
+        let f3 = f32::read(r, "ObjectPaletteDefaults.SinkVariance", ctx)?;
+        let f4 = f32::read(r, "ObjectPaletteDefaults.XyOffsetVariance", ctx)?;
+        let f5 = Field::read(r, "ObjectPaletteDefaults.Footprint", ctx)?;
+        let f6 = f32::read(r, "ObjectPaletteDefaults.ScalePercent", ctx)?;
+        let f7 = f32::read(r, "ObjectPaletteDefaults.ScaleVariance", ctx)?;
+        let f8 = f32::read(r, "ObjectPaletteDefaults.AngleX", ctx)?;
+        let f9 = f32::read(r, "ObjectPaletteDefaults.AngleXVariance", ctx)?;
+        let f10 = f32::read(r, "ObjectPaletteDefaults.AngleY", ctx)?;
+        let f11 = f32::read(r, "ObjectPaletteDefaults.AngleYVariance", ctx)?;
+        let f12 = f32::read(r, "ObjectPaletteDefaults.AngleZ", ctx)?;
+        let f13 = f32::read(r, "ObjectPaletteDefaults.AngleZVariance", ctx)?;
+        let f14 = f32::read(r, "ObjectPaletteDefaults.SlopePercent", ctx)?;
+        let f15 = f32::read(r, "ObjectPaletteDefaults.SlopePercentVariance", ctx)?;
+        let f16 = f32::read(r, "ObjectPaletteDefaults.Density", ctx)?;
+        let f17 = f32::read(r, "ObjectPaletteDefaults.FrequencyPercent", ctx)?;
+        let f18 = f32::read(r, "ObjectPaletteDefaults.SlopeLimit", ctx)?;
+        let f19 = f32::read(r, "ObjectPaletteDefaults.DistanceBelowWater", ctx)?;
+        let f20 = f32::read(r, "ObjectPaletteDefaults.DistanceAboveWater", ctx)?;
+        Ok(Self {
+            flags: f0,
+            unused: f1,
+            sink: f2,
+            sink_variance: f3,
+            xy_offset_variance: f4,
+            footprint: f5,
+            scale_percent: f6,
+            scale_variance: f7,
+            angle_x: f8,
+            angle_x_variance: f9,
+            angle_y: f10,
+            angle_y_variance: f11,
+            angle_z: f12,
+            angle_z_variance: f13,
+            slope_percent: f14,
+            slope_percent_variance: f15,
+            density: f16,
+            frequency_percent: f17,
+            slope_limit: f18,
+            distance_below_water: f19,
+            distance_above_water: f20,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flags.write(out);
+        self.unused.write(out);
+        self.sink.write(out);
+        self.sink_variance.write(out);
+        self.xy_offset_variance.write(out);
+        self.footprint.write(out);
+        self.scale_percent.write(out);
+        self.scale_variance.write(out);
+        self.angle_x.write(out);
+        self.angle_x_variance.write(out);
+        self.angle_y.write(out);
+        self.angle_y_variance.write(out);
+        self.angle_z.write(out);
+        self.angle_z_variance.write(out);
+        self.slope_percent.write(out);
+        self.slope_percent_variance.write(out);
+        self.density.write(out);
+        self.frequency_percent.write(out);
+        self.slope_limit.write(out);
+        self.distance_below_water.write(out);
+        self.distance_above_water.write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaults {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockObjectPaletteDefaults {
+    /// `OPDS`, optional.
+    pub defaults: Option<Sub<ObjectPaletteDefaults>>,
+}
+
+impl BfcbBlockObjectPaletteDefaults {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"OPDS",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.defaults,
+                    subs,
+                    *index,
+                    "BfcbBlock.ObjectPaletteDefaults.OPDS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"OPDS", self.defaults.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockObjectPaletteDefaults {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockObjectWindowFilter {
+    /// `INTV`, optional.
+    pub count: Option<Sub<u32>>,
+    /// `FLTR`, repeated.
+    pub filters: Vec<Sub<ZString>>,
+}
+
+impl BfcbBlockObjectWindowFilter {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"INTV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTR",
+            card: Card::Repeated,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.count,
+                    subs,
+                    *index,
+                    "BfcbBlock.ObjectWindowFilter.INTV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => push(
+                    &mut self.filters,
+                    subs,
+                    *index,
+                    "BfcbBlock.ObjectWindowFilter.FLTR",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"INTV", self.count.as_ref());
+        for value in &self.filters {
+            emit(out, *b"FLTR", Some(value));
+        }
+    }
+}
+
+impl Visit for BfcbBlockObjectWindowFilter {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bool8 {
@@ -5280,6 +5642,124 @@ impl Visit for BfcbBlockPlanetContentProperties {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct PropertyValue {
+    pub actor_value: FormId,
+    pub value: f32,
+    /// Present for form versions 152 and later.
+    pub curve_table: Option<FormId>,
+}
+
+impl Field for PropertyValue {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PropertyValue.ActorValue", ctx)?;
+        let f1 = f32::read(r, "PropertyValue.Value", ctx)?;
+        let f2 = if ctx.has(Some(152), None) {
+            Some(Field::read(r, "PropertyValue.CurveTable", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            actor_value: f0,
+            value: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.actor_value.write(out);
+        self.value.write(out);
+        if let Some(value) = &self.curve_table {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for PropertyValue {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.actor_value, "PropertyValue.ActorValue", out);
+        visit_form_ids(&self.curve_table, "PropertyValue.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.actor_value, "PropertyValue.ActorValue", out);
+        visit_form_ids_mut(&mut self.curve_table, "PropertyValue.CurveTable", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockPropertySheetProperties(pub Vec<PropertyValue>);
+
+impl Field for BfcbBlockPropertySheetProperties {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockPropertySheetProperties {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockPropertySheet {
+    /// `PRPS`, optional.
+    pub properties: Option<Sub<BfcbBlockPropertySheetProperties>>,
+}
+
+impl BfcbBlockPropertySheet {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"PRPS",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.properties,
+                    subs,
+                    *index,
+                    "BfcbBlock.PropertySheet.PRPS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"PRPS", self.properties.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockPropertySheet {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.properties, "BfcbBlock.PropertySheet.PRPS", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.properties, "BfcbBlock.PropertySheet.PRPS", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BfcbBlockQualityUpgradeQualityUpgrades(pub Vec<FormId>);
 
 impl Field for BfcbBlockQualityUpgradeQualityUpgrades {
@@ -5449,6 +5929,353 @@ impl BfcbBlockParticleSystem {
 impl Visit for BfcbBlockParticleSystem {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockFullName {
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+}
+
+impl BfcbBlockFullName {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"FULL",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.name,
+                    subs,
+                    *index,
+                    "BfcbBlock.FullName.FULL",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"FULL", self.name.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockFullName {
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "BfcbBlock.FullName.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "BfcbBlock.FullName.FULL", out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BfcbBlockLightLayerLightLayer(pub u32);
+
+impl BfcbBlockLightLayerLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for BfcbBlockLightLayerLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockLightLayerLightLayer {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockLightLayer {
+    /// `FLLD`, optional.
+    pub light_layer: Option<Sub<BfcbBlockLightLayerLightLayer>>,
+}
+
+impl BfcbBlockLightLayer {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"FLLD",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.light_layer,
+                    subs,
+                    *index,
+                    "BfcbBlock.LightLayer.FLLD",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"FLLD", self.light_layer.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockLightLayer {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BfcbBlockPlanetModelLightLayer(pub u32);
+
+impl BfcbBlockPlanetModelLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for BfcbBlockPlanetModelLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockPlanetModelLightLayer {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockPlanetModel {
+    /// `MODL`, optional.
+    pub model: Option<Sub<ZString>>,
+    /// `FLLD`, optional.
+    pub light_layer: Option<Sub<BfcbBlockPlanetModelLightLayer>>,
+    /// `XMPM`, optional.
+    pub xmpm: Option<Sub<Bytes>>,
+    /// `MCQP`, optional.
+    pub ring_model: Option<Sub<ZString>>,
+    /// `XMSP`, optional.
+    pub ring_material: Option<Sub<ZString>>,
+    /// `XLMS`, optional.
+    pub ring_id: Option<Sub<ZString>>,
+}
+
+impl BfcbBlockPlanetModel {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"MODL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLLD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XMPM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MCQP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XMSP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLMS",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.model,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.MODL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.light_layer,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.FLLD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.xmpm,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XMPM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.ring_model,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.MCQP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.ring_material,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XMSP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.ring_id,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XLMS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"MODL", self.model.as_ref());
+        emit(out, *b"FLLD", self.light_layer.as_ref());
+        emit(out, *b"XMPM", self.xmpm.as_ref());
+        emit(out, *b"MCQP", self.ring_model.as_ref());
+        emit(out, *b"XMSP", self.ring_material.as_ref());
+        emit(out, *b"XLMS", self.ring_id.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockPlanetModel {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeywordsForms(pub Vec<FormId>);
+
+impl Field for KeywordsForms {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for KeywordsForms {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Keywords {
+    /// `KSIZ`, required.
+    pub count: Option<Sub<u32>>,
+    /// `KWDA`, required.
+    pub forms: Option<Sub<KeywordsForms>>,
+}
+
+impl Keywords {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"KSIZ",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"KWDA",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.count, subs, *index, "Keywords.KSIZ", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.forms, subs, *index, "Keywords.KWDA", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"KSIZ", self.count.as_ref());
+        emit(out, *b"KWDA", self.forms.as_ref());
+    }
+}
+
+impl Visit for Keywords {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.forms, "Keywords.KWDA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.forms, "Keywords.KWDA", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct BfcbBlockReflection {
     /// `REFL`, required.
     pub data: Option<Sub<Bytes>>,
@@ -5496,18 +6323,34 @@ pub struct BfcbBlock {
     pub component_type: Option<Sub<ZString>>,
     /// Group `AnimationGraph`, optional.
     pub animation_graph: Option<BfcbBlockAnimationGraph>,
+    /// Group `AttachParentArray`, optional.
+    pub attach_parent_array: Option<BfcbBlockAttachParentArray>,
     /// Group `ContactShadow`, optional.
     pub contact_shadow: Option<BfcbBlockContactShadow>,
     /// Group `DisplayCase`, optional.
     pub display_case: Option<BfcbBlockDisplayCase>,
+    /// Group `ObjectPaletteDefaults`, optional.
+    pub object_palette_defaults: Option<BfcbBlockObjectPaletteDefaults>,
+    /// Group `ObjectWindowFilter`, optional.
+    pub object_window_filter: Option<BfcbBlockObjectWindowFilter>,
     /// Group `PlanetContentProperties`, optional.
     pub planet_content_properties: Option<BfcbBlockPlanetContentProperties>,
+    /// Group `PropertySheet`, optional.
+    pub property_sheet: Option<BfcbBlockPropertySheet>,
     /// Group `QualityUpgrade`, optional.
     pub quality_upgrade: Option<BfcbBlockQualityUpgrade>,
     /// Group `SoundTag`, optional.
     pub sound_tag: Option<BfcbBlockSoundTag>,
     /// Group `ParticleSystem`, optional.
     pub particle_system: Option<BfcbBlockParticleSystem>,
+    /// Group `FullName`, optional.
+    pub full_name: Option<BfcbBlockFullName>,
+    /// Group `LightLayer`, optional.
+    pub light_layer: Option<BfcbBlockLightLayer>,
+    /// Group `PlanetModel`, optional.
+    pub planet_model: Option<BfcbBlockPlanetModel>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
     /// Group `Reflection`, optional.
     pub reflection: Option<BfcbBlockReflection>,
     /// Raw subrecords up to `BFCE`, in order.
@@ -5529,6 +6372,10 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockAttachParentArray::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockContactShadow::MEMBERS,
         },
         MemberDesc::Group {
@@ -5537,7 +6384,19 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockObjectPaletteDefaults::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockObjectWindowFilter::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockPlanetContentProperties::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockPropertySheet::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -5550,6 +6409,22 @@ impl BfcbBlock {
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockParticleSystem::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockFullName::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockLightLayer::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockPlanetModel::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -5584,43 +6459,83 @@ impl BfcbBlock {
                     group.fill(hits, subs, ctx, extra);
                     self.animation_graph = Some(group);
                 }
-                Hit::Group { member: 2, hits } if self.contact_shadow.is_none() => {
+                Hit::Group { member: 2, hits } if self.attach_parent_array.is_none() => {
+                    let mut group = BfcbBlockAttachParentArray::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.attach_parent_array = Some(group);
+                }
+                Hit::Group { member: 3, hits } if self.contact_shadow.is_none() => {
                     let mut group = BfcbBlockContactShadow::default();
                     group.fill(hits, subs, ctx, extra);
                     self.contact_shadow = Some(group);
                 }
-                Hit::Group { member: 3, hits } if self.display_case.is_none() => {
+                Hit::Group { member: 4, hits } if self.display_case.is_none() => {
                     let mut group = BfcbBlockDisplayCase::default();
                     group.fill(hits, subs, ctx, extra);
                     self.display_case = Some(group);
                 }
-                Hit::Group { member: 4, hits } if self.planet_content_properties.is_none() => {
+                Hit::Group { member: 5, hits } if self.object_palette_defaults.is_none() => {
+                    let mut group = BfcbBlockObjectPaletteDefaults::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.object_palette_defaults = Some(group);
+                }
+                Hit::Group { member: 6, hits } if self.object_window_filter.is_none() => {
+                    let mut group = BfcbBlockObjectWindowFilter::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.object_window_filter = Some(group);
+                }
+                Hit::Group { member: 7, hits } if self.planet_content_properties.is_none() => {
                     let mut group = BfcbBlockPlanetContentProperties::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_content_properties = Some(group);
                 }
-                Hit::Group { member: 5, hits } if self.quality_upgrade.is_none() => {
+                Hit::Group { member: 8, hits } if self.property_sheet.is_none() => {
+                    let mut group = BfcbBlockPropertySheet::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.property_sheet = Some(group);
+                }
+                Hit::Group { member: 9, hits } if self.quality_upgrade.is_none() => {
                     let mut group = BfcbBlockQualityUpgrade::default();
                     group.fill(hits, subs, ctx, extra);
                     self.quality_upgrade = Some(group);
                 }
-                Hit::Group { member: 6, hits } if self.sound_tag.is_none() => {
+                Hit::Group { member: 10, hits } if self.sound_tag.is_none() => {
                     let mut group = BfcbBlockSoundTag::default();
                     group.fill(hits, subs, ctx, extra);
                     self.sound_tag = Some(group);
                 }
-                Hit::Group { member: 7, hits } if self.particle_system.is_none() => {
+                Hit::Group { member: 11, hits } if self.particle_system.is_none() => {
                     let mut group = BfcbBlockParticleSystem::default();
                     group.fill(hits, subs, ctx, extra);
                     self.particle_system = Some(group);
                 }
-                Hit::Group { member: 8, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 12, hits } if self.full_name.is_none() => {
+                    let mut group = BfcbBlockFullName::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.full_name = Some(group);
+                }
+                Hit::Group { member: 13, hits } if self.light_layer.is_none() => {
+                    let mut group = BfcbBlockLightLayer::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.light_layer = Some(group);
+                }
+                Hit::Group { member: 14, hits } if self.planet_model.is_none() => {
+                    let mut group = BfcbBlockPlanetModel::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.planet_model = Some(group);
+                }
+                Hit::Group { member: 15, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Group { member: 16, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Sub { member: 9, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 10, index } => put(
+                Hit::Sub { member: 17, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 18, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -5638,13 +6553,25 @@ impl BfcbBlock {
         if let Some(group) = &self.animation_graph {
             group.emit(out);
         }
+        if let Some(group) = &self.attach_parent_array {
+            group.emit(out);
+        }
         if let Some(group) = &self.contact_shadow {
             group.emit(out);
         }
         if let Some(group) = &self.display_case {
             group.emit(out);
         }
+        if let Some(group) = &self.object_palette_defaults {
+            group.emit(out);
+        }
+        if let Some(group) = &self.object_window_filter {
+            group.emit(out);
+        }
         if let Some(group) = &self.planet_content_properties {
+            group.emit(out);
+        }
+        if let Some(group) = &self.property_sheet {
             group.emit(out);
         }
         if let Some(group) = &self.quality_upgrade {
@@ -5654,6 +6581,18 @@ impl BfcbBlock {
             group.emit(out);
         }
         if let Some(group) = &self.particle_system {
+            group.emit(out);
+        }
+        if let Some(group) = &self.full_name {
+            group.emit(out);
+        }
+        if let Some(group) = &self.light_layer {
+            group.emit(out);
+        }
+        if let Some(group) = &self.planet_model {
+            group.emit(out);
+        }
+        if let Some(group) = &self.keywords {
             group.emit(out);
         }
         if let Some(group) = &self.reflection {
@@ -5666,25 +6605,47 @@ impl BfcbBlock {
 
 impl Visit for BfcbBlock {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.attach_parent_array,
+            "BfcbBlock.AttachParentArray",
+            out,
+        );
         visit_form_ids(&self.display_case, "BfcbBlock.DisplayCase", out);
         visit_form_ids(
             &self.planet_content_properties,
             "BfcbBlock.PlanetContentProperties",
             out,
         );
+        visit_form_ids(&self.property_sheet, "BfcbBlock.PropertySheet", out);
         visit_form_ids(&self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
         visit_form_ids(&self.sound_tag, "BfcbBlock.SoundTag", out);
+        visit_form_ids(&self.keywords, "BfcbBlock.Keywords", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.attach_parent_array,
+            "BfcbBlock.AttachParentArray",
+            out,
+        );
         visit_form_ids_mut(&mut self.display_case, "BfcbBlock.DisplayCase", out);
         visit_form_ids_mut(
             &mut self.planet_content_properties,
             "BfcbBlock.PlanetContentProperties",
             out,
         );
+        visit_form_ids_mut(&mut self.property_sheet, "BfcbBlock.PropertySheet", out);
         visit_form_ids_mut(&mut self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
         visit_form_ids_mut(&mut self.sound_tag, "BfcbBlock.SoundTag", out);
+        visit_form_ids_mut(&mut self.keywords, "BfcbBlock.Keywords", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.full_name, "BfcbBlock.FullName", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.full_name, "BfcbBlock.FullName", out);
     }
 }
 
@@ -7332,86 +8293,6 @@ impl Visit for GroupedPackIn {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct KeywordsForms(pub Vec<FormId>);
-
-impl Field for KeywordsForms {
-    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        Field::read(r, field, ctx).map(Self)
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.0.write(out);
-    }
-}
-
-impl Visit for KeywordsForms {
-    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
-        visit_form_ids(&self.0, path, out);
-    }
-
-    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
-        visit_form_ids_mut(&mut self.0, path, out);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct Keywords {
-    /// `KSIZ`, required.
-    pub count: Option<Sub<u32>>,
-    /// `KWDA`, required.
-    pub forms: Option<Sub<KeywordsForms>>,
-}
-
-impl Keywords {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[
-        MemberDesc::Sub {
-            sig: *b"KSIZ",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"KWDA",
-            card: Card::Required,
-        },
-    ];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => {
-                    put(&mut self.count, subs, *index, "Keywords.KSIZ", ctx, extra)
-                }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.forms, subs, *index, "Keywords.KWDA", ctx, extra)
-                }
-                _ => unmatched(hit, subs, extra),
-            }
-        }
-    }
-
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"KSIZ", self.count.as_ref());
-        emit(out, *b"KWDA", self.forms.as_ref());
-    }
-}
-
-impl Visit for Keywords {
-    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
-        visit_form_ids(&self.forms, "Keywords.KWDA", out);
-    }
-
-    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
-        visit_form_ids_mut(&mut self.forms, "Keywords.KWDA", out);
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct LinkedReferencesLinks {
     pub keyword: FormId,
     pub ref_: FormId,
@@ -8243,184 +9124,6 @@ impl Visit for ObjectModProperty {
     }
 }
 
-/// Bit flags; bits without a name are preserved.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct ObjectPaletteDefaultsFlags(pub u8);
-
-impl ObjectPaletteDefaultsFlags {
-    pub const CONFORM_TO_SLOPE: u8 = 0x1;
-    pub const ROTATE_Z_TO_SLOPE: u8 = 0x4;
-    pub const SLOPE_LIMIT_IS_MIN_SLOPE: u8 = 0x8;
-    pub const PLACE_AS_MARKER: u8 = 0x10;
-    pub const OUTSIDE_WATER_HEIGHT: u8 = 0x20;
-
-    /// Whether every bit of `mask` is set.
-    pub fn contains(self, mask: u8) -> bool {
-        self.0 & mask == mask
-    }
-}
-
-impl Field for ObjectPaletteDefaultsFlags {
-    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        u8::read(r, field, ctx).map(Self)
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.0.write(out);
-    }
-}
-
-impl Visit for ObjectPaletteDefaultsFlags {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ObjectPaletteDefaultsFootprint {
-    ExtraLarge,
-    Large,
-    Medium,
-    Small,
-    None,
-    /// A value the definition does not name.
-    Other(u32),
-}
-
-impl ObjectPaletteDefaultsFootprint {
-    /// The variant for a stored value.
-    pub fn from_raw(raw: u32) -> Self {
-        match raw {
-            0 => Self::ExtraLarge,
-            1 => Self::Large,
-            2 => Self::Medium,
-            3 => Self::Small,
-            5 => Self::None,
-            other => Self::Other(other),
-        }
-    }
-
-    /// The stored value.
-    pub fn to_raw(self) -> u32 {
-        match self {
-            Self::ExtraLarge => 0,
-            Self::Large => 1,
-            Self::Medium => 2,
-            Self::Small => 3,
-            Self::None => 5,
-            Self::Other(raw) => raw,
-        }
-    }
-}
-
-impl Field for ObjectPaletteDefaultsFootprint {
-    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        u32::read(r, field, ctx).map(Self::from_raw)
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.to_raw().write(out);
-    }
-}
-
-impl Visit for ObjectPaletteDefaultsFootprint {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct ObjectPaletteDefaults {
-    pub flags: ObjectPaletteDefaultsFlags,
-    pub unused: [u8; 3],
-    pub sink: f32,
-    pub sink_variance: f32,
-    pub xy_offset_variance: f32,
-    pub footprint: ObjectPaletteDefaultsFootprint,
-    pub scale_percent: f32,
-    pub scale_variance: f32,
-    pub angle_x: f32,
-    pub angle_x_variance: f32,
-    pub angle_y: f32,
-    pub angle_y_variance: f32,
-    pub angle_z: f32,
-    pub angle_z_variance: f32,
-    pub slope_percent: f32,
-    pub slope_percent_variance: f32,
-    pub density: f32,
-    pub frequency_percent: f32,
-    pub slope_limit: f32,
-    pub distance_below_water: f32,
-    pub distance_above_water: f32,
-}
-
-impl Field for ObjectPaletteDefaults {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = Field::read(r, "ObjectPaletteDefaults.Flags", ctx)?;
-        let f1 = Field::read(r, "ObjectPaletteDefaults.Unused", ctx)?;
-        let f2 = f32::read(r, "ObjectPaletteDefaults.Sink", ctx)?;
-        let f3 = f32::read(r, "ObjectPaletteDefaults.SinkVariance", ctx)?;
-        let f4 = f32::read(r, "ObjectPaletteDefaults.XyOffsetVariance", ctx)?;
-        let f5 = Field::read(r, "ObjectPaletteDefaults.Footprint", ctx)?;
-        let f6 = f32::read(r, "ObjectPaletteDefaults.ScalePercent", ctx)?;
-        let f7 = f32::read(r, "ObjectPaletteDefaults.ScaleVariance", ctx)?;
-        let f8 = f32::read(r, "ObjectPaletteDefaults.AngleX", ctx)?;
-        let f9 = f32::read(r, "ObjectPaletteDefaults.AngleXVariance", ctx)?;
-        let f10 = f32::read(r, "ObjectPaletteDefaults.AngleY", ctx)?;
-        let f11 = f32::read(r, "ObjectPaletteDefaults.AngleYVariance", ctx)?;
-        let f12 = f32::read(r, "ObjectPaletteDefaults.AngleZ", ctx)?;
-        let f13 = f32::read(r, "ObjectPaletteDefaults.AngleZVariance", ctx)?;
-        let f14 = f32::read(r, "ObjectPaletteDefaults.SlopePercent", ctx)?;
-        let f15 = f32::read(r, "ObjectPaletteDefaults.SlopePercentVariance", ctx)?;
-        let f16 = f32::read(r, "ObjectPaletteDefaults.Density", ctx)?;
-        let f17 = f32::read(r, "ObjectPaletteDefaults.FrequencyPercent", ctx)?;
-        let f18 = f32::read(r, "ObjectPaletteDefaults.SlopeLimit", ctx)?;
-        let f19 = f32::read(r, "ObjectPaletteDefaults.DistanceBelowWater", ctx)?;
-        let f20 = f32::read(r, "ObjectPaletteDefaults.DistanceAboveWater", ctx)?;
-        Ok(Self {
-            flags: f0,
-            unused: f1,
-            sink: f2,
-            sink_variance: f3,
-            xy_offset_variance: f4,
-            footprint: f5,
-            scale_percent: f6,
-            scale_variance: f7,
-            angle_x: f8,
-            angle_x_variance: f9,
-            angle_y: f10,
-            angle_y_variance: f11,
-            angle_z: f12,
-            angle_z_variance: f13,
-            slope_percent: f14,
-            slope_percent_variance: f15,
-            density: f16,
-            frequency_percent: f17,
-            slope_limit: f18,
-            distance_below_water: f19,
-            distance_above_water: f20,
-        })
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.flags.write(out);
-        self.unused.write(out);
-        self.sink.write(out);
-        self.sink_variance.write(out);
-        self.xy_offset_variance.write(out);
-        self.footprint.write(out);
-        self.scale_percent.write(out);
-        self.scale_variance.write(out);
-        self.angle_x.write(out);
-        self.angle_x_variance.write(out);
-        self.angle_y.write(out);
-        self.angle_y_variance.write(out);
-        self.angle_z.write(out);
-        self.angle_z_variance.write(out);
-        self.slope_percent.write(out);
-        self.slope_percent_variance.write(out);
-        self.density.write(out);
-        self.frequency_percent.write(out);
-        self.slope_limit.write(out);
-        self.distance_below_water.write(out);
-        self.distance_above_water.write(out);
-    }
-}
-
-impl Visit for ObjectPaletteDefaults {}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObteBlockCombinationTemplateItemIncludes {
     pub mod_: FormId,
@@ -9037,51 +9740,6 @@ impl Field for PositionRotation {
 }
 
 impl Visit for PositionRotation {}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PropertyValue {
-    pub actor_value: FormId,
-    pub value: f32,
-    /// Present for form versions 152 and later.
-    pub curve_table: Option<FormId>,
-}
-
-impl Field for PropertyValue {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = Field::read(r, "PropertyValue.ActorValue", ctx)?;
-        let f1 = f32::read(r, "PropertyValue.Value", ctx)?;
-        let f2 = if ctx.has(Some(152), None) {
-            Some(Field::read(r, "PropertyValue.CurveTable", ctx)?)
-        } else {
-            None
-        };
-        Ok(Self {
-            actor_value: f0,
-            value: f1,
-            curve_table: f2,
-        })
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.actor_value.write(out);
-        self.value.write(out);
-        if let Some(value) = &self.curve_table {
-            value.write(out);
-        }
-    }
-}
-
-impl Visit for PropertyValue {
-    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
-        visit_form_ids(&self.actor_value, "PropertyValue.ActorValue", out);
-        visit_form_ids(&self.curve_table, "PropertyValue.CurveTable", out);
-    }
-
-    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
-        visit_form_ids_mut(&mut self.actor_value, "PropertyValue.ActorValue", out);
-        visit_form_ids_mut(&mut self.curve_table, "PropertyValue.CurveTable", out);
-    }
-}
 
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -11672,6 +12330,14 @@ impl Visit for AapdRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "AAPD.BfcbBlock", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "AAPD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "AAPD.BfcbBlock", out);
+    }
 }
 
 impl AapdRecord {
@@ -12585,6 +13251,14 @@ impl Visit for AchrRecord {
         visit_form_ids_mut(&mut self.owner, "ACHR.XOWN", out);
         visit_form_ids_mut(&mut self.location_override, "ACHR.XEZN", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ACHR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ACHR.BfcbBlock", out);
+    }
 }
 
 impl AchrRecord {
@@ -13225,11 +13899,13 @@ impl Visit for ActiRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ACTI.BfcbBlock", out);
         visit_lstrings(&self.name, "ACTI.FULL", out);
         visit_lstrings(&self.activate_text_override, "ACTI.ATTX", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ACTI.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "ACTI.FULL", out);
         visit_lstrings_mut(&mut self.activate_text_override, "ACTI.ATTX", out);
     }
@@ -13572,6 +14248,14 @@ impl Visit for AddnRecord {
         visit_form_ids_mut(&mut self.bfcb_block, "ADDN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "ADDN.Model", out);
         visit_form_ids_mut(&mut self.light, "ADDN.LNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ADDN.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ADDN.BfcbBlock", out);
     }
 }
 
@@ -14443,12 +15127,14 @@ impl Visit for AlchRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ALCH.BfcbBlock", out);
         visit_lstrings(&self.name, "ALCH.FULL", out);
         visit_lstrings(&self.description, "ALCH.DESC", out);
         visit_lstrings(&self.addiction_name, "ALCH.DNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ALCH.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "ALCH.FULL", out);
         visit_lstrings_mut(&mut self.description, "ALCH.DESC", out);
         visit_lstrings_mut(&mut self.addiction_name, "ALCH.DNAM", out);
@@ -14825,6 +15511,14 @@ impl Visit for AmdlRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "AMDL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "AMDL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "AMDL.BfcbBlock", out);
     }
 }
 
@@ -15487,12 +16181,14 @@ impl Visit for AmmoRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "AMMO.BfcbBlock", out);
         visit_lstrings(&self.name, "AMMO.FULL", out);
         visit_lstrings(&self.description, "AMMO.DESC", out);
         visit_lstrings(&self.short_name, "AMMO.ONAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "AMMO.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "AMMO.FULL", out);
         visit_lstrings_mut(&mut self.description, "AMMO.DESC", out);
         visit_lstrings_mut(&mut self.short_name, "AMMO.ONAM", out);
@@ -15679,6 +16375,14 @@ impl Visit for AnioRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "ANIO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "ANIO.Model", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ANIO.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ANIO.BfcbBlock", out);
     }
 }
 
@@ -17888,6 +18592,14 @@ impl Visit for ArmaRecord {
         visit_form_ids_mut(&mut self.body_part_data, "ARMA.PNAM", out);
         visit_form_ids_mut(&mut self.bone_data, "ARMA.BoneData", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ARMA.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ARMA.BfcbBlock", out);
+    }
 }
 
 impl ArmaRecord {
@@ -19195,12 +19907,14 @@ impl Visit for ArmoRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ARMO.BfcbBlock", out);
         visit_lstrings(&self.name, "ARMO.FULL", out);
         visit_lstrings(&self.description, "ARMO.DESC", out);
         visit_lstrings(&self.obte_block, "ARMO.ObteBlock", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ARMO.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "ARMO.FULL", out);
         visit_lstrings_mut(&mut self.description, "ARMO.DESC", out);
         visit_lstrings_mut(&mut self.obte_block, "ARMO.ObteBlock", out);
@@ -19567,6 +20281,14 @@ impl Visit for ArtoRecord {
         visit_form_ids_mut(&mut self.keywords, "ARTO.Keywords", out);
         visit_form_ids_mut(&mut self.model, "ARTO.Model", out);
         visit_form_ids_mut(&mut self.effect_shader, "ARTO.ENAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ARTO.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ARTO.BfcbBlock", out);
     }
 }
 
@@ -20013,6 +20735,14 @@ impl Visit for AspcRecord {
         visit_form_ids_mut(&mut self.ambience_set, "ASPC.AAMB", out);
         visit_form_ids_mut(&mut self.music_type, "ASPC.AMUS", out);
         visit_form_ids_mut(&mut self.environment_type, "ASPC.BNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ASPC.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ASPC.BfcbBlock", out);
     }
 }
 
@@ -20882,6 +21612,14 @@ impl Visit for AvmdRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "AVMD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.avms_parent, "AVMD.AVMP", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "AVMD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "AVMD.BfcbBlock", out);
     }
 }
 
@@ -22770,6 +23508,14 @@ impl Visit for BmmoRecord {
         visit_form_ids_mut(&mut self.fallback_list, "BMMO.LNAM", out);
         visit_form_ids_mut(&mut self.navmesh_object, "BMMO.LNA2", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "BMMO.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "BMMO.BfcbBlock", out);
+    }
 }
 
 impl BmmoRecord {
@@ -22930,6 +23676,14 @@ impl Visit for BmodRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "BMOD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "BMOD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "BMOD.BfcbBlock", out);
     }
 }
 
@@ -23747,12 +24501,14 @@ impl Visit for BookRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "BOOK.BfcbBlock", out);
         visit_lstrings(&self.name, "BOOK.FULL", out);
         visit_lstrings(&self.description, "BOOK.DESC", out);
         visit_lstrings(&self.data_slate_headers, "BOOK.DataSlateHeaders", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "BOOK.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "BOOK.FULL", out);
         visit_lstrings_mut(&mut self.description, "BOOK.DESC", out);
         visit_lstrings_mut(&mut self.data_slate_headers, "BOOK.DataSlateHeaders", out);
@@ -24391,10 +25147,12 @@ impl Visit for BptdRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "BPTD.BfcbBlock", out);
         visit_lstrings(&self.body_part, "BPTD.BodyPart", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "BPTD.BfcbBlock", out);
         visit_lstrings_mut(&mut self.body_part, "BPTD.BodyPart", out);
     }
 }
@@ -24922,6 +25680,14 @@ impl Visit for CamsRecord {
         visit_form_ids_mut(&mut self.keywords, "CAMS.Keywords", out);
         visit_form_ids_mut(&mut self.conditions, "CAMS.Conditions", out);
         visit_form_ids_mut(&mut self.image_space_modifier, "CAMS.MNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CAMS.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CAMS.BfcbBlock", out);
     }
 }
 
@@ -26091,10 +26857,12 @@ impl Visit for CellRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CELL.BfcbBlock", out);
         visit_lstrings(&self.name, "CELL.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CELL.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "CELL.FULL", out);
     }
 }
@@ -26233,6 +27001,14 @@ impl Visit for ChalRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "CHAL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CHAL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CHAL.BfcbBlock", out);
     }
 }
 
@@ -26451,11 +27227,13 @@ impl Visit for ClasRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CLAS.BfcbBlock", out);
         visit_lstrings(&self.name, "CLAS.FULL", out);
         visit_lstrings(&self.description, "CLAS.DESC", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CLAS.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "CLAS.FULL", out);
         visit_lstrings_mut(&mut self.description, "CLAS.DESC", out);
     }
@@ -26997,6 +27775,14 @@ impl Visit for CndfRecord {
         visit_form_ids_mut(&mut self.conditions, "CNDF.Conditions", out);
         visit_form_ids_mut(&mut self.owner_quest, "CNDF.QNAM", out);
         visit_form_ids_mut(&mut self.owner_package, "CNDF.PNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CNDF.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CNDF.BfcbBlock", out);
     }
 }
 
@@ -27776,11 +28562,13 @@ impl Visit for CobjRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "COBJ.BfcbBlock", out);
         visit_lstrings(&self.name, "COBJ.FULL", out);
         visit_lstrings(&self.description, "COBJ.DESC", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "COBJ.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "COBJ.FULL", out);
         visit_lstrings_mut(&mut self.description, "COBJ.DESC", out);
     }
@@ -28060,6 +28848,14 @@ impl Visit for CollRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "COLL.BfcbBlock", out);
         visit_form_ids_mut(&mut self.collides_with, "COLL.CNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "COLL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "COLL.BfcbBlock", out);
     }
 }
 
@@ -28599,11 +29395,13 @@ impl Visit for ContRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "CONT.BfcbBlock", out);
         visit_lstrings(&self.name, "CONT.FULL", out);
         visit_lstrings(&self.obte_block, "CONT.ObteBlock", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "CONT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "CONT.FULL", out);
         visit_lstrings_mut(&mut self.obte_block, "CONT.ObteBlock", out);
     }
@@ -31436,10 +32234,12 @@ impl Visit for DialRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "DIAL.BfcbBlock", out);
         visit_lstrings(&self.name, "DIAL.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "DIAL.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "DIAL.FULL", out);
     }
 }
@@ -32489,10 +33289,12 @@ impl Visit for DoorRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "DOOR.BfcbBlock", out);
         visit_lstrings(&self.name, "DOOR.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "DOOR.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "DOOR.FULL", out);
     }
 }
@@ -32677,6 +33479,14 @@ impl Visit for EfshRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "EFSH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "EFSH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "EFSH.BfcbBlock", out);
     }
 }
 
@@ -33220,10 +34030,12 @@ impl Visit for EnchRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ENCH.BfcbBlock", out);
         visit_lstrings(&self.name, "ENCH.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ENCH.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "ENCH.FULL", out);
     }
 }
@@ -34048,10 +34860,12 @@ impl Visit for ExplRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "EXPL.BfcbBlock", out);
         visit_lstrings(&self.localized_strings, "EXPL.LocalizedStrings", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "EXPL.BfcbBlock", out);
         visit_lstrings_mut(&mut self.localized_strings, "EXPL.LocalizedStrings", out);
     }
 }
@@ -35259,11 +36073,13 @@ impl Visit for FactRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "FACT.BfcbBlock", out);
         visit_lstrings(&self.name, "FACT.FULL", out);
         visit_lstrings(&self.rank, "FACT.Rank", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "FACT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "FACT.FULL", out);
         visit_lstrings_mut(&mut self.rank, "FACT.Rank", out);
     }
@@ -35969,12 +36785,14 @@ impl Visit for FlorRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "FLOR.BfcbBlock", out);
         visit_lstrings(&self.name, "FLOR.FULL", out);
         visit_lstrings(&self.activate_text_override, "FLOR.ATTX", out);
         visit_lstrings(&self.obte_block, "FLOR.ObteBlock", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "FLOR.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "FLOR.FULL", out);
         visit_lstrings_mut(&mut self.activate_text_override, "FLOR.ATTX", out);
         visit_lstrings_mut(&mut self.obte_block, "FLOR.ObteBlock", out);
@@ -36247,10 +37065,12 @@ impl Visit for FlstRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "FLST.BfcbBlock", out);
         visit_lstrings(&self.name, "FLST.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "FLST.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "FLST.FULL", out);
     }
 }
@@ -37537,11 +38357,13 @@ impl Visit for FurnRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "FURN.BfcbBlock", out);
         visit_lstrings(&self.name, "FURN.FULL", out);
         visit_lstrings(&self.activate_text_override, "FURN.ATTX", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "FURN.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "FURN.FULL", out);
         visit_lstrings_mut(&mut self.activate_text_override, "FURN.ATTX", out);
     }
@@ -38020,10 +38842,12 @@ impl Visit for GbfmRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "GBFM.BfcbBlock", out);
         visit_lstrings(&self.obte_block, "GBFM.ObteBlock", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "GBFM.BfcbBlock", out);
         visit_lstrings_mut(&mut self.obte_block, "GBFM.ObteBlock", out);
     }
 }
@@ -38363,6 +39187,14 @@ impl Visit for GcvrRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "GCVR.BfcbBlock", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "GCVR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "GCVR.BfcbBlock", out);
+    }
 }
 
 impl GcvrRecord {
@@ -38497,6 +39329,14 @@ impl Visit for GlobRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "GLOB.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "GLOB.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "GLOB.BfcbBlock", out);
     }
 }
 
@@ -39159,12 +39999,14 @@ impl Visit for GpofRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "GPOF.BfcbBlock", out);
         visit_lstrings(&self.option_name, "GPOF.NNAM", out);
         visit_lstrings(&self.option_description, "GPOF.DNAM", out);
         visit_lstrings(&self.rewards, "GPOF.Rewards", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "GPOF.BfcbBlock", out);
         visit_lstrings_mut(&mut self.option_name, "GPOF.NNAM", out);
         visit_lstrings_mut(&mut self.option_description, "GPOF.DNAM", out);
         visit_lstrings_mut(&mut self.rewards, "GPOF.Rewards", out);
@@ -39627,6 +40469,14 @@ impl Visit for GrasRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "GRAS.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "GRAS.Model", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "GRAS.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "GRAS.BfcbBlock", out);
     }
 }
 
@@ -40220,10 +41070,12 @@ impl Visit for HazdRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "HAZD.BfcbBlock", out);
         visit_lstrings(&self.name, "HAZD.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "HAZD.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "HAZD.FULL", out);
     }
 }
@@ -40668,10 +41520,12 @@ impl Visit for HdptRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "HDPT.BfcbBlock", out);
         visit_lstrings(&self.name, "HDPT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "HDPT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "HDPT.FULL", out);
     }
 }
@@ -41357,6 +42211,14 @@ impl Visit for IdlmRecord {
         visit_form_ids_mut(&mut self.actor_action, "IDLM.RNAM", out);
         visit_form_ids_mut(&mut self.animation_flavor, "IDLM.QNAM", out);
         visit_form_ids_mut(&mut self.animation_archetype, "IDLM.PNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "IDLM.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "IDLM.BfcbBlock", out);
     }
 }
 
@@ -42860,11 +43722,13 @@ impl Visit for InfoRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "INFO.BfcbBlock", out);
         visit_lstrings(&self.response, "INFO.Response", out);
         visit_lstrings(&self.prompt, "INFO.RNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "INFO.BfcbBlock", out);
         visit_lstrings_mut(&mut self.response, "INFO.Response", out);
         visit_lstrings_mut(&mut self.prompt, "INFO.RNAM", out);
     }
@@ -43347,10 +44211,12 @@ impl Visit for InnrRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "INNR.BfcbBlock", out);
         visit_lstrings(&self.rulesets, "INNR.Rulesets", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "INNR.BfcbBlock", out);
         visit_lstrings_mut(&mut self.rulesets, "INNR.Rulesets", out);
     }
 }
@@ -43960,6 +44826,14 @@ impl Visit for IpctRecord {
         visit_form_ids_mut(&mut self.impact_sound_player3rd_target, "IPCT.IDP3", out);
         visit_form_ids_mut(&mut self.footstep_explosion, "IPCT.NAM3", out);
         visit_form_ids_mut(&mut self.hazard, "IPCT.NAM2", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "IPCT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "IPCT.BfcbBlock", out);
     }
 }
 
@@ -45394,10 +46268,12 @@ impl Visit for KywdRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "KYWD.BfcbBlock", out);
         visit_lstrings(&self.name, "KYWD.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "KYWD.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "KYWD.FULL", out);
     }
 }
@@ -45556,6 +46432,14 @@ impl Visit for LayrRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "LAYR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LAYR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LAYR.BfcbBlock", out);
     }
 }
 
@@ -45781,10 +46665,12 @@ impl Visit for LcrtRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LCRT.BfcbBlock", out);
         visit_lstrings(&self.name, "LCRT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LCRT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "LCRT.FULL", out);
     }
 }
@@ -47632,10 +48518,12 @@ impl Visit for LctnRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LCTN.BfcbBlock", out);
         visit_lstrings(&self.name, "LCTN.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LCTN.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "LCTN.FULL", out);
     }
 }
@@ -48060,6 +48948,14 @@ impl Visit for LensRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "LENS.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LENS.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LENS.BfcbBlock", out);
     }
 }
 
@@ -49797,6 +50693,14 @@ impl Visit for LgdiRecord {
         visit_form_ids_mut(&mut self.quality_disallowed_keyword, "LGDI.INAM", out);
         visit_form_ids_mut(&mut self.quality_upgrade_costs, "LGDI.JNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LGDI.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LGDI.BfcbBlock", out);
+    }
 }
 
 impl LgdiRecord {
@@ -50960,6 +51864,14 @@ impl Visit for LighRecord {
         visit_form_ids_mut(&mut self.light_sound, "LIGH.LLSH", out);
         visit_form_ids_mut(&mut self.lens, "LIGH.LNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LIGH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LIGH.BfcbBlock", out);
+    }
 }
 
 impl LighRecord {
@@ -51108,6 +52020,14 @@ impl Visit for LmswRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "LMSW.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LMSW.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LMSW.BfcbBlock", out);
     }
 }
 
@@ -52032,6 +52952,14 @@ impl Visit for LvlbRecord {
         visit_form_ids_mut(&mut self.leveled_list_entry, "LVLB.LeveledListEntry", out);
         visit_form_ids_mut(&mut self.filter_keyword_chances, "LVLB.LLKC", out);
         visit_form_ids_mut(&mut self.model, "LVLB.Model", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LVLB.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LVLB.BfcbBlock", out);
     }
 }
 
@@ -53156,10 +54084,12 @@ impl Visit for LvliRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LVLI.BfcbBlock", out);
         visit_lstrings(&self.override_name, "LVLI.ONAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LVLI.BfcbBlock", out);
         visit_lstrings_mut(&mut self.override_name, "LVLI.ONAM", out);
     }
 }
@@ -53735,10 +54665,12 @@ impl Visit for LvlnRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LVLN.BfcbBlock", out);
         visit_lstrings(&self.override_name, "LVLN.ONAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LVLN.BfcbBlock", out);
         visit_lstrings_mut(&mut self.override_name, "LVLN.ONAM", out);
     }
 }
@@ -54223,6 +55155,14 @@ impl Visit for LvlpRecord {
         visit_form_ids_mut(&mut self.model, "LVLP.Model", out);
         visit_form_ids_mut(&mut self.forced_loc_ref_types, "LVLP.FTYP", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LVLP.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LVLP.BfcbBlock", out);
+    }
 }
 
 impl LvlpRecord {
@@ -54589,6 +55529,14 @@ impl Visit for LvscRecord {
         visit_form_ids_mut(&mut self.conditions, "LVSC.Conditions", out);
         visit_form_ids_mut(&mut self.use_chance_none_global, "LVSC.LVLG", out);
         visit_form_ids_mut(&mut self.entries, "LVSC.Entries", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "LVSC.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "LVSC.BfcbBlock", out);
     }
 }
 
@@ -55041,6 +55989,14 @@ impl Visit for MattRecord {
         visit_form_ids_mut(&mut self.material_parent, "MATT.PNAM", out);
         visit_form_ids_mut(&mut self.havok_impact_data_set, "MATT.HNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MATT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MATT.BfcbBlock", out);
+    }
 }
 
 impl MattRecord {
@@ -55446,6 +56402,7 @@ impl Visit for MesgRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MESG.BfcbBlock", out);
         visit_lstrings(&self.description, "MESG.DESC", out);
         visit_lstrings(&self.name, "MESG.FULL", out);
         visit_lstrings(&self.short_title, "MESG.NNAM", out);
@@ -55453,6 +56410,7 @@ impl Visit for MesgRecord {
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MESG.BfcbBlock", out);
         visit_lstrings_mut(&mut self.description, "MESG.DESC", out);
         visit_lstrings_mut(&mut self.name, "MESG.FULL", out);
         visit_lstrings_mut(&mut self.short_title, "MESG.NNAM", out);
@@ -56454,11 +57412,13 @@ impl Visit for MgefRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MGEF.BfcbBlock", out);
         visit_lstrings(&self.name, "MGEF.FULL", out);
         visit_lstrings(&self.magic_item_description, "MGEF.DNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MGEF.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "MGEF.FULL", out);
         visit_lstrings_mut(&mut self.magic_item_description, "MGEF.DNAM", out);
     }
@@ -57007,11 +57967,13 @@ impl Visit for MiscRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MISC.BfcbBlock", out);
         visit_lstrings(&self.name, "MISC.FULL", out);
         visit_lstrings(&self.short_name, "MISC.NNAM", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MISC.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "MISC.FULL", out);
         visit_lstrings_mut(&mut self.short_name, "MISC.NNAM", out);
     }
@@ -58253,10 +59215,12 @@ impl Visit for MsttRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MSTT.BfcbBlock", out);
         visit_lstrings(&self.name, "MSTT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MSTT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "MSTT.FULL", out);
     }
 }
@@ -58693,6 +59657,14 @@ impl Visit for MuscRecord {
         visit_form_ids_mut(&mut self.bfcb_block, "MUSC.BfcbBlock", out);
         visit_form_ids_mut(&mut self.music_tracks, "MUSC.TNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MUSC.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MUSC.BfcbBlock", out);
+    }
 }
 
 impl MuscRecord {
@@ -59028,6 +60000,14 @@ impl Visit for MustRecord {
         visit_form_ids_mut(&mut self.conditions, "MUST.Conditions", out);
         visit_form_ids_mut(&mut self.tracks, "MUST.SNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "MUST.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "MUST.BfcbBlock", out);
+    }
 }
 
 impl MustRecord {
@@ -59307,6 +60287,14 @@ impl Visit for NavmRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "NAVM.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "NAVM.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "NAVM.BfcbBlock", out);
     }
 }
 
@@ -62778,6 +63766,7 @@ impl Visit for NpcRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "NPC_.BfcbBlock", out);
         visit_lstrings(&self.obte_block, "NPC_.ObteBlock", out);
         visit_lstrings(&self.name, "NPC_.FULL", out);
         visit_lstrings(&self.short_name, "NPC_.SHRT", out);
@@ -62786,6 +63775,7 @@ impl Visit for NpcRecord {
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "NPC_.BfcbBlock", out);
         visit_lstrings_mut(&mut self.obte_block, "NPC_.ObteBlock", out);
         visit_lstrings_mut(&mut self.name, "NPC_.FULL", out);
         visit_lstrings_mut(&mut self.short_name, "NPC_.SHRT", out);
@@ -63269,11 +64259,13 @@ impl Visit for OmodRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "OMOD.BfcbBlock", out);
         visit_lstrings(&self.name, "OMOD.FULL", out);
         visit_lstrings(&self.description, "OMOD.DESC", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "OMOD.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "OMOD.FULL", out);
         visit_lstrings_mut(&mut self.description, "OMOD.DESC", out);
     }
@@ -63553,6 +64545,14 @@ impl Visit for OtftRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "OTFT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.items, "OTFT.INAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "OTFT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "OTFT.BfcbBlock", out);
     }
 }
 
@@ -65852,6 +66852,14 @@ impl Visit for PackRecord {
         visit_form_ids_mut(&mut self.on_end, "PACK.OnEnd", out);
         visit_form_ids_mut(&mut self.on_change, "PACK.OnChange", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PACK.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PACK.BfcbBlock", out);
+    }
 }
 
 impl PackRecord {
@@ -66278,6 +67286,14 @@ impl Visit for PcbnRecord {
         visit_form_ids_mut(&mut self.parent_node, "PCBN.PRTN", out);
         visit_form_ids_mut(&mut self.previous_node, "PCBN.PRVN", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PCBN.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PCBN.BfcbBlock", out);
+    }
 }
 
 impl PcbnRecord {
@@ -66493,6 +67509,14 @@ impl Visit for PccnRecord {
         visit_form_ids_mut(&mut self.keywords, "PCCN.KWDA", out);
         visit_form_ids_mut(&mut self.parent_node, "PCCN.PRTN", out);
         visit_form_ids_mut(&mut self.previous_node, "PCCN.PRVN", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PCCN.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PCCN.BfcbBlock", out);
     }
 }
 
@@ -66853,6 +67877,14 @@ impl Visit for PcmtRecord {
         visit_form_ids_mut(&mut self.conditions, "PCMT.Conditions", out);
         visit_form_ids_mut(&mut self.keywords, "PCMT.KWDA", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PCMT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PCMT.BfcbBlock", out);
+    }
 }
 
 impl PcmtRecord {
@@ -67187,6 +68219,14 @@ impl Visit for PdclRecord {
         visit_form_ids_mut(&mut self.default_layer, "PDCL.DEFL", out);
         visit_form_ids_mut(&mut self.bfcb_block, "PDCL.BfcbBlock", out);
         visit_form_ids_mut(&mut self.material, "PDCL.DODT", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PDCL.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PDCL.BfcbBlock", out);
     }
 }
 
@@ -69615,6 +70655,14 @@ impl Visit for PhzdRecord {
         visit_form_ids_mut(&mut self.source_pack_in, "PHZD.XPCS", out);
         visit_form_ids_mut(&mut self.location_reference, "PHZD.XLRL", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PHZD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PHZD.BfcbBlock", out);
+    }
 }
 
 impl PhzdRecord {
@@ -70120,10 +71168,12 @@ impl Visit for PkinRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PKIN.BfcbBlock", out);
         visit_lstrings(&self.name, "PKIN.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PKIN.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "PKIN.FULL", out);
     }
 }
@@ -71812,6 +72862,14 @@ impl Visit for PndtRecord {
         visit_form_ids_mut(&mut self.surface_tree, "PNDT.FNAM", out);
         visit_form_ids_mut(&mut self.body, "PNDT.Body", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PNDT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PNDT.BfcbBlock", out);
+    }
 }
 
 impl PndtRecord {
@@ -72989,10 +74047,12 @@ impl Visit for ProjRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "PROJ.BfcbBlock", out);
         visit_lstrings(&self.name, "PROJ.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "PROJ.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "PROJ.FULL", out);
     }
 }
@@ -75693,6 +76753,7 @@ impl Visit for QustRecord {
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.name, "QUST.FULL", out);
+        visit_lstrings(&self.bfcb_block, "QUST.BfcbBlock", out);
         visit_lstrings(&self.stage, "QUST.Stage", out);
         visit_lstrings(&self.objective, "QUST.Objective", out);
         visit_lstrings(&self.mission_board, "QUST.MissionBoard", out);
@@ -75700,6 +76761,7 @@ impl Visit for QustRecord {
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
         visit_lstrings_mut(&mut self.name, "QUST.FULL", out);
+        visit_lstrings_mut(&mut self.bfcb_block, "QUST.BfcbBlock", out);
         visit_lstrings_mut(&mut self.stage, "QUST.Stage", out);
         visit_lstrings_mut(&mut self.objective, "QUST.Objective", out);
         visit_lstrings_mut(&mut self.mission_board, "QUST.MissionBoard", out);
@@ -80022,6 +81084,7 @@ impl Visit for RaceRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "RACE.BfcbBlock", out);
         visit_lstrings(&self.name, "RACE.FULL", out);
         visit_lstrings(&self.description, "RACE.DESC", out);
         visit_lstrings(&self.male_chargen, "RACE.MaleChargen", out);
@@ -80030,6 +81093,7 @@ impl Visit for RaceRecord {
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "RACE.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "RACE.FULL", out);
         visit_lstrings_mut(&mut self.description, "RACE.DESC", out);
         visit_lstrings_mut(&mut self.male_chargen, "RACE.MaleChargen", out);
@@ -83878,10 +84942,12 @@ impl Visit for RefrRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "REFR.BfcbBlock", out);
         visit_lstrings(&self.map_marker, "REFR.MapMarker", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "REFR.BfcbBlock", out);
         visit_lstrings_mut(&mut self.map_marker, "REFR.MapMarker", out);
     }
 }
@@ -84692,6 +85758,14 @@ impl Visit for RfgpRecord {
         visit_form_ids_mut(&mut self.pack_in, "RFGP.PNAM", out);
         visit_form_ids_mut(&mut self.unknown1, "RFGP.LNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "RFGP.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "RFGP.BfcbBlock", out);
+    }
 }
 
 impl RfgpRecord {
@@ -84971,6 +86045,14 @@ impl Visit for RsgdRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "RSGD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.resource, "RSGD.Resource", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "RSGD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "RSGD.BfcbBlock", out);
     }
 }
 
@@ -85401,11 +86483,13 @@ impl Visit for RspjRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "RSPJ.BfcbBlock", out);
         visit_lstrings(&self.name, "RSPJ.FULL", out);
         visit_lstrings(&self.description, "RSPJ.DESC", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "RSPJ.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "RSPJ.FULL", out);
         visit_lstrings_mut(&mut self.description, "RSPJ.DESC", out);
     }
@@ -87470,10 +88554,12 @@ impl Visit for ScolRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SCOL.BfcbBlock", out);
         visit_lstrings(&self.name, "SCOL.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SCOL.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "SCOL.FULL", out);
     }
 }
@@ -88278,6 +89364,14 @@ impl Visit for SechRecord {
         visit_form_ids_mut(&mut self.looping_sound, "SECH.ECHL", out);
         visit_form_ids_mut(&mut self.echos, "SECH.Echos", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SECH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SECH.BfcbBlock", out);
+    }
 }
 
 impl SechRecord {
@@ -88973,6 +90067,14 @@ impl Visit for SfbkRecord {
         visit_form_ids_mut(&mut self.bfcb_block, "SFBK.BfcbBlock", out);
         visit_form_ids_mut(&mut self.source_block, "SFBK.NAM5", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SFBK.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SFBK.BfcbBlock", out);
+    }
 }
 
 impl SfbkRecord {
@@ -89521,6 +90623,14 @@ impl Visit for SfptRecord {
         visit_form_ids_mut(&mut self.override_blocks, "SFPT.EFRM", out);
         visit_form_ids_mut(&mut self.worldspaces, "SFPT.DNAM", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SFPT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SFPT.BfcbBlock", out);
+    }
 }
 
 impl SfptRecord {
@@ -89748,6 +90858,14 @@ impl Visit for SftrRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "SFTR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SFTR.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SFTR.BfcbBlock", out);
     }
 }
 
@@ -91124,6 +92242,14 @@ impl Visit for SpchRecord {
         visit_form_ids_mut(&mut self.keywords, "SPCH.Keywords", out);
         visit_form_ids_mut(&mut self.scenes, "SPCH.SPMA", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SPCH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SPCH.BfcbBlock", out);
+    }
 }
 
 impl SpchRecord {
@@ -91676,11 +92802,13 @@ impl Visit for SpelRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "SPEL.BfcbBlock", out);
         visit_lstrings(&self.name, "SPEL.FULL", out);
         visit_lstrings(&self.description, "SPEL.DESC", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "SPEL.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "SPEL.FULL", out);
         visit_lstrings_mut(&mut self.description, "SPEL.DESC", out);
     }
@@ -92455,10 +93583,12 @@ impl Visit for StatRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "STAT.BfcbBlock", out);
         visit_lstrings(&self.name, "STAT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "STAT.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "STAT.FULL", out);
     }
 }
@@ -92711,6 +93841,14 @@ impl Visit for StbhRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "STBH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "STBH.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "STBH.BfcbBlock", out);
     }
 }
 
@@ -93018,6 +94156,14 @@ impl Visit for StdtRecord {
         visit_form_ids_mut(&mut self.binary_star, "STDT.SNAM", out);
         visit_form_ids_mut(&mut self.sun_preset, "STDT.PNAM", out);
         visit_form_ids_mut(&mut self.time_of_day_data, "STDT.HNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "STDT.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "STDT.BfcbBlock", out);
     }
 }
 
@@ -93660,6 +94806,14 @@ impl Visit for StmpRecord {
             out,
         );
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "STMP.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "STMP.BfcbBlock", out);
+    }
 }
 
 impl StmpRecord {
@@ -94131,6 +95285,14 @@ impl Visit for StndRecord {
         visit_form_ids_mut(&mut self.keywords, "STND.Keywords", out);
         visit_form_ids_mut(&mut self.adjacent_snap_nodes, "STND.NNAM", out);
         visit_form_ids_mut(&mut self.art_object, "STND.ANAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "STND.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "STND.BfcbBlock", out);
     }
 }
 
@@ -95146,12 +96308,14 @@ impl Visit for TermRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "TERM.BfcbBlock", out);
         visit_lstrings(&self.name, "TERM.FULL", out);
         visit_lstrings(&self.activate_text_override, "TERM.ATTX", out);
         visit_lstrings(&self.obte_block, "TERM.ObteBlock", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "TERM.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "TERM.FULL", out);
         visit_lstrings_mut(&mut self.activate_text_override, "TERM.ATTX", out);
         visit_lstrings_mut(&mut self.obte_block, "TERM.ObteBlock", out);
@@ -96610,6 +97774,14 @@ impl Visit for ToddRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "TODD.BfcbBlock", out);
     }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "TODD.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "TODD.BfcbBlock", out);
+    }
 }
 
 impl ToddRecord {
@@ -96841,6 +98013,14 @@ impl Visit for TravRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "TRAV.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "TRAV.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "TRAV.BfcbBlock", out);
     }
 }
 
@@ -97342,6 +98522,14 @@ impl Visit for TxstRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "TXST.BfcbBlock", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "TXST.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "TXST.BfcbBlock", out);
     }
 }
 
@@ -98309,10 +99497,12 @@ impl Visit for WatrRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "WATR.BfcbBlock", out);
         visit_lstrings(&self.name, "WATR.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "WATR.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "WATR.FULL", out);
     }
 }
@@ -101188,6 +102378,7 @@ impl Visit for WeapRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "WEAP.BfcbBlock", out);
         visit_lstrings(&self.name, "WEAP.FULL", out);
         visit_lstrings(&self.description, "WEAP.DESC", out);
         visit_lstrings(&self.obte_block, "WEAP.ObteBlock", out);
@@ -101195,6 +102386,7 @@ impl Visit for WeapRecord {
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "WEAP.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "WEAP.FULL", out);
         visit_lstrings_mut(&mut self.description, "WEAP.DESC", out);
         visit_lstrings_mut(&mut self.obte_block, "WEAP.ObteBlock", out);
@@ -102869,10 +104061,12 @@ impl Visit for WrldRecord {
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "WRLD.BfcbBlock", out);
         visit_lstrings(&self.name, "WRLD.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "WRLD.BfcbBlock", out);
         visit_lstrings_mut(&mut self.name, "WRLD.FULL", out);
     }
 }
@@ -106570,6 +107764,14 @@ impl Visit for ZoomRecord {
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "ZOOM.BfcbBlock", out);
         visit_form_ids_mut(&mut self.data, "ZOOM.ZNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.bfcb_block, "ZOOM.BfcbBlock", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.bfcb_block, "ZOOM.BfcbBlock", out);
     }
 }
 

@@ -462,26 +462,20 @@ mod tests {
     use super::*;
 
     /// M3.E4: the corpus table is a cross-check of the schema now that lane B typed its
-    /// 105 lstring signatures (M3.B8). 100 are whole-subrecord schema lstrings; 5 sit in
-    /// the base form component blocks the schema keeps raw (CHAL's activities, GBFM's hull
-    /// name, the PNDT and STDT names), where the table stays the fallback; nothing the
-    /// table measured as "not an lstring" is one in the schema.
+    /// 105 lstring signatures (M3.B8). 103 are whole-subrecord schema lstrings; 2 sit in
+    /// base form component layouts the schema keeps raw (CHAL's activity DESC, GBFM's hull
+    /// name), where the table stays the fallback; nothing the table measured as "not an
+    /// lstring" is one in the schema. KK-284 typed the full-name component (PNDT, STDT and
+    /// GBFM names), which also makes CHAL's FULL "agree" by signature, although CHAL's
+    /// own FULLs sit in its raw activity tracker block: there the positional lookup
+    /// (`fields::layout_at`) still finds no member and uses the FULL/DESC fallback.
     #[test]
     fn the_schema_types_every_table_lstring() {
         let schema = kitkraft_schema::builtin().unwrap();
         let c = compare(schema);
         assert_eq!(c.conflicts, Vec::<String>::new());
-        assert_eq!(
-            c.fallback,
-            [
-                "CHAL.DESC",
-                "CHAL.FULL",
-                "GBFM.HULL",
-                "PNDT.FULL",
-                "STDT.FULL"
-            ]
-        );
-        assert_eq!(c.agree.len(), 100);
+        assert_eq!(c.fallback, ["CHAL.DESC", "GBFM.HULL"]);
+        assert_eq!(c.agree.len(), 103);
         let lstrings: usize = TABLE
             .iter()
             .map(|(_, l, ..)| l.split(' ').filter(|s| !s.is_empty()).count())

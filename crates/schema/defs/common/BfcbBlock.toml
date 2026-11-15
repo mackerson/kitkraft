@@ -11,7 +11,7 @@
 #
 # The component data is upstream's record union over the component layouts (L6055-L6828):
 # each layout is a run of subrecords, and the run's first subrecord says which layout it is
-# (lane D, 2026-10-15). Eight layouts are typed here as optional groups, in upstream's
+# (lane D, 2026-10-15). These layouts are typed here as optional groups, in upstream's
 # order, each led by signatures no other upstream layout starts with in the 14 official
 # ESMs (`crates/doc/tests/components.rs` checks every official block):
 #   - `AnimationGraph` (ANAM..ENAM strings and a marker, L6079-L6087);
@@ -26,6 +26,21 @@
 #   - `ParticleSystem` (one PTCL payload, L6607-L6610; round 4) and `Reflection` (one REFL
 #     payload, L6820-L6827): kept raw (opaque), since their layout is a helper in another
 #     upstream unit that is not an authorized source (ADR 0004).
+#   - `Keywords` (KSIZ and KWDA through the shared Keywords group, L6694-L6697; KK-282,
+#     2026-11-15): BGSKeywordForm_Component, a STAT's and a REFR's keywords.
+#   - `ObjectPaletteDefaults` (one OPDS, the shared ObjectPaletteDefaults type,
+#     L6170-L6173; KK-283, 2026-11-15): BGSObjectPaletteDefaults_Component.
+#   - `FullName` (one FULL lstring, L6611-L6614; KK-284, 2026-11-15):
+#     TESFullName_Component, the names of GBFM, PNDT and STDT records.
+#   - `LightLayer` (a lone FLLD, L6682-L6685) and `PlanetModel` (MODL, FLLD, XMPM kept
+#     opaque, ring strings, L6619-L6635; KK-285, 2026-11-15): TESPlanetModel_Component and
+#     TESModel_Component; LightLayer sits before PlanetModel (see its note).
+#   - `PropertySheet` (one PRPS of the shared PropertyValue entries, L6199-L6202; KK-286,
+#     2026-11-15): BGSPropertySheet_Component.
+#   - `AttachParentArray` (one APPR, keyword FormIDs, L6088-L6091; KK-287, 2026-11-15):
+#     BGSAttachParentArray_Component.
+#   - `ObjectWindowFilter` (INTV count and FLTR paths, L6174-L6178; KK-288, 2026-11-15):
+#     BGSObjectWindowFilter_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -50,6 +65,7 @@ group = "AnimationGraph"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087"
 evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 recount (KK-282): the 4,853 BGSAnimationGraph_Component blocks with data in records of a defined type in the 14 official ESMs, more since the record types typed after round 4; they decode and re-encode identically",
   "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 4,760 BGSAnimationGraph_Component blocks with data in records of a defined type in the 14 official ESMs (GBFM, TERM, ACTI, CONT, FURN and others) hold ANAM, BNAM, CNAM, DNAM and ENAM in this order (some left out), every string NUL-terminated and every ENAM empty; they decode and re-encode identically",
 ]
 confidence = "corpus"
@@ -88,10 +104,31 @@ card = "optional"
 note = "a marker: present means true"
 
 [[member]]
+group = "AttachParentArray"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6088-L6091"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 2,396 BGSAttachParentArray_Component blocks with data of the 14 official ESMs (all GBFM; 925 more blocks of the name are empty) each hold one APPR, a whole number of 4-byte keyword FormIDs; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSAttachParentArray_Component: the attach parent slots (keywords) a generic base form offers"
+
+[[member.member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+
+[[member]]
 group = "ContactShadow"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6096-L6105"
 evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 recount (KK-282): the 147,487 BGSContactShadowComponent_Component blocks in records of a defined type in the 14 official ESMs, more since the record types typed after round 4; they decode and re-encode identically",
   "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 147,486 BGSContactShadowComponent_Component blocks in records of a defined type in the 14 official ESMs (REFR almost all, one FACT) each hold one 20-byte FLCS; they decode and re-encode identically",
 ]
 confidence = "corpus"
@@ -147,6 +184,48 @@ field = [
   { name = "ExclusiveSlots", type = "array", element = "u32", count_from = "Count" },
 ]
 note = "per DCSD slot, in the same order: the display slots it excludes"
+
+[[member]]
+group = "ObjectPaletteDefaults"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6170-L6173"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 6,105 BGSObjectPaletteDefaults_Component blocks with data of the 14 official ESMs (REFR, ACHR, DIAL; 121 more blocks of the name are empty) each hold one 80-byte OPDS; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSObjectPaletteDefaults_Component: the placement defaults a reference carries"
+
+[[member.member]]
+sig = "OPDS"
+name = "Defaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+
+[[member]]
+group = "ObjectWindowFilter"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6174-L6178"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 3,062 BGSObjectWindowFilter_Component blocks of the 14 official ESMs (LMSW 1,201, LIGH 1,053, STMP, GBFM and 10 more types) each hold one 4-byte INTV and one NUL-terminated FLTR; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSObjectWindowFilter_Component: the editor's object window filter paths"
+
+[[member.member]]
+sig = "INTV"
+name = "Count"
+type = "u32"
+card = "optional"
+note = "number of FLTR that follow; stored, not derived"
+
+[[member.member]]
+sig = "FLTR"
+name = "Filters"
+type = "zstring"
+card = "repeated"
+note = "object window filter path"
 
 [[member]]
 group = "PlanetContentProperties"
@@ -269,6 +348,25 @@ name = "Conditions"
 card = "repeated"
 
 [[member]]
+group = "PropertySheet"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6199-L6202"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 2,064 BGSPropertySheet_Component blocks with data of the 14 official ESMs (all GBFM; 1,812 more blocks of the name are empty) each hold one PRPS, a whole number of 12-byte properties; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSPropertySheet_Component: actor value properties of a generic base form (ship modules)"
+
+[[member.member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
+card = "optional"
+
+[[member]]
 group = "QualityUpgrade"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6203-L6206"
@@ -310,6 +408,7 @@ group = "ParticleSystem"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6607-L6610"
 evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 recount (KK-282): the 2,733 ParticleSystem_Component blocks in records of a defined type in the 14 official ESMs, more since the record types typed after round 4; they decode and re-encode identically",
   "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-16: the 1,545 ParticleSystem_Component blocks of the 14 official ESMs each hold one PTCL; they decode and re-encode identically",
 ]
 confidence = "corpus"
@@ -323,10 +422,108 @@ card = "optional"
 note = "reflection data, as REFL: upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
 
 [[member]]
+group = "FullName"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6611-L6614"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 5,695 TESFullName_Component blocks with data of the 14 official ESMs (GBFM, PNDT, STDT; 80 more blocks of the name are empty) each hold one 4-byte FULL; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESFullName_Component: the display name of a generic base form, planet or star"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member]]
+group = "LightLayer"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6682-L6685"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 1,868 TESModel_Component blocks of the 14 official ESMs whose data is a lone FLLD (4 bytes); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "a lone light layer (TESModel_Component blocks without a model path). Placed before PlanetModel, unlike upstream's order: PlanetModel's first member is optional, so in member order it would also take a block that starts with FLLD"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+
+[[member]]
+group = "PlanetModel"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6619-L6635"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 1,825 TESPlanetModel_Component blocks (PNDT 1,704, STDT 121) hold MODL FLLD XMPM, 113 of them then MCQP XMSP XLMS; the 2,067 TESModel_Component blocks that start with MODL (GBFM, PNDT, STDT, AVMD, BMOD, QUST) hold MODL FLLD; every string NUL-terminated, every FLLD 4 bytes; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESPlanetModel_Component, and TESModel_Component when it has a model path: upstream reads both with this layout (it has no TESModel layout of its own)"
+
+[[member.member]]
+sig = "MODL"
+name = "Model"
+type = "zstring"
+card = "optional"
+note = "model file path"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+
+[[member.member]]
+sig = "XMPM"
+name = "Xmpm"
+type = "opaque"
+card = "optional"
+note = "unnamed upstream: two u16-counted lists (u16-length strings; resource IDs with file hash, extension and folder hash); kept as read until the format has u16 counts"
+
+[[member.member]]
+sig = "MCQP"
+name = "RingModel"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "XMSP"
+name = "RingMaterial"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "XLMS"
+name = "RingId"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6694-L6697"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 83,015 BGSKeywordForm_Component blocks with data of the 14 official ESMs (REFR, STAT, GBFM, PNDT and 21 more types; 12,984 more blocks of the name are empty) each hold one KSIZ and one KWDA; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSKeywordForm_Component: the form's keywords (a STAT's and a REFR's live here); upstream gives this layout no component name of its own"
+
+[[member]]
 group = "Reflection"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6820-L6827"
 evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 recount (KK-282): the 9,651 one-REFL blocks in records of a defined type in the 14 official ESMs, more since the record types typed after round 4; they decode and re-encode identically",
   "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 8,501 blocks in records of a defined type in the 14 official ESMs whose data is one REFL (BGSLodOwner_Component 4,968, BGSEffectSequenceComponent 2,811, ReflectionProbes_Component 388, BGSMaterialPropertyComponent 177, LensFlareAttachmentFormComponent 95, LightAttachmentFormComponent 57, BGSSpacePhysicsComponent 5) decode and re-encode identically",
 ]
 confidence = "corpus"

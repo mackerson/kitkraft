@@ -555,6 +555,46 @@ fn stat_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STAT", "DisplayCase", "BGSDisplayCase");
 }
 
+// KK-282: the keyword component layout (a STAT's keywords live in it); STAT has no
+// keyword list of its own, so the KSIZ/KWDA the plan writes select the layout.
+#[test]
+fn stat_keywords_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STAT", "Keywords", "BGSKeywordForm_Component");
+}
+
+// KK-284: the full name component layout, where generic base forms, planets and stars keep
+// their display names. On STDT: the helper cannot write a GBFM (its object template's
+// OBTS has no layout a new subrecord can start from).
+#[test]
+fn stdt_full_name_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "FullName", "TESFullName_Component");
+}
+
+// KK-285: the planet model component layout (model, light layer, the opaque XMPM and the
+// ring strings) and the lone light layer one, both on a star.
+#[test]
+fn stdt_planet_model_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "PlanetModel", "TESPlanetModel_Component");
+}
+
+#[test]
+fn stdt_light_layer_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "LightLayer", "TESModel_Component");
+}
+
+// KK-288: the object window filter component layout (1,053 official LIGH carry one). LIGH's
+// FULL is opaque in the schema and read through the lstring fallback, as in
+// `ligh_new_sets_every_typed_member_and_reads_back`.
+#[test]
+fn ligh_object_window_filter_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with(
+        "LIGH",
+        "ObjectWindowFilter",
+        "BGSObjectWindowFilter_Component",
+        &["FULL"],
+    );
+}
+
 #[test]
 fn pkin_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
@@ -730,7 +770,13 @@ fn wrld_new_sets_every_typed_member_and_reads_back() {
 /// `validate` reports each (by the member path its visitor gives, `expect`) and `refs`
 /// lists each as a missing link.
 fn dangling(sig: &str, layout: &str, component: &str, dangling: &[(&str, Value)], expect: &[&str]) {
-    let d = dir(&format!("authoring-dangling-{}", sig.to_lowercase()));
+    // The layout in the name, as in `writes_and_reads_back_with`: two STAT tests on
+    // different layouts would otherwise wipe each other's dir when run in parallel.
+    let d = dir(&format!(
+        "authoring-dangling-{}-{}",
+        sig.to_lowercase(),
+        layout.to_lowercase()
+    ));
     let mut p = plan(sig, layout, component);
     for (k, v) in dangling {
         p.fields.insert((*k).to_string(), v.clone());
@@ -943,6 +989,18 @@ fn stat_dangling_link_is_reported() {
             ("DEFL", json!(MISSING)),
         ],
         &["SNTP", "SNBH", "DEFL"],
+    );
+}
+
+// KK-282: a keyword inside the keyword component block is visited like any other.
+#[test]
+fn stat_keywords_dangling_link_is_reported() {
+    dangling(
+        "STAT",
+        "Keywords",
+        "BGSKeywordForm_Component",
+        &[("KWDA", json!([MISSING]))],
+        &["KWDA"],
     );
 }
 

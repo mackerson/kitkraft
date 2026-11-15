@@ -114,7 +114,12 @@ fn new_cell(d: &Path, edid: &str, fields: &Map<String, Value>) -> (PathBuf, Path
 }
 
 fn reference_writes_and_reads_back(sig: &str, base: &str, layout: &str, component: &str) {
-    let d = dir(&format!("authoring-world-{}", sig.to_lowercase()));
+    // The layout in the name: two layouts of one type (REFR) must not share a dir.
+    let d = dir(&format!(
+        "authoring-world-{}-{}",
+        sig.to_lowercase(),
+        layout.to_lowercase()
+    ));
     let p = world_plan(sig, layout, component);
     let (data, new, r) = place_with(&d, base, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(r["data"]["placed"][0]["signature"], json!(sig));
@@ -135,6 +140,18 @@ fn refr_place_sets_every_typed_member_and_reads_back() {
         "KC_Crate",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
+    );
+}
+
+// KK-283: the object palette defaults component layout, which only references (REFR,
+// ACHR) and one DIAL carry in the official files.
+#[test]
+fn refr_object_palette_defaults_place_sets_every_typed_member_and_reads_back() {
+    reference_writes_and_reads_back(
+        "REFR",
+        "KC_Crate",
+        "ObjectPaletteDefaults",
+        "BGSObjectPaletteDefaults_Component",
     );
 }
 
