@@ -253,7 +253,7 @@ the local agent; their files came to `main` later (KK-323), each with `hold`, be
 counts a ticket as merged only by a "Merge ticket/<ID>:" commit. KK-267 to KK-289 (the
 conditions, dialogue and component-block lanes of 2026-11-15) were cut in the lanes' briefs and
 never had ticket files, so the picker cannot see them; their record is their "Landed" lines in
-`plan/STATUS.md` (KK-289 is parked on `opus/wip-KK-289`, KK-273 was never used).
+`plan/STATUS.md` (KK-289, parked at first, landed on `main` as `a6f7cfaf`; KK-273 was never used).
 
 KK-246 to KK-249 each add one test to `crates/ui-egui/src/app/harness/tests.rs`, so `auto`
 picks one of them a night (owns overlap). To run all four the same night, queue them as a
