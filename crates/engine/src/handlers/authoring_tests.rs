@@ -5,7 +5,8 @@
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
 //! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
 //! ENCH, IRES and HAZD (KK-265, 2026-11-14), DIAL and INFO under their parents (KK-277,
-//! 2026-11-15; `dialogue_tests.rs` fixture) and WWED (KK-291, 2026-11-15)
+//! 2026-11-15; `dialogue_tests.rs` fixture), WWED (KK-291, 2026-11-15), RSPJ (KK-300), AVIF
+//! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1865,5 +1866,139 @@ fn wwed_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("CNAM", json!(MISSING))],
         &["CNAM"],
+    );
+}
+
+#[test]
+fn rspj_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "RSPJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// AVIF has no base form component block (no official record has one), so the layout and
+// component name are inert; it has no FormID member either, so no dangling-link test.
+#[test]
+fn avif_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "AVIF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// PERK has no base form component block, so the layout and component name are inert.
+#[test]
+fn perk_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PERK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// REGN has no base form component block, so the layout and component name are inert.
+#[test]
+fn regn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "REGN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// TXST has no FormID member outside the base form component block, so no dangling-link
+// test.
+#[test]
+fn txst_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "TXST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// SOUN has no base form component block and no FormID member: the layout and component
+// name are inert, and there is no dangling-link test.
+#[test]
+fn soun_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SOUN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// WKMF has no base form component block, so the layout and component name are inert.
+#[test]
+fn wkmf_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "WKMF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn rspj_dangling_link_is_reported() {
+    // The workbench keyword, the created item, the category keyword and the required
+    // research project.
+    dangling(
+        "RSPJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("BNAM", json!(MISSING)),
+            ("CNAM", json!(MISSING)),
+            ("KNAM", json!(MISSING)),
+            ("RNAM", json!(MISSING)),
+        ],
+        &["BNAM", "CNAM", "KNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn perk_dangling_link_is_reported() {
+    dangling(
+        "PERK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("TNAM", json!(MISSING)),
+            ("UNAM", json!(MISSING)),
+            ("RNAM", json!(MISSING)),
+        ],
+        &["TNAM", "UNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn regn_dangling_link_is_reported() {
+    // A weather type naming the missing weather (Weather, Chance, Global, 4 bytes each):
+    // set's paths do not address elements of a payload that is itself an array, so the
+    // entry is written whole; the null Global is allowed.
+    let mut rdwt = 0x0000_0FFFu32.to_le_bytes().to_vec();
+    rdwt.extend_from_slice(&50u32.to_le_bytes());
+    rdwt.extend_from_slice(&[0; 4]);
+    dangling(
+        "REGN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("RDWT", json!(hex(&rdwt)))],
+        &["RDWT"],
+    );
+}
+
+#[test]
+fn wkmf_dangling_link_is_reported() {
+    // The keyword list (a formid array, set whole as a JSON array of its elements).
+    dangling(
+        "WKMF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("WMKA", json!([MISSING]))],
+        &["WMKA"],
     );
 }

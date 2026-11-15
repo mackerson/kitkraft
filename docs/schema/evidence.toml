@@ -393,6 +393,73 @@ evidence = [
 ]
 note = "KK-291: new with every typed leaf member (4 subrecords; WWED has no component block) on the ContactShadow component layout, read back identically, validate with no finding; the two Wwise event GUIDs (WSED, WTED) are its unchecked subrecords; dangling CNAM reported"
 
+[[entry]]
+type = "RSPJ"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::rspj_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::rspj_dangling_link_is_reported",
+]
+note = "KK-300: new with every typed leaf member (18 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the workbench keyword BNAM, the created item CNAM, the category keyword KNAM, the required research RNAM reported"
+
+[[entry]]
+type = "AVIF"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::avif_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-301: new with every typed leaf member (9 subrecords; AVIF has no component block) on the ContactShadow component layout, read back identically, validate with no finding; no FormID member to leave dangling"
+
+[[entry]]
+type = "PERK"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::perk_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::perk_dangling_link_is_reported",
+]
+note = "KK-302: new with every typed leaf member (39 subrecords; PERK has no component block) on the ContactShadow component layout, read back identically, validate with no finding; 3 whole-opaque subrecords unchecked; dangling the restriction TNAM, the training UNAM and the bonus perks RNAM reported"
+
+[[entry]]
+type = "REGN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::regn_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::regn_dangling_link_is_reported",
+]
+note = "KK-303: new with every typed leaf member (6 subrecords; REGN has no component block) on the ContactShadow component layout, read back identically, validate with no finding; dangling the weather of a weather type RDWT, written whole reported"
+
+[[entry]]
+type = "TXST"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::txst_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-304: new with every typed leaf member (16 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; no FormID member outside the component block to leave dangling"
+
+[[entry]]
+type = "SOUN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::soun_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-305: new with every typed leaf member (8 subrecords; SOUN has no component block) on the ContactShadow component layout, read back identically, validate with no finding; no FormID member to leave dangling"
+
+[[entry]]
+type = "WKMF"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::wkmf_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::wkmf_dangling_link_is_reported",
+]
+note = "KK-305: new with every typed leaf member (6 subrecords; WKMF has no component block) on the ContactShadow component layout, read back identically, validate with no finding; dangling the keyword list WMKA reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.
