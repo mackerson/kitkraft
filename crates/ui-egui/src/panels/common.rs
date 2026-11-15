@@ -8,7 +8,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea};
+use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
 use crate::cmdline::ResultLine;
 use crate::envelope::{BuildInfo, Prepared};
@@ -16,7 +16,7 @@ use crate::gate::{Request, RunError};
 use crate::panels::ledger::LedgerForm;
 use crate::panels::start::StartProfile;
 use crate::panels::validate::FindingRow;
-use crate::theme::{self, Status, ThemeChoice, View};
+use crate::theme::{self, Field, Status, ThemeChoice, View};
 
 /// Characters of a limitation shown on its line (the full text is on hover).
 const LIMITATION_CHARS: usize = 200;
@@ -730,6 +730,39 @@ pub(crate) fn plugin_combo(
                 ui.selectable_value(value, pick.clone(), name);
             }
         });
+}
+
+/// A single-line field for a value that may be longer than the field (a plugin path,
+/// UX audit A7): the field's hover text is the whole value, and when the value is
+/// wider than the field, a weak line under it shows the value wrapped.
+pub(crate) fn long_field(
+    ui: &mut egui::Ui,
+    value: &mut String,
+    hint: impl Into<egui::WidgetText>,
+) -> egui::Response {
+    let width = theme::width(ui, Field::Long);
+    ui.vertical(|ui| {
+        let edit = ui
+            .add(TextEdit::singleline(value).desired_width(width).hint_text(hint))
+            .on_hover_text(value.clone());
+        if value_wider_than_field(ui, value, width) {
+            ui.weak(value.clone());
+        }
+        edit
+    })
+    .inner
+}
+
+/// Whether `value`, laid out in the body text without wrapping, is wider than `width`.
+fn value_wider_than_field(ui: &egui::Ui, value: &str, width: f32) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let galley = ui
+        .painter()
+        .layout(value.to_string(), font, ui.visuals().text_color(), f32::INFINITY);
+    galley.size().x > width
 }
 
 /// Validate findings as a table: severity as a status, then rule, record, subrecord,

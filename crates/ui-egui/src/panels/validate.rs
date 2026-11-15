@@ -211,8 +211,8 @@ fn n_of(v: &Value, k: &str) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, findings_grid, panel_head, plugin_combo,
-    refusal_line, refuse, Action, Refusals, Slot, TabCtx,
+    action_bar, clear_refusal, envelope_block, findings_grid, long_field, panel_head,
+    plugin_combo, refusal_line, refuse, Action, Refusals, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status};
 
@@ -241,10 +241,7 @@ impl ValidateTab {
         action_bar(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.label("plugin");
-                ui.add(
-                    TextEdit::singleline(&mut self.form.plugin)
-                        .desired_width(theme::width(ui, Field::Long)),
-                );
+                long_field(ui, &mut self.form.plugin, "");
                 plugin_combo(ui, "val-plugin", &mut self.form.plugin, plugins, false);
                 ui.label("rules (empty: all)");
                 ui.add(
