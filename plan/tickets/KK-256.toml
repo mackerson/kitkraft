@@ -1,0 +1,97 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113 in the shape of plan/tickets/generate.py depth,
+# from docs/record-parity.md at 8182b84b (the generator itself was not run).
+id = "KK-256"
+title = "Type SCOL (StaticCollection) from the pinned xEdit file, corpus-checked"
+hold = "done by Opus lane opus/schema-depth-20261114 (33ec225a, landed on main by its merge 2060e072, 2026-11-14): do not run again"
+timeout_min = 60
+owns = [
+  "crates/schema/defs/SCOL.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/scol_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+`SCOL` (StaticCollection, 15 official records, 11 signatures in the corpus: 3 typed, 8
+opaque, 0 unknown) has an inventory definition (every corpus signature a member, all but
+EDID, the lstrings and the shared blocks `opaque`): `crates/schema/defs/SCOL.toml`. Its
+xEdit definition is at `L17403-L17431`; follow the helpers it names. Parity target: the
+`SCOL` row of `docs/record-parity.md` must show at least 7 typed (today 3) and at most 0
+unknown (today 0): at least half of the 8 signatures a transcription can type, and no new
+unknown. Also remove it from `BX2_INVENTORY` (and `BX2_TYPED_BOUNDS` if listed) in
+`crates/schema/tests/defs.rs` (those lists are for definitions that type nothing but EDID,
+lstrings and shared blocks); leave `xtask/src/parity.rs`'s `INVENTORY` list and
+`crates/esm/tests/inventory_types.rs` alone (out of scope; a typed type left in the latter's
+`TYPES` is harmless, as DOOR's was). It is in no family (`xtask/src/parity.rs`): if
+`docs/gaps.md` names it among the inventories, update that row.
+
+Type it the way KK-006 typed `ARMA`: from the pinned xEdit file, checked against the corpus.
+Read first: `crates/schema/defs/README.md` (the definition format, and its rule on
+`required`: a member is `required` only where the pinned xEdit file requires it, through
+`.SetRequired` or a `...Req` constructor's required argument; corpus presence never makes it
+required; owner ruling 2026-11-07), then `crates/schema/defs/ACTI.toml` (a typed activator
+with the shared blocks) and `ARMA.toml` (KK-006's, for how a definition cites xEdit and the
+corpus). The shared blocks are in `crates/schema/defs/common/`: `Model`, `Destructible`,
+`ObjectBounds`, `ObteBlock`, `Keywords`, `BfcbBlock`, `Transforms`, `Condition` and others.
+Use them by `group_ref` or `ref:`; do not copy their members, and do not add or change a
+shared block (other tickets use them).
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e). Cite line ranges in `source`/`evidence` as
+ACTI.toml does. Clean-room rule (AGENTS.md): read it for facts (member order, types, sizes,
+names) and write the TOML in your own words; never copy its code or comments, and never use
+a Skyrim definition for any of it. Names are ours, UpperCamelCase, CK wording where it
+exists. Type every member xEdit gives a layout. The corpus wins over xEdit: a subrecord
+xEdit lacks, or a different size, is added from the corpus with a `corpus:` evidence line; a
+member stays `opaque` only where xEdit has no layout for it (an unknown or byte-array field)
+or the corpus disagrees and you cannot tell the layout, with a `note` that says "kept raw"
+and why (as `STAT.toml`'s VMAD and NVNM notes do). Keep the lstring members exactly as typed
+today (the corpus lstring table, `crates/engine/src/edit/lstrings.rs`, must still match).
+Write a `corpus:` evidence line only after a test of yours has printed the fact it cites;
+until then cite xEdit with `confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/scol_types.rs`, modelled on
+`crates/esm/tests/apparel_types.rs` (same lint allowances and checks: every subrecord placed
+in a member, every placed subrecord decodes, re-encoding reproduces each record). One new
+test, `scol_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators)
+
+`scol SCOL: <n> records, <m> identical`
+
+and, per signature, how many records have it. The test must fail, not pass, when it finds no
+record of a type (assert each count is above zero, as KK-233's review made `bmmo_types_full`
+do). Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests
+describe (`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit
+generated files. Fix whatever `cargo test -p kitkraft-schema` reports in
+`crates/schema/tests/defs.rs`. Regenerate `docs/record-parity.md` with `cargo xtask parity`
+(it reads the Data folder) and check the parity target above. Do not move a type between
+families in `xtask` (out of scope), and do not change any other definition or the output of
+any command for another record type. Other schema tickets may run the same night on other
+types: touch only the lines of the shared lists your type needs. Add this ticket's one
+"Landed" line at the end of `plan/STATUS.md` (several past runs lost a review round by
+leaving it out).
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test scol_types -- --ignored --nocapture`. Then `cargo
+xtask ci`. Commit after the definition first loads, and after the corpus test passes; commit
+the regenerated files too (several past runs left them uncommitted).
+"""
+
+[[accept]]
+name = "scol-full"
+cmd = "cargo test --release -p kitkraft-esm --test scol_types -- --ignored --exact scol_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^scol SCOL: 15 records, 15 identical' /tmp/o"
+
+[[accept]]
+name = "schema-all"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-rows"
+cmd = '''python3 -c "import sys; r=[l for l in open('docs/record-parity.md') if l.startswith('| '+chr(96)+'SCOL'+chr(96))]; c=[x.strip().replace(',', '') for x in r[0].split('|')[1:-1]] if r else []; print('parity SCOL:', c); sys.exit(0 if len(c) == 8 and c[1] == 'StaticCollection' and int(c[5]) >= 7 and int(c[7]) <= 0 else 1)"'''

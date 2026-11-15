@@ -1,0 +1,69 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113 in KK-014's shape (clone-sample corpus tests).
+id = "KK-266"
+title = "Clone-sample corpus tests for MISC and DOOR"
+hold = "done by Opus lane opus/validate-corpus-20261114 (abeb55e3, landed on main by its merge 53531a13, 2026-11-14): do not run again"
+timeout_min = 60
+after = ["KK-261"]
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "docs/schema/support-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+KK-004, KK-014 and KK-261 proved `clone` on the official data for LCTN, TERM, PKIN, FACT,
+ALCH and BOOK: cloning a deterministic sample of `Starfield.esm`'s records re-encodes
+identically, apart from what a clone must change. Misc items (`MISC`, typed by lane B and
+typed-writable since KK-017) and doors (`DOOR`, typed by KK-202: 26 typed, 4 opaque, 2
+unknown inside component blocks; `docs/record-parity.md`) are what a loot mod and a
+location or POI mod copy from vanilla. Add the same test for both.
+
+Start from `crates/engine/tests/clone_sample_corpus.rs` (read all of it). Its body,
+`sample_clones(sig, prefix)`, lists every record of a type in `Starfield.esm` with paged
+`query`, takes 100 records spread evenly by FormID, clones each into one patch, compares
+each clone with its source subrecord by subrecord (FormID, `EDID` and the inlined lstrings
+may change; everything else must be byte-identical, same order, same count), runs
+`validate` (0 errors) and prints `clone-sample <TYPE>: <n> cloned, <m> identical, <k>
+explained`. `EXCEPTIONS` lists unexplained differences by source FormID and subrecord.
+
+Add two tests in that file, with these exact names, in the style of the ones that exist
+(`#[ignore = "reads Starfield.esm; slow"]`):
+- `a_sample_of_official_misc_items_clones_identically` (`MISC`, prefix `Misc`),
+- `a_sample_of_official_doors_clones_identically` (`DOOR`, prefix `Door`).
+
+Doors keep script data (`VMAD`) and component blocks (`BFCB` .. `BFCE`) raw, which `clone`
+copies as stored; the comparison already treats the lstring spans a clone inlines as
+expected changes (read `expected_payload` for how it decides which). If a clone differs
+where it should not:
+- an intended difference the comparison does not know (a member `clone` must reset or
+  rewrite): add it to the comparison's expected changes with a comment citing the code in
+  `crates/engine/src/handlers/newform.rs` that makes it;
+- anything else: do **not** change `newform.rs` or any schema definition (out of scope).
+  List it in `EXCEPTIONS` with a one-line reason, add a row to `docs/gaps.md` naming the
+  type, the FormIDs and the subrecord, and count it in `<k>`. Keep the list short; the
+  final QA reads every entry.
+Do not loosen the comparison for `LCTN`, `TERM`, `PKIN`, `FACT`, `ALCH` or `BOOK`: their
+tests must still report what they report on `main`.
+
+Then add the two tests as the clone-sample evidence for `MISC` and `DOOR` in
+`docs/schema/support-matrix.md`, next to the other clone-sample entries, with the counts the
+tests printed and their run times.
+
+Each test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and may take 20 minutes or more
+(KK-014's PKIN run took 19), so run one at a time:
+`cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact
+a_sample_of_official_misc_items_clones_identically --nocapture`. Then `cargo xtask ci`.
+Add this ticket's one "Landed" line at the end of `plan/STATUS.md`. Commit when the first
+test passes.
+"""
+
+[[accept]]
+name = "misc"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_misc_items_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample MISC: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "door"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_doors_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample DOOR: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "support-matrix"
+cmd = "grep -q 'a_sample_of_official_misc_items_clones_identically' docs/schema/support-matrix.md && grep -q 'a_sample_of_official_doors_clones_identically' docs/schema/support-matrix.md"

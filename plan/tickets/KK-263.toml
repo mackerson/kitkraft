@@ -1,0 +1,61 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113: UX principle 3 as a standing harness
+# check, once KK-247 has fixed the one duplicate the 2026-11-01 audit found (A5).
+id = "KK-263"
+title = "Workbench: a harness test that no tab has two buttons with one label (UX principle 3)"
+hold = "drafted 2026-11-13, never run: check the brief against main (KK-247 merged; the sprint 2026-11-09 merge changed crates/ui-egui) before removing this hold"
+timeout_min = 45
+after = ["KK-247"]
+owns = [
+  "crates/ui-egui/src/app/harness/tests.rs",
+  "docs/design/workbench-ux.md",
+]
+brief = """
+UX principle 3 in `docs/design/workbench-ux.md` says one control per action and one label
+per control. Today it is checked only by hand: the ignored report `audit_every_tab` in
+`crates/ui-egui/src/app/harness/tests.rs` prints each tab's duplicate button labels, and
+the 2026-11-01 audit found one, the two "copy" buttons of every result block (finding A5,
+fixed by KK-247, which labels them "copy kit line" and "copy MCP call"). Nothing stops a
+new panel from adding a duplicate again. Make the principle a test that runs in the gate.
+
+Read first: `docs/design/workbench-ux.md` (the principles, the harness, the findings
+table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`, `open_tab`,
+`click`, `one`, `settle`, `tab_labels`) and `crates/ui-egui/src/app/harness/tests.rs`,
+especially `audit_every_tab` and its private helper `buttons` (every button with a label
+below the tab bar, with its rectangle and enabled state), and KK-247's
+`audit_a5_each_result_block_has_distinct_copy_buttons`. Every harness test starts with
+`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
+Colours, sizes and spacing come from `crate::theme` only: a source scan
+(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a sizing
+call, a `Color32`, or a spacing edit, in tests too (`SIZE[1] / 12.0`, as `buttons` uses, is
+the harness's own constant). The workbench writes nothing but `ui.json`; do not add a write,
+and do not touch `crates/ui-egui/src/gate.rs` or any file under `src/panels/`.
+
+Write one harness test, `principle_3_no_tab_has_two_buttons_with_one_label`, in
+`crates/ui-egui/src/app/harness/tests.rs`:
+- for every tab of `tab_labels()` (the engine with nothing loaded), open it and collect the
+  labels of `buttons(&h)`; a label that occurs more than once on one tab is a failure;
+- then open the Schema tab, click "Show" (the engine answers `schema` with nothing loaded,
+  so a result block is drawn), `settle`, and check the same on that tab with its result
+  block in view: this is the case A5 was about;
+- on failure, the message names every tab and label that occurs twice, with the count.
+Reuse `buttons`; you may move the duplicate count `audit_every_tab` computes into a small
+shared helper that both use, as long as `audit_every_tab` prints what it prints today.
+
+The audit found no duplicate other than "copy", so on `main` after KK-247 the test should
+pass. If it finds another duplicate, do not change any panel (out of scope here): commit
+the test as it is, failing, and name each tab and label in the commit message; the merge
+will cut a ticket for it. Do not `#[ignore]` the test and do not filter labels out of it.
+
+Then name the test in principle 3's "Check:" sentence in `docs/design/workbench-ux.md`
+(today it says the audit lists every label that appears twice). Run `cargo test -p
+kitkraft-ui-egui --lib app::harness`, then `cargo xtask ci`. Add this ticket's one "Landed"
+line at the end of `plan/STATUS.md`. Commit when the test passes.
+"""
+
+[[accept]]
+name = "principle_3_no_tab_has_two_buttons_with_one_label"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::harness::tests::principle_3_no_tab_has_two_buttons_with_one_label --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'harness: skipped' /tmp/o"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q 'harness: skipped' /tmp/o && grep -q 'principle_3_no_tab_has_two_buttons_with_one_label' docs/design/workbench-ux.md"

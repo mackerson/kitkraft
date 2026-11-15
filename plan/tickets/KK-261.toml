@@ -1,0 +1,67 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113 in KK-014's shape (clone-sample corpus tests).
+id = "KK-261"
+title = "Clone-sample corpus tests for ALCH and BOOK"
+hold = "done by Opus lane opus/validate-corpus-20261114 (d98b6665, landed on main by its merge 53531a13, 2026-11-14): do not run again"
+timeout_min = 60
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "docs/schema/support-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+KK-004 and KK-014 proved `clone` on the official data for LCTN, TERM, PKIN and FACT:
+cloning a deterministic sample of `Starfield.esm`'s records re-encodes identically, apart
+from what a clone must change. Ingestibles (`ALCH`) and books and notes (`BOOK`) are the
+records a quest or loot mod most often starts from a vanilla copy of, and since the depth
+tickets KK-200 and KK-201 both are typed from the pinned xEdit file (`ALCH`: 31 typed, 1
+opaque; `BOOK`: 25 typed, 1 opaque; `docs/record-parity.md`). Add the same test for both.
+
+Start from `crates/engine/tests/clone_sample_corpus.rs` (read all of it). Its body,
+`sample_clones(sig, prefix)`, lists every record of a type in `Starfield.esm` with paged
+`query`, takes 100 records spread evenly by FormID, clones each into one patch, compares
+each clone with its source subrecord by subrecord (FormID, `EDID` and the inlined lstrings
+may change; everything else must be byte-identical, same order, same count), runs
+`validate` (0 errors) and prints `clone-sample <TYPE>: <n> cloned, <m> identical, <k>
+explained`. `EXCEPTIONS` lists unexplained differences by source FormID and subrecord.
+
+Add two tests in that file, with these exact names, in the style of the four that exist
+(`#[ignore = "reads Starfield.esm; slow"]`):
+- `a_sample_of_official_ingestibles_clones_identically` (`ALCH`, prefix `Alch`),
+- `a_sample_of_official_books_clones_identically` (`BOOK`, prefix `Book`).
+
+Books carry long text (`DESC`, from the localized string tables) and other lstrings; the
+comparison already treats the lstring spans a clone inlines as expected changes (read
+`expected_payload` for how it decides which). If a clone differs where it should not:
+- an intended difference the comparison does not know (a member `clone` must reset or
+  rewrite): add it to the comparison's expected changes with a comment citing the code in
+  `crates/engine/src/handlers/newform.rs` that makes it;
+- anything else: do **not** change `newform.rs` or any schema definition (out of scope).
+  List it in `EXCEPTIONS` with a one-line reason, add a row to `docs/gaps.md` naming the
+  type, the FormIDs and the subrecord, and count it in `<k>`. Keep the list short; the
+  final QA reads every entry.
+Do not loosen the comparison for `LCTN`, `TERM`, `PKIN` or `FACT`: their tests must still
+report 100 identical.
+
+Then add the two tests as the clone-sample evidence for `ALCH` and `BOOK` in
+`docs/schema/support-matrix.md`, next to KK-004's and KK-014's entries, with the counts the
+tests printed and their run times.
+
+Each test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and may take 20 minutes or more
+(KK-014's PKIN run took 19), so run one at a time:
+`cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact
+a_sample_of_official_ingestibles_clones_identically --nocapture`. Then `cargo xtask ci`.
+Add this ticket's one "Landed" line at the end of `plan/STATUS.md`. Commit when the first
+test passes.
+"""
+
+[[accept]]
+name = "alch"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_ingestibles_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample ALCH: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "book"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_books_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample BOOK: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "support-matrix"
+cmd = "grep -q 'a_sample_of_official_ingestibles_clones_identically' docs/schema/support-matrix.md && grep -q 'a_sample_of_official_books_clones_identically' docs/schema/support-matrix.md"

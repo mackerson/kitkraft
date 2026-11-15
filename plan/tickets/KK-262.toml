@@ -1,0 +1,78 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113: the `validate` follow-up named in
+# plan/STATUS.md, "Afternoon of 2026-11-07", ruling 3 ("validate has no rule for a
+# master-flagged plugin with an unflagged master").
+id = "KK-262"
+title = "validate warns when a master-flagged plugin lists a master without the master flag"
+hold = "done by Opus lane opus/validate-corpus-20261114 (ce5bc088, landed on main by its merge 53531a13, 2026-11-14) (the same rule also came in with sprint/2026-11-09, merged as 23d62954): do not run again"
+timeout_min = 45
+owns = [
+  "crates/engine/src/validate/mod.rs",
+  "crates/engine/src/validate/tests.rs",
+  "docs/validate.md",
+]
+brief = """
+`kit validate` checks one plugin against its masters (`crates/engine/src/validate/mod.rs`;
+the rules and their sources are the table in `docs/validate.md`). It has `masters.missing`
+and `masters.order`, but nothing for this case: the plugin under check has the master flag
+(`TES4` record flag `0x1`, `kitkraft_esm::tes4::FLAG_MASTER`) and one of the masters it
+lists does not.
+
+What the repo already holds as its rule, and where: the game loads master-flagged plugins
+before the others ("masters-load-first"). The engine relies on it when it decides whether a
+master-flagged active file may be written (`crates/engine/src/handlers/set.rs`, the doc
+comment near line 323 and the refusal message near line 424: "a master-flagged active file
+must follow only master-flagged plugins: the game loads masters first"), and `docs/mcp.md`
+says the same (near line 880). So a master-flagged plugin that lists an unflagged master
+would be loaded before that master, which is the situation `masters.order` reports for the
+list itself. This is the repo's stated rule, not something observed in game for this case:
+grade D, so the new rule is a **warning**, never an error.
+
+Add one rule:
+- id `masters.unflagged`, severity `Warning`, input `Plugin`, summary "A master-flagged
+  plugin lists a master that has no master flag", registered in the rule list beside
+  `masters.order` (the `RuleInfo` entries at the top of `mod.rs`);
+- it fires once per such master: the plugin's own `TES4` flags have `FLAG_MASTER`, the
+  master was found (a master that was not found is `masters.missing`'s, not this rule's),
+  and the master's header flags (already read into `MasterFile::flags`) lack `FLAG_MASTER`.
+  Only the plugin's direct masters, not their masters. Use the header flag only, as
+  `set.rs` does: the file extension (`.esm`, `.esp`) is not considered;
+- the finding names the master in its message, with `subrecord` `MAST` as the two other
+  `masters.*` rules do, for example: `master Plain.esp has no master flag, and this plugin
+  has one: the game loads master-flagged plugins first, so Plain.esp would load after it`.
+Read the plugin's own `TES4` flags where `mod.rs` already reads them for another rule
+(`cell.incc` reads the plugin's header); do not read the file twice if a value is at hand.
+
+Tests in `crates/engine/src/validate/tests.rs`, with this exact name:
+`masters_unflagged_master_of_a_master_flagged_plugin`. Build the plugins with the helpers the
+other tests use (`write_plugin` with its flags argument, `patch`, `check`, `found`, `pair`;
+see `masters_missing_and_order`). Assert:
+- a master-flagged plugin (`FLAG_MASTER`) listing an unflagged `Plain.esp` and the
+  master-flagged `Master.esm` gives exactly one finding, `pair("masters.unflagged",
+  "warning")`, and `data["passed"]` stays `true`;
+- the same plugin without the master flag (`patch(...)`, flags 0) gives none;
+- a master-flagged plugin whose masters are all master-flagged gives none;
+- a master-flagged plugin listing a master that is not found gives `masters.missing` only,
+  not `masters.unflagged`.
+
+`a_clean_patch_passes_every_rule` pins the number of rules (21 today): it becomes 22, and
+that test must otherwise pass unchanged. Add the rule's row to the table in
+`docs/validate.md` after `masters.order`, saying what it finds, that it is a warning, why
+(the masters-first rule above, cited to `set.rs` and `docs/mcp.md`), and that it is grade D
+(not observed in game). The MCP resource `kitkraft://validate-rules` is built from the rule
+list, so it needs no change. The official files are all master-flagged with master-flagged
+masters, so the rule should find nothing on them; if `validate_corpus_official_files`
+(`crates/engine/tests/validate_corpus.rs`, run with `KITKRAFT_DATA_DIR`) says otherwise, do
+not change that file (out of scope): stop and say so in the commit message.
+
+Do not change `set.rs` or any other handler. Run `cargo test -p kitkraft-engine --lib
+validate` while you work, then `cargo xtask ci`. Add this ticket's one "Landed" line at the
+end of `plan/STATUS.md`. Commit when the new test passes.
+"""
+
+[[accept]]
+name = "masters-unflagged"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::tests::masters_unflagged_master_of_a_master_flagged_plugin 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "validate-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- validate 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o && grep -q 'masters.unflagged' docs/validate.md"

@@ -1,0 +1,49 @@
+# Drafted 2026-11-13 on plan/ticket-drafts-20261113: docs/gaps.md rows that main contradicts
+# (plan/STATUS.md "Campaign", "Docs drift", and a read of the file at 8182b84b).
+id = "KK-264"
+title = "docs/gaps.md: fix the four rows that main already contradicts"
+hold = "done by the Opus housekeeping lane opus/house-20261115 (KK-321, 3dbeb92a, the four docs/gaps.md rows): do not run again"
+timeout_min = 30
+owns = [
+  "docs/gaps.md",
+]
+brief = """
+`docs/gaps.md` is the list agents check before claiming something works (AGENTS.md, "Start
+every session"), and its rule is "Remove a row only with the commit that closes it". Four
+rows of its main table say things `main` no longer bears out. Fix exactly these four,
+checking each claim in the repo before you write it; change nothing else in the file.
+
+1. The row "Every catalog command is `Implemented` ...; `PLANNED_IN_M2` still lists them".
+   `PLANNED_IN_M2` no longer exists anywhere in `crates/`, `apps/` or `xtask/` (search for
+   it; `git log -S PLANNED_IN_M2` shows the commits that added and removed it). Remove the
+   row, and name the commit that removed the list in your commit message.
+2. Two rows are the same gap: "Group type 10 is not in UESP's table (Starfield-only)", one
+   closing in "M3 (CK observation)", the other in "M3.H3 (CK observation)". Keep one row,
+   the M3.H3 one (the more specific milestone), and remove the other.
+3. The "Schema (2026-10-31, ...)" row: it still says the five types without a definition
+   (MRPH, CNDF, VTYP, MTPT, ASPC) "are queued as KK-224", and counts 181 definitions. KK-224
+   merged (`plan/tickets/README.md`), and the "Families" and "Record types" sections of
+   `docs/record-parity.md` give today's counts. Rewrite the row's counts from
+   `docs/record-parity.md` as it stands on your base (definitions; how many typed, inventory
+   and lstring-only; and the record types with no definition, which should be none), date
+   it with the commit you read it at, and drop the KK-224 sentence. Do not restate counts
+   that file does not give. Other tickets that type record types may change these counts
+   the same night; the merge reconciles that, so do not try to predict them.
+4. The row "lstring IDs (FULL, DESC, GMST `s` values) are typed by size and the localized
+   flag only; no corpus check that each ID exists in the string tables", closing in
+   "M3.D6". Another row of the same table says the check was done (M3.D6, `docs/corpus.md`:
+   all IDs resolve except the ARMO and BlueprintShips cases it names). Check
+   `docs/corpus.md` for that M3.D6 result; if it is there, remove the stale row (its gap is
+   closed, and the other row records what is left). If it is not, leave both rows and say
+   so in the commit message.
+
+Plain Markdown table rows: keep the column count and the file's style (no em dashes, our
+own words). There is no code to change and no test to write; the acceptance checks the
+text. Add this ticket's one "Landed" line at the end of `plan/STATUS.md`. Run `cargo xtask
+ci` once before the last commit (the reconcile test in `crates/schema/tests/reconcile.rs`
+reads other docs, not this one, but the gate decides).
+"""
+
+[[accept]]
+name = "gaps-rows"
+cmd = '''python3 -c "import sys; t=open('docs/gaps.md',encoding='utf-8').read(); bad=[]; bad += ['PLANNED_IN_M2 row still there'] if 'PLANNED_IN_M2' in t else []; n=t.count('| Group type 10 is not in UESP'); bad += ['Group type 10 rows: %d' % n] if n != 1 else []; bad += ['KK-224 still queued'] if 'queued as KK-224' in t else []; print('gaps.md problems:', bad); sys.exit(1 if bad else 0)"'''
