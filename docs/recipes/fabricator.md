@@ -61,5 +61,6 @@ reference or item is new), so the steps below are the plan.
 
 - Whether the amount produced is `NNAM` as stored or something the workbench scales (the
   vanilla recipe says 6; the in-game count settles it).
-- Function 874 of the vanilla shell recipe's condition is not named here (its parameters
-  are union fields the schema keeps raw, `common/Condition.toml`).
+- Function 874 of the vanilla shell recipe's condition is `IsResearchComplete` of the
+  research project `Weapon_Research_Ammo_01` (KK-270 names the functions;
+  `docs/recipes/conditions.md` writes that gate onto a clone).
