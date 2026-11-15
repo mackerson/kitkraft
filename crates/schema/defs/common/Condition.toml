@@ -60,8 +60,20 @@ size = 32
 
 [[member.field]]
 name = "Type"
-type = "u8"
-note = "comparison operator (top three bits) and condition flags packed in one byte: 0x01 or, 0x02 use aliases, 0x04 use global, 0x08 use packdata, 0x10 swap subject and target; the bit layout is a display callback upstream"
+type = "packed"
+base = "u8"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3494-L3580"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3032-L3081",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4754-L4754",
+  "corpus: kitkraft-esm tests/conditions_corpus.rs conditions_corpus_full (KK-269, 2026-11-15): the 124,096 CTDA of the 14 official ESMs all decode and re-encode identically with the type byte split; operators 0 (105,913), 1 (1,656), 2 (3,720), 3 (4,110), 4 (7,468) and 5 (1,229), none 6 or 7; flags Or 12,628, UseAliases 1,948, UseGlobal 7,016, UsePackdata 19, SwapSubjectAndTarget 31",
+]
+confidence = "corpus"
+note = "the comparison operator in the top three bits and five condition flags in the low five (KK-269); the byte is kept whole, so operator values 6 and 7, which have no name upstream, re-encode as read. The comparison value's decider reads the whole byte"
+parts = [
+  { name = "Operator", shift = 5, width = 3, type = "enum", values = [["EqualTo", 0], ["NotEqualTo", 1], ["GreaterThan", 2], ["GreaterThanOrEqualTo", 3], ["LessThan", 4], ["LessThanOrEqualTo", 5]] },
+  { name = "Flags", shift = 0, width = 5, type = "flags", bits = [["Or", 0x01], ["UseAliases", 0x02], ["UseGlobal", 0x04], ["UsePackdata", 0x08], ["SwapSubjectAndTarget", 0x10]] },
+]
 
 [[member.field]]
 name = "Unused1"

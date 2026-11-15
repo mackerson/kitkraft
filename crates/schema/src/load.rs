@@ -16,8 +16,8 @@ use serde::Deserialize;
 
 use crate::model::{
     AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
-    FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, Provenance, RecordDef, Scalar,
-    Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
+    FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, PackedPart, Provenance,
+    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
 };
 use crate::names::{is_pascal_case, snake_case};
 
@@ -148,6 +148,8 @@ pub enum ErrorKind {
     GroupStart,
     #[error("the list is empty")]
     Empty,
+    #[error("packed part {part:?}: {why}")]
+    BadPart { part: String, why: String },
     #[error("nesting deeper than {0} levels")]
     TooDeep(usize),
     #[error("no shared definition named {0:?} (defs/common/)")]
@@ -321,6 +323,21 @@ struct RawField {
     decider: Option<String>,
     secondary: Option<String>,
     variants: Option<Vec<RawVariant>>,
+    parts: Option<Vec<RawPart>>,
+}
+
+/// One bit range of a `type = "packed"` field.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawPart {
+    name: String,
+    shift: u32,
+    width: u32,
+    #[serde(rename = "type")]
+    ty: String,
+    values: Option<Vec<(String, i64)>>,
+    bits: Option<Vec<(String, i64)>>,
+    note: Option<String>,
 }
 
 /// The provenance keys a member or field may set (all optional; see [`provenance`]).
@@ -1382,10 +1399,142 @@ fn decider_base(fields: &[FieldDef], name: &str) -> Option<Scalar> {
     }
     let base = match ty {
         FieldType::Scalar(s) => *s,
-        FieldType::Enum { base, .. } => *base,
+        FieldType::Enum { base, .. } | FieldType::Packed { base, .. } => *base,
         _ => return None,
     };
     (base.is_integer() && base.size() <= 4).then_some(base)
+}
+
+/// `type = "packed"` on a struct field (KK-269): an unsigned `base` split into `parts`,
+/// each a named bit range (`shift`, `width`) of type `enum` (`values`), `flags` (`bits`)
+/// or `uint` (a plain number), its values the part's own (shifted down to bit 0). Parts
+/// fit the base and do not overlap; bits no part names are kept as stored.
+fn convert_packed(cx: &mut Cx<'_, '_>, f: &RawField) -> Result<FieldType, SchemaError> {
+    for (present, key) in [
+        (f.targets.is_some(), "targets"),
+        (f.count.is_some(), "count"),
+        (f.count_from.is_some(), "count_from"),
+        (f.element.is_some(), "element"),
+        (f.values.is_some(), "values"),
+        (f.bits.is_some(), "bits"),
+        (f.size.is_some(), "size"),
+        (f.field.is_some(), "field"),
+        (f.decider.is_some(), "decider"),
+        (f.secondary.is_some(), "secondary"),
+        (f.variants.is_some(), "variants"),
+    ] {
+        reject(
+            cx,
+            present,
+            key,
+            "a `type = \"packed\"` field (its parts take them)",
+        )?;
+    }
+    let base = int_base(cx, f.base.as_deref(), "packed parts")?;
+    if base.is_signed() {
+        return Err(cx.err(ErrorKind::BadBase {
+            base: base.as_str(),
+            what: "packed parts (use an unsigned type)",
+        }));
+    }
+    let raw = f
+        .parts
+        .as_ref()
+        .ok_or_else(|| cx.err(ErrorKind::MissingKey("parts")))?;
+    if raw.is_empty() {
+        return Err(cx.err(ErrorKind::Empty));
+    }
+    let bits_in_base = base.size().saturating_mul(8);
+    let mut used: u64 = 0;
+    let mut parts = Vec::with_capacity(raw.len());
+    for (i, p) in raw.iter().enumerate() {
+        let part = cx.scoped(format!("parts[{i}]"), |cx| {
+            check_name(cx, &p.name)?;
+            let bad = |cx: &Cx<'_, '_>, why: String| {
+                cx.err(ErrorKind::BadPart {
+                    part: p.name.clone(),
+                    why,
+                })
+            };
+            let end = p.shift.checked_add(p.width);
+            if p.width == 0 || end.is_none_or(|e| e > bits_in_base) {
+                return Err(bad(
+                    cx,
+                    format!(
+                        "shift {} and width {} do not fit the {bits_in_base}-bit base",
+                        p.shift, p.width
+                    ),
+                ));
+            }
+            let shape = PackedPart {
+                name: p.name.clone(),
+                shift: p.shift,
+                width: p.width,
+                ty: FieldType::Scalar(base),
+                note: p.note.clone(),
+            };
+            let at = shape.mask().checked_shl(p.shift).unwrap_or(0);
+            if used & at != 0 {
+                return Err(bad(cx, "overlaps an earlier part".into()));
+            }
+            used |= at;
+            let mask = shape.mask();
+            let fits = |v: i128| u64::try_from(v).is_ok_and(|v| v <= mask);
+            let ty = match p.ty.as_str() {
+                "uint" => {
+                    reject(cx, p.values.is_some(), "values", "a `uint` part")?;
+                    reject(cx, p.bits.is_some(), "bits", "a `uint` part")?;
+                    FieldType::Scalar(base)
+                }
+                "enum" => {
+                    reject(cx, p.bits.is_some(), "bits", "an `enum` part")?;
+                    let values = p
+                        .values
+                        .as_ref()
+                        .ok_or_else(|| cx.err(ErrorKind::MissingKey("values")))?;
+                    let values = named_values(cx, values, base, false)?;
+                    if let Some(v) = values.iter().find(|v| !fits(v.value)) {
+                        return Err(bad(
+                            cx,
+                            format!(
+                                "value {} ({}) does not fit {} bits",
+                                v.value, v.name, p.width
+                            ),
+                        ));
+                    }
+                    FieldType::Enum { base, values }
+                }
+                "flags" => {
+                    reject(cx, p.values.is_some(), "values", "a `flags` part")?;
+                    let bits = p
+                        .bits
+                        .as_ref()
+                        .ok_or_else(|| cx.err(ErrorKind::MissingKey("bits")))?;
+                    let bits = named_values(cx, bits, base, true)?;
+                    if let Some(v) = bits.iter().find(|v| !fits(v.value)) {
+                        return Err(bad(
+                            cx,
+                            format!(
+                                "bit mask {:#x} ({}) does not fit {} bits",
+                                v.value, v.name, p.width
+                            ),
+                        ));
+                    }
+                    FieldType::Flags { base, bits }
+                }
+                other => {
+                    return Err(bad(
+                        cx,
+                        format!("type {other:?}: a part is `enum`, `flags` or `uint`"),
+                    ))
+                }
+            };
+            Ok(PackedPart { ty, ..shape })
+        })?;
+        parts.push(part);
+    }
+    check_unique_names(cx, parts.iter().map(|p| p.name.as_str()), &[])?;
+    Ok(FieldType::Packed { base, parts })
 }
 
 /// `type = "union"` on a struct field: `decider = "field:<Sibling>"` (and an optional
@@ -1684,6 +1833,24 @@ fn convert_fields(
         let field = cx.scoped(format!("field[{i}]"), |cx| {
             let prov = provenance(cx, parent, &f.prov())?;
             version_range(cx, f.since, f.until)?;
+            if f.ty == "packed" {
+                let ty = convert_packed(cx, f)?;
+                return Ok(FieldDef {
+                    name: f.name.clone(),
+                    ty,
+                    since: f.since,
+                    until: f.until,
+                    if_remaining: f.if_remaining.unwrap_or(false),
+                    note: f.note.clone(),
+                    provenance: prov,
+                });
+            }
+            reject(
+                cx,
+                f.parts.is_some(),
+                "parts",
+                "a field that is not `type = \"packed\"`",
+            )?;
             if f.ty == "union" {
                 let ty = convert_field_union(cx, f, &fields, &prov)?;
                 return Ok(FieldDef {

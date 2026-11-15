@@ -1937,6 +1937,67 @@ impl Field for ColorRgb {
 
 impl Visit for ColorRgb {}
 
+/// An integer packed from named bit ranges; bits no part names are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ConditionDataType(pub u8);
+
+impl ConditionDataType {
+    /// The lowest bit of `Operator`.
+    pub const OPERATOR_SHIFT: u32 = 5;
+    /// The bits of `Operator`, shifted down.
+    pub const OPERATOR_MASK: u8 = 0x7;
+    pub const OPERATOR_EQUAL_TO: u8 = 0x0;
+    pub const OPERATOR_NOT_EQUAL_TO: u8 = 0x1;
+    pub const OPERATOR_GREATER_THAN: u8 = 0x2;
+    pub const OPERATOR_GREATER_THAN_OR_EQUAL_TO: u8 = 0x3;
+    pub const OPERATOR_LESS_THAN: u8 = 0x4;
+    pub const OPERATOR_LESS_THAN_OR_EQUAL_TO: u8 = 0x5;
+
+    /// The value of `Operator` (shifted down).
+    pub fn operator(self) -> u8 {
+        (self.0 >> Self::OPERATOR_SHIFT) & Self::OPERATOR_MASK
+    }
+
+    /// Sets `Operator` (bits above its width dropped), keeping every other bit.
+    pub fn set_operator(&mut self, value: u8) {
+        let mask = Self::OPERATOR_MASK << Self::OPERATOR_SHIFT;
+        self.0 = (self.0 & !mask) | ((value & Self::OPERATOR_MASK) << Self::OPERATOR_SHIFT);
+    }
+
+    /// The lowest bit of `Flags`.
+    pub const FLAGS_SHIFT: u32 = 0;
+    /// The bits of `Flags`, shifted down.
+    pub const FLAGS_MASK: u8 = 0x1f;
+    pub const FLAGS_OR: u8 = 0x1;
+    pub const FLAGS_USE_ALIASES: u8 = 0x2;
+    pub const FLAGS_USE_GLOBAL: u8 = 0x4;
+    pub const FLAGS_USE_PACKDATA: u8 = 0x8;
+    pub const FLAGS_SWAP_SUBJECT_AND_TARGET: u8 = 0x10;
+
+    /// The value of `Flags` (shifted down).
+    pub fn flags(self) -> u8 {
+        (self.0 >> Self::FLAGS_SHIFT) & Self::FLAGS_MASK
+    }
+
+    /// Sets `Flags` (bits above its width dropped), keeping every other bit.
+    pub fn set_flags(&mut self, value: u8) {
+        let mask = Self::FLAGS_MASK << Self::FLAGS_SHIFT;
+        self.0 = (self.0 & !mask) | ((value & Self::FLAGS_MASK) << Self::FLAGS_SHIFT);
+    }
+}
+
+impl Field for ConditionDataType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ConditionDataType {}
+
 /// A field whose layout the value of `Type` selects (union). A value no variant
 /// names keeps the field's bytes as read in `Other`.
 #[derive(Debug, Clone, PartialEq)]
@@ -2813,7 +2874,7 @@ impl Visit for ConditionDataParameter3 {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConditionData {
-    pub type_: u8,
+    pub type_: ConditionDataType,
     pub unused1: [u8; 3],
     pub comparison_value: ConditionDataComparisonValue,
     pub function: u16,
@@ -2827,10 +2888,10 @@ pub struct ConditionData {
 
 impl Field for ConditionData {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = u8::read(r, "Condition.CTDA.Type", ctx)?;
+        let f0 = ConditionDataType::read(r, "Condition.CTDA.Type", ctx)?;
         let f1 = Field::read(r, "Condition.CTDA.Unused1", ctx)?;
         let f2 = ConditionDataComparisonValue::read_keyed(
-            i64::from(f0),
+            i64::from(f0.0),
             0,
             r,
             "Condition.CTDA.ComparisonValue",

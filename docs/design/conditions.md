@@ -63,7 +63,7 @@ it. `null` on a whole `CTDA` meant nothing before (a struct takes members or `he
 
 ## Operator and flags (KK-269)
 
-The type byte packs two values (`wbDefinitionsCommon.pas@9fb01688#L3494-L3578`): the
+The type byte packs two values (`wbDefinitionsCommon.pas@9fb01688#L3494-L3580`): the
 comparison operator in its top three bits and five flags in the low five. The schema gets a
 `packed` field type (an integer base split into named bit ranges, each an `enum`, `flags`
 or plain integer), and `Type` becomes:

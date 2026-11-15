@@ -265,6 +265,45 @@ pub struct NamedValue {
     pub value: i128,
 }
 
+/// One named bit range of a [`FieldType::Packed`] integer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PackedPart {
+    /// PascalCase name, unique in the packed field (`Operator`).
+    pub name: String,
+    /// The lowest bit of the range.
+    pub shift: u32,
+    /// The number of bits (at least 1).
+    pub width: u32,
+    /// The part's own value type over the packed field's base: `Scalar(base)` (a plain
+    /// unsigned number), an `Enum` or a `Flags` whose values are the part's own, shifted
+    /// down to bit 0.
+    pub ty: FieldType,
+    pub note: Option<String>,
+}
+
+impl PackedPart {
+    /// The part's bits shifted down to bit 0 (`width` ones).
+    pub fn mask(&self) -> u64 {
+        match 1u64.checked_shl(self.width) {
+            Some(top) => top.wrapping_sub(1),
+            None => u64::MAX,
+        }
+    }
+
+    /// The part's value in the stored integer `raw`.
+    pub fn get(&self, raw: u64) -> u64 {
+        raw.checked_shr(self.shift).unwrap_or(0) & self.mask()
+    }
+
+    /// `raw` with the part set to `value` (bits above the part's width dropped); every
+    /// other bit kept.
+    pub fn set(&self, raw: u64, value: u64) -> u64 {
+        let mask = self.mask().checked_shl(self.shift).unwrap_or(0);
+        let bits = (value & self.mask()).checked_shl(self.shift).unwrap_or(0);
+        (raw & !mask) | bits
+    }
+}
+
 /// The layout of a subrecord payload or of one field inside it.
 #[derive(Debug, Clone, PartialEq)]
 pub enum FieldType {
@@ -291,6 +330,13 @@ pub enum FieldType {
     },
     /// An unsigned integer of named bit masks. Unknown bits are preserved.
     Flags { base: Scalar, bits: Vec<NamedValue> },
+    /// An unsigned integer split into named bit ranges (`type = "packed"`, KK-269: CTDA's
+    /// type byte, an operator in the top three bits and flags in the low five). Struct
+    /// fields only. The stored integer is kept whole, so bits no part names are preserved.
+    Packed {
+        base: Scalar,
+        parts: Vec<PackedPart>,
+    },
     /// A run of identical elements.
     Array {
         element: Box<FieldType>,
@@ -420,7 +466,9 @@ impl FieldType {
             Self::Scalar(s) => Some(s.size()),
             Self::FormId { .. } | Self::Sig => Some(4),
             Self::ZString | Self::LString | Self::WString | Self::BString => None,
-            Self::Enum { base, .. } | Self::Flags { base, .. } => Some(base.size()),
+            Self::Enum { base, .. } | Self::Flags { base, .. } | Self::Packed { base, .. } => {
+                Some(base.size())
+            }
             Self::Array { element, count } => match count {
                 ArrayCount::Fixed(n) => element.fixed_size(form_version)?.checked_mul(*n),
                 ArrayCount::Rest | ArrayCount::From(_) => None,
@@ -471,6 +519,7 @@ impl FieldType {
             | Self::BString
             | Self::Enum { .. }
             | Self::Flags { .. }
+            | Self::Packed { .. }
             | Self::Empty => false,
         }
     }

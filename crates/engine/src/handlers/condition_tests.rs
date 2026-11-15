@@ -8,12 +8,14 @@
 //!
 //! - `a_cloned_cobj_gets_conditions_that_read_back`: `clone` of the recipe adds two
 //!   conditions member by member: a global compare (`UseGlobal`, the comparison value a
-//!   `GLOB`, parameter 1 a global: `GetGlobalValue`) and a FormID parameter (`GetIsID` of
+//!   `GLOB`, parameter 1 a global: `GetGlobalValue`; operator and flags written as the
+//!   type byte's parts) and a FormID parameter (`GetIsID` of
 //!   the rifle, run on the linked reference with a linked keyword), plus the two string
 //!   parameters. Every typed member reads back as written, nothing is raw, the record
 //!   re-encodes byte for byte and `validate` passes with no finding.
 //! - `set_appends_a_condition_to_an_override`: `set` on the clone adds a third condition
-//!   after the two it has; the first two are unchanged, and a gap is refused.
+//!   after the two it has and changes the second one's operator (a part of the type byte,
+//!   written in place: its `Or` flag stays); the first is unchanged, and a gap is refused.
 //! - `a_dangling_condition_link_is_reported`: the clone's conditions name a form the
 //!   masters lack in the comparison value, parameter 1, the reference and parameter 3;
 //!   `validate`'s `formid.dangling` names each and `refs` lists each as missing.
@@ -167,9 +169,10 @@ fn clean(plugin: &Path, data: &Path) {
 /// `CTDA[1].RunOn`, so the writer must order deciders first).
 fn two_conditions() -> Value {
     json!({
-        // GetGlobalValue(KC_CondGlobal) >= KC_CondGlobal: operator GreaterThanOrEqualTo
-        // (3 << 5) and UseGlobal (0x04).
-        "CTDA.Type": 0x64,
+        // GetGlobalValue(KC_CondGlobal) >= KC_CondGlobal: the type byte's operator and
+        // flags parts (KK-269), 3 << 5 | 0x04.
+        "CTDA.Type.Operator": "GreaterThanOrEqualTo",
+        "CTDA.Type.Flags": "UseGlobal",
         "CTDA.ComparisonValue.Global": GLOBAL,
         "CTDA.Function": 74,
         "CTDA.Parameter1.Global": GLOBAL,
@@ -216,7 +219,8 @@ fn a_cloned_cobj_gets_conditions_that_read_back() {
     let keyword = Decoded::Form(0x0100_1001);
     let first = &conds[0].1;
     for (at, want) in [
-        ("Type", Decoded::Int(0x64)),
+        ("Type.Operator", Decoded::Int(3)),
+        ("Type.Flags", Decoded::Int(0x04)),
         ("ComparisonValue.Global", global.clone()),
         ("Function", Decoded::Int(74)),
         ("Parameter1.Global", global),
@@ -227,7 +231,8 @@ fn a_cloned_cobj_gets_conditions_that_read_back() {
     }
     let second = &conds[1].1;
     for (at, want) in [
-        ("Type", Decoded::Int(0x01)),
+        ("Type.Operator", Decoded::Int(0)),
+        ("Type.Flags", Decoded::Int(0x01)),
         ("ComparisonValue.Float", Decoded::Float(1.0)),
         ("Function", Decoded::Int(72)),
         ("Parameter1.InventoryObject", Decoded::Form(0x0000_0800)),
@@ -270,7 +275,9 @@ fn set_appends_a_condition_to_an_override() {
         &["New.esp"],
         json!({"form": "KC_RecipeConditioned", "into": patch.display().to_string(),
                "fields": {"CTDA[2].Function": "72", "CTDA[2].Parameter1.InventoryObject":
-                          "Source.esm:000801", "CTDA[2].ComparisonValue.Float": 1.0}}),
+                          "Source.esm:000801", "CTDA[2].ComparisonValue.Float": 1.0,
+                          // A part is written in place: CTDA[1] keeps its Or flag.
+                          "CTDA[1].Type.Operator": "NotEqualTo"}}),
     );
     assert_eq!(r["data"]["validate"]["errors"], json!(0), "{:#}", r["data"]);
     let after = record_in(&std::fs::read(&patch).unwrap(), "KC_RecipeConditioned");
@@ -285,11 +292,10 @@ fn set_appends_a_condition_to_an_override() {
     };
     let (old, new) = (ctdas(&old), ctdas(&new));
     assert_eq!(new.len(), 3);
-    assert_eq!(
-        &new[..2],
-        &old[..],
-        "the first two conditions are unchanged"
-    );
+    assert_eq!(new[0], old[0], "the first condition is unchanged");
+    assert_eq!(member(&new[1], "Type.Operator"), Decoded::Int(1));
+    assert_eq!(member(&new[1], "Type.Flags"), Decoded::Int(0x01));
+    assert_eq!(member(&new[1], "Function"), member(&old[1], "Function"));
     assert_eq!(
         member(&new[2], "Parameter1.InventoryObject"),
         Decoded::Form(0x0000_0801)
@@ -316,7 +322,7 @@ fn a_dangling_condition_link_is_reported() {
         &data,
         "KC_RecipeDangling",
         json!({
-            "CTDA.Type": 0x04,
+            "CTDA.Type.Flags": "UseGlobal",
             "CTDA.ComparisonValue.Global": MISSING,
             "CTDA.Function": 72,
             "CTDA.Parameter1.InventoryObject": MISSING,

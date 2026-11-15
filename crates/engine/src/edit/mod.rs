@@ -115,13 +115,21 @@ pub fn apply_field(
     let old = payload
         .get(at.start..end)
         .ok_or_else(|| FieldError::new(text, "payload", "value outside the payload"))?;
-    let new = fields::encode_value(text, at.ty, old, op, ctx)?;
+    // A part of a packed integer (`CTDA.Type.Operator`) is written in place: the integer's
+    // other bits keep their value.
+    let (new, before, after) = match at.part {
+        Some(part) => fields::encode_part(text, part, old, op, ctx)?,
+        None => {
+            let new = fields::encode_value(text, at.ty, old, op, ctx)?;
+            let before = fields::display(at.ty, old, ctx.localized_source);
+            let after = fields::display(at.ty, &new, ctx.localized_target);
+            (new, before, after)
+        }
+    };
     let lstring = fields::is_lstring(at.ty);
     if lstring && !ctx.localized_target {
         notes.extend(high_bytes_note(text, &new));
     }
-    let before = fields::display(at.ty, old, ctx.localized_source);
-    let after = fields::display(at.ty, &new, ctx.localized_target);
     let mut next = payload.get(..at.start).unwrap_or_default().to_vec();
     next.extend_from_slice(&new);
     next.extend_from_slice(payload.get(end..).unwrap_or_default());

@@ -178,6 +178,18 @@ fn decode_in<'t>(
     match ty {
         FieldType::Scalar(s) => scalar(*s, c),
         FieldType::Enum { base, .. } | FieldType::Flags { base, .. } => scalar(*base, c),
+        // A packed integer reads as a struct of its parts (`Type.Operator`, `Type.Flags`);
+        // a union it decides reads the whole stored value (the struct branch below).
+        FieldType::Packed { base, parts } => {
+            let n = usize::try_from(base.size()).map_err(|_| "size")?;
+            let raw = le(c.take(n)?);
+            Ok(Decoded::Struct(
+                parts
+                    .iter()
+                    .map(|p| (p.name.clone(), Decoded::Int(i128::from(p.get(raw)))))
+                    .collect(),
+            ))
+        }
         FieldType::FormId { .. } => {
             trace.forms.push(c.pos);
             Ok(Decoded::Form(le(c.take(4)?) as u32))
@@ -312,6 +324,9 @@ fn decode_in<'t>(
         }
         FieldType::Struct { fields } => {
             let mut out: Vec<(String, Decoded)> = Vec::new();
+            // What later fields read as deciders and counts: the integers as decoded, a
+            // packed integer as its whole stored value.
+            let mut keys: Vec<(String, Decoded)> = Vec::new();
             for f in fields {
                 if !f.present_in(Some(ctx.form_version)) {
                     continue;
@@ -319,10 +334,24 @@ fn decode_in<'t>(
                 if f.if_remaining && c.remaining() == 0 {
                     continue;
                 }
+                let packed = match &f.ty {
+                    FieldType::Packed { base, .. } => usize::try_from(base.size())
+                        .ok()
+                        .and_then(|n| c.data.get(c.pos..c.pos.checked_add(n)?))
+                        .map(|b| Decoded::Int(i128::from(le(b)))),
+                    _ => None,
+                };
                 trace.enter(PathPart::Member(&f.name));
-                let v = decode_in(&f.ty, c, ctx, &out, trace);
+                let v = decode_in(&f.ty, c, ctx, &keys, trace);
                 trace.leave();
-                out.push((f.name.clone(), v?));
+                let v = v?;
+                // Only integers decide or count; nothing else is copied.
+                match (packed, &v) {
+                    (Some(k), _) => keys.push((f.name.clone(), k)),
+                    (None, Decoded::Int(i)) => keys.push((f.name.clone(), Decoded::Int(*i))),
+                    _ => {}
+                }
+                out.push((f.name.clone(), v));
             }
             Ok(Decoded::Struct(out))
         }
