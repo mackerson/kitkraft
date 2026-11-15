@@ -1,0 +1,138 @@
+# Written 2026-11-15 in the shape of KK-290 (inventory to typed; merged 7/7 by the local agent).
+id = "KK-334"
+title = "Type LAYR (Layer) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/schema/defs/LAYR.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/layr_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+`LAYR` (Layer, an editor layer that references are sorted into; 10424 official records, 7
+signatures in the corpus) has an inventory definition: `crates/schema/defs/LAYR.toml`.
+`EDID` and the shared base form component block (`group_ref = "BfcbBlock"`; 2 official
+records have one, signatures `BFCB`, `FLCS`, `BFCE`) are typed; `PNAM` (8076 of 10424
+records, 4 bytes), `XCLP` (10424 records, 4 bytes) and `LODB` (10424 records, 4 bytes) are
+`opaque`. Its xEdit definition is at `L13315-L13341` of the pinned file. Parity target: the
+first `LAYR` row of `docs/record-parity.md` (the per-type table, columns records,
+compressed, signatures, typed, opaque, unknown) must show at least 6 typed and 0 unknown
+(today 0 unknown).
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): ten record-header flags; EDID; VMAD (script attachment); the base form component
+block; `PNAM`, a FormID of another `LAYR` named 'Parent'; `XCLP`, a colour of three bytes
+(red, green, blue) and one unused byte; `LODB`, a 32-bit enum named 'LOD Behavior' with
+three values. Type them so:
+
+- `EDID` and the `BfcbBlock` member stay exactly as they are (another lane is working on
+  that shared block: do not open or change `crates/schema/defs/common/BfcbBlock.toml`, and
+  do not move the member).
+- `PNAM`: named `Parent`, `type = "formid"`, `targets = ["LAYR"]`, `card = "optional"`.
+- `XCLP`: named `Color`, `type = "ref:ColorRgb"` (the shared type
+  `crates/schema/defs/common/ColorRgb.toml` is exactly this layout: red, green, blue, one
+  unused byte; use it, do not change it).
+- `LODB`: named `LodBehavior`, `type = "enum"`, `base = "u32"`, the three values xEdit
+  lists at L13336-L13340 (0, 1, 2), in our own names. The official values are 0 (8752
+  records), 1 (1244) and 2 (428).
+- The record-header flags of L13316-L13326: a top-level `flags = [...]` list in our own
+  names, as `crates/schema/defs/AAPD.toml` writes the same ten bits (bit 27 has a second
+  meaning here; one name is enough).
+- `VMAD`: no official LAYR record has script data (your corpus test confirms it: every
+  subrecord is placed), so leave it out and say so in the header comment; a plugin with
+  one keeps it raw.
+- Keep the member order of the pinned file, which is also the corpus order: EDID, the
+  component block, PNAM, XCLP, LODB.
+
+Change the record-level `source` to the xEdit citation (`xedit:
+wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341`), as
+`crates/schema/defs/WWED.toml` (KK-290) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops LAYR from the "Inventory definitions" list
+of `docs/record-parity.md`. Remove `"LAYR"` from `BX2_INVENTORY` in
+`crates/schema/tests/defs.rs` (LAYR is in `BX2_INVENTORY`, not `INVENTORY_CORPUS_ONLY`):
+those lists are for definitions that type nothing but EDID, lstrings and shared blocks, and
+`bx2_inventories_type_only_edid_lstrings_and_shared_blocks` fails while LAYR is listed with
+a typed member. Leave `crates/esm/tests/inventory_types.rs` and `xtask/src/parity.rs` alone
+(out of scope). LAYR has no lstring; the corpus lstring table
+(`crates/engine/src/edit/lstrings.rs`) must still match, so do not edit it.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then
+`crates/schema/defs/WWED.toml` (KK-290, the last inventory a ticket typed: its header
+comment, citations and evidence lines are the style to follow) and
+`crates/schema/defs/STND.toml` (KK-235: a shared colour type by `ref:`, an enum and FormID
+members beside a `BfcbBlock`).
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase. The corpus wins over xEdit: where a size or an
+order differs, follow the corpus and say so in a `note`. If one member cannot be typed as
+described, keep that one `opaque` with a `note` that says why (the parity target leaves room
+for exactly one); do not guess a layout. Write a `corpus:` evidence line only after a test
+of yours has printed the fact it cites; until then cite xEdit with `confidence =
+"reference"`.
+
+Then check it against the corpus: `crates/esm/tests/layr_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `layr_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `layr LAYR: <n>
+records, <m> identical` and, for each signature, `layr LAYR <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: LAYR has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. In `docs/gaps.md`, the row that starts "M4.BX2 inventories (LAYR
+LSCR)": drop LAYR from it (LSCR stays), as KK-290 dropped WWED, and change nothing else in
+that file. Add this ticket's one "Landed" line at the end of `plan/STATUS.md` (always
+allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form): `Landed <date>:
+KK-334 - LAYR ...` with the xEdit lines, what is typed, what stays opaque, the corpus counts
+your test printed and the parity row.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test layr_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "layr-full"
+cmd = '''cargo test --release -p kitkraft-esm --test layr_types -- --ignored --exact layr_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^layr LAYR: 10424 records, 10424 identical' /tmp/o && grep -Eq '^layr LAYR EDID: 10424 records' /tmp/o && grep -Eq '^layr LAYR PNAM: 8076 records' /tmp/o && grep -Eq '^layr LAYR XCLP: 10424 records' /tmp/o && grep -Eq '^layr LAYR LODB: 10424 records' /tmp/o'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`LAYR` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity LAYR:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "Layer" && $7 + 0 >= 6 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]LAYR[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "gaps-row"
+cmd = '''grep -q 'M4.BX2 inventories (LSCR)' docs/gaps.md && ! grep -q 'M4.BX2 inventories (LAYR' docs/gaps.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''

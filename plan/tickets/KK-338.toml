@@ -1,0 +1,129 @@
+# Written 2026-11-15 in the shape of KK-225 (lstring-only to typed) with KK-290's acceptance commands.
+id = "KK-338"
+title = "Type FXPD (FacialExpression) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/schema/defs/FXPD.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/fxpd_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`FXPD` (FacialExpression, a facial expression: a name and a list of morph weights; 31
+official records, 4 signatures in the corpus) has only an lstring-only definition:
+`crates/schema/defs/FXPD.toml` types `EDID` and the lstring `FULL` (in a repeated
+`LocalizedStrings` group) and names nothing else, so `MNAM` and `MWGT` (in 31 of 31 records,
+871 occurrences each) count as unknown signatures. It is one of the last three lstring-only
+definitions (DMGT, FXPD, PMFT); KK-023 (FLOR) and KK-225 (AVIF) typed two others the same
+way. Its xEdit definition is at `L12220-L12244` of the pinned file, which the file already
+cites. Parity target: the first `FXPD` row of `docs/record-parity.md` (the per-type table,
+columns records, compressed, signatures, typed, opaque, unknown) must show at least 4 typed
+and 0 unknown.
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): ten record-header flags (no official record sets any); EDID; the base form component
+block; FULL (the name); then a repeated group named 'Morphs', each entry a `MNAM` string
+named 'Morph' followed by a `MWGT` float named 'Value'. Type them so:
+
+- `EDID` stays as it is.
+- `FULL`: `Name`, `type = "lstring"`, with the sources it has today (every official record
+  has it).
+- The morph list: a repeated group named `Morphs` (`[[member]]` with `group = "Morphs"`,
+  `card = "repeated"`) of two members, `MNAM` then `MWGT`, both required inside the group.
+  `crates/schema/defs/AAPD.toml` (KK-244) and `crates/schema/defs/LENS.toml` (KK-237) show
+  a repeated group of plain members.
+- `MNAM`: named `Morph`, `type = "zstring"` (7 to 23 bytes in the official records).
+- `MWGT`: named `Value`, `type = "f32"`.
+- The base form component block: no official FXPD record has one (your corpus test
+  confirms it: every subrecord is placed), so leave it out and say so in the header
+  comment; a plugin with one keeps it raw. Every member then stays at `corpus` confidence.
+- The record-header flags of L12221-L12231: a top-level `flags = [...]` list in our own
+  names, as `crates/schema/defs/AAPD.toml` writes the same ten bits.
+- Keep the member order of the pinned file, which is also the corpus order: EDID, FULL,
+  then the MNAM/MWGT pairs (871 pairs over the 31 records).
+
+Replace the repeated `LocalizedStrings` group by ordinary ordered members: the record is
+then a full definition in xEdit member order, as `crates/schema/defs/AVIF.toml` (KK-225) is.
+`FULL` must stay an lstring member named `Name`: the corpus lstring table
+(`crates/engine/src/edit/lstrings.rs`, mirrored as `CORPUS_LSTRINGS` in
+`crates/schema/tests/defs.rs`) lists (FXPD, FULL) and must still match; do not edit either
+table. Change the record-level `source` to the xEdit citation (`xedit:
+wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244`) and rewrite
+the header comment and the record `note`: it is no longer lstring-only. In
+`crates/schema/tests/defs.rs` remove `"FXPD"` from the one-line list `LSTRING_ONLY` (leave
+the other names that are still there; another ticket may remove its own the same night) and
+add "FXPD in KK-338" to the doc comment above it; `lstring_members_cover_the_corpus_table`
+(the test that reads the list) fails while FXPD is listed with a typed member besides its
+EditorID.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then
+`crates/schema/defs/AVIF.toml` (KK-225, a former lstring-only definition) and
+`crates/schema/defs/WWED.toml` (KK-290: its header comment, citations and evidence lines are
+the style to follow), and `crates/schema/defs/AAPD.toml` (a repeated group).
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase. The corpus wins over xEdit: where a size or an
+order differs, follow the corpus and say so in a `note`. Every member of this record can be
+typed as described, and the parity target needs all of them: none may stay `opaque`. Write a
+`corpus:` evidence line only after a test of yours has printed the fact it cites; until then
+cite xEdit with `confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/fxpd_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `fxpd_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `fxpd FXPD: <n>
+records, <m> identical` and, for each signature, `fxpd FXPD <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: FXPD has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. Do not edit `docs/gaps.md` (not yours here; its schema summary row
+is updated at the merge). Add this ticket's one "Landed" line at the end of `plan/STATUS.md`
+(always allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form): `Landed
+<date>: KK-338 - FXPD ...` with the xEdit lines, what is typed, what stays opaque, the
+corpus counts your test printed and the parity row.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test fxpd_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "fxpd-full"
+cmd = '''cargo test --release -p kitkraft-esm --test fxpd_types -- --ignored --exact fxpd_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^fxpd FXPD: 31 records, 31 identical' /tmp/o && grep -Eq '^fxpd FXPD EDID: 31 records' /tmp/o && grep -Eq '^fxpd FXPD FULL: 31 records' /tmp/o && grep -Eq '^fxpd FXPD MNAM: 31 records' /tmp/o && grep -Eq '^fxpd FXPD MWGT: 31 records' /tmp/o'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`FXPD` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity FXPD:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "FacialExpression" && $7 + 0 >= 4 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''
