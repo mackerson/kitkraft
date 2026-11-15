@@ -132,10 +132,28 @@ pub(crate) fn record_order(sig: [u8; 4], counts: &BTreeMap<[u8; 4], usize>) -> V
     }
     match layout {
         None => member_order_of_layout(sig, ""),
-        Some(l) => match l.first() {
-            Some(one) => member_order_of_layout(sig, one),
-            None => all,
-        },
+        Some(l) => {
+            // Several layouts carry every constrained signature: prefer the first that one of
+            // them can start (a lead of the layout's group, as the decoder enters it). A lone
+            // FLLD is the LightLayer layout's lead, while inside Destructible it needs a
+            // DSTD before it (KK-289).
+            let leads_of = |name: &str| -> Vec<[u8; 4]> {
+                let path = format!("{}.{name}", kitkraft_schema::COMPONENT_BLOCK);
+                all.iter()
+                    .flat_map(|e| e.groups.iter())
+                    .find(|(p, _)| *p == path)
+                    .map(|(_, leads)| leads.clone())
+                    .unwrap_or_default()
+            };
+            let startable = l.iter().find(|name| {
+                let leads = leads_of(name);
+                counts.keys().any(|s| leads.contains(s))
+            });
+            match startable.or(l.first()) {
+                Some(one) => member_order_of_layout(sig, one),
+                None => all,
+            }
+        }
     }
 }
 
@@ -902,6 +920,26 @@ mod tests {
             record_order(*b"LVLI", &both).len(),
             member_order(*b"LVLI").len()
         );
+    }
+
+    #[test]
+    fn a_lone_light_layer_selects_the_layout_it_can_start() {
+        // FLLD sits in three layouts of the block: Destructible (inside a stage, after a
+        // DSTD), LightLayer (its lead) and PlanetModel (after an optional MODL). A record
+        // given only FLLD holds the first layout FLLD can start (KK-289).
+        let flld: BTreeMap<[u8; 4], usize> = [(*b"FLLD", 1)].into();
+        let order = record_order(*b"STDT", &flld);
+        let paths: Vec<&str> = order
+            .iter()
+            .filter(|e| e.sig == *b"FLLD")
+            .map(|e| e.path.as_str())
+            .collect();
+        assert_eq!(paths, ["BfcbBlock.LightLayer.LightLayer"]);
+        // With MODL the planet model is the only layout left.
+        let model: BTreeMap<[u8; 4], usize> = [(*b"FLLD", 1), (*b"MODL", 1)].into();
+        assert!(record_order(*b"STDT", &model)
+            .iter()
+            .any(|e| e.path == "BfcbBlock.PlanetModel.LightLayer"));
     }
 
     #[test]

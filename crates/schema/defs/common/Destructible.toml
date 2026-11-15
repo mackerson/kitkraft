@@ -9,7 +9,9 @@
 # listed in xEdit's order. Observed in PROJ (round 3) and in ACTI, MISC, CONT, FURN and MSTT
 # (the items/workshop family, folded in M4.BX1: the same members, with the stage model as a
 # nested group there; the flat optional members here accept the same runs). Members keep
-# `reference` unless a corpus check names them.
+# `reference` unless a corpus check names them; since KK-289 (2026-11-15) every member has
+# one: `crates/doc/tests/destructible.rs` counts each member's occurrences in records and in
+# GBFM destructible component blocks.
 name = "Destructible"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"
@@ -46,6 +48,10 @@ field = [
   { name = "Value", type = "u32" },
   { name = "CurveTable", type = "formid", targets = ["CURV"] },
 ]
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 4 DAMC of the 14 official ESMs (MISC, MSTT records; 12 or 24 bytes, one or two 12-byte entries); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DSDL"
@@ -53,6 +59,10 @@ name = "SecondaryDamageList"
 type = "formid"
 targets = ["SDLT"]
 card = "optional"
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 2 DSDL of the 14 official ESMs (ACTI, MSTT records; 4 bytes each); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 group = "Stage"
@@ -84,12 +94,20 @@ sig = "DSTA"
 name = "AnimEvent"
 type = "zstring"
 card = "optional"
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 72 DSTA of the 14 official ESMs (ACTI, MSTT records; NUL-terminated, 4 to 7 bytes); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "DMDL"
 name = "ModelFileName"
 type = "zstring"
 card = "optional"
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 313 DMDL of the 14 official ESMs (262 in ACTI, FURN, MISC and MSTT records, 51 in GBFM destructible components; NUL-terminated); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "FLLD"
@@ -99,7 +117,10 @@ base = "u32"
 bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"
-confidence = "reference"
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 313 FLLD of the 14 official ESMs (262 in ACTI, FURN, MISC and MSTT records, 51 in GBFM destructible components; 4 bytes each, each after a DMDL); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "DMDS"
@@ -108,7 +129,10 @@ type = "formid"
 targets = ["MSWP"]
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3825-L3825"
-confidence = "reference"
+evidence = [
+  "corpus: kitkraft-doc tests/destructible.rs (destructible_members_full), 2026-11-15 (KK-289): the 74 DMDS of the 14 official ESMs (ACTI, MSTT records; 4 bytes each); every record holding it decodes with nothing kept raw and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "DSTF"

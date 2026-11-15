@@ -41,6 +41,8 @@
 #     BGSAttachParentArray_Component.
 #   - `ObjectWindowFilter` (INTV count and FLTR paths, L6174-L6178; KK-288, 2026-11-15):
 #     BGSObjectWindowFilter_Component.
+#   - `Destructible` (the shared Destructible group, L6118-L6121; KK-289, 2026-11-15):
+#     BGSDestructibleObject_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -146,6 +148,17 @@ field = [
   { name = "MaxDistance", type = "f32" },
   { name = "ProximityLimit", type = "f32" },
 ]
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6118-L6121"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 2,149 BGSDestructibleObject_Component blocks with data of the 14 official ESMs (all GBFM; 664 more blocks of the name are empty) hold DEST then one to three stages (DSTD, optionally DMDL and FLLD, DSTF); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSDestructibleObject_Component: the destruction data of a generic base form, through the shared Destructible group"
 
 [[member]]
 group = "DisplayCase"

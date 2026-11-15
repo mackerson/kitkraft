@@ -54,7 +54,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | PropertySheet | 3,876 | 2,064 | `PRPS` | L6199-L6202 | KK-286 |
 | AttachParentArray | 3,321 | 2,396 | `APPR` | L6088-L6091 | KK-287 |
 | ObjectWindowFilter | 3,062 | 3,062 | `INTV` | L6174-L6178 | KK-288 |
-| DestructibleObject | 2,813 | 2,149 | `DEST` | L6118-L6121 | no (KK-289 parked: the shared group's `reference` members) |
+| DestructibleObject | 2,813 | 2,149 | `DEST` | L6118-L6121 | KK-289 |
 | FormLinkData | 2,334 | 2,334 | `ITMC` | L6158-L6165 | no |
 | ExternalComponentDataSource | 2,030 | 2,030 | `EXDC` | L6140-L6157 | no |
 | LinkedVoiceType | 2,030 | 2,030 | `FCTF` | L6166-L6169 | no |
@@ -82,8 +82,8 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | no |
 | VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no |
 
-("Typed" as of 2026-11-15: KK-282..KK-288 took the eight most frequent kinds option (b) reaches without a
-format change, Volumes aside; KK-289 (DestructibleObject) is parked on `opus/wip-KK-289`. Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where that stays
+("Typed" as of 2026-11-15: KK-282..KK-289 took the nine most frequent kinds option (b) reaches without a
+format change, Volumes aside. Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where that stays
 unambiguous; the census prints the full strings.)
 
 So the scoping claim that 55 kinds "need the name decider" (`docs/gaps.md`, EL-02 before this
@@ -170,8 +170,8 @@ each from the pinned file, each checked over every official block by `components
 - **Kinds it can type**: the 37 ordinary kinds whose lead is unique, as far as the format
   reaches their bodies. Without any format change: KeywordForm, ObjectPaletteDefaults,
   FullName, TESModel and TESPlanetModel (with `XMPM` opaque), PropertySheet,
-  AttachParentArray, ObjectWindowFilter, DestructibleObject (once the shared
-  Destructible group's six `reference` members have corpus evidence: KK-289), FormLinkData,
+  AttachParentArray, ObjectWindowFilter, DestructibleObject (KK-289, once the shared
+  Destructible group's six `reference` members had corpus evidence), FormLinkData,
   ExternalComponentDataSource, LinkedVoiceType, SpaceshipAIActor, SpaceshipEquipment,
   SpaceshipWeaponBindings, Blueprint, ForcedLocRefType, TESContainer,
   AddToInventoryOnDestroy, WorldSpaceOverlay, ImageSpaceModifiableForm, SpaceshipHullCode,
@@ -193,8 +193,8 @@ each from the pinned file, each checked over every official block by `components
   has at top level (`KSIZ`/`KWDA`, `FULL`, `MODL`, `PRPS`, `DEST`, ...) keeps its own slots
   first; only occurrences past them select the layout. One edit-path ambiguity showed up (KK-289): a signature that several
   layouts carry (`FLLD` in LightLayer, PlanetModel and Destructible's stages) selected the
-  first of them in member order, even one it cannot start; `opus/wip-KK-289` makes
-  `record_order` prefer a layout the given signatures can start.
+  first of them in member order, even one it cannot start; since KK-289
+  `record_order` prefers a layout the given signatures can start.
 - **Work size**: small per layout (TOML, codegen, golden, parity, one corpus count, one test
   call); no ADR.
 
