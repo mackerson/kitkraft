@@ -45,16 +45,16 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | Kind | Blocks | With data | Lead | Upstream layout | Typed |
 | ---- | -----: | --------: | ---- | --------------- | ----- |
 | ContactShadowComponent | 147,487 | 147,487 | `FLCS` | L6096-L6105 | yes |
-| KeywordForm | 95,999 | 83,015 | `KSIZ` | Keywords, L6694-L6697 | no |
+| KeywordForm | 95,999 | 83,015 | `KSIZ` | Keywords, L6694-L6697 | KK-282 |
 | Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | no |
-| ObjectPaletteDefaults | 6,226 | 6,105 | `OPDS` | L6170-L6173 | no |
-| FullName | 5,775 | 5,695 | `FULL` | L6611-L6614 | no |
+| ObjectPaletteDefaults | 6,226 | 6,105 | `OPDS` | L6170-L6173 | KK-283 |
+| FullName | 5,775 | 5,695 | `FULL` | L6611-L6614 | KK-284 |
 | AnimationGraph | 4,854 | 4,853 | `ANAM` (2 `BNAM`) | L6079-L6087 | yes |
-| TESModel | 3,935 | 3,935 | `MODL` 2,067, `FLLD` 1,868 | PlanetModel L6619-L6635 / FLLD L6682-L6685 | no |
-| PropertySheet | 3,876 | 2,064 | `PRPS` | L6199-L6202 | no |
-| AttachParentArray | 3,321 | 2,396 | `APPR` | L6088-L6091 | no |
-| ObjectWindowFilter | 3,062 | 3,062 | `INTV` | L6174-L6178 | no |
-| DestructibleObject | 2,813 | 2,149 | `DEST` | L6118-L6121 | no |
+| TESModel | 3,935 | 3,935 | `MODL` 2,067, `FLLD` 1,868 | PlanetModel L6619-L6635 / FLLD L6682-L6685 | KK-285 |
+| PropertySheet | 3,876 | 2,064 | `PRPS` | L6199-L6202 | KK-286 |
+| AttachParentArray | 3,321 | 2,396 | `APPR` | L6088-L6091 | KK-287 |
+| ObjectWindowFilter | 3,062 | 3,062 | `INTV` | L6174-L6178 | KK-288 |
+| DestructibleObject | 2,813 | 2,149 | `DEST` | L6118-L6121 | no (KK-289 parked: the shared group's `reference` members) |
 | FormLinkData | 2,334 | 2,334 | `ITMC` | L6158-L6165 | no |
 | ExternalComponentDataSource | 2,030 | 2,030 | `EXDC` | L6140-L6157 | no |
 | LinkedVoiceType | 2,030 | 2,030 | `FCTF` | L6166-L6169 | no |
@@ -64,7 +64,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | Blueprint | 2,030 | 2,030 | `BUO4` | L6561-L6602 | no |
 | ForcedLocRefType | 2,022 | 14 | `FTYP` | L6686-L6689 | no |
 | TESContainer | 2,021 | 83 | `COCT` | Container Items, L6678-L6681 | no |
-| TESPlanetModel | 1,825 | 1,825 | `MODL` | L6619-L6635 | no |
+| TESPlanetModel | 1,825 | 1,825 | `MODL` | L6619-L6635 | KK-285 (`XMPM` opaque) |
 | AddToInventoryOnDestroy | 1,724 | 1,702 | `INAM` | L6075-L6078 | no |
 | PlanetContentManagerContentProperties | 1,272 | 1,272 | `ZNAM` | L6179-L6198 | yes |
 | StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | no |
@@ -82,7 +82,8 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | no |
 | VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no |
 
-(Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where that stays
+("Typed" as of 2026-11-15: KK-282..KK-288 took the eight most frequent kinds option (b) reaches without a
+format change, Volumes aside; KK-289 (DestructibleObject) is parked on `opus/wip-KK-289`. Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where that stays
 unambiguous; the census prints the full strings.)
 
 So the scoping claim that 55 kinds "need the name decider" (`docs/gaps.md`, EL-02 before this
@@ -169,7 +170,8 @@ each from the pinned file, each checked over every official block by `components
 - **Kinds it can type**: the 37 ordinary kinds whose lead is unique, as far as the format
   reaches their bodies. Without any format change: KeywordForm, ObjectPaletteDefaults,
   FullName, TESModel and TESPlanetModel (with `XMPM` opaque), PropertySheet,
-  AttachParentArray, ObjectWindowFilter, DestructibleObject, FormLinkData,
+  AttachParentArray, ObjectWindowFilter, DestructibleObject (once the shared
+  Destructible group's six `reference` members have corpus evidence: KK-289), FormLinkData,
   ExternalComponentDataSource, LinkedVoiceType, SpaceshipAIActor, SpaceshipEquipment,
   SpaceshipWeaponBindings, Blueprint, ForcedLocRefType, TESContainer,
   AddToInventoryOnDestroy, WorldSpaceOverlay, ImageSpaceModifiableForm, SpaceshipHullCode,
@@ -189,7 +191,10 @@ each from the pinned file, each checked over every official block by `components
   (`authoring_tests.rs` `writes_and_reads_back`) takes a layout and a component name, so each
   layout gets a write test for the price of one call. A component signature the record also
   has at top level (`KSIZ`/`KWDA`, `FULL`, `MODL`, `PRPS`, `DEST`, ...) keeps its own slots
-  first; only occurrences past them select the layout.
+  first; only occurrences past them select the layout. One edit-path ambiguity showed up (KK-289): a signature that several
+  layouts carry (`FLLD` in LightLayer, PlanetModel and Destructible's stages) selected the
+  first of them in member order, even one it cannot start; `opus/wip-KK-289` makes
+  `record_order` prefer a layout the given signatures can start.
 - **Work size**: small per layout (TOML, codegen, golden, parity, one corpus count, one test
   call); no ADR.
 
