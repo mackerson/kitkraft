@@ -410,3 +410,146 @@ fn an_unnamed_function_index_is_kept() {
     assert!(err.to_string().contains("enum takes one of"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// The `CITC` payloads and the number of `CTDA` of the record `edid` in `plugin`.
+fn counts(plugin: &Path, edid: &str) -> (Vec<u32>, usize) {
+    let record = record_in(&std::fs::read(plugin).unwrap(), edid);
+    let subs = record.subrecords().unwrap();
+    let citc = subs
+        .iter()
+        .filter(|s| s.signature().0 == *b"CITC")
+        .map(|s| u32::from_le_bytes(s.data().try_into().unwrap()))
+        .collect();
+    let ctda = subs.iter().filter(|s| s.signature().0 == *b"CTDA").count();
+    (citc, ctda)
+}
+
+/// Two conditions on a music track (MUST: its `CITC` is optional and precedes its one
+/// condition group).
+fn music_conditions() -> Value {
+    json!({
+        "CTDA.Function": "GetIsID",
+        "CTDA.Parameter1.InventoryObject": RIFLE,
+        "CTDA.ComparisonValue.Float": 1.0,
+        "CTDA[1].Function": "GetGlobalValue",
+        "CTDA[1].Parameter1.Global": GLOBAL,
+    })
+}
+
+/// `new` of a music track with two conditions: the record gets the `CITC` its definition
+/// puts before them, counting 2, at its slot (KK-271).
+#[test]
+fn a_new_record_gets_a_condition_count() {
+    let (d, data) = fixture("citc-new");
+    let into = d.join("New.esp");
+    let r = call(
+        "new",
+        &data,
+        &[],
+        json!({"type": "MUST", "edid": "KC_Music", "fields": music_conditions(),
+               "masters": ["Source.esm", "Conds.esp"], "into": into.display().to_string()}),
+    );
+    assert_eq!(r["data"]["validate"]["errors"], json!(0), "{:#}", r["data"]);
+    assert_eq!(counts(&into, "KC_Music"), (vec![2], 2));
+    let record = record_in(&std::fs::read(&into).unwrap(), "KC_Music");
+    reencodes(&record);
+    let sigs: Vec<String> = record
+        .subrecords()
+        .unwrap()
+        .iter()
+        .map(|s| s.signature().to_string())
+        .collect();
+    let citc = sigs.iter().position(|s| s == "CITC").unwrap();
+    assert_eq!(sigs[citc + 1], "CTDA", "{sigs:?}");
+    clean(&into, &data);
+    // `new` has no condition to remove.
+    let err = execute(
+        "new",
+        json!({"type": "MUST", "edid": "KC_Music2", "fields": {"CTDA": null},
+               "masters": ["Source.esm"], "into": d.join("Other.esp").display().to_string(),
+               "plugins": ["Source.esm", "Conds.esp"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("new.remove"), "{err}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// The music track of [`a_new_record_gets_a_condition_count`], moved into the Data dir as
+/// `Music.esp`; `set` adds a condition, removes one, and the count follows each time.
+#[test]
+fn the_condition_count_follows_added_and_removed_conditions() {
+    let (d, data) = fixture("citc-set");
+    let music = data.join("Music.esp");
+    call(
+        "new",
+        &data,
+        &[],
+        json!({"type": "MUST", "edid": "KC_Music", "fields": music_conditions(),
+               "masters": ["Source.esm", "Conds.esp"], "into": music.display().to_string()}),
+    );
+    let set = |into: &Path, fields: Value| {
+        execute(
+            "set",
+            json!({"form": "KC_Music", "into": into.display().to_string(), "fields": fields,
+                   "plugins": ["Source.esm", "Conds.esp", "Music.esp"],
+                   "data_dir": data.display().to_string(), "no_cache": true}),
+        )
+    };
+    // Added: 3 conditions, CITC 3.
+    let added = d.join("Added.esp");
+    set(&added, json!({"CTDA[2].Function": "GetIsID", "CTDA[2].Parameter1.InventoryObject": "Source.esm:000801"}))
+        .unwrap();
+    assert_eq!(counts(&added, "KC_Music"), (vec![3], 3));
+    clean(&added, &data);
+    // Removed: the first goes, the second is now first, CITC 1.
+    let removed = d.join("Removed.esp");
+    let r = set(&removed, json!({"CTDA[0]": null})).unwrap();
+    assert_eq!(counts(&removed, "KC_Music"), (vec![1], 1));
+    let left = conditions(&record_in(&std::fs::read(&removed).unwrap(), "KC_Music"));
+    assert_eq!(
+        member(&left[0].1, "Function"),
+        Decoded::Int(74),
+        "GetGlobalValue stays"
+    );
+    let notes = r["limitations"].to_string();
+    assert!(notes.contains("removed 1 condition"), "{notes}");
+    assert!(notes.contains("CITC"), "{notes}");
+    clean(&removed, &data);
+    // A member edit leaves the count as stored; an explicit wrong count is kept and
+    // validate warns about it.
+    let stale = d.join("Stale.esp");
+    set(
+        &stale,
+        json!({"CITC": 7, "CTDA.ComparisonValue.Float": 0.0}),
+    )
+    .unwrap();
+    assert_eq!(counts(&stale, "KC_Music"), (vec![7], 2));
+    let v = execute(
+        "validate",
+        json!({"plugin": stale.display().to_string(), "data_dir": data.display().to_string()}),
+    )
+    .unwrap();
+    let findings = v["data"]["findings"].as_array().unwrap();
+    assert!(
+        findings.iter().any(|f| f["rule"] == "condition.count"
+            && f["severity"] == "warning"
+            && f["message"].as_str().is_some_and(|m| m.contains("holds 7"))),
+        "{findings:#?}"
+    );
+    // Refused: a removal past the last condition, and one beside an edit of the same
+    // condition; nothing is written.
+    for (fields, want) in [
+        (json!({"CTDA[2]": null}), "has 2 condition(s)"),
+        (
+            json!({"CTDA[1]": null, "CTDA[1].Function": "GetIsID"}),
+            "drop one of them",
+        ),
+    ] {
+        let into = d.join("Refused.esp");
+        let err = set(&into, fields.clone()).unwrap_err();
+        assert!(err.to_string().contains(want), "{fields}: {err}");
+        assert!(!into.exists(), "{fields}");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}

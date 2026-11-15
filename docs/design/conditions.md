@@ -99,9 +99,12 @@ array count:
   `build`; `place` writes no conditions), every `CITC` of the record that heads a condition
   run is set to the number of `CTDA` in the run that follows it. An explicit `CITC` value
   in the same fields is overwritten, and the limitation says so when it differed.
-- A run that gets a condition and has no `CITC` where its definition has one gets it
-  (added at its slot, as `KSIZ` comes with `KWDA`). Every official record of a type with a
-  `CITC` slot carries it when it has conditions.
+- A record that gets its first condition and has no `CITC` gets one at its slot when the
+  definition puts a top-level `CITC` right before the record's first condition group (as
+  `KSIZ` comes with `KWDA`); a `CITC` the definition requires inside a group (FLST's
+  conditional entries, PACK's branches) comes with the group. Every official record of a
+  type with a `CITC` slot carries it when it has conditions (ACTI: 0 without, `kit query
+  ACTI --where 'has CTDA and not has CITC'`).
 - A write that changes no condition count leaves every `CITC` as stored, so an unedited or
   member-edited record still re-encodes byte for byte.
 - `validate` reports a `CITC` that disagrees with the run after it (`condition.count`,

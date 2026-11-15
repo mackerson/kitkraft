@@ -131,6 +131,19 @@ pub(crate) fn plan_new(
         return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, interior cells and worldspaces")));
     }
     check_edid(command, "new", loaded, at, &req.edid)?;
+    if let Some(e) = req
+        .edits
+        .iter()
+        .find(|e| crate::edit::scaffold::is_condition_removal(e))
+    {
+        return Err(failed(
+            command,
+            format!(
+                "new.remove: {at}: {} = null removes a condition, and a new record has none",
+                e.path.text
+            ),
+        ));
+    }
     let mut masters: Vec<(u16, String)> = Vec::new();
     for m in &req.masters {
         let i = loaded.lo.find(m).ok_or_else(|| {

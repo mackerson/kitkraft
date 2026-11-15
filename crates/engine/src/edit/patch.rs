@@ -986,6 +986,15 @@ pub fn write_patch_with(
         let mut changes = Vec::new();
         let mut written: BTreeSet<usize> = BTreeSet::new();
         let mut deferred: Vec<Edit> = Vec::new();
+        // `CTDA[n] = null` removes a condition (KK-271): after every other edit, so each
+        // occurrence number means the record as copied.
+        let (removals, edits): (Vec<Edit>, Vec<Edit>) = copy
+            .edits
+            .iter()
+            .cloned()
+            .partition(super::scaffold::is_condition_removal);
+        let conditions_before = condition_count(&record);
+        check_removals(&removals, &edits, conditions_before)?;
         // A subrecord the edits name that the record lacks is added at its schema slot
         // first (lane D round 5: `set`, `clone`, `[[set]]`), deferred edits' included, so
         // no index moves once edits apply; refused only where the type has no slot for it.
@@ -993,7 +1002,7 @@ pub fn write_patch_with(
             record
                 .decompress(&options.limits)
                 .map_err(|e| PatchError::Io(format!("{}: {e}", copy.formref)))?;
-            let defaulted = super::scaffold::add_slots(&mut record, &copy.edits, false)?;
+            let defaulted = super::scaffold::add_slots(&mut record, &edits, false)?;
             if !defaulted.is_empty() {
                 push_once(
                     &mut limitations,
@@ -1003,7 +1012,7 @@ pub fn write_patch_with(
         }
         // Applied deciders first, reported in the order the edits were given.
         let mut applied: Vec<(usize, FieldChange)> = Vec::new();
-        for (given, edit) in deciders_first(&record, &copy.edits) {
+        for (given, edit) in deciders_first(&record, &edits) {
             if names_local_form(&edit.op) {
                 deferred.push(edit.clone());
                 continue;
@@ -1026,6 +1035,44 @@ pub fn write_patch_with(
             options,
             &mut limitations,
         )?;
+        if !removals.is_empty() {
+            let occurrences: Vec<usize> = removals.iter().map(|e| e.path.occurrence).collect();
+            let gone =
+                super::scaffold::remove_conditions(&mut record, &occurrences, &options.limits)?;
+            for c in &mut changes {
+                let before = gone.iter().filter(|g| **g < c.subrecord_index).count();
+                c.subrecord_index = c.subrecord_index.saturating_sub(before);
+            }
+            push_once(
+                &mut limitations,
+                format!(
+                    "{}: removed {} condition(s) (CTDA {}) with their string parameters",
+                    copy.formref,
+                    occurrences.len(),
+                    occurrences
+                        .iter()
+                        .map(|o| format!("[{o}]"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            );
+        }
+        // A condition count follows the conditions it counts (KK-271): on a new record,
+        // and on a write that adds or removes a condition.
+        let created = copy.new_form.is_some() && copy.source.name.is_empty();
+        if created || condition_count(&record) != conditions_before {
+            for (at, old, new) in
+                super::scaffold::sync_condition_counts(&mut record, &options.limits)?
+            {
+                push_once(
+                    &mut limitations,
+                    format!(
+                        "{}: CITC (subrecord {at}) set from {old} to {new}, the number of conditions after it",
+                        copy.formref
+                    ),
+                );
+            }
+        }
         let key = (record.header.form_id, record.header.signature.0);
         if let Some(edid) = &copy.new_form {
             pending_new.push((placed.len(), edid.clone()));
@@ -2030,6 +2077,48 @@ fn remap_record(
     record.set_typed(&typed);
     record.header.form_id =
         map(record.header.form_id).map_err(|m| refused(format!("{what}: {m}")))?;
+    Ok(())
+}
+
+/// How many conditions (`CTDA`) `record` has.
+fn condition_count(record: &Record<'_>) -> usize {
+    record.subrecords().map_or(0, |subs| {
+        subs.iter().filter(|s| s.signature().0 == *b"CTDA").count()
+    })
+}
+
+/// Refuses a condition removal (`CTDA[n] = null`) past the record's last condition, one
+/// beside an edit of the same condition, and one beside an edit of a condition that waits
+/// for a new form's FormID (applied after the removal, its occurrence would mean another
+/// condition).
+fn check_removals(removals: &[Edit], edits: &[Edit], conditions: usize) -> Result<(), PatchError> {
+    for r in removals {
+        let n = r.path.occurrence;
+        if n >= conditions {
+            return Err(refused(format!(
+                "{}: the record has {conditions} condition(s); only an existing condition is removed",
+                r.path.text
+            )));
+        }
+        let touched = edits
+            .iter()
+            .find(|e| e.path.signature == *b"CTDA" && e.path.occurrence == n);
+        if let Some(e) = touched {
+            return Err(refused(format!(
+                "{}: removes the condition {} edits; drop one of them",
+                r.path.text, e.path.text
+            )));
+        }
+    }
+    let late = edits.iter().find(|e| {
+        matches!(&e.path.signature, b"CTDA" | b"CIS1" | b"CIS2") && names_local_form(&e.op)
+    });
+    if let (Some(e), false) = (late, removals.is_empty()) {
+        return Err(refused(format!(
+            "{}: names a form written in this call and is applied after the removals, so its occurrence would change; write it in a second call",
+            e.path.text
+        )));
+    }
     Ok(())
 }
 

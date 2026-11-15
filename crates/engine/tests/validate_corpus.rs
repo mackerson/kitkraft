@@ -696,6 +696,18 @@ fn validate_corpus_official_files() {
             println!("    layout.group-incomplete: {incomplete} findings, expected 0");
             failures.push(name);
         }
+        // Every condition count heads as many conditions as it says (KK-271:
+        // `condition.count`, 0 expected; 2026-11-15: 0 on all 14 files).
+        let counts = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "condition.count")
+            .count();
+        if counts != 0 {
+            println!("    condition.count: {counts} findings, expected 0");
+            failures.push(name);
+        }
         // An `LCTN` `ACPR` (added persistent refs) entry naming a reference of the file
         // in temporary children (group type 9): a warning, grade D (M5.D2); the entries
         // naming a master's reference are a limitation, not a finding (KK-005,
