@@ -71,6 +71,7 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "SoundTag" => &["BGSSoundTag_Component"],
         // Upstream's keyword layout carries no name comment; the corpus has it only here.
         "Keywords" => &["BGSKeywordForm_Component"],
+        "AttachParentArray" => &["BGSAttachParentArray_Component"],
         "PropertySheet" => &["BGSPropertySheet_Component"],
         "LightLayer" => &["TESModel_Component"],
         "PlanetModel" => &["TESPlanetModel_Component", "TESModel_Component"],
@@ -265,6 +266,7 @@ fn component_layouts_full() {
         blocks,
         [
             ("AnimationGraph", 4_853),
+            ("AttachParentArray", 2_396),
             ("ContactShadow", 147_487),
             ("DisplayCase", 156),
             ("FullName", 5_695),

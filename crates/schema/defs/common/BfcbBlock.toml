@@ -37,6 +37,8 @@
 #     TESModel_Component; LightLayer sits before PlanetModel (see its note).
 #   - `PropertySheet` (one PRPS of the shared PropertyValue entries, L6199-L6202; KK-286,
 #     2026-11-15): BGSPropertySheet_Component.
+#   - `AttachParentArray` (one APPR, keyword FormIDs, L6088-L6091; KK-287, 2026-11-15):
+#     BGSAttachParentArray_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -98,6 +100,26 @@ name = "ControlsBaseSkeleton"
 type = "empty"
 card = "optional"
 note = "a marker: present means true"
+
+[[member]]
+group = "AttachParentArray"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6088-L6091"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 2,396 BGSAttachParentArray_Component blocks with data of the 14 official ESMs (all GBFM; 925 more blocks of the name are empty) each hold one APPR, a whole number of 4-byte keyword FormIDs; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSAttachParentArray_Component: the attach parent slots (keywords) a generic base form offers"
+
+[[member.member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
 
 [[member]]
 group = "ContactShadow"
