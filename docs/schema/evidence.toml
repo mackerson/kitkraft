@@ -393,6 +393,48 @@ evidence = [
 ]
 note = "KK-291: new with every typed leaf member (4 subrecords; WWED has no component block) on the ContactShadow component layout, read back identically, validate with no finding; the two Wwise event GUIDs (WSED, WTED) are its unchecked subrecords; dangling CNAM reported"
 
+[[entry]]
+type = "STDT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::stdt_star_data_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::stdt_orbited_data_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::stdt_full_name_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::stdt_planet_model_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-294: new with every typed leaf member, once per component layout (the star and orbited data variants of the NamedLayout union, ADR 0015, chosen by the BFCB name given; full name; planet model), read back identically, validate with no finding"
+
+[[entry]]
+type = "SFPT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::sfpt_unique_overlay_list_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::sfpt_unique_pattern_placement_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::sfpt_block_height_adjustment_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-294: new with every typed leaf member, once per NamedLayout union variant SFPT carries (unique overlay list, unique pattern placement, block height adjustment; ADR 0015), read back identically, validate with no finding"
+
+[[entry]]
+type = "SFTR"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::sftr_surface_tree_pattern_swap_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-294: new with every typed leaf member on the surface tree pattern swap variant of the NamedLayout union (ADR 0015), read back identically, validate with no finding"
+
+[[entry]]
+type = "SFBK"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::sfbk_block_editor_metadata_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::sfbk_overlay_designated_placement_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-294: new with every typed leaf member, once on the block editor metadata and once on the overlay designated placement variant of the NamedLayout union (ADR 0015), read back identically, validate with no finding"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

@@ -208,3 +208,9 @@ that need other format work need it under (a) too). Revisit (a) when the
 `DATA`/`DAT2` payloads (star and orbit data, block editor metadata, surface pattern data) are
 needed by a feature, or when a mod is found whose block name and data disagree; ADR 0015
 records the design for that day.
+
+**Update (2026-11-15, KK-292..KK-295):** the owner accepted ADR 0015 the same day. The
+`NamedLayout` subrecord union now types eight of the nine `DATA`/`DAT2` kinds (1,196 blocks;
+`BGSBlockCellHeighGrid_Component` has no upstream decider entry and stays raw), and the
+lead-signature groups above stay as they are.
+
