@@ -68,32 +68,6 @@ impl WindowKind {
             WindowKind::BuildSpec => "Build Spec",
         }
     }
-
-    /// Where a window opens the first time (below the menu bar and tabs), in points.
-    pub fn default_pos(self) -> [f32; 2] {
-        match self {
-            WindowKind::Warnings => [24.0, 420.0],
-            WindowKind::UseInfo => [520.0, 110.0],
-            WindowKind::EditDialog => [700.0, 90.0],
-            WindowKind::ObjectWindow => [24.0, 90.0],
-            WindowKind::DataDialog => [320.0, 120.0],
-            WindowKind::Preferences => [360.0, 140.0],
-            WindowKind::BuildSpec => [420.0, 160.0],
-        }
-    }
-
-    /// The size a window opens at the first time, in points.
-    pub fn default_size(self) -> [f32; 2] {
-        match self {
-            WindowKind::Warnings => [760.0, 320.0],
-            WindowKind::UseInfo => [640.0, 360.0],
-            WindowKind::EditDialog => [620.0, 520.0],
-            WindowKind::ObjectWindow => [520.0, 560.0],
-            WindowKind::DataDialog => [640.0, 480.0],
-            WindowKind::Preferences => [560.0, 420.0],
-            WindowKind::BuildSpec => [600.0, 460.0],
-        }
-    }
 }
 
 /// The `ui.json` key of a floating tab.
@@ -179,6 +153,10 @@ pub struct Shell {
     pub layout: BTreeMap<String, WinState>,
     /// The layout changed: write `ui.json`.
     pub dirty: bool,
+    /// A window frame's outer-minus-content delta (its title bar and margins),
+    /// measured from the last window drawn (zero until one is); kept in memory only,
+    /// never in `ui.json`.
+    pub chrome: egui::Vec2,
     /// Bring this window to the front on the next frame.
     pub focus: Option<String>,
     /// Each top-level menu's button id, from the last frame (the tour opens them).
@@ -242,6 +220,16 @@ impl Shell {
             self.focus = Some(key.to_string());
         }
     }
+
+    /// The open windows' remembered rects (outer min, content size), for the
+    /// first-open placement's overlap check.
+    pub fn open_rects(&self) -> Vec<[f32; 4]> {
+        self.layout
+            .iter()
+            .filter(|(_, w)| w.open)
+            .filter_map(|(_, w)| w.rect)
+            .collect()
+    }
 }
 
 /// What [`floating`] needs to know about one window besides its state.
@@ -250,38 +238,119 @@ pub struct WinSpec<'a> {
     /// `ui.json` key (also the egui id).
     pub key: &'a str,
     pub title: &'a str,
-    /// The position and size it opens at when `ui.json` has none.
-    pub default_pos: [f32; 2],
-    pub default_size: [f32; 2],
     /// Bring it to the front this frame.
     pub focus: bool,
 }
 
+/// Where a window without a remembered rect opens, and at what size (UX audit A6,
+/// `docs/design/workbench-ux.md`): cascaded from the right half of the central panel,
+/// each window below or beside the last, at the theme's size no larger than the space
+/// it gets. One rule for every window kind. `open` holds the other open windows'
+/// remembered rects (outer min, content size); `chrome` is the frame delta measured
+/// from a drawn window (zero until the first frame draws one, where the theme's frame
+/// bounds stand in).
+fn first_open(
+    ctx: &egui::Context,
+    open: &[[f32; 4]],
+    chrome: egui::Vec2,
+) -> (egui::Pos2, egui::Vec2) {
+    let theme = crate::theme::active(ctx);
+    let delta = if chrome == egui::Vec2::ZERO {
+        // No window drawn yet: bound the frame (two window margins plus a title row
+        // of at most two rows) from the theme, so a remembered window's full reach
+        // is known.
+        egui::vec2(
+            theme.spacing.panel_margin * 2.0,
+            theme.density.row_height * 2.0 + theme.spacing.panel_margin * 2.0,
+        )
+    } else {
+        chrome
+    };
+    let occupied: Vec<egui::Rect> = open
+        .iter()
+        .map(|[x, y, w, h]| {
+            egui::Rect::from_min_size(egui::pos2(*x, *y), egui::vec2(w + delta.x, h + delta.y))
+        })
+        .collect();
+    let viewport = ctx.viewport_rect();
+    // The tab bar and the status line size to their contents, and the context does
+    // not report their rects, so the cascade bounds are the theme's row and frame
+    // bounds: above, the menu row, the bar's frame and up to two rows of tabs;
+    // below, the status line's frame and row.
+    let top = viewport.min.y
+        + theme.density.row_height
+        + theme.spacing.item_y
+        + theme.spacing.panel_margin
+        + theme.density.row_height * 2.0
+        + theme.spacing.item_y
+        + theme.density.cell_y;
+    let bottom = viewport.max.y
+        - theme.spacing.panel_margin
+        - theme.density.row_height
+        - theme.density.cell_y;
+    let margin = theme.spacing.panel_margin;
+    let area = egui::Rect::from_min_max(
+        egui::pos2(viewport.min.x + margin, top + margin),
+        egui::pos2(viewport.max.x - margin, bottom - margin),
+    );
+    // A tall view plus the rows a window's content keeps around it (the Object
+    // Window's action, filter and note rows are five of them) and the window
+    // frame, so a window with a tall view opens with it at full height.
+    let pitch = theme.density.row_height + theme.density.cell_y;
+    let desired = egui::vec2(
+        theme.sizes.field_wide,
+        (theme.sizes.view_tall_rows + 5.0) * pitch
+            + theme.density.row_height * 2.0
+            + theme.spacing.panel_margin * 2.0,
+    );
+    let gap = theme.spacing.block;
+    let mid_x = (area.min.x + area.max.x) / 2.0;
+    let right = egui::Rect::from_min_max(egui::pos2(mid_x, area.min.y), area.max);
+    let left = egui::Rect::from_min_max(area.min, egui::pos2(mid_x, area.max.y));
+    for half in [right, left] {
+        let mut y = half.min.y;
+        for r in &occupied {
+            if r.intersects(half) {
+                y = y.max(r.max.y);
+            }
+        }
+        if y > half.min.y {
+            y += gap;
+        }
+        let w = desired.x.min(half.max.x - half.min.x);
+        let h = desired.y.min(half.max.y - y);
+        if w >= 80.0 && h >= 40.0 {
+            return (egui::pos2(half.min.x, y), egui::vec2(w, h));
+        }
+    }
+    // No room without overlap: the whole area, clamped to it.
+    let w = desired.x.min(area.max.x - area.min.x).max(80.0);
+    let h = desired.y.min(area.max.y - area.min.y).max(40.0);
+    (area.min, egui::vec2(w, h))
+}
+
 /// Shows one floating window: open state, position and size from `state` (the first
-/// time), the close button, and any move or resize written back to `state` once the
-/// pointer is released (`dirty` then asks for `ui.json` to be written).
+/// time, where [`first_open`] places it clear of the other open windows), the close
+/// button, and any move or resize written back to `state` once the pointer is
+/// released (`dirty` then asks for `ui.json` to be written).
 pub fn floating(
     ctx: &egui::Context,
     state: &mut WinState,
     dirty: &mut bool,
+    chrome: &mut egui::Vec2,
+    open: &[[f32; 4]],
     spec: WinSpec<'_>,
     add: impl FnOnce(&mut egui::Ui),
 ) {
-    let WinSpec {
-        key,
-        title,
-        default_pos,
-        default_size,
-        focus,
-    } = spec;
+    let WinSpec { key, title, focus } = spec;
     if !state.open {
         return;
     }
     let id = egui::Id::new(("kitkraft-ck-window", key));
-    let mut open = true;
+    let mut window_open = true;
     let mut window = egui::Window::new(title)
         .id(id)
-        .open(&mut open)
+        .open(&mut window_open)
         .resizable(true)
         .collapsible(true)
         .constrain(true);
@@ -289,9 +358,10 @@ pub fn floating(
         Some([x, y, w, h]) => window
             .default_pos(egui::pos2(x, y))
             .default_size(egui::vec2(w, h)),
-        None => window
-            .default_pos(egui::pos2(default_pos[0], default_pos[1]))
-            .default_size(egui::vec2(default_size[0], default_size[1])),
+        None => {
+            let (pos, size) = first_open(ctx, open, *chrome);
+            window.default_pos(pos).default_size(size)
+        }
     };
     let mut inner_size = None;
     let shown = window.show(ctx, |ui| {
@@ -303,21 +373,31 @@ pub fn floating(
             ctx.move_to_top(r.response.layer_id);
         }
     }
-    if !open {
+    if !window_open {
         state.open = false;
         *dirty = true;
         return;
     }
     let released = !ctx.input(|i| i.pointer.any_down());
-    if let (Some(r), Some(size), true) = (shown, inner_size, released) {
-        let now = [r.response.rect.min.x, r.response.rect.min.y, size.x, size.y];
-        let moved = match state.rect {
-            Some(old) => old.iter().zip(now).any(|(a, b)| (a - b).abs() > 1.0),
-            None => true,
-        };
-        if moved && size.x >= 80.0 && size.y >= 40.0 {
-            state.rect = Some(now);
-            *dirty = true;
+    if let (Some(r), Some(size)) = (shown, inner_size) {
+        if size.x >= 80.0 && size.y >= 40.0 {
+            // The frame delta (outer minus content): the first-open placement keeps
+            // the next window clear of this one's title bar and margins.
+            *chrome = egui::vec2(
+                r.response.rect.max.x - r.response.rect.min.x - size.x,
+                r.response.rect.max.y - r.response.rect.min.y - size.y,
+            );
+            if released {
+                let now = [r.response.rect.min.x, r.response.rect.min.y, size.x, size.y];
+                let moved = match state.rect {
+                    Some(old) => old.iter().zip(now).any(|(a, b)| (a - b).abs() > 1.0),
+                    None => true,
+                };
+                if moved {
+                    state.rect = Some(now);
+                    *dirty = true;
+                }
+            }
         }
     }
 }

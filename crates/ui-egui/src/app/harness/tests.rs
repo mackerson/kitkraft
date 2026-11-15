@@ -752,3 +752,35 @@ fn audit_a5_each_result_block_has_distinct_copy_buttons() {
         old.iter().map(Node::rect).collect::<Vec<_>>()
     );
 }
+
+/// Audit A6 (principles 1 and 8): the CK-style windows open where they cover neither
+/// each other nor the tab: no two `Window` nodes' rectangles intersect, and each lies
+/// inside the viewport.
+#[test]
+fn audit_a6_ck_windows_open_without_overlap() {
+    let Some(mut h) = workbench() else { return };
+    for kind in [
+        crate::windows::WindowKind::Warnings,
+        crate::windows::WindowKind::UseInfo,
+        crate::windows::WindowKind::EditDialog,
+    ] {
+        h.state_mut().app.shell.set_open(kind, true);
+    }
+    h.run_steps(4);
+    let windows: Vec<Node> = h
+        .query_all_by(|n| n.role() == egui::accesskit::Role::Window)
+        .collect();
+    let rects: Vec<egui::Rect> = windows.iter().map(Node::rect).collect();
+    assert_eq!(rects.len(), 3, "the three opened windows: {:?}", rects);
+    let v = viewport();
+    for r in &rects {
+        assert!(v.contains_rect(*r), "`{r:?}` is outside the {v:?} viewport");
+    }
+    for (i, a) in rects.iter().enumerate() {
+        for (j, b) in rects.iter().enumerate() {
+            if i < j {
+                assert!(!a.intersects(*b), "`{a:?}` and `{b:?}` overlap");
+            }
+        }
+    }
+}
