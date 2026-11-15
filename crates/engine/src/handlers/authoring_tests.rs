@@ -8,7 +8,7 @@
 //! 2026-11-15; `dialogue_tests.rs` fixture), WWED (KK-291, 2026-11-15), RSPJ (KK-300), AVIF
 //! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15),
 //! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
-//! 2026-11-15)
+//! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -400,6 +400,31 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
 /// they are checked, not unchecked. Each must be a whole-opaque member of the definition;
 /// the unchecked count stays an exact equality.
 fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_fallback: &[&str]) {
+    writes_and_reads_back_full(sig, layout, component, lstring_fallback, &[]);
+}
+
+/// [`writes_and_reads_back`], where the top-level struct members `opaque_tail` end in an
+/// opaque field of no fixed size (NPC_'s ONA2: the race override blocks after their
+/// flags, kept raw). `validate` cannot rule out a FormID in such bytes, so it counts the
+/// subrecord unchecked (`edit::patch::has_opaque`); the plan, which counts only
+/// whole-opaque members, adds each one named. Each must be a top-level struct member with
+/// such a field; the unchecked count stays an exact equality.
+fn writes_and_reads_back_with_opaque_tail(
+    sig: &str,
+    layout: &str,
+    component: &str,
+    opaque_tail: &[&str],
+) {
+    writes_and_reads_back_full(sig, layout, component, &[], opaque_tail);
+}
+
+fn writes_and_reads_back_full(
+    sig: &str,
+    layout: &str,
+    component: &str,
+    lstring_fallback: &[&str],
+    opaque_tail: &[&str],
+) {
     // The layout in the name: two layouts of one type (QUST) must not share a dir,
     // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
     let d = dir(&format!(
@@ -424,6 +449,19 @@ fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_
         assert!(opaque, "{sig} {s}: not a top-level whole-opaque member");
         assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
         p.opaque -= 1;
+    }
+    for s in opaque_tail {
+        let tail = def.members.iter().any(|m| {
+            matches!(m, Member::Subrecord(sub) if sub.signature.as_str() == *s
+                && matches!(deref(&sub.ty), FieldType::Struct { fields }
+                    if fields.iter().any(|f| matches!(f.ty, FieldType::Opaque { size: None }))))
+        });
+        assert!(
+            tail,
+            "{sig} {s}: not a top-level struct with an unsized opaque field"
+        );
+        assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
+        p.opaque += 1;
     }
     let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(
@@ -1891,6 +1929,27 @@ fn avif_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+// ONA2's race override blocks (an opaque tail of no fixed size) are counted unchecked by
+// `validate`, as is the whole-opaque NAM5.
+#[test]
+fn npc_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with_opaque_tail(
+        "NPC_",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &["ONA2"],
+    );
+}
+
+#[test]
+fn pack_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PACK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 #[test]
 fn pndt_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
@@ -2012,6 +2071,41 @@ fn rspj_dangling_link_is_reported() {
             ("RNAM", json!(MISSING)),
         ],
         &["BNAM", "CNAM", "KNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn npc_dangling_link_is_reported() {
+    // The race, the class, the voice type and the default layer.
+    dangling(
+        "NPC_",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("RNAM", json!(MISSING)),
+            ("CNAM", json!(MISSING)),
+            ("VTCK", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+        ],
+        &["RNAM", "CNAM", "VTCK", "DEFL"],
+    );
+}
+
+#[test]
+fn pack_dangling_link_is_reported() {
+    // The combat style, the owner quest, the animation flavor and the idle list (a formid
+    // array, set whole as a JSON array of its elements).
+    dangling(
+        "PACK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("CNAM", json!(MISSING)),
+            ("QNAM", json!(MISSING)),
+            ("FLAV", json!(MISSING)),
+            ("IDLA", json!([MISSING])),
+        ],
+        &["CNAM", "QNAM", "FLAV", "IDLA"],
     );
 }
 

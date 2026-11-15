@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP and LVLN (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_ and PACK (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -492,3 +492,16 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
 - KK-309: `pndt_new_sets_every_typed_member_and_reads_back` (26 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `pndt_dangling_link_is_reported` (the surface tree `FNAM` and the atmosphere `INAM.Atmosphere`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
 - KK-310: `lvlp_new_sets_every_typed_member_and_reads_back` (27 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `lvlp_dangling_link_is_reported` (the chance-none global `LVLG` and a leveled entry's pack-in `LVLO.PackIn`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
 - KK-311: `lvln_new_sets_every_typed_member_and_reads_back` (29 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and 1 whole-opaque subrecord unchecked. `lvln_dangling_link_is_reported` (the chance-none global `LVLG` and a leveled entry's actor `LVLO.Npc`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## NPC_ and PACK (KK-312 and KK-313, 2026-11-15)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`). NPC_ and PACK on the `ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| NPC_ | not-run | pass |
+| PACK | not-run | pass |
+
+- KK-312: `npc_new_sets_every_typed_member_and_reads_back` (116 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and two unchecked subrecords, the whole-opaque `NAM5` and `ONA2`, whose race override blocks are an opaque tail of no fixed size (`validate` cannot rule out a FormID there, `edit::patch::has_opaque`; the test names it through `writes_and_reads_back_with_opaque_tail`, and the count stays an exact equality). `npc_dangling_link_is_reported` (the race `RNAM`, the class `CNAM`, the voice type `VTCK` and the default layer `DEFL`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-313: `pack_new_sets_every_typed_member_and_reads_back` (54 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and 1 whole-opaque subrecord unchecked. `pack_dangling_link_is_reported` (the combat style `CNAM`, the owner quest `QNAM`, the animation flavor `FLAV` and the idle list `IDLA`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
