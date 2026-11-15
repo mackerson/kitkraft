@@ -1,0 +1,48 @@
+# KK-279 recipe: a new quest with one dialogue topic and two responses
+# (docs/design/dialogue.md). Every form is new; nothing of Starfield.esm is overridden.
+# Starfield.esm is the only master.
+#
+# kit build docs/recipes/dialogue.toml out/recipes/KitKraftRecipeDialogue.esp
+# Evidence for every choice: docs/recipes/dialogue.md.
+#
+# FormIDs: `build` allocates [[new]] entries in spec order from 0x001000 (master index
+# 01) before anything is written, so a `parent` may name any entry with `new:<name>`.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The quest that owns the dialogue: its topic goes into its quest children group (group
+# type 10, labelled with this quest's FormID), right after the QUST record.
+name = "quest"
+type = "QUST"
+edid = "KitKraftRecipeDialogueQuest"
+masters = ["Starfield.esm"]
+
+[[new]]
+# The topic. QNAM is written from `parent` (the quest above); TIFL and TIFC are kept by
+# the writer as the responses below are added. Priority 50 (the definition's default),
+# category Miscellaneous (7), subtype code CUST (custom).
+name = "topic"
+type = "DIAL"
+edid = "KitKraftRecipeGreeting"
+parent = "new:quest"
+fields = { PNAM = 50.0, "DATA.Category" = 7, SNAM = "CUST" }
+
+[[new]]
+# The first response: one response line (TRDA starts the Response group, NAM1 is its
+# text, written inline in this non-localized plugin). No voice file is written.
+name = "hello"
+type = "INFO"
+edid = "KitKraftRecipeHello"
+parent = "new:topic"
+fields = { "TRDA.WemFile" = 1, NAM1 = "Hello, traveller." }
+
+[[new]]
+# The second response, listed after the first in the topic's TIFL.
+name = "goodbye"
+type = "INFO"
+edid = "KitKraftRecipeGoodbye"
+parent = "new:topic"
+fields = { "TRDA.WemFile" = 2, NAM1 = "Safe travels." }
