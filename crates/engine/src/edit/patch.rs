@@ -134,6 +134,40 @@ pub struct Copy {
     pub new_form: Option<String>,
     /// Scripts to attach (M4.E9), after the edits and once new forms have FormIDs.
     pub scripts: Vec<vmad::Attach>,
+    /// A new form that lives in nested groups (a `DIAL` under its quest, an `INFO` under
+    /// its topic; KK-275, KK-276): its group path is computed by the writer once the
+    /// master list is final and the new forms have FormIDs (`path` is then ignored).
+    pub nested: Option<Nested>,
+}
+
+/// Where a new nested record hangs (`docs/design/dialogue.md`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Nested {
+    /// A quest child (`DIAL`): the type 10 group of this quest; its `QNAM` is the quest.
+    Quest(ParentForm),
+    /// A topic child (`INFO`): the type 7 group of this topic, inside its quest's type 10
+    /// group; the topic's `TIFL` lists it and `TIFC` counts it.
+    Topic(ParentForm),
+}
+
+/// The parent of a [`Nested`] record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParentForm {
+    /// A form of the load order (a master's, or the active file's own), carried into the
+    /// patch by the caller unless the target has it.
+    Form(FormName),
+    /// A form written in the same call, by its EditorID.
+    Local(String),
+}
+
+impl ParentForm {
+    /// For messages.
+    pub fn label(&self) -> String {
+        match self {
+            ParentForm::Form(f) => f.label(),
+            ParentForm::Local(edid) => format!("the new form `{edid}`"),
+        }
+    }
 }
 
 /// The key of a JSON object value that names a form written in the same call by its
@@ -878,6 +912,11 @@ pub fn write_patch_with(
     let mut parents_from: BTreeMap<(u32, [u8; 4]), String> = BTreeMap::new();
     // New forms waiting for their FormID: (index in `placed` and `reports`, EditorID).
     let mut pending_new: Vec<(usize, String)> = Vec::new();
+    // New nested forms (KK-275, KK-276): (index in `placed` and `reports`, EditorID,
+    // parent); their paths are computed once every new form has its FormID.
+    let mut pending_nested: Vec<(usize, String, Nested)> = Vec::new();
+    // Topics whose QNAM the writer sets: (index in `placed`, the quest's stored FormID).
+    let mut quest_of_topic: Vec<(usize, u32)> = Vec::new();
     // Work that needs the new forms' FormIDs: edits whose value names a form written in
     // this call, and scripts to attach (their object values may name one), per index in
     // `placed` and `reports`.
@@ -892,9 +931,10 @@ pub fn write_patch_with(
             spaces.as_ref().map_or(Ok(raw), |spaces| spaces.map(raw))
         };
         // Parents first (unedited), unless the target or an earlier copy has them.
-        for (mut record, path) in copy.parents.clone() {
+        for (mut record, mut path) in copy.parents.clone() {
             if needs_remap {
                 remap_record(&mut record, &copy.source, &map, &options.limits)?;
+                remap_labels(&mut path, &map)?;
             }
             let key = (record.header.form_id, record.header.signature.0);
             let in_target = existing.as_ref().is_some_and(|(_, index)| {
@@ -943,8 +983,10 @@ pub fn write_patch_with(
             continue;
         }
         let mut record = copy.record.clone();
+        let mut copy_path = copy.path.clone();
         if needs_remap {
             remap_record(&mut record, &copy.source, &map, &options.limits)?;
+            remap_labels(&mut copy_path, &map)?;
         }
         // A carried record (a placed reference's cell) that an earlier copy already wrote
         // as its parent (a `[[set]]` or rule on a reference of that cell) is written once:
@@ -1075,6 +1117,9 @@ pub fn write_patch_with(
         }
         let key = (record.header.form_id, record.header.signature.0);
         if let Some(edid) = &copy.new_form {
+            if let Some(nested) = &copy.nested {
+                pending_nested.push((placed.len(), edid.clone(), nested.clone()));
+            }
             pending_new.push((placed.len(), edid.clone()));
         } else if !seen.insert(key) {
             return Err(refused(format!(
@@ -1099,7 +1144,7 @@ pub fn write_patch_with(
             });
         }
         placed.push(Placed {
-            path: copy.path,
+            path: copy_path,
             record,
         });
     }
@@ -1192,6 +1237,47 @@ pub fn write_patch_with(
             r.editor_id = Some(edid.clone());
             local.push((edid.clone(), form_id));
         }
+        // New nested forms (KK-275, KK-276; `docs/design/dialogue.md`): their group paths
+        // from their parents' stored FormIDs, quest children before topic children (a new
+        // response may hang under a topic new in this call).
+        place_nested(
+            &mut NestedCtx {
+                placed: &mut placed,
+                reports: &mut reports,
+                quest_of_topic: &mut quest_of_topic,
+                limitations: &mut limitations,
+            },
+            &pending_nested,
+            &|parent: &ParentForm| -> Result<u32, PatchError> {
+                match parent {
+                    ParentForm::Local(edid) => local
+                        .iter()
+                        .find(|(e, _)| e.eq_ignore_ascii_case(edid))
+                        .map(|(_, id)| *id)
+                        .ok_or_else(|| {
+                            refused(format!(
+                                "new.parent-missing: no new form `{edid}` is written in this call"
+                            ))
+                        }),
+                    ParentForm::Form(f) if f.plugin.eq_ignore_ascii_case(&target_name) => {
+                        // The active file's own form: its high byte is the full-master count
+                        // (every master is full-scale here, checked above).
+                        let high = u32::try_from(masters.len())
+                            .ok()
+                            .and_then(|n| n.checked_shl(24))
+                            .filter(|_| masters.len() < 0xFF)
+                            .ok_or_else(|| refused(format!("{target_name}: too many masters")))?;
+                        Ok(high | (f.object_id & 0x00FF_FFFF))
+                    }
+                    ParentForm::Form(f) => {
+                        formref_in(&f.plugin, f.object_id, &masters, &target_name, &flag_of)
+                            .map_err(|m| refused(format!("{}: {m}", f.label())))
+                    }
+                }
+            },
+            existing.as_ref().map(|(_, index)| (target, index)),
+            &options.limits,
+        )?;
         // Every new reference's FormID before any is written (lane D round 5), in the same
         // order as before, so a field may name a reference placed later in the call (a
         // location its map marker, a beacon its centre marker): by its EditorID, or by its
@@ -1506,6 +1592,35 @@ pub fn write_patch_with(
                     lstring: false,
                 });
             }
+        }
+    }
+
+    // A new topic's QNAM is its quest (every official DIAL's is; `docs/design/dialogue.md`):
+    // set after the late edits, refused when `fields` named another quest.
+    for (i, quest) in &quest_of_topic {
+        let Some(p) = placed.get_mut(*i) else {
+            return Err(PatchError::Io("a new topic lost its place".into()));
+        };
+        set_quest(&mut p.record, *quest)?;
+    }
+    // The new nested forms go after every other record (their parents first), outer
+    // groups before inner ones: a topic before its responses.
+    if !pending_nested.is_empty() {
+        let nested: BTreeSet<usize> = pending_nested.iter().map(|(i, _, _)| *i).collect();
+        let depth = |i: &usize| placed.get(*i).map_or(0, |p| p.path.len());
+        let mut order: Vec<usize> = (0..placed.len()).filter(|i| !nested.contains(i)).collect();
+        let mut tail: Vec<usize> = nested.iter().copied().collect();
+        tail.sort_by_key(depth);
+        order.extend(tail);
+        let mut slots: Vec<Option<(Placed, RecordReport)>> =
+            placed.drain(..).zip(reports.drain(..)).map(Some).collect();
+        for i in order {
+            let (p, r) = slots
+                .get_mut(i)
+                .and_then(Option::take)
+                .ok_or_else(|| PatchError::Io("a nested record lost its place".into()))?;
+            placed.push(p);
+            reports.push(r);
         }
     }
 
@@ -2011,6 +2126,240 @@ fn formref_in(
             scale.as_str()
         )
     })
+}
+
+/// Group types whose label is the FormID of the record that owns them (world, cell,
+/// topic, cell persistent and temporary, quest children: UESP's Skyrim group table, type 10
+/// from the corpus).
+const FORMID_LABELLED: [i32; 6] = [1, 6, 7, 8, 9, 10];
+
+/// Remaps the FormID labels of `path` with `map`, as [`remap_record`] remaps the records
+/// that own those groups: a copy whose FormIDs move into the target's master list keeps
+/// its children groups under its parents.
+fn remap_labels(
+    path: &mut [GroupHeader],
+    map: &dyn Fn(u32) -> Result<u32, String>,
+) -> Result<(), PatchError> {
+    for g in path.iter_mut() {
+        if FORMID_LABELLED.contains(&g.group_type) {
+            let id = map(g.label_u32()).map_err(|m| {
+                refused(format!(
+                    "group type {} labelled {:08X}: {m}",
+                    g.group_type,
+                    g.label_u32()
+                ))
+            })?;
+            g.label = id.to_le_bytes();
+        }
+    }
+    Ok(())
+}
+
+/// What [`place_nested`] updates.
+struct NestedCtx<'a> {
+    placed: &'a mut Vec<Placed>,
+    reports: &'a mut Vec<RecordReport>,
+    quest_of_topic: &'a mut Vec<(usize, u32)>,
+    limitations: &'a mut Vec<String>,
+}
+
+const QUST: Signature = Signature(*b"QUST");
+const DIAL: Signature = Signature(*b"DIAL");
+
+/// The group paths of the new nested forms `pending` (`docs/design/dialogue.md`): a quest
+/// child in the type 10 group of its quest, which the target or this call must hold; a
+/// response in the type 7 group of its topic, whose `TIFL` gets it appended and `TIFC` its
+/// new count. A topic only the target holds is read from it (`target`) and written again
+/// with the response added. `stored` gives a parent's FormID as the target stores it.
+fn place_nested(
+    ctx: &mut NestedCtx<'_>,
+    pending: &[(usize, String, Nested)],
+    stored: &dyn Fn(&ParentForm) -> Result<u32, PatchError>,
+    target: Option<(&Path, &PluginIndex)>,
+    limits: &DecodeLimits,
+) -> Result<(), PatchError> {
+    use kitkraft_esm::cells::{placement, Parent};
+    let style = PlacementStyle::OFFICIAL;
+    let in_target = |id: u32, sig: Signature| {
+        target.and_then(|(_, index)| {
+            index
+                .records
+                .iter()
+                .find(|r| r.form_id == id && r.signature == sig)
+        })
+    };
+    let in_call = |placed: &[Placed], id: u32, sig: Signature| {
+        placed
+            .iter()
+            .position(|p| p.record.header.form_id == id && p.record.header.signature == sig)
+    };
+    for (i, edid, nested) in pending {
+        let Nested::Quest(parent) = nested else {
+            continue;
+        };
+        let quest = stored(parent)?;
+        if in_target(quest, QUST).is_none() && in_call(ctx.placed, quest, QUST).is_none() {
+            return Err(refused(format!(
+                "new.parent-not-carried: {edid}: the quest {} is neither in the target nor written by this call; a quest children group needs its QUST record first",
+                parent.label()
+            )));
+        }
+        let p = ctx
+            .placed
+            .get_mut(*i)
+            .ok_or_else(|| PatchError::Io("a new quest child lost its place".into()))?;
+        p.path = placement(&p.record.header, &Parent::Quest { quest }, &style)
+            .map_err(|e| refused(format!("{edid}: {e}")))?;
+        if p.record.header.signature == DIAL {
+            ctx.quest_of_topic.push((*i, quest));
+        }
+    }
+    for (i, edid, nested) in pending {
+        let Nested::Topic(parent) = nested else {
+            continue;
+        };
+        let topic = stored(parent)?;
+        let at = match in_call(ctx.placed, topic, DIAL) {
+            Some(at) => at,
+            None => {
+                let (Some((path, index)), Some(loc)) = (target, in_target(topic, DIAL).cloned())
+                else {
+                    return Err(refused(format!(
+                        "new.parent-not-carried: {edid}: the topic {} is neither in the target nor written by this call",
+                        parent.label()
+                    )));
+                };
+                let (record, groups) = super::source::read_copy(path, index, &loc, limits)
+                    .map_err(|e| PatchError::Io(format!("{edid}: its topic: {e}")))?;
+                let editor_id = record
+                    .subrecords()
+                    .and_then(|subs| subs.iter().find(|s| s.signature() == Signature(*b"EDID")))
+                    .and_then(|s| fields::text_of(s.data()));
+                let name = file_name(path);
+                ctx.reports.push(RecordReport {
+                    signature: DIAL.to_string(),
+                    form_id: topic,
+                    formref: format!("{name} DIAL {topic:08X} as stored"),
+                    editor_id,
+                    source: name,
+                    outcome: "replaced",
+                    parent: true,
+                    changes: Vec::new(),
+                    inlined: Vec::new(),
+                    offset: None,
+                    length: None,
+                    edited_subrecords: Vec::new(),
+                });
+                ctx.placed.push(Placed {
+                    path: groups,
+                    record,
+                });
+                ctx.placed.len().saturating_sub(1)
+            }
+        };
+        let quest = match ctx.placed.get(at).map(|p| p.path.as_slice()) {
+            Some([top, children])
+                if top.group_type == 0 && top.label == QUST.0 && children.group_type == 10 =>
+            {
+                children.label_u32()
+            }
+            _ => {
+                return Err(refused(format!(
+                    "{edid}: its topic {} is not in a quest children group (type 10) of the top-level QUST group",
+                    parent.label()
+                )))
+            }
+        };
+        let form_id = {
+            let p = ctx
+                .placed
+                .get_mut(*i)
+                .ok_or_else(|| PatchError::Io("a new topic child lost its place".into()))?;
+            p.path = placement(&p.record.header, &Parent::Topic { quest, topic }, &style)
+                .map_err(|e| refused(format!("{edid}: {e}")))?;
+            p.record.header.form_id
+        };
+        let dial = ctx
+            .placed
+            .get_mut(at)
+            .ok_or_else(|| PatchError::Io("a topic lost its place".into()))?;
+        let count = append_info(&mut dial.record, form_id, limits)
+            .map_err(|m| refused(format!("{edid}: its topic {}: {m}", parent.label())))?;
+        ctx.limitations.push(format!(
+            "{edid}: the topic {} lists the new response in TIFL, appended at the end (the order the Creation Kit gives a new response is not observed); TIFC is now {count}",
+            parent.label()
+        ));
+    }
+    Ok(())
+}
+
+/// Appends `info` to the topic's `TIFL` (unless listed) and sets `TIFC` to the list's
+/// length (every official topic's is; `docs/design/dialogue.md`). The new count.
+fn append_info(
+    record: &mut Record<'static>,
+    info: u32,
+    limits: &DecodeLimits,
+) -> Result<u32, String> {
+    record.decompress(limits).map_err(|e| e.to_string())?;
+    let subs = record
+        .subrecords_mut()
+        .ok_or_else(|| "the topic has no subrecords".to_string())?;
+    let tifl = subs
+        .iter()
+        .position(|s| s.signature() == Signature(*b"TIFL"))
+        .ok_or_else(|| "the topic has no TIFL".to_string())?;
+    let mut list = subs
+        .get(tifl)
+        .map(|s| s.data().to_vec())
+        .unwrap_or_default();
+    if list.len() % 4 != 0 {
+        return Err(format!(
+            "its TIFL is {} bytes, not a FormID list",
+            list.len()
+        ));
+    }
+    if !list.chunks(4).any(|c| c == info.to_le_bytes()) {
+        list.extend_from_slice(&info.to_le_bytes());
+    }
+    let count = u32::try_from(list.len() / 4).map_err(|_| "TIFL too long".to_string())?;
+    if let Some(s) = subs.get_mut(tifl) {
+        s.set_data(list);
+    }
+    let tifc = subs
+        .iter_mut()
+        .find(|s| s.signature() == Signature(*b"TIFC"))
+        .ok_or_else(|| "the topic has no TIFC".to_string())?;
+    tifc.set_data(count.to_le_bytes().to_vec());
+    Ok(count)
+}
+
+/// Sets a new topic's `QNAM` to `quest` (as stored); refused when it already names
+/// another quest (a `fields` value).
+fn set_quest(record: &mut Record<'static>, quest: u32) -> Result<(), PatchError> {
+    let edid = record
+        .subrecords()
+        .and_then(|subs| subs.iter().find(|s| s.signature() == Signature(*b"EDID")))
+        .and_then(|s| fields::text_of(s.data()))
+        .unwrap_or_default();
+    let subs = record
+        .subrecords_mut()
+        .ok_or_else(|| PatchError::Io(format!("{edid}: a new topic without subrecords")))?;
+    let qnam = subs
+        .iter_mut()
+        .find(|s| s.signature() == Signature(*b"QNAM"))
+        .ok_or_else(|| refused(format!("{edid}: the new topic has no QNAM")))?;
+    let now = qnam
+        .data()
+        .get(..4)
+        .and_then(|b| <[u8; 4]>::try_from(b).ok())
+        .map_or(0, u32::from_le_bytes);
+    if now != 0 && now != quest {
+        return Err(refused(format!(
+            "new.parent-mismatch: {edid}: QNAM names {now:08X} (as stored), but the topic's parent quest is {quest:08X}; QNAM is written from `parent`"
+        )));
+    }
+    qnam.set_data(quest.to_le_bytes().to_vec());
+    Ok(())
 }
 
 /// Remaps every FormID of `record` (header and typed members) with `map`; refused when a

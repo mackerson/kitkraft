@@ -386,6 +386,58 @@ fn import_navmeshes(
     Ok(out)
 }
 
+/// The `parent` of a `[[new]]` or `[[clone]]` (KK-275, KK-276): `new:<name>`, a `[[new]]`
+/// or `[[clone]]` of the same build (its EditorID and record type: a `[[clone]]`'s is its
+/// source's), or a form of the load order (`plugin` numbers a hex FormID).
+fn entry_parent(
+    command: &str,
+    loaded: &super::load::Loaded,
+    spec: &Spec,
+    parent: Option<&str>,
+    plugin: Option<&str>,
+) -> Result<Option<newform::ParentArg>, EngineError> {
+    let Some(text) = parent else {
+        return Ok(None);
+    };
+    let Some(name) = spec::local_ref(text) else {
+        return Ok(Some(newform::ParentArg::Form {
+            form: text.to_string(),
+            plugin: plugin.map(str::to_string),
+        }));
+    };
+    if let Some(n) = spec.news.iter().find(|n| {
+        n.name
+            .as_deref()
+            .is_some_and(|x| x.eq_ignore_ascii_case(name))
+    }) {
+        return Ok(Some(newform::ParentArg::Local {
+            edid: n.edid.clone(),
+            signature: Some(n.signature),
+        }));
+    }
+    if let Some(c) = spec.clones.iter().find(|c| {
+        c.name
+            .as_deref()
+            .is_some_and(|x| x.eq_ignore_ascii_case(name))
+    }) {
+        let signature = find_form(command, loaded, &c.form, c.plugin.as_deref())
+            .ok()
+            .and_then(|g| {
+                let lo = &loaded.lo;
+                let w = lo.forms.versions(g).last()?;
+                lo.record(w.plugin, w.record).map(|loc| loc.signature)
+            });
+        return Ok(Some(newform::ParentArg::Local {
+            edid: c.edid.clone(),
+            signature,
+        }));
+    }
+    Err(spec_error(
+        "parent",
+        format!("unknown name `{name}`: a parent names a [[new]] or [[clone]] of this build"),
+    ))
+}
+
 /// Field values `new:<name>` (spec version 3) name a `[[new]]`, `[[clone]]` or `[[place]]`
 /// of the same build: a FormID member then holds that new form (M4.E7: a recipe's `CNAM`
 /// naming the object a `[[clone]]` writes) or that placed reference (lane D round 5: a
@@ -852,6 +904,18 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     }
     // [[clone]] then [[new]] (clones carry their origin, after the sets').
     let mut clone_sigs: Vec<(String, [u8; 4])> = Vec::new();
+    // The parents carried for nested entries (KK-275, KK-276): once per form, and not
+    // when a [[set]] or rule already writes it.
+    let mut parents_carried: Vec<u64> = writes.order.iter().map(|f| f.key()).collect();
+    let mut parent_copies: Vec<crate::edit::patch::Copy> = Vec::new();
+    let mut carry = |carried: Option<(crate::edit::patch::Copy, GlobalForm)>| {
+        if let Some((copy, g)) = carried {
+            if !parents_carried.contains(&g.key()) {
+                parents_carried.push(g.key());
+                parent_copies.push(copy);
+            }
+        }
+    };
     for c in &spec.clones {
         let req = newform::CloneRequest {
             label: c.key.clone(),
@@ -859,8 +923,11 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             plugin: c.plugin.clone(),
             edid: c.edid.clone(),
             edits: c.edits.clone(),
+            parent: entry_parent(ID, loaded, &spec, c.parent.as_deref(), c.plugin.as_deref())?,
         };
-        let (mut copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
+        let (mut copy, origin, _, unrelated, carried) =
+            newform::plan_clone(ID, loaded, &req, &limits)?;
+        carry(carried);
         copy.scripts = entry_scripts.get(&c.key, c.scripts.as_ref(), loaded)?;
         if let Some(swaps) = &c.swap_overrides {
             let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)
@@ -880,12 +947,16 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             edid: n.edid.clone(),
             edits: n.edits.clone(),
             masters: n.masters.clone(),
+            parent: entry_parent(ID, loaded, &spec, n.parent.as_deref(), None)?,
         };
-        let (mut copy, notes) = newform::plan_new(ID, loaded, &req)?;
+        let (mut copy, notes, carried) = newform::plan_new(ID, loaded, &req)?;
+        carry(carried);
         copy.scripts = entry_scripts.get(&n.key, n.scripts.as_ref(), loaded)?;
         super::set::extend_once(&mut limitations, notes);
         copies.push(copy);
     }
+    // The carried parents (their children are placed after every other record).
+    copies.extend(parent_copies);
     for req in &mut place_reqs {
         if let Some(name) = spec::local_ref(&req.base) {
             let (_, edid, sig) = local_bases
@@ -908,7 +979,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut new_refs = Vec::new();
     let mut place_infos: Vec<Value> = Vec::new();
     let mut place_evidence = Vec::new();
-    let mut carried: Vec<u64> = writes.order.iter().map(|f| f.key()).collect();
+    let mut carried: Vec<u64> = parents_carried.clone();
     for (req, entry) in place_reqs.iter().zip(&spec.places) {
         let mut planned = place::plan(ID, loaded, req, &limits)?;
         planned.new_ref.scripts = entry_scripts.get(&entry.key, entry.scripts.as_ref(), loaded)?;

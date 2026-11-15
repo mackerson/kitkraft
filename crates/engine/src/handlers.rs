@@ -34,6 +34,9 @@ mod mesh_tests;
 mod newform;
 #[cfg(test)]
 mod newform_tests;
+// KK-275, KK-276: topics and responses under their parents.
+#[cfg(test)]
+mod dialogue_tests;
 // Lane T round 2 (M4.T10).
 mod modrun;
 #[cfg(test)]

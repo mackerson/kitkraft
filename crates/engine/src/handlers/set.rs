@@ -238,6 +238,7 @@ pub(crate) fn winning_copy(
             carried: false,
             new_form: None,
             scripts: Vec::new(),
+            nested: None,
         },
         origin,
     ))

@@ -213,6 +213,9 @@ pub struct NewEntry {
     pub edits: Vec<Edit>,
     /// Masters its FormID fields need.
     pub masters: Vec<String>,
+    /// The parent of a nested record (a topic's quest, a response's topic; KK-275,
+    /// KK-276): a form of the load order or `new:<name>`.
+    pub parent: Option<String>,
     /// The brief row it serves.
     pub brief: Option<String>,
     /// Scripts to attach (M4.E9).
@@ -234,6 +237,8 @@ pub struct CloneEntry {
     pub edid: String,
     /// The fields.
     pub edits: Vec<Edit>,
+    /// The parent of a nested clone (KK-275, KK-276), as `[[new]]`'s.
+    pub parent: Option<String>,
     /// The brief row it serves.
     pub brief: Option<String>,
     /// Scripts to attach (M4.E9).
@@ -534,7 +539,7 @@ fn news(root: &toml::Table) -> Result<Vec<NewEntry>, SpecError> {
             t,
             &at,
             &[
-                "name", "type", "edid", "fields", "masters", "brief", "note", "scripts",
+                "name", "type", "edid", "fields", "masters", "parent", "brief", "note", "scripts",
             ],
         )?;
         optional_string(t, "note", &at)?;
@@ -571,6 +576,7 @@ fn news(root: &toml::Table) -> Result<Vec<NewEntry>, SpecError> {
                 Vec::new()
             },
             masters,
+            parent: optional_string(t, "parent", &at)?,
             brief: optional_string(t, "brief", &at)?,
             scripts: t.get("scripts").map(to_json),
         });
@@ -592,6 +598,7 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
                 "plugin",
                 "edid",
                 "fields",
+                "parent",
                 "brief",
                 "note",
                 "scripts",
@@ -612,6 +619,7 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
             } else {
                 Vec::new()
             },
+            parent: optional_string(t, "parent", &at)?,
             brief: optional_string(t, "brief", &at)?,
             scripts: t.get("scripts").map(to_json),
             swap_overrides: t.get("swap_overrides").map(to_json),

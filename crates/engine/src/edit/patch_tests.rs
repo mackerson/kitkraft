@@ -119,6 +119,7 @@ fn copy_of(plugins: &[Indexed], form: &str, edits: Vec<Edit>) -> Copy {
         carried: false,
         new_form: None,
         scripts: Vec::new(),
+        nested: None,
     }
 }
 
@@ -800,6 +801,7 @@ fn first_copy(p: &Indexed, formref: &str) -> Copy {
         carried: false,
         new_form: None,
         scripts: Vec::new(),
+        nested: None,
     }
 }
 
@@ -1119,6 +1121,7 @@ fn new_header_metadata_and_interior_cell_count() {
             carried: false,
             new_form: None,
             scripts: Vec::new(),
+            nested: None,
         }
     };
     let header = |path: &Path| -> Vec<(String, Vec<u8>)> {

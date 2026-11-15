@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES and HAZD (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL and INFO (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -407,3 +407,27 @@ component layout; IRES has no base form component block, so the layout names are
   `hazd_dangling_link_is_reported` (the snap template `SNTP`, the default layer `DEFL`,
   the image space modifier `MNAM`): each link is reported by `validate`'s
   `formid.dangling` and listed as `missing` by `refs`.
+
+## DIAL and INFO (KK-277, 2026-11-15)
+
+Typed-writable, in the pattern of the tests above, for two types that live in nested
+groups: each record is written with `new` under a `parent` (`docs/design/dialogue.md`) on
+the dialogue fixture of `crates/engine/src/handlers/dialogue_tests.rs` (`Quest.esm`: a
+quest, a topic, a response), the parent carried into the patch:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| DIAL | not-run | pass |
+| INFO | not-run | pass |
+
+- `dial_new_sets_every_typed_member_and_reads_back` (14 subrecords; `QNAM` is written
+  from the parent, so the plan keeps the member and the test checks it holds the quest)
+  and `info_new_sets_every_typed_member_and_reads_back` (60 subrecords, 3 whole-opaque):
+  read back byte for byte, `validate` with no finding.
+- `dial_dangling_link_is_reported` (the branch `BNAM`, keyword `KNAM`, affinity event
+  `ANAM`) and `info_dangling_link_is_reported` (the shared info `DNAM`, info group `GNAM`,
+  a response's emotion `TRDA.Emotion` and voice type `TROT.VoiceType`): each link is
+  reported by `formid.dangling` and listed as `missing` by `refs`.
+- Unverified: the group layout (type 10 quest children, type 7 topic children) is read off
+  the official files only; no Creation Kit plugin with quest children is observed
+  (`docs/gaps.md`).
