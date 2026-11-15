@@ -5,7 +5,7 @@
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
 //! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
 //! ENCH, IRES and HAZD (KK-265, 2026-11-14), DIAL and INFO under their parents (KK-277,
-//! 2026-11-15; `dialogue_tests.rs` fixture)
+//! 2026-11-15; `dialogue_tests.rs` fixture) and WWED (KK-291, 2026-11-15)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1781,5 +1781,31 @@ fn info_dangling_link_is_reported() {
             ("TROT.VoiceType", json!(MISSING)),
         ],
         &["DNAM", "GNAM", "TRDA", "TROT"],
+    );
+}
+
+// WWED has no base form component block of its own, so the layout and component name are
+// inert here; every other typed member of the definition is written and read back. The
+// two Wwise event GUIDs (WSED, WTED) are whole-opaque members: the plan writes their
+// sample bytes and counts them unchecked, and `validate` agrees (neither is an lstring,
+// so there is no lstring fallback for them).
+#[test]
+fn wwed_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "WWED",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn wwed_dangling_link_is_reported() {
+    // The condition (a FormID of a CNDF).
+    dangling(
+        "WWED",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("CNAM", json!(MISSING))],
+        &["CNAM"],
     );
 }
