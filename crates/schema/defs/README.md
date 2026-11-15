@@ -212,6 +212,7 @@ bodies themselves.
 | `bstring` | 1 + n   | -                                  | `u8` length, then that many bytes, no terminator         |
 | `enum`    | base    | `base`, `values = [["Top", 0]]`    | Integer base; unknown values are preserved               |
 | `flags`   | base    | `base`, `bits = [["Master", 0x1]]` | Unsigned base; unknown bits are preserved                |
+| `packed`  | base    | `base`, `parts = [{ name, shift, width, type, ... }]` | Struct fields only: an unsigned base split into named bit ranges (see Packed integers) |
 | `array`   | n*elem  | `element`, `count` or `count_from`, element keys | See Arrays                                 |
 | `struct`  | sum     | `field = [{ name, type, ... }]`    | Fields in order                                          |
 | `opaque`  | `size`  | `size` (omit for "rest of data")   | Bytes we do not decode yet. Never guess a layout         |
@@ -242,6 +243,34 @@ A field that reads to the end of the payload (`zstring`, `lstring`, rest arrays,
 without `size`, a struct ending in one of those) or is `if_remaining` must be the last
 field. Length-prefixed strings and `count_from` arrays delimit themselves and may appear
 anywhere.
+
+### Packed integers (`type = "packed"`)
+
+An unsigned integer whose bits hold several values (KK-269, CTDA's type byte):
+
+```toml
+[[field]]
+name = "Type"
+type = "packed"
+base = "u8"
+parts = [
+  { name = "Operator", shift = 5, width = 3, type = "enum", values = [["EqualTo", 0], ...] },
+  { name = "Flags", shift = 0, width = 5, type = "flags", bits = [["Or", 0x01], ...] },
+]
+```
+
+- Each part is a bit range (`shift` its lowest bit, `width` at least 1) of type `enum`
+  (`values`), `flags` (`bits`) or `uint` (a plain number), with values the part's own,
+  shifted down to bit 0; every value fits the width. Parts fit the base and do not
+  overlap; part names are PascalCase and unique in the field. A part takes a `note`.
+- Only on struct fields. The field may be gated (`since`, `until`, `if_remaining`) like
+  any field and may decide a union (`decider = "field:Type"`): the decider value is the
+  whole stored integer.
+- The stored integer is kept whole (codegen emits a newtype with a getter, a setter and
+  constants per part), so bits no part names, and part values no name covers, re-encode
+  as read. The `doc` reader decodes the field as a struct of its parts (`Type.Operator`),
+  and the engine's field paths write one part in place (`CTDA.Type.Flags = "UseGlobal"`),
+  keeping the other bits; the whole field still takes an integer.
 
 ### Arrays
 
@@ -351,7 +380,8 @@ Unions decided by another subrecord, by a bit of a second sibling, or by a value
 the same struct (COED's owner; CTDA's parameters 1 and 2 when the function's parameter is a
 reference, an actor or a package, which the type byte's alias and packdata bits re-type) are
 not expressible yet. Such payloads stay `opaque`. A decider bit of the deciding field itself
-is expressed by listing every value with the bit set (CTDA's comparison value, lane D).
+is expressed by listing every value with the bit set (CTDA's comparison value, lane D;
+since KK-269 that field is a packed integer and the decider reads its whole value).
 
 Base form component data (lane D, 2026-10-15): upstream reads it as a record union, each
 layout a run of subrecords recognised by its first one. `common/BfcbBlock.toml` lists the

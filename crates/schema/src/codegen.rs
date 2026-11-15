@@ -20,7 +20,7 @@ use std::fmt::Write as _;
 
 use crate::model::{
     ArrayCount, Cardinality, CommonBody, Decider, FieldDef, FieldType, HeaderDef, Member,
-    NamedValue, RecordDef, Schema, Signature, SubrecordDef, UnionVariant,
+    NamedValue, PackedPart, RecordDef, Schema, Signature, SubrecordDef, UnionVariant,
 };
 use crate::names::{const_ident, field_ident, signature_type_name};
 
@@ -213,6 +213,10 @@ impl Gen {
             }
             FieldType::Flags { base, bits } => {
                 self.flags_type(type_name, base.as_str(), bits)?;
+                type_name.to_owned()
+            }
+            FieldType::Packed { base, parts } => {
+                self.packed_type(type_name, base.as_str(), parts)?;
                 type_name.to_owned()
             }
             FieldType::Struct { fields } => {
@@ -607,6 +611,87 @@ impl {name} {{
         self.0 & mask == mask
     }}
 }}
+
+impl Field for {name} {{
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {{
+        {base}::read(r, field, ctx).map(Self)
+    }}
+
+    fn write(&self, out: &mut Vec<u8>) {{
+        self.0.write(out);
+    }}
+}}
+
+impl Visit for {name} {{}}
+"
+        );
+        Ok(())
+    }
+
+    /// A packed integer (KK-269): the stored value whole (so bits no part names are
+    /// kept), with each part's shift, mask and named values as constants and a getter
+    /// and setter per part.
+    fn packed_type(
+        &mut self,
+        name: &str,
+        base: &str,
+        parts: &[PackedPart],
+    ) -> Result<(), CodegenError> {
+        self.claim(name)?;
+        let mut items = String::new();
+        for part in parts {
+            let upper = const_ident(&part.name);
+            let ident = field_ident(&part.name);
+            let _ = writeln!(
+                items,
+                "    /// The lowest bit of `{}`.\n    pub const {upper}_SHIFT: u32 = {};",
+                part.name, part.shift
+            );
+            let _ = writeln!(
+                items,
+                "    /// The bits of `{}`, shifted down.\n    pub const {upper}_MASK: {base} = {};",
+                part.name,
+                hex(i128::from(part.mask()))
+            );
+            let named = match &part.ty {
+                FieldType::Enum { values, .. } => values.as_slice(),
+                FieldType::Flags { bits, .. } => bits.as_slice(),
+                _ => &[],
+            };
+            for v in named {
+                let _ = writeln!(
+                    items,
+                    "    pub const {upper}_{}: {base} = {};",
+                    const_ident(&v.name),
+                    hex(v.value)
+                );
+            }
+            let _ = writeln!(
+                items,
+                "
+    /// The value of `{part}` (shifted down).
+    pub fn {ident}(self) -> {base} {{
+        (self.0 >> Self::{upper}_SHIFT) & Self::{upper}_MASK
+    }}
+
+    /// Sets `{part}` (bits above its width dropped), keeping every other bit.
+    pub fn set_{ident}(&mut self, value: {base}) {{
+        let mask = Self::{upper}_MASK << Self::{upper}_SHIFT;
+        self.0 = (self.0 & !mask) | ((value & Self::{upper}_MASK) << Self::{upper}_SHIFT);
+    }}
+",
+                part = part.name
+            );
+        }
+        let _ = write!(
+            self.out,
+            "
+/// An integer packed from named bit ranges; bits no part names are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct {name}(pub {base});
+
+impl {name} {{
+{items}}}
 
 impl Field for {name} {{
     fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {{
@@ -1643,6 +1728,7 @@ fn decider_value(fields: &[FieldDef], name: &str) -> Result<String, CodegenError
     }
     Ok(match ty {
         FieldType::Enum { .. } => format!("i64::from(f{j}.to_raw())"),
+        FieldType::Packed { .. } => format!("i64::from(f{j}.0)"),
         _ => format!("i64::from(f{j})"),
     })
 }

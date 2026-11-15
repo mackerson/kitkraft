@@ -986,6 +986,15 @@ pub fn write_patch_with(
         let mut changes = Vec::new();
         let mut written: BTreeSet<usize> = BTreeSet::new();
         let mut deferred: Vec<Edit> = Vec::new();
+        // `CTDA[n] = null` removes a condition (KK-271): after every other edit, so each
+        // occurrence number means the record as copied.
+        let (removals, edits): (Vec<Edit>, Vec<Edit>) = copy
+            .edits
+            .iter()
+            .cloned()
+            .partition(super::scaffold::is_condition_removal);
+        let conditions_before = condition_count(&record);
+        check_removals(&removals, &edits, conditions_before)?;
         // A subrecord the edits name that the record lacks is added at its schema slot
         // first (lane D round 5: `set`, `clone`, `[[set]]`), deferred edits' included, so
         // no index moves once edits apply; refused only where the type has no slot for it.
@@ -993,7 +1002,7 @@ pub fn write_patch_with(
             record
                 .decompress(&options.limits)
                 .map_err(|e| PatchError::Io(format!("{}: {e}", copy.formref)))?;
-            let defaulted = super::scaffold::add_slots(&mut record, &copy.edits, false)?;
+            let defaulted = super::scaffold::add_slots(&mut record, &edits, false)?;
             if !defaulted.is_empty() {
                 push_once(
                     &mut limitations,
@@ -1001,7 +1010,9 @@ pub fn write_patch_with(
                 );
             }
         }
-        for edit in &copy.edits {
+        // Applied deciders first, reported in the order the edits were given.
+        let mut applied: Vec<(usize, FieldChange)> = Vec::new();
+        for (given, edit) in deciders_first(&record, &edits) {
             if names_local_form(&edit.op) {
                 deferred.push(edit.clone());
                 continue;
@@ -1013,8 +1024,10 @@ pub fn write_patch_with(
             if marks_written(edit, &change) {
                 written.insert(change.subrecord_index);
             }
-            changes.push(change);
+            applied.push((given, change));
         }
+        applied.sort_by_key(|(given, _)| *given);
+        changes.extend(applied.into_iter().map(|(_, c)| c));
         let inlined = inline_lstrings(
             &mut record,
             &copy.source,
@@ -1022,6 +1035,44 @@ pub fn write_patch_with(
             options,
             &mut limitations,
         )?;
+        if !removals.is_empty() {
+            let occurrences: Vec<usize> = removals.iter().map(|e| e.path.occurrence).collect();
+            let gone =
+                super::scaffold::remove_conditions(&mut record, &occurrences, &options.limits)?;
+            for c in &mut changes {
+                let before = gone.iter().filter(|g| **g < c.subrecord_index).count();
+                c.subrecord_index = c.subrecord_index.saturating_sub(before);
+            }
+            push_once(
+                &mut limitations,
+                format!(
+                    "{}: removed {} condition(s) (CTDA {}) with their string parameters",
+                    copy.formref,
+                    occurrences.len(),
+                    occurrences
+                        .iter()
+                        .map(|o| format!("[{o}]"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ),
+            );
+        }
+        // A condition count follows the conditions it counts (KK-271): on a new record,
+        // and on a write that adds or removes a condition.
+        let created = copy.new_form.is_some() && copy.source.name.is_empty();
+        if created || condition_count(&record) != conditions_before {
+            for (at, old, new) in
+                super::scaffold::sync_condition_counts(&mut record, &options.limits)?
+            {
+                push_once(
+                    &mut limitations,
+                    format!(
+                        "{}: CITC (subrecord {at}) set from {old} to {new}, the number of conditions after it",
+                        copy.formref
+                    ),
+                );
+            }
+        }
         let key = (record.header.form_id, record.header.signature.0);
         if let Some(edid) = &copy.new_form {
             pending_new.push((placed.len(), edid.clone()));
@@ -2027,6 +2078,79 @@ fn remap_record(
     record.header.form_id =
         map(record.header.form_id).map_err(|m| refused(format!("{what}: {m}")))?;
     Ok(())
+}
+
+/// How many conditions (`CTDA`) `record` has.
+fn condition_count(record: &Record<'_>) -> usize {
+    record.subrecords().map_or(0, |subs| {
+        subs.iter().filter(|s| s.signature().0 == *b"CTDA").count()
+    })
+}
+
+/// Refuses a condition removal (`CTDA[n] = null`) past the record's last condition, one
+/// beside an edit of the same condition, and one beside an edit of a condition that waits
+/// for a new form's FormID (applied after the removal, its occurrence would mean another
+/// condition).
+fn check_removals(removals: &[Edit], edits: &[Edit], conditions: usize) -> Result<(), PatchError> {
+    for r in removals {
+        let n = r.path.occurrence;
+        if n >= conditions {
+            return Err(refused(format!(
+                "{}: the record has {conditions} condition(s); only an existing condition is removed",
+                r.path.text
+            )));
+        }
+        let touched = edits
+            .iter()
+            .find(|e| e.path.signature == *b"CTDA" && e.path.occurrence == n);
+        if let Some(e) = touched {
+            return Err(refused(format!(
+                "{}: removes the condition {} edits; drop one of them",
+                r.path.text, e.path.text
+            )));
+        }
+    }
+    let late = edits.iter().find(|e| {
+        matches!(&e.path.signature, b"CTDA" | b"CIS1" | b"CIS2") && names_local_form(&e.op)
+    });
+    if let (Some(e), false) = (late, removals.is_empty()) {
+        return Err(refused(format!(
+            "{}: names a form written in this call and is applied after the removals, so its occurrence would change; write it in a second call",
+            e.path.text
+        )));
+    }
+    Ok(())
+}
+
+/// Where an edit sorts: its subrecord's signature and occurrence, then its field order.
+type EditOrder = (u32, usize, Vec<usize>);
+
+/// `edits` (each with its index in `edits`) in the order they are applied to `record`: by subrecord (signature, then
+/// occurrence) and, inside one subrecord, whole-subrecord edits first and member edits in
+/// the definition's field order (`fields::field_order`), so a union's decider is written
+/// before the variant it selects whatever the order of the keys that gave them (a stable
+/// sort: edits the layout cannot order keep theirs).
+pub(crate) fn deciders_first<'e>(record: &Record<'_>, edits: &'e [Edit]) -> Vec<(usize, &'e Edit)> {
+    let sigs: Vec<[u8; 4]> = record
+        .subrecords()
+        .map(|subs| subs.iter().map(|s| s.signature().0).collect())
+        .unwrap_or_default();
+    let layouts = super::fields::layouts(record.header.signature.0, &sigs);
+    let mut keyed: Vec<(EditOrder, (usize, &Edit))> = edits
+        .iter()
+        .enumerate()
+        .map(|(given, e)| {
+            let order = record
+                .find_subrecord(Signature(e.path.signature), e.path.occurrence)
+                .and_then(|i| layouts.get(i).cloned().flatten())
+                .map(|l| super::fields::field_order(&l.ty, &e.path.steps))
+                .unwrap_or_default();
+            let sig = u32::from_be_bytes(e.path.signature);
+            ((sig, e.path.occurrence, order), (given, e))
+        })
+        .collect();
+    keyed.sort_by(|a, b| a.0.cmp(&b.0));
+    keyed.into_iter().map(|(_, e)| e).collect()
 }
 
 /// Whether a subrecord layout leaves bytes of **unknown layout**: a whole payload kept as

@@ -128,7 +128,9 @@ fn sample(ty: &FieldType, forced: Option<i64>) -> Vec<u8> {
             });
             le(*base, v)
         }
-        FieldType::Flags { base, .. } => le(*base, forced.unwrap_or(1)),
+        FieldType::Flags { base, .. } | FieldType::Packed { base, .. } => {
+            le(*base, forced.unwrap_or(1))
+        }
         FieldType::Array { element, count } => {
             let n = match count {
                 ArrayCount::Fixed(n) => *n as usize,

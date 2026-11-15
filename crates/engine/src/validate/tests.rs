@@ -116,7 +116,7 @@ fn a_clean_patch_passes_every_rule() {
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 22);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 23);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }

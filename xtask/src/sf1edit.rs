@@ -520,6 +520,28 @@ fn typed_walk(
             }
             None => false,
         },
+        // A packed integer (CTDA's type byte, KK-269): compared as the whole stored value,
+        // the integer it was before the split (xEdit shows it as one text).
+        FieldType::Packed { parts, .. } => {
+            let raw = match v {
+                Value::Number(n) => n.as_u64(),
+                Value::Object(map) => parts.iter().try_fold(0u64, |acc, p| {
+                    let part = map.get(&p.name)?.as_u64()?;
+                    Some(p.set(acc, part))
+                }),
+                _ => None,
+            };
+            match raw {
+                Some(n) => {
+                    out.push(Ours::Code {
+                        key: key.to_string(),
+                        n: i128::from(n),
+                    });
+                    true
+                }
+                None => false,
+            }
+        }
         FieldType::Array { element, .. } => {
             let Some(items) = v.as_array() else {
                 return false;

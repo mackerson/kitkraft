@@ -152,6 +152,9 @@ fn type_label(ty: &FieldType) -> String {
         FieldType::BString => "bstring".to_string(),
         FieldType::Enum { base, .. } => format!("enum<{}>", base.as_str()),
         FieldType::Flags { base, .. } => format!("flags<{}>", base.as_str()),
+        FieldType::Packed { base, parts } => {
+            format!("packed<{}> ({} parts)", base.as_str(), parts.len())
+        }
         FieldType::Array { element, count } => {
             let n = match count {
                 ArrayCount::Fixed(n) => n.to_string(),
@@ -203,6 +206,21 @@ fn type_detail(obj: &mut Map<String, Value>, ty: &FieldType, parent: &Provenance
         }
         FieldType::Enum { values, .. } => insert(obj, "values", named(values)),
         FieldType::Flags { bits, .. } => insert(obj, "bits", named(bits)),
+        FieldType::Packed { parts, .. } => {
+            let list: Vec<Value> = parts
+                .iter()
+                .map(|p| {
+                    let mut part = Map::new();
+                    insert(&mut part, "name", json!(p.name));
+                    insert(&mut part, "shift", json!(p.shift));
+                    insert(&mut part, "width", json!(p.width));
+                    insert(&mut part, "type", json!(type_label(&p.ty)));
+                    type_detail(&mut part, &p.ty, parent);
+                    Value::Object(part)
+                })
+                .collect();
+            insert(obj, "parts", Value::Array(list));
+        }
         FieldType::Array { element, .. } => {
             let mut inner = Map::new();
             type_detail(&mut inner, element, parent);

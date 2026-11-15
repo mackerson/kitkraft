@@ -16,6 +16,8 @@ mod build_tests;
 mod build_v3_tests;
 mod categories;
 mod cell;
+#[cfg(test)]
+mod condition_tests;
 mod conflicts;
 mod coverage;
 mod deploy;

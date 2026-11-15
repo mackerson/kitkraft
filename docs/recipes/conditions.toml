@@ -1,0 +1,35 @@
+# KK-272 recipe: a crafting recipe gated by a condition, written member by member.
+# Build: kit build docs/recipes/conditions.toml out/recipes/KitKraftConditions.esm
+# Evidence for every choice: docs/recipes/conditions.md (and docs/design/conditions.md).
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# co_mfg_Tier01_AdaptiveFrame (as in docs/recipes/fabricator.toml): BNAM
+# WorkbenchIndustrialKeyword, no conditions, two components. The clone makes 12g shotgun
+# shells and gets the research gate the vanilla shell recipe has, as one new condition.
+name = "gated_shells"
+form = "Starfield.esm:2457C1"
+edid = "KitKraft_co_ConditionedShotgunShells"
+brief = "KK-272"
+
+[clone.fields]
+# AmmoShotgun ("12g Shotgun Shell"), 6 a craft, as co_ammo_12gShotgunShell.
+CNAM = "Starfield.esm:0547A1"
+NNAM = 6
+DESC = "KitKraft test recipe: shotgun shells once Ammunition 1 is researched."
+DATA = 0
+# The condition, CTDA[0] (the record has none, so this adds it): IsResearchComplete
+# (function 874) of Weapon_Research_Ammo_01 ("Ammunition 1") == 1.0, run on the subject
+# (the player at the workbench). The operator and flags are the type byte's parts; the
+# parameter variant ResearchProject is the one function 874 selects. Parameter 3 is -1,
+# as every official condition that does not use it.
+"CTDA.Type.Operator" = "EqualTo"
+"CTDA.Type.Flags" = 0
+"CTDA.ComparisonValue.Float" = 1.0
+"CTDA.Function" = "IsResearchComplete"
+"CTDA.Parameter1.ResearchProject" = "Starfield.esm:2C0D72"
+"CTDA.RunOn" = "Subject"
+"CTDA.Parameter3.Integer" = -1

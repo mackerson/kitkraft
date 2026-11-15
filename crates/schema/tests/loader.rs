@@ -1559,3 +1559,85 @@ fn signatures_from_bytes_enforce_printable_ascii() {
     assert_eq!(sig("NPC_").as_bytes(), *b"NPC_");
     assert_eq!(sig("NPC_").to_string(), "NPC_");
 }
+
+/// `type = "packed"` (KK-269): a struct field split into bit ranges; the parts load with
+/// their own types, decide a union by the whole value, and bad parts are refused.
+#[test]
+fn packed_fields_load_and_bad_parts_are_refused() {
+    let packed = |parts: &str| {
+        format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+             [[member.field]]\nname = \"Kind\"\ntype = \"packed\"\nbase = \"u8\"\nparts = [{parts}]\n\
+             [[member.field]]\nname = \"Value\"\ntype = \"union\"\ndecider = \"field:Kind\"\n\
+             variants = [{{ when = [0, 4], name = \"Int\", type = \"i32\" }}]\n"
+        )
+    };
+    let good = "{ name = \"Op\", shift = 5, width = 3, type = \"enum\", values = [[\"Eq\", 0], [\"Ne\", 1]] }, \
+                { name = \"Bits\", shift = 0, width = 3, type = \"flags\", bits = [[\"Or\", 1], [\"Global\", 4]] }, \
+                { name = \"Mid\", shift = 3, width = 2, type = \"uint\" }";
+    let def = parse_definition("TEST.toml", &record(&packed(good))).unwrap();
+    let Definition::Record(rec) = def else {
+        panic!("not a record");
+    };
+    let Member::Subrecord(sub) = &rec.members[0] else {
+        panic!("not a subrecord");
+    };
+    let FieldType::Struct { fields } = &sub.ty else {
+        panic!("not a struct");
+    };
+    let FieldType::Packed { base, parts } = &fields[0].ty else {
+        panic!("not packed: {:?}", fields[0].ty);
+    };
+    assert_eq!(*base, Scalar::U8);
+    assert_eq!(fields[0].ty.fixed_size(None), Some(1));
+    let names: Vec<&str> = parts.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(names, ["Op", "Bits", "Mid"]);
+    assert!(matches!(parts[0].ty, FieldType::Enum { .. }));
+    assert!(matches!(parts[1].ty, FieldType::Flags { .. }));
+    assert_eq!(parts[2].ty, FieldType::Scalar(Scalar::U8));
+    // 0b011_00_101: Op 3, Mid 0, Bits 0b00101; set keeps the other bits.
+    assert_eq!(parts[0].get(0x65), 3);
+    assert_eq!(parts[1].get(0x65), 5);
+    assert_eq!(parts[0].set(0x65, 1), 0x25);
+    for (parts, why) in [
+        (
+            "{ name = \"Op\", shift = 6, width = 3, type = \"uint\" }",
+            "do not fit",
+        ),
+        (
+            "{ name = \"Op\", shift = 0, width = 0, type = \"uint\" }",
+            "do not fit",
+        ),
+        (
+            "{ name = \"A\", shift = 0, width = 4, type = \"uint\" }, { name = \"B\", shift = 3, width = 2, type = \"uint\" }",
+            "overlaps",
+        ),
+        (
+            "{ name = \"Op\", shift = 5, width = 3, type = \"enum\", values = [[\"Big\", 8]] }",
+            "does not fit 3 bits",
+        ),
+        (
+            "{ name = \"F\", shift = 0, width = 2, type = \"flags\", bits = [[\"High\", 4]] }",
+            "does not fit 2 bits",
+        ),
+        (
+            "{ name = \"Op\", shift = 0, width = 2, type = \"f32\" }",
+            "a part is",
+        ),
+    ] {
+        match invalid(&packed(parts)) {
+            ErrorKind::BadPart { why: got, .. } => assert!(got.contains(why), "{parts}: {got}"),
+            other => panic!("{parts}: {other:?}"),
+        }
+    }
+    // A signed base, and `parts` on a field that is not packed.
+    let signed = packed(good).replace("base = \"u8\"", "base = \"i8\"");
+    assert!(matches!(invalid(&signed), ErrorKind::BadBase { .. }));
+    let stray = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                 [[member.field]]\nname = \"Kind\"\ntype = \"u8\"\n\
+                 parts = [{ name = \"A\", shift = 0, width = 1, type = \"uint\" }]\n";
+    assert!(matches!(
+        invalid(stray),
+        ErrorKind::UnexpectedKey { key: "parts", .. }
+    ));
+}

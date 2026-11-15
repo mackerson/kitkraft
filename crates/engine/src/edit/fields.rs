@@ -19,6 +19,7 @@
 //! | `f32` / `f64`   | JSON number or decimal text; finite, and in range for `f32`     |
 //! | enum            | a value name (ASCII case-insensitive) or an integer             |
 //! | flags           | an integer, or bit names joined by `\|`                          |
+//! | packed          | an integer (the whole stored value), or each part by its path (`CTDA.Type.Operator`), as its type takes a value; a part is written in place |
 //! | FormID          | `Plugin.esm:00ABCDEF` (mapped to the target's master list), a raw hex FormID stored as given, or `null` (FormID 0, no form; shown as `null`) |
 //! | `sig`           | four ASCII characters                                           |
 //! | zstring         | text (no NUL), written NUL-terminated                           |
@@ -56,7 +57,7 @@
 //! signatures the schema leaves untyped or opaque are lstrings when the corpus lstring
 //! table says so ([`super::lstrings`]), again with a [`Layout::fallback`] note.
 
-use kitkraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, Scalar};
+use kitkraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, PackedPart, Scalar};
 use serde_json::{json, Value};
 
 /// A field path or value error: names the path and the rule it broke.
@@ -390,6 +391,9 @@ pub struct Located<'t> {
     pub len: usize,
     /// The value's type.
     pub ty: &'t FieldType,
+    /// A part of a packed integer (`CTDA.Type.Operator`): the bytes are the whole
+    /// integer, and the value is the part's bit range of it ([`encode_part`]).
+    pub part: Option<&'t PackedPart>,
 }
 
 /// Finds the bytes `steps` name inside `payload`, laid out as `ty`.
@@ -403,9 +407,17 @@ pub fn locate<'t>(
     let mut ty = deref(ty);
     let mut start = 0usize;
     let mut len = payload.len();
+    let mut part: Option<&PackedPart> = None;
     // The integer members before the current one in its struct (union deciders).
     let mut siblings: Vec<(&str, i128)> = Vec::new();
     for step in steps {
+        if part.is_some() {
+            return Err(FieldError::new(
+                path,
+                "no-member",
+                "a part of a packed integer has no members",
+            ));
+        }
         let window = payload
             .get(start..start.saturating_add(len))
             .ok_or_else(|| FieldError::new(path, "payload", "payload shorter than its layout"))?;
@@ -476,6 +488,21 @@ pub fn locate<'t>(
                 }
                 ty = deref(&wanted.ty);
             }
+            (Step::Member(name), FieldType::Packed { parts, .. }) => {
+                let found = parts
+                    .iter()
+                    .find(|p| p.name.eq_ignore_ascii_case(name))
+                    .ok_or_else(|| {
+                        let names: Vec<&str> = parts.iter().map(|p| p.name.as_str()).collect();
+                        FieldError::new(
+                            path,
+                            "no-member",
+                            format!("no part `{name}`; parts: {}", names.join(", ")),
+                        )
+                    })?;
+                part = Some(found);
+                ty = &found.ty;
+            }
             (Step::Index(i), FieldType::Array { element, .. }) => {
                 let size = element
                     .fixed_size(Some(form_version))
@@ -524,7 +551,121 @@ pub fn locate<'t>(
             }
         }
     }
-    Ok(Located { start, len, ty })
+    Ok(Located {
+        start,
+        len,
+        ty,
+        part,
+    })
+}
+
+/// The new bytes of the packed integer stored as `old` (`base`) when its part `part` is
+/// edited by `op` (the part's own type takes the value), every other bit kept; and the
+/// part's value before and after, as JSON views.
+pub fn encode_part(
+    path: &str,
+    part: &PackedPart,
+    old: &[u8],
+    op: &Op,
+    ctx: &ValueCtx<'_>,
+) -> Result<(Vec<u8>, Value, Value), FieldError> {
+    let base = int_base(&part.ty)
+        .ok_or_else(|| FieldError::new(path, "layout", "a packed part is not an integer"))?;
+    let raw = read_int(base, old)
+        .and_then(|v| u64::try_from(v).ok())
+        .ok_or_else(|| FieldError::new(path, "payload", "current value unreadable"))?;
+    let unreadable = || FieldError::new(path, "payload", "current value unreadable");
+    let current = encode_int(base, i128::from(part.get(raw))).ok_or_else(unreadable)?;
+    let new = encode_value(path, &part.ty, &current, op, ctx)?;
+    let value = read_int(base, &new)
+        .and_then(|v| u64::try_from(v).ok())
+        .ok_or_else(unreadable)?;
+    if value > part.mask() {
+        return Err(FieldError::new(
+            path,
+            "range",
+            format!(
+                "{value} does not fit the {}-bit part `{}` (at most {})",
+                part.width,
+                part.name,
+                part.mask()
+            ),
+        ));
+    }
+    let whole = encode_int(base, i128::from(part.set(raw, value))).ok_or_else(unreadable)?;
+    Ok((
+        whole,
+        part_display(&part.ty, &current),
+        part_display(&part.ty, &new),
+    ))
+}
+
+/// A JSON view of one part of a packed integer (its value shifted down, stored as the
+/// part's base): an enum part by name, a flags part as its bit names joined by `|` (bits
+/// without a name as a trailing hex number), a number otherwise.
+fn part_display(ty: &FieldType, bytes: &[u8]) -> Value {
+    let FieldType::Flags { base, bits } = deref(ty) else {
+        return display(ty, bytes, false);
+    };
+    let Some(v) = read_int(*base, bytes) else {
+        return json!({ "hex": to_hex(bytes) });
+    };
+    let mut names: Vec<&str> = Vec::new();
+    let mut rest = v;
+    for b in bits {
+        if b.value != 0 && v & b.value == b.value {
+            names.push(&b.name);
+            rest &= !b.value;
+        }
+    }
+    match (names.is_empty(), rest) {
+        (true, _) => i64::try_from(v).map_or_else(|_| json!(v.to_string()), |v| json!(v)),
+        (false, 0) => json!(names.join("|")),
+        (false, rest) => json!(format!("{}|{rest:#x}", names.join("|"))),
+    }
+}
+
+/// Where `steps` sit in the definition's field order inside a payload laid out as `ty`: per
+/// step, the field's index in its struct, an array element's index, `0` for a union
+/// variant (`usize::MAX` for a step the layout does not know, which ends the key). Edits
+/// of one subrecord sorted by it write a union's deciders (always earlier fields) before
+/// the union (`docs/design/conditions.md`, "Deciders first"): JSON objects reach the
+/// engine with their keys sorted, which put `CTDA.Reference.Reference` before
+/// `CTDA.RunOn`.
+pub fn field_order(ty: &FieldType, steps: &[Step]) -> Vec<usize> {
+    let mut out = Vec::with_capacity(steps.len());
+    let mut ty = deref(ty);
+    for step in steps {
+        let next = match (step, ty) {
+            (Step::Member(name), FieldType::Struct { fields }) => fields
+                .iter()
+                .enumerate()
+                .find(|(_, f)| f.name.eq_ignore_ascii_case(name))
+                .map(|(i, f)| (i, &f.ty)),
+            (Step::Member(name), FieldType::Union { variants, .. }) => variants
+                .iter()
+                .find(|v| v.name.eq_ignore_ascii_case(name))
+                .map(|v| (0, &v.ty)),
+            (Step::Index(i), FieldType::Array { element, .. }) => Some((*i, &**element)),
+            (Step::Member(name), FieldType::Packed { parts, .. }) => parts
+                .iter()
+                .enumerate()
+                .find(|(_, p)| p.name.eq_ignore_ascii_case(name))
+                .map(|(i, p)| (i, &p.ty)),
+            _ => None,
+        };
+        match next {
+            Some((i, inner)) => {
+                out.push(i);
+                ty = deref(inner);
+            }
+            None => {
+                out.push(usize::MAX);
+                break;
+            }
+        }
+    }
+    out
 }
 
 /// The variant of a union layout that applies to a record whose `EDID` payload starts with
@@ -554,7 +695,9 @@ fn deref(ty: &FieldType) -> &FieldType {
 fn int_base(ty: &FieldType) -> Option<Scalar> {
     match deref(ty) {
         FieldType::Scalar(s) if s.is_integer() => Some(*s),
-        FieldType::Enum { base, .. } => Some(*base),
+        FieldType::Enum { base, .. }
+        | FieldType::Flags { base, .. }
+        | FieldType::Packed { base, .. } => Some(*base),
         _ => None,
     }
 }
@@ -731,6 +874,7 @@ pub fn type_name(ty: &FieldType) -> String {
         FieldType::BString => "bstring".into(),
         FieldType::Enum { base, .. } => format!("enum ({})", base.as_str()),
         FieldType::Flags { base, .. } => format!("flags ({})", base.as_str()),
+        FieldType::Packed { base, .. } => format!("packed ({})", base.as_str()),
         FieldType::Array { .. } => "array".into(),
         FieldType::Struct { .. } => "struct".into(),
         FieldType::Opaque { .. } => "opaque".into(),
@@ -903,6 +1047,56 @@ pub fn encode_value(
                         acc |= bit;
                     }
                     acc
+                }
+            };
+            encode_int(*base, value).ok_or_else(|| {
+                FieldError::new(
+                    path,
+                    "range",
+                    format!("{value} does not fit {}", base.as_str()),
+                )
+            })
+        }
+        FieldType::Packed { base, parts } => {
+            let Op::Set(v) = op else {
+                return Err(type_err("packed".into()));
+            };
+            let value = match (parse_int(v), v) {
+                (Some(n), _) => n,
+                // Inside a whole struct or array value: an object of parts, each as its
+                // type takes a value (a part left out is 0).
+                (None, Value::Object(given)) => {
+                    let mut raw: u64 = 0;
+                    for (key, item) in given {
+                        let part = parts
+                            .iter()
+                            .find(|p| p.name.eq_ignore_ascii_case(key))
+                            .ok_or_else(|| {
+                                let names: Vec<&str> =
+                                    parts.iter().map(|p| p.name.as_str()).collect();
+                                FieldError::new(
+                                    &format!("{path}.{key}"),
+                                    "no-member",
+                                    format!("no part `{key}`; parts: {}", names.join(", ")),
+                                )
+                            })?;
+                        let zero = encode_int(*base, 0).unwrap_or_default();
+                        let at = format!("{path}.{}", part.name);
+                        let (whole, _, _) =
+                            encode_part(&at, part, &zero, &Op::Set(item.clone()), ctx)?;
+                        let bits = read_int(*base, &whole)
+                            .and_then(|b| u64::try_from(b).ok())
+                            .unwrap_or(0);
+                        raw |= bits;
+                    }
+                    i128::from(raw)
+                }
+                _ => {
+                    let names: Vec<&str> = parts.iter().map(|p| p.name.as_str()).collect();
+                    return Err(type_err(format!(
+                        "a packed integer takes an integer, or each part by its path (`{path}.{}`)",
+                        names.first().copied().unwrap_or("Part")
+                    )));
                 }
             };
             encode_int(*base, value).ok_or_else(|| {
@@ -1494,6 +1688,17 @@ pub fn display(ty: &FieldType, bytes: &[u8], localized: bool) -> Value {
                 .find(|n| n.value == v)
                 .map_or_else(|| json!(v.to_string()), |n| json!(n.name))
         }),
+        FieldType::Packed { base, parts } => read_int(*base, bytes)
+            .and_then(|v| u64::try_from(v).ok())
+            .map_or_else(hex, |raw| {
+                let mut out = serde_json::Map::new();
+                for p in parts {
+                    let shown = encode_int(*base, i128::from(p.get(raw)))
+                        .map_or(Value::Null, |b| part_display(&p.ty, &b));
+                    out.insert(p.name.clone(), shown);
+                }
+                Value::Object(out)
+            }),
         FieldType::FormId { .. } => match <[u8; 4]>::try_from(bytes).map(u32::from_le_bytes) {
             Ok(0) => Value::Null,
             Ok(raw) => json!(format!("{raw:08X}")),

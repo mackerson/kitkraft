@@ -443,9 +443,199 @@ pub(crate) fn fill_groups(
     }
 }
 
+/// The parent of a member path (`Rank.Conditions` -> `Rank`, `Conditions` -> ``).
+fn parent_path(path: &str) -> &str {
+    path.rsplit_once('.').map_or("", |(parent, _)| parent)
+}
+
+/// Whether the slot at `at` of `order` is a condition count: a `CITC` whose next slot is the
+/// `CTDA` of a `Condition` group that follows it in the same member list (KK-271,
+/// `docs/design/conditions.md`, "CITC"). STBH's `CITC`, followed by a `CTDA` member of its
+/// own (no condition group), is not one.
+fn counts_conditions(order: &[Slot], at: usize) -> bool {
+    let (Some(citc), Some(next)) = (order.get(at), order.get(at.saturating_add(1))) else {
+        return false;
+    };
+    citc.sig == *b"CITC"
+        && next.sig == *b"CTDA"
+        && parent_path(parent_path(&next.path)) == parent_path(&citc.path)
+        && parent_path(&next.path) != parent_path(&citc.path)
+}
+
+/// One run of conditions in a record (KK-271): a condition count (`CITC`) the definition
+/// puts before a `Condition` group, and the conditions of that group's instances right
+/// after it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ConditionRun {
+    /// Index of the `CITC` among the record's subrecords.
+    pub(crate) citc: usize,
+    /// How many `CTDA` follow it in its group's consecutive instances.
+    pub(crate) conditions: usize,
+}
+
+/// Every condition count of a record of type `record` (signatures `subs`, in order) and the
+/// conditions it counts: the `CITC` subrecords placed at a member that heads a `Condition`
+/// group (`counts_conditions`), each with the number of `CTDA` placed in that group's
+/// instances directly after it (`CIS1` / `CIS2` belong to the run; anything else ends it).
+/// Empty for a type the schema does not define.
+pub(crate) fn condition_runs(record: [u8; 4], subs: &[[u8; 4]]) -> Vec<ConditionRun> {
+    let Ok(schema) = kitkraft_schema::builtin() else {
+        return Vec::new();
+    };
+    let Some(placed) = kitkraft_doc::typed::placements(schema, record, subs) else {
+        return Vec::new();
+    };
+    let order = member_order(record);
+    let path_of = |i: usize| match placed.get(i) {
+        Some(kitkraft_doc::typed::Placement::Member { path, .. }) => Some(path.as_str()),
+        _ => None,
+    };
+    let mut out = Vec::new();
+    for (i, sig) in subs.iter().enumerate() {
+        if sig != b"CITC" {
+            continue;
+        }
+        let Some(path) = path_of(i) else {
+            continue;
+        };
+        let Some(at) = order
+            .iter()
+            .position(|e| e.sig == *b"CITC" && e.path == path)
+        else {
+            continue;
+        };
+        if !counts_conditions(&order, at) {
+            continue;
+        }
+        let group = order
+            .get(at.saturating_add(1))
+            .map(|e| parent_path(&e.path).to_string())
+            .unwrap_or_default();
+        let mut conditions = 0usize;
+        for (j, s) in subs.iter().enumerate().skip(i.saturating_add(1)) {
+            let inside = matches!(s, b"CTDA" | b"CIS1" | b"CIS2")
+                && path_of(j).is_some_and(|p| parent_path(p) == group);
+            if !inside {
+                break;
+            }
+            if s == b"CTDA" {
+                conditions = conditions.saturating_add(1);
+            }
+        }
+        out.push(ConditionRun {
+            citc: i,
+            conditions,
+        });
+    }
+    out
+}
+
+/// The condition count a record of type `record` lacks for conditions being added: when
+/// the record has no `CITC` at all and gets its first `CTDA` in the record's own first
+/// condition group, whose definition puts a counted `CITC` right before it (ACTI, TERM,
+/// HAZD, MUST, ...; KK-271). A `CITC` the definition requires inside a group is added with
+/// the group (`fill_groups`).
+fn condition_count_slot(order: &[Slot], have: &BTreeMap<[u8; 4], usize>) -> Option<[u8; 4]> {
+    if have.get(b"CITC").copied().unwrap_or(0) > 0 || have.get(b"CTDA").copied().unwrap_or(0) > 0 {
+        return None;
+    }
+    let first = order
+        .iter()
+        .position(|e| e.sig == *b"CTDA" && !e.component)?;
+    let at = first.checked_sub(1)?;
+    let citc = order.get(at)?;
+    (counts_conditions(order, at) && citc.groups.is_empty()).then_some(*b"CITC")
+}
+
+/// Whether `edit` removes a condition: `CTDA[n] = null` (KK-271).
+pub(crate) fn is_condition_removal(edit: &Edit) -> bool {
+    edit.path.signature == *b"CTDA"
+        && edit.path.steps.is_empty()
+        && matches!(edit.op, super::fields::Op::Set(serde_json::Value::Null))
+}
+
+/// Removes the conditions `occurrences` name (`CTDA` occurrences of `record`, as the record
+/// is now), each with the `CIS1` / `CIS2` right after it, highest first. Returns the
+/// indices removed, ascending. A missing occurrence is a `no-subrecord` error.
+pub(crate) fn remove_conditions(
+    record: &mut Record<'_>,
+    occurrences: &[usize],
+    limits: &kitkraft_esm::DecodeLimits,
+) -> Result<Vec<usize>, FieldError> {
+    let mut wanted: Vec<usize> = occurrences.to_vec();
+    wanted.sort_unstable();
+    wanted.dedup();
+    let mut gone: Vec<usize> = Vec::new();
+    let sigs: Vec<[u8; 4]> = record
+        .subrecords()
+        .map(|s| s.iter().map(|s| s.signature().0).collect())
+        .unwrap_or_default();
+    let count = sigs.iter().filter(|s| *s == b"CTDA").count();
+    for k in &wanted {
+        let at = record
+            .find_subrecord(Signature(*b"CTDA"), *k)
+            .ok_or_else(|| {
+                FieldError::new(
+                    &format!("CTDA[{k}]"),
+                    "no-subrecord",
+                    format!("the record has {count} condition(s); CTDA[{k}] cannot be removed"),
+                )
+            })?;
+        gone.push(at);
+        for (j, s) in sigs.iter().enumerate().skip(at.saturating_add(1)) {
+            if !matches!(s, b"CIS1" | b"CIS2") {
+                break;
+            }
+            gone.push(j);
+        }
+    }
+    gone.sort_unstable();
+    let subs = record
+        .edit_subrecords(limits)
+        .map_err(|e| FieldError::new("CTDA", "payload", e.to_string()))?;
+    for i in gone.iter().rev() {
+        if *i < subs.len() {
+            subs.remove(*i);
+        }
+    }
+    Ok(gone)
+}
+
+/// Sets every condition count of `record` (the `CITC` of each [`condition_runs`] run) to
+/// the number of conditions after it (KK-271). Returns `(index, old, new)` for each one
+/// that changed; a `CITC` whose payload is not 4 bytes is left as it is.
+pub(crate) fn sync_condition_counts(
+    record: &mut Record<'_>,
+    limits: &kitkraft_esm::DecodeLimits,
+) -> Result<Vec<(usize, u32, u32)>, FieldError> {
+    let sigs: Vec<[u8; 4]> = record
+        .subrecords()
+        .map(|s| s.iter().map(|s| s.signature().0).collect())
+        .unwrap_or_default();
+    let mut changed = Vec::new();
+    for run in condition_runs(record.header.signature.0, &sigs) {
+        let stored = record
+            .subrecords()
+            .and_then(|s| s.get(run.citc))
+            .and_then(|s| <[u8; 4]>::try_from(s.data()).ok())
+            .map(u32::from_le_bytes);
+        let (Some(old), Ok(new)) = (stored, u32::try_from(run.conditions)) else {
+            continue;
+        };
+        if old != new {
+            record
+                .set_subrecord(run.citc, new.to_le_bytes().to_vec(), limits)
+                .map_err(|e| FieldError::new("CITC", "payload", e.to_string()))?;
+            changed.push((run.citc, old, new));
+        }
+    }
+    Ok(changed)
+}
+
 /// How many occurrences of each signature `edits` need in a record that has `have` of
 /// each: the occurrences the edits name, plus the count subrecord of a whole array
-/// subrecord the record lacks along with its count ([`count_slot`]).
+/// subrecord the record lacks along with its count ([`count_slot`]), and the condition
+/// count of a record that gets its first condition ([`condition_count_slot`]).
 pub(crate) fn wanted_slots(
     order: &[Slot],
     edits: &[Edit],
@@ -466,6 +656,14 @@ pub(crate) fn wanted_slots(
             if present(&count) == 0 {
                 wanted.entry(count).or_insert(1);
             }
+        }
+    }
+    let adds_condition = edits
+        .iter()
+        .any(|e| e.path.signature == *b"CTDA" && e.path.occurrence >= present(b"CTDA"));
+    if adds_condition {
+        if let Some(citc) = condition_count_slot(order, have) {
+            wanted.entry(citc).or_insert(1);
         }
     }
     wanted

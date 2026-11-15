@@ -203,6 +203,12 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A group started by its lead that lacks a member the definition requires in it (a REFR MapMarker with XMRK and FNAM but no FULL, TNAM or VNAM): the game reads the group from its lead and finds a required member missing",
     },
     RuleInfo {
+        id: "condition.count",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A condition count (CITC) that differs from the number of conditions (CTDA) of the group after it (grade D: what the game does with a wrong count is not observed)",
+    },
+    RuleInfo {
         id: "papyrus.missing-script",
         severity: Severity::Error,
         input: Input::Plugin,
@@ -1143,6 +1149,34 @@ fn check_record(
                     missing.join(", ")
                 ),
             );
+        }
+    }
+
+    // condition.count: a CITC that disagrees with the conditions it counts (KK-271).
+    if pass.on("condition.count") {
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+        for run in crate::edit::scaffold::condition_runs(sig, &sigs) {
+            let Some(citc) = subs.get(run.citc) else {
+                continue;
+            };
+            let stored = <[u8; 4]>::try_from(citc.data())
+                .ok()
+                .map(u32::from_le_bytes);
+            if stored.and_then(|n| usize::try_from(n).ok()) != Some(run.conditions) {
+                let shown = stored
+                    .map_or_else(|| format!("{} bytes", citc.data().len()), |n| n.to_string());
+                push(
+                    findings,
+                    "condition.count",
+                    Severity::Warning,
+                    Some("CITC".to_string()),
+                    sub_offset(citc),
+                    format!(
+                        "{id} CITC (subrecord {}) holds {shown}, but {} condition(s) follow it",
+                        run.citc, run.conditions
+                    ),
+                );
+            }
         }
     }
 
