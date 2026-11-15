@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL and INFO (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO and WWED (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -431,3 +431,20 @@ quest, a topic, a response), the parent carried into the patch:
 - Unverified: the group layout (type 10 quest children, type 7 topic children) is read off
   the official files only; no Creation Kit plugin with quest children is observed
   (`docs/gaps.md`).
+
+## WWED (KK-291, 2026-11-15)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`); WWED has no base form component block,
+so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| WWED | not-run | pass |
+
+- `wwed_new_sets_every_typed_member_and_reads_back` (4 subrecords): `new` with every
+  typed leaf member of the definition, read back byte for byte, `validate` with no
+  finding; the two Wwise event GUIDs (`WSED` and `WTED`, whole-opaque) are its unchecked
+  subrecords.
+- `wwed_dangling_link_is_reported` (the condition `CNAM`, a FormID of a `CNDF`): the link
+  is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
