@@ -743,7 +743,11 @@ pub(crate) fn long_field(
     let width = theme::width(ui, Field::Long);
     ui.vertical(|ui| {
         let edit = ui
-            .add(TextEdit::singleline(value).desired_width(width).hint_text(hint))
+            .add(
+                TextEdit::singleline(value)
+                    .desired_width(width)
+                    .hint_text(hint),
+            )
             .on_hover_text(value.clone());
         if value_wider_than_field(ui, value, width) {
             ui.weak(value.clone());
@@ -759,9 +763,12 @@ fn value_wider_than_field(ui: &egui::Ui, value: &str, width: f32) -> bool {
         return false;
     }
     let font = egui::TextStyle::Body.resolve(ui.style());
-    let galley = ui
-        .painter()
-        .layout(value.to_string(), font, ui.visuals().text_color(), f32::INFINITY);
+    let galley = ui.painter().layout(
+        value.to_string(),
+        font,
+        ui.visuals().text_color(),
+        f32::INFINITY,
+    );
     galley.size().x > width
 }
 

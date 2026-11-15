@@ -965,9 +965,8 @@ pub fn game_buttons() -> Vec<ButtonState> {
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, findings_grid, long_field, panel_head,
-    refusal_line, refuse, virtual_table, virtual_table_for, Action, Refusals, Shown, Slot,
-    SlotKey, TabCtx,
+    action_bar, clear_refusal, envelope_block, findings_grid, long_field, panel_head, refusal_line,
+    refuse, virtual_table, virtual_table_for, Action, Refusals, Shown, Slot, SlotKey, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
