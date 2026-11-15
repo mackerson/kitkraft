@@ -1151,8 +1151,8 @@ members (above, under `set`), and leaves `into` untouched.
 
 ### `new`, `clone` (M4.E1)
 
-`new {type, edid, into, fields?, masters?, scripts?, active_file?}` (`scripts` and
-`active_file` as `set`'s) and `clone {form, edid, into, fields?, plugin?,
+`new {type, edid, into, fields?, masters?, parent?, scripts?, active_file?}` (`scripts` and
+`active_file` as `set`'s) and `clone {form, edid, into, fields?, plugin?, parent?,
 allow_untyped_lstrings, active_file?}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
 <into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
 <into>`. A new base form (a type the schema defines that lives in its own top-level
@@ -1176,6 +1176,20 @@ the member holds the new reference's FormID (`MNAM = "new:map_marker"`,
 entry order does not matter. A `[[place]]` takes `fields` (gated as a `[[set]]`'s: a
 member below `corpus` needs its path in `allow_reference`). A name no entry has is a
 spec error, and so is a `[[place]]` named as a base, cell or world.
+
+**Topics and responses (KK-275, KK-276; `docs/design/dialogue.md`).** `new` and `clone` take
+`parent` for a record that lives in nested groups: a `DIAL` goes into the quest children
+group (type 10) of its `parent` `QUST`, its `QNAM` set to that quest (a `fields` `QNAM`
+naming another is `new.parent-mismatch`); an `INFO` goes into the topic children group
+(type 7) of its `parent` `DIAL`, whose `TIFL` gets the new FormID appended and `TIFC` the
+list's length. A master's quest or topic is carried as an unedited copy of its winning
+version (named in `limitations`: the patch then overrides it), a topic only the target
+holds is read from the target, and a spec v3 `[[new]]` or `[[clone]]` takes `parent =
+"new:<name>"` for a quest or topic of the same build. A cloned topic owns no responses
+(`TIFL` emptied, `TIFC` 0). Refusals: `no-parent` (a `DIAL` or `INFO` without one; a
+clone's names its source's parent), `parent-missing`, `parent-type`, `parent-not-nested`
+(a parent for any other type), `parent-not-carried`, `parent-mismatch`; `SCEN` and `DLBR`
+stay `not-top-level`. Unverified against the Creation Kit (`docs/gaps.md`).
 
 ### `testplan` (M4.E6)
 

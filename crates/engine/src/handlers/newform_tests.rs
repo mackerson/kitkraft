@@ -198,7 +198,7 @@ fn new_and_clone_refusals_are_typed() {
         (
             "new",
             json!({"type": "INFO", "edid": "KC_A"}),
-            "new.not-top-level",
+            "new.no-parent",
         ),
         (
             "new",

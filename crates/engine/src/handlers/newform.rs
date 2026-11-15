@@ -38,7 +38,7 @@ use super::set::{
     outcome, safe_source, stage, validate_json, winning_copy, write_with, Origin,
 };
 use super::{failed, str_arg};
-use crate::edit::patch::{Copy, Edit};
+use crate::edit::patch::{Copy, Edit, FormName, Nested, ParentForm};
 use crate::edit::scaffold::{
     fill_groups, first_unplaced, lead_refusal, member_order, missing_lead, placeholder,
     record_order, slot_of, slot_placeholder, wanted_slots,
@@ -57,6 +57,8 @@ pub(crate) struct NewRequest {
     pub edid: String,
     pub edits: Vec<Edit>,
     pub masters: Vec<String>,
+    /// The parent of a nested record (KK-275, KK-276).
+    pub parent: Option<ParentArg>,
 }
 
 /// A `clone` request.
@@ -67,6 +69,159 @@ pub(crate) struct CloneRequest {
     pub plugin: Option<String>,
     pub edid: String,
     pub edits: Vec<Edit>,
+    /// The parent of a nested record (KK-275, KK-276).
+    pub parent: Option<ParentArg>,
+}
+
+/// The `parent` of a new or cloned nested record (`docs/design/dialogue.md`).
+#[derive(Debug, Clone)]
+pub(crate) enum ParentArg {
+    /// A form of the load order as `set` names one (`plugin` numbers a hex FormID).
+    Form {
+        form: String,
+        plugin: Option<String>,
+    },
+    /// A form the same build writes (`new:<name>`): its EditorID and record type (`None`
+    /// when unknown).
+    Local {
+        edid: String,
+        signature: Option<[u8; 4]>,
+    },
+}
+
+/// The record type a nested record's parent has: a `QUST` for a topic, a `DIAL` for a
+/// response. `None` for every other type (`SCEN` and `DLBR` included: a scene's actions are
+/// raw, a branch's members are an inventory definition).
+pub(crate) fn parent_type(sig: [u8; 4]) -> Option<[u8; 4]> {
+    match &sig {
+        b"DIAL" => Some(*b"QUST"),
+        b"INFO" => Some(*b"DIAL"),
+        _ => None,
+    }
+}
+
+/// A parent as planned: where the writer puts the record, and the parent's winning version
+/// to carry (none for a form of the same build).
+pub(crate) struct PlannedParent {
+    pub nested: Nested,
+    /// The carried copy and the form it is.
+    pub carried: Option<(Copy, GlobalForm)>,
+    pub limitations: Vec<String>,
+}
+
+/// The signature of the winning version of `form`.
+fn form_signature(loaded: &Loaded, form: GlobalForm) -> Option<[u8; 4]> {
+    let lo = &loaded.lo;
+    let winner = lo.forms.versions(form).last()?;
+    lo.record(winner.plugin, winner.record)
+        .map(|loc| loc.signature)
+}
+
+/// Resolves the `parent` of a record of type `sig` (`code` is `new` or `clone`):
+/// refused when a nested type has none, when a top-level type has one, when it is missing,
+/// deleted or of the wrong type. A form of the load order is carried as an unedited copy of
+/// its winning version (its own parents ride along), which the writer keeps out when the
+/// target already has it.
+pub(crate) fn plan_parent(
+    command: &str,
+    code: &str,
+    loaded: &Loaded,
+    at: &str,
+    sig: [u8; 4],
+    parent: Option<&ParentArg>,
+    limits: &DecodeLimits,
+) -> Result<Option<PlannedParent>, EngineError> {
+    let text = String::from_utf8_lossy(&sig).into_owned();
+    let Some(want) = parent_type(sig) else {
+        if parent.is_some() {
+            return Err(failed(
+                command,
+                format!("{code}.parent-not-nested: {at}: a {text} lives in its own top-level group; `parent` is only for a DIAL (its quest) or an INFO (its topic)"),
+            ));
+        }
+        return Ok(None);
+    };
+    let want_text = String::from_utf8_lossy(&want).into_owned();
+    let Some(parent) = parent else {
+        return Err(failed(
+            command,
+            format!("{code}.no-parent: {at}: a {text} lives in the children group of its {want_text}; name it with `parent`"),
+        ));
+    };
+    let wrap = |form: ParentForm| {
+        if &sig == b"DIAL" {
+            Nested::Quest(form)
+        } else {
+            Nested::Topic(form)
+        }
+    };
+    match parent {
+        ParentArg::Local { edid, signature } => {
+            if let Some(s) = signature.filter(|s| *s != want) {
+                return Err(failed(
+                    command,
+                    format!(
+                        "{code}.parent-type: {at}: the parent `{edid}` is a {}, not a {want_text}",
+                        String::from_utf8_lossy(&s)
+                    ),
+                ));
+            }
+            Ok(Some(PlannedParent {
+                nested: wrap(ParentForm::Local(edid.clone())),
+                carried: None,
+                limitations: Vec::new(),
+            }))
+        }
+        ParentArg::Form { form, plugin } => {
+            let g = find_form(command, loaded, form, plugin.as_deref()).map_err(|e| {
+                failed(command, format!("{code}.parent-missing: {at}: parent: {e}"))
+            })?;
+            let label = loaded.lo.form_label(g);
+            match form_signature(loaded, g) {
+                Some(s) if s == want => {}
+                Some(s) => {
+                    return Err(failed(
+                        command,
+                        format!(
+                            "{code}.parent-type: {at}: the parent {label} is a {}, not a {want_text}",
+                            String::from_utf8_lossy(&s)
+                        ),
+                    ))
+                }
+                None => {
+                    return Err(failed(
+                        command,
+                        format!("{code}.parent-missing: {at}: the parent {label} has no version in the load order"),
+                    ))
+                }
+            }
+            let (mut copy, origin) = winning_copy(command, loaded, g, Vec::new(), limits)
+                .map_err(|e| failed(command, format!("{code}.parent-missing: {at}: {e}")))?;
+            copy.carried = true;
+            let plugin_name = loaded
+                .lo
+                .plugin(g.plugin)
+                .map(|p| p.name.clone())
+                .unwrap_or_default();
+            let mut limitations = vec![format!(
+                "{at}: the parent {want_text} {label} is carried into the patch as a copy of its winning version (from {}) unless the patch has it: the patch then overrides it, and a later plugin that edits it conflicts with the patch",
+                origin.plugin
+            )];
+            if &want == b"DIAL" {
+                limitations.push(format!(
+                    "{at}: the topic {label} lists the response in its TIFL (TIFC counted again), so the patch overrides the topic and carries its quest"
+                ));
+            }
+            Ok(Some(PlannedParent {
+                nested: wrap(ParentForm::Form(FormName {
+                    plugin: plugin_name,
+                    object_id: g.object_id,
+                })),
+                carried: Some((copy, g)),
+                limitations,
+            }))
+        }
+    }
 }
 
 /// Record types that never live in their own top-level group (cell, world and quest
@@ -88,7 +243,7 @@ pub(crate) const CELL_INTERIOR: u32 = 0x1;
 /// `WRLD` is written alone in its top-level group, no world children and no cells (`place`
 /// adds them); a new exterior cell (a world and a grid) is still not written.
 fn new_refused(sig: [u8; 4]) -> bool {
-    !matches!(&sig, b"CELL" | b"WRLD") && nested_or_world(sig)
+    !matches!(&sig, b"CELL" | b"WRLD") && parent_type(sig).is_none() && nested_or_world(sig)
 }
 
 fn check_edid(
@@ -120,7 +275,7 @@ pub(crate) fn plan_new(
     command: &str,
     loaded: &Loaded,
     req: &NewRequest,
-) -> Result<(Copy, Vec<String>), EngineError> {
+) -> Result<NewPlan, EngineError> {
     let at = &req.label;
     let sig = req.signature;
     let text = String::from_utf8_lossy(&sig).into_owned();
@@ -128,9 +283,18 @@ pub(crate) fn plan_new(
         return Err(failed(command, format!("new.untyped: {at}: {text} has no record definition in the schema; a new form is written only for a typed type")));
     }
     if new_refused(sig) {
-        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, interior cells and worldspaces")));
+        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, interior cells, worldspaces, and topics and responses under a `parent`")));
     }
     check_edid(command, "new", loaded, at, &req.edid)?;
+    let planned = plan_parent(
+        command,
+        "new",
+        loaded,
+        at,
+        sig,
+        req.parent.as_ref(),
+        &DecodeLimits::default(),
+    )?;
     let mut masters: Vec<(u16, String)> = Vec::new();
     for m in &req.masters {
         let i = loaded.lo.find(m).ok_or_else(|| {
@@ -164,6 +328,13 @@ pub(crate) fn plan_new(
     let mut subs: Vec<(usize, Subrecord<'static>)> =
         vec![(edid_slot, Subrecord::new(Signature(*b"EDID"), edid))];
     let mut limitations = Vec::new();
+    let (nested, carried) = match planned {
+        Some(p) => {
+            limitations.extend(p.limitations);
+            (Some(p.nested), p.carried)
+        }
+        None => (None, None),
+    };
     let mut defaulted: Vec<String> = Vec::new();
     for (i, slot) in order.iter().enumerate() {
         let m = slot.sig;
@@ -176,6 +347,11 @@ pub(crate) fn plan_new(
                 Some(bytes) => {
                     defaulted.push(String::from_utf8_lossy(&m).into_owned());
                     subs.push((i, Subrecord::new(Signature(m), bytes)));
+                }
+                // A topic's response list starts empty: every official topic has a TIFL,
+                // the 5,744 without responses an empty one (`docs/design/dialogue.md`).
+                None if &sig == b"DIAL" && &m == b"TIFL" => {
+                    subs.push((i, Subrecord::new(Signature(m), Vec::new())));
                 }
                 None => limitations.push(format!(
                     "{at}: the schema requires {} on a {text}, which has no fixed size; give it in `fields` as hex:",
@@ -324,6 +500,12 @@ pub(crate) fn plan_new(
         "{at}: record header form version {} and timestamp, version control and unknown 0: 0 is rare or unobserved in the corpus for these stamps and their meaning is unknown, pending the Creation Kit's observation (F06, F20)",
         stamps.form_version
     ));
+    // A nested record's path is the writer's (`Copy::nested`); this one is a placeholder.
+    let path = if nested.is_some() {
+        vec![GroupHeader::top(Signature(*b"QUST"))]
+    } else {
+        vec![GroupHeader::top(Signature(sig))]
+    };
     Ok((
         Copy {
             source: SourcePlugin {
@@ -333,15 +515,17 @@ pub(crate) fn plan_new(
                 flags: 0,
             },
             record,
-            path: vec![GroupHeader::top(Signature(sig))],
+            path,
             parents: Vec::new(),
             edits: req.edits.clone(),
             formref: format!("new {text}"),
             carried: false,
             new_form: Some(req.edid.clone()),
             scripts: Vec::new(),
+            nested,
         },
         limitations,
+        carried,
     ))
 }
 
@@ -352,14 +536,73 @@ pub(crate) fn plan_clone(
     loaded: &Loaded,
     req: &CloneRequest,
     limits: &DecodeLimits,
-) -> Result<(Copy, Origin, GlobalForm, Vec<String>), EngineError> {
+) -> Result<ClonePlan, EngineError> {
     let at = &req.label;
     let form = find_form(command, loaded, &req.form, req.plugin.as_deref())
         .map_err(|e| failed(command, format!("clone.no-form: {at}: {e}")))?;
-    let unrelated = safe_source(command, loaded, form)?;
+    let mut unrelated = safe_source(command, loaded, form)?;
     check_edid(command, "clone", loaded, at, &req.edid)?;
     let (mut copy, origin) = winning_copy(command, loaded, form, req.edits.clone(), limits)?;
     let sig = copy.record.header.signature.0;
+    if parent_type(sig).is_some() {
+        if req.parent.is_none() {
+            let source_parent = copy
+                .parents
+                .last()
+                .map(|(r, _)| {
+                    let edid = r
+                        .subrecords()
+                        .and_then(|subs| subs.iter().find(|s| s.signature() == Signature(*b"EDID")))
+                        .and_then(|s| crate::edit::fields::text_of(s.data()));
+                    match edid {
+                        Some(e) => format!("{} `{e}`", r.header.signature),
+                        None => format!(
+                            "{} {:08X} as stored in {}",
+                            r.header.signature, r.header.form_id, copy.source.name
+                        ),
+                    }
+                })
+                .unwrap_or_else(|| "unknown".to_string());
+            return Err(failed(
+                command,
+                format!(
+                    "clone.no-parent: {at}: {} is a {} in nested groups; name the clone's parent with `parent` (the source's is the {source_parent}); a clone is never placed under its source's parent implicitly",
+                    loaded.lo.form_label(form),
+                    String::from_utf8_lossy(&sig)
+                ),
+            ));
+        }
+        let planned = plan_parent(
+            command,
+            "clone",
+            loaded,
+            at,
+            sig,
+            req.parent.as_ref(),
+            limits,
+        )?
+        .ok_or_else(|| failed(command, format!("clone.no-parent: {at}: no parent")))?;
+        unrelated.extend(planned.limitations);
+        // The clone hangs under its new parent only: its source's parents stay out.
+        copy.parents.clear();
+        copy.path = vec![GroupHeader::top(Signature(*b"QUST"))];
+        copy.nested = Some(planned.nested);
+        if &sig == b"DIAL" {
+            unrelated.extend(reset_topic(command, at, &mut copy.record, limits)?);
+        }
+        copy.new_form = Some(req.edid.clone());
+        return Ok((copy, origin, form, unrelated, planned.carried));
+    }
+    // A parent for a top-level type is refused (`parent-not-nested`).
+    plan_parent(
+        command,
+        "clone",
+        loaded,
+        at,
+        sig,
+        req.parent.as_ref(),
+        limits,
+    )?;
     if copy.path.len() != 1 || !copy.parents.is_empty() || nested_or_world(sig) {
         return Err(failed(
             command,
@@ -371,7 +614,56 @@ pub(crate) fn plan_clone(
         ));
     }
     copy.new_form = Some(req.edid.clone());
-    Ok((copy, origin, form, unrelated))
+    Ok((copy, origin, form, unrelated, None))
+}
+
+/// What [`plan_new`] gives: the copy, limitations, and the parent to carry.
+pub(crate) type NewPlan = (Copy, Vec<String>, Option<(Copy, GlobalForm)>);
+
+/// What [`plan_clone`] gives: the copy, its origin, the form cloned, limitations, and the
+/// parent to carry (a nested clone's).
+pub(crate) type ClonePlan = (
+    Copy,
+    Origin,
+    GlobalForm,
+    Vec<String>,
+    Option<(Copy, GlobalForm)>,
+);
+
+/// A cloned topic owns no responses: its `TIFL` is emptied and `TIFC` set to 0 (every
+/// official topic without responses has both so), and its `QNAM` cleared for the writer to
+/// set to the new parent. Notes the branch (`BNAM`) kept as stored.
+fn reset_topic(
+    command: &str,
+    at: &str,
+    record: &mut Record<'static>,
+    limits: &DecodeLimits,
+) -> Result<Vec<String>, EngineError> {
+    record
+        .decompress(limits)
+        .map_err(|e| failed(command, format!("clone: {at}: {e}")))?;
+    let mut notes = Vec::new();
+    let Some(subs) = record.subrecords_mut() else {
+        return Ok(notes);
+    };
+    for s in subs.iter_mut() {
+        match &s.signature().0 {
+            b"TIFL" if !s.data().is_empty() => {
+                notes.push(format!(
+                    "{at}: the clone owns no responses: TIFL emptied ({} listed in the source) and TIFC 0; clone each response with the clone as its `parent`",
+                    s.data().len() / 4
+                ));
+                s.set_data(Vec::new());
+            }
+            b"TIFC" => s.set_data(0u32.to_le_bytes().to_vec()),
+            b"QNAM" => s.set_data(0u32.to_le_bytes().to_vec()),
+            b"BNAM" => notes.push(format!(
+                "{at}: BNAM (the dialogue branch) is kept as stored; official topics name a branch of their own quest, so check it when the parent quest is another"
+            )),
+            _ => {}
+        }
+    }
+    Ok(notes)
 }
 
 pub(crate) fn fields_arg(command: &str, args: &Value) -> Result<Vec<Edit>, EngineError> {
@@ -479,6 +771,17 @@ fn commit(
     Ok(result)
 }
 
+/// The `parent` argument (KK-275, KK-276): a form of the load order; `plugin` numbers a
+/// hex FormID.
+fn parent_arg(args: &Value, plugin: Option<&str>) -> Option<ParentArg> {
+    args.get("parent")
+        .and_then(Value::as_str)
+        .map(|form| ParentArg::Form {
+            form: form.to_string(),
+            plugin: plugin.map(str::to_string),
+        })
+}
+
 fn edid_arg(command: &str, args: &Value) -> Result<String, EngineError> {
     Ok(str_arg(command, args, "edid")?.to_string())
 }
@@ -524,11 +827,12 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
                     .collect()
             })
             .unwrap_or_default(),
+        parent: parent_arg(args, None),
     };
     let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
     let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
-    let (mut copy, notes) = plan_new(ID, loaded, &req)?;
+    let (mut copy, notes, carried) = plan_new(ID, loaded, &req)?;
     target_edid(ID, &into, ID, &req.edid)?;
     // Scripts to attach (M4.E9): refused here when a script or property is unknown.
     let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
@@ -536,11 +840,13 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, notes);
     extend_once(&mut limitations, scripts.limitations);
+    let mut copies: Vec<Copy> = carried.into_iter().map(|(c, _)| c).collect();
+    copies.push(copy);
     let mut result = commit(
         ID,
         loaded,
         &into,
-        vec![copy],
+        copies,
         false,
         limitations,
         &[],
@@ -579,12 +885,13 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
             .map(str::to_string),
         edid: edid_arg(ID, args)?,
         edits: fields_arg(ID, args)?,
+        parent: parent_arg(args, args.get("plugin").and_then(Value::as_str)),
     };
     let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
     let in_place = guard_output(ID, loaded, &into, active_file_arg(args))?;
     let limits = DecodeLimits::default();
-    let (mut copy, origin, _, unrelated) = plan_clone(ID, loaded, &req, &limits)?;
+    let (mut copy, origin, _, unrelated, carried) = plan_clone(ID, loaded, &req, &limits)?;
     // The material swap, as a whole-REFL edit of the LMSW's current REFL (KK-019).
     let swap_report = if let Some(swaps) = args.get("swap_overrides").filter(|s| !s.is_null()) {
         let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)?;
@@ -596,11 +903,13 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
     target_edid(ID, &into, ID, &req.edid)?;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, unrelated);
+    let mut copies: Vec<Copy> = carried.into_iter().map(|(c, _)| c).collect();
+    copies.push(copy);
     let mut result = commit(
         ID,
         loaded,
         &into,
-        vec![copy],
+        copies,
         allow_untyped,
         limitations,
         &[origin],
