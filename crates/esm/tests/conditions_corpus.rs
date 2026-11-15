@@ -1,14 +1,16 @@
-//! Conditions (`CTDA`) of the official ESMs against the typed condition (KK-269;
+//! Conditions (`CTDA`) of the official ESMs against the typed condition (KK-269, KK-270;
 //! `docs/design/conditions.md`), read in place through the record index.
 //!
 //! Every 32-byte `CTDA` payload of every record of the 14 files is decoded through the
 //! generated `ConditionData` and written back. The checks:
 //!
-//! - every payload re-encodes byte for byte (the type byte's operator and flags split
-//!   keeps every bit);
+//! - every payload re-encodes byte for byte (the type byte's operator and flags split and
+//!   the named function keep every bit);
 //! - every comparison operator is one the definition names (0 to 5);
+//! - every function index is one the pinned xEdit table names; an index it does not name
+//!   is printed with its count, and the list is pinned here (`UNNAMED`).
 //!
-//! It prints the operator and flag tallies.
+//! It prints the operator and flag tallies and the number of distinct functions.
 //! `conditions_corpus_full` (ignored) runs all 14 files; run it in release:
 //! `cargo test -p kitkraft-esm --release --test conditions_corpus -- --ignored --nocapture`
 
@@ -28,9 +30,12 @@ use std::fs::File;
 use std::io::BufReader;
 
 use kitkraft_esm::bridge::Ctx;
-use kitkraft_esm::generated::records::{ConditionData, Field, Reader};
+use kitkraft_esm::generated::records::{ConditionData, ConditionDataFunction, Field, Reader};
 use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
 use kitkraft_esm::DecodeLimits;
+
+/// Function indices of official conditions the pinned table does not name (none).
+const UNNAMED: &[u16] = &[];
 
 #[derive(Default)]
 struct Tally {
@@ -38,6 +43,8 @@ struct Tally {
     identical: u64,
     operators: BTreeMap<u8, u64>,
     flags: BTreeMap<u8, u64>,
+    functions: BTreeMap<u16, u64>,
+    unnamed: BTreeMap<u16, u64>,
     failures: Vec<String>,
 }
 
@@ -92,15 +99,26 @@ fn conditions_corpus_full() {
                         *t.flags.entry(1 << bit).or_default() += 1;
                     }
                 }
+                let index = decoded.function.to_raw();
+                *t.functions.entry(index).or_default() += 1;
+                if matches!(decoded.function, ConditionDataFunction::Other(_)) {
+                    *t.unnamed.entry(index).or_default() += 1;
+                }
             }
         }
     }
     println!(
-        "conditions: {} CTDA, {} identical",
-        t.conditions, t.identical
+        "conditions: {} CTDA, {} identical, {} distinct functions",
+        t.conditions,
+        t.identical,
+        t.functions.len()
     );
     println!("   operators (top three bits): {:?}", t.operators);
     println!("   flags (low five bits, by mask): {:?}", t.flags);
+    println!(
+        "   function indices the table does not name: {:?}",
+        t.unnamed
+    );
     for f in &t.failures {
         println!("   ! {f}");
     }
@@ -111,4 +129,6 @@ fn conditions_corpus_full() {
         "an operator without a name: {:?}",
         t.operators
     );
+    let unnamed: Vec<u16> = t.unnamed.keys().copied().collect();
+    assert_eq!(unnamed, UNNAMED, "function indices the table does not name");
 }

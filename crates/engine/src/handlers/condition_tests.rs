@@ -19,6 +19,9 @@
 //! - `a_dangling_condition_link_is_reported`: the clone's conditions name a form the
 //!   masters lack in the comparison value, parameter 1, the reference and parameter 3;
 //!   `validate`'s `formid.dangling` names each and `refs` lists each as missing.
+//! - `an_unnamed_function_index_is_kept`: functions are written by name (`GetIsID`, any
+//!   case) or index; an index the table does not name is kept as stored with its raw
+//!   parameter, and an unknown name is refused (KK-270).
 
 #![allow(clippy::arithmetic_side_effects)]
 
@@ -174,13 +177,13 @@ fn two_conditions() -> Value {
         "CTDA.Type.Operator": "GreaterThanOrEqualTo",
         "CTDA.Type.Flags": "UseGlobal",
         "CTDA.ComparisonValue.Global": GLOBAL,
-        "CTDA.Function": 74,
+        "CTDA.Function": "GetGlobalValue",
         "CTDA.Parameter1.Global": GLOBAL,
         "CTDA.RunOn": "Subject",
         // GetIsID(rifle) == 1.0 on the linked reference by keyword, OR'ed with the next.
         "CTDA[1].Type": 0x01,
         "CTDA[1].ComparisonValue.Float": 1.0,
-        "CTDA[1].Function": 72,
+        "CTDA[1].Function": "getisid",
         "CTDA[1].Parameter1.InventoryObject": RIFLE,
         "CTDA[1].RunOn": "LinkedReference",
         "CTDA[1].Parameter3.LinkedKeyword": KEYWORD,
@@ -366,5 +369,44 @@ fn a_dangling_condition_link_is_reported() {
         .filter(|e| e["status"] == "missing")
         .count();
     assert!(missing >= 4, "{:#}", refs["data"]);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// A function index the pinned table does not name (2) is written as a number, kept as
+/// stored, and its parameters stay raw (written whole as `hex:`) (KK-270).
+#[test]
+fn an_unnamed_function_index_is_kept() {
+    let (d, data) = fixture("unnamed");
+    let into = clone_recipe(
+        &d,
+        &data,
+        "KC_RecipeUnnamed",
+        json!({"CTDA.Function": 2, "CTDA.Parameter1": "hex:01020304"}),
+    );
+    let record = record_in(&std::fs::read(&into).unwrap(), "KC_RecipeUnnamed");
+    reencodes(&record);
+    let conds = conditions(&record);
+    assert_eq!(member(&conds[0].1, "Function"), Decoded::Int(2));
+    let ctda = record
+        .subrecords()
+        .unwrap()
+        .iter()
+        .find(|s| s.signature().0 == *b"CTDA")
+        .unwrap()
+        .data()
+        .to_vec();
+    assert_eq!(&ctda[8..10], &[2, 0]);
+    assert_eq!(&ctda[12..16], &[1, 2, 3, 4]);
+    // A name the table does not have is refused.
+    let err = execute(
+        "clone",
+        json!({"form": "KC_Recipe", "edid": "KC_RecipeBadName",
+               "fields": {"CTDA.Function": "GetNothingAtAll"},
+               "into": d.join("Bad.esp").display().to_string(),
+               "plugins": ["Source.esm", "Conds.esp"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("enum takes one of"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
