@@ -762,18 +762,20 @@ const COMPONENT_LSTRINGS: &[(&str, &str)] = &[
     ("STDT", "FULL"),
 ];
 
-/// Signatures of the whole-subrecord lstring members of a record, at any depth.
+/// Signatures of the whole-subrecord lstring members of a record, at any depth, outside
+/// the shared component layouts (the full-name layout's FULL, KK-284, is the block's, not
+/// the record's: every type with components would list it).
 fn lstring_signatures(rec: &kitkraft_schema::RecordDef) -> BTreeSet<String> {
     rec.leaf_subrecords()
         .into_iter()
-        .filter(|(_, s)| s.ty == FieldType::LString)
+        .filter(|(p, s)| s.ty == FieldType::LString && !in_component_layout(p))
         .map(|(_, s)| s.signature.to_string())
         .collect()
 }
 
 /// M3.B8: every lstring of lane E's corpus table is an lstring member of its record type's
-/// definition (or, for [`COMPONENT_LSTRINGS`], inside the raw data of a base form
-/// component the definition references), and the lstring-only definitions type nothing else
+/// definition (or, for [`COMPONENT_LSTRINGS`], inside the data of a base form component
+/// the definition references: raw, or the full-name layout since KK-284), and the lstring-only definitions type nothing else
 /// (EDID aside).
 #[test]
 fn lstring_members_cover_the_corpus_table() {

@@ -30,6 +30,8 @@
 #     2026-11-15): BGSKeywordForm_Component, a STAT's and a REFR's keywords.
 #   - `ObjectPaletteDefaults` (one OPDS, the shared ObjectPaletteDefaults type,
 #     L6170-L6173; KK-283, 2026-11-15): BGSObjectPaletteDefaults_Component.
+#   - `FullName` (one FULL lstring, L6611-L6614; KK-284, 2026-11-15):
+#     TESFullName_Component, the names of GBFM, PNDT and STDT records.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -345,6 +347,23 @@ name = "Data"
 type = "opaque"
 card = "optional"
 note = "reflection data, as REFL: upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
+
+[[member]]
+group = "FullName"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6611-L6614"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 5,695 TESFullName_Component blocks with data of the 14 official ESMs (GBFM, PNDT, STDT; 80 more blocks of the name are empty) each hold one 4-byte FULL; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESFullName_Component: the display name of a generic base form, planet or star"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
 
 [[member]]
 group_ref = "Keywords"

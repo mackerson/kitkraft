@@ -2106,12 +2106,13 @@ mod tests {
             assert!(layout.fallback.is_none());
         }
         assert_eq!(at(*b"WEAP", *b"ATTX"), None);
-        // An lstring inside a component block (PNDT's full-name component, GBFM's hull
-        // code) is raw in the schema; the FULL/DESC fact or the corpus table still types it.
+        // An lstring inside a component layout the schema keeps raw (GBFM's hull code) is
+        // typed by the FULL/DESC fact or the corpus table; PNDT's full-name component is a
+        // typed layout since KK-284, so its FULL needs no fallback.
         let pndt = [*b"EDID", *b"BFCB", *b"FULL", *b"BFCE"];
         let full = layout_at(*b"PNDT", &pndt, 2).unwrap();
         assert_eq!(full.ty, FieldType::LString);
-        assert!(full.fallback.is_some());
+        assert!(full.fallback.is_none());
         let gbfm = [*b"EDID", *b"OBND", *b"ODTY", *b"BFCB", *b"HULL", *b"BFCE"];
         let hull = layout_at(*b"GBFM", &gbfm, 4).unwrap();
         assert_eq!(hull.ty, FieldType::LString);

@@ -559,6 +559,14 @@ fn stat_keywords_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STAT", "Keywords", "BGSKeywordForm_Component");
 }
 
+// KK-284: the full name component layout, where generic base forms, planets and stars keep
+// their display names. On STDT: the helper cannot write a GBFM (its object template's
+// OBTS has no layout a new subrecord can start from).
+#[test]
+fn stdt_full_name_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "FullName", "TESFullName_Component");
+}
+
 #[test]
 fn pkin_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
