@@ -297,6 +297,7 @@ impl App {
                 &validated,
             );
             let kind = WindowKind::Warnings;
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -307,11 +308,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: kind.title(),
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| warn_ask = w.ui(ui, &rows, busy, &plugins, &validated),
@@ -341,6 +342,7 @@ impl App {
             }
             let kind = WindowKind::UseInfo;
             let title = format!("{} (refs --incoming)", kind.title());
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -351,11 +353,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: &title,
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| info_ask = u.ui(ui, selected.as_deref(), busy),
@@ -383,6 +385,7 @@ impl App {
                 }
                 _ => kind.title().to_string(),
             };
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -394,11 +397,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: &title,
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| dialog_actions = d.ui(ui, record),
@@ -426,6 +429,7 @@ impl App {
         let mut data_ask = None;
         if self.shell.is_open(WindowKind::DataDialog) {
             let kind = WindowKind::DataDialog;
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -443,11 +447,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: kind.title(),
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| data_ask = d.ui(ui, busy, active, session),
@@ -475,6 +479,7 @@ impl App {
         if self.shell.is_open(WindowKind::ObjectWindow) {
             self.shell.object_window.shown();
             let kind = WindowKind::ObjectWindow;
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -485,11 +490,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: kind.title(),
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| object_actions = o.ui(ui, busy),
@@ -514,6 +519,7 @@ impl App {
                 prefs_path: self.prefs_path.as_deref(),
                 catalog: crate::gate::catalog(),
             };
+            let open = self.shell.open_rects();
             let state = self
                 .shell
                 .layout
@@ -524,11 +530,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: kind.title(),
                     title: kind.title(),
-                    default_pos: kind.default_pos(),
-                    default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
                 |ui| pref_asks = p.ui(ui, &view),
@@ -584,6 +590,7 @@ impl App {
                 prefs_path: self.prefs_path.as_deref(),
                 active_file: self.active_file.as_deref(),
             };
+            let open = self.shell.open_rects();
             let state = self.shell.layout.entry(key.clone()).or_default();
             let (load, records, links, planet) = (
                 &mut self.load,
@@ -611,11 +618,11 @@ impl App {
                 ctx,
                 state,
                 &mut self.shell.dirty,
+                &mut self.shell.chrome,
+                &open,
                 WinSpec {
                     key: &key,
                     title: label,
-                    default_pos: [160.0, 140.0],
-                    default_size: [720.0, 520.0],
                     focus: is_focus(&key),
                 },
                 |ui| match tab {
