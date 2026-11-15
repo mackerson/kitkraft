@@ -434,3 +434,299 @@ fn a_remapped_topic_keeps_its_children_group_under_its_quest() {
     assert_eq!(u32_of(sub(&topic.3, b"QNAM")), quest);
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// The record whose EditorID is `edid`.
+pub(super) fn by_edid<'a>(rows: &'a [Row], edid: &str) -> &'a Row {
+    let mut want = edid.as_bytes().to_vec();
+    want.push(0);
+    rows.iter()
+        .find(|r| sub(&r.3, b"EDID") == Some(want.as_slice()))
+        .unwrap_or_else(|| panic!("no record `{edid}`"))
+}
+
+/// The FormIDs the plugin's `TES4` `ONAM` lists (empty without one).
+pub(super) fn onam(bytes: &[u8]) -> Vec<u32> {
+    let size = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    let body = &bytes[24..24 + size];
+    let mut at = 0;
+    while at + 6 <= body.len() {
+        let sig = &body[at..at + 4];
+        let len = u16::from_le_bytes(body[at + 4..at + 6].try_into().unwrap()) as usize;
+        if sig == b"ONAM" {
+            return ids_of(Some(&body[at + 6..at + 6 + len]));
+        }
+        at += 6 + len;
+    }
+    Vec::new()
+}
+
+/// KK-276: a new response under a master's topic. The topic is carried as an override
+/// whose `TIFL` lists the response after the master's own and whose `TIFC` counts both;
+/// its quest rides along before it; `ONAM` lists the topic (an override in a quest
+/// children group, M4.A6) and not the new response. A second response into the patch as
+/// written (not loaded) starts from the patch's own topic, so the first stays listed.
+#[test]
+fn a_new_response_goes_under_its_master_topic_and_the_topic_lists_it() {
+    let d = dir("dialogue-new-response");
+    let data = dialogue_master(&d);
+    let into = d.join("New.esp");
+    let lo = ["Source.esm", "Quest.esm"];
+    let r = call(
+        "new",
+        &data,
+        &lo,
+        &into,
+        json!({"type": "INFO", "edid": "KC_NewResponse", "parent": "KC_Topic",
+               "fields": {"TRDA.WemFile": 1, "NAM1": "Hello there.", "ENAM.Flags": 0}}),
+    )
+    .unwrap();
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    assert!(
+        r["limitations"]
+            .to_string()
+            .contains("lists the new response in TIFL"),
+        "{}",
+        r["limitations"]
+    );
+    let bytes = sound(&into, &data);
+    let rows = records(&bytes);
+    let order: Vec<(&str, u32)> = rows.iter().map(|r| (r.1.as_str(), r.2)).collect();
+    assert_eq!(
+        order,
+        [("QUST", QUEST), ("DIAL", TOPIC), ("INFO", 0x0200_1000)]
+    );
+    let topic = find(&rows, "DIAL", TOPIC);
+    assert_eq!(topic.0, vec![QUST_TOP, (10, QUEST)]);
+    assert_eq!(ids_of(sub(&topic.3, b"TIFL")), vec![RESPONSE, 0x0200_1000]);
+    assert_eq!(u32_of(sub(&topic.3, b"TIFC")), 2);
+    let response = find(&rows, "INFO", 0x0200_1000);
+    assert_eq!(response.0, vec![QUST_TOP, (10, QUEST), (7, TOPIC)]);
+    assert_eq!(onam(&bytes), vec![TOPIC]);
+    // The second response: the patch's topic, not the master's, gets it.
+    call(
+        "new",
+        &data,
+        &lo,
+        &into,
+        json!({"type": "INFO", "edid": "KC_NewResponse2", "parent": "Quest.esm:001001"}),
+    )
+    .unwrap();
+    let bytes = sound(&into, &data);
+    let rows = records(&bytes);
+    let topic = find(&rows, "DIAL", TOPIC);
+    assert_eq!(
+        ids_of(sub(&topic.3, b"TIFL")),
+        vec![RESPONSE, 0x0200_1000, 0x0200_1001]
+    );
+    assert_eq!(u32_of(sub(&topic.3, b"TIFC")), 3);
+    let infos: Vec<u32> = rows.iter().filter(|r| r.1 == "INFO").map(|r| r.2).collect();
+    assert_eq!(infos, vec![0x0200_1000, 0x0200_1001]);
+    assert_eq!(rows.iter().filter(|r| r.1 == "DIAL").count(), 1);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// KK-276: a cloned response under another topic: the copy goes into that topic's
+/// children group, which lists it; the source topic is not written.
+#[test]
+fn a_cloned_response_goes_under_its_new_topic() {
+    let d = dir("dialogue-clone-response");
+    let data = dialogue_master(&d);
+    let into = d.join("Clone.esp");
+    let lo = ["Source.esm", "Quest.esm"];
+    let err = call(
+        "clone",
+        &data,
+        &lo,
+        &into,
+        json!({"form": "KC_Response", "edid": "KC_ResponseCopy"}),
+    )
+    .unwrap_err();
+    assert_eq!(code(&err), "clone.no-parent", "{err}");
+    assert!(err.to_string().contains("KC_Topic"), "{err}");
+    // A new topic of the master's quest, then the clone under it.
+    call(
+        "new",
+        &data,
+        &lo,
+        &into,
+        json!({"type": "DIAL", "edid": "KC_OtherTopic", "parent": "KC_Quest"}),
+    )
+    .unwrap();
+    let mut lo3: Vec<String> = lo.iter().map(|s| s.to_string()).collect();
+    lo3.push(into.display().to_string());
+    let lo3: Vec<&str> = lo3.iter().map(String::as_str).collect();
+    let r = call(
+        "clone",
+        &data,
+        &lo3,
+        &into,
+        json!({"form": "KC_Response", "edid": "KC_ResponseCopy", "parent": "KC_OtherTopic",
+               "active_file": true}),
+    )
+    .unwrap();
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let bytes = sound(&into, &data);
+    let rows = records(&bytes);
+    let topic = by_edid(&rows, "KC_OtherTopic");
+    let copy = by_edid(&rows, "KC_ResponseCopy");
+    assert_eq!(copy.0, vec![QUST_TOP, (10, QUEST), (7, topic.2)]);
+    assert_eq!(ids_of(sub(&topic.3, b"TIFL")), vec![copy.2]);
+    assert_eq!(u32_of(sub(&topic.3, b"TIFC")), 1);
+    assert!(rows.iter().all(|r| !(r.1 == "DIAL" && r.2 == TOPIC)));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// KK-276 in one build: a new response under a new topic under a new quest, and a new
+/// response under a new topic under a master's quest, and a cloned response; every
+/// parent named by `new:<name>`. Built twice: the same bytes.
+#[test]
+fn a_build_writes_responses_under_new_topics_of_new_and_master_quests() {
+    let d = dir("dialogue-build");
+    let data = dialogue_master(&d);
+    let body = "\
+[[new]]\nname = \"quest\"\ntype = \"QUST\"\nedid = \"KC_BQuest\"\nmasters = [\"Source.esm\"]\n\n\
+[[new]]\nname = \"topic\"\ntype = \"DIAL\"\nedid = \"KC_BTopic\"\nparent = \"new:quest\"\n\n\
+[[new]]\nname = \"line\"\ntype = \"INFO\"\nedid = \"KC_BLine\"\nparent = \"new:topic\"\n\
+fields = { \"TRDA.WemFile\" = 2, \"NAM1\" = \"First line.\" }\n\n\
+[[new]]\nname = \"topic2\"\ntype = \"DIAL\"\nedid = \"KC_BTopic2\"\nparent = \"KC_Quest\"\n\n\
+[[new]]\ntype = \"INFO\"\nedid = \"KC_BLine2\"\nparent = \"new:topic2\"\n\n\
+[[clone]]\nform = \"KC_Response\"\nedid = \"KC_BLineCopy\"\nparent = \"new:topic\"\n";
+    let spec = d.join("dialogue.toml");
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n\n[load_order]\nplugins = [\"Source.esm\", \"Quest.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n{body}",
+            data.display()
+        ),
+    )
+    .unwrap();
+    let out = d.join("Dialogue.esp");
+    let build = |extra: Value| {
+        let mut a = json!({"spec": spec.display().to_string(), "out": out.display().to_string()});
+        for (k, v) in extra.as_object().unwrap() {
+            a[k] = v.clone();
+        }
+        execute("build", a)
+    };
+    let r = build(json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let first = sound(&out, &data);
+    build(json!({"overwrite": true})).unwrap();
+    assert_eq!(std::fs::read(&out).unwrap(), first);
+    let rows = records(&first);
+    let quest = by_edid(&rows, "KC_BQuest");
+    assert_eq!(quest.0, vec![QUST_TOP]);
+    let topic = by_edid(&rows, "KC_BTopic");
+    assert_eq!(topic.0, vec![QUST_TOP, (10, quest.2)]);
+    assert_eq!(u32_of(sub(&topic.3, b"QNAM")), quest.2);
+    let line = by_edid(&rows, "KC_BLine");
+    let copy = by_edid(&rows, "KC_BLineCopy");
+    assert_eq!(line.0, vec![QUST_TOP, (10, quest.2), (7, topic.2)]);
+    assert_eq!(copy.0, line.0);
+    // TIFL in the order the writer appended them (the clone is allocated first).
+    let mut listed = ids_of(sub(&topic.3, b"TIFL"));
+    listed.sort_unstable();
+    let mut want = vec![line.2, copy.2];
+    want.sort_unstable();
+    assert_eq!(listed, want);
+    assert_eq!(u32_of(sub(&topic.3, b"TIFC")), 2);
+    let topic2 = by_edid(&rows, "KC_BTopic2");
+    assert_eq!(topic2.0, vec![QUST_TOP, (10, QUEST)]);
+    assert_eq!(u32_of(sub(&topic2.3, b"QNAM")), QUEST);
+    let line2 = by_edid(&rows, "KC_BLine2");
+    assert_eq!(line2.0, vec![QUST_TOP, (10, QUEST), (7, topic2.2)]);
+    assert_eq!(ids_of(sub(&topic2.3, b"TIFL")), vec![line2.2]);
+    // The master's quest is carried once; its topic is not written.
+    assert_eq!(
+        rows.iter()
+            .filter(|r| r.1 == "QUST" && r.2 == QUEST)
+            .count(),
+        1
+    );
+    assert!(rows.iter().all(|r| r.2 != TOPIC));
+    // Records of a children group follow the record that owns it.
+    for (i, r) in rows.iter().enumerate() {
+        if let Some(&(_, owner)) = r.0.last().filter(|(t, _)| *t == 10 || *t == 7) {
+            assert!(
+                rows[..i].iter().any(|o| o.2 == owner),
+                "{} {:08X} before its owner {owner:08X}",
+                r.1,
+                r.2
+            );
+        }
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// KK-276 refusals: a response without a parent, under a quest, under a missing topic;
+/// in a build, under a `[[new]]` quest or an unknown name.
+#[test]
+fn response_parent_refusals_are_typed() {
+    let d = dir("dialogue-response-refusals");
+    let data = dialogue_master(&d);
+    let into = d.join("R.esp");
+    let lo = ["Source.esm", "Quest.esm"];
+    let cases = [
+        (
+            "new",
+            json!({"type": "INFO", "edid": "KC_A"}),
+            "new.no-parent",
+        ),
+        (
+            "new",
+            json!({"type": "INFO", "edid": "KC_A", "parent": "KC_Quest"}),
+            "new.parent-type",
+        ),
+        (
+            "new",
+            json!({"type": "INFO", "edid": "KC_A", "parent": "KC_Nope"}),
+            "new.parent-missing",
+        ),
+        (
+            "clone",
+            json!({"form": "KC_Response", "edid": "KC_A", "parent": "KC_Quest"}),
+            "clone.parent-type",
+        ),
+    ];
+    for (command, extra, want) in cases {
+        let err = call(command, &data, &lo, &into, extra.clone()).unwrap_err();
+        assert_eq!(code(&err), want, "{command} {extra}: {err}");
+        assert!(!into.exists(), "{command} {extra}");
+    }
+    let spec = |body: &str| {
+        let path = d.join("bad.toml");
+        std::fs::write(
+            &path,
+            format!(
+                "version = 3\n\n[load_order]\nplugins = [\"Source.esm\", \"Quest.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n{body}",
+                data.display()
+            ),
+        )
+        .unwrap();
+        execute(
+            "build",
+            json!({"spec": path.display().to_string(), "out": into.display().to_string()}),
+        )
+    };
+    let err = spec(
+        "[[new]]\nname = \"q\"\ntype = \"QUST\"\nedid = \"KC_Q\"\n\n\
+[[new]]\ntype = \"INFO\"\nedid = \"KC_I\"\nparent = \"new:q\"\n",
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("new.parent-type"), "{err}");
+    let err =
+        spec("[[new]]\ntype = \"INFO\"\nedid = \"KC_I\"\nparent = \"new:nobody\"\n").unwrap_err();
+    assert!(err.to_string().contains("unknown name `nobody`"), "{err}");
+    assert!(!into.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
