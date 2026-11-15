@@ -1,0 +1,68 @@
+# Written 2026-11-15 in the shape of KK-014 (clone-sample corpus tests), one type so the run fits the budget.
+id = "KK-342"
+title = "Clone-sample corpus test for CONT"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "docs/schema/support-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+`crates/engine/tests/clone_sample_corpus.rs` (read all of it first) holds the clone-sample
+corpus tests: KK-004 wrote them for locations and terminals, KK-014 for pack-ins and
+factions, KK-261 and KK-266 for ingestibles, books, misc items and doors. Each test calls
+`sample_clones(sig, prefix)`, which lists every record of a type in `Starfield.esm` with
+paged `query`, takes 100 records spread evenly by FormID, clones each into one patch,
+compares each clone with its source subrecord by subrecord (the FormID, the `EDID` and the
+inlined lstrings may change; everything else must be byte-identical, same order, same
+count), runs `validate` (0 errors) and prints `clone-sample <TYPE>: <n> cloned, <m>
+identical, <k> explained`. `EXCEPTIONS` lists unexplained differences by source FormID and
+subrecord; it is empty today.
+
+Add one test in that file for `CONT` (containers; 866 official records, most of them in
+`Starfield.esm`), with this exact name, after the last one and in the style of the eight
+that exist (`#[ignore = "reads Starfield.esm; slow"]`):
+
+- `a_sample_of_official_containers_clones_identically`: `sample_clones("CONT", "Cont")`.
+
+Containers hold item entries (`CNTO` with an optional `COED`), base form component blocks
+(`BFCB` .. `BFCE`), a model, keywords and sometimes script data (`VMAD`); `clone` copies all
+of them as stored, and CONT already has typed-write tests (KK-017), so 100 identical and 0
+explained is the expected result. If a clone differs where it should not:
+
+- an intended difference the comparison does not know (a member `clone` must reset or
+  rewrite): add it to the comparison's expected changes with a comment citing the code in
+  `crates/engine/src/handlers/newform.rs` that makes it;
+- anything else: do not change `newform.rs` or any other engine file (out of scope here).
+  List it in `EXCEPTIONS` with a one-line reason, add a row to `docs/gaps.md` naming the
+  type, the FormIDs and the subrecord, and count it in `<k>`. Keep the list short; the
+  final QA reads every entry.
+
+Do not loosen the comparison for the eight types already covered and do not change their
+tests.
+
+Then add the test as the clone-sample evidence for `CONT` in
+`docs/schema/support-matrix.md`, as one more list item after KK-266's (the item that names
+`a_sample_of_official_doors_clones_identically`), in the same form: the test name, the line
+it printed, how many `CONT` records `Starfield.esm` has, and its run time with the build
+profile you used. Add this ticket's one "Landed" line at the end of `plan/STATUS.md` (always
+allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form).
+
+The test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and is slow because each clone
+re-reads the master: 16 to 19 minutes in release, about 50 in a debug build. Always run it
+in release, once, and read its whole output before you run it again: `cargo test --release
+-p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact
+a_sample_of_official_containers_clones_identically --nocapture`. Do not run the other tests
+of the file (hours). Then `cargo xtask ci`. Commit only when the acceptance commands below
+pass; never commit a tree that fails them (the harness keeps uncommitted work if the time
+runs out).
+"""
+
+[[accept]]
+name = "cont-sample"
+cmd = '''cargo test --release -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_containers_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample CONT: (9[0-9]|100) cloned' /tmp/o'''
+
+[[accept]]
+name = "evidence-row"
+cmd = '''grep -q 'a_sample_of_official_containers_clones_identically' docs/schema/support-matrix.md && grep -q 'clone-sample CONT: ' docs/schema/support-matrix.md'''

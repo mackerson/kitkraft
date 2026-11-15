@@ -1,0 +1,129 @@
+# Written 2026-11-15 in the shape of KK-290 (inventory to typed; merged 7/7 by the local agent).
+id = "KK-336"
+title = "Type MRPH (MorphableObject) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/schema/defs/MRPH.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/mrph_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`MRPH` (MorphableObject, a morphable object: the morph files of a body or head part; 1145
+official records, 4 signatures in the corpus) has an inventory definition:
+`crates/schema/defs/MRPH.toml`. Only `EDID` is typed; `TMPP` (197 of 1145 records, 38 to 153
+bytes), `TCMP` (1123 records, 38 to 162 bytes) and `MOBC` (1145 records, 4 bytes) are
+`opaque`. The file cites no xEdit line yet, though the pinned file defines the record. Its
+xEdit definition is at `L14622-L14649` of the pinned file. Parity target: the first `MRPH`
+row of `docs/record-parity.md` (the per-type table, columns records, compressed, signatures,
+typed, opaque, unknown) must show at least 3 typed and 0 unknown (today 0 unknown).
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): ten record-header flags (no official record sets any); EDID; VMAD (script
+attachment); the base form component block; `TMPP`, a string named 'Target Morph Path';
+`TCMP`, a string named 'Target Chargen Morph Path'; `BMPP`, a string named 'Bone Morph
+Definition File'; `MOBC`, a struct named 'Base Vertex Color' of one 8-bit integer and three
+unused bytes. Type them so:
+
+- `EDID` stays as it is.
+- `TMPP`: named `TargetMorphPath`, `type = "zstring"`, `card = "optional"`.
+- `TCMP`: named `TargetChargenMorphPath`, `type = "zstring"`, `card = "optional"`.
+- `MOBC`: named `BaseVertexColor`, `type = "struct"`, 4 bytes: a `u8` field `Value`, then
+  the three unused bytes as one field `{ name = "Unused", type = "opaque", size = 3 }` (as
+  `crates/schema/defs/AMMO.toml` writes its unused bytes). The official payloads are
+  ff000000 (1004 records), c0000000 (129), bf000000 (7) and 00000000 (5) in hex.
+- `BMPP`, the script data (`VMAD`) and the base form component block: no official MRPH
+  record has any of them (your corpus test confirms it: every subrecord is placed), so
+  leave all three out and say so in the header comment; a plugin with one keeps it raw.
+  Every member then stays at `corpus` confidence.
+- The record-header flags of L14623-L14633: a top-level `flags = [...]` list in our own
+  names, as `crates/schema/defs/AAPD.toml` writes the same ten bits.
+- Keep the member order of the pinned file, which is also the corpus order: EDID, TMPP,
+  TCMP, MOBC.
+
+Change the record-level `source` to the xEdit citation (`xedit:
+wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14622-L14649`), as
+`crates/schema/defs/WWED.toml` (KK-290) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops MRPH from the "Inventory definitions" list
+of `docs/record-parity.md`. Remove `"MRPH"` from `INVENTORY_CORPUS_ONLY` in
+`crates/schema/tests/defs.rs` (MRPH is in `INVENTORY_CORPUS_ONLY`, the inventories that
+cited no xEdit line, not in `BX2_INVENTORY`): those lists are for definitions that type
+nothing but EDID, lstrings and shared blocks, and
+`bx2_inventories_type_only_edid_lstrings_and_shared_blocks` fails while MRPH is listed with
+a typed member. Leave `crates/esm/tests/inventory_types.rs` and `xtask/src/parity.rs` alone
+(out of scope). MRPH has no lstring; the corpus lstring table
+(`crates/engine/src/edit/lstrings.rs`) must still match, so do not edit it.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then
+`crates/schema/defs/WWED.toml` (KK-290, the last inventory a ticket typed: its header
+comment, citations and evidence lines are the style to follow) and
+`crates/schema/defs/AAPD.toml` (KK-244: string members and record flags).
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase. The corpus wins over xEdit: where a size or an
+order differs, follow the corpus and say so in a `note`. If one member cannot be typed as
+described, keep that one `opaque` with a `note` that says why (the parity target leaves room
+for exactly one); do not guess a layout. Write a `corpus:` evidence line only after a test
+of yours has printed the fact it cites; until then cite xEdit with `confidence =
+"reference"`.
+
+Then check it against the corpus: `crates/esm/tests/mrph_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `mrph_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `mrph MRPH: <n>
+records, <m> identical` and, for each signature, `mrph MRPH <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: MRPH has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. Do not edit `docs/gaps.md` (not yours here; its schema summary row
+is updated at the merge). Add this ticket's one "Landed" line at the end of `plan/STATUS.md`
+(always allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form): `Landed
+<date>: KK-336 - MRPH ...` with the xEdit lines, what is typed, what stays opaque, the
+corpus counts your test printed and the parity row.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test mrph_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "mrph-full"
+cmd = '''cargo test --release -p kitkraft-esm --test mrph_types -- --ignored --exact mrph_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^mrph MRPH: 1145 records, 1145 identical' /tmp/o && grep -Eq '^mrph MRPH EDID: 1145 records' /tmp/o && grep -Eq '^mrph MRPH TMPP: 197 records' /tmp/o && grep -Eq '^mrph MRPH TCMP: 1123 records' /tmp/o && grep -Eq '^mrph MRPH MOBC: 1145 records' /tmp/o'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`MRPH` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity MRPH:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "MorphableObject" && $7 + 0 >= 3 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]MRPH[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''

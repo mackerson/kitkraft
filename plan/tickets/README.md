@@ -232,6 +232,41 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-251](KK-251.toml) | testplan: check a placed actor (ACHR) by its cell and a distance, not its exact position | owner decision 2026-11-05, item 9 (T-04 and T-06 of `game-20261103-06`) | merged `2e1f8665` (sprint 2026-11-09, Opus writer; review `reviews/r-R1fix-R2-R3.md`), on main through the sprint merge (2026-11-15); the ticket has `hold` so the picker does not run it again |
 | [KK-290](KK-290.toml) | Type WWED (WwiseEventData) from the pinned xEdit file, corpus-checked | written 2026-11-15 in the shape of KK-244 and KK-245 | merged `8b1a0a6` (7/7; QA did not run: OAuth session expired; reviewed at the merge in its place, facts checked against the pinned file; the run committed nothing, so the harness's wip commit was squashed by hand into `0d9607d`) |
 | [KK-291](KK-291.toml) | Typed-write tests for WWED; the gap matrix marks it typed-writable | written 2026-11-15 with KK-290 | merged `db37516` (6/6; QA did not run: OAuth session expired; reviewed at the merge in its place, no review commit; the merge kept main's DIAL and INFO entries beside WWED and reran `cargo xtask parity`) |
+| [KK-330](KK-330.toml) | Type EQUP (EquipType) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape (inventory to typed) | queued |
+| [KK-331](KK-331.toml) | Type FSTP (Footstep) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape | queued |
+| [KK-332](KK-332.toml) | Type VTYP (VoiceType) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape | queued |
+| [KK-333](KK-333.toml) | Type LTEX (LandscapeTexture) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape | queued |
+| [KK-334](KK-334.toml) | Type LAYR (Layer) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape; `docs/gaps.md` row "M4.BX2 inventories (LAYR LSCR)" | queued |
+| [KK-335](KK-335.toml) | Type TRNS (Transform) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape | queued |
+| [KK-336](KK-336.toml) | Type MRPH (MorphableObject) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-290's shape | queued |
+| [KK-337](KK-337.toml) | Type DMGT (DamageType) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-225's shape (lstring-only to typed) | queued |
+| [KK-338](KK-338.toml) | Type FXPD (FacialExpression) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-225's shape | queued |
+| [KK-339](KK-339.toml) | Type PMFT (PhotoModeFeature) from the pinned xEdit file, corpus-checked | written 2026-11-15 in KK-225's shape | queued |
+| [KK-340](KK-340.toml) | Typed-write tests for COLL, MATT and ADDN | written 2026-11-15 in KK-291's shape; types outside the gap matrix's family table | queued |
+| [KK-341](KK-341.toml) | Typed-write tests for SPCH, STND and MOVT | written 2026-11-15 in KK-291's shape; types outside the family table | queued |
+| [KK-342](KK-342.toml) | Clone-sample corpus test for CONT | written 2026-11-15 in KK-014's shape, one type per ticket | queued |
+| [KK-343](KK-343.toml) | Clone-sample corpus test for KEYM | written 2026-11-15 in KK-014's shape, one type per ticket | queued |
+
+KK-330 to KK-343 (local-model backlog, written 2026-11-15; none has `after` or `hold`).
+Same night: the ten schema tickets KK-330 to KK-339 own different definitions and share only
+the regenerated and sorted-list files and Markdown, so `auto` picks all of them together,
+with one of KK-340/KK-341 and one of KK-342/KK-343. KK-340 and KK-341 both own
+`authoring_tests.rs` and `docs/schema/evidence.toml`, KK-342 and KK-343 both own
+`clone_sample_corpus.rs`: the second of each pair is picked the next night. Notes for the
+merge:
+
+- KK-337, KK-338 and KK-339 each remove their own name from the one-line `LSTRING_ONLY`
+  list of `crates/schema/tests/defs.rs` (a three-way conflict on one line when they land
+  together: keep the names whose ticket did not merge) and add to its doc comment.
+- The schema tickets do not own `docs/gaps.md` (except KK-334, for the "M4.BX2 inventories
+  (LAYR LSCR)" row). Its "Schema" summary row still counts 3 lstring-only definitions and
+  names DMGT, FXPD, PMFT; `crates/schema/defs/README.md` "Current set" still lists LAYR as an
+  inventory. Update both once after the batch.
+- KK-340 and KK-341: all eleven test calls named in the briefs were tried on `main` at
+  `98f94072` with the plain helpers and passed. The typed-write lane of 2026-11-15 adds
+  helpers and tests to the same file; the tickets append at the end.
+- KK-342 and KK-343 run their test in release (16 to 19 minutes; about 50 in debug), in the
+  run and again in the grade.
 
 KK-246 to KK-249 each add one test to `crates/ui-egui/src/app/harness/tests.rs`, so `auto`
 picks one of them a night (owns overlap). To run all four the same night, queue them as a
