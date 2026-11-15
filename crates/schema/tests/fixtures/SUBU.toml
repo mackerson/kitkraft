@@ -1,0 +1,72 @@
+# SUBU: a synthetic record for the subrecord union (ADR 0015): a repeated block (a BNAM
+# name, the data, an empty BEND) whose data layout the block's name chooses, the way
+# `common/BfcbBlock.toml` reads the base form components named by their BFCB. One
+# lead-signature group comes before the union, as in BfcbBlock; a block no variant reads is
+# kept by the `any_until` member after the union.
+signature = "SUBU"
+name = "SubrecordUnion"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group = "Block"
+card = "repeated"
+
+[[member.member]]
+sig = "BNAM"
+name = "Name"
+type = "zstring"
+
+[[member.member]]
+group = "Lead"
+card = "optional"
+
+[[member.member.member]]
+sig = "LEAD"
+name = "Value"
+type = "u8"
+
+[[member.member]]
+union = "Body"
+decider = "sub:BNAM"
+
+[[member.member.variant]]
+name = "Alpha"
+when = ["Alpha_Component"]
+
+[[member.member.variant.member]]
+sig = "DATA"
+name = "Data"
+type = "u32"
+
+[[member.member.variant]]
+name = "Beta"
+when = ["Beta_Component", "BetaToo"]
+note = "two names, one layout"
+
+[[member.member.variant.member]]
+sig = "DATA"
+name = "Target"
+type = "formid"
+targets = ["WEAP"]
+
+[[member.member.variant.member]]
+sig = "XTRA"
+name = "More"
+type = "u8"
+card = "optional"
+
+[[member.member]]
+any_until = "BEND"
+name = "Raw"
+
+[[member.member]]
+sig = "BEND"
+name = "End"
+type = "empty"

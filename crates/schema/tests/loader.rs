@@ -1468,7 +1468,10 @@ fn load_dir_reads_common_definitions() {
     let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
     assert_eq!(names, ["Link", "Marker", "Point"]);
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["EMPT", "UNOR", "UUUU", "VVVV", "YYYY", "ZZZZ"]);
+    assert_eq!(
+        sigs,
+        ["EMPT", "SUBU", "UNOR", "UUUU", "VVVV", "YYYY", "ZZZZ"]
+    );
     assert!(schema.records[&sig("UNOR")].unordered);
     assert!(!schema.records[&sig("ZZZZ")].unordered);
 }
@@ -1640,4 +1643,135 @@ fn packed_fields_load_and_bad_parts_are_refused() {
         invalid(stray),
         ErrorKind::UnexpectedKey { key: "parts", .. }
     ));
+}
+
+/// A group holding a BNAM name and, after `extra`, the subrecord union `union` (its keys and
+/// variant tables), then the `tail` members.
+fn union_group(head: &str, union: &str, tail: &str) -> String {
+    format!(
+        "[[member]]\ngroup = \"Block\"\n\n{head}\
+         [[member.member]]\n{union}\n\
+         [[member.member.variant]]\nname = \"Alpha\"\nwhen = [\"Alpha_Component\"]\n\n\
+         [[member.member.variant.member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"u32\"\n\n\
+         [[member.member.variant]]\nname = \"Beta\"\nwhen = [\"Beta_Component\"]\n\n\
+         [[member.member.variant.member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"formid\"\n\n\
+         {tail}"
+    )
+}
+
+const NAME: &str = "[[member.member]]\nsig = \"BNAM\"\nname = \"Name\"\ntype = \"zstring\"\n\n";
+const UNION: &str = "union = \"Body\"\ndecider = \"sub:BNAM\"\n";
+const TAIL: &str = "[[member.member]]\nany_until = \"BEND\"\nname = \"Raw\"\n\n\
+                    [[member.member]]\nsig = \"BEND\"\nname = \"End\"\ntype = \"empty\"\n";
+
+#[test]
+fn subrecord_unions_lower_to_variant_groups() {
+    let def = parse_definition("TEST.toml", &record(&union_group(NAME, UNION, TAIL))).unwrap();
+    let Definition::Record(rec) = def else {
+        panic!("expected a record");
+    };
+    let Member::Group(block) = &rec.members[0] else {
+        panic!("Block is a group");
+    };
+    let names: Vec<&str> = block.members.iter().map(Member::name).collect();
+    assert_eq!(names, ["Name", "Alpha", "Beta", "Raw", "End"]);
+    let Member::Group(alpha) = &block.members[1] else {
+        panic!("Alpha is a group");
+    };
+    assert_eq!(alpha.cardinality, Cardinality::Optional);
+    let v = alpha.variant_of.as_ref().unwrap();
+    assert_eq!(
+        (v.union.as_str(), v.decider, v.until),
+        ("Body", sig("BNAM"), sig("BEND"))
+    );
+    assert_eq!(v.when, ["Alpha_Component"]);
+    assert!(v.selected_by(b"Alpha_Component\0") && v.selected_by(b"Alpha_Component"));
+    assert!(!v.selected_by(b"Alpha_Component\0\0") && !v.selected_by(b"Beta_Component\0"));
+    assert!(block.variant_of.is_none());
+}
+
+#[test]
+fn subrecord_union_rules() {
+    let check = |head: &str, union: &str, tail: &str| {
+        kind_of(parse_definition(
+            "TEST.toml",
+            &record(&union_group(head, union, tail)),
+        ))
+    };
+    // The decider is `sub:<SIG>`.
+    assert_eq!(
+        check(NAME, "union = \"Body\"\ndecider = \"field:Name\"\n", TAIL),
+        ErrorKind::UnknownUnionDecider("field:Name".into())
+    );
+    // ... naming an earlier required zstring sibling.
+    assert_eq!(
+        check("", UNION, TAIL),
+        ErrorKind::UnionDeciderSibling(sig("BNAM"))
+    );
+    for head in [
+        "[[member.member]]\nsig = \"BNAM\"\nname = \"Name\"\ntype = \"zstring\"\ncard = \"optional\"\n\n",
+        "[[member.member]]\nsig = \"BNAM\"\nname = \"Name\"\ntype = \"u32\"\n\n",
+    ] {
+        assert_eq!(check(head, UNION, TAIL), ErrorKind::UnionDeciderSibling(sig("BNAM")));
+    }
+    // A raw fallback must follow.
+    assert_eq!(
+        check(
+            NAME,
+            UNION,
+            "[[member.member]]\nsig = \"BEND\"\nname = \"End\"\ntype = \"empty\"\n"
+        ),
+        ErrorKind::UnionWithoutFallback("Body".into())
+    );
+    // The union member itself takes no member keys.
+    assert!(matches!(
+        check(
+            NAME,
+            "union = \"Body\"\ndecider = \"sub:BNAM\"\ncard = \"repeated\"\n",
+            TAIL
+        ),
+        ErrorKind::UnexpectedKey { key: "card", .. }
+    ));
+    assert!(matches!(
+        check(
+            NAME,
+            "union = \"Body\"\ndecider = \"sub:BNAM\"\nname = \"Body\"\n",
+            TAIL
+        ),
+        ErrorKind::UnexpectedKey { key: "name", .. }
+    ));
+    // `variant` only on a union; `union` with another member kind is ambiguous.
+    assert!(matches!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"u32\"\n\n\
+             [[member.variant]]\nname = \"A\"\nwhen = [\"A\"]\n"
+        ),
+        ErrorKind::UnexpectedKey { key: "variant", .. }
+    ));
+    assert_eq!(
+        check(
+            NAME,
+            "union = \"Body\"\nsig = \"DATA\"\ndecider = \"sub:BNAM\"\n",
+            TAIL
+        ),
+        ErrorKind::MemberKind
+    );
+    // Variant names: non-empty, printable, each listed once in the union.
+    let one = |when: &str| {
+        let body = union_group(NAME, UNION, TAIL).replacen(
+            "when = [\"Beta_Component\"]",
+            &format!("when = {when}"),
+            1,
+        );
+        kind_of(parse_definition("TEST.toml", &record(&body)))
+    };
+    for when in ["[]", "[\"\"]", "[\"Alpha_Component\"]", "[\"Tab\\t\"]"] {
+        assert!(matches!(one(when), ErrorKind::BadVariantNames(_)), "{when}");
+    }
+    // Two variants of one name collide like any two members.
+    let twice = union_group(NAME, UNION, TAIL).replacen("name = \"Beta\"", "name = \"Alpha\"", 1);
+    assert_eq!(
+        kind_of(parse_definition("TEST.toml", &record(&twice))),
+        ErrorKind::DuplicateName("Alpha".into())
+    );
 }

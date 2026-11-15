@@ -135,8 +135,7 @@ fn check_record(
     let (mut forms, mut ids) = (Vec::new(), Vec::new());
     let mut lstring_ids: Vec<(String, u32)> = Vec::new();
     // Layouts by position, as `inspect`, `where` and `diff` resolve them.
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    let placed = typed::placements(schema, sig, &sigs);
+    let placed = typed::placements(schema, sig, subs);
     for (i, s) in subs.iter().enumerate() {
         let sub_sig = s.signature().0;
         let layout = typed::layout_of(

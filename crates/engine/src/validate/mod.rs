@@ -514,21 +514,26 @@ impl Pass<'_> {
 
     /// The layout of every subrecord of a record, each by its position
     /// (`fields::layout_at`), cached by the member it is placed in.
-    fn layouts(&mut self, record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Arc<Layout>>> {
+    fn layouts<K: kitkraft_doc::typed::SubKey>(
+        &mut self,
+        record: [u8; 4],
+        subs: &[K],
+    ) -> Vec<Option<Arc<Layout>>> {
         let schema = kitkraft_schema::builtin().ok();
         let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, record, subs));
         let mut out = Vec::with_capacity(subs.len());
         for (index, sub) in subs.iter().enumerate() {
+            let sub = sub.signature();
             let path = schema.and_then(|s| {
                 let p = placed.as_ref().and_then(|p| p.get(index));
-                kitkraft_doc::typed::layout_of(s, record, *sub, index, p)
+                kitkraft_doc::typed::layout_of(s, record, sub, index, p)
                     .ok()
                     .flatten()
                     .map(|l| l.path)
             });
             let layout = self
                 .layouts
-                .entry((record, *sub, path))
+                .entry((record, sub, path))
                 .or_insert_with(|| fields::layout_at(record, subs, index).map(Arc::new))
                 .clone();
             out.push(layout);
@@ -933,8 +938,7 @@ fn check_record(
         || pass.on("lstring.copied-id")
         || pass.on("layout.undecoded")
     {
-        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-        pass.layouts(sig, &sigs)
+        pass.layouts(sig, subs)
     } else {
         Vec::new()
     };
@@ -1096,9 +1100,8 @@ fn check_record(
     // (Fable review of wave 3, finding 1); `layout.undecoded` cannot see it, having no
     // layout to decode it with.
     if pass.on("layout.unplaced") {
-        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
         let schema = kitkraft_schema::builtin().ok();
-        let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, sig, &sigs));
+        let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, sig, subs));
         if let (Some(schema), Some(placed)) = (schema, placed) {
             for (i, s) in subs.iter().enumerate() {
                 let p = placed.get(i);
@@ -1121,10 +1124,9 @@ fn check_record(
     // layout.group-incomplete: a group instance started by its lead that lacks a member the
     // definition requires inside it (Fable review of the wave 3 fix round, follow-up (b)).
     if pass.on("layout.group-incomplete") {
-        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
         let gaps = kitkraft_schema::builtin()
             .ok()
-            .and_then(|schema| kitkraft_doc::typed::group_gaps(schema, sig, &sigs))
+            .and_then(|schema| kitkraft_doc::typed::group_gaps(schema, sig, subs))
             .unwrap_or_default();
         for gap in gaps {
             let Some(lead) = subs.get(gap.start) else {

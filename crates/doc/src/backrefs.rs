@@ -358,8 +358,7 @@ impl PluginBackrefs {
                 .entry(sig)
                 .or_insert_with(|| type_has_any_until(schema, sig))
                 && {
-                    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-                    crate::typed::placements(schema, sig, &sigs).is_some_and(|p| {
+                    crate::typed::placements(schema, sig, subs).is_some_and(|p| {
                         p.iter()
                             .any(|x| matches!(x, crate::typed::Placement::Raw { .. }))
                     })

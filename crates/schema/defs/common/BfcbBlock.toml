@@ -43,11 +43,21 @@
 #     BGSObjectWindowFilter_Component.
 #   - `Destructible` (the shared Destructible group, L6118-L6121; KK-289, 2026-11-15):
 #     BGSDestructibleObject_Component.
-# Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
-# `any_until` member after the typed ones: a block whose data starts with a signature none
-# of the groups above starts with is kept as read. A component whose name and data
-# disagree is read by its data's first subrecord, as upstream's record union does; the
-# corpus test above finds no such block among the official files.
+# After those groups, the subrecord union `NamedLayout` (ADR 0015; KK-294, 2026-11-15) reads
+# the layouts upstream chooses by the component name, each one DATA or DAT2 subrecord
+# (L1479-L1551 and L6699-L6819): star data, orbited data, unique overlay list, unique pattern
+# placement, overlay designated placement; block height adjustment, surface tree pattern
+# swap, block editor metadata. A variant reads a block only when its BFCB names it and its
+# data up to BFCE is that variant's run; otherwise the block stays raw. Upstream's orbital
+# data layout (L6721-L6733) is left out: no official block carries it, and a `reference`
+# member in this shared block would lower every record type with components below
+# `corpus` (the KK-289 lesson), so a BGSOrbitalDataComponent_Component block stays raw.
+# Every other layout (about thirty more upstream) stays raw subrecords in `ComponentData`,
+# the `any_until` member after the typed ones: a block whose data starts with a signature
+# none of the groups above starts with, and that no union variant reads, is kept as read.
+# A component whose name and data disagree is read by the lead-signature groups by its
+# data's first subrecord, as upstream's record union does; the corpus test above finds no
+# such block among the official files.
 name = "BfcbBlock"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"
@@ -549,9 +559,366 @@ type = "opaque"
 note = "reflection data; upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
 
 [[member]]
+union = "NamedLayout"
+decider = "sub:BFCB"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6699-L6819"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1551",
+]
+confidence = "reference"
+note = "the layouts whose one subrecord (DATA or DAT2) upstream reads by the component name (ADR 0015): a block is read by a variant only when its BFCB names it and its data, up to BFCE, is that variant's run; otherwise it stays raw in ComponentData"
+
+[[member.variant]]
+name = "StarData"
+when = ["BGSStarDataComponent_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6702-L6713"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1517",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 123 BGSStarDataComponent_Component blocks of the 14 official ESMs (all STDT) each hold one DATA of 38 to 47 bytes: two strings, each a u32 length and that many bytes with no NUL (the catalogue ID empty in 13, the spectral class 2 to 4 bytes), then 28 bytes; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSStarDataComponent_Component: a star's catalogue data"
+
+[[member.variant.member]]
+sig = "DATA"
+name = "Star"
+type = "struct"
+
+[[member.variant.member.field]]
+name = "CatalogueIdLength"
+type = "u32"
+note = "the string's byte count (upstream's length-prefixed string, its default u32 prefix; the corpus confirms it)"
+
+[[member.variant.member.field]]
+name = "CatalogueId"
+type = "array"
+element = "u8"
+count_from = "CatalogueIdLength"
+note = "string bytes as stored, no NUL"
+
+[[member.variant.member.field]]
+name = "SpectralClassLength"
+type = "u32"
+
+[[member.variant.member.field]]
+name = "SpectralClass"
+type = "array"
+element = "u8"
+count_from = "SpectralClassLength"
+note = "string bytes as stored (G5, M3V, ...), no NUL"
+
+[[member.variant.member.field]]
+name = "Magnitude"
+type = "f32"
+
+[[member.variant.member.field]]
+name = "Mass"
+type = "f32"
+note = "as stored; upstream shows it divided by 1.98847E30 (solar masses)"
+
+[[member.variant.member.field]]
+name = "InnerHabitableZone"
+type = "f32"
+
+[[member.variant.member.field]]
+name = "OuterHabitableZone"
+type = "f32"
+
+[[member.variant.member.field]]
+name = "Hip"
+type = "u32"
+note = "Hipparcos catalogue number"
+
+[[member.variant.member.field]]
+name = "Radius"
+type = "u32"
+
+[[member.variant.member.field]]
+name = "Temperature"
+type = "u32"
+note = "kelvin"
+
+[[member.variant]]
+name = "OrbitedData"
+when = ["BGSOrbitedDataComponent_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6714-L6720"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1517",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 123 BGSOrbitedDataComponent_Component blocks of the 14 official ESMs (all STDT) each hold one 20-byte DATA; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSOrbitedDataComponent_Component: the mass and size of a body others orbit"
+
+[[member.variant.member]]
+sig = "DATA"
+name = "Orbited"
+type = "struct"
+size = 20
+field = [
+  { name = "GravityWell", type = "f64" },
+  { name = "Mass", type = "f32", note = "as stored (kilograms in the official stars); upstream shows it divided by 1.98847E30" },
+  { name = "RadiusKm", type = "f32" },
+  { name = "SurfaceGravity", type = "f32" },
+]
+
+[[member.variant]]
+name = "UniqueOverlayList"
+when = ["UniqueOverlayList_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6734-L6743"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1517",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 38 UniqueOverlayList_Component blocks of the 14 official ESMs (all SFPT) each hold one DATA: a u32 count (upstream's counted array, its default u32 count) and that many 12-byte entries, read to the last byte; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "UniqueOverlayList_Component: the overlay worldspaces a surface pattern places, by grid cell"
+
+[[member.variant.member]]
+sig = "DATA"
+name = "Overlays"
+type = "struct"
+
+[[member.variant.member.field]]
+name = "Count"
+type = "u32"
+note = "written from the array's length"
+
+[[member.variant.member.field]]
+name = "Worldspaces"
+type = "array"
+element = "struct"
+count_from = "Count"
+field = [
+  { name = "Worldspace", type = "formid", targets = ["WRLD"] },
+  { name = "GridY", type = "i32" },
+  { name = "GridX", type = "i32" },
+]
+
+[[member.variant]]
+name = "UniquePatternPlacement"
+when = ["UniquePatternPlacementInfo_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6744-L6756"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1517",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5971-L5981",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 38 UniquePatternPlacementInfo_Component blocks of the 14 official ESMs (all SFPT) each hold one 20-byte DATA; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "UniquePatternPlacementInfo_Component: the planet and position a unique surface pattern is placed at"
+
+[[member.variant.member]]
+sig = "DATA"
+name = "Placement"
+type = "struct"
+size = 20
+field = [
+  { name = "Planet", type = "formid", targets = ["PNDT"], note = "0 when none (upstream also allows NULL)" },
+  { name = "Longitude", type = "f64" },
+  { name = "Latitude", type = "f64" },
+]
+
+[[member.variant]]
+name = "OverlayDesignatedPlacement"
+when = ["BGSOverlayDesignatedPlacementInfo_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6757-L6767"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1479-L1517",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the one BGSOverlayDesignatedPlacementInfo_Component block of the 14 official ESMs (SFBK) holds one 4-byte DATA, a u32 count of 0; it decodes and re-encodes identically (the 12-byte entry layout is upstream's alone)",
+]
+confidence = "corpus"
+note = "BGSOverlayDesignatedPlacementInfo_Component: overlay worldspace placements of a surface block"
+
+[[member.variant.member]]
+sig = "DATA"
+name = "Designated"
+type = "struct"
+
+[[member.variant.member.field]]
+name = "Count"
+type = "u32"
+note = "written from the array's length"
+
+[[member.variant.member.field]]
+name = "Placements"
+type = "array"
+element = "struct"
+count_from = "Count"
+field = [
+  { name = "OverlayWorldspace", type = "formid", targets = ["WRLD"] },
+  { name = "X", type = "i32" },
+  { name = "Y", type = "i32" },
+]
+
+[[member.variant]]
+name = "BlockHeightAdjustment"
+when = ["BlockHeightAdjustment_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6773-L6785"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1519-L1551",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 255 BlockHeightAdjustment_Component blocks of the 14 official ESMs (all SFPT) each hold one 2,048-byte DAT2; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BlockHeightAdjustment_Component: per-cell terrain and water height adjustments of a surface pattern block"
+
+[[member.variant.member]]
+sig = "DAT2"
+name = "Heights"
+type = "array"
+element = "struct"
+count = 256
+size = 2048
+field = [
+  { name = "TerrainHeight", type = "f32" },
+  { name = "WaterHeight", type = "f32" },
+]
+note = "16 rows of 16 columns, row by row (upstream: an array of 16 rows, each of 16 columns); upstream normalizes both heights to -800..800 for display only"
+
+[[member.variant]]
+name = "SurfaceTreePatternSwap"
+when = ["SurfaceTreePatternSwapInfo_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6786-L6795"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1519-L1551",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 33 SurfaceTreePatternSwapInfo_Component blocks of the 14 official ESMs (all SFTR) each hold one DAT2: a u32 count, then that many entries of a 4-byte FormID and one byte, every entry but the last followed by 4 more bytes (count 0: 4 bytes, 1 block; 1: 9 bytes, 30; 2: 18 bytes, 2); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "SurfaceTreePatternSwapInfo_Component: the surface patterns a surface tree swaps in"
+
+[[member.variant.member]]
+sig = "DAT2"
+name = "Swap"
+type = "struct"
+
+[[member.variant.member.field]]
+name = "Count"
+type = "u32"
+note = "number of patterns; stored, not derived (upstream's counted array, its default u32 count)"
+
+[[member.variant.member.field]]
+name = "Patterns"
+type = "struct"
+if_remaining = true
+note = "upstream gives each entry a pattern, one unknown byte and 4 unknown bytes that every entry but the last has; here the first entry is its pattern and byte, and each later one starts with the previous entry's 4 bytes, so the run has one fixed element layout"
+
+[[member.variant.member.field.field]]
+name = "Pattern"
+type = "formid"
+targets = ["SFPT"]
+
+[[member.variant.member.field.field]]
+name = "Unknown"
+type = "opaque"
+size = 1
+
+[[member.variant.member.field.field]]
+name = "More"
+type = "array"
+element = "struct"
+count = "rest"
+field = [
+  { name = "Link", type = "opaque", size = 4, note = "the previous entry's trailing 4 bytes (upstream: usually an index into the pattern array, sometimes offset)" },
+  { name = "Pattern", type = "formid", targets = ["SFPT"] },
+  { name = "Unknown", type = "opaque", size = 1 },
+]
+
+[[member.variant]]
+name = "BlockEditorMetaData"
+when = ["BGSBlockEditorMetaData_Component"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6796-L6818"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1519-L1551",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15 (KK-294): the 585 BGSBlockEditorMetaData_Component blocks of the 14 official ESMs (all SFBK) each hold one DAT2 of 106 to 139 bytes: three u32-length strings around a source type byte (1 in every block), a u32 count of 5-byte entries, four i32 and two f64 (583 blocks) or 8 bytes (2: read as Longitude alone); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSBlockEditorMetaData_Component: editor-only notes on where a surface block came from"
+
+[[member.variant.member]]
+sig = "DAT2"
+name = "MetaData"
+type = "struct"
+
+[[member.variant.member.field]]
+name = "CreatedTimeLength"
+type = "u32"
+
+[[member.variant.member.field]]
+name = "CreatedTime"
+type = "array"
+element = "u8"
+count_from = "CreatedTimeLength"
+note = "text as stored (\"Thu Jul 28 10:46:50 2022\"), no NUL"
+
+[[member.variant.member.field]]
+name = "SourceType"
+type = "enum"
+base = "u8"
+values = [["Block", 1], ["Planet", 6]]
+
+[[member.variant.member.field]]
+name = "AlsoCreatedTimeLength"
+type = "u32"
+
+[[member.variant.member.field]]
+name = "AlsoCreatedTime"
+type = "array"
+element = "u8"
+count_from = "AlsoCreatedTimeLength"
+
+[[member.variant.member.field]]
+name = "SourceEditorIdLength"
+type = "u32"
+
+[[member.variant.member.field]]
+name = "SourceEditorId"
+type = "array"
+element = "u8"
+count_from = "SourceEditorIdLength"
+
+[[member.variant.member.field]]
+name = "EntryCount"
+type = "u32"
+note = "written from the array's length"
+
+[[member.variant.member.field]]
+name = "Entries"
+type = "array"
+element = "struct"
+count_from = "EntryCount"
+field = [
+  { name = "Source", type = "opaque", size = 4, note = "upstream: usually the source block's FormID, sometimes a reference or a broken ID; not typed as a FormID" },
+  { name = "Unknown", type = "opaque", size = 1 },
+]
+
+[[member.variant.member.field]]
+name = "LocationX"
+type = "i32"
+
+[[member.variant.member.field]]
+name = "LocationY"
+type = "i32"
+
+[[member.variant.member.field]]
+name = "PlanetSystemId"
+type = "i32"
+
+[[member.variant.member.field]]
+name = "SatelliteId"
+type = "i32"
+
+[[member.variant.member.field]]
+name = "Longitude"
+type = "f64"
+note = "the 2 official blocks whose data ends 8 bytes early (upstream: an old record, perhaps two f32 in place of the two f64) read their last 8 bytes here and have no Latitude"
+
+[[member.variant.member.field]]
+name = "Latitude"
+type = "f64"
+if_remaining = true
+note = "present in 583 of the 585 official blocks"
+
+[[member]]
 any_until = "BFCE"
 name = "ComponentData"
-note = "every other component layout (a union decided by ComponentType upstream); kept raw"
+note = "every other component layout ; kept raw, as is a block the NamedLayout union does not read"
 
 [[member]]
 sig = "BFCE"

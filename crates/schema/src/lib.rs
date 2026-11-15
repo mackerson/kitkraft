@@ -33,7 +33,7 @@ pub use model::{in_component_layout, select_variant, COMPONENT_BLOCK};
 pub use model::{
     AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
     FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, PackedPart, Provenance,
-    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
+    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VariantOf, VersionedSize,
 };
 
 /// The checked-in definition files (`crates/schema/defs/*.toml` and

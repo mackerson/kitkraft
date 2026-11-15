@@ -7,8 +7,8 @@
 //! opaque member, or a union variant no definition claims is unknown, never a guess.
 
 use kitkraft_schema::{
-    select_variant, ArrayCount, Cardinality, Decider, FieldType, Member, Scalar, Schema, Signature,
-    SubrecordDef,
+    select_variant, ArrayCount, Cardinality, Decider, FieldType, GroupDef, Member, Scalar, Schema,
+    Signature, SubrecordDef, VariantOf,
 };
 
 /// Most array elements decoded from one payload.
@@ -486,10 +486,53 @@ pub type LayoutResult<'s> = Result<Option<Layout<'s>>, LayoutError>;
 /// Most nested groups the matcher descends (the generated decoder's limit).
 const MAX_GROUP_DEPTH: usize = 16;
 
+/// One subrecord as the placement matcher sees it: its signature and, when the caller has
+/// it, its payload. A union variant (`union = "<Name>"`, ADR 0015) is chosen by an earlier
+/// sibling's payload; with signatures only (`[u8; 4]`) no variant is chosen, and the
+/// subrecords it would read are placed in the raw `any_until` member after the union.
+pub trait SubKey {
+    /// The four-byte signature.
+    fn signature(&self) -> [u8; 4];
+    /// The payload, when known.
+    fn payload(&self) -> Option<&[u8]> {
+        None
+    }
+}
+
+impl SubKey for [u8; 4] {
+    fn signature(&self) -> [u8; 4] {
+        *self
+    }
+}
+
+impl SubKey for ([u8; 4], &[u8]) {
+    fn signature(&self) -> [u8; 4] {
+        self.0
+    }
+
+    fn payload(&self) -> Option<&[u8]> {
+        Some(self.1)
+    }
+}
+
+impl SubKey for kitkraft_esm::Subrecord<'_> {
+    fn signature(&self) -> [u8; 4] {
+        kitkraft_esm::Subrecord::signature(self).0
+    }
+
+    fn payload(&self) -> Option<&[u8]> {
+        Some(self.data())
+    }
+}
+
+/// Whether `member` can take a subrecord of signature `sig` by its signature alone. A
+/// union variant needs its deciding sibling's payload ([`Matcher::chosen`]), so it never
+/// does here.
 fn accepts(member: &Member, sig: Option<Signature>, depth: usize) -> bool {
     match member {
         Member::Subrecord(s) => Some(s.signature) == sig,
         Member::AnyUntil(a) => Some(a.until) != sig,
+        Member::Group(g) if g.variant_of.is_some() => false,
         Member::Group(g) => {
             depth < MAX_GROUP_DEPTH && starts(&g.members, sig, depth.saturating_add(1))
         }
@@ -581,32 +624,152 @@ fn starter(members: &[Member], prefix: &str, depth: usize) -> Option<MissingMemb
     first
 }
 
-/// The subrecord signatures being placed, and where each one went.
+/// The subrecords being placed (signatures, and payloads where known), and where each one
+/// went.
 struct Matcher<'s, 'a> {
     sigs: &'a [Option<Signature>],
+    payloads: &'a [Option<&'a [u8]>],
     out: Vec<Placement<'s>>,
     /// Group instances lacking a required member, as the matcher closes them.
     gaps: Vec<GroupGap>,
 }
 
+/// The subrecord members matched so far in the current instance of a member list: each
+/// member's index and the position of its subrecord (a union variant's deciding sibling is
+/// among them).
+type Instance = Vec<(usize, usize)>;
+
 impl<'s> Matcher<'s, '_> {
+    /// Whether a union variant chosen by `variant` applies in `instance` of `members`: the
+    /// payload of its deciding sibling (the first subrecord member of that signature) is
+    /// one the variant lists. Never without payloads.
+    fn chosen(&self, members: &[Member], instance: &[(usize, usize)], variant: &VariantOf) -> bool {
+        let Some(decider) = members
+            .iter()
+            .position(|m| matches!(m, Member::Subrecord(s) if s.signature == variant.decider))
+        else {
+            return false;
+        };
+        instance
+            .iter()
+            .find(|(member, _)| *member == decider)
+            .and_then(|(_, at)| self.payloads.get(*at).copied().flatten())
+            .is_some_and(|payload| variant.selected_by(payload))
+    }
+
+    /// Records group instance `start..end` of `g` at `path` (its members `hit` matched) as a
+    /// gap when it lacks a member the definition requires.
+    fn close(
+        &mut self,
+        g: &GroupDef,
+        path: String,
+        start: usize,
+        end: usize,
+        hit: &[usize],
+        depth: usize,
+    ) {
+        let missing: Vec<MissingMember> = g
+            .members
+            .iter()
+            .enumerate()
+            .filter(|(i, m)| m.cardinality() == Cardinality::Required && !hit.contains(i))
+            .filter_map(|(_, m)| match m {
+                Member::Subrecord(s) => Some(MissingMember {
+                    path: join(&path, &s.name),
+                    signature: s.signature.as_bytes(),
+                }),
+                Member::Group(inner) => starter(
+                    &inner.members,
+                    &join(&path, &inner.name),
+                    depth.saturating_add(1),
+                ),
+                Member::AnyUntil(_) => None,
+            })
+            .collect();
+        if !missing.is_empty() {
+            self.gaps.push(GroupGap {
+                path,
+                start,
+                end,
+                missing,
+            });
+        }
+    }
+
+    /// Places one instance of `members` from `pos`; returns the indexes of the members it
+    /// matched, in order.
+    fn run(
+        &mut self,
+        pos: &mut usize,
+        members: &'s [Member],
+        depth: usize,
+        path: &str,
+    ) -> Vec<usize> {
+        let mut inner = 0;
+        let mut hit: Vec<usize> = Vec::new();
+        let mut instance: Instance = Vec::new();
+        loop {
+            let at = *pos;
+            let Some(i) = self.one(pos, members, &mut inner, &instance, depth, path) else {
+                break;
+            };
+            if *pos == at.saturating_add(1) && matches!(members.get(i), Some(Member::Subrecord(_)))
+            {
+                instance.push((i, at));
+            }
+            hit.push(i);
+        }
+        hit
+    }
+
     /// One step (the generated `match_one`, over the schema model): places the subrecord at
     /// `pos`, and for a group the run it starts. Returns the index among `members` of the
-    /// member it matched, `None` when none did.
+    /// member it matched, `None` when none did. `instance` holds the subrecord members of the
+    /// current instance of `members` matched so far.
     fn one(
         &mut self,
         pos: &mut usize,
         members: &'s [Member],
         cursor: &mut usize,
+        instance: &[(usize, usize)],
         depth: usize,
         prefix: &str,
     ) -> Option<usize> {
         let sig = self.sigs.get(*pos).copied()?;
-        let (index, member) = members
-            .iter()
-            .enumerate()
-            .skip(*cursor)
-            .find(|(_, m)| accepts(m, sig, depth))?;
+        let mut found = None;
+        for (index, member) in members.iter().enumerate().skip(*cursor) {
+            if let Member::Group(g) = member {
+                if let Some(variant) = &g.variant_of {
+                    let inner_depth = depth.saturating_add(1);
+                    if depth >= MAX_GROUP_DEPTH
+                        || !self.chosen(members, instance, variant)
+                        || !starts(&g.members, sig, inner_depth)
+                    {
+                        continue;
+                    }
+                    // Trial run: kept only when it reaches the variant's `until`.
+                    let start = *pos;
+                    let (out, gaps) = (self.out.clone(), self.gaps.len());
+                    let path = join(prefix, &g.name);
+                    let hit = self.run(pos, &g.members, inner_depth, &path);
+                    let ends = self.sigs.get(*pos).copied().flatten() == Some(variant.until);
+                    if *pos > start && ends {
+                        self.close(g, path, start, *pos, &hit, depth);
+                        *cursor = index.saturating_add(1);
+                        return Some(index);
+                    }
+                    *pos = start;
+                    self.out = out;
+                    self.gaps.truncate(gaps);
+                    continue;
+                }
+            }
+            if accepts(member, sig, depth) {
+                found = Some((index, member));
+                break;
+            }
+        }
+        let (index, member) = found?;
         *cursor = if member.cardinality() == Cardinality::Repeated {
             index
         } else {
@@ -616,42 +779,11 @@ impl<'s> Matcher<'s, '_> {
         let placement = match member {
             Member::Group(g) => {
                 let start = *pos;
-                let mut inner = 0;
-                let mut hit: Vec<usize> = Vec::new();
-                while let Some(i) =
-                    self.one(pos, &g.members, &mut inner, depth.saturating_add(1), &path)
-                {
-                    hit.push(i);
-                }
+                let hit = self.run(pos, &g.members, depth.saturating_add(1), &path);
                 if *pos == start {
                     return None;
                 }
-                let missing: Vec<MissingMember> = g
-                    .members
-                    .iter()
-                    .enumerate()
-                    .filter(|(i, m)| m.cardinality() == Cardinality::Required && !hit.contains(i))
-                    .filter_map(|(_, m)| match m {
-                        Member::Subrecord(s) => Some(MissingMember {
-                            path: join(&path, &s.name),
-                            signature: s.signature.as_bytes(),
-                        }),
-                        Member::Group(inner) => starter(
-                            &inner.members,
-                            &join(&path, &inner.name),
-                            depth.saturating_add(1),
-                        ),
-                        Member::AnyUntil(_) => None,
-                    })
-                    .collect();
-                if !missing.is_empty() {
-                    self.gaps.push(GroupGap {
-                        path,
-                        start,
-                        end: *pos,
-                        missing,
-                    });
-                }
+                self.close(g, path, start, *pos, &hit, depth);
                 return Some(index);
             }
             Member::Subrecord(def) => Placement::Member { path, def },
@@ -665,14 +797,16 @@ impl<'s> Matcher<'s, '_> {
     }
 }
 
-/// Places every subrecord of a record of type `record` (its subrecord signatures, in
-/// order) in the definition, as the generated decoder does (`match_members`, or
-/// `match_unordered` for a record type marked `unordered`). `None` when the schema does
-/// not define the record type.
-pub fn placements<'s>(
+/// Places every subrecord of a record of type `record` (its subrecords in order: their
+/// signatures, and their payloads where the caller has them, [`SubKey`]) in the
+/// definition, as the generated decoder does (`match_members`, or `match_unordered` for a
+/// record type marked `unordered`). `None` when the schema does not define the record type.
+/// Without payloads no union variant is chosen (ADR 0015): pass them wherever the record
+/// is at hand.
+pub fn placements<'s, K: SubKey>(
     schema: &'s Schema,
     record: [u8; 4],
-    subs: &[[u8; 4]],
+    subs: &[K],
 ) -> Option<Vec<Placement<'s>>> {
     matched(schema, record, subs).map(|(out, _)| out)
 }
@@ -683,54 +817,83 @@ pub fn placements<'s>(
 /// `FULL`, `TNAM`, `VNAM` of `MapMarker`) are not all there. A missing required group
 /// nested in one is named by the subrecord that would start it. `None` when the schema
 /// does not define the record type.
-pub fn group_gaps(schema: &Schema, record: [u8; 4], subs: &[[u8; 4]]) -> Option<Vec<GroupGap>> {
+pub fn group_gaps<K: SubKey>(
+    schema: &Schema,
+    record: [u8; 4],
+    subs: &[K],
+) -> Option<Vec<GroupGap>> {
     matched(schema, record, subs).map(|(_, gaps)| gaps)
 }
 
 /// The matcher's run over a record: where each subrecord went, and the incomplete group
 /// instances.
-fn matched<'s>(
+fn matched<'s, K: SubKey>(
     schema: &'s Schema,
     record: [u8; 4],
-    subs: &[[u8; 4]],
+    subs: &[K],
 ) -> Option<(Vec<Placement<'s>>, Vec<GroupGap>)> {
     let def = schema.records.get(&Signature::from_bytes(record)?)?;
-    let sigs: Vec<Option<Signature>> = subs.iter().map(|s| Signature::from_bytes(*s)).collect();
+    let sigs: Vec<Option<Signature>> = subs
+        .iter()
+        .map(|s| Signature::from_bytes(s.signature()))
+        .collect();
+    let payloads: Vec<Option<&[u8]>> = subs.iter().map(SubKey::payload).collect();
     let mut m = Matcher {
         sigs: &sigs,
+        payloads: &payloads,
         out: vec![Placement::Unplaced; sigs.len()],
         gaps: Vec::new(),
     };
     let (mut pos, mut cursor) = (0, 0);
+    let mut instance: Instance = Vec::new();
     while pos < sigs.len() {
         let before = pos;
-        let mut placed = m.one(&mut pos, &def.members, &mut cursor, 0, "").is_some();
+        let mut hit = m.one(&mut pos, &def.members, &mut cursor, &instance, 0, "");
         // An unordered record (CELL, REFR, ACHR): when no member from the cursor on accepts
         // the subrecord, match from the first member again (the generated
         // `match_unordered`).
-        if !placed && def.unordered {
+        if hit.is_none() && def.unordered {
             let mut wrapped = 0;
-            placed = m.one(&mut pos, &def.members, &mut wrapped, 0, "").is_some();
-            if placed {
+            hit = m.one(&mut pos, &def.members, &mut wrapped, &instance, 0, "");
+            if hit.is_some() {
                 cursor = wrapped;
             }
         }
-        if !placed || pos == before {
+        if let Some(i) = hit {
+            if pos == before.saturating_add(1)
+                && matches!(def.members.get(i), Some(Member::Subrecord(_)))
+            {
+                instance.push((i, before));
+            }
+        }
+        if hit.is_none() || pos == before {
             pos = before.saturating_add(1);
         }
     }
     Some((m.out, m.gaps))
 }
 
-/// Whether the definition of `record` names subrecord signature `sub` anywhere.
+/// Whether the definition of `record` names subrecord signature `sub` anywhere outside the
+/// variants of a subrecord union. A union variant's members are named only for a block whose
+/// deciding sibling chooses that variant (ADR 0015), so a signature only they carry (a
+/// `DATA` in a WEAP) is unknown to the definition elsewhere, as it was before the union.
 fn names(schema: &Schema, record: [u8; 4], sub: [u8; 4]) -> bool {
+    fn walk(members: &[Member], sig: Signature, depth: usize) -> bool {
+        depth <= MAX_GROUP_DEPTH
+            && members.iter().any(|m| match m {
+                Member::Subrecord(s) => s.signature == sig,
+                Member::Group(g) if g.variant_of.is_some() => false,
+                Member::Group(g) => walk(&g.members, sig, depth.saturating_add(1)),
+                Member::AnyUntil(_) => false,
+            })
+    }
     let (Some(rs), Some(ss)) = (Signature::from_bytes(record), Signature::from_bytes(sub)) else {
         return false;
     };
     schema
         .records
         .get(&rs)
-        .is_some_and(|def| def.leaf_subrecords().iter().any(|(_, s)| s.signature == ss))
+        .is_some_and(|def| walk(&def.members, ss, 0))
 }
 
 /// The layout of one placed subrecord (`placement` from [`placements`]; `None` when the
@@ -769,13 +932,13 @@ pub fn layout_of<'s>(
 
 /// The layout of subrecord `index` of a record of type `record` whose subrecord
 /// signatures are `subs`, resolved by its position ([`placements`], [`layout_of`]).
-pub fn layout_at<'s>(
+pub fn layout_at<'s, K: SubKey>(
     schema: &'s Schema,
     record: [u8; 4],
-    subs: &[[u8; 4]],
+    subs: &[K],
     index: usize,
 ) -> Result<Option<Layout<'s>>, LayoutError> {
-    let Some(sub) = subs.get(index).copied() else {
+    let Some(sub) = subs.get(index).map(SubKey::signature) else {
         return Ok(None);
     };
     let placed = placements(schema, record, subs);
@@ -789,10 +952,10 @@ pub fn layout_at<'s>(
 /// bodies are not the member the path names and are left out. `Ok(None)` when the schema
 /// knows nothing about the signature; [`LayoutError::Ambiguous`] when the occurrences sit
 /// at members with different layouts.
-pub fn path_layout<'s>(
+pub fn path_layout<'s, K: SubKey>(
     schema: &'s Schema,
     record: [u8; 4],
-    subs: &[[u8; 4]],
+    subs: &[K],
     indexes: &[usize],
     explicit: bool,
 ) -> Result<Option<(Layout<'s>, Vec<usize>)>, LayoutError> {
@@ -802,7 +965,7 @@ pub fn path_layout<'s>(
     let mut first_raw: Option<LayoutError> = None;
     let mut sub = [0u8; 4];
     for &index in indexes {
-        let Some(s) = subs.get(index).copied() else {
+        let Some(s) = subs.get(index).map(SubKey::signature) else {
             continue;
         };
         sub = s;
@@ -1285,5 +1448,87 @@ mod tests {
                 len: 3
             }]
         );
+    }
+
+    /// A record with a repeated block whose data a BNAM name chooses (a subrecord union,
+    /// ADR 0015; the schema crate's `SUBU` fixture, cut down).
+    fn union_schema() -> Schema {
+        let text = "signature = \"SUBU\"\nname = \"SubrecordUnion\"\n\
+            source = \"corpus: unit test\"\nconfidence = \"corpus\"\n\
+            [[member]]\ngroup = \"Block\"\ncard = \"repeated\"\n\
+            [[member.member]]\nsig = \"BNAM\"\nname = \"Name\"\ntype = \"zstring\"\n\
+            [[member.member]]\nunion = \"Body\"\ndecider = \"sub:BNAM\"\n\
+            [[member.member.variant]]\nname = \"Alpha\"\nwhen = [\"Alpha_Component\"]\n\
+            [[member.member.variant.member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"u32\"\n\
+            [[member.member.variant]]\nname = \"Beta\"\nwhen = [\"Beta_Component\"]\n\
+            [[member.member.variant.member]]\nsig = \"DATA\"\nname = \"Target\"\ntype = \"formid\"\n\
+            [[member.member.variant.member]]\nsig = \"XTRA\"\nname = \"More\"\ntype = \"u8\"\ncard = \"optional\"\n\
+            [[member.member]]\nany_until = \"BEND\"\nname = \"Raw\"\n\
+            [[member.member]]\nsig = \"BEND\"\nname = \"End\"\ntype = \"empty\"\n";
+        kitkraft_schema::load_sources([("SUBU.toml", text)]).unwrap()
+    }
+
+    fn paths(placed: &[Placement<'_>]) -> Vec<String> {
+        placed
+            .iter()
+            .map(|p| match p {
+                Placement::Member { path, .. } => path.clone(),
+                Placement::Raw { path } => format!("raw {path}"),
+                Placement::Unplaced => "unplaced".to_owned(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn subrecord_unions_place_by_the_deciding_payload() {
+        let schema = union_schema();
+        let four = 7u32.to_le_bytes();
+        let subs: Vec<([u8; 4], &[u8])> = vec![
+            (*b"BNAM", b"Alpha_Component\0"),
+            (*b"DATA", &four),
+            (*b"BEND", b""),
+            (*b"BNAM", b"Beta_Component\0"),
+            (*b"DATA", &four),
+            (*b"XTRA", &[1]),
+            (*b"BEND", b""),
+            (*b"BNAM", b"Gamma\0"),
+            (*b"DATA", &four),
+            (*b"BEND", b""),
+            // The name says Alpha, the data is Beta's: the whole run stays raw.
+            (*b"BNAM", b"Alpha_Component\0"),
+            (*b"DATA", &four),
+            (*b"XTRA", &[1]),
+            (*b"BEND", b""),
+        ];
+        let placed = placements(&schema, *b"SUBU", &subs).unwrap();
+        assert_eq!(
+            paths(&placed),
+            [
+                "Block.Name",
+                "Block.Alpha.Data",
+                "Block.End",
+                "Block.Name",
+                "Block.Beta.Target",
+                "Block.Beta.More",
+                "Block.End",
+                "Block.Name",
+                "raw Block.Raw",
+                "Block.End",
+                "Block.Name",
+                "raw Block.Raw",
+                "raw Block.Raw",
+                "Block.End",
+            ]
+        );
+        // Signatures alone choose no variant: the data is placed in the raw member.
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|(s, _)| *s).collect();
+        let placed = placements(&schema, *b"SUBU", &sigs).unwrap();
+        assert_eq!(
+            paths(&placed).get(1).map(String::as_str),
+            Some("raw Block.Raw")
+        );
+        assert_eq!(group_gaps(&schema, *b"SUBU", &subs).unwrap(), []);
+        let layout = layout_at(&schema, *b"SUBU", &subs, 4).unwrap().unwrap();
+        assert_eq!(layout.path, "Block.Beta.Target");
     }
 }

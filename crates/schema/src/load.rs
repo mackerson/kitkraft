@@ -17,7 +17,7 @@ use serde::Deserialize;
 use crate::model::{
     AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
     FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, PackedPart, Provenance,
-    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
+    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VariantOf, VersionedSize,
 };
 use crate::names::{is_pascal_case, snake_case};
 
@@ -140,8 +140,16 @@ pub enum ErrorKind {
         confidence: String,
         needs: &'static str,
     },
-    #[error("a member sets none or several of `sig`, `group`, `group_ref`, `any_until`")]
+    #[error("a member sets none or several of `sig`, `group`, `group_ref`, `any_until`, `union`")]
     MemberKind,
+    #[error("a subrecord union needs `decider = \"sub:<SIG>\"` (ADR 0015), got {0:?}")]
+    UnknownUnionDecider(String),
+    #[error("`decider = \"sub:{0}\"` must name an earlier required `zstring` subrecord member of the same list (ADR 0015)")]
+    UnionDeciderSibling(Signature),
+    #[error("union {0:?} must be followed in the same list by an `any_until` member that keeps the blocks no variant reads (ADR 0015)")]
+    UnionWithoutFallback(String),
+    #[error("union variant `when` {0}: a non-empty list of printable ASCII strings, none empty and none named by another variant of the union")]
+    BadVariantNames(String),
     #[error("`any_until = \"{0}\"` must be followed in the same list by a {0} subrecord")]
     AnyUntilUnclosed(Signature),
     #[error("a group must start with a subrecord or a group, not `any_until`")]
@@ -229,6 +237,10 @@ struct RawMember {
     group: Option<String>,
     group_ref: Option<String>,
     any_until: Option<String>,
+    /// A subrecord union (ADR 0015): `union = "<Name>"`, `decider = "sub:<SIG>"` and
+    /// `[[member.variant]]` entries.
+    union: Option<String>,
+    variant: Option<Vec<RawUnionVariant>>,
     name: Option<String>,
     card: Option<String>,
     note: Option<String>,
@@ -267,6 +279,30 @@ struct RawVariant {
     bits: Option<Vec<(String, i64)>>,
     size: Option<u32>,
     note: Option<String>,
+}
+
+/// One variant of a subrecord union (`[[member.variant]]`): a group of members read when
+/// the deciding sibling's payload is one of `when`.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawUnionVariant {
+    name: String,
+    when: Vec<String>,
+    note: Option<String>,
+    source: Option<String>,
+    evidence: Option<Vec<String>>,
+    confidence: Option<String>,
+    member: Option<Vec<RawMember>>,
+}
+
+impl RawUnionVariant {
+    fn prov(&self) -> ProvKeys<'_> {
+        ProvKeys {
+            source: self.source.as_ref(),
+            evidence: self.evidence.as_ref(),
+            confidence: self.confidence.as_deref(),
+        }
+    }
 }
 
 /// A variant's `when`: one EditorID prefix letter (`"f"`), or one or more values of the
@@ -1195,10 +1231,18 @@ fn convert_members(
     }
     let mut members = Vec::with_capacity(raw.len());
     for (i, m) in raw.iter().enumerate() {
+        if m.union.is_some() {
+            let variants = cx.scoped(format!("{list}[{i}]"), |cx| {
+                convert_union_member(cx, m, parent, &members)
+            })?;
+            members.extend(variants);
+            continue;
+        }
         let member = cx.scoped(format!("{list}[{i}]"), |cx| convert_member(cx, m, parent))?;
         members.push(member);
     }
     check_unique_names(cx, members.iter().map(Member::name), RESERVED_MEMBER_NAMES)?;
+    close_unions(cx, &mut members)?;
     // Every any_until must be closed by a later subrecord with its signature.
     for (i, m) in members.iter().enumerate() {
         if let Member::AnyUntil(a) = m {
@@ -1225,10 +1269,17 @@ fn convert_member(
         m.group.is_some(),
         m.group_ref.is_some(),
         m.any_until.is_some(),
+        m.union.is_some(),
     ];
     if kinds.iter().filter(|k| **k).count() != 1 {
         return Err(cx.err(ErrorKind::MemberKind));
     }
+    reject(
+        cx,
+        m.variant.is_some(),
+        "variant",
+        "a member that is not a `union`",
+    )?;
     reject(
         cx,
         m.count_from.is_some(),
@@ -1740,6 +1791,128 @@ fn reject_type_keys(cx: &Cx<'_, '_>, m: &RawMember, context: &str) -> Result<(),
     Ok(())
 }
 
+/// `union = "<Name>"` (ADR 0015): a subrecord union chosen by an earlier sibling's
+/// `zstring`, lowered into one optional group per `[[member.variant]]`, in order, each
+/// carrying [`VariantOf`] (its `until` is set by [`close_unions`]). `earlier` holds the
+/// members of the list converted so far: the deciding sibling must be one of them.
+fn convert_union_member(
+    cx: &mut Cx<'_, '_>,
+    m: &RawMember,
+    parent: &Provenance,
+    earlier: &[Member],
+) -> Result<Vec<Member>, SchemaError> {
+    let kinds = [
+        m.sig.is_some(),
+        m.group.is_some(),
+        m.group_ref.is_some(),
+        m.any_until.is_some(),
+    ];
+    if kinds.iter().any(|k| *k) {
+        return Err(cx.err(ErrorKind::MemberKind));
+    }
+    let context = "a `union` member (its variants carry the members)";
+    for (present, key) in [
+        (m.name.is_some(), "name"),
+        (m.card.is_some(), "card"),
+        (m.ty.is_some(), "type"),
+        (m.count_from.is_some(), "count_from"),
+        (m.size.is_some(), "size"),
+        (m.size_by_version.is_some(), "size_by_version"),
+        (m.member.is_some(), "member"),
+        (m.secondary.is_some(), "secondary"),
+        (m.variants.is_some(), "variants"),
+    ] {
+        reject(cx, present, key, context)?;
+    }
+    reject_type_keys(cx, m, context)?;
+    let union = m.union.clone().unwrap_or_default();
+    check_name(cx, &union)?;
+    let prov = provenance(cx, parent, &m.prov())?;
+    let decider_text = m.decider.as_deref().unwrap_or_default();
+    let decider = match decider_text.strip_prefix("sub:") {
+        Some(sig) => signature(cx, sig)?,
+        None => return Err(cx.err(ErrorKind::UnknownUnionDecider(decider_text.to_owned()))),
+    };
+    let sibling = earlier.iter().any(|e| {
+        matches!(e, Member::Subrecord(s) if s.signature == decider
+            && s.cardinality == Cardinality::Required
+            && s.ty == FieldType::ZString)
+    });
+    if !sibling {
+        return Err(cx.err(ErrorKind::UnionDeciderSibling(decider)));
+    }
+    let raw = m
+        .variant
+        .as_ref()
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| cx.err(ErrorKind::MissingKey("variant")))?;
+    let mut named: BTreeSet<&str> = BTreeSet::new();
+    let mut out = Vec::with_capacity(raw.len());
+    for (i, v) in raw.iter().enumerate() {
+        let group = cx.scoped(format!("variant[{i}]"), |cx| {
+            check_name(cx, &v.name)?;
+            let printable =
+                |w: &String| !w.is_empty() && w.bytes().all(|b| (0x20..=0x7E).contains(&b));
+            if v.when.is_empty()
+                || !v.when.iter().all(printable)
+                || !v.when.iter().all(|w| named.insert(w.as_str()))
+            {
+                return Err(cx.err(ErrorKind::BadVariantNames(format!("{:?}", v.when))));
+            }
+            let vprov = provenance(cx, &prov, &v.prov())?;
+            let raw_members = v
+                .member
+                .as_ref()
+                .ok_or_else(|| cx.err(ErrorKind::MissingKey("member")))?;
+            let members = convert_members(cx, raw_members, "member", &vprov)?;
+            match members.first() {
+                None => return Err(cx.err(ErrorKind::Empty)),
+                Some(Member::AnyUntil(_)) => return Err(cx.err(ErrorKind::GroupStart)),
+                Some(_) => {}
+            }
+            Ok(GroupDef {
+                name: v.name.clone(),
+                cardinality: Cardinality::Optional,
+                members,
+                variant_of: Some(VariantOf {
+                    union: union.clone(),
+                    decider,
+                    when: v.when.clone(),
+                    // Set by `close_unions` once the whole list is converted.
+                    until: decider,
+                }),
+                shared: None,
+                note: v.note.clone(),
+                provenance: vprov,
+            })
+        })?;
+        out.push(Member::Group(group));
+    }
+    Ok(out)
+}
+
+/// Gives each union variant of `members` the terminator of the first `any_until` member
+/// after the union (its fallback), or fails when the union has none.
+fn close_unions(cx: &Cx<'_, '_>, members: &mut [Member]) -> Result<(), SchemaError> {
+    let fallbacks: Vec<Option<Signature>> = (0..members.len())
+        .map(|i| {
+            members.iter().skip(i).find_map(|m| match m {
+                Member::AnyUntil(a) => Some(a.until),
+                _ => None,
+            })
+        })
+        .collect();
+    for (m, fallback) in members.iter_mut().zip(fallbacks) {
+        if let Member::Group(g) = m {
+            if let Some(v) = g.variant_of.as_mut() {
+                v.until = fallback
+                    .ok_or_else(|| cx.err(ErrorKind::UnionWithoutFallback(v.union.clone())))?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn convert_group(
     cx: &mut Cx<'_, '_>,
     name: &str,
@@ -1776,6 +1949,7 @@ fn convert_group(
         name: name.to_owned(),
         cardinality,
         members,
+        variant_of: None,
         shared: None,
         note: m.note.clone(),
         provenance: prov,
@@ -1811,6 +1985,7 @@ fn convert_group_ref(
         name: m.name.clone().unwrap_or_else(|| shared.to_owned()),
         cardinality,
         members,
+        variant_of: None,
         shared: Some(def.name),
         note: m.note.clone(),
         provenance: prov,

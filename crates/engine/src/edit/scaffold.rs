@@ -101,7 +101,16 @@ pub(crate) fn member_order_of_layout(sig: [u8; 4], layout: &str) -> Vec<Slot> {
 ///   layout's).
 /// - Signatures of several layouts (the intersection is empty): every layout stays, as in
 ///   [`member_order`] (a record may hold several components).
-pub(crate) fn record_order(sig: [u8; 4], counts: &BTreeMap<[u8; 4], usize>) -> Vec<Slot> {
+///
+/// When several layouts are left (`DATA` leads six variants of the block's subrecord union,
+/// ADR 0015), `component` (the `BFCB` name the fields give) picks the union variant that
+/// lists it; without one, or when no variant lists it, the first layout that is not a union
+/// variant (a variant without its name would not be read), else the first.
+pub(crate) fn record_order(
+    sig: [u8; 4],
+    counts: &BTreeMap<[u8; 4], usize>,
+    component: Option<&str>,
+) -> Vec<Slot> {
     let all = member_order(sig);
     let mut layout: Option<Vec<String>> = None;
     for (s, n) in counts {
@@ -133,10 +142,11 @@ pub(crate) fn record_order(sig: [u8; 4], counts: &BTreeMap<[u8; 4], usize>) -> V
     match layout {
         None => member_order_of_layout(sig, ""),
         Some(l) => {
-            // Several layouts carry every constrained signature: prefer the first that one of
-            // them can start (a lead of the layout's group, as the decoder enters it). A lone
-            // FLLD is the LightLayer layout's lead, while inside Destructible it needs a
-            // DSTD before it (KK-289).
+            // Several layouts carry every constrained signature. A union variant the `BFCB`
+            // name picks wins (ADR 0015); otherwise prefer the first plain layout that one of
+            // the record's signatures can start (a lead of the layout's group, as the decoder
+            // enters it): a lone FLLD is the LightLayer layout's lead, while inside
+            // Destructible it needs a DSTD before it (KK-289). Else `pick_layout`'s order.
             let leads_of = |name: &str| -> Vec<[u8; 4]> {
                 let path = format!("{}.{name}", kitkraft_schema::COMPONENT_BLOCK);
                 all.iter()
@@ -145,16 +155,69 @@ pub(crate) fn record_order(sig: [u8; 4], counts: &BTreeMap<[u8; 4], usize>) -> V
                     .map(|(_, leads)| leads.clone())
                     .unwrap_or_default()
             };
+            let named = component.and_then(|c| {
+                l.iter()
+                    .find(|n| union_variant(sig, n).is_some_and(|v| v.when.iter().any(|w| w == c)))
+            });
             let startable = l.iter().find(|name| {
+                if union_variant(sig, name).is_some() {
+                    return false;
+                }
                 let leads = leads_of(name);
                 counts.keys().any(|s| leads.contains(s))
             });
-            match startable.or(l.first()) {
+            match named
+                .or(startable)
+                .or_else(|| pick_layout(sig, &l, component))
+            {
                 Some(one) => member_order_of_layout(sig, one),
                 None => all,
             }
         }
     }
+}
+
+/// The component block's union variant named `layout` in record type `sig`, if it is one.
+fn union_variant(sig: [u8; 4], layout: &str) -> Option<&'static kitkraft_schema::VariantOf> {
+    let schema = kitkraft_schema::builtin().ok()?;
+    let def = schema.record(kitkraft_schema::Signature::from_bytes(sig)?)?;
+    def.members.iter().find_map(|m| match m {
+        Member::Group(block) if block.name == kitkraft_schema::COMPONENT_BLOCK => {
+            block.members.iter().find_map(|inner| match inner {
+                Member::Group(g) if g.name == layout => g.variant_of.as_ref(),
+                _ => None,
+            })
+        }
+        _ => None,
+    })
+}
+
+/// Which of the candidate component layouts `layouts` a record holds ([`record_order`]).
+fn pick_layout<'l>(
+    sig: [u8; 4],
+    layouts: &'l [String],
+    component: Option<&str>,
+) -> Option<&'l String> {
+    let named = component.and_then(|c| {
+        layouts
+            .iter()
+            .find(|l| union_variant(sig, l).is_some_and(|v| v.when.iter().any(|w| w == c)))
+    });
+    named
+        .or_else(|| layouts.iter().find(|l| union_variant(sig, l).is_none()))
+        .or_else(|| layouts.first())
+}
+
+/// The component name the edits give the record's block (`BFCB` set to a string), if any.
+pub(crate) fn component_name(edits: &[Edit]) -> Option<&str> {
+    edits.iter().find_map(|e| match &e.op {
+        super::fields::Op::Set(serde_json::Value::String(name))
+            if e.path.signature == *b"BFCB" && e.path.steps.is_empty() =>
+        {
+            Some(name.as_str())
+        }
+        _ => None,
+    })
 }
 
 fn order_in_layout(sig: [u8; 4], layout: Option<&str>) -> Vec<Slot> {
@@ -352,9 +415,9 @@ pub(crate) fn lead_refusal(shown: &str, sub: [u8; 4], group: &str, leads: &[[u8;
 /// definition does not place it although the definition names its signature
 /// (`kitkraft_doc::typed::LayoutError::Unplaced`, what `validate`'s `layout.unplaced`
 /// flags), among the indexes `check` accepts.
-pub(crate) fn first_unplaced(
+pub(crate) fn first_unplaced<K: kitkraft_doc::typed::SubKey>(
     record: [u8; 4],
-    subs: &[[u8; 4]],
+    subs: &[K],
     check: impl Fn(usize) -> bool,
 ) -> Option<(usize, [u8; 4])> {
     let schema = kitkraft_schema::builtin().ok()?;
@@ -363,11 +426,12 @@ pub(crate) fn first_unplaced(
         if !check(i) {
             return None;
         }
+        let sub = sub.signature();
         let unplaced = matches!(
-            kitkraft_doc::typed::layout_of(schema, record, *sub, i, placed.get(i)),
+            kitkraft_doc::typed::layout_of(schema, record, sub, i, placed.get(i)),
             Err(kitkraft_doc::typed::LayoutError::Unplaced { .. })
         );
-        unplaced.then_some((i, *sub))
+        unplaced.then_some((i, sub))
     })
 }
 
@@ -394,8 +458,11 @@ pub(crate) fn fill_groups(
         return Ok(added);
     };
     for _ in 0..MAX_FILL_ROUNDS {
-        let sigs: Vec<[u8; 4]> = subs.iter().map(|(_, _, s)| s.signature().0).collect();
-        let gaps = kitkraft_doc::typed::group_gaps(schema, record, &sigs).unwrap_or_default();
+        let keys: Vec<([u8; 4], &[u8])> = subs
+            .iter()
+            .map(|(_, _, s)| (s.signature().0, s.data()))
+            .collect();
+        let gaps = kitkraft_doc::typed::group_gaps(schema, record, &keys).unwrap_or_default();
         let written = |a: usize, b: usize| subs.iter().take(b).skip(a).any(|(_, w, _)| *w);
         let gaps: Vec<_> = gaps
             .into_iter()
@@ -442,8 +509,11 @@ pub(crate) fn fill_groups(
         // Stable: equal slots keep their order, then the added ones.
         subs.sort_by_key(|(slot, _, _)| *slot);
     }
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|(_, _, s)| s.signature().0).collect();
-    match kitkraft_doc::typed::group_gaps(schema, record, &sigs)
+    let keys: Vec<([u8; 4], &[u8])> = subs
+        .iter()
+        .map(|(_, _, s)| (s.signature().0, s.data()))
+        .collect();
+    match kitkraft_doc::typed::group_gaps(schema, record, &keys)
         .unwrap_or_default()
         .first()
         .and_then(|g| Some((g, g.missing.first()?)))
@@ -733,7 +803,7 @@ pub(crate) fn add_slots(
         let c = counts.entry(*s).or_insert(0);
         *c = (*c).max(*n);
     }
-    let order = record_order(sig, &counts);
+    let order = record_order(sig, &counts, component_name(edits));
     let mut added: Vec<(usize, Subrecord<'static>)> = Vec::new();
     for (s, n) in &wanted {
         let present = have.get(s).copied().unwrap_or(0);
@@ -851,9 +921,12 @@ pub(crate) fn add_slots(
     };
     // An added subrecord the definition would not place where it landed (its group lead
     // is elsewhere in the record): refused, and the record keeps its own subrecords.
-    let sigs: Vec<[u8; 4]> = all.iter().map(|(_, _, s)| s.signature().0).collect();
+    let keys: Vec<([u8; 4], &[u8])> = all
+        .iter()
+        .map(|(_, _, s)| (s.signature().0, s.data()))
+        .collect();
     let fresh: Vec<bool> = all.iter().map(|(_, a, _)| *a).collect();
-    if let Some((_, bad)) = first_unplaced(sig, &sigs, |i| fresh.get(i).copied().unwrap_or(false)) {
+    if let Some((_, bad)) = first_unplaced(sig, &keys, |i| fresh.get(i).copied().unwrap_or(false)) {
         let shown = String::from_utf8_lossy(&bad).into_owned();
         subs.extend(all.into_iter().filter(|(_, a, _)| !*a).map(|(_, _, s)| s));
         return Err(FieldError::new(
@@ -887,7 +960,7 @@ mod tests {
         // An LVLI with a list condition and an entry condition and nothing of a layout:
         // the block holds none, so the two CTDAs take the record's own two groups.
         let two: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 2)].into();
-        let order = record_order(*b"LVLI", &two);
+        let order = record_order(*b"LVLI", &two, None);
         assert_eq!(ctda(&order), ["Conditions.Data", "Entries.Conditions.Data"]);
         assert_eq!(
             slot_of(&order, *b"CTDA", 0, 2),
@@ -895,21 +968,21 @@ mod tests {
         );
         // FLCS lives only in the ContactShadow layout: it selects that layout.
         let shadow: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 2), (*b"FLCS", 1)].into();
-        assert!(record_order(*b"LVLI", &shadow)
+        assert!(record_order(*b"LVLI", &shadow, None)
             .iter()
             .any(|e| e.path == "BfcbBlock.ContactShadow.ContactShadows"));
-        assert_eq!(ctda(&record_order(*b"LVLI", &shadow)).len(), 2);
+        assert_eq!(ctda(&record_order(*b"LVLI", &shadow, None)).len(), 2);
         // A third CTDA: the repeating Entries group takes the rest, so it selects no
         // layout either.
         let three: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 3)].into();
         assert_eq!(
-            ctda(&record_order(*b"LVLI", &three)),
+            ctda(&record_order(*b"LVLI", &three, None)),
             ["Conditions.Data", "Entries.Conditions.Data"]
         );
         // A layout signature selects its layout: ZNAM selects PlanetContentProperties,
         // whose condition then comes first.
         let pcp: BTreeMap<[u8; 4], usize> = [(*b"CTDA", 3), (*b"ZNAM", 1)].into();
-        let order = record_order(*b"LVLI", &pcp);
+        let order = record_order(*b"LVLI", &pcp, None);
         assert_eq!(ctda(&order).len(), 3);
         assert!(ctda(&order)
             .first()
@@ -917,7 +990,7 @@ mod tests {
         // Signatures of two layouts: every layout stays, as in `member_order`.
         let both: BTreeMap<[u8; 4], usize> = [(*b"FLCS", 1), (*b"ZNAM", 1)].into();
         assert_eq!(
-            record_order(*b"LVLI", &both).len(),
+            record_order(*b"LVLI", &both, None).len(),
             member_order(*b"LVLI").len()
         );
     }
@@ -928,7 +1001,7 @@ mod tests {
         // DSTD), LightLayer (its lead) and PlanetModel (after an optional MODL). A record
         // given only FLLD holds the first layout FLLD can start (KK-289).
         let flld: BTreeMap<[u8; 4], usize> = [(*b"FLLD", 1)].into();
-        let order = record_order(*b"STDT", &flld);
+        let order = record_order(*b"STDT", &flld, None);
         let paths: Vec<&str> = order
             .iter()
             .filter(|e| e.sig == *b"FLLD")
@@ -937,7 +1010,7 @@ mod tests {
         assert_eq!(paths, ["BfcbBlock.LightLayer.LightLayer"]);
         // With MODL the planet model is the only layout left.
         let model: BTreeMap<[u8; 4], usize> = [(*b"FLLD", 1), (*b"MODL", 1)].into();
-        assert!(record_order(*b"STDT", &model)
+        assert!(record_order(*b"STDT", &model, None)
             .iter()
             .any(|e| e.path == "BfcbBlock.PlanetModel.LightLayer"));
     }

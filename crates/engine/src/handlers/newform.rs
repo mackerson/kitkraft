@@ -40,8 +40,8 @@ use super::set::{
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit, FormName, Nested, ParentForm};
 use crate::edit::scaffold::{
-    fill_groups, first_unplaced, lead_refusal, member_order, missing_lead, placeholder,
-    record_order, slot_of, slot_placeholder, wanted_slots,
+    component_name, fill_groups, first_unplaced, lead_refusal, member_order, missing_lead,
+    placeholder, record_order, slot_of, slot_placeholder, wanted_slots,
 };
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
@@ -333,7 +333,7 @@ pub(crate) fn plan_new(
     // The component layout a new record holds: the one its fields select, or none
     // (scaffold.rs `record_order`; KK-220 for QUST, generalised for LVLI). The block's
     // other layouts are not slots of this record.
-    let order = record_order(sig, &wanted);
+    let order = record_order(sig, &wanted, component_name(&req.edits));
     let mut edid = req.edid.as_bytes().to_vec();
     edid.push(0);
     // Each subrecord with the position of its slot; EDID first.
@@ -480,8 +480,7 @@ pub(crate) fn plan_new(
         }
     }
     let subs: Vec<Subrecord<'static>> = all.into_iter().map(|(_, _, s)| s).collect();
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    if let Some((i, bad)) = first_unplaced(sig, &sigs, |_| true) {
+    if let Some((i, bad)) = first_unplaced(sig, &subs, |_| true) {
         return Err(failed(
             command,
             format!(

@@ -100,8 +100,7 @@ fn record_in(bytes: &[u8], edid: &str) -> Record<'static> {
 fn conditions(record: &Record<'_>) -> Vec<([u8; 4], Decoded)> {
     let schema = kitkraft_schema::builtin().unwrap();
     let subs = record.subrecords().unwrap();
-    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
-    let placed = typed::placements(schema, record.header.signature.0, &sigs).unwrap();
+    let placed = typed::placements(schema, record.header.signature.0, subs).unwrap();
     let ctx = typed::Ctx {
         form_version: record.header.form_version,
         localized: false,

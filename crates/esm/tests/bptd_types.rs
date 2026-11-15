@@ -62,6 +62,7 @@ fn member_sigs(members: &[MemberDesc]) -> Vec<[u8; 4]> {
         match m {
             MemberDesc::Sub { sig, .. } => out.push(*sig),
             MemberDesc::Group { members, .. } => out.extend(member_sigs(members)),
+            MemberDesc::Variant { members, .. } => out.extend(member_sigs(members)),
             MemberDesc::AnyUntil { .. } => {}
         }
     }
