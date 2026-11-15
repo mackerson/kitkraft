@@ -965,8 +965,8 @@ pub fn game_buttons() -> Vec<ButtonState> {
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    action_bar, clear_refusal, envelope_block, findings_grid, panel_head, refusal_line, refuse,
-    virtual_table, virtual_table_for, Action, Refusals, Shown, Slot, SlotKey, TabCtx,
+    action_bar, clear_refusal, envelope_block, findings_grid, long_field, panel_head, refusal_line,
+    refuse, virtual_table, virtual_table_for, Action, Refusals, Shown, Slot, SlotKey, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -1512,11 +1512,7 @@ impl CockpitTab {
         let mut review_id: Option<&'static str> = None;
         ui.horizontal_wrapped(|ui| {
             ui.label(theme::subheading(ui, "Plugin under review"));
-            let edit = ui.add(
-                TextEdit::singleline(&mut self.plugin)
-                    .desired_width(theme::width(ui, Field::Long))
-                    .hint_text(r"out\built\MyPlugin.esm, or any path"),
-            );
+            let edit = long_field(ui, &mut self.plugin, r"out\built\MyPlugin.esm, or any path");
             if edit.lost_focus() {
                 self.form.source.clone_from(&self.plugin);
             }
