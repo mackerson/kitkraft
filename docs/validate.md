@@ -98,12 +98,16 @@ and `validate` now take lstrings from the schema: every member of type `lstring`
 wherever the layout puts it (the whole subrecord, any struct member, an array element, a
 union variant; `kitkraft_doc::typed::lstring_spans`), not only the whole subrecord or a
 struct's last field. The table is a cross-check and a fallback:
-`edit::lstrings::compare` finds 100 of its lstrings typed as whole-subrecord schema
-members and no conflict (a pair the table measured as "not an lstring" that the schema
-types as one, or the reverse); the other 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT and
-STDT `FULL`) sit inside the base form component blocks the schema keeps raw, and there
+`edit::lstrings::compare` finds 102 of its lstrings typed as whole-subrecord schema
+members (PNDT and STDT `FULL` since KK-284 typed the full-name component) and no
+conflict (a pair the table measured as "not an lstring" that the schema types as one, or
+the reverse); the other 3 (CHAL `FULL`/`DESC`, GBFM `HULL`) sit inside the base form
+component blocks the schema keeps raw, and there
 the table is used with a limitation naming the pair ("treated as an lstring by the
-corpus lstring table ... the schema has no member for it here"). The unit test
+corpus lstring table ... the schema has no member for it here"). CHAL's `FULL` matches
+the typed full-name `FULL` by signature, but every official CHAL `FULL` sits in the raw
+activity tracker block, so `compare` counts it as a fallback
+(`edit::lstrings::IN_RAW_COMPONENT`, KK-322). The unit test
 `the_schema_types_every_table_lstring` checks this against the table, and
 `lstring_table_matches_the_corpus` against a fresh corpus scan.
 

@@ -5,8 +5,9 @@
 //! `set`, `build` and `validate` take lstrings from the schema first (`edit::fields`
 //! layouts; every lstring member wherever it sits in a payload, through
 //! `kitkraft_doc::typed::lstring_spans`). Lane B typed all 105 lstring signatures of this
-//! table (M3.B8): 100 are whole-subrecord schema members, and [`compare`] checks that
-//! the two agree. The other 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT and STDT `FULL`) sit
+//! table (M3.B8): 102 are whole-subrecord schema members (PNDT and STDT `FULL` since
+//! KK-284 typed the full-name component), and [`compare`] checks that the two agree. The
+//! other 3 (CHAL `FULL`/`DESC`, GBFM `HULL`) sit
 //! inside the base form component blocks the schema keeps raw, so this table is the
 //! fallback there and every use names it in a limitation ([`table_note`]). A localized
 //! plugin stores every lstring as a 4-byte string ID, so an lstring nothing types would be
@@ -412,6 +413,16 @@ fn has_raw_block(members: &[kitkraft_schema::Member], depth: usize) -> bool {
         })
 }
 
+/// Table lstrings whose every corpus occurrence sits inside a component the schema keeps
+/// raw, although the schema types the same signature in another component of the shared
+/// base form component block. A signature match is no agreement there: the positional
+/// lookup (`fields::layout_at`) finds no member at those positions and uses the table.
+/// `corpus:` CHAL (`crates/schema/defs/CHAL.toml`, 2026-10-14 scan): every one of the 10
+/// official challenges has exactly one component, the activity tracker, and its `FULL`s
+/// sit inside it (per activity `ATAN FULL DESC ...`). KK-284 typed the full-name component
+/// (a whole-subrecord `FULL`), which made CHAL's `FULL` match by signature alone.
+pub const IN_RAW_COMPONENT: &[(&str, &str)] = &[("CHAL", "FULL")];
+
 /// Compares the corpus [`TABLE`] with the schema's lstrings ([`schema_lstrings`]).
 pub fn compare(schema: &kitkraft_schema::Schema) -> Comparison {
     let typed = schema_lstrings(schema);
@@ -435,7 +446,9 @@ pub fn compare(schema: &kitkraft_schema::Schema) -> Comparison {
                         .iter()
                         .any(|(_, m)| m.signature.as_bytes() == s)
                 });
+                let raw_here = IN_RAW_COMPONENT.contains(&(*record, sub));
                 match (table_says, whole) {
+                    (true, true) if raw_block && raw_here => out.fallback.push(pair),
                     (true, true) => out.agree.push(pair),
                     (true, false) if raw_block && !defined_here => out.fallback.push(pair),
                     (true, false) => out.conflicts.push(format!(
@@ -462,20 +475,20 @@ mod tests {
     use super::*;
 
     /// M3.E4: the corpus table is a cross-check of the schema now that lane B typed its
-    /// 105 lstring signatures (M3.B8). 103 are whole-subrecord schema lstrings; 2 sit in
-    /// base form component layouts the schema keeps raw (CHAL's activity DESC, GBFM's hull
-    /// name), where the table stays the fallback; nothing the table measured as "not an
-    /// lstring" is one in the schema. KK-284 typed the full-name component (PNDT, STDT and
-    /// GBFM names), which also makes CHAL's FULL "agree" by signature, although CHAL's
-    /// own FULLs sit in its raw activity tracker block: there the positional lookup
-    /// (`fields::layout_at`) still finds no member and uses the FULL/DESC fallback.
+    /// 105 lstring signatures (M3.B8). 102 are whole-subrecord schema lstrings; 3 sit in
+    /// base form component layouts the schema keeps raw (CHAL's activity FULL and DESC,
+    /// GBFM's hull name), where the table stays the fallback; nothing the table measured
+    /// as "not an lstring" is one in the schema. KK-284 typed the full-name component
+    /// (PNDT, STDT and GBFM names), which made CHAL's FULL match by signature, but CHAL's
+    /// own FULLs sit in its raw activity tracker block ([`IN_RAW_COMPONENT`]), so it stays
+    /// a fallback.
     #[test]
     fn the_schema_types_every_table_lstring() {
         let schema = kitkraft_schema::builtin().unwrap();
         let c = compare(schema);
         assert_eq!(c.conflicts, Vec::<String>::new());
-        assert_eq!(c.fallback, ["CHAL.DESC", "GBFM.HULL"]);
-        assert_eq!(c.agree.len(), 103);
+        assert_eq!(c.fallback, ["CHAL.DESC", "CHAL.FULL", "GBFM.HULL"]);
+        assert_eq!(c.agree.len(), 102);
         let lstrings: usize = TABLE
             .iter()
             .map(|(_, l, ..)| l.split(' ').filter(|s| !s.is_empty()).count())
