@@ -579,6 +579,19 @@ fn stdt_light_layer_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STDT", "LightLayer", "TESModel_Component");
 }
 
+// KK-288: the object window filter component layout (1,053 official LIGH carry one). LIGH's
+// FULL is opaque in the schema and read through the lstring fallback, as in
+// `ligh_new_sets_every_typed_member_and_reads_back`.
+#[test]
+fn ligh_object_window_filter_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with(
+        "LIGH",
+        "ObjectWindowFilter",
+        "BGSObjectWindowFilter_Component",
+        &["FULL"],
+    );
+}
+
 #[test]
 fn pkin_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(

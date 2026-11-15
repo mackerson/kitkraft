@@ -2166,6 +2166,67 @@ impl BfcbBlockObjectPaletteDefaults {
 
 impl Visit for BfcbBlockObjectPaletteDefaults {}
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockObjectWindowFilter {
+    /// `INTV`, optional.
+    pub count: Option<Sub<u32>>,
+    /// `FLTR`, repeated.
+    pub filters: Vec<Sub<ZString>>,
+}
+
+impl BfcbBlockObjectWindowFilter {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"INTV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTR",
+            card: Card::Repeated,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.count,
+                    subs,
+                    *index,
+                    "BfcbBlock.ObjectWindowFilter.INTV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => push(
+                    &mut self.filters,
+                    subs,
+                    *index,
+                    "BfcbBlock.ObjectWindowFilter.FLTR",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"INTV", self.count.as_ref());
+        for value in &self.filters {
+            emit(out, *b"FLTR", Some(value));
+        }
+    }
+}
+
+impl Visit for BfcbBlockObjectWindowFilter {}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bool8 {
     False,
@@ -4342,6 +4403,8 @@ pub struct BfcbBlock {
     pub display_case: Option<BfcbBlockDisplayCase>,
     /// Group `ObjectPaletteDefaults`, optional.
     pub object_palette_defaults: Option<BfcbBlockObjectPaletteDefaults>,
+    /// Group `ObjectWindowFilter`, optional.
+    pub object_window_filter: Option<BfcbBlockObjectWindowFilter>,
     /// Group `PlanetContentProperties`, optional.
     pub planet_content_properties: Option<BfcbBlockPlanetContentProperties>,
     /// Group `PropertySheet`, optional.
@@ -4394,6 +4457,10 @@ impl BfcbBlock {
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockObjectPaletteDefaults::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockObjectWindowFilter::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -4484,58 +4551,63 @@ impl BfcbBlock {
                     group.fill(hits, subs, ctx, extra);
                     self.object_palette_defaults = Some(group);
                 }
-                Hit::Group { member: 6, hits } if self.planet_content_properties.is_none() => {
+                Hit::Group { member: 6, hits } if self.object_window_filter.is_none() => {
+                    let mut group = BfcbBlockObjectWindowFilter::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.object_window_filter = Some(group);
+                }
+                Hit::Group { member: 7, hits } if self.planet_content_properties.is_none() => {
                     let mut group = BfcbBlockPlanetContentProperties::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_content_properties = Some(group);
                 }
-                Hit::Group { member: 7, hits } if self.property_sheet.is_none() => {
+                Hit::Group { member: 8, hits } if self.property_sheet.is_none() => {
                     let mut group = BfcbBlockPropertySheet::default();
                     group.fill(hits, subs, ctx, extra);
                     self.property_sheet = Some(group);
                 }
-                Hit::Group { member: 8, hits } if self.quality_upgrade.is_none() => {
+                Hit::Group { member: 9, hits } if self.quality_upgrade.is_none() => {
                     let mut group = BfcbBlockQualityUpgrade::default();
                     group.fill(hits, subs, ctx, extra);
                     self.quality_upgrade = Some(group);
                 }
-                Hit::Group { member: 9, hits } if self.sound_tag.is_none() => {
+                Hit::Group { member: 10, hits } if self.sound_tag.is_none() => {
                     let mut group = BfcbBlockSoundTag::default();
                     group.fill(hits, subs, ctx, extra);
                     self.sound_tag = Some(group);
                 }
-                Hit::Group { member: 10, hits } if self.particle_system.is_none() => {
+                Hit::Group { member: 11, hits } if self.particle_system.is_none() => {
                     let mut group = BfcbBlockParticleSystem::default();
                     group.fill(hits, subs, ctx, extra);
                     self.particle_system = Some(group);
                 }
-                Hit::Group { member: 11, hits } if self.full_name.is_none() => {
+                Hit::Group { member: 12, hits } if self.full_name.is_none() => {
                     let mut group = BfcbBlockFullName::default();
                     group.fill(hits, subs, ctx, extra);
                     self.full_name = Some(group);
                 }
-                Hit::Group { member: 12, hits } if self.light_layer.is_none() => {
+                Hit::Group { member: 13, hits } if self.light_layer.is_none() => {
                     let mut group = BfcbBlockLightLayer::default();
                     group.fill(hits, subs, ctx, extra);
                     self.light_layer = Some(group);
                 }
-                Hit::Group { member: 13, hits } if self.planet_model.is_none() => {
+                Hit::Group { member: 14, hits } if self.planet_model.is_none() => {
                     let mut group = BfcbBlockPlanetModel::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_model = Some(group);
                 }
-                Hit::Group { member: 14, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 15, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Group { member: 15, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 16, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Sub { member: 16, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 17, index } => put(
+                Hit::Sub { member: 17, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 18, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -4563,6 +4635,9 @@ impl BfcbBlock {
             group.emit(out);
         }
         if let Some(group) = &self.object_palette_defaults {
+            group.emit(out);
+        }
+        if let Some(group) = &self.object_window_filter {
             group.emit(out);
         }
         if let Some(group) = &self.planet_content_properties {

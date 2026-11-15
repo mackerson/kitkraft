@@ -39,6 +39,8 @@
 #     2026-11-15): BGSPropertySheet_Component.
 #   - `AttachParentArray` (one APPR, keyword FormIDs, L6088-L6091; KK-287, 2026-11-15):
 #     BGSAttachParentArray_Component.
+#   - `ObjectWindowFilter` (INTV count and FLTR paths, L6174-L6178; KK-288, 2026-11-15):
+#     BGSObjectWindowFilter_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -199,6 +201,31 @@ sig = "OPDS"
 name = "Defaults"
 type = "ref:ObjectPaletteDefaults"
 card = "optional"
+
+[[member]]
+group = "ObjectWindowFilter"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6174-L6178"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 3,062 BGSObjectWindowFilter_Component blocks of the 14 official ESMs (LMSW 1,201, LIGH 1,053, STMP, GBFM and 10 more types) each hold one 4-byte INTV and one NUL-terminated FLTR; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSObjectWindowFilter_Component: the editor's object window filter paths"
+
+[[member.member]]
+sig = "INTV"
+name = "Count"
+type = "u32"
+card = "optional"
+note = "number of FLTR that follow; stored, not derived"
+
+[[member.member]]
+sig = "FLTR"
+name = "Filters"
+type = "zstring"
+card = "repeated"
+note = "object window filter path"
 
 [[member]]
 group = "PlanetContentProperties"
