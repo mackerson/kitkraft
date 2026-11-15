@@ -567,6 +567,18 @@ fn stdt_full_name_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("STDT", "FullName", "TESFullName_Component");
 }
 
+// KK-285: the planet model component layout (model, light layer, the opaque XMPM and the
+// ring strings) and the lone light layer one, both on a star.
+#[test]
+fn stdt_planet_model_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "PlanetModel", "TESPlanetModel_Component");
+}
+
+#[test]
+fn stdt_light_layer_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STDT", "LightLayer", "TESModel_Component");
+}
+
 #[test]
 fn pkin_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(

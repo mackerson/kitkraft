@@ -32,6 +32,9 @@
 #     L6170-L6173; KK-283, 2026-11-15): BGSObjectPaletteDefaults_Component.
 #   - `FullName` (one FULL lstring, L6611-L6614; KK-284, 2026-11-15):
 #     TESFullName_Component, the names of GBFM, PNDT and STDT records.
+#   - `LightLayer` (a lone FLLD, L6682-L6685) and `PlanetModel` (MODL, FLLD, XMPM kept
+#     opaque, ring strings, L6619-L6635; KK-285, 2026-11-15): TESPlanetModel_Component and
+#     TESModel_Component; LightLayer sits before PlanetModel (see its note).
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -363,6 +366,76 @@ note = "TESFullName_Component: the display name of a generic base form, planet o
 sig = "FULL"
 name = "Name"
 type = "lstring"
+card = "optional"
+
+[[member]]
+group = "LightLayer"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6682-L6685"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 1,868 TESModel_Component blocks of the 14 official ESMs whose data is a lone FLLD (4 bytes); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "a lone light layer (TESModel_Component blocks without a model path). Placed before PlanetModel, unlike upstream's order: PlanetModel's first member is optional, so in member order it would also take a block that starts with FLLD"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+
+[[member]]
+group = "PlanetModel"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6619-L6635"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 1,825 TESPlanetModel_Component blocks (PNDT 1,704, STDT 121) hold MODL FLLD XMPM, 113 of them then MCQP XMSP XLMS; the 2,067 TESModel_Component blocks that start with MODL (GBFM, PNDT, STDT, AVMD, BMOD, QUST) hold MODL FLLD; every string NUL-terminated, every FLLD 4 bytes; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESPlanetModel_Component, and TESModel_Component when it has a model path: upstream reads both with this layout (it has no TESModel layout of its own)"
+
+[[member.member]]
+sig = "MODL"
+name = "Model"
+type = "zstring"
+card = "optional"
+note = "model file path"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+
+[[member.member]]
+sig = "XMPM"
+name = "Xmpm"
+type = "opaque"
+card = "optional"
+note = "unnamed upstream: two u16-counted lists (u16-length strings; resource IDs with file hash, extension and folder hash); kept as read until the format has u16 counts"
+
+[[member.member]]
+sig = "MCQP"
+name = "RingModel"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "XMSP"
+name = "RingMaterial"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "XLMS"
+name = "RingId"
+type = "zstring"
 card = "optional"
 
 [[member]]

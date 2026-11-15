@@ -3790,6 +3790,223 @@ impl Visit for BfcbBlockFullName {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BfcbBlockLightLayerLightLayer(pub u32);
+
+impl BfcbBlockLightLayerLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for BfcbBlockLightLayerLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockLightLayerLightLayer {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockLightLayer {
+    /// `FLLD`, optional.
+    pub light_layer: Option<Sub<BfcbBlockLightLayerLightLayer>>,
+}
+
+impl BfcbBlockLightLayer {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"FLLD",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.light_layer,
+                    subs,
+                    *index,
+                    "BfcbBlock.LightLayer.FLLD",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"FLLD", self.light_layer.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockLightLayer {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct BfcbBlockPlanetModelLightLayer(pub u32);
+
+impl BfcbBlockPlanetModelLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for BfcbBlockPlanetModelLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockPlanetModelLightLayer {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockPlanetModel {
+    /// `MODL`, optional.
+    pub model: Option<Sub<ZString>>,
+    /// `FLLD`, optional.
+    pub light_layer: Option<Sub<BfcbBlockPlanetModelLightLayer>>,
+    /// `XMPM`, optional.
+    pub xmpm: Option<Sub<Bytes>>,
+    /// `MCQP`, optional.
+    pub ring_model: Option<Sub<ZString>>,
+    /// `XMSP`, optional.
+    pub ring_material: Option<Sub<ZString>>,
+    /// `XLMS`, optional.
+    pub ring_id: Option<Sub<ZString>>,
+}
+
+impl BfcbBlockPlanetModel {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"MODL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLLD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XMPM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MCQP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XMSP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLMS",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.model,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.MODL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.light_layer,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.FLLD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.xmpm,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XMPM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.ring_model,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.MCQP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.ring_material,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XMSP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.ring_id,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetModel.XLMS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"MODL", self.model.as_ref());
+        emit(out, *b"FLLD", self.light_layer.as_ref());
+        emit(out, *b"XMPM", self.xmpm.as_ref());
+        emit(out, *b"MCQP", self.ring_model.as_ref());
+        emit(out, *b"XMSP", self.ring_material.as_ref());
+        emit(out, *b"XLMS", self.ring_id.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockPlanetModel {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeywordsForms(pub Vec<FormId>);
 
@@ -3934,6 +4151,10 @@ pub struct BfcbBlock {
     pub particle_system: Option<BfcbBlockParticleSystem>,
     /// Group `FullName`, optional.
     pub full_name: Option<BfcbBlockFullName>,
+    /// Group `LightLayer`, optional.
+    pub light_layer: Option<BfcbBlockLightLayer>,
+    /// Group `PlanetModel`, optional.
+    pub planet_model: Option<BfcbBlockPlanetModel>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// Group `Reflection`, optional.
@@ -3986,6 +4207,14 @@ impl BfcbBlock {
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockFullName::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockLightLayer::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockPlanetModel::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -4064,18 +4293,28 @@ impl BfcbBlock {
                     group.fill(hits, subs, ctx, extra);
                     self.full_name = Some(group);
                 }
-                Hit::Group { member: 10, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 10, hits } if self.light_layer.is_none() => {
+                    let mut group = BfcbBlockLightLayer::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.light_layer = Some(group);
+                }
+                Hit::Group { member: 11, hits } if self.planet_model.is_none() => {
+                    let mut group = BfcbBlockPlanetModel::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.planet_model = Some(group);
+                }
+                Hit::Group { member: 12, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Group { member: 11, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 13, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Sub { member: 12, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 13, index } => put(
+                Hit::Sub { member: 14, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 15, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -4115,6 +4354,12 @@ impl BfcbBlock {
             group.emit(out);
         }
         if let Some(group) = &self.full_name {
+            group.emit(out);
+        }
+        if let Some(group) = &self.light_layer {
+            group.emit(out);
+        }
+        if let Some(group) = &self.planet_model {
             group.emit(out);
         }
         if let Some(group) = &self.keywords {
