@@ -5,7 +5,10 @@
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
 //! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
 //! ENCH, IRES and HAZD (KK-265, 2026-11-14), DIAL and INFO under their parents (KK-277,
-//! 2026-11-15; `dialogue_tests.rs` fixture) and WWED (KK-291, 2026-11-15)
+//! 2026-11-15; `dialogue_tests.rs` fixture), WWED (KK-291, 2026-11-15), RSPJ (KK-300), AVIF
+//! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15),
+//! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
+//! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -397,6 +400,31 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
 /// they are checked, not unchecked. Each must be a whole-opaque member of the definition;
 /// the unchecked count stays an exact equality.
 fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_fallback: &[&str]) {
+    writes_and_reads_back_full(sig, layout, component, lstring_fallback, &[]);
+}
+
+/// [`writes_and_reads_back`], where the top-level struct members `opaque_tail` end in an
+/// opaque field of no fixed size (NPC_'s ONA2: the race override blocks after their
+/// flags, kept raw). `validate` cannot rule out a FormID in such bytes, so it counts the
+/// subrecord unchecked (`edit::patch::has_opaque`); the plan, which counts only
+/// whole-opaque members, adds each one named. Each must be a top-level struct member with
+/// such a field; the unchecked count stays an exact equality.
+fn writes_and_reads_back_with_opaque_tail(
+    sig: &str,
+    layout: &str,
+    component: &str,
+    opaque_tail: &[&str],
+) {
+    writes_and_reads_back_full(sig, layout, component, &[], opaque_tail);
+}
+
+fn writes_and_reads_back_full(
+    sig: &str,
+    layout: &str,
+    component: &str,
+    lstring_fallback: &[&str],
+    opaque_tail: &[&str],
+) {
     // The layout in the name: two layouts of one type (QUST) must not share a dir,
     // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
     let d = dir(&format!(
@@ -421,6 +449,19 @@ fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_
         assert!(opaque, "{sig} {s}: not a top-level whole-opaque member");
         assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
         p.opaque -= 1;
+    }
+    for s in opaque_tail {
+        let tail = def.members.iter().any(|m| {
+            matches!(m, Member::Subrecord(sub) if sub.signature.as_str() == *s
+                && matches!(deref(&sub.ty), FieldType::Struct { fields }
+                    if fields.iter().any(|f| matches!(f.ty, FieldType::Opaque { size: None }))))
+        });
+        assert!(
+            tail,
+            "{sig} {s}: not a top-level struct with an unsized opaque field"
+        );
+        assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
+        p.opaque += 1;
     }
     let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(
@@ -1865,5 +1906,334 @@ fn wwed_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("CNAM", json!(MISSING))],
         &["CNAM"],
+    );
+}
+
+#[test]
+fn rspj_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "RSPJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// AVIF has no base form component block (no official record has one), so the layout and
+// component name are inert; it has no FormID member either, so no dangling-link test.
+#[test]
+fn avif_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "AVIF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// ONA2's race override blocks (an opaque tail of no fixed size) are counted unchecked by
+// `validate`, as is the whole-opaque NAM5.
+#[test]
+fn npc_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back_with_opaque_tail(
+        "NPC_",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &["ONA2"],
+    );
+}
+
+#[test]
+fn pack_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PACK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pndt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PNDT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pcmt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCMT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pcbn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCBN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pccn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCCN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn lvlp_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLP",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// PERK has no base form component block, so the layout and component name are inert.
+#[test]
+fn perk_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PERK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn lvln_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// REGN has no base form component block, so the layout and component name are inert.
+#[test]
+fn regn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "REGN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// TXST has no FormID member outside the base form component block, so no dangling-link
+// test.
+#[test]
+fn txst_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "TXST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// SOUN has no base form component block and no FormID member: the layout and component
+// name are inert, and there is no dangling-link test.
+#[test]
+fn soun_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SOUN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// WKMF has no base form component block, so the layout and component name are inert.
+#[test]
+fn wkmf_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "WKMF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn rspj_dangling_link_is_reported() {
+    // The workbench keyword, the created item, the category keyword and the required
+    // research project.
+    dangling(
+        "RSPJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("BNAM", json!(MISSING)),
+            ("CNAM", json!(MISSING)),
+            ("KNAM", json!(MISSING)),
+            ("RNAM", json!(MISSING)),
+        ],
+        &["BNAM", "CNAM", "KNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn npc_dangling_link_is_reported() {
+    // The race, the class, the voice type and the default layer.
+    dangling(
+        "NPC_",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("RNAM", json!(MISSING)),
+            ("CNAM", json!(MISSING)),
+            ("VTCK", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+        ],
+        &["RNAM", "CNAM", "VTCK", "DEFL"],
+    );
+}
+
+#[test]
+fn pack_dangling_link_is_reported() {
+    // The combat style, the owner quest, the animation flavor and the idle list (a formid
+    // array, set whole as a JSON array of its elements).
+    dangling(
+        "PACK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("CNAM", json!(MISSING)),
+            ("QNAM", json!(MISSING)),
+            ("FLAV", json!(MISSING)),
+            ("IDLA", json!([MISSING])),
+        ],
+        &["CNAM", "QNAM", "FLAV", "IDLA"],
+    );
+}
+
+#[test]
+fn pndt_dangling_link_is_reported() {
+    // The FNAM link and the atmosphere (a field of INAM); CNAM, an array of structs, is
+    // not addressed by set's paths.
+    dangling(
+        "PNDT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("FNAM", json!(MISSING)),
+            ("INAM.Atmosphere", json!(MISSING)),
+        ],
+        &["FNAM", "INAM"],
+    );
+}
+
+#[test]
+fn pcmt_dangling_link_is_reported() {
+    // The PCCB link and the keyword list.
+    dangling(
+        "PCMT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("PCCB", json!(MISSING)), ("KWDA", json!([MISSING]))],
+        &["PCCB", "KWDA"],
+    );
+}
+
+#[test]
+fn pcbn_dangling_link_is_reported() {
+    dangling(
+        "PCBN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("NAM3", json!(MISSING)),
+            ("NAM4", json!(MISSING)),
+            ("PCCB", json!(MISSING)),
+            ("PRTN", json!(MISSING)),
+            ("PRVN", json!(MISSING)),
+        ],
+        &["NAM3", "NAM4", "PCCB", "PRTN", "PRVN"],
+    );
+}
+
+#[test]
+fn pccn_dangling_link_is_reported() {
+    dangling(
+        "PCCN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("PCCC", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+            ("PRTN", json!(MISSING)),
+            ("PRVN", json!(MISSING)),
+        ],
+        &["PCCC", "KWDA", "PRTN", "PRVN"],
+    );
+}
+
+#[test]
+fn lvlp_dangling_link_is_reported() {
+    // The chance-none global and a leveled entry's pack-in.
+    dangling(
+        "LVLP",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LVLG", json!(MISSING)), ("LVLO.PackIn", json!(MISSING))],
+        &["LVLG", "PackIn"],
+    );
+}
+
+#[test]
+fn perk_dangling_link_is_reported() {
+    dangling(
+        "PERK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("TNAM", json!(MISSING)),
+            ("UNAM", json!(MISSING)),
+            ("RNAM", json!(MISSING)),
+        ],
+        &["TNAM", "UNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn lvln_dangling_link_is_reported() {
+    // The chance-none global and a leveled entry's actor.
+    dangling(
+        "LVLN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LVLG", json!(MISSING)), ("LVLO.Npc", json!(MISSING))],
+        &["LVLG", "Npc"],
+    );
+}
+
+#[test]
+fn regn_dangling_link_is_reported() {
+    // A weather type naming the missing weather (Weather, Chance, Global, 4 bytes each):
+    // set's paths do not address elements of a payload that is itself an array, so the
+    // entry is written whole; the null Global is allowed.
+    let mut rdwt = 0x0000_0FFFu32.to_le_bytes().to_vec();
+    rdwt.extend_from_slice(&50u32.to_le_bytes());
+    rdwt.extend_from_slice(&[0; 4]);
+    dangling(
+        "REGN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("RDWT", json!(hex(&rdwt)))],
+        &["RDWT"],
+    );
+}
+
+#[test]
+fn wkmf_dangling_link_is_reported() {
+    // The keyword list (a formid array, set whole as a JSON array of its elements).
+    dangling(
+        "WKMF",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("WMKA", json!([MISSING]))],
+        &["WMKA"],
     );
 }
