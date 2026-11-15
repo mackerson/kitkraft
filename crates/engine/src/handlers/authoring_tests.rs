@@ -6,7 +6,9 @@
 //! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
 //! ENCH, IRES and HAZD (KK-265, 2026-11-14), DIAL and INFO under their parents (KK-277,
 //! 2026-11-15; `dialogue_tests.rs` fixture), WWED (KK-291, 2026-11-15), RSPJ (KK-300), AVIF
-//! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15)
+//! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15),
+//! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
+//! 2026-11-15)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1889,11 +1891,65 @@ fn avif_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+#[test]
+fn pndt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PNDT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pcmt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCMT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pcbn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCBN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn pccn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PCCN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn lvlp_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLP",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 // PERK has no base form component block, so the layout and component name are inert.
 #[test]
 fn perk_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "PERK",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn lvln_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLN",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );
@@ -1960,6 +2016,79 @@ fn rspj_dangling_link_is_reported() {
 }
 
 #[test]
+fn pndt_dangling_link_is_reported() {
+    // The FNAM link and the atmosphere (a field of INAM); CNAM, an array of structs, is
+    // not addressed by set's paths.
+    dangling(
+        "PNDT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("FNAM", json!(MISSING)),
+            ("INAM.Atmosphere", json!(MISSING)),
+        ],
+        &["FNAM", "INAM"],
+    );
+}
+
+#[test]
+fn pcmt_dangling_link_is_reported() {
+    // The PCCB link and the keyword list.
+    dangling(
+        "PCMT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("PCCB", json!(MISSING)), ("KWDA", json!([MISSING]))],
+        &["PCCB", "KWDA"],
+    );
+}
+
+#[test]
+fn pcbn_dangling_link_is_reported() {
+    dangling(
+        "PCBN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("NAM3", json!(MISSING)),
+            ("NAM4", json!(MISSING)),
+            ("PCCB", json!(MISSING)),
+            ("PRTN", json!(MISSING)),
+            ("PRVN", json!(MISSING)),
+        ],
+        &["NAM3", "NAM4", "PCCB", "PRTN", "PRVN"],
+    );
+}
+
+#[test]
+fn pccn_dangling_link_is_reported() {
+    dangling(
+        "PCCN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("PCCC", json!(MISSING)),
+            ("KWDA", json!([MISSING])),
+            ("PRTN", json!(MISSING)),
+            ("PRVN", json!(MISSING)),
+        ],
+        &["PCCC", "KWDA", "PRTN", "PRVN"],
+    );
+}
+
+#[test]
+fn lvlp_dangling_link_is_reported() {
+    // The chance-none global and a leveled entry's pack-in.
+    dangling(
+        "LVLP",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LVLG", json!(MISSING)), ("LVLO.PackIn", json!(MISSING))],
+        &["LVLG", "PackIn"],
+    );
+}
+
+#[test]
 fn perk_dangling_link_is_reported() {
     dangling(
         "PERK",
@@ -1971,6 +2100,18 @@ fn perk_dangling_link_is_reported() {
             ("RNAM", json!(MISSING)),
         ],
         &["TNAM", "UNAM", "RNAM"],
+    );
+}
+
+#[test]
+fn lvln_dangling_link_is_reported() {
+    // The chance-none global and a leveled entry's actor.
+    dangling(
+        "LVLN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LVLG", json!(MISSING)), ("LVLO.Npc", json!(MISSING))],
+        &["LVLG", "Npc"],
     );
 }
 

@@ -460,6 +460,66 @@ evidence = [
 ]
 note = "KK-305: new with every typed leaf member (6 subrecords; WKMF has no component block) on the ContactShadow component layout, read back identically, validate with no finding; dangling the keyword list WMKA reported"
 
+[[entry]]
+type = "PCMT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::pcmt_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::pcmt_dangling_link_is_reported",
+]
+note = "KK-306: new with every typed leaf member (13 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the nodes PCCB and the keyword list KWDA reported"
+
+[[entry]]
+type = "PCBN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::pcbn_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::pcbn_dangling_link_is_reported",
+]
+note = "KK-307: new with every typed leaf member (17 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the count and distribution curves NAM3 and NAM4, the nodes PCCB, the parent and previous nodes PRTN and PRVN reported"
+
+[[entry]]
+type = "PCCN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::pccn_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::pccn_dangling_link_is_reported",
+]
+note = "KK-308: new with every typed leaf member (9 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the content PCCC, the keyword list KWDA, the parent and previous nodes PRTN and PRVN reported"
+
+[[entry]]
+type = "PNDT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::pndt_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::pndt_dangling_link_is_reported",
+]
+note = "KK-309: new with every typed leaf member (26 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the surface tree FNAM and the atmosphere INAM.Atmosphere reported"
+
+[[entry]]
+type = "LVLP"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::lvlp_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::lvlp_dangling_link_is_reported",
+]
+note = "KK-310: new with every typed leaf member (27 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling the chance-none global LVLG and a leveled entry's pack-in LVLO.PackIn reported"
+
+[[entry]]
+type = "LVLN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::lvln_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::lvln_dangling_link_is_reported",
+]
+note = "KK-311: new with every typed leaf member (29 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; 1 whole-opaque subrecord unchecked; dangling the chance-none global LVLG and a leveled entry's actor LVLO.Npc reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

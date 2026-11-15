@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN and WKMF (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP and LVLN (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -471,3 +471,24 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
 - KK-304: `txst_new_sets_every_typed_member_and_reads_back` (16 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. No dangling-link test: TXST has no FormID member outside the base form component block.
 - KK-305: `soun_new_sets_every_typed_member_and_reads_back` (8 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. No dangling-link test: SOUN has no FormID member.
 - KK-305: `wkmf_new_sets_every_typed_member_and_reads_back` (6 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `wkmf_dangling_link_is_reported` (the keyword list `WMKA`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## PCMT, PCBN, PCCN, PNDT, LVLP and LVLN (KK-306 to KK-311, 2026-11-15)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`). PCMT, PCBN, PCCN, PNDT, LVLP and LVLN on the `ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| PCMT | not-run | pass |
+| PCBN | not-run | pass |
+| PCCN | not-run | pass |
+| PNDT | not-run | pass |
+| LVLP | not-run | pass |
+| LVLN | not-run | pass |
+
+- KK-306: `pcmt_new_sets_every_typed_member_and_reads_back` (13 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `pcmt_dangling_link_is_reported` (the nodes `PCCB` and the keyword list `KWDA`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-307: `pcbn_new_sets_every_typed_member_and_reads_back` (17 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `pcbn_dangling_link_is_reported` (the count and distribution curves `NAM3` and `NAM4`, the nodes `PCCB`, the parent and previous nodes `PRTN` and `PRVN`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-308: `pccn_new_sets_every_typed_member_and_reads_back` (9 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `pccn_dangling_link_is_reported` (the content `PCCC`, the keyword list `KWDA`, the parent and previous nodes `PRTN` and `PRVN`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-309: `pndt_new_sets_every_typed_member_and_reads_back` (26 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `pndt_dangling_link_is_reported` (the surface tree `FNAM` and the atmosphere `INAM.Atmosphere`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-310: `lvlp_new_sets_every_typed_member_and_reads_back` (27 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and no unchecked subrecord. `lvlp_dangling_link_is_reported` (the chance-none global `LVLG` and a leveled entry's pack-in `LVLO.PackIn`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+- KK-311: `lvln_new_sets_every_typed_member_and_reads_back` (29 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and 1 whole-opaque subrecord unchecked. `lvln_dangling_link_is_reported` (the chance-none global `LVLG` and a leveled entry's actor `LVLO.Npc`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
