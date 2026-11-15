@@ -355,6 +355,28 @@ evidence = [
 ]
 note = "KK-265: new with every typed leaf member (24 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling SNTP, DEFL, MNAM reported"
 
+[[entry]]
+type = "DIAL"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::dial_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::dial_dangling_link_is_reported",
+  "test: crates/engine/src/handlers/dialogue_tests.rs::a_new_topic_goes_into_its_master_quests_children_group",
+]
+note = "KK-277: new under a parent quest (the dialogue fixture's KC_Quest, carried into the patch) with every typed leaf member (14 subrecords on the ContactShadow component layout; QNAM written from the parent), read back identically, validate with no finding; dangling BNAM, KNAM, ANAM reported. Unverified: group type 10 has no permitted-source name and no Creation Kit plugin with quest children has been observed (docs/gaps.md, docs/design/dialogue.md); the layout is corpus-read only, not CK- or game-proven"
+
+[[entry]]
+type = "INFO"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::info_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::info_dangling_link_is_reported",
+  "test: crates/engine/src/handlers/dialogue_tests.rs::a_new_response_goes_under_its_master_topic_and_the_topic_lists_it",
+]
+note = "KK-277: new under a parent topic (the dialogue fixture's KC_Topic, carried with its quest; its TIFL lists the response, TIFC counts it) with every typed leaf member (60 subrecords, 3 whole-opaque), read back identically, validate with no finding; dangling DNAM, GNAM, TRDA Emotion, TROT VoiceType reported. Unverified: group types 10 and 7 as the CK writes them are not observed (docs/gaps.md, docs/design/dialogue.md); corpus-read only, not CK- or game-proven"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

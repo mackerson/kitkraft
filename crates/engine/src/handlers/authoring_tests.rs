@@ -4,7 +4,8 @@
 //! WRLD tests un-ignored by KK-221), CONT, MISC, FLST and LVLI (KK-017, 2026-10-27) and
 //! ARMO, ARMA and OTFT (KK-021, 2026-10-27), ALCH, BOOK and KEYM (KK-258, 2026-11-14),
 //! FLOR, DOOR and LIGH (KK-259, 2026-11-14), FURN, MSTT and MESG (KK-260, 2026-11-14),
-//! ENCH, IRES and HAZD (KK-265, 2026-11-14)
+//! ENCH, IRES and HAZD (KK-265, 2026-11-14), DIAL and INFO under their parents (KK-277,
+//! 2026-11-15; `dialogue_tests.rs` fixture)
 //! (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
@@ -1615,5 +1616,168 @@ fn hazd_dangling_link_is_reported() {
             ("MNAM", json!(MISSING)),
         ],
         &["SNTP", "DEFL", "MNAM"],
+    );
+}
+
+/// `new` of a record that lives under a parent (KK-277: a `DIAL` under its quest, an
+/// `INFO` under its topic) on the dialogue fixture (`dialogue_tests::dialogue_master`:
+/// `Source.esm` and `Quest.esm`), into `New.esp`.
+fn new_nested(
+    d: &Path,
+    data: &Path,
+    sig: &str,
+    edid: &str,
+    parent: &str,
+    fields: &Map<String, Value>,
+) -> Value {
+    execute(
+        "new",
+        json!({
+            "type": sig, "edid": edid, "fields": fields, "parent": parent,
+            "into": d.join("New.esp").display().to_string(),
+            "plugins": ["Source.esm", "Quest.esm"], "data_dir": data.display().to_string(),
+            "no_cache": true,
+        }),
+    )
+    .unwrap_or_else(|e| panic!("new {sig}: {e}"))
+}
+
+/// The plan for a record under a parent: a topic's `QNAM` is written from its `parent`
+/// (`new.parent-mismatch` refuses another value), so the plan keeps the member and drops
+/// its field value; the test checks it holds the quest.
+fn nested_plan(sig: &str) -> Plan {
+    let mut p = plan(sig, "ContactShadow", "BGSContactShadowComponent_Component");
+    if sig == "DIAL" {
+        p.fields.remove("QNAM");
+        p.edits.retain(|(s, _, _)| s != b"QNAM");
+    }
+    p
+}
+
+/// [`writes_and_reads_back`] for a record under `parent` (KK-277): the same checks, the
+/// parent carried into the patch beside it.
+fn nested_writes_and_reads_back(sig: &str, parent: &str) {
+    let d = dir(&format!("authoring-nested-{}", sig.to_lowercase()));
+    let data = super::dialogue_tests::dialogue_master(&d);
+    std::fs::create_dir_all(d.join("meshes")).unwrap();
+    std::fs::write(d.join("meshes").join("Typed"), []).unwrap();
+    let p = nested_plan(sig);
+    let r = new_nested(&d, &data, sig, &format!("KC_New{sig}"), parent, &p.fields);
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let written = d.join("New.esp");
+    check_written(sig, &written, &data, &p);
+    let bytes = std::fs::read(&written).unwrap();
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let record = find_record(plugin.entries(), sig).unwrap();
+    if sig == "DIAL" {
+        let qnam = record
+            .find_subrecord(kitkraft_esm::Signature(*b"QNAM"), 0)
+            .unwrap();
+        assert_eq!(
+            record.subrecords().unwrap()[qnam].data(),
+            super::dialogue_tests::QUEST.to_le_bytes()
+        );
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// [`dangling`] for a record under `parent` (KK-277).
+fn nested_dangling(sig: &str, parent: &str, dangling: &[(&str, Value)], expect: &[&str]) {
+    let d = dir(&format!("authoring-nested-dangling-{}", sig.to_lowercase()));
+    let data = super::dialogue_tests::dialogue_master(&d);
+    let mut p = nested_plan(sig);
+    for (k, v) in dangling {
+        p.fields.insert((*k).to_string(), v.clone());
+    }
+    let edid = format!("KC_Dangling{sig}");
+    let r = new_nested(&d, &data, sig, &edid, parent, &p.fields);
+    assert_eq!(
+        r["data"]["validate"]["errors"],
+        json!(0),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let v = validate_at(&d.join("New.esp"), &data);
+    let findings: Vec<&Value> = v["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["rule"] == "formid.dangling")
+        .collect();
+    for want in expect {
+        assert!(
+            findings.iter().any(
+                |f| f["subrecord"].as_str().is_some_and(|s| s.contains(want))
+                    && f["message"].as_str().is_some_and(|m| m.contains("000FFF"))
+            ),
+            "{sig}: no formid.dangling for {want}: {findings:#?}"
+        );
+    }
+    let refs = execute(
+        "refs",
+        json!({
+            "form": edid,
+            "plugins": ["Source.esm", "Quest.esm", d.join("New.esp").display().to_string()],
+            "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap();
+    let edges = refs["data"]["edges"].as_array().unwrap();
+    let missing: Vec<&str> = edges
+        .iter()
+        .filter(|e| e["status"] == "missing")
+        .filter_map(|e| e["path"].as_str())
+        .collect();
+    assert!(
+        missing.len() >= expect.len(),
+        "{sig}: refs lists {missing:?} as missing, expected {expect:?}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+// KK-277: a topic under the fixture's quest, every typed member of DIAL written (QNAM
+// from the parent).
+#[test]
+fn dial_new_sets_every_typed_member_and_reads_back() {
+    nested_writes_and_reads_back("DIAL", "KC_Quest");
+}
+
+// KK-277: a response under the fixture's topic, every typed member of INFO written.
+#[test]
+fn info_new_sets_every_typed_member_and_reads_back() {
+    nested_writes_and_reads_back("INFO", "KC_Topic");
+}
+
+#[test]
+fn dial_dangling_link_is_reported() {
+    nested_dangling(
+        "DIAL",
+        "KC_Quest",
+        &[
+            ("BNAM", json!(MISSING)),
+            ("KNAM", json!(MISSING)),
+            ("ANAM", json!(MISSING)),
+        ],
+        &["BNAM", "KNAM", "ANAM"],
+    );
+}
+
+#[test]
+fn info_dangling_link_is_reported() {
+    nested_dangling(
+        "INFO",
+        "KC_Topic",
+        &[
+            ("DNAM", json!(MISSING)),
+            ("GNAM", json!(MISSING)),
+            ("TRDA.Emotion", json!(MISSING)),
+            ("TROT.VoiceType", json!(MISSING)),
+        ],
+        &["DNAM", "GNAM", "TRDA", "TROT"],
     );
 }
