@@ -1001,7 +1001,9 @@ pub fn write_patch_with(
                 );
             }
         }
-        for edit in &copy.edits {
+        // Applied deciders first, reported in the order the edits were given.
+        let mut applied: Vec<(usize, FieldChange)> = Vec::new();
+        for (given, edit) in deciders_first(&record, &copy.edits) {
             if names_local_form(&edit.op) {
                 deferred.push(edit.clone());
                 continue;
@@ -1013,8 +1015,10 @@ pub fn write_patch_with(
             if marks_written(edit, &change) {
                 written.insert(change.subrecord_index);
             }
-            changes.push(change);
+            applied.push((given, change));
         }
+        applied.sort_by_key(|(given, _)| *given);
+        changes.extend(applied.into_iter().map(|(_, c)| c));
         let inlined = inline_lstrings(
             &mut record,
             &copy.source,
@@ -2027,6 +2031,37 @@ fn remap_record(
     record.header.form_id =
         map(record.header.form_id).map_err(|m| refused(format!("{what}: {m}")))?;
     Ok(())
+}
+
+/// Where an edit sorts: its subrecord's signature and occurrence, then its field order.
+type EditOrder = (u32, usize, Vec<usize>);
+
+/// `edits` (each with its index in `edits`) in the order they are applied to `record`: by subrecord (signature, then
+/// occurrence) and, inside one subrecord, whole-subrecord edits first and member edits in
+/// the definition's field order (`fields::field_order`), so a union's decider is written
+/// before the variant it selects whatever the order of the keys that gave them (a stable
+/// sort: edits the layout cannot order keep theirs).
+pub(crate) fn deciders_first<'e>(record: &Record<'_>, edits: &'e [Edit]) -> Vec<(usize, &'e Edit)> {
+    let sigs: Vec<[u8; 4]> = record
+        .subrecords()
+        .map(|subs| subs.iter().map(|s| s.signature().0).collect())
+        .unwrap_or_default();
+    let layouts = super::fields::layouts(record.header.signature.0, &sigs);
+    let mut keyed: Vec<(EditOrder, (usize, &Edit))> = edits
+        .iter()
+        .enumerate()
+        .map(|(given, e)| {
+            let order = record
+                .find_subrecord(Signature(e.path.signature), e.path.occurrence)
+                .and_then(|i| layouts.get(i).cloned().flatten())
+                .map(|l| super::fields::field_order(&l.ty, &e.path.steps))
+                .unwrap_or_default();
+            let sig = u32::from_be_bytes(e.path.signature);
+            ((sig, e.path.occurrence, order), (given, e))
+        })
+        .collect();
+    keyed.sort_by(|a, b| a.0.cmp(&b.0));
+    keyed.into_iter().map(|(_, e)| e).collect()
 }
 
 /// Whether a subrecord layout leaves bytes of **unknown layout**: a whole payload kept as

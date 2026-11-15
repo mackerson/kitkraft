@@ -527,6 +527,44 @@ pub fn locate<'t>(
     Ok(Located { start, len, ty })
 }
 
+/// Where `steps` sit in the definition's field order inside a payload laid out as `ty`: per
+/// step, the field's index in its struct, an array element's index, `0` for a union
+/// variant (`usize::MAX` for a step the layout does not know, which ends the key). Edits
+/// of one subrecord sorted by it write a union's deciders (always earlier fields) before
+/// the union (`docs/design/conditions.md`, "Deciders first"): JSON objects reach the
+/// engine with their keys sorted, which put `CTDA.Reference.Reference` before
+/// `CTDA.RunOn`.
+pub fn field_order(ty: &FieldType, steps: &[Step]) -> Vec<usize> {
+    let mut out = Vec::with_capacity(steps.len());
+    let mut ty = deref(ty);
+    for step in steps {
+        let next = match (step, ty) {
+            (Step::Member(name), FieldType::Struct { fields }) => fields
+                .iter()
+                .enumerate()
+                .find(|(_, f)| f.name.eq_ignore_ascii_case(name))
+                .map(|(i, f)| (i, &f.ty)),
+            (Step::Member(name), FieldType::Union { variants, .. }) => variants
+                .iter()
+                .find(|v| v.name.eq_ignore_ascii_case(name))
+                .map(|v| (0, &v.ty)),
+            (Step::Index(i), FieldType::Array { element, .. }) => Some((*i, &**element)),
+            _ => None,
+        };
+        match next {
+            Some((i, inner)) => {
+                out.push(i);
+                ty = deref(inner);
+            }
+            None => {
+                out.push(usize::MAX);
+                break;
+            }
+        }
+    }
+    out
+}
+
 /// The variant of a union layout that applies to a record whose `EDID` payload starts with
 /// `edid_first` (`decider = "edid-prefix"`); `ty` itself for any other type. A union no
 /// variant claims stays a union (handled as opaque).
