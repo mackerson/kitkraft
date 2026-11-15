@@ -734,7 +734,13 @@ fn wrld_new_sets_every_typed_member_and_reads_back() {
 /// `validate` reports each (by the member path its visitor gives, `expect`) and `refs`
 /// lists each as a missing link.
 fn dangling(sig: &str, layout: &str, component: &str, dangling: &[(&str, Value)], expect: &[&str]) {
-    let d = dir(&format!("authoring-dangling-{}", sig.to_lowercase()));
+    // The layout in the name, as in `writes_and_reads_back_with`: two STAT tests on
+    // different layouts would otherwise wipe each other's dir when run in parallel.
+    let d = dir(&format!(
+        "authoring-dangling-{}-{}",
+        sig.to_lowercase(),
+        layout.to_lowercase()
+    ));
     let mut p = plan(sig, layout, component);
     for (k, v) in dangling {
         p.fields.insert((*k).to_string(), v.clone());

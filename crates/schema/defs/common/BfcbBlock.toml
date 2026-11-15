@@ -28,6 +28,8 @@
 #     upstream unit that is not an authorized source (ADR 0004).
 #   - `Keywords` (KSIZ and KWDA through the shared Keywords group, L6694-L6697; KK-282,
 #     2026-11-15): BGSKeywordForm_Component, a STAT's and a REFR's keywords.
+#   - `ObjectPaletteDefaults` (one OPDS, the shared ObjectPaletteDefaults type,
+#     L6170-L6173; KK-283, 2026-11-15): BGSObjectPaletteDefaults_Component.
 # Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
@@ -151,6 +153,23 @@ field = [
   { name = "ExclusiveSlots", type = "array", element = "u32", count_from = "Count" },
 ]
 note = "per DCSD slot, in the same order: the display slots it excludes"
+
+[[member]]
+group = "ObjectPaletteDefaults"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6170-L6173"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-15: the 6,105 BGSObjectPaletteDefaults_Component blocks with data of the 14 official ESMs (REFR, ACHR, DIAL; 121 more blocks of the name are empty) each hold one 80-byte OPDS; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSObjectPaletteDefaults_Component: the placement defaults a reference carries"
+
+[[member.member]]
+sig = "OPDS"
+name = "Defaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
 
 [[member]]
 group = "PlanetContentProperties"

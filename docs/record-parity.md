@@ -18,13 +18,13 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 64:
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
 | weapons         |           10 |          10 |    15,986 |    188,934 |       525 |     242 |
-| world           |            7 |           7 | 6,880,278 | 40,521,612 | 2,008,569 |  29,975 |
+| world           |            7 |           7 | 6,880,278 | 40,527,716 | 2,008,569 |  23,871 |
 | planet          |           15 |          15 |    26,290 |    499,146 |     4,942 | 308,373 |
-| quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 | 202,104 |
+| quest           |           10 |          10 |   267,549 |  3,900,605 |    50,107 | 202,103 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |       6 |
 | items           |           12 |          12 |    33,939 |    399,304 |    10,517 |     318 |
 | container/other |          123 |         123 |   252,710 |    672,461 |   400,284 |   7,094 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,393,672 | 2,477,777 | 548,112 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,399,777 | 2,477,777 | 542,007 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 64:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:e6dba29a832fae0a` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:b1e598d6d824fb86` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -60,16 +60,16 @@ Columns:
 
 | Record        | Schema                         |   Records | Compressed |  Seen | Typed | Opaque | Unknown |
 | ------------- | ------------------------------ | --------: | ---------: | ----: | ----: | -----: | ------: |
-| `REFR`        | PlacedObject                   | 6,719,725 |          0 |   119 |   104 |      9 |       6 |
+| `REFR`        | PlacedObject                   | 6,719,725 |          0 |   119 |   105 |      9 |       5 |
 | `RFGP`        | ReferenceGroup                 |   169,006 |          0 |    10 |     8 |      2 |       0 |
 | `INFO`        | DialogResponse                 |   162,028 |          0 |    48 |    47 |      1 |       0 |
 | `NAVM`        | Navmesh                        |    92,893 |     92,764 |     6 |     2 |      4 |       0 |
-| `DIAL`        | DialogTopic                    |    87,031 |          0 |    15 |    14 |      0 |       1 |
+| `DIAL`        | DialogTopic                    |    87,031 |          0 |    15 |    15 |      0 |       0 |
 | `CELL`        | Cell                           |    40,251 |     32,230 |    34 |    31 |      2 |       1 |
 | `STAT`        | Static                         |    22,296 |          0 |    32 |    26 |      3 |       3 |
 | `LMSW`        | LayeredMaterialSwap            |    17,410 |          0 |     9 |     6 |      1 |       2 |
 | `PKIN`        | PackIn                         |    15,128 |          0 |    41 |    38 |      3 |       0 |
-| `ACHR`        | PlacedNpc                      |    14,731 |          0 |    29 |    26 |      2 |       1 |
+| `ACHR`        | PlacedNpc                      |    14,731 |          0 |    29 |    27 |      2 |       0 |
 | `LAYR`        | Layer                          |    10,424 |          0 |     7 |     4 |      3 |       0 |
 | `SCEN`        | Scene                          |     9,673 |          0 |    89 |    40 |      1 |      48 |
 | `NPC_`        | Npc                            |     8,447 |      8,447 |    92 |    90 |      1 |       1 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,377 |    250 |     170 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,380 |    250 |     167 |
 
-Subrecord occurrences: 50,419,561 in total; 47,393,672 typed (0 of them failed to decode), 2,477,777 opaque, 548,112 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,399,777 typed (0 of them failed to decode), 2,477,777 opaque, 542,007 unknown.
 
 ## Decoded through the definitions
 
@@ -262,16 +262,16 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 
 | Record    | Schema                         | Typed records |    Decoded | Failed | Re-encode | reference | container-reference |     corpus | ck-diff | verified |
 | --------- | ------------------------------ | ------------: | ---------: | -----: | --------: | --------: | ------------------: | ---------: | ------: | -------: |
-| `REFR`    | PlacedObject                   |     6,719,725 | 40,051,762 |      0 |         0 |         0 |                   0 | 40,051,762 |       0 |        0 |
+| `REFR`    | PlacedObject                   |     6,719,725 | 40,056,842 |      0 |         0 |         0 |                   0 | 40,056,842 |       0 |        0 |
 | `RFGP`    | ReferenceGroup                 |       169,006 |    208,832 |      0 |         0 |   208,825 |                   0 |          7 |       0 |        0 |
 | `INFO`    | DialogResponse                 |       162,028 |  1,895,206 |      0 |         0 |         0 |                   0 |  1,895,206 |       0 |        0 |
 | `NAVM`    | Navmesh                        |        92,893 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
-| `DIAL`    | DialogTopic                    |        87,031 |    527,548 |      0 |         0 |         0 |                   0 |    527,548 |       0 |        0 |
+| `DIAL`    | DialogTopic                    |        87,031 |    527,549 |      0 |         0 |         0 |                   0 |    527,549 |       0 |        0 |
 | `CELL`    | Cell                           |        40,251 |    265,596 |      0 |         0 |         1 |                   0 |    265,595 |       0 |        0 |
 | `STAT`    | Static                         |        22,296 |    214,599 |      0 |         0 |         0 |                   0 |    214,599 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |        17,410 |     21,361 |      0 |         0 |         0 |                   0 |     21,361 |       0 |        0 |
 | `PKIN`    | PackIn                         |        15,128 |    142,177 |      0 |         0 |         0 |                   0 |    142,177 |       0 |        0 |
-| `ACHR`    | PlacedNpc                      |        14,731 |     85,855 |      0 |         0 |         0 |                   0 |     85,855 |       0 |        0 |
+| `ACHR`    | PlacedNpc                      |        14,731 |     86,879 |      0 |         0 |         0 |                   0 |     86,879 |       0 |        0 |
 | `LAYR`    | Layer                          |        10,424 |     10,430 |      0 |         0 |         0 |                   0 |     10,430 |       0 |        0 |
 | `SCEN`    | Scene                          |         9,673 |    872,488 |      0 |         0 |         0 |                   0 |    872,488 |       0 |        0 |
 | `NPC_`    | Npc                            |         8,447 |  1,121,250 |      0 |         0 |         0 |                   0 |  1,121,250 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,393,672 |      0 |         0 |   233,807 |                   0 | 47,159,865 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,399,777 |      0 |         0 |   233,807 |                   0 | 47,165,970 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -465,203 +465,201 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | --------- | ------------------------------ | -------------: | ----: | -----: | --------: | ------------------: | -----: | ------: | -------: |
 | `AACT`    | ActionForm                     |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `AAMD`    | AimAssistModelData             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `AAPD`    | AimAssistPoseDataForm          |             46 |    43 |      3 |         0 |                   0 |     46 |       0 |        0 |
-| `ACHR`    | PlacedNpc                      |             78 |    72 |      6 |        11 |                   0 |     67 |       0 |        0 |
-| `ACTI`    | Activator                      |             80 |    75 |      5 |         9 |                   0 |     71 |       0 |        0 |
-| `ADDN`    | AddonNode                      |             48 |    43 |      5 |         2 |                   0 |     46 |       0 |        0 |
+| `AAPD`    | AimAssistPoseDataForm          |             47 |    44 |      3 |         0 |                   0 |     47 |       0 |        0 |
+| `ACHR`    | PlacedNpc                      |             79 |    73 |      6 |        11 |                   0 |     68 |       0 |        0 |
+| `ACTI`    | Activator                      |             81 |    76 |      5 |         9 |                   0 |     72 |       0 |        0 |
+| `ADDN`    | AddonNode                      |             49 |    44 |      5 |         2 |                   0 |     47 |       0 |        0 |
 | `AFFE`    | AffinityEvent                  |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
-| `ALCH`    | Ingestible                     |             79 |    75 |      4 |         9 |                   0 |     70 |       0 |        0 |
+| `ALCH`    | Ingestible                     |             80 |    76 |      4 |         9 |                   0 |     71 |       0 |        0 |
 | `AMBS`    | AmbienceSetForm                |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `AMDL`    | AimModel                       |             37 |    34 |      3 |         0 |                   0 |     37 |       0 |        0 |
-| `AMMO`    | Ammunition                     |             69 |    65 |      4 |        12 |                   0 |     57 |       0 |        0 |
-| `ANIO`    | AnimatedObject                 |             43 |    39 |      4 |         2 |                   0 |     41 |       0 |        0 |
+| `AMDL`    | AimModel                       |             38 |    35 |      3 |         0 |                   0 |     38 |       0 |        0 |
+| `AMMO`    | Ammunition                     |             70 |    66 |      4 |        12 |                   0 |     58 |       0 |        0 |
+| `ANIO`    | AnimatedObject                 |             44 |    40 |      4 |         2 |                   0 |     42 |       0 |        0 |
 | `AOPF`    | AudioOcclusionPrimitive        |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `AOPS`    | AimOpticalSightMarker          |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `AORU`    | AttractionRuleForm             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `ARMA`    | ArmorAddon                     |             85 |    81 |      4 |        40 |                   0 |     45 |       0 |        0 |
-| `ARMO`    | Armor                          |             87 |    83 |      4 |        11 |                   0 |     76 |       0 |        0 |
-| `ARTO`    | ArtObject                      |             51 |    47 |      4 |         2 |                   0 |     49 |       0 |        0 |
-| `ASPC`    | AcousticSpace                  |             52 |    48 |      4 |         1 |                   0 |     51 |       0 |        0 |
+| `ARMA`    | ArmorAddon                     |             86 |    82 |      4 |        40 |                   0 |     46 |       0 |        0 |
+| `ARMO`    | Armor                          |             88 |    84 |      4 |        11 |                   0 |     77 |       0 |        0 |
+| `ARTO`    | ArtObject                      |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
+| `ASPC`    | AcousticSpace                  |             53 |    49 |      4 |         1 |                   0 |     52 |       0 |        0 |
 | `ATMO`    | Atmosphere                     |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `AVIF`    | ActorValueInformation          |             10 |     9 |      1 |         1 |                   0 |      9 |       0 |        0 |
-| `AVMD`    | AvmsData                       |             45 |    42 |      3 |         0 |                   0 |     45 |       0 |        0 |
+| `AVMD`    | AvmsData                       |             46 |    43 |      3 |         0 |                   0 |     46 |       0 |        0 |
 | `BIOM`    | Biome                          |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
-| `BMMO`    | BiomeMarker                    |             58 |    54 |      4 |         7 |                   0 |     51 |       0 |        0 |
-| `BMOD`    | BoneModifier                   |             37 |    33 |      4 |         0 |                   0 |     37 |       0 |        0 |
+| `BMMO`    | BiomeMarker                    |             59 |    55 |      4 |         7 |                   0 |     52 |       0 |        0 |
+| `BMOD`    | BoneModifier                   |             38 |    34 |      4 |         0 |                   0 |     38 |       0 |        0 |
 | `BNDS`    | BendableSplineForm             |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `BOOK`    | Book                           |             70 |    66 |      4 |         9 |                   0 |     61 |       0 |        0 |
-| `BPTD`    | BodyPartData                   |             51 |    48 |      3 |         2 |                   0 |     49 |       0 |        0 |
-| `CAMS`    | CameraShot                     |             51 |    47 |      4 |         2 |                   0 |     49 |       0 |        0 |
-| `CELL`    | Cell                           |             68 |    63 |      5 |         4 |                   0 |     64 |       0 |        0 |
-| `CHAL`    | Challenge                      |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
-| `CLAS`    | Class                          |             42 |    37 |      5 |         2 |                   0 |     40 |       0 |        0 |
+| `BOOK`    | Book                           |             71 |    67 |      4 |         9 |                   0 |     62 |       0 |        0 |
+| `BPTD`    | BodyPartData                   |             52 |    49 |      3 |         2 |                   0 |     50 |       0 |        0 |
+| `CAMS`    | CameraShot                     |             52 |    48 |      4 |         2 |                   0 |     50 |       0 |        0 |
+| `CELL`    | Cell                           |             69 |    64 |      5 |         4 |                   0 |     65 |       0 |        0 |
+| `CHAL`    | Challenge                      |             37 |    34 |      3 |         0 |                   0 |     37 |       0 |        0 |
+| `CLAS`    | Class                          |             43 |    38 |      5 |         2 |                   0 |     41 |       0 |        0 |
 | `CLDF`    | Clouds                         |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CLFM`    | ColorForm                      |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `CLMT`    | ClimateForm                    |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `CNDF`    | ConditionForm                  |             41 |    38 |      3 |         0 |                   0 |     41 |       0 |        0 |
-| `COBJ`    | ConstructibleObject            |             63 |    59 |      4 |         7 |                   0 |     56 |       0 |        0 |
-| `COLL`    | CollisionLayerForm             |             43 |    39 |      4 |         1 |                   0 |     42 |       0 |        0 |
-| `CONT`    | Container                      |             77 |    73 |      4 |         8 |                   0 |     69 |       0 |        0 |
+| `CNDF`    | ConditionForm                  |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
+| `COBJ`    | ConstructibleObject            |             64 |    60 |      4 |         7 |                   0 |     57 |       0 |        0 |
+| `COLL`    | CollisionLayerForm             |             44 |    40 |      4 |         1 |                   0 |     43 |       0 |        0 |
+| `CONT`    | Container                      |             78 |    74 |      4 |         8 |                   0 |     70 |       0 |        0 |
 | `CPTH`    | CameraPath                     |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `CSTY`    | CombatStyleForm                |             18 |    17 |      1 |         0 |                   0 |     18 |       0 |        0 |
 | `CUR3`    | Curve3D                        |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `CURV`    | CurveTable                     |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DEBR`    | Debris                         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `DFOB`    | DefaultObject                  |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `DIAL`    | DialogTopic                    |             46 |    43 |      3 |         0 |                   0 |     46 |       0 |        0 |
+| `DIAL`    | DialogTopic                    |             47 |    44 |      3 |         0 |                   0 |     47 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `DMGT`    | DamageType                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOBJ`    | DefaultObjectManager           |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `DOOR`    | Door                           |             72 |    65 |      7 |        10 |                   0 |     62 |       0 |        0 |
-| `EFSH`    | EffectShader                   |             41 |    33 |      8 |         0 |                   0 |     41 |       0 |        0 |
+| `DOOR`    | Door                           |             73 |    66 |      7 |        10 |                   0 |     63 |       0 |        0 |
+| `EFSH`    | EffectShader                   |             42 |    34 |      8 |         0 |                   0 |     42 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `ENCH`    | Enchantment                    |             51 |    47 |      4 |         1 |                   0 |     50 |       0 |        0 |
+| `ENCH`    | Enchantment                    |             52 |    48 |      4 |         1 |                   0 |     51 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `EXPL`    | Explosion                      |             51 |    48 |      3 |         1 |                   0 |     50 |       0 |        0 |
-| `FACT`    | Faction                        |             61 |    58 |      3 |         6 |                   0 |     55 |       0 |        0 |
+| `EXPL`    | Explosion                      |             52 |    49 |      3 |         1 |                   0 |     51 |       0 |        0 |
+| `FACT`    | Faction                        |             62 |    59 |      3 |         6 |                   0 |     56 |       0 |        0 |
 | `FFKW`    | FormFolderKeywordList          |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `FLOR`    | Flora                          |             80 |    76 |      4 |         8 |                   0 |     72 |       0 |        0 |
-| `FLST`    | FormIdList                     |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
+| `FLOR`    | Flora                          |             81 |    77 |      4 |         8 |                   0 |     73 |       0 |        0 |
+| `FLST`    | FormIdList                     |             45 |    42 |      3 |         0 |                   0 |     45 |       0 |        0 |
 | `FOGV`    | FogVolume                      |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FORC`    | ForceData                      |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FSTP`    | Footstep                       |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `FURN`    | Furniture                      |             84 |    79 |      5 |        11 |                   0 |     73 |       0 |        0 |
+| `FURN`    | Furniture                      |             85 |    80 |      5 |        11 |                   0 |     74 |       0 |        0 |
 | `FXPD`    | FacialExpression               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `GBFM`    | GenericBaseForm                |             50 |    45 |      5 |         0 |                   0 |     50 |       0 |        0 |
+| `GBFM`    | GenericBaseForm                |             51 |    46 |      5 |         0 |                   0 |     51 |       0 |        0 |
 | `GBFT`    | GenericBaseFormTemplate        |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `GCVR`    | GroundCover                    |             40 |    33 |      7 |         0 |                   0 |     40 |       0 |        0 |
-| `GLOB`    | Global                         |             37 |    34 |      3 |         0 |                   0 |     37 |       0 |        0 |
+| `GCVR`    | GroundCover                    |             41 |    34 |      7 |         0 |                   0 |     41 |       0 |        0 |
+| `GLOB`    | Global                         |             38 |    35 |      3 |         0 |                   0 |     38 |       0 |        0 |
 | `GMST`    | GameSetting                    |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
-| `GPOF`    | GameplayOption                 |             48 |    45 |      3 |         6 |                   0 |     42 |       0 |        0 |
+| `GPOF`    | GameplayOption                 |             49 |    46 |      3 |         6 |                   0 |     43 |       0 |        0 |
 | `GPOG`    | GameplayOptionsGroup           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `GRAS`    | Grass                          |             46 |    43 |      3 |         3 |                   0 |     43 |       0 |        0 |
+| `GRAS`    | Grass                          |             47 |    44 |      3 |         3 |                   0 |     44 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `HAZD`    | Hazard                         |             57 |    53 |      4 |         8 |                   0 |     49 |       0 |        0 |
-| `HDPT`    | HeadPart                       |             54 |    50 |      4 |         2 |                   0 |     52 |       0 |        0 |
+| `HAZD`    | Hazard                         |             58 |    54 |      4 |         8 |                   0 |     50 |       0 |        0 |
+| `HDPT`    | HeadPart                       |             55 |    51 |      4 |         2 |                   0 |     53 |       0 |        0 |
 | `IDLE`    | IdleAnimation                  |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
-| `IDLM`    | IdleMarker                     |             53 |    49 |      4 |         3 |                   0 |     50 |       0 |        0 |
+| `IDLM`    | IdleMarker                     |             54 |    50 |      4 |         3 |                   0 |     51 |       0 |        0 |
 | `IMAD`    | ImageSpaceAdapter              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `IMGS`    | ImageSpaceForm                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `INFO`    | DialogResponse                 |             92 |    86 |      6 |         7 |                   0 |     85 |       0 |        0 |
-| `INNR`    | InstanceNamingRules            |             44 |    40 |      4 |         1 |                   0 |     43 |       0 |        0 |
-| `IPCT`    | Impact                         |             52 |    49 |      3 |         4 |                   0 |     48 |       0 |        0 |
+| `INFO`    | DialogResponse                 |             93 |    87 |      6 |         7 |                   0 |     86 |       0 |        0 |
+| `INNR`    | InstanceNamingRules            |             45 |    41 |      4 |         1 |                   0 |     44 |       0 |        0 |
+| `IPCT`    | Impact                         |             53 |    50 |      3 |         4 |                   0 |     49 |       0 |        0 |
 | `IPDS`    | ImpactDataSet                  |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `IRES`    | Resource                       |             14 |    14 |      0 |         9 |                   0 |      5 |       0 |        0 |
 | `KEYM`    | Key                            |             33 |    32 |      1 |        15 |                   0 |     18 |       0 |        0 |
 | `KSSM`    | SoundKeywordMapping            |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
-| `KYWD`    | Keyword                        |             44 |    39 |      5 |         1 |                   0 |     43 |       0 |        0 |
-| `LAYR`    | Layer                          |             39 |    33 |      6 |         0 |                   0 |     39 |       0 |        0 |
-| `LCRT`    | LocationRefType                |             44 |    39 |      5 |         5 |                   0 |     39 |       0 |        0 |
-| `LCTN`    | Location                       |             73 |    68 |      5 |         8 |                   0 |     65 |       0 |        0 |
-| `LENS`    | LensFlare                      |             46 |    42 |      4 |         1 |                   0 |     45 |       0 |        0 |
-| `LGDI`    | LegendaryItem                  |             69 |    64 |      5 |        25 |                   0 |     44 |       0 |        0 |
+| `KYWD`    | Keyword                        |             45 |    40 |      5 |         1 |                   0 |     44 |       0 |        0 |
+| `LAYR`    | Layer                          |             40 |    34 |      6 |         0 |                   0 |     40 |       0 |        0 |
+| `LCRT`    | LocationRefType                |             45 |    40 |      5 |         5 |                   0 |     40 |       0 |        0 |
+| `LCTN`    | Location                       |             74 |    69 |      5 |         8 |                   0 |     66 |       0 |        0 |
+| `LENS`    | LensFlare                      |             47 |    43 |      4 |         1 |                   0 |     46 |       0 |        0 |
+| `LGDI`    | LegendaryItem                  |             70 |    65 |      5 |        25 |                   0 |     45 |       0 |        0 |
 | `LGTM`    | LightingTemplateForm           |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `LIGH`    | Light                          |             71 |    66 |      5 |        16 |                   0 |     55 |       0 |        0 |
-| `LMSW`    | LayeredMaterialSwap            |             37 |    33 |      4 |         0 |                   0 |     37 |       0 |        0 |
+| `LIGH`    | Light                          |             72 |    67 |      5 |        16 |                   0 |     56 |       0 |        0 |
+| `LMSW`    | LayeredMaterialSwap            |             38 |    34 |      4 |         0 |                   0 |     38 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `LTEX`    | LandscapeTexture               |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `LVLB`    | LeveledBaseForm                |             64 |    60 |      4 |        11 |                   0 |     53 |       0 |        0 |
-| `LVLI`    | LeveledItem                    |             70 |    66 |      4 |         9 |                   0 |     61 |       0 |        0 |
-| `LVLN`    | LeveledNpc                     |             62 |    57 |      5 |         7 |                   0 |     55 |       0 |        0 |
-| `LVLP`    | LeveledPackIn                  |             60 |    56 |      4 |         4 |                   0 |     56 |       0 |        0 |
-| `LVSC`    | LeveledSpaceCell               |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
+| `LVLB`    | LeveledBaseForm                |             65 |    61 |      4 |        11 |                   0 |     54 |       0 |        0 |
+| `LVLI`    | LeveledItem                    |             71 |    67 |      4 |         9 |                   0 |     62 |       0 |        0 |
+| `LVLN`    | LeveledNpc                     |             63 |    58 |      5 |         7 |                   0 |     56 |       0 |        0 |
+| `LVLP`    | LeveledPackIn                  |             61 |    57 |      4 |         4 |                   0 |     57 |       0 |        0 |
+| `LVSC`    | LeveledSpaceCell               |             50 |    46 |      4 |         2 |                   0 |     48 |       0 |        0 |
 | `MAAM`    | MeleeAimAssistModel            |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `MATT`    | MaterialType                   |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
-| `MESG`    | Message                        |             53 |    49 |      4 |         3 |                   0 |     50 |       0 |        0 |
-| `MGEF`    | MagicEffect                    |             48 |    44 |      4 |         2 |                   0 |     46 |       0 |        0 |
-| `MISC`    | MiscItem                       |             70 |    66 |      4 |        10 |                   0 |     60 |       0 |        0 |
+| `MATT`    | MaterialType                   |             45 |    42 |      3 |         0 |                   0 |     45 |       0 |        0 |
+| `MESG`    | Message                        |             54 |    50 |      4 |         3 |                   0 |     51 |       0 |        0 |
+| `MGEF`    | MagicEffect                    |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
+| `MISC`    | MiscItem                       |             71 |    67 |      4 |        10 |                   0 |     61 |       0 |        0 |
 | `MOVT`    | MovementTypeForm               |              7 |     7 |      0 |         6 |                   0 |      1 |       0 |        0 |
 | `MRPH`    | MorphableObject                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `MSTT`    | MoveableStatic                 |             67 |    63 |      4 |         8 |                   0 |     59 |       0 |        0 |
+| `MSTT`    | MoveableStatic                 |             68 |    64 |      4 |         8 |                   0 |     60 |       0 |        0 |
 | `MTPT`    | MaterialPath                   |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `MUSC`    | MusicTypeForm                  |             43 |    39 |      4 |         7 |                   0 |     36 |       0 |        0 |
-| `MUST`    | MusicTrack                     |             48 |    44 |      4 |         1 |                   0 |     47 |       0 |        0 |
+| `MUSC`    | MusicTypeForm                  |             44 |    40 |      4 |         7 |                   0 |     37 |       0 |        0 |
+| `MUST`    | MusicTrack                     |             49 |    45 |      4 |         1 |                   0 |     48 |       0 |        0 |
 | `NAVI`    | NavmeshInfoMap                 |              3 |     0 |      3 |         0 |                   0 |      3 |       0 |        0 |
-| `NAVM`    | Navmesh                        |             39 |    33 |      6 |         1 |                   0 |     38 |       0 |        0 |
+| `NAVM`    | Navmesh                        |             40 |    34 |      6 |         1 |                   0 |     39 |       0 |        0 |
 | `NOCM`    | NavmeshObstacleManager         |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `NPC_`    | Npc                            |            149 |   144 |      5 |        16 |                   0 |    133 |       0 |        0 |
-| `OMOD`    | ObjectModification             |             53 |    48 |      5 |         6 |                   0 |     47 |       0 |        0 |
+| `NPC_`    | Npc                            |            150 |   145 |      5 |        16 |                   0 |    134 |       0 |        0 |
+| `OMOD`    | ObjectModification             |             54 |    49 |      5 |         6 |                   0 |     48 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |              1 |     1 |      0 |         0 |                   0 |      1 |       0 |        0 |
-| `OTFT`    | Outfit                         |             38 |    34 |      4 |         1 |                   0 |     37 |       0 |        0 |
+| `OTFT`    | Outfit                         |             39 |    35 |      4 |         1 |                   0 |     38 |       0 |        0 |
 | `OVIS`    | ObjectVisibilityManager        |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `PACK`    | Package                        |             86 |    82 |      4 |         1 |                   0 |     85 |       0 |        0 |
-| `PCBN`    | PlanetContentBranchNode        |             49 |    46 |      3 |         1 |                   0 |     48 |       0 |        0 |
-| `PCCN`    | PlanetContentNode              |             41 |    38 |      3 |         0 |                   0 |     41 |       0 |        0 |
-| `PCMT`    | PlanetContentTree              |             45 |    42 |      3 |         2 |                   0 |     43 |       0 |        0 |
-| `PDCL`    | ProjectedDecal                 |             47 |    43 |      4 |         4 |                   0 |     43 |       0 |        0 |
+| `PACK`    | Package                        |             87 |    83 |      4 |         1 |                   0 |     86 |       0 |        0 |
+| `PCBN`    | PlanetContentBranchNode        |             50 |    47 |      3 |         1 |                   0 |     49 |       0 |        0 |
+| `PCCN`    | PlanetContentNode              |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
+| `PCMT`    | PlanetContentTree              |             46 |    43 |      3 |         2 |                   0 |     44 |       0 |        0 |
+| `PDCL`    | ProjectedDecal                 |             48 |    44 |      4 |         4 |                   0 |     44 |       0 |        0 |
 | `PERK`    | Perk                           |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
 | `PERS`    | UnknownPers                    |              2 |     0 |      2 |         0 |                   0 |      2 |       0 |        0 |
 | `PGRE`    | PlacedProjectile               |             10 |     9 |      1 |         0 |                   0 |     10 |       0 |        0 |
-| `PHZD`    | PlacedHazard                   |             60 |    55 |      5 |        14 |                   0 |     46 |       0 |        0 |
-| `PKIN`    | PackIn                         |             56 |    52 |      4 |         0 |                   0 |     56 |       0 |        0 |
+| `PHZD`    | PlacedHazard                   |             61 |    56 |      5 |        14 |                   0 |     47 |       0 |        0 |
+| `PKIN`    | PackIn                         |             57 |    53 |      4 |         0 |                   0 |     57 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `PNDT`    | Planet                         |             58 |    55 |      3 |         1 |                   0 |     57 |       0 |        0 |
-| `PROJ`    | Projectile                     |             69 |    65 |      4 |        13 |                   0 |     56 |       0 |        0 |
+| `PNDT`    | Planet                         |             59 |    56 |      3 |         1 |                   0 |     58 |       0 |        0 |
+| `PROJ`    | Projectile                     |             70 |    66 |      4 |        13 |                   0 |     57 |       0 |        0 |
 | `PSDC`    | ParticleSystemDefineCollection |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `PTST`    | SurfacePatternStyle            |              1 |     1 |      0 |         0 |                   0 |      1 |       0 |        0 |
-| `QUST`    | Quest                          |            217 |   208 |      9 |         3 |                   0 |    214 |       0 |        0 |
-| `RACE`    | Race                           |            158 |   149 |      9 |         7 |                   0 |    151 |       0 |        0 |
-| `REFR`    | PlacedObject                   |            133 |   123 |     10 |         5 |                   0 |    128 |       0 |        0 |
+| `QUST`    | Quest                          |            218 |   209 |      9 |         3 |                   0 |    215 |       0 |        0 |
+| `RACE`    | Race                           |            159 |   150 |      9 |         7 |                   0 |    152 |       0 |        0 |
+| `REFR`    | PlacedObject                   |            134 |   124 |     10 |         5 |                   0 |    129 |       0 |        0 |
 | `REGN`    | Region                         |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
 | `REVB`    | ReverbParameters               |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
-| `RFGP`    | ReferenceGroup                 |             42 |    37 |      5 |         7 |                   0 |     35 |       0 |        0 |
-| `RSGD`    | ResourceGenerationData         |             38 |    35 |      3 |         0 |                   0 |     38 |       0 |        0 |
-| `RSPJ`    | ResearchProject                |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
+| `RFGP`    | ReferenceGroup                 |             43 |    38 |      5 |         7 |                   0 |     36 |       0 |        0 |
+| `RSGD`    | ResourceGenerationData         |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
+| `RSPJ`    | ResearchProject                |             51 |    48 |      3 |         0 |                   0 |     51 |       0 |        0 |
 | `SCCO`    | SceneCollection                |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
 | `SCEN`    | Scene                          |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
-| `SCOL`    | StaticCollection               |             49 |    45 |      4 |         3 |                   0 |     46 |       0 |        0 |
+| `SCOL`    | StaticCollection               |             50 |    46 |      4 |         3 |                   0 |     47 |       0 |        0 |
 | `SDLT`    | SecondaryDamageListForm        |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `SECH`    | SoundEchoMarker                |             62 |    57 |      5 |         9 |                   0 |     53 |       0 |        0 |
-| `SFBK`    | SurfaceBlock                   |             52 |    49 |      3 |         0 |                   0 |     52 |       0 |        0 |
+| `SECH`    | SoundEchoMarker                |             63 |    58 |      5 |         9 |                   0 |     54 |       0 |        0 |
+| `SFBK`    | SurfaceBlock                   |             53 |    50 |      3 |         0 |                   0 |     53 |       0 |        0 |
 | `SFPC`    | SurfacePatternConfig           |              5 |     1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `SFPT`    | SurfacePattern                 |             43 |    40 |      3 |         3 |                   0 |     40 |       0 |        0 |
-| `SFTR`    | SurfaceTreeForm                |             41 |    33 |      8 |         0 |                   0 |     41 |       0 |        0 |
+| `SFPT`    | SurfacePattern                 |             44 |    41 |      3 |         3 |                   0 |     41 |       0 |        0 |
+| `SFTR`    | SurfaceTreeForm                |             42 |    34 |      8 |         0 |                   0 |     42 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode         |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode          |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode          |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
 | `SOUN`    | SoundMarker                    |              8 |     8 |      0 |         0 |                   0 |      8 |       0 |        0 |
-| `SPCH`    | SpeechChallengeForm            |             46 |    42 |      4 |         1 |                   0 |     45 |       0 |        0 |
-| `SPEL`    | Spell                          |             58 |    54 |      4 |         2 |                   0 |     56 |       0 |        0 |
+| `SPCH`    | SpeechChallengeForm            |             47 |    43 |      4 |         1 |                   0 |     46 |       0 |        0 |
+| `SPEL`    | Spell                          |             59 |    55 |      4 |         2 |                   0 |     57 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |              3 |     1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `STAT`    | Static                         |             56 |    51 |      5 |         2 |                   0 |     54 |       0 |        0 |
-| `STBH`    | SnapTemplateBehavior           |             42 |    33 |      9 |         0 |                   0 |     42 |       0 |        0 |
-| `STDT`    | Star                           |             47 |    42 |      5 |         4 |                   0 |     43 |       0 |        0 |
-| `STMP`    | SnapTemplateForm               |             49 |    46 |      3 |         3 |                   0 |     46 |       0 |        0 |
-| `STND`    | SnapTemplateNode               |             60 |    56 |      4 |         8 |                   0 |     52 |       0 |        0 |
+| `STAT`    | Static                         |             57 |    52 |      5 |         2 |                   0 |     55 |       0 |        0 |
+| `STBH`    | SnapTemplateBehavior           |             43 |    34 |      9 |         0 |                   0 |     43 |       0 |        0 |
+| `STDT`    | Star                           |             48 |    43 |      5 |         4 |                   0 |     44 |       0 |        0 |
+| `STMP`    | SnapTemplateForm               |             50 |    47 |      3 |         3 |                   0 |     47 |       0 |        0 |
+| `STND`    | SnapTemplateNode               |             61 |    57 |      4 |         8 |                   0 |     53 |       0 |        0 |
 | `SUNP`    | SunPreset                      |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
-| `TERM`    | Terminal                       |             92 |    87 |      5 |        19 |                   0 |     73 |       0 |        0 |
+| `TERM`    | Terminal                       |             93 |    88 |      5 |        19 |                   0 |     74 |       0 |        0 |
 | `TES4`    | PluginHeader                   |             11 |     8 |      3 |         0 |                   2 |      9 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |             25 |    24 |      1 |         0 |                   0 |     25 |       0 |        0 |
-| `TODD`    | TimeOfDayDataForm              |             37 |    33 |      4 |         0 |                   0 |     37 |       0 |        0 |
-| `TRAV`    | Traversal                      |             38 |    34 |      4 |         1 |                   0 |     37 |       0 |        0 |
+| `TODD`    | TimeOfDayDataForm              |             38 |    34 |      4 |         0 |                   0 |     38 |       0 |        0 |
+| `TRAV`    | Traversal                      |             39 |    35 |      4 |         1 |                   0 |     38 |       0 |        0 |
 | `TRNS`    | Transform                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `TXST`    | TextureSet                     |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
+| `TXST`    | TextureSet                     |             50 |    46 |      4 |         2 |                   0 |     48 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `VTYP`    | VoiceType                      |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `WATR`    | Water                          |             56 |    50 |      6 |         2 |                   0 |     54 |       0 |        0 |
+| `WATR`    | Water                          |             57 |    51 |      6 |         2 |                   0 |     55 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |     1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `WEAP`    | Weapon                         |             97 |    92 |      5 |         9 |                   0 |     88 |       0 |        0 |
+| `WEAP`    | Weapon                         |             98 |    93 |      5 |         9 |                   0 |     89 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |              6 |     6 |      0 |         0 |                   0 |      6 |       0 |        0 |
-| `WRLD`    | Worldspace                     |             73 |    68 |      5 |         7 |                   0 |     66 |       0 |        0 |
+| `WRLD`    | Worldspace                     |             74 |    69 |      5 |         7 |                   0 |     67 |       0 |        0 |
 | `WTHR`    | Weather                        |             31 |    31 |      0 |         3 |                   0 |     28 |       0 |        0 |
 | `WTHS`    | WeatherSettings                |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `ZOOM`    | Zoom                           |             37 |    34 |      3 |         0 |                   0 |     37 |       0 |        0 |
-| **Total** |                                |          6,728 | 6,131 |    597 |       524 |                   2 |  6,202 |       0 |        0 |
+| `ZOOM`    | Zoom                           |             38 |    35 |      3 |         0 |                   0 |     38 |       0 |        0 |
+| **Total** |                                |          6,832 | 6,235 |    597 |       524 |                   2 |  6,306 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
 Signatures seen in records of a defined type that its definition does not name
 (occurrences in parentheses):
 
-- `REFR`: `FLTR` (60), `INTV` (60), `OPDS` (5,080), `PNAM` (2), `SNAM` (2), `VLMS` (23,157)
-- `DIAL`: `OPDS` (1)
+- `REFR`: `FLTR` (60), `INTV` (60), `PNAM` (2), `SNAM` (2), `VLMS` (23,157)
 - `CELL`: `MOD2` (4)
 - `STAT`: `FLTR` (116), `INTV` (116), `VLMS` (2)
 - `LMSW`: `FLTR` (1,201), `INTV` (1,201)
-- `ACHR`: `OPDS` (1,024)
 - `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
 - `NPC_`: `FLTR` (6)
 - `KYWD`: `WAIM` (19), `WFIR` (19)
