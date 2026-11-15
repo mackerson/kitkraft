@@ -1,0 +1,86 @@
+# Drafted 2026-11-14 on plan/next-phase-20261114. Sources: plan/next-phase/mod-ideas-support.md
+# (first batch, item 6) and plan/next-phase/research/creation-kit-criticism.md (complaint 3:
+# identical-to-master records need cleaning in another tool). Not linted, never run.
+# HELD: it owns the same files as the `masters.unflagged` rule, which exists on branch
+# sprint/2026-11-09 (unmerged on 2026-11-14) and as draft KK-262. Queue it only after one of
+# them is on main; then fix the rule count below (21 on main at a0b8b642, 22 with that rule).
+id = "DRAFT"
+title = "validate warns on an override that is identical to the version it overrides"
+timeout_min = 45
+hold = "owns validate/mod.rs with masters.unflagged (sprint/2026-11-09 or KK-262): queue after that is on main and correct the rule count in the brief"
+owns = [
+  "crates/engine/src/validate/mod.rs",
+  "crates/engine/src/validate/tests.rs",
+  "docs/validate.md",
+]
+brief = """
+`kit validate` checks one plugin against its masters (`crates/engine/src/validate/mod.rs`;
+the rules and their sources are the table in `docs/validate.md`). It has no rule for the
+most common piece of plugin dirt: an override that changes nothing. A record in the plugin
+whose FormID belongs to a master, and whose flags and subrecords equal the master's version,
+does nothing except win conflicts against every plugin loaded between the two. Modders
+remove these by hand in another tool today.
+
+KitKraft already knows how to say "identical": `kitkraft_doc::compare::OverrideClass` has
+the variant `IdenticalToPrevious` ("same flags, compressed bit aside, and same
+subrecords"), and `kit conflicts` reports it (`crates/engine/src/handlers/conflicts.rs`,
+which calls `kitkraft_doc::conflicts::classify_run`). Use the same comparison; do not write
+a second definition of "identical". `validate` does not hold a load order as `conflicts`
+does: it holds each master as a `MasterFile` with `ids`, a map from stored FormID to record
+offset (see how `formid.dangling` finds a form in a master). Compare the plugin's record
+with the record of the **last listed master that has the form** (the version this plugin
+would override if only its own masters were loaded), reading that one record at its offset.
+If the comparison function in `kitkraft_doc::compare` cannot be called from what `validate`
+has at hand, stop and say so in the commit message rather than re-implementing it.
+
+Add one rule:
+- id `override.identical`, severity `Warning`, input `Plugin`, summary "An override is
+  identical to the master's version", registered in the rule list after the last `formid.*`
+  or record-level rule (follow the list's existing grouping);
+- one finding per such record, naming the record's type and FormID as the other
+  record-level rules do, with a message like `identical to Starfield.esm's version: this
+  override changes nothing and still wins conflicts`;
+- not reported: a record with the deleted flag; a `CELL` or `WRLD` override that the plugin
+  carries only because it holds children in that cell or world (KitKraft's own `place`
+  writes such carried copies: `docs/poi/first-poi.md`, the cell
+  `CityNewAtlantisApartmentTEMPLATE`). If the plugin's group for that cell or world has any
+  child record, skip it; say so in `docs/validate.md`.
+- a master that was not found is `masters.missing`'s business: skip comparisons against it.
+
+Tests in `crates/engine/src/validate/tests.rs`, built with the helpers the other tests use
+(`write_plugin`, `patch`, `check`, `found`, `pair`; see `masters_missing_and_order`), with
+this exact name: `override_identical_to_its_master_is_a_warning`. Assert:
+- a patch holding one override byte-equal to its master's record and one override with a
+  changed `FULL` gives exactly one finding, `pair("override.identical", "warning")`, and
+  `data["passed"]` stays `true`;
+- the same override differing only in the compressed flag is still reported (if the helpers
+  cannot build a compressed record, leave this case out and say so in a comment);
+- a deleted override is not reported;
+- a new record (a FormID of the plugin's own) is not reported.
+
+`a_clean_patch_passes_every_rule` pins the number of rules: raise it by one, and that test
+must otherwise pass unchanged. Add the rule's row to the table in `docs/validate.md`. The
+MCP resource `kitkraft://validate-rules` is built from the rule list and needs no change.
+
+The official DLC files may well contain identical overrides. `validate_corpus_official_files`
+(`crates/engine/tests/validate_corpus.rs`, run only with `KITKRAFT_DATA_DIR`) pins findings
+per official file; that file is not yours. If you can run it and the new rule changes its
+counts, do not edit it: write the counts you saw in the commit message, so the merge session
+pins them.
+
+Do not change any handler. Run `cargo test -p kitkraft-engine --lib validate` while you
+work, then `cargo xtask ci`. Add this ticket's one "Landed" line at the end of
+`plan/STATUS.md`. Commit when the new test passes.
+"""
+
+[[accept]]
+name = "rule-test"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::tests::override_identical_to_its_master_is_a_warning 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "rule-listed"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::tests::a_clean_patch_passes_every_rule 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q 'override.identical' crates/engine/src/validate/mod.rs && grep -q 'override.identical' docs/validate.md"
+
+[[accept]]
+name = "validate-all"
+cmd = "cargo test -p kitkraft-engine --lib validate 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && ! grep -q ' 0 passed' /tmp/o"

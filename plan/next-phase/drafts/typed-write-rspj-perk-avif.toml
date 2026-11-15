@@ -1,0 +1,84 @@
+# Drafted 2026-11-14 on plan/next-phase-20261114 in KK-017's and KK-258's shape (typed-write
+# tests). Source: plan/next-phase/mod-ideas-support.md, hole H7. Not linted (lint.py
+# needs Python 3.11) and never run. The ID is assigned at promotion.
+id = "DRAFT"
+title = "Typed-write tests for RSPJ, PERK and AVIF"
+timeout_min = 45
+# Also after the draft `typed-write-ammo-proj-zoom` (same three files): add its ID here at promotion.
+after = ["KK-265"]
+owns = [
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+`kit coverage --matrix` reports a record type `typed-writable` only when
+`docs/schema/evidence.toml` cites a test that writes the type with every typed member and
+reads it back. `RSPJ`, `PERK` and `AVIF` have typed definitions
+(`crates/schema/defs/RSPJ.toml`, `PERK.toml`, `AVIF.toml`) but no such test, so the matrix
+says `not-run` for them. Research projects, perks and actor values are the progression records of the Foothold resource loop (`docs/foothold/engineering-surface.md`, D2), and `AVIF` was typed by KK-225. Add the tests and the evidence entries, as KK-017 did for
+CONT, MISC, FLST and LVLI and KK-021 for ARMO, ARMA and OTFT.
+
+Start from `crates/engine/src/handlers/authoring_tests.rs`. Its module docs explain the two
+test shapes, and the existing tests are your template:
+
+- `<type>_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(sig,
+  layout, component)`: one record built with `new` on a synthetic load order, every typed
+  member given a value, read back, re-encoded, `validate`d. `layout` and `component` pick
+  one base form component layout (the `BFCB` block,
+  `crates/schema/defs/common/BfcbBlock.toml`); the existing tests use `"ContactShadow",
+  "BGSContactShadowComponent_Component"`, and a type with no `BfcbBlock` of its own passes
+  the same two names, which are then inert (see the comment above
+  `kywd_new_sets_every_typed_member_and_reads_back`). Check each type's definition for
+  whether it uses the block.
+- `<type>_dangling_link_is_reported` calls `dangling(...)` with FormID members set to
+  `MISSING`, and checks that `validate` and `refs` report each. Pick two or three members of
+  the type that carry FormIDs reference integrity covers, from its definition and the shared
+  blocks it uses.
+
+Add both tests for each type, with these exact names:
+`rspj_new_sets_every_typed_member_and_reads_back`, `rspj_dangling_link_is_reported`,
+`perk_new_sets_every_typed_member_and_reads_back`, `perk_dangling_link_is_reported`,
+`avif_new_sets_every_typed_member_and_reads_back`, `avif_dangling_link_is_reported`. If a
+type has no FormID member that reference integrity covers, say so in a comment and leave out
+its dangling test; that is the only test you may leave out.
+
+
+Then add a `typed-writable` `pass` entry per type to `docs/schema/evidence.toml`, citing the
+tests as the existing entries do (`test:
+crates/engine/src/handlers/authoring_tests.rs::<fn>`). Add the types to the typed-writable
+list in `docs/schema/support-matrix.md` and to the module docs at the top of
+`authoring_tests.rs`. The gate test `every_evidence_pointer_resolves`
+(`crates/engine/src/handlers/matrix.rs`) fails if a cited test name does not exist.
+
+If a type cannot pass, for example because `new` refuses a member or `validate` reports a
+finding on what `new` wrote, do not edit the engine and do not relax `check_written` or any
+other helper's checks. Find out why. Put the reason in a comment above that type's test,
+mark only that test `#[ignore = "<the reason>"]`, and leave out that type's evidence entry;
+the final QA reads the reason. Never change or loosen an existing test. You may add a
+parameter to a helper only if every existing caller keeps its behaviour. The schema
+definitions are not yours to change here (other tickets own them).
+
+Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then `cargo xtask
+ci`. Add this ticket's one "Landed" line at the end of `plan/STATUS.md`. Commit after each
+type passes.
+"""
+
+# Each type's test passes or is #[ignore = "<reason>"]d (the brief's rule); evidence is
+# required for every type whose test is not ignored, and at least one.
+
+[[accept]]
+name = "rspj"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::rspj_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
+
+[[accept]]
+name = "perk"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::perk_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
+
+[[accept]]
+name = "avif"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::avif_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
+
+[[accept]]
+name = "dangling-and-evidence"
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && grep -Eq '(rspj|perk|avif)_dangling_link_is_reported \\.\\.\\. ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; s=open('crates/engine/src/handlers/authoring_tests.rs').read(); req={T for T in ['RSPJ','PERK','AVIF'] if '#[ignore' not in s[:s.find('fn '+T.lower()+'_new_sets')][-400:].rsplit('}',1)[-1]}; miss=sorted(req-got); print('not ignored:', sorted(req), 'missing typed-writable evidence:', miss); sys.exit(1 if miss or not req else 0)\""
