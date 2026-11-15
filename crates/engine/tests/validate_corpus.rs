@@ -202,6 +202,22 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         128,
         "2D0,32E-330,338,3A2",
     ),
+    // Since BPTD was typed (KK-212); pinned by KK-320.
+    (
+        "Starfield.esm",
+        "BPTD BPTD.BodyPart.BPD2.ActorValue",
+        137,
+        "373,38A-38F",
+    ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    (
+        "Starfield.esm",
+        "CNDF Condition.CTDA.Parameter1",
+        8,
+        "2BC,313,32E,330",
+    ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    ("Starfield.esm", "CNDF Condition.CTDA.Reference", 118, "14"),
     ("Starfield.esm", "COBJ Condition.CTDA.Reference", 485, "14"),
     (
         "Starfield.esm",
@@ -220,6 +236,13 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         "2D8,2DB,2E2,2EE,313,32E,34F-352,355,359",
     ),
     ("Starfield.esm", "FURN PropertyValue.ActorValue", 13, "33E"),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    (
+        "Starfield.esm",
+        "GBFM PropertyValue.ActorValue",
+        37,
+        "32E,390",
+    ),
     (
         "Starfield.esm",
         "INFO Condition.CTDA.Parameter1",
@@ -228,8 +251,14 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     ("Starfield.esm", "INFO Condition.CTDA.Reference", 1868, "14"),
     ("Starfield.esm", "LCTN LCTN.LCEP.Parent", 2, "14"),
+    // Since LVLB was typed (KK-231); pinned by KK-320.
+    ("Starfield.esm", "LVLB Condition.CTDA.Reference", 6, "14"),
     ("Starfield.esm", "LVLI Condition.CTDA.Parameter1", 4, "3AC"),
     ("Starfield.esm", "LVLI Condition.CTDA.Reference", 74, "14"),
+    // Since MESG was typed (KK-216); pinned by KK-320.
+    ("Starfield.esm", "MESG Condition.CTDA.Reference", 19, "14"),
+    // Since MESG was typed (KK-216); pinned by KK-320.
+    ("Starfield.esm", "MESG MESG.MenuButton.DODT", 2, "14"),
     (
         "Starfield.esm",
         "MGEF Condition.CTDA.Parameter1",
@@ -297,6 +326,24 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     ("Starfield.esm", "TERM PropertyValue.ActorValue", 1, "3A2"),
     ("Starfield.esm", "TMLM Condition.CTDA.Reference", 60, "14"),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    (
+        "BlueprintShips-Starfield.esm",
+        "GBFM PropertyValue.ActorValue",
+        5,
+        "390",
+    ),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    (
+        "BlueprintShips-SFBGS050.esm",
+        "GBFM PropertyValue.ActorValue",
+        1,
+        "390",
+    ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    ("SFBGS003.esm", "CNDF Condition.CTDA.Reference", 10, "14"),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    ("SFBGS003.esm", "GBFM PropertyValue.ActorValue", 1, "390"),
     ("SFBGS003.esm", "INFO Condition.CTDA.Parameter1", 2, "2BD"),
     ("SFBGS003.esm", "INFO Condition.CTDA.Reference", 114, "14"),
     (
@@ -325,8 +372,12 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         14,
         "2D8-2D9,2E0,39E-3A1",
     ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    ("SFBGS00D.esm", "CNDF Condition.CTDA.Reference", 9, "14"),
     ("SFBGS00D.esm", "COBJ Condition.CTDA.Reference", 2, "14"),
     ("SFBGS00D.esm", "FURN PropertyValue.ActorValue", 1, "33E"),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    ("SFBGS00D.esm", "GBFM PropertyValue.ActorValue", 5, "390"),
     ("SFBGS00D.esm", "INFO Condition.CTDA.Parameter1", 1, "307"),
     ("SFBGS00D.esm", "INFO Condition.CTDA.Reference", 95, "14"),
     ("SFBGS00D.esm", "LVLI Condition.CTDA.Reference", 9, "14"),
@@ -374,6 +425,8 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         8,
         "2D0,330,3A2",
     ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    ("SFBGS050.esm", "CNDF Condition.CTDA.Reference", 20, "14"),
     ("SFBGS050.esm", "COBJ Condition.CTDA.Reference", 17, "14"),
     (
         "SFBGS050.esm",
@@ -381,6 +434,8 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         12,
         "330,33D,3A2",
     ),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    ("SFBGS050.esm", "GBFM PropertyValue.ActorValue", 10, "390"),
     (
         "SFBGS050.esm",
         "INFO Condition.CTDA.Parameter1",
@@ -391,6 +446,8 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ("SFBGS050.esm", "LCTN LCTN.LCEP.Parent", 1, "14"),
     ("SFBGS050.esm", "LVLI Condition.CTDA.Parameter1", 6, "3AC"),
     ("SFBGS050.esm", "MGEF Condition.CTDA.Reference", 1, "14"),
+    // Since MUST was typed (KK-232); pinned by KK-320.
+    ("SFBGS050.esm", "MUST Condition.CTDA.Reference", 1, "14"),
     (
         "SFBGS050.esm",
         "NPC_ PropertyValue.ActorValue",
@@ -419,11 +476,25 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         4,
         "2D0",
     ),
+    // Since CNDF was typed (KK-257); pinned by KK-320.
+    (
+        "ShatteredSpace.esm",
+        "CNDF Condition.CTDA.Reference",
+        38,
+        "14",
+    ),
     (
         "ShatteredSpace.esm",
         "CONT PropertyValue.ActorValue",
         1,
         "33D",
+    ),
+    // Since the property sheet component on GBFM (KK-286); pinned by KK-320.
+    (
+        "ShatteredSpace.esm",
+        "GBFM PropertyValue.ActorValue",
+        1,
+        "390",
     ),
     (
         "ShatteredSpace.esm",
@@ -437,12 +508,28 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         103,
         "14",
     ),
+    // Since LVLB was typed (KK-231); pinned by KK-320.
+    (
+        "ShatteredSpace.esm",
+        "LVLB Condition.CTDA.Reference",
+        1,
+        "14",
+    ),
     (
         "ShatteredSpace.esm",
         "LVLI Condition.CTDA.Parameter1",
         4,
         "3AC",
     ),
+    // Since MESG was typed (KK-216); pinned by KK-320.
+    (
+        "ShatteredSpace.esm",
+        "MESG Condition.CTDA.Reference",
+        15,
+        "14",
+    ),
+    // Since MESG was typed (KK-216); pinned by KK-320.
+    ("ShatteredSpace.esm", "MESG MESG.MenuButton.DODT", 2, "14"),
     (
         "ShatteredSpace.esm",
         "NPC_ PropertyValue.ActorValue",
@@ -592,6 +679,46 @@ fn named_value(message: &str) -> Option<u32> {
     u32::from_str_radix(hex, 16).ok()
 }
 
+/// `asset.missing-model` findings on the official files, per plugin and record type
+/// (`docs/validate.md`, "On the official files"; KK-018, KK-223). The rule checks every
+/// record type whose definition has the shared `Model` group (and ARMO/ARMA's model
+/// members), so a ticket that types such a type adds a row here. KK-320 (release run of
+/// 2026-11-15, game files of 2026-08-25, Steam build 23518663) split the per-file pins
+/// by type: Starfield.esm 603 to 719 and SFBGS00D.esm 4 to 6 come only from types typed
+/// after KK-223 pinned the counts (EXPL KK-204, ARTO KK-210, BPTD KK-212, WTHR KK-226,
+/// IPCT KK-230, BMMO KK-233, STND KK-235, ADDN KK-236, SCOL KK-256); ShatteredSpace.esm
+/// 16 to 17 is EXPL.
+const MISSING_MODELS: &[(&str, &str, u64)] = &[
+    ("Starfield.esm", "ACTI", 21),
+    ("Starfield.esm", "ADDN", 11),
+    ("Starfield.esm", "AMMO", 91),
+    ("Starfield.esm", "ARMA", 39),
+    ("Starfield.esm", "ARTO", 2),
+    ("Starfield.esm", "BMMO", 61),
+    ("Starfield.esm", "BPTD", 2),
+    ("Starfield.esm", "CONT", 3),
+    ("Starfield.esm", "DOOR", 9),
+    ("Starfield.esm", "EXPL", 16),
+    ("Starfield.esm", "FURN", 2),
+    ("Starfield.esm", "IPCT", 7),
+    ("Starfield.esm", "LVLI", 1),
+    ("Starfield.esm", "MSTT", 14),
+    ("Starfield.esm", "OMOD", 7),
+    ("Starfield.esm", "PROJ", 4),
+    ("Starfield.esm", "SCOL", 15),
+    ("Starfield.esm", "STAT", 412),
+    ("Starfield.esm", "STND", 1),
+    ("Starfield.esm", "WTHR", 1),
+    ("SFBGS00D.esm", "STAT", 4),
+    ("SFBGS00D.esm", "STND", 2),
+    ("SFBGS050.esm", "MSTT", 3),
+    ("SFBGS050.esm", "STAT", 2),
+    ("ShatteredSpace.esm", "ARMA", 1),
+    ("ShatteredSpace.esm", "DOOR", 1),
+    ("ShatteredSpace.esm", "EXPL", 1),
+    ("ShatteredSpace.esm", "STAT", 14),
+];
+
 const CORPUS: [&str; 14] = [
     "Starfield.esm",
     "Constellation.esm",
@@ -733,23 +860,24 @@ fn validate_corpus_official_files() {
         // A Model-group FileName (MODL) names a model file found loose next to the
         // plugin, loose in Data, or in a load-order archive (KK-018). The official
         // files name development meshes no shipped archive holds (docs/validate.md
-        // "On the official files"), so the count is pinned per file.
-        let missing_models = data["findings"]
-            .as_array()
-            .unwrap()
+        // "On the official files"), so the count is pinned per file and record type.
+        // The rule checks every record type whose definition has the shared `Model`
+        // group, so typing a type that has one adds its findings here (KK-320).
+        let mut missing_models: BTreeMap<String, u64> = BTreeMap::new();
+        for f in data["findings"].as_array().unwrap() {
+            if f["rule"] == "asset.missing-model" {
+                let record_type = f["record"].as_str().and_then(|r| r.get(..4)).unwrap_or("-");
+                *missing_models.entry(record_type.to_string()).or_default() += 1;
+            }
+        }
+        let missing_models_expected: BTreeMap<String, u64> = MISSING_MODELS
             .iter()
-            .filter(|f| f["rule"] == "asset.missing-model")
-            .count();
-        let missing_models_expected = match name {
-            "Starfield.esm" => 603,
-            "SFBGS00D.esm" => 4,
-            "SFBGS050.esm" => 5,
-            "ShatteredSpace.esm" => 16,
-            _ => 0,
-        };
+            .filter(|(plugin, ..)| *plugin == name)
+            .map(|(_, record_type, n)| (record_type.to_string(), *n))
+            .collect();
         if missing_models != missing_models_expected {
             println!(
-                "    asset.missing-model: {missing_models} findings, expected {missing_models_expected}"
+                "    asset.missing-model by record type: {missing_models:?}, expected {missing_models_expected:?}"
             );
             failures.push(name);
         }

@@ -98,12 +98,16 @@ and `validate` now take lstrings from the schema: every member of type `lstring`
 wherever the layout puts it (the whole subrecord, any struct member, an array element, a
 union variant; `kitkraft_doc::typed::lstring_spans`), not only the whole subrecord or a
 struct's last field. The table is a cross-check and a fallback:
-`edit::lstrings::compare` finds 100 of its lstrings typed as whole-subrecord schema
-members and no conflict (a pair the table measured as "not an lstring" that the schema
-types as one, or the reverse); the other 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT and
-STDT `FULL`) sit inside the base form component blocks the schema keeps raw, and there
+`edit::lstrings::compare` finds 102 of its lstrings typed as whole-subrecord schema
+members (PNDT and STDT `FULL` since KK-284 typed the full-name component) and no
+conflict (a pair the table measured as "not an lstring" that the schema types as one, or
+the reverse); the other 3 (CHAL `FULL`/`DESC`, GBFM `HULL`) sit inside the base form
+component blocks the schema keeps raw, and there
 the table is used with a limitation naming the pair ("treated as an lstring by the
-corpus lstring table ... the schema has no member for it here"). The unit test
+corpus lstring table ... the schema has no member for it here"). CHAL's `FULL` matches
+the typed full-name `FULL` by signature, but every official CHAL `FULL` sits in the raw
+activity tracker block, so `compare` counts it as a fallback
+(`edit::lstrings::IN_RAW_COMPONENT`, KK-322). The unit test
 `the_schema_types_every_table_lstring` checks this against the table, and
 `lstring_table_matches_the_corpus` against a fresh corpus scan.
 
@@ -200,9 +204,14 @@ gives 6 findings on the 14 files: 1 in `SFBGS003.esm` (LCTN:00010DFB entry 0 nam
 ACHR:FD005C01, a temporary child of the medium-scale plugin itself) and 5 in
 `SFBGS050.esm` (e.g. LCTN:0001295A entry 0 names ACHR:0207E760); the entries that name a
 master's reference are a limitation, not a finding.
-`asset.missing-model` (2026-10-29, release run of `validate_corpus_official_files`)
-gives 628 findings on the 14 files: 603 in `Starfield.esm`, 4 in `SFBGS00D.esm`, 5 in
-`SFBGS050.esm` and 16 in `ShatteredSpace.esm`; 0 on the other ten. Every value the rule
+`asset.missing-model` (2026-11-15, release run of `validate_corpus_official_files`, KK-320)
+gives 747 findings on the 14 files: 719 in `Starfield.esm`, 6 in `SFBGS00D.esm`, 5 in
+`SFBGS050.esm` and 17 in `ShatteredSpace.esm`; 0 on the other ten. The rule checks every
+record type whose definition has the shared `Model` group, so the count grows as types
+are typed: of the 628 of 2026-10-29 (KK-223) to these 747, all 119 new findings are in
+types typed since (EXPL 17, BMMO 61, SCOL 15, ADDN 11, IPCT 7, ARTO 2, BPTD 2, STND 3,
+WTHR 1); the game files (dated 2026-08-25) and their archives did not change. The test
+pins the count per file and record type (`MISSING_MODELS`). Every value the rule
 finds resolves as `meshes/<value>` (the stored values are relative to the top folder
 `meshes`; none are bare or already prefixed). The missing ones are development
 leftovers the shipped game never loads: `Starfield.esm` names whole test folders
@@ -223,5 +232,4 @@ GenIntRmSmWallMid_DoorE00.nif`) and one ARMA whose `MaleFirstPerson.FileName` na
 `architecture/dome/` meshes (GardenDecking, GardenRoundFloor01, PoolRoomWall01) and
 the asteroid manor dining table (`SetDressing\sfbgs00d\asteroidmanor\
 AsteroidManor_DiningTable.nif`). The 5 in `SFBGS050.esm` are ship EMOD/SMOD part
-paths (3 MSTT, 2 STAT) in no archive of its load order. The test pins the count
-per file.
+paths (3 MSTT, 2 STAT) in no archive of its load order.

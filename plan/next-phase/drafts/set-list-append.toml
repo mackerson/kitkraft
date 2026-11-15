@@ -1,0 +1,85 @@
+# Drafted 2026-11-14 on plan/next-phase-20261114. Source: plan/next-phase/mod-ideas-support.md,
+# hole H5 ("no add-to-a-list edit"). Not linted (lint.py needs Python 3.11) and never run.
+# Decision taken in the draft, to overturn before queueing if wrong: the operator names
+# `append` and `remove`, as value objects beside the existing `mul`/`add`/`min`/`max`/`clamp`.
+id = "DRAFT"
+title = "set: append to or remove from a typed array field without restating it"
+timeout_min = 45
+owns = [
+  "crates/engine/src/edit/fields.rs",
+  "docs/mcp.md",
+]
+brief = """
+A field value in `kit set` (and the build spec's `[[set]]`, which uses the same code) is
+parsed by `crates/engine/src/edit/fields.rs`. Read its module docs first: they list what
+each type accepts. Today an array field takes only a whole array (`KWDA =
+["Starfield.esm:0234F1", "new:kw"]`, lane D round 5, test `typed_whole_arrays` in the same
+file's `mod tests`). So a mod that wants to add one keyword to a vanilla record, or one
+entry to a vanilla leveled list, must restate every entry the record already has, and the
+spec goes stale when another plugin changes the list. The owner's outfit mod (vendor and
+NPC distribution), the gun overhaul's next build (new ammunition in loot lists) and the
+Foothold recipes all need "add this one entry".
+
+The same file already has value objects for numbers: `{"mul": x}`, `{"add": x}`,
+`{"min": x}`, `{"max": x}`, `{"clamp": [lo, hi]}` (see `parse_op` and where its `Op` is
+applied). Add two more, for array fields only:
+
+- `{"append": [v, ...]}`: the field's current elements, then each `v` parsed exactly as an
+  element of a whole-array value is parsed (FormIDs through the same resolver, structs as
+  objects of every member). An element equal to one already present (same encoded bytes) is
+  skipped, not duplicated, and the result says so in the way the module already reports
+  notes or limitations for a field; if there is no such channel in this file, do not invent
+  one outside `owns`: skip silently and say so in the doc comment.
+- `{"remove": [v, ...]}`: every current element whose encoded bytes equal an encoded `v` is
+  dropped; a `v` that matches nothing is an error naming the path and the value (a typo in a
+  FormID must not pass silently).
+
+Rules that must hold, each with an assertion:
+- the count follows the result exactly as for a whole array: a `count_from` sibling is
+  rewritten and the count subrecord before a whole-array subrecord is rewritten (`KSIZ`
+  before `KWDA`); reuse the whole-array path for this, do not write a second one;
+- elements that were there stay byte-identical and in their order; appended ones come last
+  in the order given;
+- on a field that is not an array, on an opaque field, and on a subrecord that is absent
+  from the record, the operators are refused with the module's existing error type, naming
+  the path and the rule. (Adding a missing subrecord is `edit/mod.rs`'s job, test
+  `keywords_are_added_and_counted`; it is out of scope here, so `append` on an absent
+  subrecord is an error that says to give the whole array instead.)
+- an empty `append` or `remove` list is refused.
+
+Tests, in `fields.rs`'s `mod tests`, with these exact names, modelled on
+`typed_whole_arrays` (same fixtures and helpers):
+- `an_array_append_keeps_the_old_entries_and_recounts`: a FormID array and a struct array
+  (the file's existing whole-array test uses `KWDA` and `PRIS`; use the same two), one
+  appended element each, old bytes unchanged, counts equal to the new lengths, a repeated
+  element not duplicated;
+- `an_array_remove_drops_the_named_entries_and_recounts`: one removed element, the rest in
+  order, the count lowered, and a `remove` of a value that is not there is an error;
+- `append_and_remove_are_refused_outside_typed_arrays`: a number field, an opaque field, an
+  absent subrecord, an empty list: four errors, each naming its path.
+
+Add one row and a short paragraph to the module docs' value table in `fields.rs`, and the
+same in `docs/mcp.md` where `set`'s value forms are described (search it for `"mul"`).
+
+Do not change `crates/engine/src/handlers/`, the build spec (`crates/engine/src/build/`) or
+the schema: `[[set]]` reaches this code unchanged, and a follow-up ticket adds its test and
+the plan's wording. Do not touch any existing test. Run `cargo test -p kitkraft-engine --lib
+edit::fields` while you work, then `cargo xtask ci`. Add this ticket's one "Landed" line at
+the end of `plan/STATUS.md`. Commit when the three tests pass.
+"""
+
+[[accept]]
+name = "append"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact edit::fields::tests::an_array_append_keeps_the_old_entries_and_recounts 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "remove"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact edit::fields::tests::an_array_remove_drops_the_named_entries_and_recounts 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "refusals"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact edit::fields::tests::append_and_remove_are_refused_outside_typed_arrays 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "whole-arrays-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact edit::fields::tests::typed_whole_arrays 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && git diff --quiet main -- crates/engine/src/handlers crates/engine/src/build && grep -q '\"append\"' docs/mcp.md"
