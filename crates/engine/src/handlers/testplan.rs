@@ -9,9 +9,11 @@
 //! - `kitkraft-test.txt`, a console batch file: for each new placed reference, `coc` to its
 //!   interior cell (by the cell's EditorID), `player.moveto` and `prid` on the reference's
 //!   runtime ID (the console does not take a reference's EditorID: `prid <EditorID>`
-//!   answers "not found", game-20261101-T1); for each new item and each new or overridden
-//!   `ARMO`, `player.additem`, followed for an `ARMO` by `player.equipitem` (the outfit must
-//!   be worn, not only owned); for each override of a placed reference, `coc` and `prid`.
+//!   answers "not found", game-20261101-T1); for each new or overridden item,
+//!   `player.additem` (an overridden item also keeps its `help` row in the checklist and
+//!   the probes, R22 in docs/game-observations.md), followed for an `ARMO` by
+//!   `player.equipitem` (the outfit must be worn, not only owned); for each override of a
+//!   placed reference, `coc` and `prid`.
 //!   Runtime IDs come from the load order
 //!   (lane D's `LoadOrder::runtime_id`): confirmed when `load --from-save` adopted a save's
 //!   slots and the plugin is in that load order, else predicted by `runtime-slots-by-scale`
@@ -487,9 +489,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 format!("prid {target}"),
                 format!("select {what}, {by}"),
             );
-        } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
-            || f.signature == "ARMO"
-        {
+        } else if ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
             push(
                 &mut batch,
                 format!("player.additem {} 1", hex(runtime)),
@@ -789,6 +789,17 @@ fn checklist(
                 }
             );
             n = n.saturating_add(1);
+            // An overridden inventory item (a new item and an `ARMO` take the branch
+            // above) is also given (R22, docs/game-observations.md), so the session
+            // can run player.additem on it.
+            if ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
+                let _ = writeln!(
+                    s,
+                    "{n}. `player.additem {runtime} 1` ({}). **Expect:** `{edid}` in the inventory.",
+                    id_basis.short
+                );
+                n = n.saturating_add(1);
+            }
         }
     }
     let _ = writeln!(s, "\n## Persistence\n");

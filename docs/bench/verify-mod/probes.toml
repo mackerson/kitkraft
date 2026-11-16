@@ -5,10 +5,10 @@ plugin = "KitKraftVerify.esm"
 sha256 = "a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa"
 generated_by = "docs/bench/verify-mod/make_probes.py (bench 2026-11-16) over kit testplan"
 profile = "KitKraft Dev"
-runtime_id_basis = "inferred:runtime-slots-by-scale+masters-load-first"
+runtime_id_basis = "inferred:runtime-slots-by-scale"
 notes = [
     "Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.",
-    "Order: proven console commands first, the reporter, inventory, unverified commands, the save and reload, the checks after it, presence by help last.",
+    "Order: proven console commands first, the reporter, inventory, the field getters, the save and reload, the checks after it, presence (by help, or by the reporter where help finds nothing) last.",
 ]
 
 [[probe]]
@@ -596,19 +596,18 @@ why = "a leveled list is resolved when added: the count of its entry, never of t
 
 [[probe]]
 row = "V-C-GLOB"
-title = "getglobalvalue KKV01Glob: 4242 (unverified command)"
+title = "getglobalvalue 0A001029: 4242"
 forms = ["KKV01Glob", "0A001029"]
 
 [[probe.step]]
-command = "getglobalvalue KKV01Glob"
-matcher = "number"
-expected = "4242"
-tolerance = 0.5
-why = "the plugin's FLTV (command unverified in Starfield)"
+command = "getglobalvalue 0A001029"
+matcher = "regex"
+expected = '(?m)>>\s*4242(\.0+)?\s*$'
+why = "the plugin's FLTV (bench 2026-11-16: the console resolves no GLOB EditorID, `Item 'KKV01Glob' not found for parameter Global.`; the runtime ID is the working shape)"
 
 [[probe]]
 row = "V-C-FACT"
-title = "player.getinfaction 0A00102B: 1 after the reporter (unverified command)"
+title = "player.getinfaction 0A00102B: 1 after the reporter"
 forms = ["KKV03Fact", "0A00102B"]
 
 [[probe.step]]
@@ -619,38 +618,36 @@ why = "the reporter added the player (GetInFaction lines seen in coc replies; th
 
 [[probe]]
 row = "V-C-PERK"
-title = "player.hasperk 0A001013: 1 after the reporter (unverified command)"
+title = "player.hasperk 0A001013: 1 after the reporter"
 forms = ["KKV41Perk", "0A001013"]
 
 [[probe.step]]
 command = "player.hasperk 0A001013"
 matcher = "regex"
-expected = '(?m)>>\s*1(\.0+)?\s*$'
-why = "the reporter added the perk (command unverified)"
+expected = 'Perk Rank >>\s*[1-9]'
+why = "the reporter added the perk (bench 2026-11-16: hasperk answers `Perk Rank >> n`, no decimals)"
 
 [[probe]]
 row = "V-C-AVIF"
-title = "player.getav KKV40Avif: 7 after the reporter (unverified command)"
+title = "player.getav KKV40Avif: 7 after the reporter"
 forms = ["KKV40Avif", "0A001012"]
 
 [[probe.step]]
 command = "player.getav KKV40Avif"
-matcher = "number"
-expected = "7"
-tolerance = 0.5
-why = "the reporter set the value (command and EditorID form unverified)"
+matcher = "regex"
+expected = '(?m)>>\s*7(\.0+)?\s*$'
+why = "the reporter set the value (bench 2026-11-16: `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`, which correlate.rs maps to getav since this bench; `getactorvalue` itself is no console function (game-20261116-05). A regex, since the number matcher read the 40 in the EditorID)"
 
 [[probe]]
 row = "V-C-QUST"
-title = "getstage KKV04Qust: 10 after the reporter (getstage grade D)"
+title = "getstage 0A00102C: 10 after the reporter"
 forms = ["KKV04Qust", "0A00102C"]
 
 [[probe.step]]
-command = "getstage KKV04Qust"
-matcher = "number"
-expected = "10"
-tolerance = 0.5
-why = "the reporter set stage 10 (getstage grade D)"
+command = "getstage 0A00102C"
+matcher = "regex"
+expected = '(?m)>>\s*10(\.0+)?\s*$'
+why = "the reporter set stage 10 (bench 2026-11-16: the console resolves no QUST EditorID; the runtime ID is the working shape)"
 
 [[probe]]
 row = "V-S-01"
@@ -928,19 +925,18 @@ why = "the item added before the save is still held"
 
 [[probe]]
 row = "V-S-GLOB"
-title = "after the reload: getglobalvalue KKV01Glob (unverified command)"
+title = "after the reload: getglobalvalue 0A001029"
 forms = ["KKV01Glob"]
 
 [[probe.step]]
-command = "getglobalvalue KKV01Glob"
-matcher = "number"
-expected = "4242"
-tolerance = 0.5
+command = "getglobalvalue 0A001029"
+matcher = "regex"
+expected = '(?m)>>\s*4242(\.0+)?\s*$'
 why = "the global after the reload"
 
 [[probe]]
 row = "V-S-FACT"
-title = "after the reload: player.getinfaction 0A00102B (unverified command)"
+title = "after the reload: player.getinfaction 0A00102B"
 forms = ["KKV03Fact"]
 
 [[probe.step]]
@@ -951,46 +947,44 @@ why = "the faction membership was saved"
 
 [[probe]]
 row = "V-S-PERK"
-title = "after the reload: player.hasperk 0A001013 (unverified command)"
+title = "after the reload: player.hasperk 0A001013"
 forms = ["KKV41Perk"]
 
 [[probe.step]]
 command = "player.hasperk 0A001013"
 matcher = "regex"
-expected = '(?m)>>\s*1(\.0+)?\s*$'
-why = "the perk was saved"
+expected = 'Perk Rank >>\s*[1-9]'
+why = "the perk was saved (the rank can be 2: the reporter adds it again on each OnLoad)"
 
 [[probe]]
 row = "V-S-AVIF"
-title = "after the reload: player.getav KKV40Avif (unverified command)"
+title = "after the reload: player.getav KKV40Avif"
 forms = ["KKV40Avif"]
 
 [[probe.step]]
 command = "player.getav KKV40Avif"
-matcher = "number"
-expected = "7"
-tolerance = 0.5
+matcher = "regex"
+expected = '(?m)>>\s*7(\.0+)?\s*$'
 why = "the actor value was saved"
 
 [[probe]]
 row = "V-S-QUST"
-title = "after the reload: getstage KKV04Qust (grade D)"
+title = "after the reload: getstage 0A00102C"
 forms = ["KKV04Qust"]
 
 [[probe.step]]
-command = "getstage KKV04Qust"
-matcher = "number"
-expected = "10"
-tolerance = 0.5
+command = "getstage 0A00102C"
+matcher = "regex"
+expected = '(?m)>>\s*10(\.0+)?\s*$'
 why = "the quest stage was saved"
 
 [[probe]]
 row = "V-H-TMLM"
-title = "help \"KKV18 Terminal Menu\" 4: the TMLM KKV18Tmlm is loaded (presence only)"
+title = "help \"KKV18 Terminal Menu\" 4 TMLM: the TMLM KKV18Tmlm is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001008", "KKV18Tmlm", "0A001008"]
 
 [[probe.step]]
-command = "help \"KKV18 Terminal Menu\" 4"
+command = "help \"KKV18 Terminal Menu\" 4 TMLM"
 matcher = "contains"
 expected = "0A001008"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1000,25 +994,22 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-PKIN"
-title = "help KKV20Pkin 4: the PKIN KKV20Pkin is loaded (presence only)"
+title = "Papyrus log: KKV-H20 PKIN present=True (the PKIN KKV20Pkin is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00100A", "KKV20Pkin", "0A00100A"]
 
 [[probe.step]]
-command = "help KKV20Pkin 4"
-matcher = "contains"
-expected = "0A00100A"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H20 PKIN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV20Pkin 4 PKIN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-MESG"
-title = "help \"KKV50 Message\" 4: the MESG KKV50Mesg is loaded (presence only)"
+title = "help \"KKV50 Message\" 4 MESG: the MESG KKV50Mesg is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001016", "KKV50Mesg", "0A001016"]
 
 [[probe.step]]
-command = "help \"KKV50 Message\" 4"
+command = "help \"KKV50 Message\" 4 MESG"
 matcher = "contains"
 expected = "0A001016"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1028,53 +1019,44 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-SOUN"
-title = "help KKV51Soun 4: the SOUN KKV51Soun is loaded (presence only)"
+title = "Papyrus log: KKV-H51 SOUN present=True (the SOUN KKV51Soun is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001017", "KKV51Soun", "0A001017"]
 
 [[probe.step]]
-command = "help KKV51Soun 4"
-matcher = "contains"
-expected = "0A001017"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H51 SOUN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV51Soun 4 SOUN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-IRES"
-title = "help \"KKV52 Resource\" 4: the IRES KKV52Ires is loaded (presence only)"
+title = "Papyrus log: KKV-H52 IRES present=True (the IRES KKV52Ires is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001018", "KKV52Ires", "0A001018"]
 
 [[probe.step]]
-command = "help \"KKV52 Resource\" 4"
-matcher = "contains"
-expected = "0A001018"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H52 IRES present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV52 Resource\" 4 IRES` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-TXST"
-title = "help KKV53Txst 4: the TXST KKV53Txst is loaded (presence only)"
+title = "Papyrus log: KKV-H53 TXST present=True (the TXST KKV53Txst is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001019", "KKV53Txst", "0A001019"]
 
 [[probe.step]]
-command = "help KKV53Txst 4"
-matcher = "contains"
-expected = "0A001019"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H53 TXST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV53Txst 4 TXST` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-HAZD"
-title = "help \"KKV54 Hazard\" 4: the HAZD KKV54Hazd is loaded (presence only)"
+title = "help \"KKV54 Hazard\" 4 HAZD: the HAZD KKV54Hazd is loaded (presence only)"
 forms = ["KitKraftVerify.esm:00101A", "KKV54Hazd", "0A00101A"]
 
 [[probe.step]]
-command = "help \"KKV54 Hazard\" 4"
+command = "help \"KKV54 Hazard\" 4 HAZD"
 matcher = "contains"
 expected = "0A00101A"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1084,53 +1066,44 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-LVLN"
-title = "help KKV55Lvln 4: the LVLN KKV55Lvln is loaded (presence only)"
+title = "Papyrus log: KKV-H55 LVLN present=True (the LVLN KKV55Lvln is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00101B", "KKV55Lvln", "0A00101B"]
 
 [[probe.step]]
-command = "help KKV55Lvln 4"
-matcher = "contains"
-expected = "0A00101B"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H55 LVLN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV55Lvln 4 LVLN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-LVLP"
-title = "help KKV56Lvlp 4: the LVLP KKV56Lvlp is loaded (presence only)"
+title = "Papyrus log: KKV-H56 LVLP present=True (the LVLP KKV56Lvlp is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00101C", "KKV56Lvlp", "0A00101C"]
 
 [[probe.step]]
-command = "help KKV56Lvlp 4"
-matcher = "contains"
-expected = "0A00101C"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H56 LVLP present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV56Lvlp 4 LVLP` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-PACK"
-title = "help KKV57Pack 4: the PACK KKV57Pack is loaded (presence only)"
+title = "Papyrus log: KKV-H57 PACK present=True (the PACK KKV57Pack is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00101D", "KKV57Pack", "0A00101D"]
 
 [[probe.step]]
-command = "help KKV57Pack 4"
-matcher = "contains"
-expected = "0A00101D"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H57 PACK present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV57Pack 4 PACK` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-RSPJ"
-title = "help \"KKV58 Research\" 4: the RSPJ KKV58Rspj is loaded (presence only)"
+title = "help \"KKV58 Research\" 4 RSPJ: the RSPJ KKV58Rspj is loaded (presence only)"
 forms = ["KitKraftVerify.esm:00101E", "KKV58Rspj", "0A00101E"]
 
 [[probe.step]]
-command = "help \"KKV58 Research\" 4"
+command = "help \"KKV58 Research\" 4 RSPJ"
 matcher = "contains"
 expected = "0A00101E"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1140,25 +1113,22 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-WKMF"
-title = "help KKV59Wkmf 4: the WKMF KKV59Wkmf is loaded (presence only)"
+title = "Papyrus log: KKV-H59 WKMF present=True (the WKMF KKV59Wkmf is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00101F", "KKV59Wkmf", "0A00101F"]
 
 [[probe.step]]
-command = "help KKV59Wkmf 4"
-matcher = "contains"
-expected = "0A00101F"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H59 WKMF present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV59Wkmf 4 WKMF` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-WWED"
-title = "help KKV60Wwed 4: the WWED KKV60Wwed is loaded (presence only)"
+title = "help KKV60Wwed 4 WWED: the WWED KKV60Wwed is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001020", "KKV60Wwed", "0A001020"]
 
 [[probe.step]]
-command = "help KKV60Wwed 4"
+command = "help KKV60Wwed 4 WWED"
 matcher = "contains"
 expected = "0A001020"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1168,11 +1138,11 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-ENCH"
-title = "help \"KKV61 Enchantment\" 4: the ENCH KKV61Ench is loaded (presence only)"
+title = "help \"KKV61 Enchantment\" 4 ENCH: the ENCH KKV61Ench is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001021", "KKV61Ench", "0A001021"]
 
 [[probe.step]]
-command = "help \"KKV61 Enchantment\" 4"
+command = "help \"KKV61 Enchantment\" 4 ENCH"
 matcher = "contains"
 expected = "0A001021"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1182,123 +1152,99 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-COBJ"
-title = "help KKV62Cobj 4: the COBJ KKV62Cobj is loaded (presence only)"
+title = "Papyrus log: KKV-H62 COBJ present=True (the COBJ KKV62Cobj is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001022", "KKV62Cobj", "0A001022"]
 
 [[probe.step]]
-command = "help KKV62Cobj 4"
-matcher = "contains"
-expected = "0A001022"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H62 COBJ present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV62Cobj 4 COBJ` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-REGN"
-title = "help KKV63Regn 4: the REGN KKV63Regn is loaded (presence only)"
+title = "Papyrus log: KKV-H63 REGN present=True (the REGN KKV63Regn is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001023", "KKV63Regn", "0A001023"]
 
 [[probe.step]]
-command = "help KKV63Regn 4"
-matcher = "contains"
-expected = "0A001023"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H63 REGN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV63Regn 4 REGN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-PCBN"
-title = "help KKV64Pcbn 4: the PCBN KKV64Pcbn is loaded (presence only)"
+title = "Papyrus log: KKV-H64 PCBN present=True (the PCBN KKV64Pcbn is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001024", "KKV64Pcbn", "0A001024"]
 
 [[probe.step]]
-command = "help KKV64Pcbn 4"
-matcher = "contains"
-expected = "0A001024"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H64 PCBN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV64Pcbn 4 PCBN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-PCCN"
-title = "help KKV65Pccn 4: the PCCN KKV65Pccn is loaded (presence only)"
+title = "Papyrus log: KKV-H65 PCCN present=True (the PCCN KKV65Pccn is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001025", "KKV65Pccn", "0A001025"]
 
 [[probe.step]]
-command = "help KKV65Pccn 4"
-matcher = "contains"
-expected = "0A001025"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H65 PCCN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV65Pccn 4 PCCN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-SFBK"
-title = "help KKV66Sfbk 4: the SFBK KKV66Sfbk is loaded (presence only)"
+title = "Papyrus log: KKV-H66 SFBK present=True (the SFBK KKV66Sfbk is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001026", "KKV66Sfbk", "0A001026"]
 
 [[probe.step]]
-command = "help KKV66Sfbk 4"
-matcher = "contains"
-expected = "0A001026"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H66 SFBK present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV66Sfbk 4 SFBK` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-SFPT"
-title = "help KKV67Sfpt 4: the SFPT KKV67Sfpt is loaded (presence only)"
+title = "Papyrus log: KKV-H67 SFPT present=True (the SFPT KKV67Sfpt is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001027", "KKV67Sfpt", "0A001027"]
 
 [[probe.step]]
-command = "help KKV67Sfpt 4"
-matcher = "contains"
-expected = "0A001027"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H67 SFPT present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV67Sfpt 4 SFPT` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-SFTR"
-title = "help KKV68Sftr 4: the SFTR KKV68Sftr is loaded (presence only)"
+title = "Papyrus log: KKV-H68 SFTR present=True (the SFTR KKV68Sftr is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001028", "KKV68Sftr", "0A001028"]
 
 [[probe.step]]
-command = "help KKV68Sftr 4"
-matcher = "contains"
-expected = "0A001028"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H68 SFTR present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV68Sftr 4 SFTR` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-OTFT"
-title = "help KKV43Otft 4: the OTFT KKV43Otft is loaded (presence only)"
+title = "Papyrus log: KKV-H43 OTFT present=True (the OTFT KKV43Otft is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001015", "KKV43Otft", "0A001015"]
 
 [[probe.step]]
-command = "help KKV43Otft 4"
-matcher = "contains"
-expected = "0A001015"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H43 OTFT present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV43Otft 4 OTFT` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-KYWD"
-title = "help KKV42Kywd 4: the KYWD KKV42Kywd is loaded (presence only)"
+title = "help KKV42Kywd 4 KYWD: the KYWD KKV42Kywd is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001014", "KKV42Kywd", "0A001014"]
 
 [[probe.step]]
-command = "help KKV42Kywd 4"
+command = "help KKV42Kywd 4 KYWD"
 matcher = "contains"
 expected = "0A001014"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1308,39 +1254,33 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-GLOB"
-title = "help KKV01Glob 4: the GLOB KKV01Glob is loaded (presence only)"
+title = "Papyrus log: KKV-H01 GLOB present=True (the GLOB KKV01Glob is loaded; presence only)"
 forms = ["KitKraftVerify.esm:001029", "KKV01Glob", "0A001029"]
 
 [[probe.step]]
-command = "help KKV01Glob 4"
-matcher = "contains"
-expected = "0A001029"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H01 GLOB present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV01Glob 4 GLOB` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-FLST"
-title = "help KKV02Flst 4: the FLST KKV02Flst is loaded (presence only)"
+title = "Papyrus log: KKV-H02 FLST present=True (the FLST KKV02Flst is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00102A", "KKV02Flst", "0A00102A"]
 
 [[probe.step]]
-command = "help KKV02Flst 4"
-matcher = "contains"
-expected = "0A00102A"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H02 FLST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV02Flst 4 FLST` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-FACT"
-title = "help \"KKV03 Faction\" 4: the FACT KKV03Fact is loaded (presence only)"
+title = "help \"KKV03 Faction\" 4 FACT: the FACT KKV03Fact is loaded (presence only)"
 forms = ["KitKraftVerify.esm:00102B", "KKV03Fact", "0A00102B"]
 
 [[probe.step]]
-command = "help \"KKV03 Faction\" 4"
+command = "help \"KKV03 Faction\" 4 FACT"
 matcher = "contains"
 expected = "0A00102B"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1350,39 +1290,33 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-QUST"
-title = "help \"KKV04 Quest\" 4: the QUST KKV04Qust is loaded (presence only)"
+title = "Papyrus log: KKV-H04 QUST present=True (the QUST KKV04Qust is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00102C", "KKV04Qust", "0A00102C"]
 
 [[probe.step]]
-command = "help \"KKV04 Quest\" 4"
-matcher = "contains"
-expected = "0A00102C"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H04 QUST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV04 Quest\" 4 QUST` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-LCTN"
-title = "help \"KKV05 Location\" 4: the LCTN KKV05Lctn is loaded (presence only)"
+title = "Papyrus log: KKV-H05 LCTN present=True (the LCTN KKV05Lctn is loaded; presence only)"
 forms = ["KitKraftVerify.esm:00102D", "KKV05Lctn", "0A00102D"]
 
 [[probe.step]]
-command = "help \"KKV05 Location\" 4"
-matcher = "contains"
-expected = "0A00102D"
-why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
-
-[[probe.step]]
-command = "prid 00000014"
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H05 LCTN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV05 Location\" 4 LCTN` listed nothing in game-20261116-04"
 
 [[probe]]
 row = "V-H-AVIF"
-title = "help KKV40Avif 4: the AVIF KKV40Avif is loaded (presence only)"
+title = "help KKV40Avif 4 AVIF: the AVIF KKV40Avif is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001012", "KKV40Avif", "0A001012"]
 
 [[probe.step]]
-command = "help KKV40Avif 4"
+command = "help KKV40Avif 4 AVIF"
 matcher = "contains"
 expected = "0A001012"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
@@ -1392,11 +1326,11 @@ command = "prid 00000014"
 
 [[probe]]
 row = "V-H-PERK"
-title = "help \"KKV41 Perk\" 4: the PERK KKV41Perk is loaded (presence only)"
+title = "help \"KKV41 Perk\" 4 PERK: the PERK KKV41Perk is loaded (presence only)"
 forms = ["KitKraftVerify.esm:001013", "KKV41Perk", "0A001013"]
 
 [[probe.step]]
-command = "help \"KKV41 Perk\" 4"
+command = "help \"KKV41 Perk\" 4 PERK"
 matcher = "contains"
 expected = "0A001013"
 why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"

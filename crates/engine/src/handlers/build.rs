@@ -542,7 +542,9 @@ struct EntryScripts {
     sources: Option<crate::validate::attached::Sources>,
     out: PathBuf,
     data_dir: Option<PathBuf>,
-    /// Spec name -> EditorID of the `[[new]]`/`[[clone]]` it names.
+    /// Spec name -> EditorID of the `[[new]]`/`[[clone]]` it names, or of the `[[place]]`
+    /// (its entry key, `place[2]`, when it has no EditorID: the patch writer knows a new
+    /// reference by either).
     locals: Vec<(String, String)>,
     /// `{entry, script, found, properties}` per attached script.
     reports: Vec<Value>,
@@ -846,6 +848,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     .iter()
                     .filter_map(|c| Some((c.name.clone()?, c.edid.clone()))),
             )
+            .chain(spec.places.iter().filter_map(|p| {
+                Some((
+                    p.name.clone()?,
+                    p.edid.clone().unwrap_or_else(|| p.key.clone()),
+                ))
+            }))
             .collect(),
         reports: Vec::new(),
         limitations: Vec::new(),

@@ -1153,3 +1153,556 @@ Run facts.
   - `modlist.txt` also has two new disabled lines that no KitKraft command wrote:
     `-GRiNDTerra Planetary POI Generation` and `-Community Spaceship Expansion`. They are
     probably MO2's own, from the owner opening it to select the profile.
+
+### game-20261116-01: agent session 2026-11-16-T01 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T01`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-01` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `crates\game\probes\send-order.toml` SHA-256 `a8638979acccf83615e02ec81ba60465bf46ea93470390439b354da4f0a1350c` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T01` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| SO-01 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29 | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00 | **pass** | - |
+| SO-02 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; player.getpos x -> (only the echo; again in 2000 ms); player.getpos x -> player.getpos x Command: player.getpos x GetPos: X >> -8.00; p... | **pass** | - |
+| SO-03 | `coc CityNewAtlantisLodgeInt`, `prid RussianHuntingRifle`, `player.getpos z` | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle, CityNewAtlantisLodgeInt | regex GetPos: Z >> -?\d | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; prid RussianHuntingRifle -> prid RussianHuntingRifle Command: prid RussianHuntingRifle; player.getpos z -> (only the echo; again in 2000 ms); pl... | **pass** | - |
+| SO-04 | `prid RussianHuntingRifle`, `player.getpos x` | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle | regex GetPos: X >> -?\d | prid RussianHuntingRifle -> prid RussianHuntingRifle Command: prid RussianHuntingRifle Item 'RussianHuntingRifle' not found for parameter ObjectRefe...; (ambiguous: row SO-02 `player.getpos x`, row SO-04 `player.getpos x` could each claim `GetPos: X >> 11.01`; given to none); player.getpos x -> (no ... | fail (step 1 `prid RussianHuntingRifle`: the console answered `Item 'RussianHuntingRifle' not found for parameter ObjectReferenceID.`) | - |
+| SO-05 | `coc CityNewAtlantisApartmentTEMPLATE`, `KitKraftSendOrderRef.enable`, `player.getpos x` | KitKraftSendOrderRef, CityNewAtlantisApartmentTEMPLATE | regex GetPos: X >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; KitKraftSendOrderRef.enable -> KitKraftSendOrderRef.enable Command: KitKraftSendOrderRef.enable; player.getpos x -> (only the echo; aga... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-02), `player.getpos x` (row SO-04) are the same getter still waiting for an answer, and the line `GetPos: X >> -8.00` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+| SO-06 | `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00; (waited 10s) | **pass** | - |
+| SO-07 | `player.getincell 0021966F`, `load KitKraftSession-20261116-01`, `player.getincell 0021966F` | KitKraftSession-* | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00; load KitKraftSession-20261116-01 -> load KitKraftSession-20261116-01 Command: load KitKraftSession-20261116-01 Save file not found.; (waited 10s); player.getincell 0021966F -> player.getincel... | fail (step 2 `load KitKraftSession-20261116-01`: the console answered `Save file not found.`) | - |
+| SO-08 | `coc CityNewAtlantisLodgeInt`, `player.getpos y`, `load KitKraftSession-20261116-01`, `player.getincell 0006BB29` | KitKraftSession-*, CityNewAtlantisLodgeInt, 0006BB29 | regex GetPos: Y >> -?\d; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; player.getpos y -> (only the echo; again in 2000 ms); player.getpos y -> (only the echo; again in 4000 ms); player.getpos y -> player.getpos y C... | fail (step 3 `load KitKraftSession-20261116-01`: the console answered `Save file not found.`) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-16-T01\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, block 1, OW-1; agent-run unattended on the owner's go of
+2026-11-16 just after midnight, "go for it! you've got the system all night"). Covers this entry and its
+retry `game-20261116-02`, whose transcript is identical send for send.
+
+**Result: send order inconclusive (untested): no line arrived late, in either attempt.**
+Answers to commands sent while a `coc` (or the base `load`) is moving are **dropped, not
+delayed**. Not a contradiction by the run sheet's definition, but see SO-03 below; reported
+to the director.
+
+**For the owner to look at (SO-03):** send 14 `prid RussianHuntingRifle` answered only its
+echo; send 17 `player.getpos z` answered `GetPos: Z >> 0.01`; send 18, the same `prid` sent
+again, answered `Item 'RussianHuntingRifle' not found for parameter ObjectReferenceID.`.
+Two `prid`s, one failure line. If that line was send 18's own (send 14's dropped), nothing
+was out of order. If it was send 14's, arriving late, then send 17's `Z` came before an
+earlier request's line: the run sheet's contradiction. The text cannot tell the two
+identical lines apart; this reading takes the first, because every other echo-only send in
+both attempts lost its answer. Your call whether that is enough to keep ruling 2 (send
+order) standing; both transcripts are in
+`C:\Modding\kitkraft-observe\2026-11-16-T01\report.json` and `-T02\`, sends 14 to 18.
+
+Rows (both attempts the same): SO-01 `pass` (the control holds: the session tested
+something); SO-02 `pass`; SO-03 `pass` (predicted not pass); SO-04 `fail` (its own `prid`,
+as predicted); SO-05 `inconclusive` (ambiguous `GetPos: X` lines, as the grader routes
+them); SO-06 `pass`; SO-07 `fail` (`Save file not found.` on time, as predicted); SO-08
+`fail` (its `load`'s own line, on time, not late). SO-05 is not `pass` and SO-06 not `fail`:
+the grade-visible contradiction shape did not occur.
+
+What the transcript shows (`report.json` 36 sends each; T01 SHA-256
+`3c656b6cf1e676509283f619624aea299f0f3b424454959bad5f96871f265276`, T02
+`42f31616ce5425ba4faace3a22f7ab4eca73e669875485b22d6891eca938d685`):
+- Every reply holds the lines of **one** request only, its own. No reply carried a line of
+  an earlier request; no `(late)` routing occurred.
+- Every send the game took while a `coc` (or the base `load`) was still moving answered
+  only its echo, and **its result never arrived anywhere**: sends 3 and 4 (base-wait polls),
+  9 (`player.getpos x`: one `X` line for sends 9 and 10), 14 (`prid RussianHuntingRifle`:
+  its failure line never came), 15 and 16 (`getpos z`: one `Z` line for three sends), 23
+  (`KitKraftSendOrderRef.enable`: no failure line ever), 24 (one `X` line short), 32 and 33.
+  This is the T01 drop of 2026-11-10 (`game-20261110-01`), now seen for getters, `prid` and a
+  reference-prefix command too, not only for polls.
+- SO-03: the run sheet's literal SO-03 contradiction shape ("a `GetPos: Z` line of SO-03
+  before any failure line, while SO-03's `prid` reply was only its echo") is met: send 17's
+  `Z` line came before the only failure line (send 18). It is a reordering only if send 18's
+  line was send 14's late line and send 18's own line was dropped. The two lines are
+  identical and cannot be told apart (run sheet: evidence neither way); every other
+  echo-only send in both attempts lost its answer rather than receiving it late, and a
+  settled `prid` (send 18, 14 s after the `coc`) answers in its own reply. So the reading is
+  "dropped", not "out of order". SO-03 grades `pass` only because the failure the game never
+  sent is invisible: the limit no grader passes (R41, `docs/game-sessions.md` "Statuses").
+- Consequence for the grader: under these timings the late stretch the probes rely on does
+  not exist; the game drops, it does not defer. A row that sends a failing command behind an
+  unsettled move can pass. Rows should wait out every move before sending what they grade.
+
+Run facts: `kit.exe` release `0bbcfc6d...317172` (built from `a618e7d6`; `main` at
+`2ef0c0cc`, docs only since). Preflight `fails: 0` 03:06; `deploy enable --mods
+OldSovietMarksmanRifle` nothing to change. T01 launched 03:09:43, first poll answered at
+91.4 s, base ready at send 5 (101.8 s, the R41 pacing poll worked in game for the first
+time), ended 03:12:47; T02 03:13:45 to about 03:17, the same timings within 0.1 s. List
+files before, after T01, after T02: `modlist.txt` `bfa10ad4`, `plugins.txt` `286a54cf`,
+`loadorder.txt` `46b28b56`, `lockedorder.txt` `9962fbb0` throughout (MO2's known
+`plugins.txt` rewrite at launch was restored by the controller both times). No timeout, no
+diagnostics finding, no stuck screenshot. The rename plugin stays enabled (OW-2 needs it).
+
+### game-20261116-02: agent session 2026-11-16-T02 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T02`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-02` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `crates\game\probes\send-order.toml` SHA-256 `a8638979acccf83615e02ec81ba60465bf46ea93470390439b354da4f0a1350c` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T02` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| SO-01 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29 | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00 | **pass** | - |
+| SO-02 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; player.getpos x -> (only the echo; again in 2000 ms); player.getpos x -> player.getpos x Command: player.getpos x GetPos: X >> -8.00; p... | **pass** | - |
+| SO-03 | `coc CityNewAtlantisLodgeInt`, `prid RussianHuntingRifle`, `player.getpos z` | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle, CityNewAtlantisLodgeInt | regex GetPos: Z >> -?\d | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; prid RussianHuntingRifle -> prid RussianHuntingRifle Command: prid RussianHuntingRifle; player.getpos z -> (only the echo; again in 2000 ms); pl... | **pass** | - |
+| SO-04 | `prid RussianHuntingRifle`, `player.getpos x` | OldSovietMarksmanRifle.esm:0021BBCD, RussianHuntingRifle | regex GetPos: X >> -?\d | prid RussianHuntingRifle -> prid RussianHuntingRifle Command: prid RussianHuntingRifle Item 'RussianHuntingRifle' not found for parameter ObjectRefe...; (ambiguous: row SO-02 `player.getpos x`, row SO-04 `player.getpos x` could each claim `GetPos: X >> 11.01`; given to none); player.getpos x -> (no ... | fail (step 1 `prid RussianHuntingRifle`: the console answered `Item 'RussianHuntingRifle' not found for parameter ObjectReferenceID.`) | - |
+| SO-05 | `coc CityNewAtlantisApartmentTEMPLATE`, `KitKraftSendOrderRef.enable`, `player.getpos x` | KitKraftSendOrderRef, CityNewAtlantisApartmentTEMPLATE | regex GetPos: X >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; KitKraftSendOrderRef.enable -> KitKraftSendOrderRef.enable Command: KitKraftSendOrderRef.enable; player.getpos x -> (only the echo; aga... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-02), `player.getpos x` (row SO-04) are the same getter still waiting for an answer, and the line `GetPos: X >> -8.00` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+| SO-06 | `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00; (waited 10s) | **pass** | - |
+| SO-07 | `player.getincell 0021966F`, `load KitKraftSession-20261116-02`, `player.getincell 0021966F` | KitKraftSession-* | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00; load KitKraftSession-20261116-02 -> load KitKraftSession-20261116-02 Command: load KitKraftSession-20261116-02 Save file not found.; (waited 10s); player.getincell 0021966F -> player.getincel... | fail (step 2 `load KitKraftSession-20261116-02`: the console answered `Save file not found.`) | - |
+| SO-08 | `coc CityNewAtlantisLodgeInt`, `player.getpos y`, `load KitKraftSession-20261116-02`, `player.getincell 0006BB29` | KitKraftSession-*, CityNewAtlantisLodgeInt, 0006BB29 | regex GetPos: Y >> -?\d; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; player.getpos y -> (only the echo; again in 2000 ms); player.getpos y -> (only the echo; again in 4000 ms); player.getpos y -> player.getpos y C... | fail (step 3 `load KitKraftSession-20261116-02`: the console answered `Save file not found.`) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (286a54cf44506fa62b9596270f03b618a5e337b9d991a579d840a9a622cb9b2d -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-16-T02\backup\01-plugins.txt
+
+Writer's reading: the retry of `game-20261116-01` (run sheet: two attempts), whose reading covers both. The same 36 sends, the same replies and the same grades; no line arrived late. Send order: inconclusive after two attempts; request to the session lane: rows that wait out each move, or a shape that makes the game defer rather than drop.
+
+### game-20261116-03: agent session 2026-11-16-T03 (`kit game session`), KitKraftVerify.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T03`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-03` |
+| Plugins | `KitKraftVerify.esm` SHA-256 `a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa` |
+| Probes | `out\verify\probes.toml` SHA-256 `27cdbf4d5b902012e48c84f291b935f777f0a7ca2dff0e5f5567c359a4679293` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T03` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| V-01 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| V-20 | `prid 0A00102F`, `getisid 0A001000` | KitKraftVerify.esm:00102F, KKV70Reporter, 0A00102F, KKV10Acti, 0A001000 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00 | **pass** | - |
+| V-21 | `prid 0A001030`, `getisid 0A001001` | KitKraftVerify.esm:001030, KKV71StatRef, 0A001030, KKV11Stat, 0A001001 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001030 -> prid 0A001030 Command: prid 0A001030; getisid 0A001001 -> getisid 0A001001 Command: getisid 0A001001 GetIsID >> 1.00 | **pass** | - |
+| V-22 | `prid 0A001031`, `getisid 0A001002` | KitKraftVerify.esm:001031, KKV72MsttRef, 0A001031, KKV12Mstt, 0A001002 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001031 -> prid 0A001031 Command: prid 0A001031; getisid 0A001002 -> getisid 0A001002 Command: getisid 0A001002 GetIsID >> 1.00 | **pass** | - |
+| V-23 | `prid 0A001032`, `getisid 0A001003` | KitKraftVerify.esm:001032, KKV73FurnRef, 0A001032, KKV13Furn, 0A001003 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001032 -> prid 0A001032 Command: prid 0A001032; getisid 0A001003 -> getisid 0A001003 Command: getisid 0A001003 GetIsID >> 1.00 | **pass** | - |
+| V-24 | `prid 0A001033`, `getisid 0A001004` | KitKraftVerify.esm:001033, KKV74FlorRef, 0A001033, KKV14Flor, 0A001004 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001033 -> prid 0A001033 Command: prid 0A001033; getisid 0A001004 -> getisid 0A001004 Command: getisid 0A001004 GetIsID >> 1.00 | **pass** | - |
+| V-25 | `prid 0A001034`, `getisid 0A001005` | KitKraftVerify.esm:001034, KKV75DoorRef, 0A001034, KKV15Door, 0A001005 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001034 -> prid 0A001034 Command: prid 0A001034; getisid 0A001005 -> getisid 0A001005 Command: getisid 0A001005 GetIsID >> 1.00 | **pass** | - |
+| V-26 | `prid 0A001035`, `getisid 0A001006` | KitKraftVerify.esm:001035, KKV76LighRef, 0A001035, KKV16Ligh, 0A001006 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001035 -> prid 0A001035 Command: prid 0A001035; getisid 0A001006 -> getisid 0A001006 Command: getisid 0A001006 GetIsID >> 1.00 | **pass** | - |
+| V-27 | `prid 0A001036`, `getisid 0A001007` | KitKraftVerify.esm:001036, KKV77ContRef, 0A001036, KKV17Cont, 0A001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001036 -> prid 0A001036 Command: prid 0A001036; getisid 0A001007 -> getisid 0A001007 Command: getisid 0A001007 GetIsID >> 1.00 | **pass** | - |
+| V-28 | `prid 0A001037`, `getisid 0A001009` | KitKraftVerify.esm:001037, KKV78TermRef, 0A001037, KKV19Term, 0A001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001037 -> prid 0A001037 Command: prid 0A001037; getisid 0A001009 -> getisid 0A001009 Command: getisid 0A001009 GetIsID >> 1.00 | **pass** | - |
+| V-30 | `prid 0A001039`, `getisid 0A00100C` | KitKraftVerify.esm:001039, KKV80MiscRef, 0A001039, KKV30Misc, 0A00100C | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001039 -> prid 0A001039 Command: prid 0A001039; getisid 0A00100C -> getisid 0A00100C Command: getisid 0A00100C GetIsID >> 1.00 | **pass** | - |
+| V-31 | `prid 0A00103A`, `getisid 0A00100B` | KitKraftVerify.esm:00103A, KKV81NpcRef, 0A00103A, KKV21Npc, 0A00100B | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00103A -> prid 0A00103A Command: prid 0A00103A; getisid 0A00100B -> getisid 0A00100B Command: getisid 0A00100B GetIsID >> 1.00 | **pass** | - |
+| V-40 | `coc CityNewAtlantisLodgeInt`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisLodgeInt, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpa... | **pass** | - |
+| V-P00 | Papyrus log: KKV-P00 reporter loaded (ACTI VMAD) | KKV70Reporter, 0A00102F | papyrus-log KKV-P00 reporter loaded | - | **pass** | - |
+| V-P01 | Papyrus log: KKV-P01 GLOB value=4242 (GLOB) | KKV70Reporter, 0A00102F | papyrus-log KKV-P01 GLOB value=4242 | - | **pass** | - |
+| V-P02 | Papyrus log: KKV-P02 FLST size=2 (FLST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P02 FLST size=2 | - | **pass** | - |
+| V-P03 | Papyrus log: KKV-P03 FLST has-mug=True has-wrench=True (FLST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P03 FLST has-mug=True has-wrench=True | - | **pass** | - |
+| V-P04 | Papyrus log: KKV-P04 MISC gold=777 (MISC) | KKV70Reporter, 0A00102F | papyrus-log KKV-P04 MISC gold=777 | - | **pass** | - |
+| V-P05 | Papyrus log: KKV-P05 KYWD on-reporter=True (KYWD) | KKV70Reporter, 0A00102F | papyrus-log KKV-P05 KYWD on-reporter=True | - | **pass** | - |
+| V-P06 | Papyrus log: KKV-P06 FACT player-in=True (FACT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P06 FACT player-in=True | - | **pass** | - |
+| V-P07 | Papyrus log: KKV-P07 PERK player-has=True (PERK) | KKV70Reporter, 0A00102F | papyrus-log KKV-P07 PERK player-has=True | - | **pass** | - |
+| V-P08 | Papyrus log: KKV-P08 AVIF player-value=7 (AVIF) | KKV70Reporter, 0A00102F | papyrus-log KKV-P08 AVIF player-value=7 | - | **pass** | - |
+| V-P09 | Papyrus log: KKV-P09 QUST running=True stage10-done=True (QUST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P09 QUST running=True stage10-done=True | - | **pass** | - |
+| V-P10 | Papyrus log: KKV-P10 LCTN reporter-in=True (LCTN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P10 LCTN reporter-in=True | - | **pass** | - |
+| V-P11 | Papyrus log: KKV-P11 CONT mugs=3 (CONT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P11 CONT mugs=3 | - | **pass** | - |
+| V-P12 | Papyrus log: KKV-P12 LVLI wrench-added=1 (LVLI) | KKV70Reporter, 0A00102F | papyrus-log KKV-P12 LVLI wrench-added=1 | - | **pass** | - |
+| V-P20 | Papyrus log: KKV-P20 ACTI base-is=True (ACTI) | KKV70Reporter, 0A00102F | papyrus-log KKV-P20 ACTI base-is=True | - | **pass** | - |
+| V-P21 | Papyrus log: KKV-P21 STAT base-is=True (STAT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P21 STAT base-is=True | - | **pass** | - |
+| V-P22 | Papyrus log: KKV-P22 MSTT base-is=True (MSTT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P22 MSTT base-is=True | - | **pass** | - |
+| V-P23 | Papyrus log: KKV-P23 FURN base-is=True (FURN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P23 FURN base-is=True | - | **pass** | - |
+| V-P24 | Papyrus log: KKV-P24 FLOR base-is=True (FLOR) | KKV70Reporter, 0A00102F | papyrus-log KKV-P24 FLOR base-is=True | - | **pass** | - |
+| V-P25 | Papyrus log: KKV-P25 DOOR base-is=True (DOOR) | KKV70Reporter, 0A00102F | papyrus-log KKV-P25 DOOR base-is=True | - | **pass** | - |
+| V-P26 | Papyrus log: KKV-P26 LIGH base-is=True (LIGH) | KKV70Reporter, 0A00102F | papyrus-log KKV-P26 LIGH base-is=True | - | **pass** | - |
+| V-P27 | Papyrus log: KKV-P27 CONT base-is=True (CONT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P27 CONT base-is=True | - | **pass** | - |
+| V-P28 | Papyrus log: KKV-P28 TERM base-is=True (TERM) | KKV70Reporter, 0A00102F | papyrus-log KKV-P28 TERM base-is=True | - | **pass** | - |
+| V-P30 | Papyrus log: KKV-P30 MISC base-is=True (MISC) | KKV70Reporter, 0A00102F | papyrus-log KKV-P30 MISC base-is=True | - | **pass** | - |
+| V-P31 | Papyrus log: KKV-P31 NPC_ base-is=True (NPC_) | KKV70Reporter, 0A00102F | papyrus-log KKV-P31 NPC_ base-is=True | - | **pass** | - |
+| V-P29 | Papyrus log: KKV-P29 PKIN base-is=True (PKIN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P29 PKIN base-is=True | - | **pass** | - |
+| V-P98 | Papyrus log: KKV-P98 PKIN reference base= (PKIN (diagnostic)) | KKV70Reporter, 0A00102F | papyrus-log KKV-P98 PKIN reference base= | - | **pass** | - |
+| V-P99 | Papyrus log: KKV-P99 done (-) | KKV70Reporter, 0A00102F | papyrus-log KKV-P99 done | - | **pass** | - |
+| V-I-MISC | `player.additem 0A00100C 1`, `player.getitemcount 0A00100C` | KitKraftVerify.esm:00100C, KKV30Misc, 0A00100C | regex >>\s*[1-9] | player.additem 0A00100C 1 -> player.additem 0A00100C 1 Command: player.additem 0A00100C 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100C -> player.getitemcount 0A00100C Command: player.getitemcount 0A00100C GetItemCount >> 1.00 | **pass** | - |
+| V-I-ALCH | `player.additem 0A00100E 1`, `player.getitemcount 0A00100E` | KitKraftVerify.esm:00100E, KKV32Alch, 0A00100E | regex >>\s*[1-9] | player.additem 0A00100E 1 -> player.additem 0A00100E 1 Command: player.additem 0A00100E 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100E -> player.getitemcount 0A00100E Command: player.getitemcount 0A00100E GetItemCount >> 1.00 | **pass** | - |
+| V-I-BOOK | `player.additem 0A00100F 1`, `player.getitemcount 0A00100F` | KitKraftVerify.esm:00100F, KKV33Book, 0A00100F | regex >>\s*[1-9] | player.additem 0A00100F 1 -> player.additem 0A00100F 1 Command: player.additem 0A00100F 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100F -> player.getitemcount 0A00100F Command: player.getitemcount 0A00100F GetItemCount >> 1.00 | **pass** | - |
+| V-I-KEYM | `player.additem 0A001010 1`, `player.getitemcount 0A001010` | KitKraftVerify.esm:001010, KKV34Keym, 0A001010 | regex >>\s*[1-9] | player.additem 0A001010 1 -> player.additem 0A001010 1 Command: player.additem 0A001010 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A001010 -> player.getitemcount 0A001010 Command: player.getitemcount 0A001010 GetItemCount >> 1.00 | **pass** | - |
+| V-I-ARMO | `player.additem 0A001011 1`, `player.getitemcount 0A001011` | KitKraftVerify.esm:001011, KKV35Armo, 0A001011 | regex >>\s*[1-9] | player.additem 0A001011 1 -> player.additem 0A001011 1 Command: player.additem 0A001011 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A001011 -> player.getitemcount 0A001011 Command: player.getitemcount 0A001011 GetItemCount >> 1.00 | **pass** | - |
+| V-I-ARMO-EQ | `player.equipitem 0A001011`, `player.getequipped 0A001011` | KKV35Armo, 0A001011 | regex (?m)>>\s*1(\.0+)?\s*$ | player.equipitem 0A001011 -> player.equipitem 0A001011 Command: player.equipitem 0A001011 GetIsRace HumanRace >> 1.00 IsTrueForConditionForm:  >> 1.0...; player.getequipped 0A001011 -> player.getequipped 0A001011 Command: player.getequipped 0A001011 GetEquipped >> 1.00 | **pass** | - |
+| V-I-LVLI | `player.additem 0A00102E 1`, `player.getitemcount 0A00100D` | KKV06Lvli, 0A00102E, KKV31Misc, 0A00100D | regex >>\s*[1-9] | player.additem 0A00102E 1 -> player.additem 0A00102E 1 Command: player.additem 0A00102E 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100D -> player.getitemcount 0A00100D Command: player.getitemcount 0A00100D GetItemCount >> 1.00 | **pass** | - |
+| V-C-GLOB | `getglobalvalue KKV01Glob` | KKV01Glob, 0A001029 | number 4242 +/- 0.5 | getglobalvalue KKV01Glob -> getglobalvalue KKV01Glob Command: getglobalvalue KKV01Glob Item 'KKV01Glob' not found for parameter Global.  Compiled sc...; (late, after its answer) getglobalvalue KKV01Glob -> GetGlobalValue >> 0.00 (in the reply to `coc CityNewAtlantisLodgeInt`; not graded); (late, aft... | fail (step 1 `getglobalvalue KKV01Glob`: the console answered `Item 'KKV01Glob' not found for parameter Global.`) | - |
+| V-C-FACT | `player.getinfaction 0A00102B` | KKV03Fact, 0A00102B | regex (?m)>>\s*1(\.0+)?\s*$ | player.getinfaction 0A00102B -> player.getinfaction 0A00102B Command: player.getinfaction 0A00102B GetInFaction >> 1.00 | **pass** | - |
+| V-C-PERK | `player.hasperk 0A001013` | KKV41Perk, 0A001013 | regex (?m)>>\s*1(\.0+)?\s*$ | player.hasperk 0A001013 -> player.hasperk 0A001013 Command: player.hasperk 0A001013 Perk Rank >> 1; (late failure) player.hasperk 0A001013 -> Item 'KKV04Qust' not found for parameter Quest. (in the reply to `getstage KKV04Qust`); (late failure) player.hasperk 0A001013 -> Item 'KKV04Qust' not found f... | inconclusive (late failure: `player.hasperk 0A001013`: the console answered `Item 'KKV04Qust' not found for parameter Quest.`, late, in the reply to `getstage KKV04Qust` (R20, R28)) | - |
+| V-C-AVIF | `player.getav KKV40Avif` | KKV40Avif, 0A001012 | number 7 +/- 0.5 | player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in ... | inconclusive (late failure: `player.getav KKV40Avif`: the console answered `Item 'KKV04Qust' not found for parameter Quest.`, late, in the reply to `getstage KKV04Qust` (R20, R28)) | - |
+| V-C-QUST | `getstage KKV04Qust` | KKV04Qust, 0A00102C | number 10 +/- 0.5 | (a failure line for row V-C-PERK `player.hasperk 0A001013` arrived in this reply: `Item 'KKV04Qust' not found for parameter Quest.`); (a failure line for row V-C-AVIF `player.getav KKV40Avif` arrived in this reply: `Item 'KKV04Qust' not found for parameter Quest.`); getstage KKV04Qust -> (no line of... | inconclusive (late failure: `getstage KKV04Qust`: the console answered `Item 'KKV04Qust' not found for parameter Quest.`, late, in the reply to `getstage KKV04Qust` (R20, R28)) | - |
+| V-S-01 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261116-03`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261116-03`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | (a line for row V-C-GLOB `getglobalvalue KKV01Glob` re-queued to it: GetGlobalValue >> 0.00); (a line for row V-C-GLOB `getglobalvalue KKV01Glob`, which had all its answers: GetGlobalValue >> 0.00; not graded); coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLo... | **pass** | - |
+| V-S-02 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | (a line for row V-C-GLOB `getglobalvalue KKV01Glob`, which had all its answers: GetGlobalValue >> 0.00; not graded); (a line for row V-C-GLOB `getglobalvalue KKV01Glob`, which had all its answers: GetGlobalValue >> 0.00; not graded); coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartme... | **pass** | - |
+| V-S-20 | `prid 0A00102F`, `getisid 0A001000` | KKV70Reporter, 0A00102F, KKV10Acti, 0A001000 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00 | **pass** | - |
+| V-S-21 | `prid 0A001030`, `getisid 0A001001` | KKV71StatRef, 0A001030, KKV11Stat, 0A001001 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001030 -> prid 0A001030 Command: prid 0A001030; getisid 0A001001 -> getisid 0A001001 Command: getisid 0A001001 GetIsID >> 1.00 | **pass** | - |
+| V-S-22 | `prid 0A001031`, `getisid 0A001002` | KKV72MsttRef, 0A001031, KKV12Mstt, 0A001002 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001031 -> prid 0A001031 Command: prid 0A001031; getisid 0A001002 -> getisid 0A001002 Command: getisid 0A001002 GetIsID >> 1.00 | **pass** | - |
+| V-S-23 | `prid 0A001032`, `getisid 0A001003` | KKV73FurnRef, 0A001032, KKV13Furn, 0A001003 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001032 -> prid 0A001032 Command: prid 0A001032; getisid 0A001003 -> getisid 0A001003 Command: getisid 0A001003 GetIsID >> 1.00 | **pass** | - |
+| V-S-24 | `prid 0A001033`, `getisid 0A001004` | KKV74FlorRef, 0A001033, KKV14Flor, 0A001004 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001033 -> prid 0A001033 Command: prid 0A001033; getisid 0A001004 -> getisid 0A001004 Command: getisid 0A001004 GetIsID >> 1.00 | **pass** | - |
+| V-S-25 | `prid 0A001034`, `getisid 0A001005` | KKV75DoorRef, 0A001034, KKV15Door, 0A001005 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001034 -> prid 0A001034 Command: prid 0A001034; getisid 0A001005 -> getisid 0A001005 Command: getisid 0A001005 GetIsID >> 1.00 | **pass** | - |
+| V-S-26 | `prid 0A001035`, `getisid 0A001006` | KKV76LighRef, 0A001035, KKV16Ligh, 0A001006 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001035 -> prid 0A001035 Command: prid 0A001035; getisid 0A001006 -> getisid 0A001006 Command: getisid 0A001006 GetIsID >> 1.00 | **pass** | - |
+| V-S-27 | `prid 0A001036`, `getisid 0A001007` | KKV77ContRef, 0A001036, KKV17Cont, 0A001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001036 -> prid 0A001036 Command: prid 0A001036; getisid 0A001007 -> getisid 0A001007 Command: getisid 0A001007 GetIsID >> 1.00 | **pass** | - |
+| V-S-28 | `prid 0A001037`, `getisid 0A001009` | KKV78TermRef, 0A001037, KKV19Term, 0A001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001037 -> prid 0A001037 Command: prid 0A001037; getisid 0A001009 -> getisid 0A001009 Command: getisid 0A001009 GetIsID >> 1.00 | **pass** | - |
+| V-S-30 | `prid 0A001039`, `getisid 0A00100C` | KKV80MiscRef, 0A001039, KKV30Misc, 0A00100C | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001039 -> prid 0A001039 Command: prid 0A001039; getisid 0A00100C -> getisid 0A00100C Command: getisid 0A00100C GetIsID >> 1.00 | **pass** | - |
+| V-S-31 | `prid 0A00103A`, `getisid 0A00100B` | KKV81NpcRef, 0A00103A, KKV21Npc, 0A00100B | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00103A -> prid 0A00103A Command: prid 0A00103A; getisid 0A00100B -> getisid 0A00100B Command: getisid 0A00100B GetIsID >> 1.00 | **pass** | - |
+| V-S-I-MISC | `player.getitemcount 0A00100C` | KKV30Misc, 0A00100C | regex >>\s*[1-9] | player.getitemcount 0A00100C -> player.getitemcount 0A00100C Command: player.getitemcount 0A00100C GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-ALCH | `player.getitemcount 0A00100E` | KKV32Alch, 0A00100E | regex >>\s*[1-9] | player.getitemcount 0A00100E -> player.getitemcount 0A00100E Command: player.getitemcount 0A00100E GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-BOOK | `player.getitemcount 0A00100F` | KKV33Book, 0A00100F | regex >>\s*[1-9] | player.getitemcount 0A00100F -> player.getitemcount 0A00100F Command: player.getitemcount 0A00100F GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-KEYM | `player.getitemcount 0A001010` | KKV34Keym, 0A001010 | regex >>\s*[1-9] | player.getitemcount 0A001010 -> player.getitemcount 0A001010 Command: player.getitemcount 0A001010 GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-ARMO | `player.getitemcount 0A001011` | KKV35Armo, 0A001011 | regex >>\s*[1-9] | player.getitemcount 0A001011 -> player.getitemcount 0A001011 Command: player.getitemcount 0A001011 GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-LVLI | `player.getitemcount 0A00100D` | KKV31Misc, 0A00100D | regex >>\s*[1-9] | player.getitemcount 0A00100D -> player.getitemcount 0A00100D Command: player.getitemcount 0A00100D GetItemCount >> 1.00 | **pass** | - |
+| V-S-GLOB | `getglobalvalue KKV01Glob` | KKV01Glob | number 4242 +/- 0.5 | getglobalvalue KKV01Glob -> getglobalvalue KKV01Glob Command: getglobalvalue KKV01Glob Item 'KKV01Glob' not found for parameter Global.  Compiled sc... | fail (step 1 `getglobalvalue KKV01Glob`: the console answered `Item 'KKV01Glob' not found for parameter Global.`) | - |
+| V-S-FACT | `player.getinfaction 0A00102B` | KKV03Fact | regex (?m)>>\s*1(\.0+)?\s*$ | player.getinfaction 0A00102B -> player.getinfaction 0A00102B Command: player.getinfaction 0A00102B GetInFaction >> 1.00 | **pass** | - |
+| V-S-PERK | `player.hasperk 0A001013` | KKV41Perk | regex (?m)>>\s*1(\.0+)?\s*$ | player.hasperk 0A001013 -> player.hasperk 0A001013 Command: player.hasperk 0A001013 Perk Rank >> 2; (late failure) player.hasperk 0A001013 -> Item 'KKV04Qust' not found for parameter Quest. (in the reply to `getstage KKV04Qust`); (late failure) player.hasperk 0A001013 -> Item 'KKV04Qust' not found f... | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `player.hasperk 0A001013 Command: player.hasperk 0A001013 Perk Rank >> 2`) | - |
+| V-S-AVIF | `player.getav KKV40Avif` | KKV40Avif | number 7 +/- 0.5 | player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in ... | inconclusive (late failure: `player.getav KKV40Avif`: the console answered `Item 'KKV04Qust' not found for parameter Quest.`, late, in the reply to `getstage KKV04Qust` (R20, R28)) | - |
+| V-S-QUST | `getstage KKV04Qust` | KKV04Qust | number 10 +/- 0.5 | (a failure line for row V-S-PERK `player.hasperk 0A001013` arrived in this reply: `Item 'KKV04Qust' not found for parameter Quest.`); (a failure line for row V-S-AVIF `player.getav KKV40Avif` arrived in this reply: `Item 'KKV04Qust' not found for parameter Quest.`); (a failure line for row V-C-QUST ... | inconclusive (`getstage KKV04Qust`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-TMLM | `help "KKV18 Terminal Menu" 4`, `prid 00000014` | KitKraftVerify.esm:001008, KKV18Tmlm, 0A001008 | contains 0A001008 | help "KKV18 Terminal Menu" 4 -> (no line of its own: help "KKV18 Terminal Menu" 4 ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS---------------...; again in 2000 ms); help "KKV18 Terminal Menu" 4 -> (only the echo; again in 4000 ms); help "KKV18 Terminal Menu" 4 -> help "KKV18 Terminal Men... | inconclusive (`help "KKV18 Terminal Menu" 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PKIN | `help KKV20Pkin 4`, `prid 00000014` | KitKraftVerify.esm:00100A, KKV20Pkin, 0A00100A | contains 0A00100A | help KKV20Pkin 4 -> (no line of its own: help KKV20Pkin 4 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settin...; again in 2000 ms); help KKV20Pkin 4 -> (only the echo; again in 4000 ms); help KKV20Pkin 4 -> help KKV20Pkin 4; prid 00000014 -> prid 00000014 Command: pr... | inconclusive (`help KKV20Pkin 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-MESG | `help "KKV50 Message" 4`, `prid 00000014` | KitKraftVerify.esm:001016, KKV50Mesg, 0A001016 | contains 0A001016 | help "KKV50 Message" 4 -> (only the echo; again in 2000 ms); help "KKV50 Message" 4 -> (only the echo; again in 4000 ms); help "KKV50 Message" 4 -> help "KKV50 Message" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help "KKV50 Message" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SOUN | `help KKV51Soun 4`, `prid 00000014` | KitKraftVerify.esm:001017, KKV51Soun, 0A001017 | contains 0A001017 | help KKV51Soun 4 -> (only the echo; again in 2000 ms); help KKV51Soun 4 -> (only the echo; again in 4000 ms); help KKV51Soun 4 -> help KKV51Soun 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV51Soun 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-IRES | `help "KKV52 Resource" 4`, `prid 00000014` | KitKraftVerify.esm:001018, KKV52Ires, 0A001018 | contains 0A001018 | help "KKV52 Resource" 4 -> (only the echo; again in 2000 ms); help "KKV52 Resource" 4 -> (no line of its own: help "KKV52 Resource" 4 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2...; again in 4000 ms); help "KKV52 Resource" 4 -> help "KKV52 Resource" 4; prid 00000014 ... | inconclusive (`help "KKV52 Resource" 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-TXST | `help KKV53Txst 4`, `prid 00000014` | KitKraftVerify.esm:001019, KKV53Txst, 0A001019 | contains 0A001019 | help KKV53Txst 4 -> (only the echo; again in 2000 ms); help KKV53Txst 4 -> (only the echo; again in 4000 ms); help KKV53Txst 4 -> help KKV53Txst 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV53Txst 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-HAZD | `help "KKV54 Hazard" 4`, `prid 00000014` | KitKraftVerify.esm:00101A, KKV54Hazd, 0A00101A | contains 0A00101A | help "KKV54 Hazard" 4 -> (only the echo; again in 2000 ms); help "KKV54 Hazard" 4 -> (only the echo; again in 4000 ms); help "KKV54 Hazard" 4 -> help "KKV54 Hazard" 4; prid 00000014 -> prid 00000014 Command: prid 00000014; (late) help "KKV54 Hazard" 4 -> HAZD:  (0A00101A) 'KKV54 Hazard' (in the repl... | **pass** | - |
+| V-H-LVLN | `help KKV55Lvln 4`, `prid 00000014` | KitKraftVerify.esm:00101B, KKV55Lvln, 0A00101B | contains 0A00101B | help KKV55Lvln 4 -> (only the echo; again in 2000 ms); help KKV55Lvln 4 -> (only the echo; again in 4000 ms); help KKV55Lvln 4 -> help KKV55Lvln 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV55Lvln 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-LVLP | `help KKV56Lvlp 4`, `prid 00000014` | KitKraftVerify.esm:00101C, KKV56Lvlp, 0A00101C | contains 0A00101C | help KKV56Lvlp 4 -> (only the echo; again in 2000 ms); help KKV56Lvlp 4 -> (only the echo; again in 4000 ms); help KKV56Lvlp 4 -> help KKV56Lvlp 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV56Lvlp 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PACK | `help KKV57Pack 4`, `prid 00000014` | KitKraftVerify.esm:00101D, KKV57Pack, 0A00101D | contains 0A00101D | help KKV57Pack 4 -> (only the echo; again in 2000 ms); (a line for row V-H-HAZD `help "KKV54 Hazard" 4` re-queued to it: HAZD:  (0A00101A) 'KKV54 Hazard'); help KKV57Pack 4 -> (no line of its own: help KKV57Pack 4 HAZD:  (0A00101A) 'KKV54 Hazard'; again in 4000 ms); help KKV57Pack 4 -> help KKV57Pac... | inconclusive (`help KKV57Pack 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-RSPJ | `help "KKV58 Research" 4`, `prid 00000014` | KitKraftVerify.esm:00101E, KKV58Rspj, 0A00101E | contains 0A00101E | help "KKV58 Research" 4 -> (only the echo; again in 2000 ms); help "KKV58 Research" 4 -> (only the echo; again in 4000 ms); help "KKV58 Research" 4 -> help "KKV58 Research" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help "KKV58 Research" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-WKMF | `help KKV59Wkmf 4`, `prid 00000014` | KitKraftVerify.esm:00101F, KKV59Wkmf, 0A00101F | contains 0A00101F | help KKV59Wkmf 4 -> (only the echo; again in 2000 ms); help KKV59Wkmf 4 -> (only the echo; again in 4000 ms); help KKV59Wkmf 4 -> help KKV59Wkmf 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV59Wkmf 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-WWED | `help KKV60Wwed 4`, `prid 00000014` | KitKraftVerify.esm:001020, KKV60Wwed, 0A001020 | contains 0A001020 | help KKV60Wwed 4 -> (only the echo; again in 2000 ms); help KKV60Wwed 4 -> (only the echo; again in 4000 ms); help KKV60Wwed 4 -> help KKV60Wwed 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV60Wwed 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-ENCH | `help "KKV61 Enchantment" 4`, `prid 00000014` | KitKraftVerify.esm:001021, KKV61Ench, 0A001021 | contains 0A001021 | help "KKV61 Enchantment" 4 -> (only the echo; again in 2000 ms); help "KKV61 Enchantment" 4 -> (only the echo; again in 4000 ms); help "KKV61 Enchantment" 4 -> help "KKV61 Enchantment" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help "KKV61 Enchantment" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-COBJ | `help KKV62Cobj 4`, `prid 00000014` | KitKraftVerify.esm:001022, KKV62Cobj, 0A001022 | contains 0A001022 | help KKV62Cobj 4 -> (only the echo; again in 2000 ms); help KKV62Cobj 4 -> (only the echo; again in 4000 ms); help KKV62Cobj 4 -> help KKV62Cobj 4; prid 00000014 -> prid 00000014 Command: prid 00000014 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settin... | inconclusive (`help KKV62Cobj 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-REGN | `help KKV63Regn 4`, `prid 00000014` | KitKraftVerify.esm:001023, KKV63Regn, 0A001023 | contains 0A001023 | help KKV63Regn 4 -> (only the echo; again in 2000 ms); help KKV63Regn 4 -> (only the echo; again in 4000 ms); help KKV63Regn 4 -> help KKV63Regn 4 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settings, 3-globals, 4-oth...; prid 00000014 -> prid 00000014 Command: prid ... | inconclusive (`help KKV63Regn 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PCBN | `help KKV64Pcbn 4`, `prid 00000014` | KitKraftVerify.esm:001024, KKV64Pcbn, 0A001024 | contains 0A001024 | help KKV64Pcbn 4 -> (only the echo; again in 2000 ms); help KKV64Pcbn 4 -> (only the echo; again in 4000 ms); help KKV64Pcbn 4 -> help KKV64Pcbn 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV64Pcbn 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PCCN | `help KKV65Pccn 4`, `prid 00000014` | KitKraftVerify.esm:001025, KKV65Pccn, 0A001025 | contains 0A001025 | help KKV65Pccn 4 -> (only the echo; again in 2000 ms); help KKV65Pccn 4 -> (only the echo; again in 4000 ms); help KKV65Pccn 4 -> help KKV65Pccn 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV65Pccn 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFBK | `help KKV66Sfbk 4`, `prid 00000014` | KitKraftVerify.esm:001026, KKV66Sfbk, 0A001026 | contains 0A001026 | help KKV66Sfbk 4 -> (only the echo; again in 2000 ms); help KKV66Sfbk 4 -> (only the echo; again in 4000 ms); help KKV66Sfbk 4 -> help KKV66Sfbk 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV66Sfbk 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFPT | `help KKV67Sfpt 4`, `prid 00000014` | KitKraftVerify.esm:001027, KKV67Sfpt, 0A001027 | contains 0A001027 | help KKV67Sfpt 4 -> (only the echo; again in 2000 ms); help KKV67Sfpt 4 -> (only the echo; again in 4000 ms); help KKV67Sfpt 4 -> help KKV67Sfpt 4 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-settings, 3-globals, 4-oth...; prid 00000014 -> prid 00000014 Command: prid ... | inconclusive (`help KKV67Sfpt 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFTR | `help KKV68Sftr 4`, `prid 00000014` | KitKraftVerify.esm:001028, KKV68Sftr, 0A001028 | contains 0A001028 | help KKV68Sftr 4 -> (only the echo; again in 2000 ms); help KKV68Sftr 4 -> (only the echo; again in 4000 ms); help KKV68Sftr 4 -> help KKV68Sftr 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV68Sftr 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-OTFT | `help KKV43Otft 4`, `prid 00000014` | KitKraftVerify.esm:001015, KKV43Otft, 0A001015 | contains 0A001015 | help KKV43Otft 4 -> (only the echo; again in 2000 ms); help KKV43Otft 4 -> (only the echo; again in 4000 ms); help KKV43Otft 4 -> help KKV43Otft 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV43Otft 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-KYWD | `help KKV42Kywd 4`, `prid 00000014` | KitKraftVerify.esm:001014, KKV42Kywd, 0A001014 | contains 0A001014 | help KKV42Kywd 4 -> (only the echo; again in 2000 ms); help KKV42Kywd 4 -> (only the echo; again in 4000 ms); help KKV42Kywd 4 -> help KKV42Kywd 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV42Kywd 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-GLOB | `help KKV01Glob 4`, `prid 00000014` | KitKraftVerify.esm:001029, KKV01Glob, 0A001029 | contains 0A001029 | help KKV01Glob 4 -> (only the echo; again in 2000 ms); help KKV01Glob 4 -> (only the echo; again in 4000 ms); help KKV01Glob 4 -> help KKV01Glob 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV01Glob 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-FLST | `help KKV02Flst 4`, `prid 00000014` | KitKraftVerify.esm:00102A, KKV02Flst, 0A00102A | contains 0A00102A | help KKV02Flst 4 -> (only the echo; again in 2000 ms); help KKV02Flst 4 -> (only the echo; again in 4000 ms); help KKV02Flst 4 -> help KKV02Flst 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV02Flst 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-FACT | `help "KKV03 Faction" 4`, `prid 00000014` | KitKraftVerify.esm:00102B, KKV03Fact, 0A00102B | contains 0A00102B | help "KKV03 Faction" 4 -> (only the echo; again in 2000 ms); help "KKV03 Faction" 4 -> (only the echo; again in 4000 ms); help "KKV03 Faction" 4 -> help "KKV03 Faction" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help "KKV03 Faction" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-QUST | `help "KKV04 Quest" 4`, `prid 00000014` | KitKraftVerify.esm:00102C, KKV04Qust, 0A00102C | contains 0A00102C | help "KKV04 Quest" 4 -> (only the echo; again in 2000 ms); help "KKV04 Quest" 4 -> (only the echo; again in 4000 ms); help "KKV04 Quest" 4 -> help "KKV04 Quest" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-setti... | inconclusive (`help "KKV04 Quest" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-LCTN | `help "KKV05 Location" 4`, `prid 00000014` | KitKraftVerify.esm:00102D, KKV05Lctn, 0A00102D | contains 0A00102D | help "KKV05 Location" 4 -> (only the echo; again in 2000 ms); help "KKV05 Location" 4 -> (only the echo; again in 4000 ms); help "KKV05 Location" 4 -> help "KKV05 Location" 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help "KKV05 Location" 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-AVIF | `help KKV40Avif 4`, `prid 00000014` | KitKraftVerify.esm:001012, KKV40Avif, 0A001012 | contains 0A001012 | help KKV40Avif 4 -> (only the echo; again in 2000 ms); help KKV40Avif 4 -> (only the echo; again in 4000 ms); help KKV40Avif 4 -> help KKV40Avif 4; prid 00000014 -> prid 00000014 Command: prid 00000014 | inconclusive (`help KKV40Avif 4` answered with only its echo, 3 time(s): no correlated reply: no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PERK | `help "KKV41 Perk" 4`, `prid 00000014` | KitKraftVerify.esm:001013, KKV41Perk, 0A001013 | contains 0A001013 | help "KKV41 Perk" 4 -> (only the echo; again in 2000 ms); help "KKV41 Perk" 4 -> (no line of its own: help "KKV41 Perk" 4 usage: help <matchstring> <filter> <form type> filters: 0-all 1-functions, 2-set...; again in 4000 ms); help "KKV41 Perk" 4 -> help "KKV41 Perk" 4; prid 00000014 -> prid 00000014... | inconclusive (`help "KKV41 Perk" 4`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (d5372bd7813ed0f50a868b06fd2d87dd4953e2da4d43c05eb1da3531ab06622b -> bf7b351f15b7a7ffed7612f1f0808446b4952af140bdf7665f9312402bcbdb3e): restored from C:\Modding\kitkraft-observe\2026-11-16-T03\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, block 2, verification mod attempt 1 of 3; agent-run
+unattended on the owner's go). **69 pass, 3 fail, 34 inconclusive, 0 not-run; no crash, no
+timeout.** `report.json` SHA-256 `d5326e0e473a70e954fbf711333c2060e27cd33cac27e9d9f25a62cb2ec1b47b`.
+The evidence is entered from the corrected re-run `game-20261116-04`; this entry agrees with it
+on every row both graded.
+
+- Blocks A, B, C (placed references, the reporter's 27 Papyrus lines, inventory) all pass.
+  The reporter ran on each fresh load of the cell (log 03:20:06 and 03:20:56). V-P29
+  `KKV-P29 PKIN base-is=true` and V-P98 `base=[Form < (0A00100A)>]` answer KK-250's question
+  in favour of the pack-in. The reporter prints `true`, not `True`; the matcher passed it.
+- The 3 fails and 5 of the inconclusives are **command shapes**, not the plugin:
+  `getglobalvalue KKV01Glob` and `getstage KKV04Qust` answered `Item '...' not found for
+  parameter Global.` / `Quest.` (the console resolves no GLOB or QUST EditorID; the runtime ID
+  works, `game-20261116-04`); `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >>
+  7.00` three times, but the `number` matcher read the `40` of the EditorID and the
+  correlator then routed `getstage`'s failure line to the waiting rows (V-C-PERK, V-C-AVIF,
+  V-C-QUST, V-S-AVIF `inconclusive (late failure)`); `player.hasperk` answers `Perk Rank >> 1`
+  (V-S-PERK failed on `Perk Rank >> 2`, the ONE regex).
+- Block G: 29 of 30 `help <term> 4` rows inconclusive. Without a form type the game printed
+  the answer about 20 s later or not at all (HAZD's line arrived 21 s late, in PACK's row,
+  and passed V-H-HAZD); the `usage:` header lines appeared in unrelated replies.
+- V-S-01 passed (the reload happened). Save/reload rows: see `game-20261116-04`'s reading on
+  which of them count.
+
+### game-20261116-04: agent session 2026-11-16-T04 (`kit game session`), KitKraftVerify.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T04`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-04` |
+| Plugins | `KitKraftVerify.esm` SHA-256 `a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa` |
+| Probes | `out\verify\probes2.toml` SHA-256 `cb31c941ed966dba5731df31c296df9fc7ea1f64be1ec93f84c43ec15c0fccd4` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T04` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| V-01 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| V-20 | `prid 0A00102F`, `getisid 0A001000` | KitKraftVerify.esm:00102F, KKV70Reporter, 0A00102F, KKV10Acti, 0A001000 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00 | **pass** | - |
+| V-21 | `prid 0A001030`, `getisid 0A001001` | KitKraftVerify.esm:001030, KKV71StatRef, 0A001030, KKV11Stat, 0A001001 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001030 -> prid 0A001030 Command: prid 0A001030; getisid 0A001001 -> getisid 0A001001 Command: getisid 0A001001 GetIsID >> 1.00 | **pass** | - |
+| V-22 | `prid 0A001031`, `getisid 0A001002` | KitKraftVerify.esm:001031, KKV72MsttRef, 0A001031, KKV12Mstt, 0A001002 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001031 -> prid 0A001031 Command: prid 0A001031; getisid 0A001002 -> getisid 0A001002 Command: getisid 0A001002 GetIsID >> 1.00 | **pass** | - |
+| V-23 | `prid 0A001032`, `getisid 0A001003` | KitKraftVerify.esm:001032, KKV73FurnRef, 0A001032, KKV13Furn, 0A001003 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001032 -> prid 0A001032 Command: prid 0A001032; getisid 0A001003 -> getisid 0A001003 Command: getisid 0A001003 GetIsID >> 1.00 | **pass** | - |
+| V-24 | `prid 0A001033`, `getisid 0A001004` | KitKraftVerify.esm:001033, KKV74FlorRef, 0A001033, KKV14Flor, 0A001004 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001033 -> prid 0A001033 Command: prid 0A001033; getisid 0A001004 -> getisid 0A001004 Command: getisid 0A001004 GetIsID >> 1.00 | **pass** | - |
+| V-25 | `prid 0A001034`, `getisid 0A001005` | KitKraftVerify.esm:001034, KKV75DoorRef, 0A001034, KKV15Door, 0A001005 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001034 -> prid 0A001034 Command: prid 0A001034; getisid 0A001005 -> getisid 0A001005 Command: getisid 0A001005 GetIsID >> 1.00 | **pass** | - |
+| V-26 | `prid 0A001035`, `getisid 0A001006` | KitKraftVerify.esm:001035, KKV76LighRef, 0A001035, KKV16Ligh, 0A001006 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001035 -> prid 0A001035 Command: prid 0A001035; getisid 0A001006 -> getisid 0A001006 Command: getisid 0A001006 GetIsID >> 1.00 | **pass** | - |
+| V-27 | `prid 0A001036`, `getisid 0A001007` | KitKraftVerify.esm:001036, KKV77ContRef, 0A001036, KKV17Cont, 0A001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001036 -> prid 0A001036 Command: prid 0A001036; getisid 0A001007 -> getisid 0A001007 Command: getisid 0A001007 GetIsID >> 1.00 | **pass** | - |
+| V-28 | `prid 0A001037`, `getisid 0A001009` | KitKraftVerify.esm:001037, KKV78TermRef, 0A001037, KKV19Term, 0A001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001037 -> prid 0A001037 Command: prid 0A001037; getisid 0A001009 -> getisid 0A001009 Command: getisid 0A001009 GetIsID >> 1.00 | **pass** | - |
+| V-30 | `prid 0A001039`, `getisid 0A00100C` | KitKraftVerify.esm:001039, KKV80MiscRef, 0A001039, KKV30Misc, 0A00100C | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001039 -> prid 0A001039 Command: prid 0A001039; getisid 0A00100C -> getisid 0A00100C Command: getisid 0A00100C GetIsID >> 1.00 | **pass** | - |
+| V-31 | `prid 0A00103A`, `getisid 0A00100B` | KitKraftVerify.esm:00103A, KKV81NpcRef, 0A00103A, KKV21Npc, 0A00100B | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00103A -> prid 0A00103A Command: prid 0A00103A; getisid 0A00100B -> getisid 0A00100B Command: getisid 0A00100B GetIsID >> 1.00 | **pass** | - |
+| V-40 | `coc CityNewAtlantisLodgeInt`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisLodgeInt, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpa... | **pass** | - |
+| V-P00 | Papyrus log: KKV-P00 reporter loaded (ACTI VMAD) | KKV70Reporter, 0A00102F | papyrus-log KKV-P00 reporter loaded | - | **pass** | - |
+| V-P01 | Papyrus log: KKV-P01 GLOB value=4242 (GLOB) | KKV70Reporter, 0A00102F | papyrus-log KKV-P01 GLOB value=4242 | - | **pass** | - |
+| V-P02 | Papyrus log: KKV-P02 FLST size=2 (FLST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P02 FLST size=2 | - | **pass** | - |
+| V-P03 | Papyrus log: KKV-P03 FLST has-mug=True has-wrench=True (FLST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P03 FLST has-mug=True has-wrench=True | - | **pass** | - |
+| V-P04 | Papyrus log: KKV-P04 MISC gold=777 (MISC) | KKV70Reporter, 0A00102F | papyrus-log KKV-P04 MISC gold=777 | - | **pass** | - |
+| V-P05 | Papyrus log: KKV-P05 KYWD on-reporter=True (KYWD) | KKV70Reporter, 0A00102F | papyrus-log KKV-P05 KYWD on-reporter=True | - | **pass** | - |
+| V-P06 | Papyrus log: KKV-P06 FACT player-in=True (FACT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P06 FACT player-in=True | - | **pass** | - |
+| V-P07 | Papyrus log: KKV-P07 PERK player-has=True (PERK) | KKV70Reporter, 0A00102F | papyrus-log KKV-P07 PERK player-has=True | - | **pass** | - |
+| V-P08 | Papyrus log: KKV-P08 AVIF player-value=7 (AVIF) | KKV70Reporter, 0A00102F | papyrus-log KKV-P08 AVIF player-value=7 | - | **pass** | - |
+| V-P09 | Papyrus log: KKV-P09 QUST running=True stage10-done=True (QUST) | KKV70Reporter, 0A00102F | papyrus-log KKV-P09 QUST running=True stage10-done=True | - | **pass** | - |
+| V-P10 | Papyrus log: KKV-P10 LCTN reporter-in=True (LCTN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P10 LCTN reporter-in=True | - | **pass** | - |
+| V-P11 | Papyrus log: KKV-P11 CONT mugs=3 (CONT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P11 CONT mugs=3 | - | **pass** | - |
+| V-P12 | Papyrus log: KKV-P12 LVLI wrench-added=1 (LVLI) | KKV70Reporter, 0A00102F | papyrus-log KKV-P12 LVLI wrench-added=1 | - | **pass** | - |
+| V-P20 | Papyrus log: KKV-P20 ACTI base-is=True (ACTI) | KKV70Reporter, 0A00102F | papyrus-log KKV-P20 ACTI base-is=True | - | **pass** | - |
+| V-P21 | Papyrus log: KKV-P21 STAT base-is=True (STAT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P21 STAT base-is=True | - | **pass** | - |
+| V-P22 | Papyrus log: KKV-P22 MSTT base-is=True (MSTT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P22 MSTT base-is=True | - | **pass** | - |
+| V-P23 | Papyrus log: KKV-P23 FURN base-is=True (FURN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P23 FURN base-is=True | - | **pass** | - |
+| V-P24 | Papyrus log: KKV-P24 FLOR base-is=True (FLOR) | KKV70Reporter, 0A00102F | papyrus-log KKV-P24 FLOR base-is=True | - | **pass** | - |
+| V-P25 | Papyrus log: KKV-P25 DOOR base-is=True (DOOR) | KKV70Reporter, 0A00102F | papyrus-log KKV-P25 DOOR base-is=True | - | **pass** | - |
+| V-P26 | Papyrus log: KKV-P26 LIGH base-is=True (LIGH) | KKV70Reporter, 0A00102F | papyrus-log KKV-P26 LIGH base-is=True | - | **pass** | - |
+| V-P27 | Papyrus log: KKV-P27 CONT base-is=True (CONT) | KKV70Reporter, 0A00102F | papyrus-log KKV-P27 CONT base-is=True | - | **pass** | - |
+| V-P28 | Papyrus log: KKV-P28 TERM base-is=True (TERM) | KKV70Reporter, 0A00102F | papyrus-log KKV-P28 TERM base-is=True | - | **pass** | - |
+| V-P30 | Papyrus log: KKV-P30 MISC base-is=True (MISC) | KKV70Reporter, 0A00102F | papyrus-log KKV-P30 MISC base-is=True | - | **pass** | - |
+| V-P31 | Papyrus log: KKV-P31 NPC_ base-is=True (NPC_) | KKV70Reporter, 0A00102F | papyrus-log KKV-P31 NPC_ base-is=True | - | **pass** | - |
+| V-P29 | Papyrus log: KKV-P29 PKIN base-is=True (PKIN) | KKV70Reporter, 0A00102F | papyrus-log KKV-P29 PKIN base-is=True | - | **pass** | - |
+| V-P98 | Papyrus log: KKV-P98 PKIN reference base= (PKIN (diagnostic)) | KKV70Reporter, 0A00102F | papyrus-log KKV-P98 PKIN reference base= | - | **pass** | - |
+| V-P99 | Papyrus log: KKV-P99 done (-) | KKV70Reporter, 0A00102F | papyrus-log KKV-P99 done | - | **pass** | - |
+| V-I-MISC | `player.additem 0A00100C 1`, `player.getitemcount 0A00100C` | KitKraftVerify.esm:00100C, KKV30Misc, 0A00100C | regex >>\s*[1-9] | player.additem 0A00100C 1 -> player.additem 0A00100C 1 Command: player.additem 0A00100C 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100C -> player.getitemcount 0A00100C Command: player.getitemcount 0A00100C GetItemCount >> 1.00 | **pass** | - |
+| V-I-ALCH | `player.additem 0A00100E 1`, `player.getitemcount 0A00100E` | KitKraftVerify.esm:00100E, KKV32Alch, 0A00100E | regex >>\s*[1-9] | player.additem 0A00100E 1 -> player.additem 0A00100E 1 Command: player.additem 0A00100E 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100E -> player.getitemcount 0A00100E Command: player.getitemcount 0A00100E GetItemCount >> 1.00 | **pass** | - |
+| V-I-BOOK | `player.additem 0A00100F 1`, `player.getitemcount 0A00100F` | KitKraftVerify.esm:00100F, KKV33Book, 0A00100F | regex >>\s*[1-9] | player.additem 0A00100F 1 -> player.additem 0A00100F 1 Command: player.additem 0A00100F 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100F -> player.getitemcount 0A00100F Command: player.getitemcount 0A00100F GetItemCount >> 1.00 | **pass** | - |
+| V-I-KEYM | `player.additem 0A001010 1`, `player.getitemcount 0A001010` | KitKraftVerify.esm:001010, KKV34Keym, 0A001010 | regex >>\s*[1-9] | player.additem 0A001010 1 -> player.additem 0A001010 1 Command: player.additem 0A001010 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A001010 -> player.getitemcount 0A001010 Command: player.getitemcount 0A001010 GetItemCount >> 1.00 | **pass** | - |
+| V-I-ARMO | `player.additem 0A001011 1`, `player.getitemcount 0A001011` | KitKraftVerify.esm:001011, KKV35Armo, 0A001011 | regex >>\s*[1-9] | player.additem 0A001011 1 -> player.additem 0A001011 1 Command: player.additem 0A001011 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A001011 -> player.getitemcount 0A001011 Command: player.getitemcount 0A001011 GetItemCount >> 1.00 | **pass** | - |
+| V-I-ARMO-EQ | `player.equipitem 0A001011`, `player.getequipped 0A001011` | KKV35Armo, 0A001011 | regex (?m)>>\s*1(\.0+)?\s*$ | player.equipitem 0A001011 -> player.equipitem 0A001011 Command: player.equipitem 0A001011 GetIsRace HumanRace >> 1.00 IsTrueForConditionForm:  >> 1.0...; player.getequipped 0A001011 -> player.getequipped 0A001011 Command: player.getequipped 0A001011 GetEquipped >> 1.00 | **pass** | - |
+| V-I-LVLI | `player.additem 0A00102E 1`, `player.getitemcount 0A00100D` | KKV06Lvli, 0A00102E, KKV31Misc, 0A00100D | regex >>\s*[1-9] | player.additem 0A00102E 1 -> player.additem 0A00102E 1 Command: player.additem 0A00102E 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100D -> player.getitemcount 0A00100D Command: player.getitemcount 0A00100D GetItemCount >> 1.00 | **pass** | - |
+| V-C-GLOB | `getglobalvalue 0A001029` | KKV01Glob, 0A001029 | regex (?m)>>\s*4242(\.0+)?\s*$ | getglobalvalue 0A001029 -> getglobalvalue 0A001029 Command: getglobalvalue 0A001029 GetGlobalValue >> 4242.00; (late, after its answer) getglobalvalue 0A001029 -> GetGlobalValue >> 0.00 (in the reply to `coc CityNewAtlantisLodgeInt`; not graded); (late, after its answer) getglobalvalue 0A001029 -> G... | **pass** | - |
+| V-C-FACT | `player.getinfaction 0A00102B` | KKV03Fact, 0A00102B | regex (?m)>>\s*1(\.0+)?\s*$ | player.getinfaction 0A00102B -> player.getinfaction 0A00102B Command: player.getinfaction 0A00102B GetInFaction >> 1.00 | **pass** | - |
+| V-C-PERK | `player.hasperk 0A001013` | KKV41Perk, 0A001013 | regex Perk Rank >>\s*[1-9] | player.hasperk 0A001013 -> player.hasperk 0A001013 Command: player.hasperk 0A001013 Perk Rank >> 1 | **pass** | - |
+| V-C-AVIF | `player.getav KKV40Avif` | KKV40Avif, 0A001012 | regex (?m)>>\s*7(\.0+)?\s*$ | player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in ... | inconclusive (`player.getav KKV40Avif`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-C-QUST | `getstage 0A00102C` | KKV04Qust, 0A00102C | regex (?m)>>\s*10(\.0+)?\s*$ | getstage 0A00102C -> getstage 0A00102C Command: getstage 0A00102C GetStage >> 10.00 | **pass** | - |
+| V-S-01 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261116-04`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261116-04`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: ... | **pass** | - |
+| V-S-02 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartment... | **pass** | - |
+| V-S-20 | `prid 0A00102F`, `getisid 0A001000` | KKV70Reporter, 0A00102F, KKV10Acti, 0A001000 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00 | **pass** | - |
+| V-S-21 | `prid 0A001030`, `getisid 0A001001` | KKV71StatRef, 0A001030, KKV11Stat, 0A001001 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001030 -> prid 0A001030 Command: prid 0A001030; getisid 0A001001 -> getisid 0A001001 Command: getisid 0A001001 GetIsID >> 1.00 | **pass** | - |
+| V-S-22 | `prid 0A001031`, `getisid 0A001002` | KKV72MsttRef, 0A001031, KKV12Mstt, 0A001002 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001031 -> prid 0A001031 Command: prid 0A001031; getisid 0A001002 -> getisid 0A001002 Command: getisid 0A001002 GetIsID >> 1.00 | **pass** | - |
+| V-S-23 | `prid 0A001032`, `getisid 0A001003` | KKV73FurnRef, 0A001032, KKV13Furn, 0A001003 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001032 -> prid 0A001032 Command: prid 0A001032; getisid 0A001003 -> getisid 0A001003 Command: getisid 0A001003 GetIsID >> 1.00 | **pass** | - |
+| V-S-24 | `prid 0A001033`, `getisid 0A001004` | KKV74FlorRef, 0A001033, KKV14Flor, 0A001004 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001033 -> prid 0A001033 Command: prid 0A001033; getisid 0A001004 -> getisid 0A001004 Command: getisid 0A001004 GetIsID >> 1.00 | **pass** | - |
+| V-S-25 | `prid 0A001034`, `getisid 0A001005` | KKV75DoorRef, 0A001034, KKV15Door, 0A001005 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001034 -> prid 0A001034 Command: prid 0A001034; getisid 0A001005 -> getisid 0A001005 Command: getisid 0A001005 GetIsID >> 1.00 | **pass** | - |
+| V-S-26 | `prid 0A001035`, `getisid 0A001006` | KKV76LighRef, 0A001035, KKV16Ligh, 0A001006 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001035 -> prid 0A001035 Command: prid 0A001035; getisid 0A001006 -> getisid 0A001006 Command: getisid 0A001006 GetIsID >> 1.00 | **pass** | - |
+| V-S-27 | `prid 0A001036`, `getisid 0A001007` | KKV77ContRef, 0A001036, KKV17Cont, 0A001007 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001036 -> prid 0A001036 Command: prid 0A001036; getisid 0A001007 -> getisid 0A001007 Command: getisid 0A001007 GetIsID >> 1.00 | **pass** | - |
+| V-S-28 | `prid 0A001037`, `getisid 0A001009` | KKV78TermRef, 0A001037, KKV19Term, 0A001009 | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001037 -> prid 0A001037 Command: prid 0A001037; getisid 0A001009 -> getisid 0A001009 Command: getisid 0A001009 GetIsID >> 1.00 | **pass** | - |
+| V-S-30 | `prid 0A001039`, `getisid 0A00100C` | KKV80MiscRef, 0A001039, KKV30Misc, 0A00100C | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A001039 -> prid 0A001039 Command: prid 0A001039; getisid 0A00100C -> getisid 0A00100C Command: getisid 0A00100C GetIsID >> 1.00 | **pass** | - |
+| V-S-31 | `prid 0A00103A`, `getisid 0A00100B` | KKV81NpcRef, 0A00103A, KKV21Npc, 0A00100B | regex (?m)>>\s*1(\.0+)?\s*$ | prid 0A00103A -> prid 0A00103A Command: prid 0A00103A; getisid 0A00100B -> getisid 0A00100B Command: getisid 0A00100B GetIsID >> 1.00 | **pass** | - |
+| V-S-I-MISC | `player.getitemcount 0A00100C` | KKV30Misc, 0A00100C | regex >>\s*[1-9] | player.getitemcount 0A00100C -> player.getitemcount 0A00100C Command: player.getitemcount 0A00100C GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-ALCH | `player.getitemcount 0A00100E` | KKV32Alch, 0A00100E | regex >>\s*[1-9] | player.getitemcount 0A00100E -> player.getitemcount 0A00100E Command: player.getitemcount 0A00100E GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-BOOK | `player.getitemcount 0A00100F` | KKV33Book, 0A00100F | regex >>\s*[1-9] | player.getitemcount 0A00100F -> player.getitemcount 0A00100F Command: player.getitemcount 0A00100F GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-KEYM | `player.getitemcount 0A001010` | KKV34Keym, 0A001010 | regex >>\s*[1-9] | player.getitemcount 0A001010 -> player.getitemcount 0A001010 Command: player.getitemcount 0A001010 GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-ARMO | `player.getitemcount 0A001011` | KKV35Armo, 0A001011 | regex >>\s*[1-9] | player.getitemcount 0A001011 -> player.getitemcount 0A001011 Command: player.getitemcount 0A001011 GetItemCount >> 1.00 | **pass** | - |
+| V-S-I-LVLI | `player.getitemcount 0A00100D` | KKV31Misc, 0A00100D | regex >>\s*[1-9] | player.getitemcount 0A00100D -> player.getitemcount 0A00100D Command: player.getitemcount 0A00100D GetItemCount >> 1.00 | **pass** | - |
+| V-S-GLOB | `getglobalvalue 0A001029` | KKV01Glob | regex (?m)>>\s*4242(\.0+)?\s*$ | getglobalvalue 0A001029 -> getglobalvalue 0A001029 Command: getglobalvalue 0A001029 GetGlobalValue >> 4242.00 | **pass** | - |
+| V-S-FACT | `player.getinfaction 0A00102B` | KKV03Fact | regex (?m)>>\s*1(\.0+)?\s*$ | player.getinfaction 0A00102B -> player.getinfaction 0A00102B Command: player.getinfaction 0A00102B GetInFaction >> 1.00 | **pass** | - |
+| V-S-PERK | `player.hasperk 0A001013` | KKV41Perk | regex Perk Rank >>\s*[1-9] | player.hasperk 0A001013 -> player.hasperk 0A001013 Command: player.hasperk 0A001013 Perk Rank >> 2 | **pass** | - |
+| V-S-AVIF | `player.getav KKV40Avif` | KKV40Avif | regex (?m)>>\s*7(\.0+)?\s*$ | player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in ... | inconclusive (`player.getav KKV40Avif`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-S-QUST | `getstage 0A00102C` | KKV04Qust | regex (?m)>>\s*10(\.0+)?\s*$ | getstage 0A00102C -> getstage 0A00102C Command: getstage 0A00102C GetStage >> 10.00 | **pass** | - |
+| V-H-TMLM | `help "KKV18 Terminal Menu" 4 TMLM`, `prid 00000014` | KitKraftVerify.esm:001008, KKV18Tmlm, 0A001008 | contains 0A001008 | help "KKV18 Terminal Menu" 4 TMLM -> help "KKV18 Terminal Menu" 4 TMLM ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- TMLM:  (0...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-PKIN | `help KKV20Pkin 4 PKIN`, `prid 00000014` | KitKraftVerify.esm:00100A, KKV20Pkin, 0A00100A | contains 0A00100A | help KKV20Pkin 4 PKIN -> (no line of its own: help KKV20Pkin 4 PKIN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV20Pkin 4 PKIN -> (no line of its own: help KKV20Pkin 4 PKIN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV20Pkin 4 PKIN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-MESG | `help "KKV50 Message" 4 MESG`, `prid 00000014` | KitKraftVerify.esm:001016, KKV50Mesg, 0A001016 | contains 0A001016 | help "KKV50 Message" 4 MESG -> help "KKV50 Message" 4 MESG ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- MESG:  (0A00101...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-SOUN | `help KKV51Soun 4 SOUN`, `prid 00000014` | KitKraftVerify.esm:001017, KKV51Soun, 0A001017 | contains 0A001017 | help KKV51Soun 4 SOUN -> (no line of its own: help KKV51Soun 4 SOUN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV51Soun 4 SOUN -> (no line of its own: help KKV51Soun 4 SOUN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV51Soun 4 SOUN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-IRES | `help "KKV52 Resource" 4 IRES`, `prid 00000014` | KitKraftVerify.esm:001018, KKV52Ires, 0A001018 | contains 0A001018 | help "KKV52 Resource" 4 IRES -> (no line of its own: help "KKV52 Resource" 4 IRES ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS---------------...; again in 2000 ms); help "KKV52 Resource" 4 IRES -> (no line of its own: help "KKV52 Resource" 4 IRES ----VIEWER STRINGS NOT AVAILABLE-------- ... | inconclusive (`help "KKV52 Resource" 4 IRES`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-TXST | `help KKV53Txst 4 TXST`, `prid 00000014` | KitKraftVerify.esm:001019, KKV53Txst, 0A001019 | contains 0A001019 | help KKV53Txst 4 TXST -> (no line of its own: help KKV53Txst 4 TXST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV53Txst 4 TXST -> (no line of its own: help KKV53Txst 4 TXST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV53Txst 4 TXST`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-HAZD | `help "KKV54 Hazard" 4 HAZD`, `prid 00000014` | KitKraftVerify.esm:00101A, KKV54Hazd, 0A00101A | contains 0A00101A | help "KKV54 Hazard" 4 HAZD -> help "KKV54 Hazard" 4 HAZD ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- HAZD:  (0A00101A...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-LVLN | `help KKV55Lvln 4 LVLN`, `prid 00000014` | KitKraftVerify.esm:00101B, KKV55Lvln, 0A00101B | contains 0A00101B | help KKV55Lvln 4 LVLN -> (no line of its own: help KKV55Lvln 4 LVLN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV55Lvln 4 LVLN -> (no line of its own: help KKV55Lvln 4 LVLN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV55Lvln 4 LVLN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-LVLP | `help KKV56Lvlp 4 LVLP`, `prid 00000014` | KitKraftVerify.esm:00101C, KKV56Lvlp, 0A00101C | contains 0A00101C | help KKV56Lvlp 4 LVLP -> (no line of its own: help KKV56Lvlp 4 LVLP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV56Lvlp 4 LVLP -> (no line of its own: help KKV56Lvlp 4 LVLP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV56Lvlp 4 LVLP`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PACK | `help KKV57Pack 4 PACK`, `prid 00000014` | KitKraftVerify.esm:00101D, KKV57Pack, 0A00101D | contains 0A00101D | help KKV57Pack 4 PACK -> (no line of its own: help KKV57Pack 4 PACK ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV57Pack 4 PACK -> (no line of its own: help KKV57Pack 4 PACK ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV57Pack 4 PACK`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-RSPJ | `help "KKV58 Research" 4 RSPJ`, `prid 00000014` | KitKraftVerify.esm:00101E, KKV58Rspj, 0A00101E | contains 0A00101E | help "KKV58 Research" 4 RSPJ -> help "KKV58 Research" 4 RSPJ ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- RSPJ:  (0A0010...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-WKMF | `help KKV59Wkmf 4 WKMF`, `prid 00000014` | KitKraftVerify.esm:00101F, KKV59Wkmf, 0A00101F | contains 0A00101F | help KKV59Wkmf 4 WKMF -> (no line of its own: help KKV59Wkmf 4 WKMF ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV59Wkmf 4 WKMF -> (no line of its own: help KKV59Wkmf 4 WKMF ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV59Wkmf 4 WKMF`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-WWED | `help KKV60Wwed 4 WWED`, `prid 00000014` | KitKraftVerify.esm:001020, KKV60Wwed, 0A001020 | contains 0A001020 | help KKV60Wwed 4 WWED -> help KKV60Wwed 4 WWED ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- WWED: KKV60Wwed (0A00...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-ENCH | `help "KKV61 Enchantment" 4 ENCH`, `prid 00000014` | KitKraftVerify.esm:001021, KKV61Ench, 0A001021 | contains 0A001021 | help "KKV61 Enchantment" 4 ENCH -> help "KKV61 Enchantment" 4 ENCH ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- ENCH:  (0A0...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-COBJ | `help KKV62Cobj 4 COBJ`, `prid 00000014` | KitKraftVerify.esm:001022, KKV62Cobj, 0A001022 | contains 0A001022 | help KKV62Cobj 4 COBJ -> (no line of its own: help KKV62Cobj 4 COBJ ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV62Cobj 4 COBJ -> (no line of its own: help KKV62Cobj 4 COBJ ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV62Cobj 4 COBJ`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-REGN | `help KKV63Regn 4 REGN`, `prid 00000014` | KitKraftVerify.esm:001023, KKV63Regn, 0A001023 | contains 0A001023 | help KKV63Regn 4 REGN -> (no line of its own: help KKV63Regn 4 REGN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV63Regn 4 REGN -> (no line of its own: help KKV63Regn 4 REGN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV63Regn 4 REGN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PCBN | `help KKV64Pcbn 4 PCBN`, `prid 00000014` | KitKraftVerify.esm:001024, KKV64Pcbn, 0A001024 | contains 0A001024 | help KKV64Pcbn 4 PCBN -> (no line of its own: help KKV64Pcbn 4 PCBN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV64Pcbn 4 PCBN -> (no line of its own: help KKV64Pcbn 4 PCBN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV64Pcbn 4 PCBN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-PCCN | `help KKV65Pccn 4 PCCN`, `prid 00000014` | KitKraftVerify.esm:001025, KKV65Pccn, 0A001025 | contains 0A001025 | help KKV65Pccn 4 PCCN -> (no line of its own: help KKV65Pccn 4 PCCN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV65Pccn 4 PCCN -> (no line of its own: help KKV65Pccn 4 PCCN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV65Pccn 4 PCCN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFBK | `help KKV66Sfbk 4 SFBK`, `prid 00000014` | KitKraftVerify.esm:001026, KKV66Sfbk, 0A001026 | contains 0A001026 | help KKV66Sfbk 4 SFBK -> (no line of its own: help KKV66Sfbk 4 SFBK ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV66Sfbk 4 SFBK -> (no line of its own: help KKV66Sfbk 4 SFBK ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV66Sfbk 4 SFBK`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFPT | `help KKV67Sfpt 4 SFPT`, `prid 00000014` | KitKraftVerify.esm:001027, KKV67Sfpt, 0A001027 | contains 0A001027 | help KKV67Sfpt 4 SFPT -> (no line of its own: help KKV67Sfpt 4 SFPT ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV67Sfpt 4 SFPT -> (no line of its own: help KKV67Sfpt 4 SFPT ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV67Sfpt 4 SFPT`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-SFTR | `help KKV68Sftr 4 SFTR`, `prid 00000014` | KitKraftVerify.esm:001028, KKV68Sftr, 0A001028 | contains 0A001028 | help KKV68Sftr 4 SFTR -> (no line of its own: help KKV68Sftr 4 SFTR ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV68Sftr 4 SFTR -> (no line of its own: help KKV68Sftr 4 SFTR ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV68Sftr 4 SFTR`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-OTFT | `help KKV43Otft 4 OTFT`, `prid 00000014` | KitKraftVerify.esm:001015, KKV43Otft, 0A001015 | contains 0A001015 | help KKV43Otft 4 OTFT -> (no line of its own: help KKV43Otft 4 OTFT ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV43Otft 4 OTFT -> (no line of its own: help KKV43Otft 4 OTFT ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV43Otft 4 OTFT`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-KYWD | `help KKV42Kywd 4 KYWD`, `prid 00000014` | KitKraftVerify.esm:001014, KKV42Kywd, 0A001014 | contains 0A001014 | help KKV42Kywd 4 KYWD -> help KKV42Kywd 4 KYWD ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- KYWD: KKV42Kywd (0A00...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-GLOB | `help KKV01Glob 4 GLOB`, `prid 00000014` | KitKraftVerify.esm:001029, KKV01Glob, 0A001029 | contains 0A001029 | help KKV01Glob 4 GLOB -> (no line of its own: help KKV01Glob 4 GLOB ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV01Glob 4 GLOB -> (no line of its own: help KKV01Glob 4 GLOB ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV01Glob 4 GLOB`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-FLST | `help KKV02Flst 4 FLST`, `prid 00000014` | KitKraftVerify.esm:00102A, KKV02Flst, 0A00102A | contains 0A00102A | help KKV02Flst 4 FLST -> (no line of its own: help KKV02Flst 4 FLST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- u...; again in 2000 ms); help KKV02Flst 4 FLST -> (no line of its own: help KKV02Flst 4 FLST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------... | inconclusive (`help KKV02Flst 4 FLST`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-FACT | `help "KKV03 Faction" 4 FACT`, `prid 00000014` | KitKraftVerify.esm:00102B, KKV03Fact, 0A00102B | contains 0A00102B | help "KKV03 Faction" 4 FACT -> help "KKV03 Faction" 4 FACT ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- FACT:  (0A00102...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-QUST | `help "KKV04 Quest" 4 QUST`, `prid 00000014` | KitKraftVerify.esm:00102C, KKV04Qust, 0A00102C | contains 0A00102C | help "KKV04 Quest" 4 QUST -> (no line of its own: help "KKV04 Quest" 4 QUST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS------------------...; again in 2000 ms); help "KKV04 Quest" 4 QUST -> (no line of its own: help "KKV04 Quest" 4 QUST ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER... | inconclusive (`help "KKV04 Quest" 4 QUST`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-LCTN | `help "KKV05 Location" 4 LCTN`, `prid 00000014` | KitKraftVerify.esm:00102D, KKV05Lctn, 0A00102D | contains 0A00102D | help "KKV05 Location" 4 LCTN -> (no line of its own: help "KKV05 Location" 4 LCTN ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS---------------...; again in 2000 ms); help "KKV05 Location" 4 LCTN -> (no line of its own: help "KKV05 Location" 4 LCTN ----VIEWER STRINGS NOT AVAILABLE-------- ... | inconclusive (`help "KKV05 Location" 4 LCTN`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| V-H-AVIF | `help KKV40Avif 4 AVIF`, `prid 00000014` | KitKraftVerify.esm:001012, KKV40Avif, 0A001012 | contains 0A001012 | help KKV40Avif 4 AVIF -> help KKV40Avif 4 AVIF ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- AVIF: KKV40Avif (0A00...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+| V-H-PERK | `help "KKV41 Perk" 4 PERK`, `prid 00000014` | KitKraftVerify.esm:001013, KKV41Perk, 0A001013 | contains 0A001013 | help "KKV41 Perk" 4 PERK -> help "KKV41 Perk" 4 PERK ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- PERK:  (0A001013) ...; prid 00000014 -> prid 00000014 Command: prid 00000014 | **pass** | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (d5372bd7813ed0f50a868b06fd2d87dd4953e2da4d43c05eb1da3531ab06622b -> bf7b351f15b7a7ffed7612f1f0808446b4952af140bdf7665f9312402bcbdb3e): restored from C:\Modding\kitkraft-observe\2026-11-16-T04\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, block 2, attempt 2 of 3: the full 106 rows with the
+command shapes corrected in `docs/bench/verify-mod/make_probes.py`). **84 pass, 0 fail, 22
+inconclusive, 0 not-run; no crash, no timeout.** `report.json` SHA-256
+`81eda5b4ec0d13bfa21ba345b0a480e33adea1abf17233eb4e6ba97bbd68f882`. The evidence entries for
+the verification mod in `docs/schema/evidence.toml` cite this entry. Launched 03:26:52,
+rows from about 101 s, done in about 6 minutes of rows.
+
+Working shapes (first sent by any session tonight): `getglobalvalue 0A001029` ->
+`GetGlobalValue >> 4242.00`; `player.getinfaction 0A00102B` -> `GetInFaction >> 1.00`;
+`player.hasperk 0A001013` -> `Perk Rank >> 1` (no decimals); `getstage 0A00102C` -> `GetStage >>
+10.00`; `player.getav KKV40Avif` -> `GetActorValue: KKV40Avif >> 7.00` (EditorID accepted);
+`player.additem <id> 1` + `player.getitemcount <id>` -> `GetItemCount >> 1.00`;
+`player.equipitem <id>` + `player.getequipped <id>` -> `GetEquipped >> 1.00`;
+`help <term> 4 <TYPE>` answers in its own reply (`TYPE: <edid> (<id>) '<full>'`, an empty list
+when nothing matches).
+
+- **Field checks that passed (26 types):** ACTI, STAT, MSTT, FURN, FLOR, DOOR, LIGH, CONT,
+  TERM, MISC, NPC_ and ACHR (getisid on the placed references and the reporter's base checks);
+  PKIN (V-P29, V-P98 as in -03); GLOB (V-P01, V-C-GLOB); FLST (V-P02, V-P03); KYWD (V-P05);
+  FACT (V-P06, V-C-FACT); PERK (V-P07, V-C-PERK); AVIF (V-P08); QUST (V-P09, V-C-QUST); LCTN
+  (V-P10: the added `XLCN` held, so the load order was right); LVLI (V-P12, V-I-LVLI); ALCH,
+  BOOK, KEYM, ARMO (additem/getitemcount; ARMO also equipped).
+- **Presence only (6 types, entered `inconclusive`, not counted as a pass):** TMLM, MESG,
+  HAZD, RSPJ, WWED, ENCH: `help` listed the form under its runtime ID; no field was seen.
+- **Inconclusive:** V-C-AVIF and V-S-AVIF: the game answered `7.00` each time, but the
+  correlator matches a getter's line by its function name and `getav` is not
+  `GetActorValue` (a grader gap; `getactorvalue` is no console function, `game-20261116-05`).
+  20 `help` rows (PKIN, SOUN, IRES, TXST, LVLN, LVLP, PACK, WKMF, COBJ, REGN, PCBN, PCCN, SFBK,
+  SFPT, SFTR, OTFT, GLOB, FLST, QUST, LCTN): an empty list. Their term is an EditorID the game
+  does not keep at runtime (only KYWD, AVIF and WWED EditorIDs were listed) or a FULL name it
+  did not index (IRES, QUST, LCTN); nothing about the form is shown either way.
+- **Save/reload:** V-S-01 passed (save in the Lodge, coc away, load, back in the Lodge).
+  After it getisid still named each cloned base (V-S-20 to V-S-31) and the five items added
+  before the save were still held (V-S-I-*): entered for ACTI, STAT, MSTT, FURN, FLOR, DOOR,
+  LIGH, CONT, TERM, MISC, NPC_, ACHR, ALCH, BOOK, KEYM, ARMO. V-S-GLOB, -FACT, -PERK and -QUST
+  passed as graded but **do not show persistence**: V-S-02's `coc` reloaded the test cell and
+  the reporter's OnLoad ran again (Papyrus log 03:30:12, after the `load` at 03:29:50) and
+  re-applied the faction, perk (rank 2), actor value and quest stage before those rows read
+  them; the global only holds the plugin's own value. Not entered.
+- Profile: MO2's known `plugins.txt` rewrite at launch, restored by the controller.
+- Deploy and list files (SHA-256, first 8): `kit deploy --dev` made `KitKraft Dev -
+  KitKraftVerify` (deploy id `20261116T081741Z-dc62882c`); `deploy enable` appended the plugin
+  last, after `KitKraftFirstPOI.esm` and `OldSovietMarksmanRifle.esm` (slot `0A`). Before
+  enable `modlist` `bfa10ad4`, `plugins` `286a54cf`, `loadorder` `46b28b56`; after enable
+  `be7fbfcc`, `d5372bd7`, `c3ebe55c` (unchanged by all three sessions); after `deploy
+  disable` (08:41 UTC, the bench sheet's block 2 last step; no later block needs the plugin)
+  `feb70629`, `facb98ed`, `c3ebe55c`: the mod line stays as `-` and the plugin line stays
+  inactive, as disable does. `lockedorder` `9962fbb0` throughout. The mod folder stays deployed.
+
+### game-20261116-05: agent session 2026-11-16-T05 (`kit game session`), KitKraftVerify.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T05`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-05` |
+| Plugins | `KitKraftVerify.esm` SHA-256 `a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa` |
+| Probes | `out\verify\probes3.toml` SHA-256 `0a91a9583f92a40ca561c93d62bca64106c264c3723c4eb7479b1085861121f7` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T05` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| V-01 | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021966F -> player.getincell 0021966F Command: player.getincell 0021966F GetInCell >> 1.00 | **pass** | - |
+| V-40 | `coc CityNewAtlantisLodgeInt`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F` | CityNewAtlantisLodgeInt, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 10s); coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpa... | **pass** | - |
+| V-C-AVIF | `player.getactorvalue KKV40Avif` | KKV40Avif, 0A001012 | regex (?m)>>\s*7(\.0+)?\s*$ | player.getactorvalue KKV40Avif -> (no line of its own: player.getactorvalue KKV40Avif Command: player.getactorvalue KKV40Avif Unknown variable or function ...; again in 2000 ms); player.getactorvalue KKV40Avif -> (no line of its own: player.getactorvalue KKV40Avif Command: player.getactorvalue KKV40... | inconclusive (`player.getactorvalue KKV40Avif`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (d5372bd7813ed0f50a868b06fd2d87dd4953e2da4d43c05eb1da3531ab06622b -> bf7b351f15b7a7ffed7612f1f0808446b4952af140bdf7665f9312402bcbdb3e): restored from C:\Modding\kitkraft-observe\2026-11-16-T05\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, block 2, attempt 3 of 3: a split file, rows V-01,
+V-40 and V-C-AVIF, to try `player.getactorvalue` so the correlator would match
+`GetActorValue`). The game answered `Unknown variable or function 'getactorvalue'.` /
+`Syntax Error` / `Could not parse this line.` three times: `getactorvalue` is not a Starfield
+console function, so `getav` stays the shape. The grader did not read those lines as a
+console failure (V-C-AVIF `inconclusive`, not `fail`): `Unknown variable or function` is a
+failure shape the controller does not know yet. `report.json` SHA-256
+`2b94ab34e66b5af75b2c1db2fee57878745ad2a8c214bb46ce7f42103f0f4f15`. No evidence entered.
+
+### game-20261116-06: agent session 2026-11-16-T06 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T06`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-06` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `C:\Modding\kitkraft-worktrees\bench-ck\out\rename-plan\probes.toml` SHA-256 `d84e011aab7bed95fb67a99e2d0e17eb1ad3debbe34429d5726afb4cfa55dc05` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T06` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help "Old Soviet Marksman Rifle" 4` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help "Old Soviet Marksman Rifle" 4 -> help "Old Soviet Marksman Rifle" 4 | fail (`0021BBCD` not in `help "Old Soviet Marksman Rifle" 4`) | - |
+| T-02 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261116-06`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261116-06`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29; save KitKraftSession-20261116-06 -> save KitKraftSession-20261116-06 Command: save KitKraftSession... | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `player.getincell 0006BB29 Command: player.getincell 0006BB29`) | - |
+| T-03 | persistence 4: return and look | - | persistence 4: return and look | - | not-run (manual: the plugin places no new reference with a position and a runtime ID to check after the reload) | - |
+
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (facb98ed72807eee801dc1d84aadf8698b6811d08c09c68f6866d2c92c8df2bf -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-16-T06\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, the **input-injection session**, 03:51 to 04:12, agent-run
+unattended on the owner's go of that night; brought in from the `bench-ck` worktree on
+2026-11-16). `game.stop` wrote this entry as `game-20261116-01` into
+`C:\Modding\kitkraft-worktrees\bench-ck\docs\game-observations.md`, a checkout with no
+2026-11-16 entries, so its id collided with OW-1's `game-20261116-01` on `main`; it is
+renumbered here to the next free id of the day and the copy in `bench-ck` was reverted
+(uncommitted there). Session id, session save name and observe folder keep their `T06`.
+
+- **What the session was for:** keeping the game up for the input experiment (bench sheet
+  block "input"), not for its probe rows. It was started through a long-lived `kit mcp`
+  (`game.session` with `start: true`, dist build `5f889c96` of 2026-11-02, so neither the
+  release `kit.exe` of that night nor the R41 controller), kept idle between commands, and
+  ended with `game.stop`. Its probes are the rename plugin's `out\rename-plan\probes.toml`
+  (`d84e011a...a55dc05`).
+- **Rows:** T-01 and T-02 `fail` with replies that hold only the echo, as they fail on that
+  build; T-03 `not-run` (manual). **No evidence is
+  entered from this entry.** Its rows grade the old controller, not the plugin.
+- **Input results** (the reason for the session): `docs/bench/input-results.md`, from
+  `C:\Modding\kitkraft-observe\scripts\input\RESULTS-20261116.md` (SHA-256
+  `2ad508f1...f9f46`) and `results-20261116.json` (`ef1b0717...861b6f`), per-run reports and
+  every sent input under that folder's `runs\` (ADR 0010 Amendment 2's record of sent
+  input; the controller's `report.json` holds none until KK-362). Session `report.json`
+  `C:\Modding\kitkraft-observe\2026-11-16-T06\report.json` SHA-256
+  `2e8e365df15195cbc3c2e3e903e9aa8cffa27e153252f474afc216b89aa809c5`.
+- **Side effect:** Tab in the world opened the Data menu and the game wrote an autosave
+  (`Autosave1_20261116M546564_000038_20261116090732_1_0_4.sfs`, 04:07) into the dev
+  profile's own saves, `C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\saves\`, beside
+  `KitKraftBase.sfs`. No owner save was touched and no menu save was made; nothing was
+  deleted. `KitKraftBase.sfs` still hashed `fbed2cc2...eb5ccf` (read at 05:00 that morning);
+  the next preflight re-hashes it.
+- **Profile:** `plugins.txt` was rewritten at launch (MO2's known rewrite) and restored by
+  the controller from `C:\Modding\kitkraft-observe\2026-11-16-T06\backup\01-plugins.txt`;
+  its "before" hash `facb98ed...` is the state after block 2's `deploy disable`. An MO2
+  dialog "waiting on an application to close before exiting" sat over the game for the
+  first minutes and went away by itself.

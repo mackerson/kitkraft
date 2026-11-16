@@ -83,3 +83,7 @@ attached by kit": `testplan` reads the compiled script next to the plugin, finds
   value cannot pick a variant yet).
 - The order in which the game looks up a script (loose, plugin archives, other archives) is
   assumed, not observed.
+- Quest stage fragments (`stages` on a `QUST`'s script entry, `docs/mcp.md` `set`) are
+  written in the official layout (two official quest `VMAD`s rebuilt byte for byte,
+  `crates/engine/tests/quest_vmad_corpus.rs`); alias scripts are read and kept but not
+  written, and a fragment's function is not checked against the script.

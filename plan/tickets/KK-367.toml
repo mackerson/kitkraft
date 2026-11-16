@@ -1,0 +1,55 @@
+# Written 2026-11-16 from the OW-2 rehearsal (docs/bench/README.md, "Done unattended"):
+# `kit deploy ... --dry-run` prints no plugin hash, while the window's Preview deploy shows
+# the plugin's SHA-256 from the same result.
+id = "KK-367"
+title = "deploy: the text summary names the plugin's SHA-256, as the window's preview does"
+timeout_min = 45
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/engine/src/deploy/ops.rs",
+  "crates/engine/src/deploy/tests.rs",
+]
+brief = """
+`deploy --dev` (`crates/engine/src/deploy/ops.rs`, the function that builds `data` with
+`"files": diff.json()` and then `lines`, the summary's body) returns the plugin's SHA-256
+in its JSON: each entry of `data.files.added` / `replaced` / `unchanged` has `path`, `size`
+and `sha256`, and `data.plugin` is the plugin's file name. The workbench's Cockpit reads it
+from there (`crates/ui-egui/src/panels/cockpit.rs`, `plugin_sha256`) and shows "SHA-256 ...
+(from the deploy preview)". The CLI prints only `data.summary`, which has no hash: a dry run
+of an unchanged mod prints `files: 0 added, 0 replaced, 0 removed, 1 unchanged` and nothing
+that names the plugin's bytes. The bench's run sheets record the plugin hash from the
+preview, so the CLI and MCP text form must carry it too.
+
+Change: one more line in `lines`, right after the `target: ...` line:
+`plugin: <data.plugin> SHA-256 <sha256>`, where the hash is the one of the `files` entry
+(added, replaced or unchanged) whose `path` is the plugin's file name. When no entry
+matches, the line is `plugin: <data.plugin> SHA-256 unknown`. `lines` feeds every summary
+the function builds (dry run, unchanged, real deploy), so all three show it. Change no JSON
+member and nothing else in the output.
+
+Tests, in `crates/engine/src/deploy/tests.rs` (the deploy module's tests; use its `Mo2`
+helper as `dry_run_lists_every_path_and_writes_nothing` does), exact names:
+- `the_dry_run_summary_names_the_plugin_sha256`: a dry run of `mo2.package("v1", b"TES4")`;
+  the summary contains `plugin: MyMod.esm SHA-256 <h>`, where `<h>` is the `sha256` of the
+  `data.files.added` entry whose `path` is `MyMod.esm` (read it from the result; it is 64
+  lowercase hex characters).
+- `the_deploy_summary_names_the_plugin_sha256`: a real deploy of the same package, then a
+  second one of the same package (outcome `unchanged`): both summaries contain the same
+  `plugin: MyMod.esm SHA-256 <h>` line.
+
+Keep `dry_run_lists_every_path_and_writes_nothing` and
+`first_deploy_redeploy_rollback_and_profiles_untouched` passing unchanged. Do not edit
+`plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p kitkraft-engine --lib deploy::`, then `cargo xtask ci`. Commit only when
+the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "summary-sha"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact deploy::tests::the_dry_run_summary_names_the_plugin_sha256 deploy::tests::the_deploy_summary_names_the_plugin_sha256 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "deploy-existing"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact deploy::tests::dry_run_lists_every_path_and_writes_nothing deploy::tests::first_deploy_redeploy_rollback_and_profiles_untouched 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''

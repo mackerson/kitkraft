@@ -1,0 +1,74 @@
+# Written 2026-11-16 from OW-1's two in-game runs (game-20261116-01, -02): the game drops
+# the answer of a command sent while it is busy rather than delivering it late. The base-save
+# wait stopped counting answers in send order (R41); the launch wait still does
+# (docs/bench/ow1-prep.md, section 1, "What is still open").
+# Chained after KK-362, which owns crates/game/src/controller.rs too.
+id = "KK-369"
+title = "game session: one echo-only launch poll no longer makes the launch wait time out"
+timeout_min = 45
+budget_h = 2
+priority = 1
+after = ["KK-362"]
+owns = [
+  "crates/game/src/controller.rs",
+  "crates/game/tests/launch_wait.rs",
+  "docs/bench/ow1-prep.md",
+]
+brief = """
+`wait_ready` in `crates/game/src/controller.rs` waits for the game twice: at launch
+(`window` true) and after a `load` (`window` false). After a `load` it only paces (ruling
+R41, `PACING_POLLS`): the 2026-11-10 T01 timeout came from counting the polls' answers in
+send order, when the game had dropped two of them. At launch it still counts in send order:
+`owed` grows by one for each poll and shrinks by the number of `ready_expect` lines
+(`SFSE version`) a reply holds, and the wait is ready only when `owed` is 0.
+
+So one launch poll answered only by its echo makes the launch wait time out: if the game
+drops that poll's answer, every later reply holds exactly its own line, `owed` stays at 1,
+and the session ends at `ready_secs` with every row `not-run`. OW-1's two runs on
+2026-11-16 (`docs/game-observations.md`, `game-20261116-01`, writer's reading) showed that
+the game drops, not delays, the answers to commands it takes while busy (sends 3, 4, 9, 14,
+15, 16, 23, 24, 32, 33 of both runs). It did not happen at launch that night only because
+the first launch poll came after the 75 s settle and was answered in full.
+
+Change, in `wait_ready`'s launch branch only: a reply that holds at least one
+`ready_expect` line is ready; drop the `owed` count (the variable, its update on a
+`ConsoleError::Timeout`, and the "earlier poll(s) still owe their answer" message). Keep
+everything else: an empty body and an echo-only reply are still not ready
+(`an_echo_only_readiness_answer_is_never_ready`), the settle and window checks, the
+deadline, and pushing every non-empty reply onto `replies`. This is safe under either
+reading of the console: if a late line did arrive in a later poll's reply, the game has
+answered, which is all the launch wait asks. Touch only `wait_ready` and its doc comment
+in `controller.rs` (KK-362 changed other parts of the file; keep the hunk small).
+
+Tests, in a new file `crates/game/tests/launch_wait.rs`. Copy the helpers you need from
+`crates/game/tests/session.rs` (`fixture`, `console`, `host`, `deps`, `plan` and what they
+call; see `an_echo_only_readiness_answer_is_never_ready` there for the shape of such a
+test) into it; do not edit `session.rs`. Exact names:
+- `a_dropped_launch_answer_does_not_hold_back_the_next_poll`: `GetSFSEVersion` answered in
+  turn by `"GetSFSEVersion\\nCommand: GetSFSEVersion"` (echo only), then by
+  `"GetSFSEVersion\\nSFSE version: 0.2.21, release idx 26, runtime 01100F40"` from then
+  on. The first three commands the console received are `GetSFSEVersion`,
+  `GetSFSEVersion`, `load KitKraftBase`, and the report's first row is `Verdict::Pass`.
+- `a_launch_answered_at_once_is_ready_on_the_first_poll`: `GetSFSEVersion` answered by its
+  echo and one `SFSE version` line every time: the first two commands received are
+  `GetSFSEVersion`, `load KitKraftBase`.
+
+Keep every existing test of the crate passing (`cargo test -p kitkraft-game`), in
+particular `an_echo_only_readiness_answer_is_never_ready` and the R41 tests in
+`crates/game/tests/session.rs`, `pacing.rs` and `adversarial.rs`, unchanged. In
+`docs/bench/ow1-prep.md`, section 1, "What is still open", replace the first bullet (the
+launch wait's send-order count) with one sentence saying the launch wait is ready on any
+reply holding an `SFSE version` line since this ticket. Do not edit `plan/STATUS.md` (no
+"Landed" line).
+
+Run `cargo test -p kitkraft-game`, then `cargo xtask ci`. Commit only when the acceptance
+commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "launch-wait"
+cmd = '''cargo test -p kitkraft-game --test launch_wait -- --exact a_dropped_launch_answer_does_not_hold_back_the_next_poll a_launch_answered_at_once_is_ready_on_the_first_poll 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "game-crate"
+cmd = '''cargo test -p kitkraft-game 2>&1 | tee /tmp/o; ! grep -Eq '^test result: FAILED|[1-9][0-9]* failed' /tmp/o && grep -q 'an_echo_only_readiness_answer_is_never_ready ... ok' /tmp/o'''

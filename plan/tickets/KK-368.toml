@@ -1,0 +1,59 @@
+# Written 2026-11-16 from the OW-2 rehearsal (docs/bench/README.md, "Done unattended"):
+# `kit ui --dev` run from a worktree found the main checkout (above kit-ui.exe, in the
+# shared target dir), so the session form's ledger and the Cockpit's `out\` were main's.
+id = "KK-368"
+title = "workbench: the checkout above the working directory comes before the one above kit-ui"
+timeout_min = 45
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/ui-egui/src/panels/help.rs",
+  "docs/workbench.md",
+]
+brief = """
+The workbench finds its checkout with `find_checkout` in
+`crates/ui-egui/src/panels/help.rs` (module docs describe the order): the UI prefs'
+`repo_dir`, then `KITKRAFT_REPO_DIR`, then the folders above `kit-ui.exe`, then the folders
+above the working directory. The checkout decides the Help tab's docs, the Cockpit's
+plugin picker (`out\\` under it) and the session form's `ledger` and `observe` defaults.
+
+AGENTS.md ("Parallel agents") puts every agent's build in
+`C:\\Modding\\kitkraft\\.targets\\<agent>`, under the main checkout, while the agent works in
+a worktree elsewhere. So `kit-ui.exe` always sits inside the main checkout, and the exe
+rule always wins: run from a worktree, the window reads and writes the main
+checkout. On 2026-11-16 the OW-2 rehearsal ran `kit ui --dev` from
+`C:\\Modding\\kitkraft-worktrees\\bench-ck`; the window's session form named
+`C:\\Modding\\kitkraft\\docs\\game-observations.md` as the ledger. The engine already
+prefers the working directory: `coverage --matrix` reads `docs/schema/evidence.toml` above
+the working directory first and the build's checkout only after
+(`crates/engine/src/handlers/matrix.rs`, `evidence_path`). Starting the window from a
+checkout's own `target\\release` (as `cargo xtask ui` does from the checkout) or from a
+`dist` folder still finds the same checkout either way, because the working directory is
+then inside it too, or inside no checkout at all.
+
+Change: swap the last two steps. The order becomes prefs, `KITKRAFT_REPO_DIR`, the folders
+above the working directory, the folders above `kit-ui.exe`. The `how` strings stay
+`"above the working directory"` and `"above kit-ui"`. Update the module docs and the
+matching sentence of `docs/workbench.md` (Help tab, "The checkout is, in order: ...").
+
+Tests, in `help.rs`'s `tests` module, exact names:
+- `the_working_directory_comes_before_kit_ui`: two checkouts (two temporary folders, each
+  with an `AGENTS.md` file and a `docs` folder, as `is_checkout` wants); `exe` inside the
+  first, `cwd` inside the second; `find_checkout(None, None, Some(exe), Some(cwd))` returns
+  the second with `"above the working directory"`. With `cwd` outside any checkout it
+  returns the first with `"above kit-ui"`.
+- Rename the existing `the_checkout_is_found_by_prefs_env_exe_then_cwd` to
+  `the_checkout_is_found_by_prefs_env_cwd_then_exe`, its assertions otherwise unchanged
+  (they hold under the new order: none of them has both a checkout above the exe and one
+  above the working directory).
+
+Do not edit `crates/ui-egui/src/app.rs`, the prefs, `crates/engine` or `plan/STATUS.md`
+(no "Landed" line).
+
+Run `cargo test -p kitkraft-ui-egui --lib help`, then `cargo xtask ci`. Commit only when
+the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "checkout-order"
+cmd = '''cargo test -p kitkraft-ui-egui --lib -- --exact panels::help::tests::the_working_directory_comes_before_kit_ui panels::help::tests::the_checkout_is_found_by_prefs_env_cwd_then_exe 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''

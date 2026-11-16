@@ -1,0 +1,54 @@
+# Written 2026-11-16 from the bench's unattended runs (docs/bench/README.md, "Done
+# unattended"): the OW-2 rehearsal read `--mods <mods>...` as "several values after one
+# flag", which the parser refuses (`unexpected argument`).
+id = "KK-365"
+title = "kit help: a list flag's synopsis says the flag repeats, as the parser takes it"
+timeout_min = 45
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/engine/src/cmdline.rs",
+]
+brief = """
+`kit help deploy enable` prints `usage: kit deploy enable <mo2> --mods <mods>... --dev ...`
+and the argument row `--mods <mods>...`. A reader (an agent rehearsing the 2026-11-16 bench
+did exactly this) takes that as "several values after one `--mods`". The parser takes one
+value per flag: `kit deploy enable C:/x --mods a b --dev --dry-run` exits 2 with
+``unexpected argument `b` ``, and the module docs of `crates/engine/src/cmdline.rs` say so
+("String lists repeat the flag: `--tables a.STRINGS --tables b.STRINGS`"). Make the help say
+what the parser does. Do not change the parser: letting a list flag swallow the following
+words would make them ambiguous with positional arguments (`<mo2>`, `<out>`).
+
+Change only `command_help` in `crates/engine/src/cmdline.rs` (the `ParamKind::StringList`
+arm and the synopsis it builds):
+- Synopsis: a required list flag is written `(--mods <mods>)...`; an optional one
+  `[--plugins <plugins>]...` (the `...` outside the group: the whole flag repeats).
+- Argument row: `--mods <mods>` (no `...`), and the description ends with
+  ` (repeat the flag for each value)`.
+- Every other kind of argument prints exactly as today.
+
+Tests, in the module's `tests`, exact names:
+- `a_list_flag_is_shown_as_a_repeated_flag`: `command_help(find_command("deploy.enable")
+  .unwrap(), "kit ")` contains `(--mods <mods>)...` and the row text
+  `(repeat the flag for each value)`, and does not contain `<mods>...`;
+  `command_help` for `load` contains `[--plugins <plugins>]...`; for `strings.merge`
+  contains `(--tables <tables>)...`.
+- `the_shown_list_form_parses`: `parse_line("deploy enable C:/m --mods a --mods b --dev")`
+  gives `mods` = `["a", "b"]`, and `parse_line("deploy enable C:/m --mods a b --dev")` is a
+  usage error (its `kind()` is the one the existing tests use for usage errors; read them).
+
+Keep the existing tests `every_command_has_help_and_parses_its_own_synopsis_shape` and
+`help_requests` passing unchanged (the `roundtrip` synopsis they pin has no list flag). Do
+not edit other files or `plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p kitkraft-engine --lib cmdline`, then `cargo xtask ci`. Commit only when
+the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "list-flag-help"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact cmdline::tests::a_list_flag_is_shown_as_a_repeated_flag cmdline::tests::the_shown_list_form_parses 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "cmdline-existing"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact cmdline::tests::every_command_has_help_and_parses_its_own_synopsis_shape cmdline::tests::help_requests 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''

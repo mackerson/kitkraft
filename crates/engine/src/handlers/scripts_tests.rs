@@ -487,3 +487,74 @@ fn an_inherited_stale_attachment_is_a_warning() {
     assert_eq!(v["data"]["passed"], json!(false));
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// A script property names a `[[place]]` of the same build (the bench gap of
+/// `docs/bench/verify-mod.md`): by its EditorID or, without one, by its entry key; on a
+/// placed reference naming one placed after it, and on a `[[clone]]`. Each value is the
+/// FormID the build gave that reference.
+#[test]
+fn a_spec_script_property_names_a_placed_reference() {
+    let (d, data) = setup("scripts-place-target");
+    let spec = d.join("s.toml");
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
+[[clone]]\nname = \"crate\"\nform = \"KC_Crate\"\nedid = \"KK_CrateClone\"\n\
+scripts = [{{ name = \"KK:Hello\", properties = {{ Target = \"new:near\" }} }}]\n\n\
+[[place]]\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n\
+scripts = [{{ name = \"KK:Hello\", properties = {{ Target = \"new:far\" }} }}]\n\n\
+[[place]]\nname = \"far\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [1, 0, 0]\nedid = \"KK_Far\"\n\n\
+[[place]]\nname = \"near\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [2, 0, 0]\n",
+            data.display()
+        ),
+    )
+    .unwrap();
+    let out = d.join("Targets.esp");
+    let r = execute(
+        "build",
+        json!({"spec": spec.display().to_string(), "out": out.display().to_string()}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let placed: Vec<u32> = r["data"]["placed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| u32::from_str_radix(p["form_id"].as_str().unwrap(), 16).unwrap())
+        .collect();
+    assert_eq!(placed.len(), 3);
+    let target = |form_id: u32| {
+        let v = vmad_of(&out, form_id);
+        match v.scripts[0].properties[0].value {
+            vmad::Value::Object(o) => o.form_id,
+            ref other => panic!("{other:?}"),
+        }
+    };
+    // place[0] names place[1] (KK_Far), placed after it.
+    assert_eq!(target(placed[0]), placed[1]);
+    // The clone (the build's first new form) names place[2], which has no EditorID.
+    assert_eq!(target(0x0100_1000), placed[2]);
+    // The unknown-name error now lists [[place]] among what a name may be.
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
+[[place]]\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n\
+scripts = [{{ name = \"KK:Hello\", properties = {{ Target = \"new:gone\" }} }}]\n",
+            data.display()
+        ),
+    )
+    .unwrap();
+    let e = execute(
+        "build",
+        json!({"spec": spec.display().to_string(), "out": d.join("E.esp").display().to_string()}),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        e.contains("unknown name `gone` (a [[new]], [[clone]] or [[place]] of the build)"),
+        "{e}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

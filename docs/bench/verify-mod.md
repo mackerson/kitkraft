@@ -35,12 +35,19 @@ types whose state the session can read again after a reload.
 - **(a) Console, seen working before:** `coc`, `player.getincell`, `prid` + `getisid`
   (game-20261103-04 T-03, -06 T-03, -08 T-10 and T-15), and the persistence row of
   game-20261103-08 T-22.
-- **(a') Console, grade D or never sent:** `player.additem` + `player.getitemcount`,
-  `player.equipitem` + `player.getequipped`, `getstage` (grade D, written by `kit testplan`
-  but never observed). `getglobalvalue`, `player.getinfaction`, `player.hasperk` and
-  `player.getav` have **never been sent** by any session (unverified). `GetGlobalValue` and
-  `GetInFaction` have appeared as function names in `coc` replies (game-20261103-03, -04),
-  but never as commands the session sent.
+- **(a') Console, first sent on the bench of 2026-11-16** (`game-20261116-03` to `-05`).
+  The shapes that worked, as `make_probes.py` writes them:
+
+  | Command | Answer | Note |
+  | ------- | ------ | ---- |
+  | `player.additem <runtime ID> 1`, `player.getitemcount <runtime ID>` | `GetItemCount >> 1.00` | |
+  | `player.equipitem <id>`, `player.getequipped <id>` | `GetEquipped >> 1.00` | |
+  | `getglobalvalue <runtime ID>` | `GetGlobalValue >> 4242.00` | the EditorID fails: `Item 'KKV01Glob' not found for parameter Global.` |
+  | `getstage <runtime ID>` | `GetStage >> 10.00` | the EditorID fails: `Item 'KKV04Qust' not found for parameter Quest.` |
+  | `player.getinfaction <runtime ID>` | `GetInFaction >> 1.00` | |
+  | `player.hasperk <runtime ID>` | `Perk Rank >> 1` | no decimals; the rank rises each time the reporter adds the perk again |
+  | `player.getav KKV40Avif` | `GetActorValue: KKV40Avif >> 7.00` | the AVIF EditorID works; `correlate.rs` maps `getav` to `GetActorValue` since this bench (before, the row was `inconclusive`); `player.getactorvalue` is no console function (`Unknown variable or function`, `game-20261116-05`) |
+  | `help <term> 4 <TYPE>` | `TYPE: <EditorID or empty> (<runtime ID>) '<FULL>'`, in its own reply | without `<TYPE>` the answer came about 20 s late or never; an empty list means the term matched nothing |
 - **(b) Placed references** in `CityNewAtlantisApartmentTEMPLATE` (`coc` and `getincell`
   observed), checked with `getisid`.
 - **(c) A self-reporting script.** A quest cannot carry it today: `kit` writes `QUST` and
@@ -51,12 +58,17 @@ types whose state the session can read again after a reload.
   (game-20261103-04 T-05). Its `OnLoad` runs on a fresh load of the cell after leaving it
   (game-20261103-03 reading), so row V-40 leaves to the Lodge and comes back before the
   `papyrus-log` rows.
-- **(d) Presence, `help <term> 4`:** the game lists the form under its runtime ID. This was
-  seen late but correct in game-20261103-03 and -08 (`KYWD`, `TMLM`, `TERM`). It is the
+- **(d) Presence, `help <term> 4 <TYPE>`:** the game lists the form under its runtime ID.
+  This was seen late but correct in game-20261103-03 and -08 (`KYWD`, `TMLM`, `TERM`), and
+  with the type in its own reply in game-20261116-04 (10 types). It is the
   weakest evidence: the record loaded and kept its name, and no field of it was seen to
   take effect. `help` answers often arrive one request late, so each row ends with
   `prid 00000014`, a command that names nothing, so a late line has a reply to arrive in.
   The correlator routes it by its term. These rows come last.
+- **(d') Presence by the reporter** (since 2026-11-16): for the 20 forms `help` listed
+  nothing for in game-20261116-04, the reporter writes `KKV-H<nn> <TYPE> present=True` when
+  `Game.GetFormFromFile` of the form's object ID in the plugin is not `None`
+  (`VerifyReport.psc`, `Present`). As weak as (d): the record loaded, no field was read.
 
 ## Type by type
 
@@ -76,19 +88,25 @@ slot `kit testplan` reads from the profile.
 | TERM | b, c | V-28, V-P28; V-S-28 | as STAT |
 | MISC | b, c, a' | V-30, V-P04, V-P30, V-I-MISC; V-S-30, V-S-I-MISC | `KKV-P04 MISC gold=777` (`DATA.Value`); `GetItemCount >> 1` |
 | NPC_, ACHR | b, c | V-31, V-P31; V-S-31 | `GetIsID >> 1.00` on the placed `ACHR`; `KKV-P31 NPC_ base-is=True` |
-| PKIN | c, d | V-P29, V-P98 (diagnostic), V-H-PKIN | `KKV-P29 PKIN base-is=True` is the open question (game-20261103-08 T-20 answered `0.00`); V-P98 writes the base the game reports, for a person to read |
-| GLOB | c, a', d | V-P01, V-C-GLOB, V-H-GLOB; V-S-GLOB | `KKV-P01 GLOB value=4242`; `getglobalvalue KKV01Glob` `>> 4242` |
-| FLST | c, d | V-P02, V-P03, V-H-FLST | `KKV-P02 FLST size=2`; `KKV-P03 FLST has-mug=True has-wrench=True` |
+| PKIN | c, d' | V-P29, V-P98 (diagnostic), V-H-PKIN | `KKV-P29 PKIN base-is=True` (passed in game-20261116-03 and -04, answering game-20261103-08 T-20's `0.00`); V-P98 writes the base the game reports, for a person to read |
+| GLOB | c, a', d' | V-P01, V-C-GLOB, V-H-GLOB; V-S-GLOB | `KKV-P01 GLOB value=4242`; `getglobalvalue 0A001029` `>> 4242.00` |
+| FLST | c, d' | V-P02, V-P03, V-H-FLST | `KKV-P02 FLST size=2`; `KKV-P03 FLST has-mug=True has-wrench=True` |
 | KYWD | c, d | V-P05, V-H-KYWD | `KKV-P05 KYWD on-reporter=True` |
 | FACT | c, a', d | V-P06, V-C-FACT, V-H-FACT; V-S-FACT | `KKV-P06 FACT player-in=True`; `GetInFaction >> 1` |
-| PERK | c, a', d | V-P07, V-C-PERK, V-H-PERK; V-S-PERK | `KKV-P07 PERK player-has=True`; `HasPerk >> 1` |
-| AVIF | c, a', d | V-P08, V-C-AVIF, V-H-AVIF; V-S-AVIF | `KKV-P08 AVIF player-value=7`; `getav` `>> 7` |
-| QUST | c, a', d | V-P09, V-C-QUST, V-H-QUST; V-S-QUST | `KKV-P09 QUST running=True stage10-done=True` (its `INDX` stages); `getstage` `>> 10` |
-| LCTN | c, d | V-P10, V-H-LCTN | `KKV-P10 LCTN reporter-in=True` (the cell's added `XLCN`) |
+| PERK | c, a', d | V-P07, V-C-PERK, V-H-PERK; V-S-PERK | `KKV-P07 PERK player-has=True`; `Perk Rank >> 1` |
+| AVIF | c, a', d | V-P08, V-C-AVIF, V-H-AVIF; V-S-AVIF | `KKV-P08 AVIF player-value=7`; `GetActorValue: KKV40Avif >> 7.00` |
+| QUST | c, a', d' | V-P09, V-C-QUST, V-H-QUST; V-S-QUST | `KKV-P09 QUST running=True stage10-done=True` (its `INDX` stages); `getstage 0A00102C` `>> 10.00` |
+| LCTN | c, d' | V-P10, V-H-LCTN | `KKV-P10 LCTN reporter-in=True` (the cell's added `XLCN`) |
 | LVLI | c, a' | V-P12, V-I-LVLI | `KKV-P12 LVLI wrench-added=1`; `player.getitemcount` of the wrench `>> 1` |
 | ALCH, BOOK, KEYM | a' | V-I-ALCH, V-I-BOOK, V-I-KEYM; V-S-I-* | `GetItemCount >> 1` |
 | ARMO | a' | V-I-ARMO, V-I-ARMO-EQ; V-S-I-ARMO | `GetItemCount >> 1`; `GetEquipped >> 1` |
-| TMLM, MESG, SOUN, IRES, TXST, HAZD, LVLN, LVLP, PACK, RSPJ, WKMF, WWED, ENCH, COBJ, REGN, PCBN, PCCN, SFBK, SFPT, SFTR, OTFT | d | V-H-<type> | the answer contains the form's runtime ID (`0A001008` ... ) |
+| TMLM, MESG, HAZD, RSPJ, WWED, ENCH | d | V-H-<type> | the answer contains the form's runtime ID (`0A001008` ... ); all six passed in game-20261116-04 |
+| SOUN, IRES, TXST, LVLN, LVLP, PACK, WKMF, COBJ, REGN, PCBN, PCCN, SFBK, SFPT, SFTR, OTFT | d' | V-H-<type> | `KKV-H<nn> <TYPE> present=True`; not run yet (the corrected rows, below) |
+
+Note on the save/reload rows V-S-GLOB, -FACT, -PERK, -AVIF and -QUST: V-S-02's `coc` reloads
+the test cell, so the reporter's `OnLoad` runs again after the reload and re-applies what
+those rows read (game-20261116-04, Papyrus log). They pass but show no persistence, and no
+evidence is entered from them.
 
 Control rows (no type of their own): V-01 (the test cell), V-40 (leave and return), V-P99
 (the reporter reached its end), V-S-01 (save in the Lodge, go to the apartment, load,
@@ -156,6 +174,56 @@ getter, and up to 6 s for each `help` that answers late. In the worst case every
 retries twice, which is still under the 1,800 s budget. Allow 25 minutes for the whole
 step, including the deploy and enable.
 
+Measured on 2026-11-16 (`game-20261116-04`): about 100 s to the base load, 106 rows in
+about 5.5 minutes, 6.5 minutes in all.
+
+## Re-run of the corrected rows (for the bench with the owner, 2026-11-16 evening)
+
+`docs/bench/verify-mod/rerun.toml` holds 25 rows of `probes.toml`, unchanged (the test
+`the_rerun_file_is_rows_of_the_full_file` checks it): V-01 and V-40 (the cell, leave and
+return, so the reporter runs), V-P00 and V-P99 (it started and finished), V-C-AVIF (the
+`getav` correlation), and the 20 presence rows that `help` could not grade in
+`game-20261116-04`, now read from the reporter: V-H-PKIN, -OTFT, -SOUN, -IRES, -TXST, -LVLN,
+-LVLP, -PACK, -WKMF, -COBJ, -REGN, -PCBN, -PCCN, -SFBK, -SFPT, -SFTR, -GLOB, -FLST, -QUST,
+-LCTN (each expects `KKV-H<nn> <TYPE> present=True`). Until a session runs them these rows
+are `not-run`. Game time about 3 minutes (100 s to the base load, 35 s for V-01 and V-40,
+seconds for the rest).
+
+Before the window (no game, MO2 closed; the plugin is unchanged, `a9632f11...e39faa`; only
+`VerifyReport.pex` is new):
+
+1. `kit` must contain the `getav` alias in `crates/game/src/correlate.rs` (branch
+   `opus/bench-run-20261116`, or `main` once merged). The release `kit.exe` built from
+   `a618e7d6` does not: with it V-C-AVIF stays `inconclusive`, the other 24 rows grade the
+   same. Rebuild as the bench sheet says ("Release binaries").
+2. From the worktree, with `KITKRAFT_DATA_DIR` set:
+
+   ```text
+   kit papyrus compile docs\bench\verify-mod\scripts\KitKraft\VerifyReport.psc out\verify\Scripts --sources-zip "$SF\Tools\ContentResources.zip"
+   kit package out\verify\KitKraftVerify.esm out\verify\pkg --scripts out\verify\Scripts\KitKraft\VerifyReport.pex --spec docs\bench\verify-mod\verify-mod.toml --plugins Starfield.esm --overwrite
+   kit deploy out\verify\pkg\KitKraftVerify C:\Modding\MO2-Starfield --dev --profile "Kitkraft Dev" --dry-run
+   kit deploy out\verify\pkg\KitKraftVerify C:\Modding\MO2-Starfield --dev --profile "Kitkraft Dev"
+   kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftVerify --dev --profile "Kitkraft Dev" --dry-run
+   kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftVerify --dev --profile "Kitkraft Dev"
+   ```
+
+   The deploy should replace one file (the `.pex`); the mod was left deployed and disabled
+   on 2026-11-16, so enable sets its two lines back. `rerun.toml` is for slot `0A` (the
+   rename plugin enabled, the verification plugin last). If anything else was enabled
+   since, run `kit testplan` as in "Commands for tomorrow" and rewrite it:
+   `python docs\bench\verify-mod\make_probes.py out\verify\plan-dev\probes.toml out\verify\rerun.toml --only <the 25 rows above, comma-separated>`.
+
+The re-run, one command (dry run first with `--dry-run` appended):
+
+```text
+kit game session C:\Modding\MO2-Starfield docs\bench\verify-mod\rerun.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger <worktree>\docs\game-observations.md
+```
+
+Afterwards `kit deploy disable C:\Modding\MO2-Starfield --mods KitKraftVerify --dev
+--profile "Kitkraft Dev"` (`--dry-run` first). Enter a passing V-H row as the six presence
+rows of `game-20261116-04` were: `game-runtime-tested`, `inconclusive`, note "Presence
+only". A V-H row that fails says the form did not load: a real finding, enter it `fail`.
+
 ## Entering the results
 
 ```text
@@ -210,3 +278,38 @@ column goes from 5 passes to 8, and 1 type is now inconclusive.
   fragment block, so a self-reporting quest cannot be authored.
 - `game.session`: no command turns a `report.json` into evidence entries;
   `propose_evidence.py` does it outside the catalog.
+
+## Self-reporting quest (second recipe, added 2026-11-16)
+
+A separate plugin, `KitKraftVerifyQuest.esm`, closes the two `kit build` script gaps above
+(commits `faa830ef` and `75e5351b` on `opus/authgaps-20261116`). The recipe and probes of
+`KitKraftVerify.esm` are unchanged. **Not run in game.**
+
+The quest gap was half misread. 209 of the 1,703 official quest `VMAD`s hold scripts and
+no fragment block, and no official block is empty. So a quest script alone was already
+written in the official form. What `kit` could not write was the block's content: a
+fragment script and its stage fragments. A `scripts` entry on a `QUST` now takes
+`stages = [{ stage = 10 }]`. `crates/engine/tests/quest_vmad_corpus.rs` checks the
+format: all 1,494 official blocks roundtrip, and `attach` rebuilds two official quest
+`VMAD`s byte for byte. A script property may now also name a `[[place]]` of the same build.
+
+| File | What |
+| ---- | ---- |
+| `docs/bench/verify-mod/verify-quest.toml` | `KKQ01Qust` (start game enabled, stage 10) with the quest script `KitKraft:VerifyQuestReport` (`Marker = "new:marker"`) and the fragment script `Fragments:Quests:QF_KKQ01Qust` at stage 10; `KKQ70Marker`, a persistent crate in `CityNewAtlantisApartmentAthena01` (not the test cell, so the cell copy it carries does not hide the first plugin's `XLCN`) |
+| `docs/bench/verify-mod/scripts/KitKraft/VerifyQuestReport.psc`, `scripts/Fragments/Quests/QF_KKQ01Qust.psc` | on `OnQuestInit`: lines `KKQ-Q01`, `Q02` (the marker property and its base) and `Q04` (stage 10 done after `SetStage`); the fragment writes `KKQ-Q03` |
+| `docs/bench/verify-mod/verify-quest-probes.toml` | rows Q-01 to Q-04, `papyrus-log` only (no runtime slot needed); hand-written |
+
+Checked headless (kit built from `75e5351b`):
+
+| Check | Result |
+| ----- | ------ |
+| `kit papyrus compile` (both scripts, base-game sources) | `VerifyQuestReport.pex` 1,699 bytes, `QF_KKQ01Qust.pex` 646 bytes |
+| `kit build docs\bench\verify-mod\verify-quest.toml out\verify-quest\KitKraftVerifyQuest.esm` | 3,238 bytes, 4 records, SHA-256 `94d2ad19feaa10bd8f8ac5da6b80d5f55bb0c2bfe6211cfe666ffb681dea3f6d` (two builds identical) |
+| `kit validate --plugin ... --plugins Starfield.esm` | 0 errors, 0 warnings |
+| `kit roundtrip ... --verify` | identical |
+| `kit game session C:\Modding\MO2-Starfield docs\bench\verify-mod\verify-quest-probes.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2... --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger <worktree>\docs\game-observations.md --dry-run` | probes parse; refused only by `plugin-not-deployed` (not deployed tonight) |
+
+To run it: `kit package` with both `.pex` files, `deploy --dev`, and `deploy enable`, as for
+the first plugin. Then run the session command above without `--dry-run`. The two plugins
+may be enabled together. The quest starts when the base save loads, so its lines are in
+the log before Q-01 reads it.
