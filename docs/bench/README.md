@@ -49,11 +49,14 @@ then; it has the `getav` correlation the re-run needs and the quest fragment blo
 
 | Binary | SHA-256 | Built |
 | ------ | ------- | ----- |
-| `C:\Modding\kitkraft\.targets\x\release\kit.exe` (package `kit-cli`) | `4a5be6c1399e86de2d01917609f9ce1db42aed7ff1545ac478a8cdee3d66cc53` | 2026-11-16 04:55 from `e33e1c39` |
-| `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (package `kit`) | `a938329a287e467f6679db31f7b5ed64253b14b06cda2fb012bc8305ef1635b3` | the same build |
+| `C:\Modding\kitkraft\.targets\x\release\kit.exe` (package `kit-cli`) | `627a8a6d606e2010eee8adfc5e821713e0aac6842798e196d526fe464b0ae732` | 2026-11-16 07:54 from `c32becce` |
+| `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (package `kit`) | `250a52083469c3a2de206100ddce312e0d634a36bea609e5e37f5a18566401c2` | the same build |
 
-The morning merge (about 07:00 to 07:40) may land KK-360 to KK-369 on `main`. Rebuilding is
-the director's call; if the bench should run them, rebuild **before** the first session,
+The morning merge landed KK-360 only (an overridden inventory item gets an `additem` row after
+its `help` row; the OW-2 Rename session therefore shows four rows, T-01 help, T-02 additem,
+T-03 save/reload, T-04 manual, and T-02 has run only against the fake console), and the
+components lane landed after it; the binaries above are built from that `main`. If `main`
+moves again and the bench should run it, rebuild **before** the first session,
 never while the game runs (about 2.5 minutes warm), from `$wt` at the commit to run, and
 record the new hashes in the first ledger reading:
 
