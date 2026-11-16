@@ -46,8 +46,8 @@ Then add the test as the clone-sample evidence for `KEYM` in
 `docs/schema/support-matrix.md`, as one more list item after KK-266's (the item that names
 `a_sample_of_official_doors_clones_identically`), in the same form: the test name, the line
 it printed, how many `KEYM` records `Starfield.esm` has, and its run time with the build
-profile you used. Add this ticket's one "Landed" line at the end of `plan/STATUS.md` (always
-allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form).
+profile you used. Do not edit `plan/STATUS.md` (no "Landed"
+line: the merge commit and `plan/tickets/README.md` record the ticket).
 
 The test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and is slow because each clone
 re-reads the master: 16 to 19 minutes in release, about 50 in a debug build. Always run it

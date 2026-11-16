@@ -97,10 +97,10 @@ Docs: LAYR has no row in the hand-written tables of `docs/foothold/gap-matrix.md
 xtask parity` rewrites only that file's generated headline, so commit what it writes and
 edit nothing else there. In `docs/gaps.md`, the row that starts "M4.BX2 inventories (LAYR
 LSCR)": drop LAYR from it (LSCR stays), as KK-290 dropped WWED, and change nothing else in
-that file. Add this ticket's one "Landed" line at the end of `plan/STATUS.md` (always
-allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form): `Landed <date>:
-KK-334 - LAYR ...` with the xEdit lines, what is typed, what stays opaque, the corpus counts
-your test printed and the parity row.
+that file. Do not edit `plan/STATUS.md` (tickets no longer add a
+"Landed" line there: the merge commit and `plan/tickets/README.md` record the ticket). Put
+the xEdit lines, what is typed, what stays opaque, the corpus counts your test printed and
+the parity row in your commit message.
 
 Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
 output of any command for another record type. Other schema tickets run the same night on

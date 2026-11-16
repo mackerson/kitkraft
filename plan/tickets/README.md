@@ -16,7 +16,7 @@ budget_h = 1.5                # optional: the run's time cap (default 1.5 h, the
 priority = 1                  # optional: auto picks higher first (default 0, then ID order)
 base = "kk/KK-002-wip"        # optional: continue an earlier run's branch (default main)
 owns = [                      # the only paths the agent may change (prefixes or globs);
-  "crates/engine/src/handlers/",  # plan/STATUS.md's one "Landed" line is always allowed
+  "crates/engine/src/handlers/",  # never plan/STATUS.md: tickets don't write it
 ]
 brief = """
 What to do and why, in a few paragraphs: the files to start from, the rules that matter,
@@ -38,6 +38,13 @@ The director A/B (ADR 0014, "Context") is the guide:
   them headless: no window, no game, no Creation Kit, no network.
 - **Name the starting files.** The agent must not read `plan/STATUS.md` or
   `plan/execution-plan.md`, so the brief carries the context those would give.
+- **No "Landed" line** (retired 2026-11-15). A ticket does not write `plan/STATUS.md`: its
+  merge commit and its row here are the record, and the agent puts what it found (counts its
+  test printed, what stays open) in its commit message. A fact a later reader needs goes in
+  the doc it belongs to (`docs/schema/support-matrix.md`, `docs/gaps.md`, a design note),
+  owned by the ticket. `lint.py` warns on a brief that asks for a Landed line. The grader
+  still allows a change to `plan/STATUS.md` (a run from an older prompt may add a line);
+  the merge deletes such a line.
 - **Owned paths are enforced.** A change outside `owns` fails the `scope` check.
 
 - **Acceptance commands must not pass vacuously.** A `cargo test` filter that matches no test
@@ -114,7 +121,7 @@ Then `cargo test -p kitkraft-schema`, `cargo xtask codegen --check` and the gate
 (`docs/local-agent.md`): not merged (main has no "Merge ticket/<ID>:" commit), not held, and
 every ticket in its `after` merged. It skips a ticket whose `owns` overlaps one already picked
 (each starts from `main` and they would conflict), except a shared Markdown file, merged by
-hand like the STATUS line. `overnight kitkraft KK-002+KK-003 8` runs a list instead.
+hand. `overnight kitkraft KK-002+KK-003 8` runs a list instead.
 
 Before the first run, a preflight drops any ticket whose base doesn't resolve, whose owned
 paths neither exist nor have an existing parent, or whose acceptance commands all pass on the
@@ -287,8 +294,12 @@ KK-252 to KK-266 were drafted on 2026-11-13 and run by Opus lanes the next night
 the local agent; their files came to `main` later (KK-323), each with `hold`, because the picker
 counts a ticket as merged only by a "Merge ticket/<ID>:" commit. KK-267 to KK-289 (the
 conditions, dialogue and component-block lanes of 2026-11-15) were cut in the lanes' briefs and
-never had ticket files, so the picker cannot see them; their record is their "Landed" lines in
-`plan/STATUS.md` (KK-289, parked at first, landed on `main` as `a6f7cfaf`; KK-273 was never used).
+never had ticket files, so the picker cannot see them; their record is their commits
+(`git log --grep 'KK-27[0-9]'`; the lanes' merges `8d6c998a`, `92773276` and `957773f5`), and
+their "Landed" lines, retired with the rest on 2026-11-15, are in `git show
+6bace482:plan/STATUS.md` (KK-289, parked at first, landed on `main` as `a6f7cfaf`; KK-273 was
+never used). The same holds for KK-292 to KK-295 (`0e3ee544`), KK-300 to KK-313 (`544da6f8`),
+KK-320 to KK-324 (`91a694ee`) and KK-350 to KK-353 (the docs cleanup of 2026-11-15).
 
 KK-246 to KK-249 each add one test to `crates/ui-egui/src/app/harness/tests.rs`, so `auto`
 picks one of them a night (owns overlap). To run all four the same night, queue them as a

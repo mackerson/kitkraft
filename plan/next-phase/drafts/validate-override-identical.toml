@@ -69,8 +69,8 @@ counts, do not edit it: write the counts you saw in the commit message, so the m
 pins them.
 
 Do not change any handler. Run `cargo test -p kitkraft-engine --lib validate` while you
-work, then `cargo xtask ci`. Add this ticket's one "Landed" line at the end of
-`plan/STATUS.md`. Commit when the new test passes.
+work, then `cargo xtask ci`. Do not edit `plan/STATUS.md` (no "Landed"
+line). Commit when the new test passes.
 """
 
 [[accept]]

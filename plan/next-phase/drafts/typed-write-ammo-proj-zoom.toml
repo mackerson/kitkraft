@@ -60,7 +60,8 @@ parameter to a helper only if every existing caller keeps its behaviour. The sch
 definitions are not yours to change here (other tickets own them).
 
 Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then `cargo xtask
-ci`. Add this ticket's one "Landed" line at the end of `plan/STATUS.md`. Commit after each
+ci`. Do not edit `plan/STATUS.md` (no "Landed"
+line). Commit after each
 type passes.
 """
 

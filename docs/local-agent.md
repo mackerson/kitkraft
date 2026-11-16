@@ -152,7 +152,7 @@ read-only:
 
 | Check | Passes when |
 | ----- | ----------- |
-| `scope` | Every changed path is under the ticket's `owns`. `plan/STATUS.md`, for the one "Landed" line, is always allowed. |
+| `scope` | Every changed path is under the ticket's `owns`. `plan/STATUS.md` is always allowed: tickets no longer add a "Landed" line there (retired 2026-11-15), but a run from an older prompt may, and the merge deletes it. |
 | each `[[accept]]` | Its command exits 0 within the ticket's `timeout_min` (default 45). |
 | `gate` | `cargo xtask ci` exits 0 on Linux, within the same limit. |
 
@@ -173,9 +173,10 @@ and left out of the bundle.
 - **Cannot:** reach the network, add crates, see the grader's logs, read `/mnt`, or launch the
   game, MO2 or the Creation Kit. It learns only which checks still fail, with the tail of each
   one's output, after a grade it triggered by stopping and at the start of an overtime run.
-- **Should not read:** `plan/STATUS.md` and `plan/execution-plan.md`. They are too large for its
+- **Should not read:** `plan/STATUS.md` and `plan/execution-plan.md`. They were too large for its
   context (134,000 tokens, Claude Code's cap in the sandbox, under the server's 139,264-token
-  (136k) window), so every ticket's brief carries what it needs.
+  (136k) window; STATUS is short since 2026-11-15, but the brief is still the agent's whole
+  context), so every ticket's brief carries what it needs.
 
 ## Known limits (2026-10-23, updated 2026-11-07)
 

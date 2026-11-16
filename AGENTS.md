@@ -20,8 +20,11 @@ official ESM and write it back byte-identical.
 
 ## Start every session
 
-1. Read `plan/STATUS.md` (where we are), then `plan/execution-plan.md` (what is next and who
-   owns it).
+1. Read `plan/STATUS.md` (short: where we are, the owner's next actions, open items) and
+   `docs/README.md` (the docs index: which doc is for what). Your task (a ticket in
+   `plan/tickets/`, or the owner's request) says what to do. Don't read
+   `plan/execution-plan.md` (257 KB, mostly history) or `plan/archive/` whole: open the
+   section a task or a citation names.
 2. Read `docs/architecture.md` if you will touch more than one crate.
 3. Check `docs/gaps.md` before claiming something works.
 4. Asked for a mod ("I want a mod that does X")? Follow `docs/playbooks/mod-from-brief.md`:
@@ -211,30 +214,39 @@ gate is the CI.
   passes the gate; lanes never push, never force-push, and never push their worktree
   branches. Publishing releases or packages stays the owner's (owner decision 6).
 - Message: imperative subject naming the crate (`esm: preserve XXXX oversize prefix`), body
-  says why. Update `plan/STATUS.md` in the same commit when a task finishes.
+  says why and records what you found (counts a test printed, what stays open): the commit
+  and, for a ticket, its row in `plan/tickets/README.md` are the record of what landed.
+- `plan/STATUS.md` holds only the live state. Edit it in place when where the project stands
+  changes (an owner action done, an open item opened or closed), in the same commit. Never
+  append a "Landed" line or a dated log (retired 2026-11-15; the old log is in git history,
+  the old sections in `plan/archive/STATUS-to-2026-11-15.md`). A fact a later reader needs
+  goes in the doc it belongs to (`docs/gaps.md`, a design note, `docs/schema/`), and current
+  counts come from the generated docs, never a hand-copied number (`docs/README.md`).
 
 ## Parallel agents
 
 - **Default since 2026-10-23 (ADR 0014): one ticket at a time, by the local agent** in the
   overnight harness, graded by the gate, advised by a read-only Opus check-in
   (`docs/local-agent.md`, tickets in `plan/tickets/`). A local agent reads its `TICKET.md`
-  instead of `plan/STATUS.md` and `plan/execution-plan.md`, and never pushes. The rules below
-  apply when the owner asks for parallel Claude lanes.
+  instead of `plan/STATUS.md` and `plan/execution-plan.md`, writes neither, and never
+  pushes. The rules below apply when the owner asks for parallel Claude lanes.
 - Each agent builds into its own target dir: `CARGO_TARGET_DIR=C:\Modding\kitkraft\.targets\<agent>`
   (PowerShell: `$env:CARGO_TARGET_DIR = "C:\Modding\kitkraft\.targets\<agent>"`). Delete it
   when you finish. `.targets/` is gitignored.
-- Only edit crates you own per `plan/execution-plan.md`. Need a change elsewhere? Note it in
-  `plan/STATUS.md` under "Requests" and keep going on your own lane.
+- Only edit the crates and files your lane's brief gives you. Need a change elsewhere? Say so
+  in your hand-off (or add it to `plan/STATUS.md` "Open items" if it outlives the lane) and
+  keep going on your own lane.
 - Shared files (`Cargo.toml` workspace deps, `AGENTS.md`, `docs/`) take small, separate
   commits so they merge cleanly.
-- Read `plan/STATUS.md`, then `plan/execution-plan.md`, before starting. Update STATUS when
-  you finish a task.
+- Read `plan/STATUS.md` and `docs/README.md` before starting (see "Start every session").
+  Don't add a "Landed" line when you finish; the merge commit records it.
 
 ## Reporting (binding; owner decision 4, 2026-10-15)
 
-Tickets and their dependencies live in `plan/execution-plan.md` (M5 onward) and
-`docs/foothold/`, not here. General KitKraft tickets are `M5.<lane><n>`; Foothold
-experiments are `FTH-EXP-nn` (ADR 0011). Every ticket hand-off (at most 40 lines) ends with
+Tickets and their dependencies live in `plan/tickets/` since 2026-10-23 (ADR 0014; the
+earlier M5 to M7 tasks in `plan/execution-plan.md` and `docs/foothold/`), not here. Tickets
+are `KK-nnn`; the earlier tasks are `M5.<lane><n>`; Foothold experiments are `FTH-EXP-nn`
+(ADR 0011). Every ticket hand-off (at most 40 lines) ends with
 this block:
 
 ```yaml
@@ -382,8 +394,10 @@ where the two disagree.
 | Path                     | Contents                                                      |
 | ------------------------ | ------------------------------------------------------------- |
 | `docs/README.md`         | Docs index: each doc's role (product, reference, checked, generated, process, history) |
-| `plan/STATUS.md`         | Current milestone, done, next, blockers, requests             |
-| `plan/execution-plan.md` | Tasks, owners, acceptance criteria, ordering                  |
+| `plan/STATUS.md`         | Live state only: where we are, owner next actions, open items, blockers (short; no Landed lines) |
+| `plan/archive/`          | Frozen history, e.g. STATUS's old sections to 2026-11-15; never edited |
+| `plan/tickets/`          | Tickets (one TOML each) and the queue, `plan/tickets/README.md` |
+| `plan/execution-plan.md` | Tasks, owners, acceptance criteria, ordering, M0 to M7 (mostly history since the tickets) |
 | `plan/adr/`              | Decisions, numbered, never rewritten (supersede instead)      |
 | `docs/architecture.md`   | Layers, data flow, key types                                  |
 | `docs/mcp.md`            | MCP tool shapes and the evidence envelope                     |

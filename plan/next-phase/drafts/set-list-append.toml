@@ -64,8 +64,8 @@ same in `docs/mcp.md` where `set`'s value forms are described (search it for `"m
 Do not change `crates/engine/src/handlers/`, the build spec (`crates/engine/src/build/`) or
 the schema: `[[set]]` reaches this code unchanged, and a follow-up ticket adds its test and
 the plan's wording. Do not touch any existing test. Run `cargo test -p kitkraft-engine --lib
-edit::fields` while you work, then `cargo xtask ci`. Add this ticket's one "Landed" line at
-the end of `plan/STATUS.md`. Commit when the three tests pass.
+edit::fields` while you work, then `cargo xtask ci`. Do not edit `plan/STATUS.md` (no "Landed"
+line). Commit when the three tests pass.
 """
 
 [[accept]]

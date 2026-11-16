@@ -24,7 +24,7 @@ What it checks:
 - tests the acceptance names (`--exact`) do not exist in the repo yet, unless the ticket
   continues a branch (`base`) or the brief says the test exists (existing, unchanged, still,
   keep, ignored...); the agent can write each new test: its file is under `owns`.
-- owned paths exist or have an existing parent; never plan/STATUS.md (always allowed), the
+- owned paths exist or have an existing parent; never plan/STATUS.md (tickets don't write it), the
   ticket files or this lint, build output, a game Data folder or a binary/Bethesda file.
 - repo paths the brief names in backticks exist or are owned (warning).
 - the KK-002 lesson: if the brief lets a test be `#[ignore]`d, acceptance must not require
@@ -220,7 +220,8 @@ def check_owns(t, path, rep):
             rep.say(path, "error", f"owns `{p}`: a repo-relative path with `/` only")
             continue
         if p.rstrip("/") == "plan/STATUS.md":
-            rep.say(path, "error", "owns plan/STATUS.md: its one Landed line is always allowed; don't list it")
+            rep.say(path, "error", "owns plan/STATUS.md: tickets don't write it (no Landed lines since "
+                                   "2026-11-15; the merge commit and plan/tickets/README.md are the record)")
             continue
         if lit.rstrip("/") in ("", "crates", "apps", "docs", "plan") or p in ("*", "**"):
             rep.say(path, "warning", f"owns `{p}` is very broad: name the files or folders the ticket changes")
@@ -736,13 +737,16 @@ def lint_file(path, tickets, merged, rep, lint_merged):
         rep.say(path, "warning", f"title is {len(title)} characters; keep it to one short line")
     brief = t.get("brief")
     if not isinstance(brief, str) or not brief.strip():
-        rep.say(path, "error", "no brief: the agent can't read plan/STATUS.md, so the brief carries the context")
+        rep.say(path, "error", "no brief: the agent reads only its ticket, so the brief carries the context")
         brief = ""
     elif is_draft and len(brief) < 600:
         rep.say(path, "error", f"brief is {len(brief)} characters: a draft's brief carries the context "
                                f"(starting files, rules, what done means)")
     elif len(brief) < 200:
         rep.say(path, "warning", f"brief is {len(brief)} characters; does it carry the context?")
+    if re.search(r"(?<!longer )\b(add|append|write)\s+(this\s+ticket.s\s+)?(one\s+|a\s+)?\W?Landed\W?\s+line", brief, re.I):
+        rep.say(path, "warning", "the brief asks for a \"Landed\" line in plan/STATUS.md: retired 2026-11-15 "
+                                 "(the merge commit and plan/tickets/README.md record a ticket); drop it")
     tm = t.get("timeout_min", 45)
     if not isinstance(tm, int) or isinstance(tm, bool) or not 5 <= tm <= 240:
         rep.say(path, "error", f"timeout_min {tm!r}: minutes per grading command, 5 to 240")

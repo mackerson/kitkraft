@@ -60,7 +60,7 @@ rename or reformat anything that is already there.
 If a test does not pass on the tree you start from (`new` refuses a member, or `validate`
 reports a finding on what `new` wrote), do not edit the engine or the schema (not yours
 here) and do not relax `check_written` or any other helper's checks: find out why, write the
-reason in a comment above the test and in the Landed line, and stop; the run then fails on
+reason in a comment above the test and in your commit message, and stop; the run then fails on
 its acceptance and the merge reads your reason. Never change, loosen or `#[ignore]` a test,
 yours or an existing one.
 
@@ -82,8 +82,9 @@ Then:
   (the evidence file is one of its inputs; the typed-writable count rises by 3) and
   `docs/record-parity.md`. Commit what it writes. None of these types has a row in the
   hand-written record-family table of the gap matrix, so edit nothing else in that file.
-- Add this ticket's one "Landed" line at the end of `plan/STATUS.md` (always allowed, so
-  not listed in `owns`; `tail -3 plan/STATUS.md` shows the form).
+- Do not edit `plan/STATUS.md` (no "Landed" line: the merge commit and
+  `plan/tickets/README.md` record the ticket); say what each test covers in your commit
+  message.
 
 Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then `cargo xtask
 parity --check` and `cargo xtask ci`. Commit only when every acceptance command below passes

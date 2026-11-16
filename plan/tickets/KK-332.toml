@@ -91,10 +91,10 @@ parity` (it reads the Data folder) and check the parity target above.
 Docs: VTYP has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
 xtask parity` rewrites only that file's generated headline, so commit what it writes and
 edit nothing else there. Do not edit `docs/gaps.md` (not yours here; its schema summary row
-is updated at the merge). Add this ticket's one "Landed" line at the end of `plan/STATUS.md`
-(always allowed, so not listed in `owns`; `tail -3 plan/STATUS.md` shows the form): `Landed
-<date>: KK-332 - VTYP ...` with the xEdit lines, what is typed, what stays opaque, the
-corpus counts your test printed and the parity row.
+is updated at the merge). Do not edit `plan/STATUS.md` (tickets no longer add a
+"Landed" line there: the merge commit and `plan/tickets/README.md` record the ticket). Put
+the xEdit lines, what is typed, what stays opaque, the corpus counts your test printed and
+the parity row in your commit message.
 
 Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
 output of any command for another record type. Other schema tickets run the same night on
