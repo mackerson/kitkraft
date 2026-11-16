@@ -80,6 +80,10 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "FullName" => &["TESFullName_Component"],
         "ObjectPaletteDefaults" => &["BGSObjectPaletteDefaults_Component"],
         "LinkedVoiceType" => &["BGSLinkedVoiceType_Component"],
+        "ExternalDataSource" => &["BGSExternalComponentDataSource_Component"],
+        "FormLinkData" => &["BGSFormLinkData_Component"],
+        "Blueprint" => &["Blueprint_Component"],
+        "HoudiniData" => &["HoudiniData_Component"],
         "SpaceshipAiActor" => &["BGSSpaceshipAIActor_Component"],
         "SpaceshipEquipment" => &["BGSSpaceshipEquipment_Component"],
         "SpaceshipHullCode" => &["BGSSpaceshipHullCode_Component"],
@@ -332,7 +336,8 @@ fn component_layouts_full() {
     // particle system and 1,150 more reflection blocks; the old counts were stale. The
     // `NamedLayout` union's variants (ADR 0015, KK-294): 1,196 DATA/DAT2 blocks in eight
     // kinds. The GBFM ship-part layouts (2026-11-16): voice type, AI actor, equipment, hull
-    // code, weapon bindings.
+    // code, weapon bindings; then external data source, form links, blueprint and the
+    // opaque Houdini data.
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
@@ -341,10 +346,14 @@ fn component_layouts_full() {
             ("AttachParentArray", 2_396),
             ("BlockEditorMetaData", 585),
             ("BlockHeightAdjustment", 255),
+            ("Blueprint", 2_030),
             ("ContactShadow", 147_487),
             ("Destructible", 2_149),
             ("DisplayCase", 156),
+            ("ExternalDataSource", 2_030),
+            ("FormLinkData", 2_334),
             ("FullName", 5_695),
+            ("HoudiniData", 1_825),
             ("Keywords", 83_015),
             ("LightLayer", 1_868),
             ("LinkedVoiceType", 2_030),

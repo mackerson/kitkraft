@@ -47,6 +47,9 @@
 #     `SpaceshipEquipment` (ESSF, L6215-L6218), `SpaceshipHullCode` (HULL, L6219-L6222)
 #     and `SpaceshipWeaponBindings` (SHWB, L6223-L6230) (2026-11-16): the ship-part
 #     components of GBFM.
+#   - `ExternalDataSource` (EXDC..EXBS, L6140-L6157), `FormLinkData` (ITMC, FLKW/FLFM
+#     pairs, L6158-L6165), `Blueprint` (BUO4..BOID, L6561-L6602) and `HoudiniData` (one
+#     PCCC payload, L6603-L6606, kept opaque as PTCL) (2026-11-16).
 # After those groups, the subrecord union `NamedLayout` (ADR 0015; KK-294, 2026-11-15) reads
 # the layouts upstream chooses by the component name, each one DATA or DAT2 subrecord
 # (L1479-L1551 and L6699-L6819): star data, orbited data, unique overlay list, unique pattern
@@ -211,6 +214,106 @@ field = [
   { name = "ExclusiveSlots", type = "array", element = "u32", count_from = "Count" },
 ]
 note = "per DCSD slot, in the same order: the display slots it excludes"
+
+[[member]]
+group = "ExternalDataSource"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6140-L6157"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 BGSExternalComponentDataSource_Component blocks of the 14 official ESMs (all GBFM) hold EXDC, EXDZ, 0 to 18 EXCN/EXCI pairs, EXAC, 0 to 2 EXAS and EXBS in this order; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSExternalComponentDataSource_Component: the base template and the components a generic base form takes from other forms"
+
+[[member.member]]
+sig = "EXDC"
+name = "BaseTemplate"
+type = "formid"
+targets = ["GBFM", "LVLB"]
+note = "0 when none (upstream also allows NULL)"
+
+[[member.member]]
+group = "Sources"
+note = "upstream: required"
+
+[[member.member.member]]
+sig = "EXDZ"
+name = "Count"
+type = "u32"
+note = "number of Components that follow; stored, not derived"
+
+[[member.member.member]]
+group = "Components"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "EXCN"
+name = "ComponentName"
+type = "zstring"
+
+[[member.member.member.member]]
+sig = "EXCI"
+name = "ComponentSource"
+type = "formid"
+targets = ["GBFM", "LVLB"]
+
+[[member.member]]
+group = "Unknown"
+note = "unnamed upstream; required"
+
+[[member.member.member]]
+sig = "EXAC"
+name = "Count"
+type = "u32"
+note = "number of Exas that follow; stored, not derived"
+
+[[member.member.member]]
+sig = "EXAS"
+name = "Exas"
+type = "zstring"
+card = "repeated"
+note = "unnamed upstream"
+
+[[member.member]]
+sig = "EXBS"
+name = "Exbs"
+type = "zstring"
+note = "unnamed upstream; required"
+
+[[member]]
+group = "FormLinkData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6158-L6165"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,334 BGSFormLinkData_Component blocks of the 14 official ESMs (all GBFM) hold one 4-byte ITMC then 0 to 9 FLKW/FLFM pairs (4 bytes each); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSFormLinkData_Component: forms linked to the form, each under a keyword"
+
+[[member.member]]
+sig = "ITMC"
+name = "Count"
+type = "u32"
+card = "optional"
+note = "number of LinkedForms that follow; stored, not derived (upstream does not tie the list to it)"
+
+[[member.member]]
+group = "LinkedForms"
+card = "repeated"
+
+[[member.member.member]]
+sig = "FLKW"
+name = "Keyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member.member.member]]
+sig = "FLFM"
+name = "Form"
+type = "formid"
+card = "optional"
+note = "any form type upstream"
 
 [[member]]
 group = "LinkedVoiceType"
@@ -521,6 +624,105 @@ field = [
   { name = "WeaponSlot2", type = "i32" },
   { name = "WeaponSlot3", type = "i32" },
 ]
+
+[[member]]
+group = "Blueprint"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6561-L6602"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7105-L7123",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 Blueprint_Component blocks of the 14 official ESMs (all GBFM; 70,644 BODS/BODV pairs under 63,974 BODC) hold BUO4 (a whole number of 36-byte parts), BODM, BODC each followed by 0 or more BODS/BODV pairs, BLUF and BOID in this order; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "Blueprint_Component: a ship blueprint's parts, their colour configurations and the next part ID"
+
+[[member.member]]
+sig = "BUO4"
+name = "Parts"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "BaseItem", type = "formid", targets = ["GBFM"] },
+  { name = "ConstructionObject", type = "formid", targets = ["COBJ"], note = "0 when none (upstream also allows NULL)" },
+  { name = "Placement", type = "ref:PositionRotation" },
+  { name = "PartId", type = "u32" },
+]
+
+[[member.member]]
+group = "Configurations"
+note = "upstream: required"
+
+[[member.member.member]]
+sig = "BODM"
+name = "Count"
+type = "u32"
+note = "number of Part runs that follow; stored, not derived"
+
+[[member.member.member]]
+group = "Part"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "BODC"
+name = "Count"
+type = "u32"
+note = "number of Entries that follow; stored, not derived"
+
+[[member.member.member.member]]
+group = "Entries"
+card = "repeated"
+
+[[member.member.member.member.member]]
+sig = "BODS"
+name = "Name"
+type = "zstring"
+card = "optional"
+
+[[member.member.member.member.member]]
+sig = "BODV"
+name = "Configuration"
+type = "struct"
+size = 40
+card = "optional"
+field = [
+  { name = "Color1", type = "struct", field = [{ name = "Red", type = "f32" }, { name = "Green", type = "f32" }, { name = "Blue", type = "f32" }] },
+  { name = "Color2", type = "struct", field = [{ name = "Red", type = "f32" }, { name = "Green", type = "f32" }, { name = "Blue", type = "f32" }] },
+  { name = "Color3", type = "struct", field = [{ name = "Red", type = "f32" }, { name = "Green", type = "f32" }, { name = "Blue", type = "f32" }] },
+  { name = "Unknown", type = "u32", note = "unnamed upstream" },
+]
+
+[[member.member]]
+sig = "BLUF"
+name = "Bluf"
+type = "u8"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member]]
+sig = "BOID"
+name = "NextPartId"
+type = "u32"
+card = "optional"
+
+[[member]]
+group = "HoudiniData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6603-L6606"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 1,825 HoudiniData_Component blocks of the 14 official ESMs (PNDT 1,704, STDT 121; 4,101 to 105,610 bytes) each hold one PCCC; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "HoudiniData_Component"
+
+[[member.member]]
+sig = "PCCC"
+name = "Data"
+type = "opaque"
+card = "optional"
+note = "reflection data, as REFL and PTCL: upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
 
 [[member]]
 group = "ParticleSystem"
