@@ -481,14 +481,15 @@ mod tests {
     /// as "not an lstring" is one in the schema. KK-284 typed the full-name component
     /// (PNDT, STDT and GBFM names), which made CHAL's FULL match by signature, but CHAL's
     /// own FULLs sit in its raw activity tracker block ([`IN_RAW_COMPONENT`]), so it stays
-    /// a fallback.
+    /// a fallback. The hull code component (GBFM's HULL) is a typed layout since
+    /// 2026-11-16, so the schema types it.
     #[test]
     fn the_schema_types_every_table_lstring() {
         let schema = kitkraft_schema::builtin().unwrap();
         let c = compare(schema);
         assert_eq!(c.conflicts, Vec::<String>::new());
-        assert_eq!(c.fallback, ["CHAL.DESC", "CHAL.FULL", "GBFM.HULL"]);
-        assert_eq!(c.agree.len(), 102);
+        assert_eq!(c.fallback, ["CHAL.DESC", "CHAL.FULL"]);
+        assert_eq!(c.agree.len(), 103);
         let lstrings: usize = TABLE
             .iter()
             .map(|(_, l, ..)| l.split(' ').filter(|s| !s.is_empty()).count())
@@ -497,7 +498,8 @@ mod tests {
     }
 
     /// Where the schema has the member, a layout comes from it with no table limitation;
-    /// inside a raw component block the table is the fallback and says so.
+    /// inside a raw component block the table is the fallback and says so (CHAL's activity
+    /// tracker block); a typed component layout (GBFM's hull code) needs none.
     #[test]
     fn schema_first_table_as_fallback() {
         use crate::edit::fields::layouts;
@@ -508,11 +510,14 @@ mod tests {
         let gbfm = layouts(*b"GBFM", &[*b"EDID", *b"BFCB", *b"HULL", *b"BFCE"]);
         let hull = gbfm.get(2).cloned().flatten().unwrap();
         assert_eq!(hull.ty, kitkraft_schema::FieldType::LString);
-        let note = hull.fallback.unwrap();
-        assert!(
-            note.starts_with("GBFM.HULL treated as an lstring by the corpus lstring table"),
-            "{note}"
+        assert_eq!(hull.fallback, None);
+        let chal = layouts(
+            *b"CHAL",
+            &[*b"EDID", *b"BFCB", *b"ATCP", *b"ATAN", *b"FULL", *b"BFCE"],
         );
+        let full = chal.get(4).cloned().flatten().unwrap();
+        assert_eq!(full.ty, kitkraft_schema::FieldType::LString);
+        assert!(full.fallback.is_some());
     }
 
     /// `distinct` values, `resolved` of them in one kind of table, `anchored` shared with

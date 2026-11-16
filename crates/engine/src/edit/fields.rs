@@ -2316,9 +2316,8 @@ mod tests {
             assert!(layout.fallback.is_none());
         }
         assert_eq!(at(*b"WEAP", *b"ATTX"), None);
-        // An lstring inside a component layout the schema keeps raw (GBFM's hull code) is
-        // typed by the FULL/DESC fact or the corpus table; PNDT's full-name component is a
-        // typed layout since KK-284, so its FULL needs no fallback.
+        // PNDT's full-name component is a typed layout since KK-284, and GBFM's hull code
+        // since 2026-11-16, so neither needs a fallback.
         let pndt = [*b"EDID", *b"BFCB", *b"FULL", *b"BFCE"];
         let full = layout_at(*b"PNDT", &pndt, 2).unwrap();
         assert_eq!(full.ty, FieldType::LString);
@@ -2326,7 +2325,7 @@ mod tests {
         let gbfm = [*b"EDID", *b"OBND", *b"ODTY", *b"BFCB", *b"HULL", *b"BFCE"];
         let hull = layout_at(*b"GBFM", &gbfm, 4).unwrap();
         assert_eq!(hull.ty, FieldType::LString);
-        assert!(hull.fallback.unwrap().contains("corpus lstring table"));
+        assert!(hull.fallback.is_none());
         // Out of range: no layout, never a panic.
         assert_eq!(layout_at(*b"WEAP", &[*b"EDID"], 3), None);
     }

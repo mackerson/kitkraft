@@ -43,6 +43,10 @@
 #     BGSObjectWindowFilter_Component.
 #   - `Destructible` (the shared Destructible group, L6118-L6121; KK-289, 2026-11-15):
 #     BGSDestructibleObject_Component.
+#   - `LinkedVoiceType` (FCTF, L6166-L6169), `SpaceshipAiActor` (SAIA, L6211-L6214),
+#     `SpaceshipEquipment` (ESSF, L6215-L6218), `SpaceshipHullCode` (HULL, L6219-L6222)
+#     and `SpaceshipWeaponBindings` (SHWB, L6223-L6230) (2026-11-16): the ship-part
+#     components of GBFM.
 # After those groups, the subrecord union `NamedLayout` (ADR 0015; KK-294, 2026-11-15) reads
 # the layouts upstream chooses by the component name, each one DATA or DAT2 subrecord
 # (L1479-L1551 and L6699-L6819): star data, orbited data, unique overlay list, unique pattern
@@ -207,6 +211,24 @@ field = [
   { name = "ExclusiveSlots", type = "array", element = "u32", count_from = "Count" },
 ]
 note = "per DCSD slot, in the same order: the display slots it excludes"
+
+[[member]]
+group = "LinkedVoiceType"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6166-L6169"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 BGSLinkedVoiceType_Component blocks of the 14 official ESMs (all GBFM) each hold one 4-byte FCTF; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSLinkedVoiceType_Component: the voice type of a generic base form (ship parts)"
+
+[[member.member]]
+sig = "FCTF"
+name = "VoiceType"
+type = "formid"
+targets = ["VTYP"]
+card = "optional"
+note = "0 when none (upstream also allows NULL)"
 
 [[member]]
 group = "ObjectPaletteDefaults"
@@ -425,6 +447,80 @@ name = "AnimationSound"
 type = "formid"
 targets = ["STAG"]
 card = "optional"
+
+[[member]]
+group = "SpaceshipAiActor"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6211-L6214"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 BGSSpaceshipAIActor_Component blocks of the 14 official ESMs (all GBFM) each hold one 4-byte SAIA; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSpaceshipAIActor_Component: the actor that crews a ship part"
+
+[[member.member]]
+sig = "SAIA"
+name = "Actor"
+type = "formid"
+targets = ["NPC_"]
+card = "optional"
+
+[[member]]
+group = "SpaceshipEquipment"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6215-L6218"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 BGSSpaceshipEquipment_Component blocks of the 14 official ESMs (all GBFM) each hold one 4-byte ESSF; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSpaceshipEquipment_Component"
+
+[[member.member]]
+sig = "ESSF"
+name = "Essential"
+type = "enum"
+base = "u32"
+values = [["False", 0], ["True", 1]]
+card = "optional"
+note = "a 32-bit boolean (upstream's boolean enum on a u32)"
+
+[[member]]
+group = "SpaceshipHullCode"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6219-L6222"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 134 BGSSpaceshipHullCode_Component blocks of the 14 official ESMs (all GBFM) each hold one HULL lstring; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSpaceshipHullCode_Component: a ship hull's code"
+
+[[member.member]]
+sig = "HULL"
+name = "HullCode"
+type = "lstring"
+card = "optional"
+
+[[member]]
+group = "SpaceshipWeaponBindings"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6223-L6230"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 2,030 BGSSpaceshipWeaponBindings_Component blocks of the 14 official ESMs (all GBFM) each hold one 12-byte SHWB; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSpaceshipWeaponBindings_Component: which weapon slot a ship weapon part binds to"
+
+[[member.member]]
+sig = "SHWB"
+name = "Binding"
+type = "struct"
+size = 12
+card = "optional"
+field = [
+  { name = "WeaponSlot1", type = "i32", note = "upstream links it to a blueprint part ID; not a FormID" },
+  { name = "WeaponSlot2", type = "i32" },
+  { name = "WeaponSlot3", type = "i32" },
+]
 
 [[member]]
 group = "ParticleSystem"

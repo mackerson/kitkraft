@@ -79,6 +79,11 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "PlanetModel" => &["TESPlanetModel_Component", "TESModel_Component"],
         "FullName" => &["TESFullName_Component"],
         "ObjectPaletteDefaults" => &["BGSObjectPaletteDefaults_Component"],
+        "LinkedVoiceType" => &["BGSLinkedVoiceType_Component"],
+        "SpaceshipAiActor" => &["BGSSpaceshipAIActor_Component"],
+        "SpaceshipEquipment" => &["BGSSpaceshipEquipment_Component"],
+        "SpaceshipHullCode" => &["BGSSpaceshipHullCode_Component"],
+        "SpaceshipWeaponBindings" => &["BGSSpaceshipWeaponBindings_Component"],
         // The `NamedLayout` union's variants (ADR 0015): the names upstream's DATA and DAT2
         // deciders list (L1479-L1551).
         "StarData" => &["BGSStarDataComponent_Component"],
@@ -122,6 +127,14 @@ struct Tally {
     placed: u64,
     /// Record types with typed component data.
     types: BTreeSet<String>,
+    /// Layout -> record type -> blocks.
+    layout_types: BTreeMap<String, BTreeMap<String, u64>>,
+    /// (layout, signature) -> (occurrences, smallest payload, largest payload).
+    sizes: BTreeMap<(String, String), (u64, usize, usize)>,
+    /// Component name -> blocks whose data stays raw (`ComponentData`).
+    raw: BTreeMap<String, u64>,
+    /// (component name, the raw data's signatures in order) -> blocks.
+    raw_shapes: BTreeMap<(String, String), u64>,
 }
 
 fn check_record(
@@ -154,12 +167,28 @@ fn check_record(
     let mut block = 0usize;
     let mut counted: BTreeSet<(usize, String)> = BTreeSet::new();
     let mut any = false;
+    let mut raw_shape: Vec<String> = Vec::new();
     for (i, (s, p)) in subs.iter().zip(&placed).enumerate() {
         if s.signature() == Signature::new(b"BFCB") {
             block = i;
             name = String::from_utf8_lossy(s.data())
                 .trim_end_matches('\0')
                 .to_string();
+            raw_shape.clear();
+            continue;
+        }
+        if s.signature() == Signature::new(b"BFCE") && !raw_shape.is_empty() {
+            *t.raw.entry(name.clone()).or_default() += 1;
+            *t.raw_shapes
+                .entry((name.clone(), raw_shape.join(" ")))
+                .or_default() += 1;
+            raw_shape.clear();
+            continue;
+        }
+        if let Placement::Raw { path } = p {
+            if path.ends_with("ComponentData") {
+                raw_shape.push(s.signature().to_string());
+            }
             continue;
         }
         let Placement::Member { path, .. } = p else {
@@ -181,7 +210,18 @@ fn check_record(
         );
         any = true;
         t.placed += 1;
+        let len = s.data().len();
+        let e = t
+            .sizes
+            .entry((layout.clone(), s.signature().to_string()))
+            .or_insert((0, usize::MAX, 0));
+        *e = (e.0 + 1, e.1.min(len), e.2.max(len));
         if counted.insert((block, layout.clone())) {
+            *t.layout_types
+                .entry(layout.clone())
+                .or_default()
+                .entry(r.header.signature.to_string())
+                .or_default() += 1;
             *t.blocks.entry(layout.clone()).or_default() += 1;
             *t.names.entry((layout, name.clone())).or_default() += 1;
         }
@@ -248,6 +288,24 @@ fn scan(dir: &Path, names: &[&str]) -> Tally {
         eprintln!("    {layout} / {name}: {n}");
     }
     eprintln!("  record types: {:?}", t.types);
+    for (layout, types) in &t.layout_types {
+        eprintln!("  {layout} record types: {types:?}");
+    }
+    for ((layout, sig), (n, lo, hi)) in &t.sizes {
+        eprintln!("  {layout} {sig}: {n} subrecords, {lo}..={hi} bytes");
+    }
+    let raw_total: u64 = t.raw.values().sum();
+    eprintln!("raw component blocks: {raw_total} in {} kinds", t.raw.len());
+    let mut by_count: Vec<(&String, &u64)> = t.raw.iter().collect();
+    by_count.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+    for (name, n) in by_count {
+        eprintln!("  raw {name}: {n}");
+    }
+    if std::env::var_os("KITKRAFT_COMPONENT_SHAPES").is_some() {
+        for ((name, shape), n) in &t.raw_shapes {
+            eprintln!("    shape {name} [{shape}]: {n}");
+        }
+    }
     t
 }
 
@@ -273,7 +331,8 @@ fn component_layouts_full() {
     // since round 4 carry 93 more animation graph, 1 more contact shadow, 1,188 more
     // particle system and 1,150 more reflection blocks; the old counts were stale. The
     // `NamedLayout` union's variants (ADR 0015, KK-294): 1,196 DATA/DAT2 blocks in eight
-    // kinds.
+    // kinds. The GBFM ship-part layouts (2026-11-16): voice type, AI actor, equipment, hull
+    // code, weapon bindings.
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
@@ -288,6 +347,7 @@ fn component_layouts_full() {
             ("FullName", 5_695),
             ("Keywords", 83_015),
             ("LightLayer", 1_868),
+            ("LinkedVoiceType", 2_030),
             ("ObjectPaletteDefaults", 6_105),
             ("ObjectWindowFilter", 3_062),
             ("OrbitedData", 123),
@@ -299,6 +359,10 @@ fn component_layouts_full() {
             ("QualityUpgrade", 216),
             ("Reflection", 9_651),
             ("SoundTag", 966),
+            ("SpaceshipAiActor", 2_030),
+            ("SpaceshipEquipment", 2_030),
+            ("SpaceshipHullCode", 134),
+            ("SpaceshipWeaponBindings", 2_030),
             ("StarData", 123),
             ("SurfaceTreePatternSwap", 33),
             ("UniqueOverlayList", 38),
