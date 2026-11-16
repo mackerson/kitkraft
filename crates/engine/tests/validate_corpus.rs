@@ -77,6 +77,12 @@ const RDSA_STALE: &str = "NPC_:0018B5F4's RDSA entry (xedit wbDefinitionsSF1.pas
     entry's flags do not enable the specific reference, so it is a stale value the game \
     ignores, not a layout error (actor lane request to lane H: does the CK clear it?)";
 
+const OVERLAY_STALE: &str = "SFPT:001D6B81's UniqueOverlayList_Component (the NamedLayout \
+    union, ADR 0015, typed by KK-294; xedit wbDefinitionsSF1.pas L6734-L6743) names \
+    Worldspace 004AE608, which Starfield.esm does not have; every other overlay worldspace \
+    of the 38 official blocks resolves, so it is a stale value in the official file, not a \
+    layout error. Seen since the decider merge typed the block";
+
 const STALE_SCRIPTS: &str = "VMAD (M4.E9, crates/engine/src/edit/vmad.rs; every official \
     VMAD re-encodes identically) of the file's own records attaches scripts that no archive \
     of the file or its masters holds as .pex (test and removed scripts: \
@@ -167,6 +173,13 @@ const KNOWN_ERRORS: &[Known] = &[
         Some(0x0057_7823),
         1,
         RDSA_STALE,
+    ),
+    dangling(
+        "Starfield.esm",
+        "BfcbBlock.UniqueOverlayList.DATA.Worldspaces.Worldspace",
+        Some(0x004A_E608),
+        1,
+        OVERLAY_STALE,
     ),
     dangling(
         "ShatteredSpace.esm",
