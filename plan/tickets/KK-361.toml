@@ -1,0 +1,96 @@
+# Written 2026-11-15 for the 2026-11-16 bench session (report-to-evidence tool, category B).
+id = "KK-361"
+title = "cargo xtask session-evidence: the evidence.toml entries a session report's passing rows justify"
+timeout_min = 45
+budget_h = 2
+priority = 1
+owns = [
+  "xtask/src/session_evidence.rs",
+  "xtask/src/main.rs",
+  "xtask/fixtures/",
+  "docs/game-sessions.md",
+]
+brief = """
+After a game session (`kit game session`, `docs/game-sessions.md`) someone reads
+`observe/<id>/report.json` and hand-writes the `docs/schema/evidence.toml` entries the
+session justifies (`game-runtime-tested`, `save-reload-verified`, with a `ledger:` pointer).
+Tomorrow's bench session runs one combined verification mod with many record types, so
+this step needs a tool. Add `cargo xtask session-evidence <report.json>`: it reads the
+report and prints, on stdout, the `[[entry]]` blocks its passing rows justify. It never
+writes `evidence.toml` (a person pastes and reviews); nothing like it exists today
+(`xtask/src/gameregress.rs` replays sessions, it does not propose evidence).
+
+Inputs, read these first:
+- `crates/game/src/controller.rs`, `pub struct Report`: `session`, `rows`, `ledger_entry`
+  (`Option<String>`, the `game-<yyyymmdd>-<nn>` id). Each row is
+  `crates/game/src/ledger.rs` `RowReport`: `row` (`T-01`), `title`, `forms`, `verdict`. A
+  verdict serializes as `{"status": "pass"}` or `{"status": "fail" | "inconclusive" |
+  "not-run", "reason": "..."}` (`crates/game/src/probes.rs`, `Verdict`). A manual row is
+  `not-run`. `crates/game/tests/fixtures/2026-11-10-T01-report.json` is a real report (all
+  rows not-run). Read the JSON with `serde_json::Value` (xtask already depends on it); do not
+  add a dependency on `kitkraft-game` for this.
+- `docs/schema/evidence.toml`: the header comment gives the entry format; the
+  `game-runtime-tested` and `save-reload-verified` entries at the end are what you produce.
+- `kit testplan` titles every per-form row with `<SIG> `<name>`` (for example
+  ``prid 01001000; getpos x/y/z: REFR `KC_TestCrate` at (10.0, 20.0, 30.0)`` or
+  ``help "Old Rifle" 4: WEAP `OldRifle```; `crates/engine/src/handlers/testplan/probes.rs`,
+  the `what` string), and the persistence rows `persistence 1-3: ...` and `persistence 4:
+  ...` (forms of the latter: the EditorIDs and runtime IDs of the references it checks).
+
+Rules (put them in the module docs):
+1. A row's record type is the first four-character token of `A-Z`, `0-9` or `_` that is
+   followed by a space and a backtick in its title. Rows with no type and not persistence
+   rows are ignored.
+2. `game-runtime-tested` for a type: at least one row of that type passed and none failed.
+   Inconclusive and not-run rows do not block; the note lists them.
+3. `save-reload-verified` for a type: both persistence rows passed, and a passing row of
+   that type shares a form (an EditorID or runtime ID string) with the `persistence 4` row,
+   and no row of that type failed.
+4. A type with a failing row gets no entry; print a TOML comment instead:
+   `# <SIG>: row T-nn failed; no entry`.
+5. No `ledger_entry` in the report: print nothing on stdout, exit non-zero with
+   "the report has no ledger entry: nothing to cite".
+6. Output, sorted by type then status: `type`, `status`, `result = "pass"`, `evidence =
+   ["ledger: <ledger_entry>"]`, `note = "<session>: rows T-01, T-04 passed[; T-03
+   inconclusive] (proposed by cargo xtask session-evidence; review before adding)"`.
+
+Commit a sample report, `xtask/fixtures/session-evidence/report.json`, in the `Report` shape
+(copy the field set of the 2026-11-10 fixture), session `2026-11-01-T99`, ledger_entry
+`game-20261101-99`, with these rows: T-01 ``coc TestInterior: the cell of REFR
+`KC_TestCrate``` pass; T-02 ``player.moveto 01001000: stand at REFR `KC_TestCrate``` pass;
+T-03 ``prid 01001000 selects REFR `KC_TestCrate`, a KC_Crate (predicted)`` inconclusive;
+T-04 ``prid 01001000; getpos x/y/z: REFR `KC_TestCrate` at (10.0, 20.0, 30.0)`` pass,
+forms `["KC_POI.esm:001000", "KC_TestCrate", "01001000"]`; T-05 ``help "Old Rifle" 4: WEAP
+`OldRifle``` pass; T-06 ``help KC_Menu 4: TMLM `KC_Menu``` fail; T-07 `persistence 1-3:
+leave, save to the session's own save, load it` pass; T-08 `persistence 4: return; every
+new reference where it was` pass, forms `["KC_TestCrate", "01001000"]`.
+
+Tests, in `xtask/src/session_evidence.rs` (`#[cfg(test)] mod tests`), exact names:
+- `the_sample_report_proposes_the_entries_its_passing_rows_justify`: on the fixture, the
+  output has exactly three entries: REFR `game-runtime-tested` (note names T-01, T-02, T-04
+  passed and T-03 inconclusive), REFR `save-reload-verified`, WEAP `game-runtime-tested`;
+  each with `evidence = ["ledger: game-20261101-99"]`; and the comment `# TMLM: row T-06
+  failed; no entry`; no TMLM entry.
+- `the_proposed_entries_parse_as_evidence_entries`: the output parses with the `toml`
+  crate, and its `entry` array has three tables, each with `type`, `status`, `result`,
+  `evidence` and `note`.
+- `a_report_without_a_ledger_entry_proposes_nothing`: the fixture with `ledger_entry` set
+  to null gives an error naming "no ledger entry".
+
+Wire it in `xtask/src/main.rs`: a `mod session_evidence;` line, a `Some("session-evidence")`
+arm in the task match next to `game-regress`, and one `print_help` line. Add a short
+paragraph to `docs/game-sessions.md` after "Testing against the fakes": how to turn a
+session's report into evidence entries with this command. Do not edit
+`docs/schema/evidence.toml` or `plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p xtask session_evidence` while you work, then `cargo xtask ci`. Commit
+only when the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "session-evidence-tests"
+cmd = '''cargo test -p xtask -- --exact session_evidence::tests::the_sample_report_proposes_the_entries_its_passing_rows_justify session_evidence::tests::the_proposed_entries_parse_as_evidence_entries session_evidence::tests::a_report_without_a_ledger_entry_proposes_nothing 2>&1 | tee /tmp/o; grep -q '^test result: ok. 3 passed' /tmp/o'''
+
+[[accept]]
+name = "cli"
+cmd = '''cargo xtask session-evidence xtask/fixtures/session-evidence/report.json > /tmp/e 2>&1; grep -q 'ledger: game-20261101-99' /tmp/e && grep -q '# TMLM: row T-06 failed; no entry' /tmp/e && test "$(grep -c '^\[\[entry\]\]' /tmp/e)" = 3'''
