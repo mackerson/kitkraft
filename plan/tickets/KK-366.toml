@@ -1,0 +1,43 @@
+# Written 2026-11-16 from the OW-2 rehearsal (docs/bench/README.md, "Done unattended"):
+# the window's title says "(read-only)" while it deploys, launches sessions and writes
+# plugins (ADR 0007 Amendments 2 to 4).
+id = "KK-366"
+title = "workbench: the window title no longer says read-only"
+timeout_min = 45
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/ui-egui/src/panels/common.rs",
+  "docs/design/workbench-style.md",
+]
+brief = """
+The workbench's OS title bar is `crate::panels::common::WINDOW_TITLE` in
+`crates/ui-egui/src/panels/common.rs`, `"KitKraft Workbench (read-only)"`, used by
+`crates/ui-egui/src/app.rs` (`run_window`) and by `debug_title` (a debug build appends
+" - debug build ..."). The label dates from ADR 0007 Amendment 1. Since Amendments 2 to 4
+the window writes, each write previewed and confirmed per click: the Ledger tab's rows,
+`deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`, and the
+editor's writes into the active file (`set`, `new`, `clone`, `place`, `build`, `revert`).
+`kit ui --dev` (the bench's way in) only picks the KitKraft Dev profile; there is no
+read-only mode the title could be describing. The title is wrong in every mode.
+
+Change: `WINDOW_TITLE` becomes `"KitKraft Workbench"`. `debug_title` keeps its suffix on
+the new title. In `docs/design/workbench-style.md`, "Window chrome", the "Title bar" line
+names the new title. Change nothing else (the status line's own text, the About line, the
+`kit-ui` `--help` text and `docs/workbench.md` are out of scope).
+
+Test, in `common.rs`'s `tests` module, exact name:
+- `the_title_does_not_claim_read_only`: `WINDOW_TITLE` is `"KitKraft Workbench"`, does not
+  contain `read-only`, and `debug_title` of a debug `BuildInfo` (build one as
+  `a_debug_build_says_so_in_the_title` does) starts with `"KitKraft Workbench - debug build"`.
+
+Keep the existing test `a_debug_build_says_so_in_the_title` passing unchanged. Do not edit
+`plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p kitkraft-ui-egui --lib common`, then `cargo xtask ci`. Commit only when
+the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "title"
+cmd = '''cargo test -p kitkraft-ui-egui --lib -- --exact panels::common::tests::the_title_does_not_claim_read_only panels::common::tests::a_debug_build_says_so_in_the_title 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''

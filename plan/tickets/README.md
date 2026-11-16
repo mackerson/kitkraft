@@ -273,6 +273,11 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-362](KK-362.toml) | game session: agent-sent input is recorded in report.json (ADR 0010 Amendment 2) | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | queued |
 | [KK-363](KK-363.toml) | testplan: a new interior cell is entered by coc and checked by its runtime ID | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | after KK-360 |
 | [KK-364](KK-364.toml) | session-evidence: mark proposed entries that docs/schema/evidence.toml already has | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | after KK-361 |
+| [KK-365](KK-365.toml) | kit help: a list flag's synopsis says the flag repeats, as the parser takes it | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
+| [KK-366](KK-366.toml) | workbench: the window title no longer says read-only | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
+| [KK-367](KK-367.toml) | deploy: the text summary names the plugin's SHA-256, as the window's preview does | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
+| [KK-368](KK-368.toml) | workbench: the checkout above the working directory comes before the one above kit-ui | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
+| [KK-369](KK-369.toml) | game session: one echo-only launch poll no longer makes the launch wait time out | written 2026-11-16 from OW-1's runs, `game-20261116-01` (`priority = 1`) | after KK-362 |
 
 KK-330 to KK-343 (local-model backlog, written 2026-11-15; none has `after` or `hold`).
 Same night: the ten schema tickets KK-330 to KK-339 own different definitions and share only
