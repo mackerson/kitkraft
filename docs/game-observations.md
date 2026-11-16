@@ -1190,8 +1190,20 @@ Writer's reading (bench 2026-11-16, block 1, OW-1; agent-run unattended on the o
 retry `game-20261116-02`, whose transcript is identical send for send.
 
 **Result: send order inconclusive (untested): no line arrived late, in either attempt.**
-Not a contradiction by the run sheet's definition, but see SO-03 below; reported to the
-director.
+Answers to commands sent while a `coc` (or the base `load`) is moving are **dropped, not
+delayed**. Not a contradiction by the run sheet's definition, but see SO-03 below; reported
+to the director.
+
+**For the owner to look at (SO-03):** send 14 `prid RussianHuntingRifle` answered only its
+echo; send 17 `player.getpos z` answered `GetPos: Z >> 0.01`; send 18, the same `prid` sent
+again, answered `Item 'RussianHuntingRifle' not found for parameter ObjectReferenceID.`.
+Two `prid`s, one failure line. If that line was send 18's own (send 14's dropped), nothing
+was out of order. If it was send 14's, arriving late, then send 17's `Z` came before an
+earlier request's line: the run sheet's contradiction. The text cannot tell the two
+identical lines apart; this reading takes the first, because every other echo-only send in
+both attempts lost its answer. Your call whether that is enough to keep ruling 2 (send
+order) standing; both transcripts are in
+`C:\Modding\kitkraft-observe\2026-11-16-T01\report.json` and `-T02\`, sends 14 to 18.
 
 Rows (both attempts the same): SO-01 `pass` (the control holds: the session tested
 something); SO-02 `pass`; SO-03 `pass` (predicted not pass); SO-04 `fail` (its own `prid`,

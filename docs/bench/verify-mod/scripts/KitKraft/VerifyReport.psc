@@ -48,6 +48,13 @@ Function Report(String row, String text)
     Debug.Trace("KKV-" + row + " " + text)
 EndFunction
 
+Function Present(String row, String type, Int objectId)
+    {Presence of a form `help` cannot find (game-20261116-04: the game keeps no EditorID of
+    the type and the form has no FULL, or its FULL was not listed): the form the plugin
+    defines at objectId loaded. Presence only: no field of it is read.}
+    Report(row, type + " present=" + (Game.GetFormFromFile(objectId, PluginName) != None))
+EndFunction
+
 Event OnLoad()
     Actor player = Game.GetPlayer()
     ObjectReference Chest = Game.GetFormFromFile(ChestId, PluginName) as ObjectReference
@@ -80,5 +87,27 @@ Event OnLoad()
     ; The pack-in question (game-20261103-08 row T-20): what the game reports as the base.
     ObjectReference packInRef = Game.GetFormFromFile(PackInId, PluginName) as ObjectReference
     Report("P98", "PKIN reference base=" + packInRef.GetBaseObject())
+    ; Presence rows V-H-<type> for the forms `help` found nothing for (object IDs as in
+    ; verify-mod.toml and make_probes.py EXPECTED).
+    Present("H20", "PKIN", 0x100A)
+    Present("H43", "OTFT", 0x1015)
+    Present("H51", "SOUN", 0x1017)
+    Present("H52", "IRES", 0x1018)
+    Present("H53", "TXST", 0x1019)
+    Present("H55", "LVLN", 0x101B)
+    Present("H56", "LVLP", 0x101C)
+    Present("H57", "PACK", 0x101D)
+    Present("H59", "WKMF", 0x101F)
+    Present("H62", "COBJ", 0x1022)
+    Present("H63", "REGN", 0x1023)
+    Present("H64", "PCBN", 0x1024)
+    Present("H65", "PCCN", 0x1025)
+    Present("H66", "SFBK", 0x1026)
+    Present("H67", "SFPT", 0x1027)
+    Present("H68", "SFTR", 0x1028)
+    Present("H01", "GLOB", 0x1029)
+    Present("H02", "FLST", 0x102A)
+    Present("H04", "QUST", 0x102C)
+    Present("H05", "LCTN", 0x102D)
     Report("P99", "done")
 EndEvent

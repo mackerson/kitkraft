@@ -2,10 +2,11 @@
 //! `docs/bench/verify-mod/probes.toml` parses, and the controller grades it as the bench
 //! session needs when a console model answers every command as the game is expected to.
 //! The model's reply shapes are the observed ones (`GetIsID >> 1.00`, `GetInCell >> 1.00`,
-//! a `help` line `TYPE: EDID (ID) 'NAME'`); the ones no session has seen yet
-//! (`getglobalvalue`, `getinfaction`, `hasperk`, `getav`, `getstage`, `getitemcount`,
-//! `getequipped`) are assumed in the same shape, so these tests show the grading and the
-//! rows' independence, not what the game prints.
+//! a `help` line `TYPE: EDID (ID) 'NAME'`), and since the bench of 2026-11-16
+//! (`game-20261116-04`) also those of `getglobalvalue`, `getinfaction`, `hasperk`
+//! (`Perk Rank >> 1`), `getav` (`GetActorValue: <EDID> >> 7.00`), `getstage`,
+//! `getitemcount` and `getequipped`. These tests show the grading and the rows'
+//! independence; whether the plugin works is the session's to show.
 
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
@@ -50,9 +51,13 @@ fn model(cmd: &str, help: &HashMap<String, String>) -> Option<String> {
         "getequipped" => "GetEquipped >> 1.00".into(),
         "getinfaction" => "GetInFaction >> 1.00".into(),
         "getglobalvalue" => "GetGlobalValue >> 4242.00".into(),
-        "getav" => "GetAV >> 7.00".into(),
+        // The lines the game printed in game-20261116-04 (sends 47 to 53).
+        "getav" => format!(
+            "GetActorValue: {} >> 7.00",
+            cmd.split_whitespace().nth(1).unwrap_or_default()
+        ),
         "getstage" => "GetStage >> 10.00".into(),
-        "hasperk" => "HasPerk >> 1.00".into(),
+        "hasperk" => "Perk Rank >> 1".into(),
         "help" => help.get(cmd).cloned()?,
         _ => return Some(echo),
     };
@@ -68,17 +73,27 @@ fn session(tag: &str, log: &str) -> Vec<(String, String)> {
             s.wait_secs = None;
         }
     }
-    // `help "<term>" 4` answers the form's line, naming the runtime ID the row expects.
+    // `help "<term>" 4 <TYPE>` answers the form's line, naming the runtime ID the row
+    // expects, as in game-20261116-04 (`TMLM:  (0A001008) 'KKV18 Terminal Menu'`).
     let mut help = HashMap::new();
     for p in &pf.probes {
         for s in &p.steps {
-            if s.command.starts_with("help ") {
-                let term = s.command.trim_start_matches("help ").trim_end_matches(" 4");
+            if let Some(rest) = s.command.strip_prefix("help ") {
+                let (term, ty) = match rest.strip_prefix('"') {
+                    Some(q) => {
+                        let (t, after) = q.split_once('"').unwrap();
+                        (t, after.split_whitespace().nth(1).unwrap_or("XXXX"))
+                    }
+                    None => {
+                        let w: Vec<&str> = rest.split_whitespace().collect();
+                        (
+                            w.first().copied().unwrap_or_default(),
+                            w.get(2).copied().unwrap_or("XXXX"),
+                        )
+                    }
+                };
                 let id = s.expected.clone().unwrap();
-                help.insert(
-                    s.command.clone(),
-                    format!("XXXX: {} ({id}) ''", term.trim_matches('"')),
-                );
+                help.insert(s.command.clone(), format!("{ty}:  ({id}) '{term}'"));
             }
         }
     }
@@ -221,4 +236,25 @@ fn a_failed_check_fails_its_own_row_only() {
         .map(|(r, _)| r.as_str())
         .collect();
     assert_eq!(failed, ["V-P01", "V-P29"]);
+}
+
+/// The short re-run of 2026-11-16 (`docs/bench/verify-mod/rerun.toml`, verify-mod.md
+/// "Re-run of the corrected rows") is rows of the full file, unchanged.
+#[test]
+fn the_rerun_file_is_rows_of_the_full_file() {
+    let path = probes_path().with_file_name("rerun.toml");
+    let rerun = ProbeFile::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let full = probes();
+    assert_eq!(rerun.plugin, full.plugin);
+    assert_eq!(rerun.probes.len(), 25);
+    for p in &rerun.probes {
+        let f = full.probes.iter().find(|f| f.row == p.row).unwrap();
+        let steps = |x: &kitkraft_game::probes::Probe| {
+            x.steps
+                .iter()
+                .map(|s| (s.command.clone(), s.expected.clone()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(steps(p), steps(f), "{}", p.row);
+    }
 }

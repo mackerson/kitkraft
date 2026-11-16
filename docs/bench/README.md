@@ -320,11 +320,13 @@ prints nothing, and (CK) the postflight line in `session.md` is `ok`.
 - **Never in a real session:** this `kit` build; the R41 pacing poll after a `load`; the
   timeout diagnostics (`stuck-<n>.png`); the launch wait's send-order count can still time
   out if the game drops a launch poll's answer ([`ow1-prep.md`](ow1-prep.md) section 1).
-- **Console commands never sent by a session:** `getglobalvalue`, `player.getinfaction`,
-  `player.hasperk`, `player.getav`; grade D (written, never observed): `player.additem` +
-  `getitemcount`, `player.equipitem` + `getequipped`, `getstage`; for input:
-  `getangle`, `setangle`, `placeatme`; `isindialoguewithplayer` (a Fallout 4 function, may
-  not exist). `help` answers often arrive one request late.
+- **Console commands never sent by a session:** for input: `getangle`, `setangle`,
+  `placeatme`; `isindialoguewithplayer` (a Fallout 4 function, may not exist). Sent and
+  answered on 2026-11-16 (`game-20261116-03` to `-05`; shapes in
+  [`verify-mod.md`](verify-mod.md), "Methods"): `getglobalvalue` and `getstage` (runtime ID
+  only), `player.getinfaction`, `player.hasperk` (`Perk Rank >> n`), `player.getav`,
+  `player.additem` + `getitemcount`, `player.equipitem` + `getequipped`. `help <term> 4`
+  answers late or never; `help <term> 4 <TYPE>` answers in its own reply.
 - **Verification mod:** the reporter's `OnLoad` on a placed activator after leave and
   return; PKIN's `getisid` (answered `0.00` before); 21 types are presence only.
 - **The CK runner has never driven the real CK:** posted `BM_CLICK` on "Set as Active File";

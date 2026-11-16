@@ -705,7 +705,7 @@ type = "AVIF"
 status = "game-runtime-tested"
 result = "pass"
 evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P08, V-H-AVIF: help listed the form under its runtime ID (presence only); the cloned actor value was set and read on the player (Papyrus, `KKV-P08 AVIF player-value=7`). V-C-AVIF: `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >> 7.00`, graded inconclusive because the correlator does not match `getav` to `GetActorValue`"
+note = "bench verification mod (KitKraftVerify.esm), rows V-P08, V-H-AVIF: help listed the form under its runtime ID (presence only); the cloned actor value was set and read on the player (Papyrus, `KKV-P08 AVIF player-value=7`). V-C-AVIF: `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >> 7.00`, graded inconclusive because the correlator did not match `getav` to `GetActorValue` (fixed after the session in crates/game/src/correlate.rs; the row is not re-graded until a session runs it)"
 
 [[entry]]
 type = "BOOK"

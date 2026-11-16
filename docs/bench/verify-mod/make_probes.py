@@ -9,7 +9,10 @@ the runtime-ID basis and the plugin's runtime slot. It also checks that every Ed
 the rows rely on has the object ID the reporter script expects (verify-mod.toml), and
 refuses to write otherwise.
 
-    python docs/bench/verify-mod/make_probes.py <testplan probes.toml> <out probes.toml>
+    python docs/bench/verify-mod/make_probes.py <testplan probes.toml> <out probes.toml> [--only V-01,V-40,...]
+
+`--only` writes just the named rows, in that order (a short re-run; rows that read the
+reporter's log need V-40 before them, and V-S rows need V-S-01).
 
 Standard library only (Python 3.8+); the testplan file is read with regular expressions
 over the lines `kit testplan` writes (plugin, sha256, runtime_id_basis, forms).
@@ -87,6 +90,12 @@ REPORT = [
 ]
 
 # Presence only: (type, EditorID, help term). A FULL is searched when the form has one.
+# `help <term> 4 <TYPE>` found the forms of HELP_FOUND (game-20261116-04). For the others it
+# listed nothing: their term is an EditorID the game does not keep for the type (the
+# listings show an EditorID only for KYWD, AVIF and WWED) or, for IRES, QUST and LCTN, a
+# FULL it did not list (cause not known). Those rows read the reporter's presence line
+# instead (VerifyReport.psc `Present`: Game.GetFormFromFile of the object ID is not None).
+HELP_FOUND = {"TMLM", "MESG", "HAZD", "RSPJ", "WWED", "ENCH", "KYWD", "FACT", "AVIF", "PERK"}
 PRESENCE = [
     ("TMLM", "KKV18Tmlm", '"KKV18 Terminal Menu"'), ("PKIN", "KKV20Pkin", "KKV20Pkin"),
     ("MESG", "KKV50Mesg", '"KKV50 Message"'), ("SOUN", "KKV51Soun", "KKV51Soun"),
@@ -181,8 +190,15 @@ def read_plan(path):
 
 
 def main():
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    only = None
+    if "--only" in args:
+        i = args.index("--only")
+        only = [x for x in args[i + 1].split(",") if x]
+        del args[i:i + 2]
+    if len(args) != 2:
         sys.exit(__doc__)
+    sys.argv[1:] = args
     plugin, sha, basis, found = read_plan(sys.argv[1])
     if plugin != "KitKraftVerify.esm":
         sys.exit("the plan is for %s, not KitKraftVerify.esm" % plugin)
@@ -242,7 +258,7 @@ def main():
     r.row("V-C-PERK", "player.hasperk %s: 1 after the reporter" % R("KKV41Perk"), ["KKV41Perk", R("KKV41Perk")], [
         check("player.hasperk " + R("KKV41Perk"), "regex", PERK, "the reporter added the perk (bench 2026-11-16: hasperk answers `Perk Rank >> n`, no decimals)")])
     r.row("V-C-AVIF", "player.getav KKV40Avif: 7 after the reporter", ["KKV40Avif", R("KKV40Avif")], [
-        check("player.getav KKV40Avif", "regex", r"(?m)>>\s*7(\.0+)?\s*$", "the reporter set the value (bench 2026-11-16: `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`, but the correlator matches a getter's line by its function name (`getav` is not `getactorvalue`), so the row stays inconclusive until correlate.rs knows the alias; `getactorvalue` itself is not a console function in Starfield. A regex, since the number matcher read the 40 in the EditorID)")])
+        check("player.getav KKV40Avif", "regex", r"(?m)>>\s*7(\.0+)?\s*$", "the reporter set the value (bench 2026-11-16: `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`, which correlate.rs maps to getav since this bench; `getactorvalue` itself is no console function (game-20261116-05). A regex, since the number matcher read the 40 in the EditorID)")])
     r.row("V-C-QUST", "getstage %s: 10 after the reporter" % R("KKV04Qust"), ["KKV04Qust", R("KKV04Qust")], [
         check("getstage " + R("KKV04Qust"), "regex", r"(?m)>>\s*10(\.0+)?\s*$", "the reporter set stage 10 (bench 2026-11-16: the console resolves no QUST EditorID; the runtime ID is the working shape)")])
     # Block E: persistence, as kit testplan writes it (proven in game-20261103-08 T-22).
@@ -286,6 +302,12 @@ def main():
     # EditorID the game does not keep is found only by its FULL name). Each row still ends
     # with a command that names nothing, so a late line has a reply to arrive in.
     for t, e, term in PRESENCE:
+        if t not in HELP_FOUND:
+            line = "KKV-H%s %s present=True" % (e[3:5], t)
+            r.row("V-H-%s" % t, "Papyrus log: %s (the %s %s is loaded; presence only)" % (line, t, e),
+                  [plugin + ":%06X" % EXPECTED[e], e, R(e)], [
+                      plog(line, "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help %s 4 %s` listed nothing in game-20261116-04" % (term, t))])
+            continue
         r.row("V-H-%s" % t, "help %s 4 %s: the %s %s is loaded (presence only)" % (term, t, t, e),
               [plugin + ":%06X" % EXPECTED[e], e, R(e)], [
                   check("help %s 4 %s" % (term, t), "contains", R(e),
@@ -303,9 +325,28 @@ def main():
         "runtime_id_basis = " + q(basis),
         "notes = [",
         "    " + q("Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.") + ",",
-        "    " + q("Order: proven console commands first, the reporter, inventory, unverified commands, the save and reload, the checks after it, presence by help last.") + ",",
+        "    " + q("Order: proven console commands first, the reporter, inventory, the field getters, the save and reload, the checks after it, presence (by help, or by the reporter where help finds nothing) last.") + ",",
         "]",
     ]
+    if only is not None:
+        by, rid = {}, None
+        for x in r.out:
+            if x.startswith("row = "):
+                rid = x[7:-1]
+            if rid is not None:
+                by.setdefault(rid, []).append(x)
+        missing = [x for x in only if x not in by]
+        if missing:
+            sys.exit("no such rows: %s" % missing)
+        # Each row's lines run from its `row =` line to the next; put back the blank line and
+        # `[[probe]]` header that precede it.
+        r.out = []
+        for x in only:
+            body = by[x]
+            if body[-2:] == ["", "[[probe]]"]:
+                body = body[:-2]
+            r.out += ["", "[[probe]]"] + body
+        head[1] = "# regenerate, never edit (docs/bench/verify-mod.md); rows: --only " + ",".join(only)
     open(sys.argv[2], "w", encoding="utf-8", newline="\n").write("\n".join(head + r.out) + "\n")
     rows = sum(1 for x in r.out if x == "[[probe]]")
     print("%s: %d rows for %s (slot %s)" % (sys.argv[2], rows, plugin, slots.pop()))
