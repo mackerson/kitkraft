@@ -13,7 +13,8 @@
 //!   are in one line, the longest wins (`KitKraft Mini Site Menu` over `KitKraft Mini Site`).
 //! - A getter (`[<ref>.]get<function> ...`): a line whose first word is the function
 //!   (`GetPos: X >> -17.00`, `GetInCell >> 1.00`), more strongly when it also names the
-//!   getter's arguments (`X`).
+//!   getter's arguments (`X`). A short form names the function its answer prints
+//!   (`getav` answers `GetActorValue: ...`, `game-20261116-04`).
 //!
 //! A getter's line goes to the one request still waiting for an answer (fewer lines than
 //! sends) that can claim it. When two or more can (the same getter sent twice, or
@@ -104,7 +105,7 @@ pub fn subject(command: &str) -> Option<Subject> {
     }
     if verb.len() > 3 && verb.starts_with("get") {
         return Some(Subject::Getter {
-            function: verb,
+            function: answer_name(&verb).to_string(),
             args: rest
                 .split_whitespace()
                 .map(str::to_ascii_lowercase)
@@ -112,6 +113,20 @@ pub fn subject(command: &str) -> Option<Subject> {
         });
     }
     None
+}
+
+/// Getters whose answer line names the function by another name than the command
+/// (lowercased): `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`
+/// (`game-20261116-03` and `-04`; `getactorvalue` itself is no console function,
+/// `game-20261116-05`).
+const ANSWER_NAMES: [(&str, &str); 1] = [("getav", "getactorvalue")];
+
+/// The function name a getter's answer line starts with.
+fn answer_name(verb: &str) -> &str {
+    ANSWER_NAMES
+        .iter()
+        .find(|(short, _)| *short == verb)
+        .map_or(verb, |(_, long)| long)
 }
 
 fn words(line: &str) -> Vec<String> {
@@ -727,6 +742,33 @@ Save file not found.",
         assert_eq!(subject("coc CityNewAtlantisApartmentTEMPLATE"), None);
         assert_eq!(subject("prid 06001000"), None);
         assert_eq!(subject("help"), None);
+    }
+
+    /// game-20261116-04, sends 50 to 52: `player.getav KKV40Avif` answered
+    /// `GetActorValue: KKV40Avif >> 7.00` three times and was graded inconclusive, since
+    /// the line's first word is not the command's verb.
+    #[test]
+    fn getav_claims_the_get_actor_value_line_the_game_prints() {
+        let s = subject("player.getav KKV40Avif").unwrap();
+        assert_eq!(
+            s,
+            Subject::Getter {
+                function: "getactorvalue".into(),
+                args: vec!["kkv40avif".into()]
+            }
+        );
+        assert_eq!(s.claims("GetActorValue: KKV40Avif >> 7.00"), Some(10_001));
+        assert_eq!(s.claims("GetStage >> 10.00"), None);
+
+        let reply = "player.getav KKV40Avif\nCommand: player.getav KKV40Avif\nGetActorValue: KKV40Avif >> 7.00\n";
+        let mut d = Correlator::default();
+        let n = d.open("V-C-AVIF", 0, "player.getav KKV40Avif");
+        let r = d.route(n, reply);
+        assert!(!r.echo_only && r.requeued.is_empty(), "{r:?}");
+        assert_eq!(
+            d.request(n).unwrap().lines,
+            vec!["GetActorValue: KKV40Avif >> 7.00".to_string()]
+        );
     }
 
     /// game-20261103-03 (2026-11-03-T05): T-03's reply, with T-03's echo and T-01's result.

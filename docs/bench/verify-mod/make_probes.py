@@ -9,7 +9,10 @@ the runtime-ID basis and the plugin's runtime slot. It also checks that every Ed
 the rows rely on has the object ID the reporter script expects (verify-mod.toml), and
 refuses to write otherwise.
 
-    python docs/bench/verify-mod/make_probes.py <testplan probes.toml> <out probes.toml>
+    python docs/bench/verify-mod/make_probes.py <testplan probes.toml> <out probes.toml> [--only V-01,V-40,...]
+
+`--only` writes just the named rows, in that order (a short re-run; rows that read the
+reporter's log need V-40 before them, and V-S rows need V-S-01).
 
 Standard library only (Python 3.8+); the testplan file is read with regular expressions
 over the lines `kit testplan` writes (plugin, sha256, runtime_id_basis, forms).
@@ -44,6 +47,7 @@ LEAVE = "CityNewAtlantisLodgeInt"
 LEAVE_ID = "0006BB29"  # game-20261101-T1, game-20261103-08 T-22
 ONE = r"(?m)>>\s*1(\.0+)?\s*$"
 AT_LEAST_ONE = r">>\s*[1-9]"
+PERK = r"Perk Rank >>\s*[1-9]"  # bench 2026-11-16: player.hasperk answers `Perk Rank >> 1`
 FLUSH = "prid 00000014"  # names nothing: a late `help` line arriving in its reply is routed by term
 
 # (row suffix for the reporter's label, type, reference EditorID, base EditorID)
@@ -86,6 +90,12 @@ REPORT = [
 ]
 
 # Presence only: (type, EditorID, help term). A FULL is searched when the form has one.
+# `help <term> 4 <TYPE>` found the forms of HELP_FOUND (game-20261116-04). For the others it
+# listed nothing: their term is an EditorID the game does not keep for the type (the
+# listings show an EditorID only for KYWD, AVIF and WWED) or, for IRES, QUST and LCTN, a
+# FULL it did not list (cause not known). Those rows read the reporter's presence line
+# instead (VerifyReport.psc `Present`: Game.GetFormFromFile of the object ID is not None).
+HELP_FOUND = {"TMLM", "MESG", "HAZD", "RSPJ", "WWED", "ENCH", "KYWD", "FACT", "AVIF", "PERK"}
 PRESENCE = [
     ("TMLM", "KKV18Tmlm", '"KKV18 Terminal Menu"'), ("PKIN", "KKV20Pkin", "KKV20Pkin"),
     ("MESG", "KKV50Mesg", '"KKV50 Message"'), ("SOUN", "KKV51Soun", "KKV51Soun"),
@@ -180,8 +190,15 @@ def read_plan(path):
 
 
 def main():
-    if len(sys.argv) != 3:
+    args = sys.argv[1:]
+    only = None
+    if "--only" in args:
+        i = args.index("--only")
+        only = [x for x in args[i + 1].split(",") if x]
+        del args[i:i + 2]
+    if len(args) != 2:
         sys.exit(__doc__)
+    sys.argv[1:] = args
     plugin, sha, basis, found = read_plan(sys.argv[1])
     if plugin != "KitKraftVerify.esm":
         sys.exit("the plan is for %s, not KitKraftVerify.esm" % plugin)
@@ -229,18 +246,25 @@ def main():
               step("player.additem %s 1" % R("KKV06Lvli")),
               check("player.getitemcount " + R("KKV31Misc"), "regex", AT_LEAST_ONE,
                     "a leveled list is resolved when added: the count of its entry, never of the list (additem of an LVLI grade D)")])
-    # Block D: field checks by console commands no session has sent yet (unverified).
-    r.row("V-C-GLOB", "getglobalvalue KKV01Glob: 4242 (unverified command)", ["KKV01Glob", R("KKV01Glob")], [
-        check("getglobalvalue KKV01Glob", "number", "4242", "the plugin's FLTV (command unverified in Starfield)", 0.5)])
-    r.row("V-C-FACT", "player.getinfaction %s: 1 after the reporter (unverified command)" % R("KKV03Fact"), ["KKV03Fact", R("KKV03Fact")], [
+    # Block D: field checks by console commands first sent on the bench of 2026-11-16
+    # (game-20261116-03 to -05): getinfaction and hasperk take runtime IDs; getglobalvalue and
+    # getstage need the runtime ID (the console resolves no GLOB or QUST EditorID); getav takes
+    # the AVIF EditorID.
+    r.row("V-C-GLOB", "getglobalvalue %s: 4242" % R("KKV01Glob"), ["KKV01Glob", R("KKV01Glob")], [
+        check("getglobalvalue " + R("KKV01Glob"), "regex", r"(?m)>>\s*4242(\.0+)?\s*$",
+              "the plugin's FLTV (bench 2026-11-16: the console resolves no GLOB EditorID, `Item 'KKV01Glob' not found for parameter Global.`; the runtime ID is the working shape)")])
+    r.row("V-C-FACT", "player.getinfaction %s: 1 after the reporter" % R("KKV03Fact"), ["KKV03Fact", R("KKV03Fact")], [
         check("player.getinfaction " + R("KKV03Fact"), "regex", ONE, "the reporter added the player (GetInFaction lines seen in coc replies; the command itself unverified)")])
-    r.row("V-C-PERK", "player.hasperk %s: 1 after the reporter (unverified command)" % R("KKV41Perk"), ["KKV41Perk", R("KKV41Perk")], [
-        check("player.hasperk " + R("KKV41Perk"), "regex", ONE, "the reporter added the perk (command unverified)")])
-    r.row("V-C-AVIF", "player.getav KKV40Avif: 7 after the reporter (unverified command)", ["KKV40Avif", R("KKV40Avif")], [
-        check("player.getav KKV40Avif", "number", "7", "the reporter set the value (command and EditorID form unverified)", 0.5)])
-    r.row("V-C-QUST", "getstage KKV04Qust: 10 after the reporter (getstage grade D)", ["KKV04Qust", R("KKV04Qust")], [
-        check("getstage KKV04Qust", "number", "10", "the reporter set stage 10 (getstage grade D)", 0.5)])
+    r.row("V-C-PERK", "player.hasperk %s: 1 after the reporter" % R("KKV41Perk"), ["KKV41Perk", R("KKV41Perk")], [
+        check("player.hasperk " + R("KKV41Perk"), "regex", PERK, "the reporter added the perk (bench 2026-11-16: hasperk answers `Perk Rank >> n`, no decimals)")])
+    r.row("V-C-AVIF", "player.getav KKV40Avif: 7 after the reporter", ["KKV40Avif", R("KKV40Avif")], [
+        check("player.getav KKV40Avif", "regex", r"(?m)>>\s*7(\.0+)?\s*$", "the reporter set the value (bench 2026-11-16: `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`, which correlate.rs maps to getav since this bench; `getactorvalue` itself is no console function (game-20261116-05). A regex, since the number matcher read the 40 in the EditorID)")])
+    r.row("V-C-QUST", "getstage %s: 10 after the reporter" % R("KKV04Qust"), ["KKV04Qust", R("KKV04Qust")], [
+        check("getstage " + R("KKV04Qust"), "regex", r"(?m)>>\s*10(\.0+)?\s*$", "the reporter set stage 10 (bench 2026-11-16: the console resolves no QUST EditorID; the runtime ID is the working shape)")])
     # Block E: persistence, as kit testplan writes it (proven in game-20261103-08 T-22).
+    # Caution (game-20261116-04): V-S-02 reloads the test cell, so the reporter's OnLoad runs
+    # again after the reload and re-applies the faction, perk, actor value and quest stage
+    # before V-S-FACT, -PERK, -AVIF and -QUST read them: those rows do not show persistence.
     r.row("V-S-01", "persistence 1-3: leave, save to the session's own save, go elsewhere, load it",
           [LEAVE, LEAVE_ID, CELL, CELL_ID], [
               step("coc " + LEAVE, 10),
@@ -262,22 +286,31 @@ def main():
     for t, e in ITEMS + [("LVLI", "KKV31Misc")]:
         r.row("V-S-I-%s" % t, "after the reload: player.getitemcount %s (%s)" % (R(e), t), [e, R(e)], [
             check("player.getitemcount " + R(e), "regex", AT_LEAST_ONE, "the item added before the save is still held")])
-    r.row("V-S-GLOB", "after the reload: getglobalvalue KKV01Glob (unverified command)", ["KKV01Glob"], [
-        check("getglobalvalue KKV01Glob", "number", "4242", "the global after the reload", 0.5)])
-    r.row("V-S-FACT", "after the reload: player.getinfaction %s (unverified command)" % R("KKV03Fact"), ["KKV03Fact"], [
+    r.row("V-S-GLOB", "after the reload: getglobalvalue %s" % R("KKV01Glob"), ["KKV01Glob"], [
+        check("getglobalvalue " + R("KKV01Glob"), "regex", r"(?m)>>\s*4242(\.0+)?\s*$", "the global after the reload")])
+    r.row("V-S-FACT", "after the reload: player.getinfaction %s" % R("KKV03Fact"), ["KKV03Fact"], [
         check("player.getinfaction " + R("KKV03Fact"), "regex", ONE, "the faction membership was saved")])
-    r.row("V-S-PERK", "after the reload: player.hasperk %s (unverified command)" % R("KKV41Perk"), ["KKV41Perk"], [
-        check("player.hasperk " + R("KKV41Perk"), "regex", ONE, "the perk was saved")])
-    r.row("V-S-AVIF", "after the reload: player.getav KKV40Avif (unverified command)", ["KKV40Avif"], [
-        check("player.getav KKV40Avif", "number", "7", "the actor value was saved", 0.5)])
-    r.row("V-S-QUST", "after the reload: getstage KKV04Qust (grade D)", ["KKV04Qust"], [
-        check("getstage KKV04Qust", "number", "10", "the quest stage was saved", 0.5)])
-    # Block G: presence by `help` (answers come late, game-20261103-03; each row ends with
-    # a command that names nothing, so a late line has a reply to arrive in).
+    r.row("V-S-PERK", "after the reload: player.hasperk %s" % R("KKV41Perk"), ["KKV41Perk"], [
+        check("player.hasperk " + R("KKV41Perk"), "regex", PERK, "the perk was saved (the rank can be 2: the reporter adds it again on each OnLoad)")])
+    r.row("V-S-AVIF", "after the reload: player.getav KKV40Avif", ["KKV40Avif"], [
+        check("player.getav KKV40Avif", "regex", r"(?m)>>\s*7(\.0+)?\s*$", "the actor value was saved")])
+    r.row("V-S-QUST", "after the reload: getstage %s" % R("KKV04Qust"), ["KKV04Qust"], [
+        check("getstage " + R("KKV04Qust"), "regex", r"(?m)>>\s*10(\.0+)?\s*$", "the quest stage was saved")])
+    # Block G: presence by `help`. Without a form type the answer came late or never
+    # (game-20261103-03, game-20261116-03); with `4 <TYPE>` it comes in its own reply
+    # (game-20261116-04), and an empty list means the term matched nothing (a form whose
+    # EditorID the game does not keep is found only by its FULL name). Each row still ends
+    # with a command that names nothing, so a late line has a reply to arrive in.
     for t, e, term in PRESENCE:
-        r.row("V-H-%s" % t, "help %s 4: the %s %s is loaded (presence only)" % (term, t, e),
+        if t not in HELP_FOUND:
+            line = "KKV-H%s %s present=True" % (e[3:5], t)
+            r.row("V-H-%s" % t, "Papyrus log: %s (the %s %s is loaded; presence only)" % (line, t, e),
+                  [plugin + ":%06X" % EXPECTED[e], e, R(e)], [
+                      plog(line, "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help %s 4 %s` listed nothing in game-20261116-04" % (term, t))])
+            continue
+        r.row("V-H-%s" % t, "help %s 4 %s: the %s %s is loaded (presence only)" % (term, t, t, e),
               [plugin + ":%06X" % EXPECTED[e], e, R(e)], [
-                  check("help %s 4" % term, "contains", R(e),
+                  check("help %s 4 %s" % (term, t), "contains", R(e),
                         "the game lists the form under its runtime ID (presence only: no field effect is shown)"),
                   step(FLUSH)])
 
@@ -292,9 +325,28 @@ def main():
         "runtime_id_basis = " + q(basis),
         "notes = [",
         "    " + q("Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.") + ",",
-        "    " + q("Order: proven console commands first, the reporter, inventory, unverified commands, the save and reload, the checks after it, presence by help last.") + ",",
+        "    " + q("Order: proven console commands first, the reporter, inventory, the field getters, the save and reload, the checks after it, presence (by help, or by the reporter where help finds nothing) last.") + ",",
         "]",
     ]
+    if only is not None:
+        by, rid = {}, None
+        for x in r.out:
+            if x.startswith("row = "):
+                rid = x[7:-1]
+            if rid is not None:
+                by.setdefault(rid, []).append(x)
+        missing = [x for x in only if x not in by]
+        if missing:
+            sys.exit("no such rows: %s" % missing)
+        # Each row's lines run from its `row =` line to the next; put back the blank line and
+        # `[[probe]]` header that precede it.
+        r.out = []
+        for x in only:
+            body = by[x]
+            if body[-2:] == ["", "[[probe]]"]:
+                body = body[:-2]
+            r.out += ["", "[[probe]]"] + body
+        head[1] = "# regenerate, never edit (docs/bench/verify-mod.md); rows: --only " + ",".join(only)
     open(sys.argv[2], "w", encoding="utf-8", newline="\n").write("\n".join(head + r.out) + "\n")
     rows = sum(1 for x in r.out if x == "[[probe]]")
     print("%s: %d rows for %s (slot %s)" % (sys.argv[2], rows, plugin, slots.pop()))

@@ -647,29 +647,233 @@ note = "the POI's new persistent reference (base STAT) was found with player.mov
 type = "KYWD"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261103-08"]
-note = "row T-01: `help KitKraftLocTypeMiniSite 4` listed `KYWD: KitKraftLocTypeMiniSite (09001000)`, the cloned keyword under its predicted runtime ID (the line came late and was routed to its request by the correlator). Presence only: no effect of a keyword field was observed"
+evidence = ["ledger: game-20261103-08", "ledger: game-20261116-04"]
+note = "row T-01: `help KitKraftLocTypeMiniSite 4` listed `KYWD: KitKraftLocTypeMiniSite (09001000)`, the cloned keyword under its predicted runtime ID (the line came late and was routed to its request by the correlator). Presence only: no effect of a keyword field was observed Bench verification mod (game-20261116-04): V-P05, Papyrus found the cloned keyword on the activator's added KWDA (a field effect), and V-H-KYWD (`help KKV42Kywd 4 KYWD` listed 0A001014)."
 
 [[entry]]
 type = "ACTI"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261103-08"]
-note = "rows T-09 and T-10: the reference KitKraftMiniSiteSwitchRef (09001007) stood beside the player after player.moveto, and `getisid 09001004` answered `GetIsID >> 1.00`: the game used the cloned activator KitKraftMiniSiteSwitch (with its added KSIZ/KWDA) as the base. Its OnLoad Trace (row T-12) is inconclusive: the row read the log before the cell reloaded"
+evidence = ["ledger: game-20261103-08", "ledger: game-20261116-04"]
+note = "rows T-09 and T-10: the reference KitKraftMiniSiteSwitchRef (09001007) stood beside the player after player.moveto, and `getisid 09001004` answered `GetIsID >> 1.00`: the game used the cloned activator KitKraftMiniSiteSwitch (with its added KSIZ/KWDA) as the base. Its OnLoad Trace (row T-12) is inconclusive: the row read the log before the cell reloaded Bench verification mod (game-20261116-04): V-20 getisid on the placed reporter, V-P00 the script kit attached ran on OnLoad, V-P05 its added KWDA holds the keyword, V-P20 Papyrus saw the cloned base."
 
 [[entry]]
 type = "TERM"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261103-08"]
-note = "rows T-14 and T-15: the reference KitKraftMiniSiteTerminalRef (09001008) was reached with player.moveto and `getisid 09001002` answered `GetIsID >> 1.00`: the game used the cloned terminal (DNAM naming the cloned menu) as the base. The menu itself (TMLM) was not opened"
+evidence = ["ledger: game-20261103-08", "ledger: game-20261116-04"]
+note = "rows T-14 and T-15: the reference KitKraftMiniSiteTerminalRef (09001008) was reached with player.moveto and `getisid 09001002` answered `GetIsID >> 1.00`: the game used the cloned terminal (DNAM naming the cloned menu) as the base. The menu itself (TMLM) was not opened Bench verification mod (game-20261116-04): V-28 getisid and V-P28 Papyrus saw the cloned terminal as the placed reference's base."
 
 [[entry]]
 type = "PKIN"
 status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261103-08", "ledger: game-20261116-04"]
+note = "the open question of game-20261103-08 (T-20's `getisid` on the pack-in answered 0.00) is answered by the bench verification mod: its reporter wrote `KKV-P29 PKIN base-is=true` (GetBaseObject of the reference placed from the cloned pack-in is the pack-in) and the diagnostic `KKV-P98 PKIN reference base=[Form < (0A00100A)>]`, the clone's runtime ID, in game-20261116-04 and -03. The console's `getisid` answer stays unexplained (KK-250); `help KKV20Pkin 4 PKIN` found nothing (the game keeps no PKIN EditorID)"
+
+# Bench verification mod KitKraftVerify.esm (a9632f11...e39faa), agent-run unattended on the
+# owner's go of 2026-11-16: entries from game-20261116-04 (session 2026-11-16-T04, the complete
+# run with the corrected command shapes; game-20261116-03, the first attempt, agrees on every
+# row both graded). Presence-only rows (`help` listed the form, no field seen to take effect)
+# are entered `inconclusive`, not `pass`: this file has no grade weaker than `pass` that still
+# says "loaded", and presence is not runtime support (AGENTS.md "Reporting"). The KYWD entry
+# above keeps its 2026-11-15 grade; it now also has V-P05, a field check.
+
+[[entry]]
+type = "ACHR"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-31, V-P31: Papyrus: the actor's base is the cloned NPC_; getisid: the placed actor's base is the cloned NPC_"
+
+[[entry]]
+type = "ALCH"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-I-ALCH: player.additem / getitemcount"
+
+[[entry]]
+type = "ARMO"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-I-ARMO, V-I-ARMO-EQ: player.additem / getitemcount; player.equipitem / getequipped"
+
+[[entry]]
+type = "AVIF"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P08, V-H-AVIF: help listed the form under its runtime ID (presence only); the cloned actor value was set and read on the player (Papyrus, `KKV-P08 AVIF player-value=7`). V-C-AVIF: `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >> 7.00`, graded inconclusive because the correlator did not match `getav` to `GetActorValue` (fixed after the session in crates/game/src/correlate.rs; the row is not re-graded until a session runs it)"
+
+[[entry]]
+type = "BOOK"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-I-BOOK: player.additem / getitemcount"
+
+[[entry]]
+type = "CONT"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-27, V-P11, V-P27: Papyrus: base is the cloned container; getisid: the reference's base is the cloned container; the container's CNTO gave three of the item"
+
+[[entry]]
+type = "DOOR"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-25, V-P25: Papyrus: base is the cloned door; getisid: the reference's base is the cloned door"
+
+[[entry]]
+type = "ENCH"
+status = "game-runtime-tested"
 result = "inconclusive"
-evidence = ["ledger: game-20261103-08"]
-note = "row T-19 passed (the reference placed from the cloned pack-in, 09001009, was reached with player.moveto), but T-20's `getisid 09001003` on the pack-in answered `GetIsID >> 0.00` (also in game-20261103-02 and -03): whether the game reports a PKIN as a placed reference's base is open (KK-250), so the pack-in itself is not shown to work"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-ENCH: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "FACT"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P06, V-C-FACT, V-H-FACT: help listed the form under its runtime ID (presence only); player.getinfaction answered 1; the player was added to the new faction"
+
+[[entry]]
+type = "FLOR"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-24, V-P24: Papyrus: base is the cloned flora; getisid: the reference's base is the cloned flora"
+
+[[entry]]
+type = "FLST"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P02, V-P03: Papyrus found both entries in the list; Papyrus read the list's two LNAM entries"
+
+[[entry]]
+type = "FURN"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-23, V-P23: Papyrus: base is the cloned furniture; getisid: the reference's base is the cloned furniture"
+
+[[entry]]
+type = "GLOB"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P01, V-C-GLOB: Papyrus read the global's FLTV 4242; getglobalvalue answered 4242"
+
+[[entry]]
+type = "HAZD"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-HAZD: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "KEYM"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-I-KEYM: player.additem / getitemcount"
+
+[[entry]]
+type = "LCTN"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P10: the cell's added XLCN put the reporter in the new location"
+
+[[entry]]
+type = "LIGH"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-26, V-P26: Papyrus: base is the cloned light; getisid: the reference's base is the cloned light"
+
+[[entry]]
+type = "LVLI"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P12, V-I-LVLI: adding the leveled list gave its one entry; player.additem of the list gave its entry"
+
+[[entry]]
+type = "MESG"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-MESG: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "MISC"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-30, V-P04, V-P30, V-I-MISC: Papyrus read the item's DATA Value 777; Papyrus: base is the cloned item; getisid: the placed reference's base is the cloned item; player.additem / getitemcount"
+
+[[entry]]
+type = "MSTT"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-22, V-P22: Papyrus: base is the cloned movable static; getisid: the reference's base is the cloned movable static"
+
+[[entry]]
+type = "NPC_"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-31, V-P31: Papyrus: the actor's base is the cloned NPC_; getisid: the placed actor's base is the cloned NPC_"
+
+[[entry]]
+type = "PERK"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P07, V-C-PERK, V-H-PERK: help listed the form under its runtime ID (presence only); player.hasperk answered 1; the player was given the cloned perk"
+
+[[entry]]
+type = "QUST"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P09, V-C-QUST: getstage answered 10; the new quest started and its stage 10 was set"
+
+[[entry]]
+type = "RSPJ"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-RSPJ: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "STAT"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-21, V-P21: Papyrus: base is the cloned static; getisid: the reference's base is the cloned static"
+
+[[entry]]
+type = "TMLM"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-TMLM: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "WWED"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261116-04"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-WWED: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
 
 # CK-differential-tested: the CK opened KitKraft's first POI and saved it (F30), and placed
 # the same crate itself (F29); every difference is explained (M5.A3).
@@ -712,3 +916,122 @@ status = "save-reload-verified"
 result = "pass"
 evidence = ["ledger: game-20261101-04"]
 note = "the POI's persistent crate was at (-17, -4, 4.63) again after the reload (row T-06)"
+
+# Save/reload from game-20261116-04: V-S-01 proved the reload (save in the Lodge, coc to the
+# apartment, load, back in the Lodge); after it getisid still named each cloned base and the
+# items added before the save were still held. Not entered: V-S-GLOB, -FACT, -PERK, -AVIF and
+# -QUST. V-S-02's coc reloads the test cell and the reporter's OnLoad re-applies the faction,
+# perk, actor value and quest stage before those rows read them (Papyrus log 03:30:12), and the
+# global holds the plugin's own value, so a pass there does not show persistence.
+
+[[entry]]
+type = "ACHR"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-31: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "ACTI"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-20: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "ALCH"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-I-ALCH: after the reload the item added before the save was still held"
+
+[[entry]]
+type = "ARMO"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-I-ARMO: after the reload the item added before the save was still held"
+
+[[entry]]
+type = "BOOK"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-I-BOOK: after the reload the item added before the save was still held"
+
+[[entry]]
+type = "CONT"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-27: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "DOOR"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-25: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "FLOR"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-24: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "FURN"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-23: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "KEYM"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-I-KEYM: after the reload the item added before the save was still held"
+
+[[entry]]
+type = "LIGH"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-26: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "MISC"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-30, V-S-I-MISC: after the reload the item added before the save was still held; after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "MSTT"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-22: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "NPC_"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-31: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "STAT"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-21: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "TERM"
+status = "save-reload-verified"
+result = "pass"
+evidence = ["ledger: game-20261116-04"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-S-28: after the reload, getisid on the reference still named the cloned base"

@@ -1,0 +1,299 @@
+# Written by docs/bench/verify-mod/make_probes.py from a kit testplan probes.toml;
+# regenerate, never edit (docs/bench/verify-mod.md); rows: --only V-01,V-40,V-P00,V-C-AVIF,V-H-PKIN,V-H-OTFT,V-H-SOUN,V-H-IRES,V-H-TXST,V-H-LVLN,V-H-LVLP,V-H-PACK,V-H-WKMF,V-H-COBJ,V-H-REGN,V-H-PCBN,V-H-PCCN,V-H-SFBK,V-H-SFPT,V-H-SFTR,V-H-GLOB,V-H-FLST,V-H-QUST,V-H-LCTN,V-P99
+format = 1
+plugin = "KitKraftVerify.esm"
+sha256 = "a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa"
+generated_by = "docs/bench/verify-mod/make_probes.py (bench 2026-11-16) over kit testplan"
+profile = "KitKraft Dev"
+runtime_id_basis = "inferred:runtime-slots-by-scale"
+notes = [
+    "Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.",
+    "Order: proven console commands first, the reporter, inventory, the field getters, the save and reload, the checks after it, presence (by help, or by the reporter where help finds nothing) last.",
+]
+
+[[probe]]
+row = "V-01"
+title = "coc CityNewAtlantisApartmentTEMPLATE: the test cell"
+forms = ["CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player is in the test cell (game-20261103-08 T-08)"
+
+[[probe]]
+row = "V-40"
+title = "leave to CityNewAtlantisLodgeInt and return: the reporter's OnLoad runs"
+forms = ["CityNewAtlantisLodgeInt", "CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 10
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 15
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "back in the test cell, freshly loaded"
+
+[[probe]]
+row = "V-P00"
+title = "Papyrus log: KKV-P00 reporter loaded (ACTI VMAD)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P00 reporter loaded"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-C-AVIF"
+title = "player.getav KKV40Avif: 7 after the reporter"
+forms = ["KKV40Avif", "0A001012"]
+
+[[probe.step]]
+command = "player.getav KKV40Avif"
+matcher = "regex"
+expected = '(?m)>>\s*7(\.0+)?\s*$'
+why = "the reporter set the value (bench 2026-11-16: `player.getav KKV40Avif` answers `GetActorValue: KKV40Avif >> 7.00`, which correlate.rs maps to getav since this bench; `getactorvalue` itself is no console function (game-20261116-05). A regex, since the number matcher read the 40 in the EditorID)"
+
+[[probe]]
+row = "V-H-PKIN"
+title = "Papyrus log: KKV-H20 PKIN present=True (the PKIN KKV20Pkin is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00100A", "KKV20Pkin", "0A00100A"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H20 PKIN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV20Pkin 4 PKIN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-OTFT"
+title = "Papyrus log: KKV-H43 OTFT present=True (the OTFT KKV43Otft is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001015", "KKV43Otft", "0A001015"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H43 OTFT present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV43Otft 4 OTFT` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-SOUN"
+title = "Papyrus log: KKV-H51 SOUN present=True (the SOUN KKV51Soun is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001017", "KKV51Soun", "0A001017"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H51 SOUN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV51Soun 4 SOUN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-IRES"
+title = "Papyrus log: KKV-H52 IRES present=True (the IRES KKV52Ires is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001018", "KKV52Ires", "0A001018"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H52 IRES present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV52 Resource\" 4 IRES` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-TXST"
+title = "Papyrus log: KKV-H53 TXST present=True (the TXST KKV53Txst is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001019", "KKV53Txst", "0A001019"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H53 TXST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV53Txst 4 TXST` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-LVLN"
+title = "Papyrus log: KKV-H55 LVLN present=True (the LVLN KKV55Lvln is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00101B", "KKV55Lvln", "0A00101B"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H55 LVLN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV55Lvln 4 LVLN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-LVLP"
+title = "Papyrus log: KKV-H56 LVLP present=True (the LVLP KKV56Lvlp is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00101C", "KKV56Lvlp", "0A00101C"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H56 LVLP present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV56Lvlp 4 LVLP` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-PACK"
+title = "Papyrus log: KKV-H57 PACK present=True (the PACK KKV57Pack is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00101D", "KKV57Pack", "0A00101D"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H57 PACK present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV57Pack 4 PACK` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-WKMF"
+title = "Papyrus log: KKV-H59 WKMF present=True (the WKMF KKV59Wkmf is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00101F", "KKV59Wkmf", "0A00101F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H59 WKMF present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV59Wkmf 4 WKMF` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-COBJ"
+title = "Papyrus log: KKV-H62 COBJ present=True (the COBJ KKV62Cobj is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001022", "KKV62Cobj", "0A001022"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H62 COBJ present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV62Cobj 4 COBJ` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-REGN"
+title = "Papyrus log: KKV-H63 REGN present=True (the REGN KKV63Regn is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001023", "KKV63Regn", "0A001023"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H63 REGN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV63Regn 4 REGN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-PCBN"
+title = "Papyrus log: KKV-H64 PCBN present=True (the PCBN KKV64Pcbn is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001024", "KKV64Pcbn", "0A001024"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H64 PCBN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV64Pcbn 4 PCBN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-PCCN"
+title = "Papyrus log: KKV-H65 PCCN present=True (the PCCN KKV65Pccn is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001025", "KKV65Pccn", "0A001025"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H65 PCCN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV65Pccn 4 PCCN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-SFBK"
+title = "Papyrus log: KKV-H66 SFBK present=True (the SFBK KKV66Sfbk is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001026", "KKV66Sfbk", "0A001026"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H66 SFBK present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV66Sfbk 4 SFBK` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-SFPT"
+title = "Papyrus log: KKV-H67 SFPT present=True (the SFPT KKV67Sfpt is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001027", "KKV67Sfpt", "0A001027"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H67 SFPT present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV67Sfpt 4 SFPT` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-SFTR"
+title = "Papyrus log: KKV-H68 SFTR present=True (the SFTR KKV68Sftr is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001028", "KKV68Sftr", "0A001028"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H68 SFTR present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV68Sftr 4 SFTR` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-GLOB"
+title = "Papyrus log: KKV-H01 GLOB present=True (the GLOB KKV01Glob is loaded; presence only)"
+forms = ["KitKraftVerify.esm:001029", "KKV01Glob", "0A001029"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H01 GLOB present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV01Glob 4 GLOB` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-FLST"
+title = "Papyrus log: KKV-H02 FLST present=True (the FLST KKV02Flst is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00102A", "KKV02Flst", "0A00102A"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H02 FLST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help KKV02Flst 4 FLST` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-QUST"
+title = "Papyrus log: KKV-H04 QUST present=True (the QUST KKV04Qust is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00102C", "KKV04Qust", "0A00102C"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H04 QUST present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV04 Quest\" 4 QUST` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-H-LCTN"
+title = "Papyrus log: KKV-H05 LCTN present=True (the LCTN KKV05Lctn is loaded; presence only)"
+forms = ["KitKraftVerify.esm:00102D", "KKV05Lctn", "0A00102D"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-H05 LCTN present=True"
+why = "the reporter found the form at its object ID with Game.GetFormFromFile (presence only: no field effect is shown); `help \"KKV05 Location\" 4 LCTN` listed nothing in game-20261116-04"
+
+[[probe]]
+row = "V-P99"
+title = "Papyrus log: KKV-P99 done (-)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P99 done"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
