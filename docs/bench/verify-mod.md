@@ -210,3 +210,38 @@ column goes from 5 passes to 8, and 1 type is now inconclusive.
   fragment block, so a self-reporting quest cannot be authored.
 - `game.session`: no command turns a `report.json` into evidence entries;
   `propose_evidence.py` does it outside the catalog.
+
+## Self-reporting quest (second recipe, added 2026-11-16)
+
+A separate plugin, `KitKraftVerifyQuest.esm`, closes the two `kit build` script gaps above
+(commits `faa830ef` and `75e5351b` on `opus/authgaps-20261116`). The recipe and probes of
+`KitKraftVerify.esm` are unchanged. **Not run in game.**
+
+The quest gap was half misread. 209 of the 1,703 official quest `VMAD`s hold scripts and
+no fragment block, and no official block is empty. So a quest script alone was already
+written in the official form. What `kit` could not write was the block's content: a
+fragment script and its stage fragments. A `scripts` entry on a `QUST` now takes
+`stages = [{ stage = 10 }]`. `crates/engine/tests/quest_vmad_corpus.rs` checks the
+format: all 1,494 official blocks roundtrip, and `attach` rebuilds two official quest
+`VMAD`s byte for byte. A script property may now also name a `[[place]]` of the same build.
+
+| File | What |
+| ---- | ---- |
+| `docs/bench/verify-mod/verify-quest.toml` | `KKQ01Qust` (start game enabled, stage 10) with the quest script `KitKraft:VerifyQuestReport` (`Marker = "new:marker"`) and the fragment script `Fragments:Quests:QF_KKQ01Qust` at stage 10; `KKQ70Marker`, a persistent crate in `CityNewAtlantisApartmentAthena01` (not the test cell, so the cell copy it carries does not hide the first plugin's `XLCN`) |
+| `docs/bench/verify-mod/scripts/KitKraft/VerifyQuestReport.psc`, `scripts/Fragments/Quests/QF_KKQ01Qust.psc` | on `OnQuestInit`: lines `KKQ-Q01`, `Q02` (the marker property and its base) and `Q04` (stage 10 done after `SetStage`); the fragment writes `KKQ-Q03` |
+| `docs/bench/verify-mod/verify-quest-probes.toml` | rows Q-01 to Q-04, `papyrus-log` only (no runtime slot needed); hand-written |
+
+Checked headless (kit built from `75e5351b`):
+
+| Check | Result |
+| ----- | ------ |
+| `kit papyrus compile` (both scripts, base-game sources) | `VerifyQuestReport.pex` 1,699 bytes, `QF_KKQ01Qust.pex` 646 bytes |
+| `kit build docs\bench\verify-mod\verify-quest.toml out\verify-quest\KitKraftVerifyQuest.esm` | 3,238 bytes, 4 records, SHA-256 `94d2ad19feaa10bd8f8ac5da6b80d5f55bb0c2bfe6211cfe666ffb681dea3f6d` (two builds identical) |
+| `kit validate --plugin ... --plugins Starfield.esm` | 0 errors, 0 warnings |
+| `kit roundtrip ... --verify` | identical |
+| `kit game session C:\Modding\MO2-Starfield docs\bench\verify-mod\verify-quest-probes.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2... --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger <worktree>\docs\game-observations.md --dry-run` | probes parse; refused only by `plugin-not-deployed` (not deployed tonight) |
+
+To run it: `kit package` with both `.pex` files, `deploy --dev`, and `deploy enable`, as for
+the first plugin. Then run the session command above without `--dry-run`. The two plugins
+may be enabled together. The quest starts when the base save loads, so its lines are in
+the log before Q-01 reads it.
