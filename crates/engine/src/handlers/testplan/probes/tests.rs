@@ -250,12 +250,12 @@ fn the_rename_and_overhaul_shapes_search_by_the_new_full() {
     testplan(&data, &rename, &out, json!(["Source.esm"]));
     let (p, _) = read(&out);
     assert_eq!(rows(&p), checklist_steps(&out));
-    assert_eq!(rows(&p), ["T-01", "T-02", "T-03"]);
+    assert_eq!(rows(&p), ["T-01", "T-02", "T-03", "T-04"]);
     let t1 = &p.probes[0];
     assert_eq!(t1.steps[0].command, "help \"Old Soviet Marksman Rifle\" 4");
     assert_eq!(t1.steps[0].expected.as_deref(), Some("00000800"));
     assert!(
-        p.probes[2].is_manual(),
+        p.probes[3].is_manual(),
         "no new reference to look for after the reload"
     );
 
@@ -267,11 +267,50 @@ fn the_rename_and_overhaul_shapes_search_by_the_new_full() {
     let (p2, _) = read(&out2);
     assert_eq!(rows(&p2), checklist_steps(&out2));
     assert_eq!(
-        [commands(&p2, "T-01"), commands(&p2, "T-02")],
+        [commands(&p2, "T-01"), commands(&p2, "T-03")],
         [
             vec!["help \"Old Earth Marksman Rifle\" 4".to_string()],
             vec!["help \"Other Rifle Mk2\" 4".to_string()]
         ]
+    );
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+#[test]
+fn an_overridden_weapon_gets_an_additem_row_after_its_help_row() {
+    let d = dir("probes-override-weap");
+    let data = weapons_data(&d);
+    let rename = d.join("Rename.esm");
+    set_full(&data, "OldRifle", "Old Soviet Marksman Rifle", &rename);
+    let out = d.join("plan");
+    testplan(&data, &rename, &out, json!(["Source.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(rows(&p), checklist_steps(&out));
+    assert_eq!(rows(&p), ["T-01", "T-02", "T-03", "T-04"]);
+    assert_eq!(
+        commands(&p, "T-01"),
+        ["help \"Old Soviet Marksman Rifle\" 4"]
+    );
+    assert_eq!(
+        commands(&p, "T-02"),
+        ["player.additem 00000800 1", "player.getitemcount 00000800"]
+    );
+    assert_eq!(p.probes[1].steps[1].matcher, Some(Matcher::Regex));
+    assert!(!p.probes[1].is_manual());
+    // T-03 is the persistence row and T-04 the manual "return and look" row, as before.
+    assert!(
+        p.probes[2].title.contains("persistence"),
+        "{}",
+        p.probes[2].title
+    );
+    assert!(p.probes[3].is_manual());
+    // The batch file gets the additem line too (R22).
+    let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
+    assert!(
+        batch
+            .lines()
+            .any(|l| l.trim_end_matches('\r') == "player.additem 00000800 1"),
+        "{batch}"
     );
     std::fs::remove_dir_all(&d).unwrap();
 }
