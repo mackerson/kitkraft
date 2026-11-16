@@ -21,7 +21,7 @@ Roles used below:
 | `README.md` | product | What KitKraft is and how to install it |
 | `AGENTS.md` | reference | The rules for every agent and contributor (`CLAUDE.md` points to it) |
 | `docs/QUICKSTART.md` | product | Install and first run on the dev box; `cargo xtask dist` names it |
-| `plan/STATUS.md` | process, checked | Where the project stands and the owner's next actions; the workbench Help tab shows its "Owner next actions" section (`crates/ui-egui/src/panels/help.rs`) |
+| `plan/STATUS.md` | process, checked | The live state only (short): where the project stands, the owner's next actions, open items. The workbench Help tab shows its "Owner next actions" section (`crates/ui-egui/src/panels/help.rs`; a test needs that heading and its table). No "Landed" lines since 2026-11-15 |
 | `ROADMAP.md` | reference | Milestones and their exit criteria; its "Where we are" is a dated snapshot |
 | `plan/tickets/README.md` | process, checked | The ticket queue and the rules for writing tickets; `plan/tickets/lint.py` reads its table |
 
@@ -66,7 +66,8 @@ Don't copy a count into prose: it goes stale. Point at the file that is regenera
 | Path | Role | Notes |
 | ---- | ---- | ----- |
 | `STATUS.md` | process, checked | See "Start here" |
-| `tickets/` | process, checked | One TOML per ticket; the overnight harness picks, grades and merges from it. `generate.py` and `lint.py` are the tooling |
+| `archive/` | history | Frozen files: `STATUS-to-2026-11-15.md` holds STATUS's old sections ("Done", "Pause", "Requests", "Campaign" ...) that docs and code comments cite as STATUS "...". Never edited; open the cited section only |
+| `tickets/` | process, checked | One TOML per ticket; the overnight harness picks, grades and merges from it. `generate.py` and `lint.py` are the tooling. A ticket's merge commit and its row in `tickets/README.md` record that it landed |
 | `adr/` | reference | Decisions, numbered, never rewritten (superseded instead); cited as "ADR 00nn" |
 | `next-phase/` | process | The 2026-11-14 planning package and ticket drafts (`id = "DRAFT"`, not runnable) |
 | `execution-plan.md` | history, process | Lanes and tasks through M7 (257 KB; its scope line is from M2). Read a section only when a task names it |
