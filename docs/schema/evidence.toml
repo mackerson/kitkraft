@@ -623,8 +623,9 @@ result = "pass"
 evidence = [
   "ledger: game-20261015-03",
   "doc: docs/poi/first-poi.md#First POI",
+  "ledger: game-20261103-08",
 ]
-note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2)"
+note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2). game-20261103-08 rows T-08, T-13, T-18: the mini-site's override of the same cell (XLCN added) loaded and the player was in it (`GetInCell >> 1.00`); that the XLCN location took effect was not observed"
 
 [[entry]]
 type = "REFR"
@@ -635,6 +636,40 @@ evidence = [
   "doc: docs/poi/first-poi.md#First POI",
 ]
 note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2)"
+
+# Transcribed 2026-11-15 from the re-graded mini-site session game-20261103-08 (2026-11-03-T10,
+# KitKraftMiniSite.esm 05aac031...8d495d80; docs/recipes/mini-site.toml). Its writer's reading
+# leaves 11 passes after the e6028aaa re-grade (T-01, T-08 to T-11, T-13 to T-15, T-18, T-19,
+# T-22; T-16, T-21 and T-23 became inconclusive). The cell and reference rows add nothing new
+# to CELL and REFR, which already pass; the entries below are the base forms they prove.
+
+[[entry]]
+type = "KYWD"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261103-08"]
+note = "row T-01: `help KitKraftLocTypeMiniSite 4` listed `KYWD: KitKraftLocTypeMiniSite (09001000)`, the cloned keyword under its predicted runtime ID (the line came late and was routed to its request by the correlator). Presence only: no effect of a keyword field was observed"
+
+[[entry]]
+type = "ACTI"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261103-08"]
+note = "rows T-09 and T-10: the reference KitKraftMiniSiteSwitchRef (09001007) stood beside the player after player.moveto, and `getisid 09001004` answered `GetIsID >> 1.00`: the game used the cloned activator KitKraftMiniSiteSwitch (with its added KSIZ/KWDA) as the base. Its OnLoad Trace (row T-12) is inconclusive: the row read the log before the cell reloaded"
+
+[[entry]]
+type = "TERM"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261103-08"]
+note = "rows T-14 and T-15: the reference KitKraftMiniSiteTerminalRef (09001008) was reached with player.moveto and `getisid 09001002` answered `GetIsID >> 1.00`: the game used the cloned terminal (DNAM naming the cloned menu) as the base. The menu itself (TMLM) was not opened"
+
+[[entry]]
+type = "PKIN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261103-08"]
+note = "row T-19 passed (the reference placed from the cloned pack-in, 09001009, was reached with player.moveto), but T-20's `getisid 09001003` on the pack-in answered `GetIsID >> 0.00` (also in game-20261103-02 and -03): whether the game reports a PKIN as a placed reference's base is open (KK-250), so the pack-in itself is not shown to work"
 
 # CK-differential-tested: the CK opened KitKraft's first POI and saved it (F30), and placed
 # the same crate itself (F29); every difference is explained (M5.A3).
