@@ -82,4 +82,5 @@ Don't copy a count into prose: it goes stale. Point at the file that is regenera
 | `crates/schema/defs/` | schema data compiled into the build (`crates/schema/defs/README.md` is the format) |
 
 Local only, never committed (`.gitignore`): `observe/` (CK and game observations), `out/`,
-`dist/`, `bin/`, `.targets/`, `.mcp.json`.
+`dist/`, `bin/`, `.targets/`, `.mcp.json`, Python `__pycache__/`, and `docs/analytics/`
+(transcript analytics with local paths; the 2026-10-16 report is in git history at `0bb4bb8c`).

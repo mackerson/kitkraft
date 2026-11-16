@@ -98,8 +98,8 @@ xDump64                C:\Modding\tools\xEdit\xDump64.exe [default tool folder C
 Papyrus compiler       C:\Program Files (x86)\Steam\steamapps\common\Starfield\Tools\Papyrus Compiler\PapyrusCompiler.exe [in the game install folder]  OK
 ContentResources.zip   C:\Program Files (x86)\Steam\steamapps\common\Starfield\Tools\ContentResources.zip [in the game install folder]  OK
 SFSE                   C:\Program Files (x86)\Steam\steamapps\common\Starfield\sfse_loader.exe (for game 1.16.244) [sfse_loader.exe and sfse_<version>.dll in the game folder]  OK
-Index cache            C:\Users\macke\AppData\Local\kitkraft\cache (84 files, 246 MiB) [default %LOCALAPPDATA%\kitkraft\cache]  OK
-MCP (user)             kitcraft -> C:/Modding/kitcraft/bin/kit.exe (exists, a different build) [mcpServers.kitcraft in C:\Users\macke\.claude.json]  FIX: pre-rename name; run Install.cmd to register it as `kitkraft`
+Index cache            C:\Users\<you>\AppData\Local\kitkraft\cache (84 files, 246 MiB) [default %LOCALAPPDATA%\kitkraft\cache]  OK
+MCP (user)             kitcraft -> C:/Modding/kitcraft/bin/kit.exe (exists, a different build) [mcpServers.kitcraft in C:\Users\<you>\.claude.json]  FIX: pre-rename name; run Install.cmd to register it as `kitkraft`
 MCP (project)          kitcraft -> C:/Modding/kitcraft/bin/kit.exe (exists, a different build) [mcpServers.kitcraft in C:\Modding\kitcraft\.mcp.json]  FIX: pre-rename name; run Install.cmd to register it as `kitkraft`
 
 Everything KitKraft needs was found. Optional items marked FIX are only needed for what they name.

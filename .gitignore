@@ -41,3 +41,11 @@ desktop.ini
 
 # The double-click distribution folder `cargo xtask dist` writes (docs/QUICKSTART.md)
 /dist/
+
+# Python bytecode (plan/tickets/*.py, docs/mel-dlc/gen_spec.py)
+__pycache__/
+*.py[cod]
+
+# Local analytics from this machine's agent transcripts (local paths, token spend): never
+# committed. docs/analytics/2026-10-16-project-analytics.md is in git history (0bb4bb8c).
+/docs/analytics/
