@@ -59,6 +59,7 @@ Don't copy a count into prose: it goes stale. Point at the file that is regenera
 | `local-agent.md` | reference | How the overnight local agent runs, is graded and merged (ADR 0014) |
 | `research/` | reference, history | Dated research notes; two are cited in runtime `limitations` strings |
 | `overhaul/`, `poi/`, `mel-dlc/`, `smoke-rename.*` | owner mod projects, partly checked | `overhaul/build-2.md` and `poi/first-poi.md` feed the Help tab and evidence pointers; `overhaul.toml` and `smoke-rename.toml` are test inputs |
+| `bench/` | process, partly checked | Prepared bench sessions: `bench/verify-mod.md` (one plugin and probes for game-column evidence on many record types); `bench/verify-mod/probes.toml` is a test input (`crates/game/tests/verify_mod.rs`) |
 | `foothold/` (all but `gap-matrix.md`), `ck-sessions/` | history | 2026-10-15/16 owner specs, decisions and sprint plans; `engineering-surface.md` is the source of the matrix's A to K capability letters |
 
 ## plan/

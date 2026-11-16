@@ -1,0 +1,504 @@
+# The bench verification mod (docs/bench/verify-mod.md): one plugin that gives a single
+# `kit game session` evidence for as many typed-writable record types as the console and a
+# self-reporting script can show. Starfield.esm is the only master. It owns new forms and
+# changes the player in game (a faction, a perk, an actor value, items), so it is for the
+# disposable session saves only (AGENTS.md, "Owner's live game is off limits").
+#
+# Compile first, so that out/verify/Scripts/KitKraft/VerifyReport.pex sits next to the
+# plugin, then build (docs/bench/verify-mod.md, "Commands"):
+#   kit papyrus compile docs/bench/verify-mod/scripts/KitKraft/VerifyReport.psc out/verify/Scripts --sources-zip "<Starfield>/Tools/ContentResources.zip"
+#   kit build docs/bench/verify-mod/verify-mod.toml out/verify/KitKraftVerify.esm --overwrite
+#
+# Naming: every form's EditorID is `KKV<nn><Type>` and, where the type has a name, its
+# FULL is `KKV<nn> <words>`; <nn> is unique, so no search term is a part of another (the
+# console's `help` finds by part of a name, and the session routes a late `help` line by
+# its term, crates/game/src/correlate.rs).
+#
+# FormIDs: `build` gives [[clone]] entries theirs first, then [[new]], then [[place]], each
+# in spec order, from 0x001000.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# ---- Base forms placed in the test cell (checked by `getisid` and by the reporter) ----
+
+[[clone]]
+# ActivatorSwitch01 ("Switch"): the reporter's base, the scripts recipe's switch (no VMAD,
+# has a model). Its KWDA gains the verification keyword (KSIZ counted from the list).
+name = "acti"
+form = "Starfield.esm:03CCF4"
+edid = "KKV10Acti"
+fields = { FULL = "KKV10 Reporter Switch", KWDA = ["new:kywd"] }
+brief = "bench-verify"
+
+[[clone]]
+# Crate_Seafood03, a static crate.
+name = "stat"
+form = "Starfield.esm:0058BB"
+edid = "KKV11Stat"
+brief = "bench-verify"
+
+[[clone]]
+# Neon_AuroraCargoContainer01 ("Aurora Cargo Container"), a movable static.
+name = "mstt"
+form = "Starfield.esm:0055F4"
+edid = "KKV12Mstt"
+fields = { FULL = "KKV12 Cargo Container" }
+brief = "bench-verify"
+
+[[clone]]
+# NPCChairTech03_Free_270 ("Chair").
+name = "furn"
+form = "Starfield.esm:0027D5"
+edid = "KKV13Furn"
+fields = { FULL = "KKV13 Chair" }
+brief = "bench-verify"
+
+[[clone]]
+# FloraBloodStoneTall ("Blood Stone").
+name = "flor"
+form = "Starfield.esm:0242F8"
+edid = "KKV14Flor"
+fields = { FULL = "KKV14 Blood Stone" }
+brief = "bench-verify"
+
+[[clone]]
+# LC082_..._Door01_NoCombatSearch_FastOpen ("Door"), not a load door.
+name = "door"
+form = "Starfield.esm:005491"
+edid = "KKV15Door"
+fields = { FULL = "KKV15 Door" }
+brief = "bench-verify"
+
+[[clone]]
+# Desktop_HerbLamp01_Light, a light with no name.
+name = "ligh"
+form = "Starfield.esm:0A7AB0"
+edid = "KKV16Ligh"
+brief = "bench-verify"
+
+[[clone]]
+# CaptainsLocker01 ("Captain's Locker"); its first inventory entry becomes three of the
+# verification mug.
+name = "cont"
+form = "Starfield.esm:17964B"
+edid = "KKV17Cont"
+fields = { FULL = "KKV17 Locker", COCT = 1, "CNTO.Item" = "new:mug", "CNTO.Count" = 3 }
+brief = "bench-verify"
+
+[[clone]]
+# DefaultBlankTerminal_Genesis: the menu of the terminal below (the mini-site's pair).
+name = "tmlm"
+form = "Starfield.esm:227DA9"
+edid = "KKV18Tmlm"
+fields = { FULL = "KKV18 Terminal Menu" }
+brief = "bench-verify"
+
+[[clone]]
+# DefaultBlankComputer_ConsoleSitting_UsePackin ("Computer"), its menu the clone above.
+name = "term"
+form = "Starfield.esm:00351B"
+edid = "KKV19Term"
+fields = { FULL = "KKV19 Terminal", DNAM = "new:tmlm" }
+brief = "bench-verify"
+
+[[clone]]
+# SC_LD_CratesMedium02, a pack-in (the mini-site's): the reporter writes what the game
+# reports as a placed pack-in reference's base (the open question of KK-250).
+name = "pkin"
+form = "Starfield.esm:0121EC"
+edid = "KKV20Pkin"
+brief = "bench-verify"
+
+[[clone]]
+# The actors recipe's actor base (Starfield.esm:271133), placed as an ACHR below; its
+# default outfit becomes the verification outfit.
+name = "npc"
+form = "Starfield.esm:271133"
+edid = "KKV21Npc"
+fields = { DOFT = "new:otft" }
+brief = "bench-verify"
+
+# ---- Inventory items (player.additem / player.getitemcount) ----
+
+[[clone]]
+# CoffeeMug01 ("Coffee Mug"), value 777: the first entry of the list, three in the locker.
+name = "mug"
+form = "Starfield.esm:03EDC8"
+edid = "KKV30Misc"
+fields = { FULL = "KKV30 Mug", "DATA.Value" = 777 }
+brief = "bench-verify"
+
+[[clone]]
+# Tool_Wrench01 ("Wrench"): reached only through the leveled list.
+name = "wrench"
+form = "Starfield.esm:20B97C"
+edid = "KKV31Misc"
+fields = { FULL = "KKV31 Wrench" }
+brief = "bench-verify"
+
+[[clone]]
+# Aid_MedPack ("Med Pack").
+name = "alch"
+form = "Starfield.esm:00ABF9"
+edid = "KKV32Alch"
+fields = { FULL = "KKV32 Med Pack" }
+brief = "bench-verify"
+
+[[clone]]
+# FFNeonZ09_Note01 ("Napkin Spreadsheet - March").
+name = "book"
+form = "Starfield.esm:089764"
+edid = "KKV33Book"
+fields = { FULL = "KKV33 Note" }
+brief = "bench-verify"
+
+[[clone]]
+# DR020WeaponRackKey ("Weapon Rack Key").
+name = "keym"
+form = "Starfield.esm:00485E"
+edid = "KKV34Keym"
+fields = { FULL = "KKV34 Key" }
+brief = "bench-verify"
+
+[[clone]]
+# Clothes_Medical_Doctor_01_Medic ("Medic Uniform").
+name = "armo"
+form = "Starfield.esm:0028A5"
+edid = "KKV35Armo"
+fields = { FULL = "KKV35 Uniform" }
+brief = "bench-verify"
+
+# ---- Forms the reporter script reads ----
+
+[[clone]]
+# SFBGS001_AidVaruunPeople_AV: an actor value; the reporter sets it to 7 on the player.
+name = "avif"
+form = "Starfield.esm:2F0FEB"
+edid = "KKV40Avif"
+brief = "bench-verify"
+
+[[clone]]
+# TRAIT_RaisedUniversal ("Raised Universal"); the reporter adds it to the player.
+name = "perk"
+form = "Starfield.esm:227FD1"
+edid = "KKV41Perk"
+fields = { FULL = "KKV41 Perk" }
+brief = "bench-verify"
+
+[[clone]]
+# LocTypeOutpost (KYWD), the mini-site's keyword source; on the reporter's base.
+name = "kywd"
+form = "Starfield.esm:0234F1"
+edid = "KKV42Kywd"
+brief = "bench-verify"
+
+[[clone]]
+# Outfit_Clothes_Medical_Doctor_03: the default outfit of the actor base above.
+name = "otft"
+form = "Starfield.esm:0021F9"
+edid = "KKV43Otft"
+brief = "bench-verify"
+
+# ---- Presence only (`help`): types the console and the reporter cannot exercise ----
+
+[[clone]]
+name = "mesg"
+form = "Starfield.esm:000178"
+edid = "KKV50Mesg"
+fields = { FULL = "KKV50 Message" }
+brief = "bench-verify"
+
+[[clone]]
+name = "soun"
+form = "Starfield.esm:001451"
+edid = "KKV51Soun"
+brief = "bench-verify"
+
+[[clone]]
+name = "ires"
+form = "Starfield.esm:0057C1"
+edid = "KKV52Ires"
+fields = { FULL = "KKV52 Resource" }
+brief = "bench-verify"
+
+[[clone]]
+name = "txst"
+form = "Starfield.esm:0016BA"
+edid = "KKV53Txst"
+brief = "bench-verify"
+
+[[clone]]
+name = "hazd"
+form = "Starfield.esm:000B25"
+edid = "KKV54Hazd"
+fields = { FULL = "KKV54 Hazard" }
+brief = "bench-verify"
+
+[[clone]]
+name = "lvln"
+form = "Starfield.esm:0042A2"
+edid = "KKV55Lvln"
+brief = "bench-verify"
+
+[[clone]]
+name = "lvlp"
+form = "Starfield.esm:000B22"
+edid = "KKV56Lvlp"
+brief = "bench-verify"
+
+[[clone]]
+name = "pack"
+form = "Starfield.esm:001BD4"
+edid = "KKV57Pack"
+brief = "bench-verify"
+
+[[clone]]
+name = "rspj"
+form = "Starfield.esm:0C11A5"
+edid = "KKV58Rspj"
+fields = { FULL = "KKV58 Research" }
+brief = "bench-verify"
+
+[[clone]]
+name = "wkmf"
+form = "Starfield.esm:00DF23"
+edid = "KKV59Wkmf"
+brief = "bench-verify"
+
+[[clone]]
+name = "wwed"
+form = "Starfield.esm:000817"
+edid = "KKV60Wwed"
+brief = "bench-verify"
+
+[[clone]]
+name = "ench"
+form = "Starfield.esm:00297D"
+edid = "KKV61Ench"
+fields = { FULL = "KKV61 Enchantment" }
+brief = "bench-verify"
+
+[[clone]]
+name = "cobj"
+form = "Starfield.esm:003BD4"
+edid = "KKV62Cobj"
+brief = "bench-verify"
+
+[[clone]]
+name = "regn"
+form = "Starfield.esm:045A50"
+edid = "KKV63Regn"
+brief = "bench-verify"
+
+[[clone]]
+name = "pcbn"
+form = "Starfield.esm:0074C8"
+edid = "KKV64Pcbn"
+brief = "bench-verify"
+
+[[clone]]
+name = "pccn"
+form = "Starfield.esm:0011A0"
+edid = "KKV65Pccn"
+brief = "bench-verify"
+
+[[clone]]
+name = "sfbk"
+form = "Starfield.esm:002FA1"
+edid = "KKV66Sfbk"
+brief = "bench-verify"
+
+[[clone]]
+name = "sfpt"
+form = "Starfield.esm:005BA7"
+edid = "KKV67Sfpt"
+brief = "bench-verify"
+
+[[clone]]
+name = "sftr"
+form = "Starfield.esm:045DAF"
+edid = "KKV68Sftr"
+brief = "bench-verify"
+
+# ---- New forms ----
+
+[[new]]
+# Read by the reporter (GetValueInt) and the console (getglobalvalue).
+name = "glob"
+type = "GLOB"
+edid = "KKV01Glob"
+fields = { FLTV = 4242.0 }
+brief = "bench-verify"
+
+[[new]]
+# Two entries: the mug, then the wrench.
+name = "flst"
+type = "FLST"
+edid = "KKV02Flst"
+fields = { LNAM = "new:mug", "LNAM[1]" = "new:wrench" }
+brief = "bench-verify"
+
+[[new]]
+name = "fact"
+type = "FACT"
+edid = "KKV03Fact"
+fields = { FULL = "KKV03 Faction" }
+brief = "bench-verify"
+
+[[new]]
+# Two stages and nothing else (the hostile fixture's shape); the reporter starts it and
+# sets stage 10.
+name = "qust"
+type = "QUST"
+edid = "KKV04Qust"
+fields = { FULL = "KKV04 Quest", "INDX.StageIndex" = 10, "INDX[1].StageIndex" = 20 }
+brief = "bench-verify"
+
+[[new]]
+# The location of the test cell (XLCN below); parent CityNewAtlantisLocation, as the
+# mini-site's.
+name = "lctn"
+type = "LCTN"
+edid = "KKV05Lctn"
+fields = { FULL = "KKV05 Location", PNAM = "Starfield.esm:01295A" }
+brief = "bench-verify"
+
+[[new]]
+# One entry: level 1, the wrench, count 1.
+name = "lvli"
+type = "LVLI"
+edid = "KKV06Lvli"
+fields = { "LVLO.Level" = 1, "LVLO.Item" = "new:wrench", "LVLO.Count" = 1 }
+brief = "bench-verify"
+
+# ---- The test cell: CityNewAtlantisApartmentTEMPLATE, the first POI's cell ----
+
+[[set]]
+# The cell gains an XLCN naming the verification location. Only one KitKraft plugin that
+# edits this cell may be enabled at a time (the mini-site and the hostile fixture also do).
+form = "Starfield.esm:21966F"
+fields = { XLCN = "new:lctn" }
+brief = "bench-verify"
+
+# The reporter finds the references below by object ID (a script property cannot name a
+# [[place]] of the same build): 0x00102F (the reporter) to 0x00103A (the actor), in this
+# order, after the 41 clones and 6 new forms above. `make_probes.py` checks every ID
+# against the built plugin's EditorIDs; keep the order or update RefIds, ChestId and
+# PackInId with it.
+#
+# Every placed reference is persistent, on the floor (z 4.63) in a row at y -8, west of
+# the first POI's crate at (-17, -4).
+
+[[place]]
+name = "reporter"
+base = "new:acti"
+cell = "Starfield.esm:21966F"
+position = [-14.0, -8.0, 4.63]
+persistent = true
+edid = "KKV70Reporter"
+brief = "bench-verify"
+scripts = [
+  { name = "KitKraft:VerifyReport", properties = { Glob = "new:glob", Flst = "new:flst", Mug = "new:mug", Wrench = "new:wrench", Kwd = "new:kywd", Fact = "new:fact", PerkToAdd = "new:perk", Av = "new:avif", Qst = "new:qust", Loc = "new:lctn", LeveledList = "new:lvli", PluginName = "KitKraftVerify.esm", ChestId = 0x001036, PackInId = 0x001038, RefIds = [0x00102F, 0x001030, 0x001031, 0x001032, 0x001033, 0x001034, 0x001035, 0x001036, 0x001037, 0x001038, 0x001039, 0x00103A], Bases = ["new:acti", "new:stat", "new:mstt", "new:furn", "new:flor", "new:door", "new:ligh", "new:cont", "new:term", "new:pkin", "new:mug", "new:npc"], Labels = ["P20 ACTI", "P21 STAT", "P22 MSTT", "P23 FURN", "P24 FLOR", "P25 DOOR", "P26 LIGH", "P27 CONT", "P28 TERM", "P29 PKIN", "P30 MISC", "P31 NPC_"] } },
+]
+
+[[place]]
+name = "stat_ref"
+base = "new:stat"
+cell = "Starfield.esm:21966F"
+position = [-16.0, -8.0, 4.63]
+persistent = true
+edid = "KKV71StatRef"
+brief = "bench-verify"
+
+[[place]]
+name = "mstt_ref"
+base = "new:mstt"
+cell = "Starfield.esm:21966F"
+position = [-18.0, -8.0, 4.63]
+persistent = true
+edid = "KKV72MsttRef"
+brief = "bench-verify"
+
+[[place]]
+name = "furn_ref"
+base = "new:furn"
+cell = "Starfield.esm:21966F"
+position = [-20.0, -8.0, 4.63]
+persistent = true
+edid = "KKV73FurnRef"
+brief = "bench-verify"
+
+[[place]]
+name = "flor_ref"
+base = "new:flor"
+cell = "Starfield.esm:21966F"
+position = [-22.0, -8.0, 4.63]
+persistent = true
+edid = "KKV74FlorRef"
+brief = "bench-verify"
+
+[[place]]
+name = "door_ref"
+base = "new:door"
+cell = "Starfield.esm:21966F"
+position = [-24.0, -8.0, 4.63]
+persistent = true
+edid = "KKV75DoorRef"
+brief = "bench-verify"
+
+[[place]]
+name = "ligh_ref"
+base = "new:ligh"
+cell = "Starfield.esm:21966F"
+position = [-26.0, -8.0, 6.0]
+persistent = true
+edid = "KKV76LighRef"
+brief = "bench-verify"
+
+[[place]]
+name = "cont_ref"
+base = "new:cont"
+cell = "Starfield.esm:21966F"
+position = [-28.0, -8.0, 4.63]
+persistent = true
+edid = "KKV77ContRef"
+brief = "bench-verify"
+
+[[place]]
+name = "term_ref"
+base = "new:term"
+cell = "Starfield.esm:21966F"
+position = [-30.0, -8.0, 4.63]
+persistent = true
+edid = "KKV78TermRef"
+brief = "bench-verify"
+
+[[place]]
+name = "pkin_ref"
+base = "new:pkin"
+cell = "Starfield.esm:21966F"
+position = [-32.0, -8.0, 4.63]
+persistent = true
+edid = "KKV79PkinRef"
+brief = "bench-verify"
+
+[[place]]
+name = "misc_ref"
+base = "new:mug"
+cell = "Starfield.esm:21966F"
+position = [-34.0, -8.0, 4.63]
+persistent = true
+edid = "KKV80MiscRef"
+brief = "bench-verify"
+
+[[place]]
+# An ACHR: the actors recipe placed this base in an interior and the game answered getisid.
+name = "npc_ref"
+base = "new:npc"
+cell = "Starfield.esm:21966F"
+position = [-17.0, -1.0, 4.63]
+persistent = true
+edid = "KKV81NpcRef"
+brief = "bench-verify"
