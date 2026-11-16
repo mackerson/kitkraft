@@ -53,6 +53,8 @@ mod planet;
 mod preview;
 mod profiles;
 mod query;
+#[cfg(test)]
+mod quest_fragment_tests;
 mod refs;
 mod resolve;
 #[cfg(test)]

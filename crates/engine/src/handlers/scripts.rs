@@ -8,9 +8,16 @@
 //! `kit papyrus events`), else `papyrus.property-unresolved`. A value is typed by the
 //! declaration: `Int`, `Float`, `Bool` and `String` from JSON numbers, booleans and
 //! strings; an object type from a formref, an EditorID, `null`, or (in a spec) `new:<name>`
-//! naming a `[[new]]` or `[[clone]]` of the build; arrays of these from JSON arrays.
+//! naming a `[[new]]`, `[[clone]]` or `[[place]]` of the build (a placed reference gets its
+//! FormID with the others before any script is attached); arrays of these from JSON arrays.
 //! `Var` and struct properties are refused (their layout is known, `edit::vmad`, but not
 //! how a JSON value should choose a variant or member).
+//!
+//! On a `QUST`, an entry may carry `stages: [{stage, index, function}]`: the script is then
+//! the quest's fragment script, written into the `VMAD`'s fragment block with one stage
+//! fragment per item (`edit::vmad::attach`). `index` defaults to 0 and `function` to the
+//! name the official quests use, `Fragment_Stage_<stage, 4 digits>_Item_<index, 2
+//! digits>`. That the function exists in the script is not checked.
 
 use std::path::Path;
 
@@ -20,7 +27,7 @@ use super::failed;
 use super::load::Loaded;
 use super::set::find_form;
 use crate::edit::patch::FormName;
-use crate::edit::vmad::{Attach, AttachValue, ObjectTarget};
+use crate::edit::vmad::{Attach, AttachValue, ObjectTarget, StageFragment};
 use crate::exec::EngineError;
 use crate::validate::attached::{type_byte, Chain, Sources};
 
@@ -31,6 +38,8 @@ pub(crate) struct ScriptArg {
     pub name: String,
     /// Properties in the order given.
     pub properties: Vec<(String, Value)>,
+    /// Quest stage fragments (`stages`), when the script is a quest's fragment script.
+    pub stages: Vec<StageFragment>,
 }
 
 /// The `scripts` argument of a command, typed for `target` (empty when absent).
@@ -66,11 +75,11 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
             .ok_or_else(|| bad(here.clone(), "must be an object {name, properties}"))?;
         if let Some(k) = obj
             .keys()
-            .find(|k| k.as_str() != "name" && k.as_str() != "properties")
+            .find(|k| !matches!(k.as_str(), "name" | "properties" | "stages"))
         {
             return Err(bad(
                 format!("{here}.{k}"),
-                "unknown key; allowed: name, properties",
+                "unknown key; allowed: name, properties, stages",
             ));
         }
         let name = obj
@@ -88,9 +97,71 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
                 ))
             }
         };
+        let stages = match obj.get("stages") {
+            None => Vec::new(),
+            Some(v) => stages(command, &format!("{here}.stages"), v)?,
+        };
         out.push(ScriptArg {
             name: name.trim().to_string(),
             properties,
+            stages,
+        });
+    }
+    Ok(out)
+}
+
+/// Reads a `stages` key: a non-empty array of `{stage, index, function}`.
+fn stages(command: &str, at: &str, value: &Value) -> Result<Vec<StageFragment>, EngineError> {
+    let bad = |path: String, why: &str| failed(command, format!("{path}: {why}"));
+    let items = value.as_array().filter(|a| !a.is_empty()).ok_or_else(|| {
+        bad(
+            at.to_string(),
+            "must be a non-empty array of {stage, index, function}",
+        )
+    })?;
+    let mut out: Vec<StageFragment> = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let here = format!("{at}[{i}]");
+        let obj = item
+            .as_object()
+            .ok_or_else(|| bad(here.clone(), "must be an object {stage, index, function}"))?;
+        if let Some(k) = obj
+            .keys()
+            .find(|k| !matches!(k.as_str(), "stage" | "index" | "function"))
+        {
+            return Err(bad(
+                format!("{here}.{k}"),
+                "unknown key; allowed: stage, index, function",
+            ));
+        }
+        let number = |key: &str, required: bool| -> Result<u32, EngineError> {
+            match obj.get(key) {
+                None if !required => Ok(0),
+                v => v
+                    .and_then(Value::as_u64)
+                    .and_then(|n| u16::try_from(n).ok())
+                    .map(u32::from)
+                    .ok_or_else(|| bad(format!("{here}.{key}"), "must be an integer 0 to 65535")),
+            }
+        };
+        let stage = number("stage", true)?;
+        let index = number("index", false)?;
+        let function = match obj.get("function") {
+            None => format!("Fragment_Stage_{stage:04}_Item_{index:02}"),
+            Some(v) => v
+                .as_str()
+                .map(str::trim)
+                .filter(|f| !f.is_empty() && f.is_ascii())
+                .map(str::to_string)
+                .ok_or_else(|| bad(format!("{here}.function"), "must be a function name"))?,
+        };
+        if out.iter().any(|s| s.stage == stage && s.index == index) {
+            return Err(bad(here, "names the same stage and index twice"));
+        }
+        out.push(StageFragment {
+            stage,
+            index,
+            function,
         });
     }
     Ok(out)
@@ -185,10 +256,30 @@ pub(crate) fn resolve(
             let typed = typed_value(command, &key, &declared.ty, t, value, loaded, locals)?;
             properties.push((declared.name.clone(), typed));
         }
-        reports.push(report(arg, &chain));
+        let mut rep = report(arg, &chain);
+        if !arg.stages.is_empty() {
+            if let Some(obj) = rep.as_object_mut() {
+                obj.insert(
+                    "stages".into(),
+                    json!(arg
+                        .stages
+                        .iter()
+                        .map(
+                            |s| json!({"stage": s.stage, "index": s.index, "function": s.function})
+                        )
+                        .collect::<Vec<_>>()),
+                );
+            }
+            let note = "scripts: a stage fragment's function is not checked against the script, nor its stage against the quest's stages".to_string();
+            if !limitations.contains(&note) {
+                limitations.push(note);
+            }
+        }
+        reports.push(rep);
         out.push(Attach {
             name: arg.name.clone(),
             properties,
+            stages: arg.stages.clone(),
         });
     }
     if !sources.unreadable.is_empty() {
@@ -233,7 +324,7 @@ fn typed_value(
                         .map(|edid| AttachValue::Object(ObjectTarget::Local(edid)))
                         .ok_or_else(|| {
                             bad(format!(
-                                "unknown name `{name}` (a [[new]] or [[clone]] of the build)"
+                                "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
                             ))
                         });
                 }

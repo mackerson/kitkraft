@@ -7,7 +7,10 @@
 
 use kitkraft_esm::{DecodeLimits, Record, Signature, Subrecord};
 
-pub use kitkraft_doc::vmad::{decode, encode, objects, Object, Property, Script, Value, Vmad};
+pub use kitkraft_doc::vmad::{
+    decode, decode_quest_fragments, encode, encode_quest_fragments, objects, AliasScripts, Object,
+    Property, QuestFragment, QuestFragments, Script, Value, Vmad,
+};
 
 /// A value to attach, typed by the script's declaration (see `handlers::scripts`).
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +48,20 @@ pub struct Attach {
     pub name: String,
     /// Properties as `(name, value)`, names as the declaration spells them.
     pub properties: Vec<(String, AttachValue)>,
+    /// Quest stage fragments this script holds (`QUST` only). When not empty the script is
+    /// the quest's fragment script, written into the fragment block (see [`attach`]).
+    pub stages: Vec<StageFragment>,
+}
+
+/// One quest stage fragment: the function of the fragment script that runs at a stage.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StageFragment {
+    /// The quest stage.
+    pub stage: u32,
+    /// The log entry index within the stage (0 for the first).
+    pub index: u32,
+    /// The function's name (`Fragment_Stage_0010_Item_00`).
+    pub function: String,
 }
 
 impl AttachValue {
@@ -167,7 +184,8 @@ fn vmad_position(record: [u8; 4], subs: &[[u8; 4]]) -> usize {
 pub struct Attached {
     /// The script.
     pub script: String,
-    /// `added` (a new entry) or `updated` (an entry the record had).
+    /// `added` (a new entry) or `updated` (an entry the record had); for a quest's fragment
+    /// script, `fragments-added` or `fragments-updated`.
     pub outcome: &'static str,
     /// The properties set.
     pub properties: Vec<String>,
@@ -178,6 +196,16 @@ pub struct Attached {
 /// (ASCII case-insensitive), the given properties are set on it and the others kept. A
 /// new property gets flags 1 (edited), as upstream's default; object values get alias -1
 /// (none). `form` maps an object target to the FormID stored in the record's plugin.
+///
+/// A script with `stages` is a quest's fragment script: on a `QUST` only, it goes into the
+/// `VMAD`'s fragment block ([`QuestFragments`], decoded from the record's block or new),
+/// not its script list, with one stage fragment per stage (replacing a fragment of the
+/// same stage and index in place, else appended in the order given: official quests keep
+/// no particular order, 886 of 1,494 blocks are not in stage order) and the unknown byte
+/// 1, as in every official quest. A quest holds one fragment script; naming another is an
+/// error. A quest with scripts and no fragments gets no fragment block: so are the 209
+/// official quests of that shape, and no official block is empty
+/// (`tests/quest_vmad_corpus.rs`).
 pub fn attach(
     record: &mut Record<'_>,
     scripts: &[Attach],
@@ -199,7 +227,89 @@ pub fn attach(
         None => Vmad::new(),
     };
     let mut report = Vec::new();
-    for a in scripts {
+    let quest = record.header.signature == Signature(*b"QUST");
+    for a in scripts.iter().filter(|a| !a.stages.is_empty()) {
+        if !quest {
+            return Err(format!(
+                "{}: stage fragments attach only to a QUST, not a {}",
+                a.name, record.header.signature
+            ));
+        }
+        let mut props = Vec::new();
+        for (name, v) in &a.properties {
+            props.push(Property {
+                name: name.as_bytes().to_vec(),
+                ty: v.type_byte(),
+                flags: 1,
+                value: stored_value(v, form).map_err(|e| format!("{}.{name}: {e}", a.name))?,
+            });
+        }
+        let mut q = if vmad.rest.is_empty() {
+            QuestFragments::new()
+        } else {
+            decode_quest_fragments(&vmad.rest, vmad.object_format)
+                .map_err(|e| format!("the quest's fragment block does not decode: {e}"))?
+        };
+        let outcome = match &mut q.script {
+            Some(s) if !s.name.eq_ignore_ascii_case(a.name.as_bytes()) => {
+                return Err(format!(
+                    "{}: the quest's fragment script is `{}`; a quest holds one",
+                    a.name,
+                    s.name_text()
+                ));
+            }
+            Some(s) => {
+                for p in props {
+                    match s
+                        .properties
+                        .iter_mut()
+                        .find(|x| x.name.eq_ignore_ascii_case(&p.name))
+                    {
+                        Some(x) => *x = p,
+                        None => s.properties.push(p),
+                    }
+                }
+                "fragments-updated"
+            }
+            None => {
+                q.script = Some(Script {
+                    name: a.name.as_bytes().to_vec(),
+                    flags: 0,
+                    properties: props,
+                });
+                "fragments-added"
+            }
+        };
+        let name = q
+            .script
+            .as_ref()
+            .map(|s| s.name.clone())
+            .unwrap_or_default();
+        for st in &a.stages {
+            let f = QuestFragment {
+                stage: st.stage,
+                stage_index: st.index,
+                unknown: 1,
+                script_name: name.clone(),
+                fragment_name: st.function.as_bytes().to_vec(),
+            };
+            match q
+                .fragments
+                .iter_mut()
+                .find(|x| x.stage == st.stage && x.stage_index == st.index)
+            {
+                Some(x) => *x = f,
+                None => q.fragments.push(f),
+            }
+        }
+        vmad.rest = encode_quest_fragments(&q, vmad.object_format)?;
+        report.push(Attached {
+            script: a.name.clone(),
+            outcome,
+            properties: a.properties.iter().map(|(n, _)| n.clone()).collect(),
+        });
+    }
+    for a in scripts.iter().filter(|a| a.stages.is_empty()) {
         let mut props = Vec::new();
         for (name, v) in &a.properties {
             props.push(Property {
@@ -379,6 +489,7 @@ mod tests {
                     AttachValue::Object(ObjectTarget::Local("Y".into())),
                 ),
             ],
+            stages: Vec::new(),
         };
         let done = attach(&mut r, &[a], &map, &DecodeLimits::default()).unwrap();
         assert_eq!(done[0].outcome, "added");
@@ -392,6 +503,7 @@ mod tests {
         let again = Attach {
             name: "kk:test".into(),
             properties: vec![("Count".into(), AttachValue::Int(4))],
+            stages: Vec::new(),
         };
         let done = attach(&mut r, &[again], &map, &DecodeLimits::default()).unwrap();
         assert_eq!(done[0].outcome, "updated");
@@ -399,5 +511,94 @@ mod tests {
         assert_eq!(v.scripts.len(), 1);
         assert_eq!(v.scripts[0].properties[0].value, Value::Int(4));
         assert_eq!(v.scripts[0].properties.len(), 2);
+    }
+
+    fn record(sig: &[u8; 4]) -> Record<'static> {
+        Record::new(
+            RecordHeader {
+                signature: Signature(*sig),
+                form_id: 0x800,
+                form_version: 582,
+                ..RecordHeader::default()
+            },
+            Body::Raw(vec![Subrecord::new(Signature(*b"EDID"), b"Q\0".to_vec())]),
+        )
+    }
+
+    fn stage(stage: u32, index: u32, function: &str) -> StageFragment {
+        StageFragment {
+            stage,
+            index,
+            function: function.into(),
+        }
+    }
+
+    fn fragment_names(r: &Record<'_>) -> Vec<String> {
+        let v = decode(r.subrecords().unwrap()[1].data()).unwrap();
+        decode_quest_fragments(&v.rest, 2)
+            .unwrap()
+            .fragments
+            .iter()
+            .map(|f| String::from_utf8_lossy(&f.fragment_name).into_owned())
+            .collect()
+    }
+
+    #[test]
+    fn attach_writes_a_quests_fragment_block() {
+        let map = |_: &ObjectTarget| Ok(0x0100_0801);
+        let limits = DecodeLimits::default();
+        // A quest script alone: the script list, no block (as 209 official quests).
+        let mut r = record(b"QUST");
+        let main = Attach {
+            name: "KK:Main".into(),
+            properties: Vec::new(),
+            stages: Vec::new(),
+        };
+        attach(&mut r, std::slice::from_ref(&main), &map, &limits).unwrap();
+        let v = decode(r.subrecords().unwrap()[1].data()).unwrap();
+        assert!(v.rest.is_empty());
+        // A fragment script with two stages, kept in the order given.
+        let frag = Attach {
+            name: "Fragments:Quests:QF_Q".into(),
+            properties: vec![(
+                "Marker".into(),
+                AttachValue::Object(ObjectTarget::Local("M".into())),
+            )],
+            stages: vec![stage(20, 0, "B"), stage(10, 0, "A")],
+        };
+        let done = attach(&mut r, std::slice::from_ref(&frag), &map, &limits).unwrap();
+        assert_eq!(done[0].outcome, "fragments-added");
+        let v = decode(r.subrecords().unwrap()[1].data()).unwrap();
+        assert_eq!(v.scripts.len(), 1, "the fragment script is not in the list");
+        let q = decode_quest_fragments(&v.rest, 2).unwrap();
+        assert_eq!(q.script.as_ref().unwrap().name, b"Fragments:Quests:QF_Q");
+        assert!(q.fragments.iter().all(|f| f.unknown == 1));
+        assert_eq!(fragment_names(&r), ["B", "A"]);
+        // Again (any case): stage 10 replaced, stage 30 added, the property kept.
+        let again = Attach {
+            name: "fragments:quests:qf_q".into(),
+            properties: Vec::new(),
+            stages: vec![stage(10, 0, "A2"), stage(30, 0, "C")],
+        };
+        let done = attach(&mut r, &[again], &map, &limits).unwrap();
+        assert_eq!(done[0].outcome, "fragments-updated");
+        assert_eq!(fragment_names(&r), ["B", "A2", "C"]);
+        let v = decode(r.subrecords().unwrap()[1].data()).unwrap();
+        let q = decode_quest_fragments(&v.rest, 2).unwrap();
+        assert_eq!(q.script.as_ref().unwrap().properties.len(), 1);
+        // Another fragment script on the same quest is refused.
+        let other = Attach {
+            name: "Fragments:Quests:QF_Other".into(),
+            properties: Vec::new(),
+            stages: vec![stage(5, 0, "X")],
+        };
+        assert!(attach(&mut r, &[other], &map, &limits)
+            .unwrap_err()
+            .contains("a quest holds one"));
+        // Stages on anything but a quest are refused.
+        let mut acti = record(b"ACTI");
+        assert!(attach(&mut acti, &[frag], &map, &limits)
+            .unwrap_err()
+            .contains("only to a QUST"));
     }
 }

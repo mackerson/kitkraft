@@ -1,0 +1,44 @@
+# The bench verification quest (docs/bench/verify-mod.md, "Self-reporting quest"): a second,
+# separate plugin beside KitKraftVerify.esm, for the self-reporting quest the first one could
+# not carry. Starfield.esm is the only master. It owns new forms and a start-game-enabled
+# quest, so it is for the disposable session saves only (AGENTS.md, "Owner's live game is
+# off limits").
+#
+# Compile both scripts first, so that out/verify-quest/Scripts/ holds their .pex next to the
+# plugin, then build:
+#   kit papyrus compile docs/bench/verify-mod/scripts/KitKraft/VerifyQuestReport.psc out/verify-quest/Scripts --sources-zip "<Starfield>/Tools/ContentResources.zip"
+#   kit papyrus compile docs/bench/verify-mod/scripts/Fragments/Quests/QF_KKQ01Qust.psc out/verify-quest/Scripts --sources-zip "<Starfield>/Tools/ContentResources.zip"
+#   kit build docs/bench/verify-mod/verify-quest.toml out/verify-quest/KitKraftVerifyQuest.esm --overwrite
+#
+# What it shows: the quest script runs at game start (a VMAD on a QUST, no fragment block
+# needed for it), its object property names a reference this build places (new:marker),
+# and the fragment script in the VMAD's fragment block runs at stage 10.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# Start game enabled; stage 10 has the fragment. The quest script starts it on its own
+# OnQuestInit by SetStage(10).
+name = "quest"
+type = "QUST"
+edid = "KKQ01Qust"
+fields = { FULL = "KKQ01 Verify Quest", "DNAM.Flags" = "StartGameEnabled", "INDX.StageIndex" = 10 }
+brief = "bench-verify-quest"
+scripts = [
+  { name = "KitKraft:VerifyQuestReport", properties = { Marker = "new:marker", MarkerBase = "Starfield.esm:0058BB" } },
+  { name = "Fragments:Quests:QF_KKQ01Qust", stages = [{ stage = 10 }] },
+]
+
+[[place]]
+# Crate_Seafood03, persistent (a quest property holds it while its cell is not loaded), in
+# CityNewAtlantisApartmentAthena01 ("Athena Tower, Floor 7"), not the test cell: the cell
+# copy this plugin carries would hide KitKraftVerify.esm's XLCN on the test cell.
+name = "marker"
+base = "Starfield.esm:0058BB"
+cell = "Starfield.esm:139E24"
+position = [0.0, 0.0, 0.0]
+persistent = true
+edid = "KKQ70Marker"
+brief = "bench-verify-quest"

@@ -9,7 +9,8 @@
 //! chosen by its type byte (a sibling-decided union over nested structures the format
 //! cannot express). This module reads and writes `Data`'s script entries; whatever
 //! follows them (the fragment block of `QUST`, `INFO`, `PACK`, `SCEN`, `PERK`) stays raw
-//! bytes, unchanged.
+//! bytes in [`Vmad::rest`], unchanged. A quest's block is decoded and encoded on request
+//! ([`QuestFragments`]), for writing a quest's fragment script and stage fragments.
 //!
 //! Layout (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3232-L3411`:
 //! the property type enum, script flags, the object union, the struct members, the
@@ -308,6 +309,32 @@ fn property(c: &mut Cursor<'_>, format: i16, depth: usize) -> Result<Property, S
     })
 }
 
+/// A script entry's flags, property count and properties, after its name.
+fn script_body(c: &mut Cursor<'_>, name: Vec<u8>, format: i16) -> Result<Script, String> {
+    let flags = c.u8()?;
+    let n = c.u16()?;
+    let mut properties = Vec::new();
+    for _ in 0..n {
+        properties.push(property(c, format, 0)?);
+    }
+    Ok(Script {
+        name,
+        flags,
+        properties,
+    })
+}
+
+/// A script list: a u16 count, then the entries.
+fn script_list(c: &mut Cursor<'_>, format: i16) -> Result<Vec<Script>, String> {
+    let count = c.u16()?;
+    let mut scripts = Vec::new();
+    for _ in 0..count {
+        let name = c.text()?;
+        scripts.push(script_body(c, name, format)?);
+    }
+    Ok(scripts)
+}
+
 /// Decodes a `VMAD` payload: the header, every script entry, and the rest as bytes.
 pub fn decode(data: &[u8]) -> Result<Vmad, String> {
     decode_marked(data).map(|(v, _)| v)
@@ -367,22 +394,7 @@ fn decode_marked(data: &[u8]) -> Result<(Vmad, Vec<usize>), String> {
     };
     let version = c.u16()? as i16;
     let object_format = c.u16()? as i16;
-    let count = c.u16()?;
-    let mut scripts = Vec::new();
-    for _ in 0..count {
-        let name = c.text()?;
-        let flags = c.u8()?;
-        let n = c.u16()?;
-        let mut properties = Vec::new();
-        for _ in 0..n {
-            properties.push(property(&mut c, object_format, 0)?);
-        }
-        scripts.push(Script {
-            name,
-            flags,
-            properties,
-        });
-    }
+    let scripts = script_list(&mut c, object_format)?;
     let rest = data.get(c.pos..).unwrap_or_default().to_vec();
     Ok((
         Vmad {
@@ -481,18 +493,203 @@ pub fn encode(v: &Vmad) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     out.extend(v.version.to_le_bytes());
     out.extend(v.object_format.to_le_bytes());
-    let count = u16::try_from(v.scripts.len()).map_err(|_| "more than 65,535 scripts")?;
+    put_script_list(&mut out, &v.scripts, v.object_format)?;
+    out.extend_from_slice(&v.rest);
+    Ok(out)
+}
+
+fn put_script_body(out: &mut Vec<u8>, s: &Script, format: i16) -> Result<(), String> {
+    out.push(s.flags);
+    let n = u16::try_from(s.properties.len()).map_err(|_| "more than 65,535 properties")?;
+    out.extend(n.to_le_bytes());
+    for p in &s.properties {
+        put_property(out, p, format)?;
+    }
+    Ok(())
+}
+
+fn put_script_list(out: &mut Vec<u8>, scripts: &[Script], format: i16) -> Result<(), String> {
+    let count = u16::try_from(scripts.len()).map_err(|_| "more than 65,535 scripts")?;
     out.extend(count.to_le_bytes());
-    for s in &v.scripts {
-        put_text(&mut out, &s.name)?;
-        out.push(s.flags);
-        let n = u16::try_from(s.properties.len()).map_err(|_| "more than 65,535 properties")?;
-        out.extend(n.to_le_bytes());
-        for p in &s.properties {
-            put_property(&mut out, p, v.object_format)?;
+    for s in scripts {
+        put_text(out, &s.name)?;
+        put_script_body(out, s, format)?;
+    }
+    Ok(())
+}
+
+/// The fragment block a quest's `VMAD` carries after its script entries ([`Vmad::rest`]
+/// on a `QUST`).
+///
+/// Layout (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3484-L3531`;
+/// the empty-name decider `wbDefinitionsCommon.pas@9fb01688...#L6133-L6143`), in our words:
+/// a signed byte, the extra bind data version (3); a u16 fragment count; the fragment
+/// script's name (u16 length + bytes) and, only when that name is not empty, its flags and
+/// properties as in a script entry; the stage fragments, as many as the count, each a u32
+/// stage, a u32 stage index, one byte of unknown use, the script name and the fragment
+/// (function) name; then the aliases, a u16 count of entries each holding an object (the
+/// alias), its own version and object format (i16 each) and a script list.
+///
+/// Corpus check (`kitkraft-engine` `tests/quest_vmad_corpus.rs`, release, ignored): every
+/// `QUST` `VMAD` of the 14 official files decodes to this and re-encodes byte-identically.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QuestFragments {
+    /// The extra bind data version (3 in every official quest).
+    pub bind_version: u8,
+    /// The fragment script; `None` when its name is empty (then no flags or properties
+    /// follow).
+    pub script: Option<Script>,
+    /// The stage fragments.
+    pub fragments: Vec<QuestFragment>,
+    /// The alias script entries.
+    pub aliases: Vec<AliasScripts>,
+}
+
+/// One stage fragment of a quest.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QuestFragment {
+    /// The quest stage.
+    pub stage: u32,
+    /// The log entry index within the stage.
+    pub stage_index: u32,
+    /// One byte of unknown use, as stored.
+    pub unknown: u8,
+    /// The script holding the fragment.
+    pub script_name: Vec<u8>,
+    /// The fragment's function name.
+    pub fragment_name: Vec<u8>,
+}
+
+/// The scripts attached to one quest alias.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AliasScripts {
+    /// The alias, as an object value (its `alias` field is the alias ID).
+    pub object: Object,
+    /// The alias entry's version.
+    pub version: i16,
+    /// The alias entry's object format (used for its scripts' object values).
+    pub object_format: i16,
+    /// The scripts.
+    pub scripts: Vec<Script>,
+}
+
+impl QuestFragments {
+    /// An empty block: no fragment script, no stage fragments, no alias scripts, in the
+    /// bind data version every official quest uses. The block a quest gets when a script
+    /// is attached to it and it had none.
+    pub fn new() -> QuestFragments {
+        QuestFragments {
+            bind_version: 3,
+            script: None,
+            fragments: Vec::new(),
+            aliases: Vec::new(),
         }
     }
-    out.extend_from_slice(&v.rest);
+}
+
+impl Default for QuestFragments {
+    fn default() -> Self {
+        QuestFragments::new()
+    }
+}
+
+/// Decodes a quest's fragment block ([`Vmad::rest`] of a `QUST`), with the object format
+/// of its `VMAD`. Bytes left over after the aliases are an error.
+pub fn decode_quest_fragments(rest: &[u8], object_format: i16) -> Result<QuestFragments, String> {
+    let mut c = Cursor {
+        data: rest,
+        pos: 0,
+        marks: Vec::new(),
+    };
+    let bind_version = c.u8()?;
+    let count = c.u16()?;
+    let name = c.text()?;
+    let script = if name.is_empty() {
+        None
+    } else {
+        Some(script_body(&mut c, name, object_format)?)
+    };
+    let mut fragments = Vec::new();
+    for _ in 0..count {
+        // Each fragment is at least 13 bytes: refuse a count the block cannot hold.
+        if c.remaining() < 13 {
+            return Err(format!(
+                "fragment count {count} exceeds the block at {}",
+                c.pos
+            ));
+        }
+        let stage = c.u32()?;
+        let stage_index = c.u32()?;
+        let unknown = c.u8()?;
+        let script_name = c.text()?;
+        let fragment_name = c.text()?;
+        fragments.push(QuestFragment {
+            stage,
+            stage_index,
+            unknown,
+            script_name,
+            fragment_name,
+        });
+    }
+    let n = c.u16()?;
+    let mut aliases = Vec::new();
+    for _ in 0..n {
+        let object = object(&mut c, object_format)?;
+        let version = c.u16()? as i16;
+        let alias_format = c.u16()? as i16;
+        let scripts = script_list(&mut c, alias_format)?;
+        aliases.push(AliasScripts {
+            object,
+            version,
+            object_format: alias_format,
+            scripts,
+        });
+    }
+    if c.remaining() > 0 {
+        return Err(format!(
+            "{} bytes after the quest fragment block at {}",
+            c.remaining(),
+            c.pos
+        ));
+    }
+    Ok(QuestFragments {
+        bind_version,
+        script,
+        fragments,
+        aliases,
+    })
+}
+
+/// Encodes a quest's fragment block (the inverse of [`decode_quest_fragments`]).
+pub fn encode_quest_fragments(q: &QuestFragments, object_format: i16) -> Result<Vec<u8>, String> {
+    let mut out = vec![q.bind_version];
+    let count = u16::try_from(q.fragments.len()).map_err(|_| "more than 65,535 fragments")?;
+    out.extend(count.to_le_bytes());
+    match &q.script {
+        Some(s) if !s.name.is_empty() => {
+            put_text(&mut out, &s.name)?;
+            put_script_body(&mut out, s, object_format)?;
+        }
+        Some(s) if s.flags != 0 || !s.properties.is_empty() => {
+            return Err("a fragment script with flags or properties needs a name".into());
+        }
+        _ => put_text(&mut out, &[])?,
+    }
+    for f in &q.fragments {
+        out.extend(f.stage.to_le_bytes());
+        out.extend(f.stage_index.to_le_bytes());
+        out.push(f.unknown);
+        put_text(&mut out, &f.script_name)?;
+        put_text(&mut out, &f.fragment_name)?;
+    }
+    let n = u16::try_from(q.aliases.len()).map_err(|_| "more than 65,535 alias entries")?;
+    out.extend(n.to_le_bytes());
+    for a in &q.aliases {
+        put_object(&mut out, &a.object, object_format);
+        out.extend(a.version.to_le_bytes());
+        out.extend(a.object_format.to_le_bytes());
+        put_script_list(&mut out, &a.scripts, a.object_format)?;
+    }
     Ok(out)
 }
 
@@ -601,5 +798,87 @@ mod tests {
             assert_eq!(scan.unread_tail, 3);
         }
         assert!(object_refs(&[6, 0, 2, 0, 1, 0]).is_err());
+    }
+
+    #[test]
+    fn quest_fragment_blocks_roundtrip() {
+        // The empty block: version 3, no fragments, an empty script name, no aliases.
+        let empty = encode_quest_fragments(&QuestFragments::new(), 2).unwrap();
+        assert_eq!(empty, [3, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            decode_quest_fragments(&empty, 2).unwrap(),
+            QuestFragments::new()
+        );
+        let script = |name: &str, props: Vec<Property>| Script {
+            name: name.as_bytes().to_vec(),
+            flags: 0,
+            properties: props,
+        };
+        let q = QuestFragments {
+            bind_version: 3,
+            script: Some(script(
+                "Fragments:Quests:QF_KK",
+                vec![prop("Marker", 1, Value::Object(object(0x0100_0801)))],
+            )),
+            fragments: vec![
+                QuestFragment {
+                    stage: 10,
+                    stage_index: 0,
+                    unknown: 1,
+                    script_name: b"Fragments:Quests:QF_KK".to_vec(),
+                    fragment_name: b"Fragment_Stage_0010_Item_00".to_vec(),
+                },
+                QuestFragment {
+                    stage: 20,
+                    stage_index: 1,
+                    unknown: 1,
+                    script_name: b"Fragments:Quests:QF_KK".to_vec(),
+                    fragment_name: b"F".to_vec(),
+                },
+            ],
+            aliases: vec![AliasScripts {
+                object: Object {
+                    form_id: 0x0100_0800,
+                    alias: 2,
+                    unused: 0,
+                },
+                version: 6,
+                object_format: 2,
+                scripts: vec![script("KK:Alias", vec![prop("N", 3, Value::Int(5))])],
+            }],
+        };
+        let bytes = encode_quest_fragments(&q, 2).unwrap();
+        assert_eq!(decode_quest_fragments(&bytes, 2).unwrap(), q);
+        // As the tail of a whole payload.
+        let v = Vmad {
+            scripts: vec![script("KK:Main", Vec::new())],
+            rest: bytes.clone(),
+            ..Vmad::new()
+        };
+        let all = encode(&v).unwrap();
+        assert_eq!(decode(&all).unwrap().rest, bytes);
+        // The fragment count is the second and third byte.
+        assert_eq!(bytes.get(..3).unwrap(), [3, 2, 0]);
+        // A nameless fragment script with properties cannot be written.
+        let bad = QuestFragments {
+            script: Some(script("", vec![prop("N", 3, Value::Int(1))])),
+            ..QuestFragments::new()
+        };
+        assert!(encode_quest_fragments(&bad, 2).is_err());
+    }
+
+    #[test]
+    fn hostile_quest_fragment_blocks_are_errors() {
+        // A fragment count far beyond the block.
+        assert!(decode_quest_fragments(&[3, 0xFF, 0xFF, 0, 0, 0, 0], 2)
+            .unwrap_err()
+            .contains("fragment count 65535"));
+        // Truncated, and a byte left over.
+        assert!(decode_quest_fragments(&[3, 0, 0, 0], 2).is_err());
+        assert!(decode_quest_fragments(&[3, 0, 0, 0, 0, 0, 0, 9], 2)
+            .unwrap_err()
+            .contains("1 bytes after"));
+        // An alias count beyond the block.
+        assert!(decode_quest_fragments(&[3, 0, 0, 0, 0, 9, 0], 2).is_err());
     }
 }

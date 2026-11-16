@@ -908,7 +908,15 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   `new:<name>`; arrays of these), else `papyrus.property-unresolved`. With `scripts`,
   `fields` may be `{}`. `data.scripts[]`: `script`, `found` (where the `.pex` was read),
   `properties[]` (`name`, `type`, `declared_in`), plus `entry` in a build; the record's
-  `fields[]` gains a `VMAD` change listing the scripts before and after.
+  `fields[]` gains a `VMAD` change listing the scripts before and after. On a `QUST`, an
+  entry may add `stages: [{stage, index, function}]` (`index` default 0, `function`
+  default `Fragment_Stage_<stage, 4 digits>_Item_<index, 2 digits>`): the script is then
+  the quest's fragment script, written into the `VMAD`'s fragment block (one fragment
+  script per quest, a fragment of the same stage and index replaced) instead of its script
+  list; elsewhere `stages` is refused. A quest with scripts and no `stages` gets no
+  fragment block, as 209 official quests (`crates/engine/tests/quest_vmad_corpus.rs`).
+  The report's entry lists `stages`; that each function exists in the script is not
+  checked.
 
 `data`: `target`, `file`, `created`, `masters`, `flags`, `bytes`, `summary`, and
 `records[]` (parents copied to hold a cell/world/topic child come first, `parent: true`)

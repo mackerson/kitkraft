@@ -1,0 +1,62 @@
+# The session probes of the bench verification quest (docs/bench/verify-mod.md,
+# "Self-reporting quest"), written by hand for KitKraftVerifyQuest.esm; separate from
+# KitKraftVerify.esm's probes.toml. Every row reads the Papyrus log only, so no row depends
+# on the plugin's runtime slot. The quest is start-game-enabled: its lines are written when
+# the base save loads with the plugin enabled, before the first row.
+format = 1
+plugin = "KitKraftVerifyQuest.esm"
+sha256 = "94d2ad19feaa10bd8f8ac5da6b80d5f55bb0c2bfe6211cfe666ffb681dea3f6d"
+generated_by = "hand-written (bench 2026-11-16), docs/bench/verify-mod.md \"Self-reporting quest\""
+profile = "KitKraft Dev"
+notes = [
+    "Q-01 first waits (a setup step naming the player), so the quest's OnQuestInit and its stage 10 fragment have run before the log is read.",
+    "Q-01 and Q-04 show the quest script (a VMAD script-list entry on a QUST) runs; Q-02 that its object property holds the reference the same build placed; Q-03 that the fragment script in the VMAD fragment block runs at its stage.",
+]
+
+[[probe]]
+row = "Q-01"
+title = "Papyrus log: KKQ-Q01 quest script running (QUST VMAD script list)"
+forms = ["KKQ01Qust"]
+
+[[probe.step]]
+command = "prid 00000014"
+wait_secs = 15
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKQ-Q01 quest script running"
+why = "VerifyQuestReport.psc writes this line first in OnQuestInit; the log written so far in the session is read"
+
+[[probe]]
+row = "Q-02"
+title = "Papyrus log: KKQ-Q02 the quest property names the placed KKQ70Marker"
+forms = ["KKQ01Qust", "KKQ70Marker"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKQ-Q02 marker-set=True base-is=True"
+why = "the Marker property was written as new:marker (a [[place]] of the same build); the script checks it is set and its base is Crate_Seafood03"
+
+[[probe]]
+row = "Q-03"
+title = "Papyrus log: KKQ-Q03 the stage 10 fragment ran (QUST VMAD fragment block)"
+forms = ["KKQ01Qust"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKQ-Q03 stage 10 fragment ran"
+why = "QF_KKQ01Qust.Fragment_Stage_0010_Item_00 writes this line; the recipe wrote it as the quest's stage 10 fragment"
+
+[[probe]]
+row = "Q-04"
+title = "Papyrus log: KKQ-Q04 stage 10 done after SetStage"
+forms = ["KKQ01Qust"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKQ-Q04 stage10-done=True"
+why = "the quest script sets stage 10 (its INDX) and reads it back"
