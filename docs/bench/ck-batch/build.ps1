@@ -116,10 +116,13 @@ $run = @($entries | Where-Object { $_.kind -ne 'type' })
 $d = @('# Deploy (run with MO2, the game and the CK closed; each with --dry-run first, then without)', '')
 foreach ($e in $run) { $d += "kit deploy `"$(Join-Path $full $e.path)`" $Mo2 --dev --dry-run" }
 $d += ''
-$d += "kit deploy enable $Mo2 --mods $(($run | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_.file) }) -join ' ') --dev --profile `"$Profile`" --dry-run"
+# One `--mods` per mod: the CLI takes one value per flag (a space-separated list after a
+# single `--mods` is refused as "unexpected argument", checked 2026-11-15).
+$mods = ($run | ForEach-Object { '--mods ' + [IO.Path]::GetFileNameWithoutExtension($_.file) }) -join ' '
+$d += "kit deploy enable $Mo2 $mods --dev --profile `"$Profile`" --dry-run"
 $d += ''
 $d += '# After the sitting (MO2 closed):'
-$d += "kit deploy disable $Mo2 --mods $(($run | ForEach-Object { [IO.Path]::GetFileNameWithoutExtension($_.file) }) -join ' ') --dev --profile `"$Profile`" --dry-run"
+$d += "kit deploy disable $Mo2 $mods --dev --profile `"$Profile`" --dry-run"
 $d += ''
 $d += '# A type plugin, only when its group must be split (example):'
 $d += "kit deploy `"$(Join-Path $full 'types\KCB_T_GLOB.esp')`" $Mo2 --dev --dry-run"

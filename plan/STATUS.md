@@ -59,6 +59,10 @@ What is left for the owner:
   F30 as clean). Left from them: remove the CK's `KitKraftFirstPOI-CK.esp`, `.esm` and
   `Backup\AutoSaveDEFAULT.bak` from MO2's `overwrite\` folder.
 - Group D (M6.O4, M7.O6) stays his for later.
+- **Bench evening 2026-11-16 (from about 21:30)**: follow `docs/bench/README.md`, the one
+  sheet: select `Kitkraft Dev` in MO2 and close MO2 first, answer its "Owner answers"
+  table in one pass, then the ordered run (OW-1, the verification mod, OW-2 with the input
+  experiment, the CK batch last).
 
 In-game checks use only the MO2 profile **KitKraft Dev**, each on a disposable save. Never
 use `Default` (AGENTS.md, "Owner's live game is off limits").
