@@ -8,7 +8,8 @@
 //! `kit papyrus events`), else `papyrus.property-unresolved`. A value is typed by the
 //! declaration: `Int`, `Float`, `Bool` and `String` from JSON numbers, booleans and
 //! strings; an object type from a formref, an EditorID, `null`, or (in a spec) `new:<name>`
-//! naming a `[[new]]` or `[[clone]]` of the build; arrays of these from JSON arrays.
+//! naming a `[[new]]`, `[[clone]]` or `[[place]]` of the build (a placed reference gets its
+//! FormID with the others before any script is attached); arrays of these from JSON arrays.
 //! `Var` and struct properties are refused (their layout is known, `edit::vmad`, but not
 //! how a JSON value should choose a variant or member).
 //!
@@ -323,7 +324,7 @@ fn typed_value(
                         .map(|edid| AttachValue::Object(ObjectTarget::Local(edid)))
                         .ok_or_else(|| {
                             bad(format!(
-                                "unknown name `{name}` (a [[new]] or [[clone]] of the build)"
+                                "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
                             ))
                         });
                 }
