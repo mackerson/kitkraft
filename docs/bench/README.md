@@ -1,66 +1,97 @@
-# Bench sheet, 2026-11-16 (from about 21:30)
+# Bench sheet, 2026-11-16 evening (from about 21:30, possibly earlier)
 
-The one document the owner and the driving agent follow, top to bottom, at tomorrow's
-at-desk bench. It orders the lane documents and links them for detail; it repeats only
-the commands. Nothing in it has run against the game, the CK or the input executor yet;
-"Tonight's dry runs" is what did run (2026-11-15, no game, no CK, MO2 left as the owner had
-it).
+The one document the owner and the driving agent follow, top to bottom, at tonight's
+at-desk bench. It orders the lane documents and links them for detail; it repeats only the
+commands. Part of the original plan already ran unattended between 03:00 and 04:40 on the
+owner's go of that night ("Done unattended", next); "The run" is what remains.
 
 | Lane document | What it holds |
 | ------------- | ------------- |
-| [`docs/game-sessions.md`](../game-sessions.md), run sheets OW-1 and OW-2 | the run sheets, their predictions and how to read results |
-| [`ow1-prep.md`](ow1-prep.md) | OW-1's preflight script and its decision tree (section 4) |
-| [`verify-mod.md`](verify-mod.md) | the verification plugin, its 106 probe rows, entering the results |
+| [`docs/game-sessions.md`](../game-sessions.md), run sheets OW-1 and OW-2 | the run sheets, their predictions and how to read results (OW-2's corrections from the rehearsal are in block 3 below, not yet in the run sheet) |
+| [`ow1-prep.md`](ow1-prep.md) | the session preflight and its decision tree (section 4) |
+| [`verify-mod.md`](verify-mod.md) | the verification plugin, the 25-row re-run, the self-reporting quest, entering the results |
+| [`input-results.md`](input-results.md) | what the input trial found and measured, and the executor recommendation |
 | [`ck-sitting.md`](ck-sitting.md) | the CK batch, the first-minute checks, the CK after-step |
-| `C:\Modding\kitkraft-observe\scripts\input\README.md` (outside the repo) | the input executor, the 15-minute experiment, scenarios SC-1 to SC-5 |
+| `C:\Modding\kitkraft-observe\scripts\input\README.md` (outside the repo, not under version control) | the input executor and scenarios SC-1 to SC-5 (scripts fixed overnight; see `RESULTS-20261116.md` there) |
 | `plan/adr/0010-agent-driven-game-sessions.md` Amendment 2, `plan/adr/0012-ck-interface-clean-room.md` | the rulings: input and focus allowed, a launch needs the owner's go, a CK save needs the owner's OK per sitting |
 
-Conventions: `$wt` is the worktree the bench runs from (`C:\Modding\kitkraft-worktrees\bench-ck`
-unless the director names another); `$kit = 'C:\Modding\kitkraft\.targets\x\release\kit.exe'`;
+Conventions: `$wt` is the worktree the bench runs from: one at `main` after this sheet's
+branch has merged, named by the director (`C:\Modding\kitkraft-worktrees\bench-ck` is at
+`2ef0c0cc` and lacks `rerun.toml`, the quest recipe and the `getav` fix: do not run from it);
+`$kit = 'C:\Modding\kitkraft\.targets\x\release\kit.exe'`;
 `$env:KITKRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'`;
-`$base = '--base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf'`
-(written out in full below). Profile `Kitkraft Dev` only, never `Default`.
+base save `KitKraftBase`, SHA-256
+`fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf` (written out in full
+below). Profile `Kitkraft Dev` only, never `Default`.
+
+## Done unattended (2026-11-16, 03:00 to 04:40)
+
+| Block of the original plan | Result | Where |
+| -------------------------- | ------ | ----- |
+| OW-1, send order (ran twice) | **inconclusive**: no line arrived late in either run; answers to commands sent while a `coc` or `load` was moving were **dropped, not delayed**. SO-03 is for the owner's reading (below) | `game-20261116-01`, `-02` (the reading covers both) |
+| Verification mod (three sessions) | evidence entered from `game-20261116-04`: the gap matrix's game column is now **31 pass, 6 inconclusive** (presence only), save/reload **18 pass**; 20 `help` rows and V-C-AVIF stayed inconclusive (re-run below). PKIN answered in favour of the pack-in (KK-250) | `game-20261116-03` to `-05`, `docs/schema/evidence.toml`, `docs/foothold/gap-matrix.md` |
+| Input experiment (in session `2026-11-16-T06`) | keyboard, mouse look and mouse buttons **work with the game focused**, **nothing works unfocused**; the built-in virtual pad is **invisible to the game**. Scenarios: container (SC-1) and weapon (SC-3) **pass**, NPC dialogue (SC-2) **partial**, workbench (SC-4) **inconclusive**, menu save (SC-5) **skipped** | [`input-results.md`](input-results.md), `game-20261116-06` |
+| OW-2 | **not run**: a rehearsal by desk check only. The window could not be driven: the computer-use access request reaches a dialog only when it names the full path of `kit-ui.exe`, and the owner must click Allow | `F:\AI\Scripts\overnight\reports\ow2-rehearsal-20261116.md` (outside the repo); its fixes are in block 3 |
+| CK batch | not run | - |
+
+**For the owner's reading, SO-03** (`game-20261116-01`, "For the owner to look at"): two
+`prid RussianHuntingRifle` sends, one failure line, and a `GetPos: Z` line between them.
+If the failure line was the second send's own, nothing was out of order (the reading's
+choice: every other echo-only send that night lost its answer). If it was the first send's,
+late, the `Z` line came before an earlier request's line: the run sheet's contradiction.
+The text cannot tell the two identical lines apart. Your call whether ruling 2 (send order)
+stands.
 
 ## Release binaries
 
+Verified by hashing the files at 05:00 on 2026-11-16 (built 04:55 from `e33e1c39`, `main`
+then; it has the `getav` correlation the re-run needs and the quest fragment blocks):
+
 | Binary | SHA-256 | Built |
 | ------ | ------- | ----- |
-| `.targets\x\release\kit.exe` (package `kit-cli`) | `0bbcfc6d3b7b5341784cee922af8950cfdcee851e55d10eb9488315fa2317172` | 2026-11-15 23:06 from `a618e7d6` (this branch after `git merge main` at `88aeab48`; later commits on the branch touch only docs and `docs/bench/ck-batch/build.ps1`) |
-| `.targets\x\release\kit-ui.exe` (package `kit`) | `c87a5c6d42a6d4ea470f27bbb587f1f2b11196bfead2370ed1cfbd87e1567453` | the same build |
+| `C:\Modding\kitkraft\.targets\x\release\kit.exe` (package `kit-cli`) | `4a5be6c1399e86de2d01917609f9ce1db42aed7ff1545ac478a8cdee3d66cc53` | 2026-11-16 04:55 from `e33e1c39` |
+| `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (package `kit`) | `a938329a287e467f6679db31f7b5ed64253b14b06cda2fb012bc8305ef1635b3` | the same build |
 
-If `main` moved overnight (KK-360 to KK-362 may land) and the bench should run it, rebuild
-**before** the window, never while the game runs (about 2.5 minutes warm), from `$wt` at the
-commit to run, and record the new hashes in the first ledger reading:
+The morning merge (about 07:00 to 07:40) may land KK-360 to KK-369 on `main`. Rebuilding is
+the director's call; if the bench should run them, rebuild **before** the first session,
+never while the game runs (about 2.5 minutes warm), from `$wt` at the commit to run, and
+record the new hashes in the first ledger reading:
 
 ```powershell
 $env:CARGO_TARGET_DIR = 'C:\Modding\kitkraft\.targets\x'; $env:CARGO_BUILD_JOBS = '4'; cargo build --release -p kit-cli -p kit; Get-FileHash -Algorithm SHA256 C:\Modding\kitkraft\.targets\x\release\kit.exe, C:\Modding\kitkraft\.targets\x\release\kit-ui.exe
 ```
 
+Three of tonight's workarounds fall away with a rebuild that holds them: KK-368 (the window
+finds the checkout above the working directory first, so `KITKRAFT_REPO_DIR` is no longer
+needed), KK-367 (the CLI deploy preview names the plugin's SHA-256), KK-366 (the title stops
+saying read-only).
+
 ## Before the bench (owner, 5 minutes)
 
 1. Close Starfield, the CK and anything of SFSE.
-2. Open MO2, select the profile **`Kitkraft Dev`**, then **close MO2**. Tonight's
-   preflights failed only on this (MO2 open, selected profile `Default`).
-3. Nothing else needs renewing: the base save `KitKraftBase.sfs` hashes as the run sheets
-   say, the rename plugin is deployed and enabled, the Console API is on port 45555
-   (checked tonight, below).
-4. Load order: `KitKraftFirstPOI.esm` (enabled in `Kitkraft Dev`) must load **before**
-   `KitKraftVerify.esm`. `kit deploy enable` appends the verification plugin last, so this
-   holds unless someone reorders by hand; the mini-site, scripts and hostile-fixture mods
-   stay disabled ([`verify-mod.md`](verify-mod.md), "Load order").
+2. Open MO2, select the profile **`Kitkraft Dev`**, then **close MO2**.
+3. The base save `KitKraftBase.sfs` still hashed `fbed2cc2...eb5ccf` at 05:00, but the
+   game wrote an autosave beside it during the input trial (notes below): the preflight
+   re-hashes it (block 0), and a different hash stops the evening's sessions.
+4. Load order now (after the unattended blocks): `KitKraftFirstPOI.esm` and
+   `OldSovietMarksmanRifle.esm` enabled; `KitKraftVerify.esm` deployed, its lines present
+   but disabled, **after** the rename plugin. That disabled line is why `deploy status`,
+   the deploy preview and the Cockpit warn "plugin `OldSovietMarksmanRifle.esm` is not
+   last" (block 3). The mini-site, scripts and hostile-fixture mods stay disabled.
 5. Leave the primary monitor free: the CK and the game must open there (screenshots
    capture only the primary screen).
 
 ## Owner answers (one pass, before anything runs)
 
-Answer every row at once; the agent records the answers verbatim in the first ledger
-reading and passes the save words to `-OwnerSaveOk`.
+Last night's launch go and desk-free answers covered last night only; tonight's are asked
+again. The agent records the answers verbatim in the first ledger reading and passes the
+save words to `-OwnerSaveOk`.
 
 | # | Question | Pick | Recommended |
 | - | -------- | ---- | ----------- |
-| A1 | Game launch go for this evening: OW-1 (one launch, a second only on a retry), the verification mod (one), OW-2 (two in part 1, one in part 2)? | yes / no | **yes** |
-| A2 | Run the input experiment in game, the agent taking the focus, desk free about 15 minutes, plus about 10 for scenarios? (Amendment 2 says nothing is launched until you pick a design; this is that trial of the external executor) | yes / no | **yes** |
-| A3 | Include the gamepad step (`--pad`: Windows' built-in `InputInjector` makes a virtual pad; no driver install)? | yes / no | **yes** |
+| A1 | Game launch go for this evening: the verification re-run (one launch), the verification quest (one), OW-2 (two in part 1, one in part 2)? | yes / no | **yes** |
+| A2 | The remaining input scenarios inside OW-2 part 1's session (SC-4 workbench, SC-2 dialogue opened by E), the agent taking the focus, desk free about 10 minutes? | yes / no | **yes** |
+| A3 | Click **Allow** on the computer-use dialog when the agent asks for `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (OW-2; that window only)? | yes / no | **yes** (without it OW-2 cannot run: the rehearsal was denied with no one at the desk) |
 | A4 | May scenario SC-5 save through the pause menu (a game save not named `KitKraftSession-*`, which the session rules otherwise forbid)? | yes / no | **no** (skip SC-5) |
 | A5 | CK bench batch: may the agent save each `KCB_*.esp` in place in the CK (File > Save Plugin, into its own dev mod)? | yes / no | **yes** (without it `ck_reexport` stays `not-run`) |
 | A6 | F28 by the agent: duplicate the coffee maker and save `KC_F28.esp` into `overwrite\`? | yes / no | **yes** |
@@ -72,179 +103,188 @@ reading and passes the save words to `-OwnerSaveOk`.
 | A12 | Fixture 6: also copy each saved fixture into `C:\Modding\kitkraft\observe\`? | yes / no | **no** (one copy in `C:\Modding\kitkraft-observe\`) |
 | A13 | Fixture 7: who deletes the CK's files in MO2's `overwrite\` after each launch? | owner / agent | **owner** (agents write under MO2 only through `kit deploy`) |
 
-Asked later, not now: the M6.O4 sign-off (end of block 4). The reasons behind A5 to A13 are
-in [`ck-sitting.md`](ck-sitting.md), "Owner answers needed".
+Dropped since last night: the gamepad step (the built-in virtual pad never reaches the
+game; a driver-based pad is not proposed, [`input-results.md`](input-results.md)). Asked
+later, not now: the M6.O4 sign-off (end of block 4), SO-03's reading (above), and the
+executor design ([`input-results.md`](input-results.md), "Recommendation"). The reasons
+behind A5 to A13 are in [`ck-sitting.md`](ck-sitting.md), "Owner answers needed".
 
 ## The run
 
-Order changed from the draft (preflights, OW-1, verification mod, input, CK, OW-2), for
-two reasons:
-
-- **The CK batch goes last.** Its `deploy enable` puts 13 `KCB_*` plugins into
-  `Kitkraft Dev`, and every later game session would load them: `KCB_F23k.esp` moves a
-  reference in the apartment cell the sessions use, `KCB_G8_Planet.esp` clones planet and
-  star records (which [`verify-mod.md`](verify-mod.md) keeps out of the game because they
-  can change world generation and cost a session), and every runtime slot after them
-  shifts. Last, nothing loads them in game, the owner is free while the groups run, and
-  OW-2's real `KC_F31.esp` exists by then.
-- **The input experiment runs inside OW-2 part 1's session.** It needs the game up and
-  idle after a session's probes. Only a session started with `--start` stays open (the
-  one-shot `kit` CLI ends the game when it returns: [`game-sessions.md`](../game-sessions.md),
-  "Commands"), and the window's **Launch...** is that start. OW-2 part 1 launches one
-  anyway, so the experiment costs no launch of its own.
+Game sessions first, the CK batch last: its `deploy enable` puts 13 `KCB_*` plugins into
+`Kitkraft Dev`, which every later game session would load (`KCB_F23k.esp` moves a reference
+in the apartment cell the sessions use, `KCB_G8_Planet.esp` clones planet and star
+records), and every runtime slot after them shifts. The two verification sessions go
+first: agent-only, no window, the most evidence per minute; the re-run needs slot `0A`,
+which holds only while nothing else is enabled.
 
 | Block | What | Who | Minutes | Running total |
 | ----- | ---- | --- | ------: | ------------: |
 | - | Before the bench, owner answers | Owner | 10 | 0:10 |
-| 0 | Preflights (no game) | Agent | 10 | 0:20 |
-| 1 | OW-1, send order | Agent, owner away from the screen | 12 (+6 a retry) | 0:32 |
-| 2 | Verification mod session | Agent | 25 | 0:57 |
-| 3 | OW-2 part 1, with the input experiment and scenarios in its session | Agent drives `kit-ui`, owner watches; desk free during input | 45 | 1:42 |
-| 4 | OW-2 part 2 (`KC_F31.esp`) and part 3, M6.O4 sign-off | Agent drives `kit-ui`, owner watches | 45 | 2:27 |
-| 5 | CK batch: deploy, G1 alone (owner watches), groups G2 to G8 | Agent; owner free after G1 | 50 | 3:17 |
-| 6 | Close-out: evidence check, `cargo xtask parity`, gate, commit | Agent (no game) | 30 | 3:47 |
-| 5+ | Optional CK, in this order: fixture twins (25), F28 by the agent (8), F23, F20, F27 with the owner's hands (15 each), failed groups split by type (5 a type) | Agent, owner for F2x | up to 78 | up to 5:05 |
+| 0 | Preflight, builds (no game) | Agent | 10 | 0:20 |
+| 1 | Verification re-run, 25 rows (`rerun.toml`, new `.pex`) | Agent | 12 | 0:32 |
+| 2 | Verification quest (`KitKraftVerifyQuest.esm`, rows Q-01 to Q-04) | Agent | 12 | 0:44 |
+| 3 | OW-2 part 1, the remaining input scenarios in its session | Agent drives `kit-ui`, owner clicks Allow and watches; desk free during input | 40 | 1:24 |
+| 4 | OW-2 part 2 (`KC_F31.esp`) and part 3, M6.O4 sign-off | Agent drives `kit-ui`, owner watches | 45 | 2:09 |
+| 5 | CK batch: deploy, G1 alone (owner watches), groups G2 to G8, disable | Agent; owner free after G1 | 50 | 2:59 |
+| 6 | Close-out: evidence, `cargo xtask parity`, gate, commit | Agent (no game) | 30 | 3:29 |
+| 5+ | Optional CK, in this order: fixture twins (25), F28 by the agent (8), F23, F20, F27 with the owner's hands (15 each), failed groups split by type (5 a type) | Agent, owner for F2x | up to 78 | up to 4:47 |
 
-Starting at 21:30 the core ends about 01:20; with every optional CK step about 02:35.
+Starting at 21:30 the core ends about 01:00; with every optional CK step about 02:15.
 
-**If only 60 minutes:** before and answers, block 0 (skip the input and CK self-tests),
-block 1, block 2: about 57 minutes. The verification session is the most evidence per
-minute (up to 47 game-column types and 21 save/reload in 25 minutes); OW-1 must come first.
-Evidence entry and the gate run afterwards without the owner.
+**If only 60 minutes:** before and answers, block 0, block 1, block 2 (0:44), then block 5's
+deploy, G1 with the owner watching, and the CK `deploy disable` (15): about **59 minutes**.
+The two verification sessions are the cheapest evidence left (up to 20 presence rows and
+the `getav` row, then the quest fragment), and G1 is the CK runner's first drive of the
+real CK, which needs the owner's eyes once. Evidence entry and the gate run afterwards
+without the owner.
 
-**If only 2 hours:** the 60-minute cut, then block 5 core (deploy, G1 watched, the seven
-groups run while the owner is away from the desk): about 1:47, then block 6. Up to 56 new
-`ck-differential-tested` types for 50 minutes beats OW-2 and the input trial, which change
-one milestone row and a design choice and need the owner at the desk for 90 minutes; they
-move to the next window together.
+**If only 2 hours:** the 60-minute cut with block 5 whole (the seven groups run while the
+owner is away from the desk): about **1:34**, then block 6, which needs no owner (about
+2:05 in all). Up to 56
+new `ck-differential-tested` types beats OW-2, which changes one milestone row, needs the
+owner at the desk for 85 minutes and the Allow click; OW-2 and the input scenarios move to
+the next window together.
 
-### Block 0: preflights (no game, MO2 closed)
+### Block 0: preflight and builds (no game, MO2 closed)
 
 ```powershell
 cd $wt
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bench\ow1-preflight.ps1 -Kit $kit
-# the verification plugin (pure builds, no MO2 write):
+# the verification plugin and its new reporter (.pex only is new; no MO2 write):
 & $kit papyrus compile docs\bench\verify-mod\scripts\KitKraft\VerifyReport.psc out\verify\Scripts --sources-zip "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Tools\ContentResources.zip"
 & $kit build docs\bench\verify-mod\verify-mod.toml out\verify\KitKraftVerify.esm --overwrite
-& $kit validate --plugin out\verify\KitKraftVerify.esm --plugins Starfield.esm
-& $kit roundtrip out\verify\KitKraftVerify.esm --verify
 & $kit package out\verify\KitKraftVerify.esm out\verify\pkg --scripts out\verify\Scripts\KitKraft\VerifyReport.pex --spec docs\bench\verify-mod\verify-mod.toml --plugins Starfield.esm --overwrite
+# the verification quest:
+& $kit papyrus compile docs\bench\verify-mod\scripts\KitKraft\VerifyQuestReport.psc out\verify-quest\Scripts --sources-zip "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Tools\ContentResources.zip"
+& $kit papyrus compile docs\bench\verify-mod\scripts\Fragments\Quests\QF_KKQ01Qust.psc out\verify-quest\Scripts --sources-zip "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Tools\ContentResources.zip"
+& $kit build docs\bench\verify-mod\verify-quest.toml out\verify-quest\KitKraftVerifyQuest.esm --overwrite
+& $kit validate --plugin out\verify-quest\KitKraftVerifyQuest.esm --plugins Starfield.esm
+& $kit roundtrip out\verify-quest\KitKraftVerifyQuest.esm --verify
+& $kit package out\verify-quest\KitKraftVerifyQuest.esm out\verify-quest\pkg --scripts out\verify-quest\Scripts\KitKraft\VerifyQuestReport.pex --scripts out\verify-quest\Scripts\Fragments\Quests\QF_KKQ01Qust.pex --spec docs\bench\verify-mod\verify-quest.toml --plugins Starfield.esm --overwrite
 # OW-2's inputs:
 & $kit build docs\smoke-rename.toml out\OldSovietMarksmanRifle.esm --overwrite
 & $kit testplan out\OldSovietMarksmanRifle.esm out\rename-plan --plugins Starfield.esm
-# input and CK desk tests (launch nothing):
-cd C:\Modding\kitkraft-observe\scripts\input; python selftest.py --no-live; python experiment.py --dry-run
+# CK desk tests (launch nothing):
 cd C:\Modding\kitkraft-observe\scripts; powershell -File .\ck-plugin.selftest.ps1; powershell -File .\ck-sitting.selftest.ps1
 ```
 
-- **Pass:** preflight `fails: 0` and `would start session ...`; plugin SHA-256
-  `a9632f11...e39faa`; validate 0 errors (1 warning `cell.actor-without-navmesh` is known);
-  roundtrip identical; rename plugin `9c0b28a6...78ea27`, rename `probes.toml`
-  `d84e011a...a55dc05`; input 0 failed and 10 PASS; CK self-tests `0 failed`.
-- **Failure:** [`ow1-prep.md`](ow1-prep.md) section 4 for every preflight rule. A plugin
-  hash that differs means `kit` changed: stop and tell the director before any session.
-- **After:** paste the preflight's list-file hashes into the notes (OW-1's "before").
+- **Pass:** preflight `fails: 0`, base save `fbed2cc2...eb5ccf`, `would start session ...`;
+  `KitKraftVerify.esm` `a9632f11...e39faa` (unchanged; record the new `VerifyReport.pex`
+  hash); `KitKraftVerifyQuest.esm` `94d2ad19...1dea3f6d`, validate 0 errors, roundtrip
+  identical; rename plugin `9c0b28a6...78ea27`, rename `probes.toml` `d84e011a...a55dc05`;
+  CK self-tests `0 failed`.
+- **Failure:** [`ow1-prep.md`](ow1-prep.md) section 4 for every preflight rule. A plugin hash
+  that differs means `kit` changed: stop and tell the director before any session. A base
+  save hash that differs: stop the evening's sessions (the base save is the owner's).
+- **After:** paste the preflight's list-file hashes into the notes (the evening's "before").
 
-### Block 1: OW-1 (must precede every other session)
+### Block 1: the verification re-run (25 rows)
 
-Run sheet: [`game-sessions.md`](../game-sessions.md), "Run sheet OW-1"; commands with
-durations: [`ow1-prep.md`](ow1-prep.md) section 5.
-
-```powershell
-cd $wt
-& $kit deploy enable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev" --dry-run   # expect: already enabled, nothing to change
-& $kit game session C:\Modding\MO2-Starfield crates\game\probes\send-order.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger $wt\docs\game-observations.md --dry-run
-# no refusal: the same without --dry-run, synchronously; hands off for about 5 minutes
-Get-Process Starfield, sfse_loader, ModOrganizer -ErrorAction SilentlyContinue   # nothing
-```
-
-- **Pass:** SO-01 `pass`; at least one late line; every reply in send order ("Held").
-- **Failure:** [`ow1-prep.md`](ow1-prep.md) section 4 (a timeout now carries a
-  `diagnostics at ...` finding and `screenshots\stuck-<n>.png`). One retry in the window. A
-  contradiction (SO-05 `pass` with SO-06 `fail`, or a later line before an earlier one):
-  **stop the evening's sessions** and send it to the director at once (R17).
-- **After (same night, during block 2's session):** the writer's reading under the ledger
-  entry ([`game-sessions.md`](../game-sessions.md), "Reading the result"). Keep the rename
-  plugin enabled: OW-2 needs it (disable it at the end of block 4).
-
-### Block 2: the verification mod
-
-Detail: [`verify-mod.md`](verify-mod.md), "Commands for tomorrow".
+Detail: [`verify-mod.md`](verify-mod.md), "Re-run of the corrected rows". The deploy
+replaces one file (the `.pex`); enable sets the plugin's two lines back and moves it last
+(slot `0A`, which `rerun.toml` assumes).
 
 ```powershell
 cd $wt
 & $kit deploy out\verify\pkg\KitKraftVerify C:\Modding\MO2-Starfield --dev --profile "Kitkraft Dev" --dry-run   # then without
 & $kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftVerify --dev --profile "Kitkraft Dev" --dry-run   # then without
-& $kit testplan out\verify\KitKraftVerify.esm out\verify\plan-dev --profile "C:\Modding\MO2-Starfield\profiles\Kitkraft Dev"
-python docs\bench\verify-mod\make_probes.py out\verify\plan-dev\probes.toml out\verify\probes.toml   # note the slot it prints
-& $kit game session C:\Modding\MO2-Starfield out\verify\probes.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger $wt\docs\game-observations.md --dry-run
-# no refusal: the same without --dry-run; hands off, 8 to 12 minutes of rows
-& $kit deploy disable C:\Modding\MO2-Starfield --mods KitKraftVerify --dev --profile "Kitkraft Dev" --dry-run   # then without
+& $kit game session C:\Modding\MO2-Starfield docs\bench\verify-mod\rerun.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger $wt\docs\game-observations.md --dry-run
+# no refusal: the same without --dry-run; hands off, about 6 minutes (100 s to the base load, 3 minutes of rows)
 ```
 
-- **Pass:** the slot `make_probes.py` prints is the verification plugin's place after
-  `KitKraftFirstPOI.esm` in the order `deploy enable` wrote (tonight `0A`, with the rename
-  plugin enabled); rows pass as the type table in [`verify-mod.md`](verify-mod.md) predicts.
-  V-P29 (PKIN) may fail: it answers an open question.
-- **Failure:** a launch or base-load timeout: [`ow1-prep.md`](ow1-prep.md) section 4. A
-  failed row fails only itself; read its `seen`. V-P10 failing alone points at the load
-  order (above).
-- **After (same night):** `python docs\bench\verify-mod\propose_evidence.py C:\Modding\kitkraft-observe\<session>\report.json`,
-  read each row's `seen`, enter the entries in `docs/schema/evidence.toml` as
-  [`verify-mod.md`](verify-mod.md) "Entering the results" says, then
-  `cargo test -p kitkraft-engine --lib every_evidence_pointer_resolves` and `cargo xtask parity`.
+- **Pass:** V-01, V-40, V-P00, V-P99 pass (the reporter ran); V-C-AVIF passes (the `getav`
+  correlation); each V-H row passes on `KKV-H<nn> <TYPE> present=True`.
+- **Failure:** a V-H row that fails says the form did not load: a real finding, enter it
+  `fail`. Launch or base-load timeouts: [`ow1-prep.md`](ow1-prep.md) section 4.
+- **After (during block 2's session):** enter a passing V-H row as the six presence rows of
+  `game-20261116-04` were (`game-runtime-tested`, `inconclusive`, "Presence only"). Leave
+  `KitKraftVerify` enabled for block 2 (the quest goes after it).
 
-### Block 3: OW-2 part 1, with the input experiment in its open session
+### Block 2: the verification quest (4 rows)
+
+Detail: [`verify-mod.md`](verify-mod.md), "Self-reporting quest". The quest starts when the
+base save loads, so its lines are in the Papyrus log before Q-01 reads it; no row needs a
+runtime slot.
+
+```powershell
+cd $wt
+& $kit deploy out\verify-quest\pkg\KitKraftVerifyQuest C:\Modding\MO2-Starfield --dev --profile "Kitkraft Dev" --dry-run   # then without
+& $kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftVerifyQuest --dev --profile "Kitkraft Dev" --dry-run   # then without
+& $kit game session C:\Modding\MO2-Starfield docs\bench\verify-mod\verify-quest-probes.toml --base-save KitKraftBase --base-save-sha256 fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf --profile "Kitkraft Dev" --observe C:\Modding\kitkraft-observe --ledger $wt\docs\game-observations.md --dry-run
+# no refusal: the same without --dry-run; hands off, about 4 minutes
+& $kit deploy disable C:\Modding\MO2-Starfield --mods KitKraftVerifyQuest --mods KitKraftVerify --dev --profile "Kitkraft Dev" --dry-run   # then without
+```
+
+- **Pass:** Q-01 to Q-04: the quest script ran (Q-01, Q-04), its object property held the
+  reference the same build placed (Q-02), the stage 10 fragment ran (Q-03).
+- **Failure:** Q-03 failing alone points at the fragment block; read the Papyrus log in the
+  session's `logs\`. A quest that starts once per save: these rows read the base save's
+  first load only, so one session is the test.
+- **After:** the writer's reading names the two `.pex` hashes and the plugin's.
+
+### Block 3: OW-2 part 1, with the remaining input scenarios in its session
 
 Run sheet: [`game-sessions.md`](../game-sessions.md), "Run sheet OW-2", Part 1, steps 1.1
-to 1.11. The agent drives `kit-ui` by computer use (that window only); the input executor
-is a separate script, not computer use.
+to 1.11, with the rehearsal's corrections (they are not in the run sheet yet):
 
-1. Gate step: the rename plugin is already enabled (block 1). Steps 1.1 to 1.7:
-   `& $kit ui --dev` from `$wt`; Cockpit, Review, Status, Preview deploy, Deploy, Preview
-   session with `out\rename-plan\probes.toml`, **Launch...**, wait for phase idle. Note
-   the elapsed seconds the panel shows: the session's budget is 1,800 s from launch.
-2. **Input experiment** (A2 yes), at once after 1.7, game in front, borderless or windowed:
+- **Before 1.1, in the terminal that starts the window:**
+  `$env:KITKRAFT_REPO_DIR = $wt` (the window otherwise takes its checkout from above
+  `kit-ui.exe`, which is the main checkout `C:\Modding\kitkraft`, whatever folder `kit ui`
+  runs from; KK-368 changes that). Then `& $kit ui --dev` from `$wt`. A Windows Terminal
+  window for `kit.exe` opens beside the workbench; expect it.
+- **Computer use:** the agent's access request must name the full path
+  `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (the name `kit-ui`, the title or
+  "KitKraft Workbench" resolve to nothing), and the owner clicks **Allow** (A3). The title
+  bar reads "KitKraft Workbench (read-only)" although the window writes (KK-366); ignore it.
+- **1.3, Status and Preview deploy:** expect the warning "plugin
+  `OldSovietMarksmanRifle.esm` is not last": the disabled `KitKraftVerify.esm` and
+  `KitKraftVerifyQuest.esm` lines sit after it (a disabled line loads nothing; the warning
+  is expected and changes no grade). To clear it instead, before 1.1, with MO2 and the game
+  closed:
+  `& $kit deploy enable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev" --dry-run`
+  (expect "would edit", its `plugins.txt` and `loadorder.txt` lines moved last), then
+  without `--dry-run`. The preview's plugin SHA-256 shows in the window only; the CLI's
+  text form prints `1 unchanged` and no hash (KK-367). 1.4's confirmed deploy is a no-op.
+- **1.5, the session form:** type `C:\Modding\kitkraft-observe` into the observe field (the
+  form fills `<checkout>\observe`), and check that the ledger field is
+  `$wt\docs\game-observations.md`.
+- **Input scenarios** (A2 yes), after 1.7 (phase idle), game in front, and only while the
+  panel's elapsed time is under 1,400 s (the session's budget is 1,800 s):
 
-   ```powershell
-   cd C:\Modding\kitkraft-observe\scripts\input
-   python kkconsole.py getpos          # three numbers: the console answers
-   python experiment.py --ask --pad    # drop --pad if A3 is no; hands off about 3 minutes; answer the A5 question in the terminal
-   ```
+  ```powershell
+  cd C:\Modding\kitkraft-observe\scripts\input
+  python kkconsole.py getpos                                         # three numbers: the console answers
+  python run_scenarios.py --only SC-4 --ask                           # workbench: E opens the menu?
+  python run_scenarios.py --only SC-2 --ask --param npc_ref=000057BE  # dialogue opened by E
+  # SC-5 only with A4 yes: python run_scenarios.py --only SC-5 --ask --allow-menu-save
+  ```
 
-   - **Pass:** A1 (W moves the player), A2 (mouse turns), A5 (E opens the crate's menu);
-     the report is `runs\<stamp>\report.json`, every input in `inputs.jsonl`.
-   - **Failure:** the README's "What the results mean" table. A1 failing even with `tcl`:
-     check that the game does not run elevated, then stop the input part.
-3. **Scenarios**, only if A1, A2 and A5 passed and the panel's elapsed time is under
-   1,400 s (each takes a minute or two):
-   `python run_scenarios.py --only SC-3 --ask`, then `SC-1`, `SC-4`, then
-   `python run_scenarios.py --only SC-2 --ask --param npc_ref=0000598D`. SC-5 only with A4
-   yes (`--allow-menu-save`).
-   - **SC-2's NPC:** `NoelREF`, `Starfield.esm:00598D` (runtime `0000598D`; base `NPC_`
-     `Constellation_Noel`), a persistent `ACHR` placed in `CityNewAtlantisLodgeInt`
-     (`Starfield.esm:06BB29`), the Lodge cell the sessions `game-20261101-04` and
-     `game-20261103-01` used (`kit cell --cell CityNewAtlantisLodgeInt --plugins Starfield.esm`).
-     `player.moveto` finds her wherever the base save's quest state put her. Fallback:
-     `VascoREF`, runtime `000057BE`, same cell. If neither answers to `prid <id>`, pick at the
-     bench: `coc CityNewAtlantisLodgeInt`, open the console, click an NPC (the console
-     shows its ref ID), close the console, and pass that ID.
-4. Steps 1.8 to 1.11 (screenshot re-run, Record in Ledger, Stop, relaunch).
+  - **SC-4:** last night the "Use (E)" prompt showed but E returned to the world. Stand the
+    player on open floor facing the bench before E; a screenshot decides.
+  - **SC-2:** last night `player.moveto 0000598D` (Noel) landed in a quest scene the base
+    save started by itself, so E only chose an option. Tonight `VascoREF` (`000057BE`, same
+    cell, `CityNewAtlantisLodgeInt`); if a scene starts by itself again, pick an idle NPC at
+    the bench (`coc CityNewAtlantisLodgeInt`, click one in the console, pass its ref ID).
+  - **Never press Tab blind:** it opens the Data menu, and that makes the game autosave
+    into the dev profile's saves (notes).
+- Then 1.8 to 1.11 (screenshot re-run, Record in Ledger, Stop, relaunch).
 
-- **Pass (OW-2 part 1):** a ledger entry started from the window, six statuses filled
-  (`ck_open`, `ck_reexport` `not-run`), the screenshot shown, the manual row recorded.
-- **Failure:** a stuck key: `python kkinput.py release`, or tap the key; `tcl` may be left
-  on after an A1 diagnostic (type `tcl` once). If the budget runs out mid-input, the game
-  ends and the executor's guard stops at its next 10 ms check; go to 1.11 for a fresh
-  session.
-- **After (same night):** the writer's reading of the window's ledger entry names the
-  input run folder (`runs\<stamp>\`, `inputs.jsonl`): ADR 0010 Amendment 2 wants input
-  recorded with the session, and the controller's `report.json` does not hold it.
+- **Pass (OW-2 part 1):** a ledger entry started from the window in `$wt`'s ledger, six
+  statuses filled (`ck_open`, `ck_reexport` `not-run`), the screenshot shown, the manual row
+  recorded.
+- **Failure:** a stuck key: `python kkinput.py release`, or tap the key. If the budget runs
+  out mid-input, the game ends and the executor's guard stops at its next 10 ms check; go
+  to 1.11 for a fresh session. A ledger entry that lands in `C:\Modding\kitkraft\docs\`: the
+  repo variable was not set; stop, tell the director, and do not commit there.
+- **After (same night):** the writer's reading names the input run folders
+  (`runs\<stamp>\`, `inputs.jsonl`): the controller's `report.json` does not hold sent
+  input until KK-362.
 
 ### Block 4: OW-2 part 2 and part 3, the M6.O4 sign-off
 
 Run sheet: [`game-sessions.md`](../game-sessions.md), "Run sheet OW-2", Part 2 (2.1 to
-2.13) and Part 3.
+2.13) and Part 3; the repo variable and the observe field as in block 3 (2.10).
 
 - Part 2 makes `out\f31\KC_F31.esp` in the window (set, clone, place), then validate,
   roundtrip, testplan, deploy, `deploy enable --mods KC_F31` (dry run first), one session
@@ -252,7 +292,7 @@ Run sheet: [`game-sessions.md`](../game-sessions.md), "Run sheet OW-2", Part 2 (
 - Part 3: one note per check in the writer's reading.
 - Then offer the owner M6.O4's sign-off (revised T3, `docs/design/workbench-performance.md`);
   his words verbatim into the reading.
-- Last: `& $kit deploy disable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev" --dry-run`, then without (the list files hash as before block 1, but for the known `plugins.txt` line).
+- Last: `& $kit deploy disable C:\Modding\MO2-Starfield --mods OldSovietMarksmanRifle --dev --profile "Kitkraft Dev" --dry-run`, then without.
 - **Pass:** `KC_F31.esp` SHA-256 recorded; `parse`, `byte_roundtrip`, `game_runtime` filled;
   `save_reload` by 2.12.
 - **Failure:** OK disabled in 2.2: record why and stop part 2 (`blocked`). Session faults:
@@ -261,15 +301,16 @@ Run sheet: [`game-sessions.md`](../game-sessions.md), "Run sheet OW-2", Part 2 (
 
 ### Block 5: the CK batch (game closed for the rest of the evening)
 
-Run sheet: [`ck-sitting.md`](ck-sitting.md), "Run sheet", steps 2 to 12.
+Run sheet: [`ck-sitting.md`](ck-sitting.md), "Run sheet", steps 2 to 12. Needs A5 (saves)
+and, for the fixtures, A6 to A13.
 
 ```powershell
 $m = 'C:\Modding\kitkraft-observe\ck-2026-11-16\plugins\manifest.json'
 # 1. each `kit deploy ... --dev --dry-run` line of C:\Modding\kitkraft-observe\ck-2026-11-16\plugins\deploy.txt, then without;
-#    then its `kit deploy enable` line (one --mods per mod), --dry-run, then without
+#    then its `kit deploy enable` line (one --mods per mod: the CLI takes one value per flag), --dry-run, then without
 cd C:\Modding\kitkraft-observe\scripts
 powershell -File .\ck-batch.ps1 -Manifest $m -Date 20261116 -StartNn 11 -DryRun     # every plugin "deployed and enabled"
-powershell -File .\ck-batch.ps1 -Manifest $m -Date 20261116 -StartNn 11 -Only KCB_G1_Core.esp -Save -OwnerSaveOk "<A5 words>, 2026-11-16"   # owner watches
+powershell -File .\ck-batch.ps1 -Manifest $m -Date 20261116 -StartNn 11 -Only KCB_G1_Core.esp -Save -OwnerSaveOk "<A5 words>, 2026-11-16"   # first plugin alone; owner watches
 powershell -File .\ck-batch.ps1 -Manifest $m -Date 20261116 -StartNn 12 -Only KCB_G2_Items.esp,KCB_G3_Weapons.esp,KCB_G4_Objects.esp,KCB_G5_World.esp,KCB_G6_Actors.esp,KCB_G7_Quest.esp,KCB_G8_Planet.esp -Save -OwnerSaveOk "<same words>"
 # A5 no: the same lines without -Save and -OwnerSaveOk (ck_open only)
 ```
@@ -293,6 +334,7 @@ powershell -File .\ck-batch.ps1 -Manifest $m -Date 20261116 -StartNn 12 -Only KC
 ```powershell
 cd $wt
 $env:CARGO_TARGET_DIR = 'C:\Modding\kitkraft\.targets\opus-docs'
+python docs\bench\verify-mod\propose_evidence.py C:\Modding\kitkraft-observe\<session>\report.json   # blocks 1 and 2
 cargo test -p kitkraft-engine --lib every_evidence_pointer_resolves
 cargo xtask parity
 cargo xtask ci
@@ -301,6 +343,23 @@ git commit   # never --no-verify; the gate passed on this commit
 ```
 
 The hand-off lists each block's result in AGENTS.md's reporting block.
+
+## Notes
+
+- **Autosave in the dev profile (side effect of the input trial).** Saves of `Kitkraft Dev`
+  are profile-local: `C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\saves\` (beside
+  `KitKraftBase.sfs` and the `KitKraftSession-*` saves). When Tab opened the Data menu at
+  04:07 the game wrote `Autosave1_20261116M546564_000038_20261116090732_1_0_4.sfs` there.
+  It is not a `KitKraftSession-*` save, so it is outside what a session may write. Nothing
+  was deleted and nothing should be by an agent: removing it is the owner's call. The base
+  save still hashed `fbed2cc2...eb5ccf` at 05:00; block 0's preflight re-hashes it.
+- **Ledger id collision, fixed.** The input trial's session wrote its entry as
+  `game-20261116-01` into the old `bench-ck` worktree, where no 2026-11-16 entry existed;
+  `main` already had OW-1 under that id. The entry is now `game-20261116-06` here and the
+  `bench-ck` copy was reverted. Run every session tonight with `--ledger` (or the window's
+  repo) pointing at `$wt`, a checkout that already holds `-01` to `-06`.
+- **`deploy enable --mods`** takes one value per flag (repeat `--mods`); `kit help` shows
+  `--mods <mods>...`, which reads as several values after one flag (KK-365).
 
 ## Stop and abort, in one place
 
@@ -317,48 +376,31 @@ prints nothing, and (CK) the postflight line in `session.md` is `ok`.
 
 ## Known unknowns
 
-- **Never in a real session:** this `kit` build; the R41 pacing poll after a `load`; the
-  timeout diagnostics (`stuck-<n>.png`); the launch wait's send-order count can still time
-  out if the game drops a launch poll's answer ([`ow1-prep.md`](ow1-prep.md) section 1).
-- **Console commands never sent by a session:** for input: `getangle`, `setangle`,
-  `placeatme`; `isindialoguewithplayer` (a Fallout 4 function, may not exist). Sent and
-  answered on 2026-11-16 (`game-20261116-03` to `-05`; shapes in
-  [`verify-mod.md`](verify-mod.md), "Methods"): `getglobalvalue` and `getstage` (runtime ID
-  only), `player.getinfaction`, `player.hasperk` (`Perk Rank >> n`), `player.getav`,
-  `player.additem` + `getitemcount`, `player.equipitem` + `getequipped`. `help <term> 4`
-  answers late or never; `help <term> 4 <TYPE>` answers in its own reply.
-- **Verification mod:** the reporter's `OnLoad` on a placed activator after leave and
-  return; PKIN's `getisid` (answered `0.00` before); 21 types are presence only.
+- **Never in a real session:** the timeout diagnostics (`stuck-<n>.png`); the launch wait's
+  send-order count, which times out if the game drops one launch poll's answer, as it
+  dropped busy-time answers all last night (KK-369; the 75 s settle makes it unlikely, not
+  impossible; [`ow1-prep.md`](ow1-prep.md) section 1).
+- **Send order:** OW-1 saw drops, never a late line; whether the console can reorder at all
+  rests on SO-03's reading (above). Rows should wait out every move before sending what
+  they grade.
+- **Verification mod:** the reporter's presence lines (`KKV-H<nn>`) have never run; the
+  quest's fragment block has never run in game.
 - **The CK runner has never driven the real CK:** posted `BM_CLICK` on "Set as Active File";
   whether `EditorWarnings.txt` is written during the load; what the CK does with
   EditorID-only `[[new]]` records of types with required members; G8's planet records.
-- **Input:** whether Starfield takes `SendInput` scan codes and relative mouse (UIPI blocks
-  them if the game runs elevated); the pad through `InputInjector` (Steam Input may sit
-  between); whether the console answers while a menu is open; capture of the DX12 window
-  (black in exclusive fullscreen); SC-1 to SC-5 are untested and assume menu layouts.
-- **The window:** OW-2's real-window checks (KK-032 to KK-036, KK-040) have run only
-  against fakes; the input part shares part 1's 1,800 s budget.
-- **MO2:** rewrites `ModOrganizer.ini` and `plugins.txt` at launch (known, no grade change);
-  the selected profile may stay `Kitkraft Dev` afterwards.
+- **Input:** opening the workbench menu and NPC dialogue by E (SC-4, SC-2); the Data menu's
+  autosave on every Tab is assumed, seen once.
+- **The window:** OW-2's real-window checks (KK-032 to KK-036, KK-040) have run only against
+  fakes; the input part shares part 1's 1,800 s budget.
+- **MO2:** rewrites `ModOrganizer.ini` and `plugins.txt` at launch (known, restored by the
+  controller, no grade change); a dialog "waiting on an application to close before
+  exiting" may sit over the game for the first minutes and goes away by itself.
 
-## Tonight's dry runs (2026-11-15, 23:08 to 23:12, with the release `kit.exe` above)
+## Last night's dry runs (2026-11-15, 23:08 to 23:12)
 
-MO2 was open with `Default` selected (the owner is playing), so every refusal below is
-that, or a plugin not deployed by the lane rules; nothing was written under MO2 or the
-game folder.
-
-| Dry run | Result |
-| ------- | ------ |
-| `ow1-preflight.ps1` | `fails: 4`: `processes` (ModOrganizer running), `selected profile` (`Default`), dry run `[selected-profile]` and `[running]`. PASS: base save `fbed2cc2...eb5ccf`, plugin `9c0b28a6...78ea27`, port 45555 free and not excluded, disk 91.9 GB. List files: `modlist.txt` `bfa10ad4...`, `plugins.txt` `286a54cf...`, `loadorder.txt` `46b28b56...`, `lockedorder.txt` `9962fbb0...`; session id `2026-11-16-T01` |
-| OW-1 `deploy enable --mods OldSovietMarksmanRifle --dry-run` | refused `[running]` only; all three lines "already enabled / already last" |
-| Verification plugin build chain | `VerifyReport.pex` compiled; `KitKraftVerify.esm` SHA-256 `a9632f11...e39faa` (as prepared); roundtrip identical (81,840 bytes, 61 records); package written |
-| Verification `deploy --dev --dry-run` | refused `[live-profile]` only; plan: 2 files into `KitKraft Dev - KitKraftVerify` |
-| Verification `deploy enable --dry-run` | refused `[running]` and `[mod-missing]` (not deployed tonight, by the lane rules) |
-| Verification `testplan` + `make_probes.py` | 106 rows, slot `0A` |
-| Verification `game session --dry-run` | refused `[selected-profile]`, `[running]`, `[plugin-not-deployed]` |
-| OW-2 inputs | rename plugin `9c0b28a6...78ea27`; `out\rename-plan\probes.toml` `d84e011a...a55dc05` (as on 2026-11-02); `game session --dry-run` refused `[selected-profile]`, `[running]` only |
-| CK `kit deploy --dev --dry-run`, 13 group and twin plugins | each refused `[live-profile]` only |
-| CK `kit deploy enable --dry-run`, 13 mods | refused `[running]` once and `[mod-missing]` 13 times. **Fixed tonight:** `deploy.txt`'s enable and disable lines named all mods after one `--mods`, which the CLI refuses (`unexpected argument`); it takes one value per `--mods`. `deploy.txt` was corrected in place (original kept as `deploy.txt.bak-20261115`) and `build.ps1` writes it so |
-| `ck-batch.ps1 -DryRun` | 13 rows listed; each "not deployed" and "not enabled", with the fixing command |
-| `ck-plugin.selftest.ps1`, `ck-sitting.selftest.ps1` | 0 failed each |
-| Input `selftest.py --no-live`; `experiment.py --dry-run`; `run_scenarios.py --dry-run --param npc_ref=0000598D` | 0 failed; 10 PASS, 0 FAIL (fake console); SC-3 PASS, SC-1/2/4 inconclusive by design (screenshot-decided), SC-5 skipped (no `--allow-menu-save`) |
+With the release `kit.exe` of that night (`0bbcfc6d...317172`, from `a618e7d6`); MO2 was
+open with `Default` selected, so every refusal was that, or a plugin not deployed by the
+lane rules. They found one fix that holds tonight: `deploy.txt`'s enable and disable lines
+named all mods after one `--mods`, which the CLI refuses; it takes one value per `--mods`,
+and `deploy.txt` and `build.ps1` were corrected (original kept as
+`deploy.txt.bak-20261115`). The full table is in git history (`2ef0c0cc`).

@@ -1645,3 +1645,64 @@ console function, so `getav` stays the shape. The grader did not read those line
 console failure (V-C-AVIF `inconclusive`, not `fail`): `Unknown variable or function` is a
 failure shape the controller does not know yet. `report.json` SHA-256
 `2b94ab34e66b5af75b2c1db2fee57878745ad2a8c214bb46ce7f42103f0f4f15`. No evidence entered.
+
+### game-20261116-06: agent session 2026-11-16-T06 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-16-T06`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-16 |
+| Status | inconclusive (1 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261116-06` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `C:\Modding\kitkraft-worktrees\bench-ck\out\rename-plan\probes.toml` SHA-256 `d84e011aab7bed95fb67a99e2d0e17eb1ad3debbe34429d5726afb4cfa55dc05` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-16-T06` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help "Old Soviet Marksman Rifle" 4` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help "Old Soviet Marksman Rifle" 4 -> help "Old Soviet Marksman Rifle" 4 | fail (`0021BBCD` not in `help "Old Soviet Marksman Rifle" 4`) | - |
+| T-02 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261116-06`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261116-06`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt; (waited 10s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29; save KitKraftSession-20261116-06 -> save KitKraftSession-20261116-06 Command: save KitKraftSession... | fail (/(?m)>>\s*1(\.0+)?\s*$/ does not match `player.getincell 0006BB29 Command: player.getincell 0006BB29`) | - |
+| T-03 | persistence 4: return and look | - | persistence 4: return and look | - | not-run (manual: the plugin places no new reference with a position and a runtime ID to check after the reload) | - |
+
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (facb98ed72807eee801dc1d84aadf8698b6811d08c09c68f6866d2c92c8df2bf -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-16-T06\backup\01-plugins.txt
+
+Writer's reading (bench 2026-11-16, the **input-injection session**, 03:51 to 04:12, agent-run
+unattended on the owner's go of that night; brought in from the `bench-ck` worktree on
+2026-11-16). `game.stop` wrote this entry as `game-20261116-01` into
+`C:\Modding\kitkraft-worktrees\bench-ck\docs\game-observations.md`, a checkout with no
+2026-11-16 entries, so its id collided with OW-1's `game-20261116-01` on `main`; it is
+renumbered here to the next free id of the day and the copy in `bench-ck` was reverted
+(uncommitted there). Session id, session save name and observe folder keep their `T06`.
+
+- **What the session was for:** keeping the game up for the input experiment (bench sheet
+  block "input"), not for its probe rows. It was started through a long-lived `kit mcp`
+  (`game.session` with `start: true`, dist build `5f889c96` of 2026-11-02, so neither the
+  release `kit.exe` of that night nor the R41 controller), kept idle between commands, and
+  ended with `game.stop`. Its probes are the rename plugin's `out\rename-plan\probes.toml`
+  (`d84e011a...a55dc05`).
+- **Rows:** T-01 and T-02 `fail` with replies that hold only the echo, as they fail on that
+  build; T-03 `not-run` (manual). **No evidence is
+  entered from this entry.** Its rows grade the old controller, not the plugin.
+- **Input results** (the reason for the session): `docs/bench/input-results.md`, from
+  `C:\Modding\kitkraft-observe\scripts\input\RESULTS-20261116.md` (SHA-256
+  `2ad508f1...f9f46`) and `results-20261116.json` (`ef1b0717...861b6f`), per-run reports and
+  every sent input under that folder's `runs\` (ADR 0010 Amendment 2's record of sent
+  input; the controller's `report.json` holds none until KK-362). Session `report.json`
+  `C:\Modding\kitkraft-observe\2026-11-16-T06\report.json` SHA-256
+  `2e8e365df15195cbc3c2e3e903e9aa8cffa27e153252f474afc216b89aa809c5`.
+- **Side effect:** Tab in the world opened the Data menu and the game wrote an autosave
+  (`Autosave1_20261116M546564_000038_20261116090732_1_0_4.sfs`, 04:07) into the dev
+  profile's own saves, `C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\saves\`, beside
+  `KitKraftBase.sfs`. No owner save was touched and no menu save was made; nothing was
+  deleted. `KitKraftBase.sfs` still hashed `fbed2cc2...eb5ccf` (read at 05:00 that morning);
+  the next preflight re-hashes it.
+- **Profile:** `plugins.txt` was rewritten at launch (MO2's known rewrite) and restored by
+  the controller from `C:\Modding\kitkraft-observe\2026-11-16-T06\backup\01-plugins.txt`;
+  its "before" hash `facb98ed...` is the state after block 2's `deploy disable`. An MO2
+  dialog "waiting on an application to close before exiting" sat over the game for the
+  first minutes and went away by itself.
