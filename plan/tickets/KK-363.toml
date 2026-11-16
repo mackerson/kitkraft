@@ -1,0 +1,72 @@
+# Written 2026-11-15 for the 2026-11-16 bench session (testplan probe emitters, category A).
+# Chained after KK-360: both change the three testplan emitters and their tests.
+id = "KK-363"
+title = "testplan: a new interior cell is entered by coc and checked by its runtime ID"
+timeout_min = 45
+budget_h = 2
+priority = 1
+after = ["KK-360"]
+owns = [
+  "crates/engine/src/handlers/testplan.rs",
+  "crates/engine/src/handlers/testplan/probes.rs",
+  "crates/engine/src/handlers/testplan/probes/tests.rs",
+  "docs/game-sessions.md",
+]
+brief = """
+`kit testplan` writes `kitkraft-test.txt` (console batch), `checklist.md` and
+`probes.toml` (one probe per checklist step, row `T-<nn>`) for a plugin:
+`crates/engine/src/handlers/testplan.rs` (batch, checklist, and the scan that builds each
+`Form`) and `crates/engine/src/handlers/testplan/probes.rs` (`build`). Read the module docs
+of both first.
+
+Today a new `CELL` the plugin adds (the `new` command writes a new interior cell) falls into
+the generic branch and gets one `help "<FULL>" 4` or `help <EditorID> 4` row. `help` rows
+have mostly come back inconclusive in sessions (only the echo; `docs/game-observations.md`,
+game-20261103-09), while `coc <cell EditorID>` followed by `player.getincell <cell runtime
+ID>` answering `GetInCell >> 1.00` passed in every session since 2026-11-01 (for example
+2026-11-01-T03 row T-01 and game-20261103-07 row T-05). `build` already writes that pair for
+the cell of a new reference (the `coc {c}: the cell of ...` probe, with `settle` and
+`in_cell`); reuse those helpers. Overridden cells are skipped by the scan (`carried`) and
+stay skipped.
+
+Change: a new (not overridden) interior `CELL` whose EditorID is a console token (`token`)
+and which has a runtime ID gets, instead of its `help` row, one row with the steps
+`coc <EditorID>` (`settle`, so `wait_secs = 10`) and `player.getincell <runtime ID>` (the
+`in_cell` check, regex `ONE`), titled `coc <EditorID>: the new cell <...>` in the style of
+the other titles (keep the form's `<SIG> `<name>`` part in it). The checklist step and the
+batch line say the same (`coc <EditorID>`). A new cell without such an EditorID or runtime
+ID, or an exterior one, keeps the `help` row it gets today. The scan must know whether the
+cell is interior: the reference scan already reads it from the group path
+(`path.first().is_some_and(|g| g.header.label == *b"CELL")`); do the same for the cell
+record, or read its `DATA` interior flag; say which in a comment.
+
+Test, in `crates/engine/src/handlers/testplan/probes/tests.rs`, exact name:
+- `a_new_interior_cell_is_entered_by_coc_and_checked_by_its_runtime_id`: on
+  `world_master(&d)` (already imported), `execute("new", json!({"type": "CELL", "edid":
+  "KC_NewRoom", "fields": {}, "masters": ["World.esm"], "into": <d/New.esp>, "plugins":
+  ["World.esm"], "data_dir": ..., "no_cache": true}))` (the shape of `new_cell` in
+  `crates/engine/src/handlers/authoring_world_tests.rs`), then `testplan` with
+  `json!(["World.esm"])`. Assert: rows == checklist steps; T-01's commands are `["coc
+  KC_NewRoom", "player.getincell <id>"]` where `<id>` is 8 hex digits and is one of T-01's
+  `forms`; waits `[Some(10), None]`; T-01 is not manual; no step anywhere is a `help` for
+  `KC_NewRoom`; and `kitkraft-test.txt` contains the line `coc KC_NewRoom`.
+
+Do not change, loosen or `#[ignore]` any existing test: none places a new cell, so their
+row lists stay as they are. If one changes, stop and say why in your commit message.
+
+Docs: `docs/game-sessions.md`, after the "Template rows and probes" table, one sentence: a
+new interior cell is probed by `coc` and `player.getincell` (this ticket). Update the
+module docs of `probes.rs` (the list of expected values at the top). Do not edit
+`plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p kitkraft-engine --lib testplan` while you work, then `cargo xtask ci`.
+Commit only when the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "new-cell-row"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::testplan::probes::tests::a_new_interior_cell_is_entered_by_coc_and_checked_by_its_runtime_id 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o'''
+
+[[accept]]
+name = "testplan-all"
+cmd = '''cargo test -p kitkraft-engine --lib testplan 2>&1 | tee /tmp/o; grep -Eq '^test result: ok\. [0-9]+ passed; 0 failed' /tmp/o && grep -q 'a_new_interior_cell_is_entered_by_coc_and_checked_by_its_runtime_id ... ok' /tmp/o'''

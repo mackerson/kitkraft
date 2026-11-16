@@ -3727,3 +3727,114 @@ fn a_replay_refuses_the_same_session_ids_on_every_os() {
     }
     let _ = std::fs::remove_dir_all(&work);
 }
+
+// ------------------------------------------- bench prep 2026-11-16: logs and stuck waits
+
+/// A log that exists but that the session never wrote (2026-11-10-T01 copied a console
+/// history last written on 2026-11-01) is recorded as missing with a finding, not copied;
+/// a log the game wrote during the session is copied as before.
+#[test]
+fn a_log_left_from_an_earlier_run_is_recorded_as_missing() {
+    let f = fixture("stale-log");
+    let papyrus = f.root.join("Papyrus.0.log");
+    std::fs::write(&papyrus, "old line\n").unwrap();
+    let history = f.root.join("StarfieldConsoleHistory.log");
+    std::fs::write(&history, "coc CityNewAtlantisApartmentTEMPLATE\n").unwrap();
+    let c = console();
+    let papyrus_for_hook = papyrus.clone();
+    c.on_command(move |cmd| {
+        if cmd.starts_with("coc ") {
+            let mut text = std::fs::read_to_string(&papyrus_for_hook).unwrap();
+            text.push_str("[11/16] KitKraft: hello\n");
+            std::fs::write(&papyrus_for_hook, text).unwrap();
+        }
+    });
+    let mut p = plan(&f, &c, &papyrus, "2026-11-16-T01");
+    p.logs[1].1 = history.clone();
+    let report = run(&p, deps(&host(), &c), &Shared::new(&p.session));
+    let _ = std::fs::remove_dir_all(&f.root);
+    let logs: Vec<(&str, bool)> = report
+        .logs
+        .iter()
+        .map(|(n, copy)| (n.as_str(), copy.is_some()))
+        .collect();
+    assert_eq!(logs, [("papyrus", true), ("console-history", false)]);
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|x| x.starts_with("log console-history was not written during the session")),
+        "{:?}",
+        report.findings
+    );
+    assert!(
+        !report.findings.iter().any(|x| x.starts_with("log papyrus")),
+        "{:?}",
+        report.findings
+    );
+}
+
+/// A wait that gives up before the probes (the launch or the base save, as in
+/// 2026-11-10-T01) leaves one diagnostics finding: the session's processes still running,
+/// whether the game had its main window, and a screenshot under the observe folder. The
+/// rows' grades are what they were without it.
+#[test]
+fn a_wait_that_gives_up_records_what_the_box_showed() {
+    let f = fixture("stuck-wait");
+    let c = FakeConsole::start().unwrap();
+    // Never ready: every poll answers an empty body.
+    let h = host();
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-11-16-T02");
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    let shot = p.observe.join("screenshots").join("stuck-1.png");
+    let shot_written = shot.is_file();
+    let _ = std::fs::remove_dir_all(&f.root);
+    assert!(report
+        .rows
+        .iter()
+        .all(|r| r.verdict.label() == "not-run" && r.verdict.text().contains("timeout after")));
+    let d: Vec<&String> = report
+        .findings
+        .iter()
+        .filter(|x| x.starts_with("diagnostics at the wait before the probes"))
+        .collect();
+    assert_eq!(d.len(), 1, "{:?}", report.findings);
+    let d = d[0];
+    assert!(
+        d.contains("running: ") && d.contains("Starfield.exe"),
+        "{d}"
+    );
+    assert!(d.contains("main window of Starfield.exe: yes"), "{d}");
+    assert!(d.contains(&shot.display().to_string()), "{d}");
+    assert!(shot_written);
+    assert!(report.written.contains(&shot), "{:?}", report.written);
+    // Taken before the game is ended.
+    assert!(h.now_running().iter().all(|x| x != "Starfield.exe"));
+}
+
+/// A screenshot that fails does not hide the rest of the diagnostics, and a row timeout
+/// gets them too.
+#[test]
+fn a_row_timeout_records_diagnostics_even_without_a_screenshot() {
+    let f = fixture("stuck-row");
+    let c = console();
+    c.delay("help KitKraftCrate", Duration::from_secs(4));
+    let h = host();
+    h.fail_screenshots();
+    let p = plan(&f, &c, &f.root.join("p.log"), "2026-11-16-T03");
+    let report = run(&p, deps(&h, &c), &Shared::new(&p.session));
+    let _ = std::fs::remove_dir_all(&f.root);
+    let d: Vec<&String> = report
+        .findings
+        .iter()
+        .filter(|x| x.starts_with("diagnostics at row T-01's timeout"))
+        .collect();
+    assert_eq!(d.len(), 1, "{:?}", report.findings);
+    assert!(d[0].contains("screenshot: not taken ("), "{}", d[0]);
+    assert!(d[0].contains("fake screenshot failure"), "{}", d[0]);
+    assert!(
+        d[0].contains("main window of Starfield.exe: yes"),
+        "{}",
+        d[0]
+    );
+}

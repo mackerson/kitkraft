@@ -1,0 +1,1405 @@
+# Written by docs/bench/verify-mod/make_probes.py from a kit testplan probes.toml;
+# regenerate, never edit (docs/bench/verify-mod.md).
+format = 1
+plugin = "KitKraftVerify.esm"
+sha256 = "a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa"
+generated_by = "docs/bench/verify-mod/make_probes.py (bench 2026-11-16) over kit testplan"
+profile = "KitKraft Dev"
+runtime_id_basis = "inferred:runtime-slots-by-scale+masters-load-first"
+notes = [
+    "Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.",
+    "Order: proven console commands first, the reporter, inventory, unverified commands, the save and reload, the checks after it, presence by help last.",
+]
+
+[[probe]]
+row = "V-01"
+title = "coc CityNewAtlantisApartmentTEMPLATE: the test cell"
+forms = ["CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player is in the test cell (game-20261103-08 T-08)"
+
+[[probe]]
+row = "V-20"
+title = "prid 0A00102F; getisid 0A001000: the ACTI KKV10Acti is the base of KKV70Reporter"
+forms = ["KitKraftVerify.esm:00102F", "KKV70Reporter", "0A00102F", "KKV10Acti", "0A001000"]
+
+[[probe.step]]
+command = "prid 0A00102F"
+
+[[probe.step]]
+command = "getisid 0A001000"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the ACTI the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-21"
+title = "prid 0A001030; getisid 0A001001: the STAT KKV11Stat is the base of KKV71StatRef"
+forms = ["KitKraftVerify.esm:001030", "KKV71StatRef", "0A001030", "KKV11Stat", "0A001001"]
+
+[[probe.step]]
+command = "prid 0A001030"
+
+[[probe.step]]
+command = "getisid 0A001001"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the STAT the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-22"
+title = "prid 0A001031; getisid 0A001002: the MSTT KKV12Mstt is the base of KKV72MsttRef"
+forms = ["KitKraftVerify.esm:001031", "KKV72MsttRef", "0A001031", "KKV12Mstt", "0A001002"]
+
+[[probe.step]]
+command = "prid 0A001031"
+
+[[probe.step]]
+command = "getisid 0A001002"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the MSTT the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-23"
+title = "prid 0A001032; getisid 0A001003: the FURN KKV13Furn is the base of KKV73FurnRef"
+forms = ["KitKraftVerify.esm:001032", "KKV73FurnRef", "0A001032", "KKV13Furn", "0A001003"]
+
+[[probe.step]]
+command = "prid 0A001032"
+
+[[probe.step]]
+command = "getisid 0A001003"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the FURN the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-24"
+title = "prid 0A001033; getisid 0A001004: the FLOR KKV14Flor is the base of KKV74FlorRef"
+forms = ["KitKraftVerify.esm:001033", "KKV74FlorRef", "0A001033", "KKV14Flor", "0A001004"]
+
+[[probe.step]]
+command = "prid 0A001033"
+
+[[probe.step]]
+command = "getisid 0A001004"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the FLOR the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-25"
+title = "prid 0A001034; getisid 0A001005: the DOOR KKV15Door is the base of KKV75DoorRef"
+forms = ["KitKraftVerify.esm:001034", "KKV75DoorRef", "0A001034", "KKV15Door", "0A001005"]
+
+[[probe.step]]
+command = "prid 0A001034"
+
+[[probe.step]]
+command = "getisid 0A001005"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the DOOR the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-26"
+title = "prid 0A001035; getisid 0A001006: the LIGH KKV16Ligh is the base of KKV76LighRef"
+forms = ["KitKraftVerify.esm:001035", "KKV76LighRef", "0A001035", "KKV16Ligh", "0A001006"]
+
+[[probe.step]]
+command = "prid 0A001035"
+
+[[probe.step]]
+command = "getisid 0A001006"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the LIGH the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-27"
+title = "prid 0A001036; getisid 0A001007: the CONT KKV17Cont is the base of KKV77ContRef"
+forms = ["KitKraftVerify.esm:001036", "KKV77ContRef", "0A001036", "KKV17Cont", "0A001007"]
+
+[[probe.step]]
+command = "prid 0A001036"
+
+[[probe.step]]
+command = "getisid 0A001007"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the CONT the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-28"
+title = "prid 0A001037; getisid 0A001009: the TERM KKV19Term is the base of KKV78TermRef"
+forms = ["KitKraftVerify.esm:001037", "KKV78TermRef", "0A001037", "KKV19Term", "0A001009"]
+
+[[probe.step]]
+command = "prid 0A001037"
+
+[[probe.step]]
+command = "getisid 0A001009"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the TERM the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-30"
+title = "prid 0A001039; getisid 0A00100C: the MISC KKV30Misc is the base of KKV80MiscRef"
+forms = ["KitKraftVerify.esm:001039", "KKV80MiscRef", "0A001039", "KKV30Misc", "0A00100C"]
+
+[[probe.step]]
+command = "prid 0A001039"
+
+[[probe.step]]
+command = "getisid 0A00100C"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the MISC the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-31"
+title = "prid 0A00103A; getisid 0A00100B: the NPC_ KKV21Npc is the base of KKV81NpcRef"
+forms = ["KitKraftVerify.esm:00103A", "KKV81NpcRef", "0A00103A", "KKV21Npc", "0A00100B"]
+
+[[probe.step]]
+command = "prid 0A00103A"
+
+[[probe.step]]
+command = "getisid 0A00100B"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference's base is the NPC_ the plugin wrote (getisid observed: game-20261103-04 T-03, -06 T-03, -08 T-10, T-15)"
+
+[[probe]]
+row = "V-40"
+title = "leave to CityNewAtlantisLodgeInt and return: the reporter's OnLoad runs"
+forms = ["CityNewAtlantisLodgeInt", "CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 10
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 15
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "back in the test cell, freshly loaded"
+
+[[probe]]
+row = "V-P00"
+title = "Papyrus log: KKV-P00 reporter loaded (ACTI VMAD)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P00 reporter loaded"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P01"
+title = "Papyrus log: KKV-P01 GLOB value=4242 (GLOB)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P01 GLOB value=4242"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P02"
+title = "Papyrus log: KKV-P02 FLST size=2 (FLST)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P02 FLST size=2"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P03"
+title = "Papyrus log: KKV-P03 FLST has-mug=True has-wrench=True (FLST)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P03 FLST has-mug=True has-wrench=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P04"
+title = "Papyrus log: KKV-P04 MISC gold=777 (MISC)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P04 MISC gold=777"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P05"
+title = "Papyrus log: KKV-P05 KYWD on-reporter=True (KYWD)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P05 KYWD on-reporter=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P06"
+title = "Papyrus log: KKV-P06 FACT player-in=True (FACT)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P06 FACT player-in=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P07"
+title = "Papyrus log: KKV-P07 PERK player-has=True (PERK)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P07 PERK player-has=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P08"
+title = "Papyrus log: KKV-P08 AVIF player-value=7 (AVIF)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P08 AVIF player-value=7"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P09"
+title = "Papyrus log: KKV-P09 QUST running=True stage10-done=True (QUST)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P09 QUST running=True stage10-done=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P10"
+title = "Papyrus log: KKV-P10 LCTN reporter-in=True (LCTN)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P10 LCTN reporter-in=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P11"
+title = "Papyrus log: KKV-P11 CONT mugs=3 (CONT)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P11 CONT mugs=3"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P12"
+title = "Papyrus log: KKV-P12 LVLI wrench-added=1 (LVLI)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P12 LVLI wrench-added=1"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P20"
+title = "Papyrus log: KKV-P20 ACTI base-is=True (ACTI)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P20 ACTI base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P21"
+title = "Papyrus log: KKV-P21 STAT base-is=True (STAT)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P21 STAT base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P22"
+title = "Papyrus log: KKV-P22 MSTT base-is=True (MSTT)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P22 MSTT base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P23"
+title = "Papyrus log: KKV-P23 FURN base-is=True (FURN)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P23 FURN base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P24"
+title = "Papyrus log: KKV-P24 FLOR base-is=True (FLOR)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P24 FLOR base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P25"
+title = "Papyrus log: KKV-P25 DOOR base-is=True (DOOR)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P25 DOOR base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P26"
+title = "Papyrus log: KKV-P26 LIGH base-is=True (LIGH)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P26 LIGH base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P27"
+title = "Papyrus log: KKV-P27 CONT base-is=True (CONT)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P27 CONT base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P28"
+title = "Papyrus log: KKV-P28 TERM base-is=True (TERM)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P28 TERM base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P30"
+title = "Papyrus log: KKV-P30 MISC base-is=True (MISC)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P30 MISC base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P31"
+title = "Papyrus log: KKV-P31 NPC_ base-is=True (NPC_)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P31 NPC_ base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P29"
+title = "Papyrus log: KKV-P29 PKIN base-is=True (PKIN)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P29 PKIN base-is=True"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-P98"
+title = "Papyrus log: KKV-P98 PKIN reference base= (PKIN (diagnostic))"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P98 PKIN reference base="
+why = "diagnostic: the line is written whatever the base is; a person reads which form follows `base=` (KK-250)"
+
+[[probe]]
+row = "V-P99"
+title = "Papyrus log: KKV-P99 done (-)"
+forms = ["KKV70Reporter", "0A00102F"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKV-P99 done"
+why = "VerifyReport.psc writes this line on OnLoad only when the check holds; the log written so far in the session is read"
+
+[[probe]]
+row = "V-I-MISC"
+title = "player.additem 0A00100C 1: the MISC KKV30Misc in the inventory"
+forms = ["KitKraftVerify.esm:00100C", "KKV30Misc", "0A00100C"]
+
+[[probe.step]]
+command = "player.additem 0A00100C 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A00100C"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added (getitemcount grade D)"
+
+[[probe]]
+row = "V-I-ALCH"
+title = "player.additem 0A00100E 1: the ALCH KKV32Alch in the inventory"
+forms = ["KitKraftVerify.esm:00100E", "KKV32Alch", "0A00100E"]
+
+[[probe.step]]
+command = "player.additem 0A00100E 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A00100E"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added (getitemcount grade D)"
+
+[[probe]]
+row = "V-I-BOOK"
+title = "player.additem 0A00100F 1: the BOOK KKV33Book in the inventory"
+forms = ["KitKraftVerify.esm:00100F", "KKV33Book", "0A00100F"]
+
+[[probe.step]]
+command = "player.additem 0A00100F 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A00100F"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added (getitemcount grade D)"
+
+[[probe]]
+row = "V-I-KEYM"
+title = "player.additem 0A001010 1: the KEYM KKV34Keym in the inventory"
+forms = ["KitKraftVerify.esm:001010", "KKV34Keym", "0A001010"]
+
+[[probe.step]]
+command = "player.additem 0A001010 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A001010"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added (getitemcount grade D)"
+
+[[probe]]
+row = "V-I-ARMO"
+title = "player.additem 0A001011 1: the ARMO KKV35Armo in the inventory"
+forms = ["KitKraftVerify.esm:001011", "KKV35Armo", "0A001011"]
+
+[[probe.step]]
+command = "player.additem 0A001011 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A001011"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added (getitemcount grade D)"
+
+[[probe]]
+row = "V-I-ARMO-EQ"
+title = "player.equipitem 0A001011: the ARMO is worn"
+forms = ["KKV35Armo", "0A001011"]
+
+[[probe.step]]
+command = "player.equipitem 0A001011"
+
+[[probe.step]]
+command = "player.getequipped 0A001011"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the armor is equipped (getequipped grade D)"
+
+[[probe]]
+row = "V-I-LVLI"
+title = "player.additem 0A00102E 1: the LVLI KKV06Lvli gives its one entry, the wrench 0A00100D"
+forms = ["KKV06Lvli", "0A00102E", "KKV31Misc", "0A00100D"]
+
+[[probe.step]]
+command = "player.additem 0A00102E 1"
+
+[[probe.step]]
+command = "player.getitemcount 0A00100D"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "a leveled list is resolved when added: the count of its entry, never of the list (additem of an LVLI grade D)"
+
+[[probe]]
+row = "V-C-GLOB"
+title = "getglobalvalue KKV01Glob: 4242 (unverified command)"
+forms = ["KKV01Glob", "0A001029"]
+
+[[probe.step]]
+command = "getglobalvalue KKV01Glob"
+matcher = "number"
+expected = "4242"
+tolerance = 0.5
+why = "the plugin's FLTV (command unverified in Starfield)"
+
+[[probe]]
+row = "V-C-FACT"
+title = "player.getinfaction 0A00102B: 1 after the reporter (unverified command)"
+forms = ["KKV03Fact", "0A00102B"]
+
+[[probe.step]]
+command = "player.getinfaction 0A00102B"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reporter added the player (GetInFaction lines seen in coc replies; the command itself unverified)"
+
+[[probe]]
+row = "V-C-PERK"
+title = "player.hasperk 0A001013: 1 after the reporter (unverified command)"
+forms = ["KKV41Perk", "0A001013"]
+
+[[probe.step]]
+command = "player.hasperk 0A001013"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reporter added the perk (command unverified)"
+
+[[probe]]
+row = "V-C-AVIF"
+title = "player.getav KKV40Avif: 7 after the reporter (unverified command)"
+forms = ["KKV40Avif", "0A001012"]
+
+[[probe.step]]
+command = "player.getav KKV40Avif"
+matcher = "number"
+expected = "7"
+tolerance = 0.5
+why = "the reporter set the value (command and EditorID form unverified)"
+
+[[probe]]
+row = "V-C-QUST"
+title = "getstage KKV04Qust: 10 after the reporter (getstage grade D)"
+forms = ["KKV04Qust", "0A00102C"]
+
+[[probe.step]]
+command = "getstage KKV04Qust"
+matcher = "number"
+expected = "10"
+tolerance = 0.5
+why = "the reporter set stage 10 (getstage grade D)"
+
+[[probe]]
+row = "V-S-01"
+title = "persistence 1-3: leave, save to the session's own save, go elsewhere, load it"
+forms = ["CityNewAtlantisLodgeInt", "0006BB29", "CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player is in the leave cell when the save is made"
+
+[[probe.step]]
+command = "save {save}"
+wait_secs = 10
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player left the leave cell after the save"
+
+[[probe.step]]
+command = "load {save}"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the load took the player back to the leave cell: the reload happened"
+
+[[probe]]
+row = "V-S-02"
+title = "return to the test cell after the reload"
+forms = ["CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 10
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "back in the test cell after the reload"
+
+[[probe]]
+row = "V-S-20"
+title = "after the reload: prid 0A00102F; getisid 0A001000 (ACTI)"
+forms = ["KKV70Reporter", "0A00102F", "KKV10Acti", "0A001000"]
+
+[[probe.step]]
+command = "prid 0A00102F"
+
+[[probe.step]]
+command = "getisid 0A001000"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its ACTI base came back from the save"
+
+[[probe]]
+row = "V-S-21"
+title = "after the reload: prid 0A001030; getisid 0A001001 (STAT)"
+forms = ["KKV71StatRef", "0A001030", "KKV11Stat", "0A001001"]
+
+[[probe.step]]
+command = "prid 0A001030"
+
+[[probe.step]]
+command = "getisid 0A001001"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its STAT base came back from the save"
+
+[[probe]]
+row = "V-S-22"
+title = "after the reload: prid 0A001031; getisid 0A001002 (MSTT)"
+forms = ["KKV72MsttRef", "0A001031", "KKV12Mstt", "0A001002"]
+
+[[probe.step]]
+command = "prid 0A001031"
+
+[[probe.step]]
+command = "getisid 0A001002"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its MSTT base came back from the save"
+
+[[probe]]
+row = "V-S-23"
+title = "after the reload: prid 0A001032; getisid 0A001003 (FURN)"
+forms = ["KKV73FurnRef", "0A001032", "KKV13Furn", "0A001003"]
+
+[[probe.step]]
+command = "prid 0A001032"
+
+[[probe.step]]
+command = "getisid 0A001003"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its FURN base came back from the save"
+
+[[probe]]
+row = "V-S-24"
+title = "after the reload: prid 0A001033; getisid 0A001004 (FLOR)"
+forms = ["KKV74FlorRef", "0A001033", "KKV14Flor", "0A001004"]
+
+[[probe.step]]
+command = "prid 0A001033"
+
+[[probe.step]]
+command = "getisid 0A001004"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its FLOR base came back from the save"
+
+[[probe]]
+row = "V-S-25"
+title = "after the reload: prid 0A001034; getisid 0A001005 (DOOR)"
+forms = ["KKV75DoorRef", "0A001034", "KKV15Door", "0A001005"]
+
+[[probe.step]]
+command = "prid 0A001034"
+
+[[probe.step]]
+command = "getisid 0A001005"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its DOOR base came back from the save"
+
+[[probe]]
+row = "V-S-26"
+title = "after the reload: prid 0A001035; getisid 0A001006 (LIGH)"
+forms = ["KKV76LighRef", "0A001035", "KKV16Ligh", "0A001006"]
+
+[[probe.step]]
+command = "prid 0A001035"
+
+[[probe.step]]
+command = "getisid 0A001006"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its LIGH base came back from the save"
+
+[[probe]]
+row = "V-S-27"
+title = "after the reload: prid 0A001036; getisid 0A001007 (CONT)"
+forms = ["KKV77ContRef", "0A001036", "KKV17Cont", "0A001007"]
+
+[[probe.step]]
+command = "prid 0A001036"
+
+[[probe.step]]
+command = "getisid 0A001007"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its CONT base came back from the save"
+
+[[probe]]
+row = "V-S-28"
+title = "after the reload: prid 0A001037; getisid 0A001009 (TERM)"
+forms = ["KKV78TermRef", "0A001037", "KKV19Term", "0A001009"]
+
+[[probe.step]]
+command = "prid 0A001037"
+
+[[probe.step]]
+command = "getisid 0A001009"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its TERM base came back from the save"
+
+[[probe]]
+row = "V-S-30"
+title = "after the reload: prid 0A001039; getisid 0A00100C (MISC)"
+forms = ["KKV80MiscRef", "0A001039", "KKV30Misc", "0A00100C"]
+
+[[probe.step]]
+command = "prid 0A001039"
+
+[[probe.step]]
+command = "getisid 0A00100C"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its MISC base came back from the save"
+
+[[probe]]
+row = "V-S-31"
+title = "after the reload: prid 0A00103A; getisid 0A00100B (NPC_)"
+forms = ["KKV81NpcRef", "0A00103A", "KKV21Npc", "0A00100B"]
+
+[[probe.step]]
+command = "prid 0A00103A"
+
+[[probe.step]]
+command = "getisid 0A00100B"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the reference and its NPC_ base came back from the save"
+
+[[probe]]
+row = "V-S-I-MISC"
+title = "after the reload: player.getitemcount 0A00100C (MISC)"
+forms = ["KKV30Misc", "0A00100C"]
+
+[[probe.step]]
+command = "player.getitemcount 0A00100C"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-I-ALCH"
+title = "after the reload: player.getitemcount 0A00100E (ALCH)"
+forms = ["KKV32Alch", "0A00100E"]
+
+[[probe.step]]
+command = "player.getitemcount 0A00100E"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-I-BOOK"
+title = "after the reload: player.getitemcount 0A00100F (BOOK)"
+forms = ["KKV33Book", "0A00100F"]
+
+[[probe.step]]
+command = "player.getitemcount 0A00100F"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-I-KEYM"
+title = "after the reload: player.getitemcount 0A001010 (KEYM)"
+forms = ["KKV34Keym", "0A001010"]
+
+[[probe.step]]
+command = "player.getitemcount 0A001010"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-I-ARMO"
+title = "after the reload: player.getitemcount 0A001011 (ARMO)"
+forms = ["KKV35Armo", "0A001011"]
+
+[[probe.step]]
+command = "player.getitemcount 0A001011"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-I-LVLI"
+title = "after the reload: player.getitemcount 0A00100D (LVLI)"
+forms = ["KKV31Misc", "0A00100D"]
+
+[[probe.step]]
+command = "player.getitemcount 0A00100D"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item added before the save is still held"
+
+[[probe]]
+row = "V-S-GLOB"
+title = "after the reload: getglobalvalue KKV01Glob (unverified command)"
+forms = ["KKV01Glob"]
+
+[[probe.step]]
+command = "getglobalvalue KKV01Glob"
+matcher = "number"
+expected = "4242"
+tolerance = 0.5
+why = "the global after the reload"
+
+[[probe]]
+row = "V-S-FACT"
+title = "after the reload: player.getinfaction 0A00102B (unverified command)"
+forms = ["KKV03Fact"]
+
+[[probe.step]]
+command = "player.getinfaction 0A00102B"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the faction membership was saved"
+
+[[probe]]
+row = "V-S-PERK"
+title = "after the reload: player.hasperk 0A001013 (unverified command)"
+forms = ["KKV41Perk"]
+
+[[probe.step]]
+command = "player.hasperk 0A001013"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the perk was saved"
+
+[[probe]]
+row = "V-S-AVIF"
+title = "after the reload: player.getav KKV40Avif (unverified command)"
+forms = ["KKV40Avif"]
+
+[[probe.step]]
+command = "player.getav KKV40Avif"
+matcher = "number"
+expected = "7"
+tolerance = 0.5
+why = "the actor value was saved"
+
+[[probe]]
+row = "V-S-QUST"
+title = "after the reload: getstage KKV04Qust (grade D)"
+forms = ["KKV04Qust"]
+
+[[probe.step]]
+command = "getstage KKV04Qust"
+matcher = "number"
+expected = "10"
+tolerance = 0.5
+why = "the quest stage was saved"
+
+[[probe]]
+row = "V-H-TMLM"
+title = "help \"KKV18 Terminal Menu\" 4: the TMLM KKV18Tmlm is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001008", "KKV18Tmlm", "0A001008"]
+
+[[probe.step]]
+command = "help \"KKV18 Terminal Menu\" 4"
+matcher = "contains"
+expected = "0A001008"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-PKIN"
+title = "help KKV20Pkin 4: the PKIN KKV20Pkin is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00100A", "KKV20Pkin", "0A00100A"]
+
+[[probe.step]]
+command = "help KKV20Pkin 4"
+matcher = "contains"
+expected = "0A00100A"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-MESG"
+title = "help \"KKV50 Message\" 4: the MESG KKV50Mesg is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001016", "KKV50Mesg", "0A001016"]
+
+[[probe.step]]
+command = "help \"KKV50 Message\" 4"
+matcher = "contains"
+expected = "0A001016"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-SOUN"
+title = "help KKV51Soun 4: the SOUN KKV51Soun is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001017", "KKV51Soun", "0A001017"]
+
+[[probe.step]]
+command = "help KKV51Soun 4"
+matcher = "contains"
+expected = "0A001017"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-IRES"
+title = "help \"KKV52 Resource\" 4: the IRES KKV52Ires is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001018", "KKV52Ires", "0A001018"]
+
+[[probe.step]]
+command = "help \"KKV52 Resource\" 4"
+matcher = "contains"
+expected = "0A001018"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-TXST"
+title = "help KKV53Txst 4: the TXST KKV53Txst is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001019", "KKV53Txst", "0A001019"]
+
+[[probe.step]]
+command = "help KKV53Txst 4"
+matcher = "contains"
+expected = "0A001019"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-HAZD"
+title = "help \"KKV54 Hazard\" 4: the HAZD KKV54Hazd is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101A", "KKV54Hazd", "0A00101A"]
+
+[[probe.step]]
+command = "help \"KKV54 Hazard\" 4"
+matcher = "contains"
+expected = "0A00101A"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-LVLN"
+title = "help KKV55Lvln 4: the LVLN KKV55Lvln is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101B", "KKV55Lvln", "0A00101B"]
+
+[[probe.step]]
+command = "help KKV55Lvln 4"
+matcher = "contains"
+expected = "0A00101B"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-LVLP"
+title = "help KKV56Lvlp 4: the LVLP KKV56Lvlp is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101C", "KKV56Lvlp", "0A00101C"]
+
+[[probe.step]]
+command = "help KKV56Lvlp 4"
+matcher = "contains"
+expected = "0A00101C"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-PACK"
+title = "help KKV57Pack 4: the PACK KKV57Pack is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101D", "KKV57Pack", "0A00101D"]
+
+[[probe.step]]
+command = "help KKV57Pack 4"
+matcher = "contains"
+expected = "0A00101D"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-RSPJ"
+title = "help \"KKV58 Research\" 4: the RSPJ KKV58Rspj is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101E", "KKV58Rspj", "0A00101E"]
+
+[[probe.step]]
+command = "help \"KKV58 Research\" 4"
+matcher = "contains"
+expected = "0A00101E"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-WKMF"
+title = "help KKV59Wkmf 4: the WKMF KKV59Wkmf is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00101F", "KKV59Wkmf", "0A00101F"]
+
+[[probe.step]]
+command = "help KKV59Wkmf 4"
+matcher = "contains"
+expected = "0A00101F"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-WWED"
+title = "help KKV60Wwed 4: the WWED KKV60Wwed is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001020", "KKV60Wwed", "0A001020"]
+
+[[probe.step]]
+command = "help KKV60Wwed 4"
+matcher = "contains"
+expected = "0A001020"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-ENCH"
+title = "help \"KKV61 Enchantment\" 4: the ENCH KKV61Ench is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001021", "KKV61Ench", "0A001021"]
+
+[[probe.step]]
+command = "help \"KKV61 Enchantment\" 4"
+matcher = "contains"
+expected = "0A001021"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-COBJ"
+title = "help KKV62Cobj 4: the COBJ KKV62Cobj is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001022", "KKV62Cobj", "0A001022"]
+
+[[probe.step]]
+command = "help KKV62Cobj 4"
+matcher = "contains"
+expected = "0A001022"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-REGN"
+title = "help KKV63Regn 4: the REGN KKV63Regn is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001023", "KKV63Regn", "0A001023"]
+
+[[probe.step]]
+command = "help KKV63Regn 4"
+matcher = "contains"
+expected = "0A001023"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-PCBN"
+title = "help KKV64Pcbn 4: the PCBN KKV64Pcbn is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001024", "KKV64Pcbn", "0A001024"]
+
+[[probe.step]]
+command = "help KKV64Pcbn 4"
+matcher = "contains"
+expected = "0A001024"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-PCCN"
+title = "help KKV65Pccn 4: the PCCN KKV65Pccn is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001025", "KKV65Pccn", "0A001025"]
+
+[[probe.step]]
+command = "help KKV65Pccn 4"
+matcher = "contains"
+expected = "0A001025"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-SFBK"
+title = "help KKV66Sfbk 4: the SFBK KKV66Sfbk is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001026", "KKV66Sfbk", "0A001026"]
+
+[[probe.step]]
+command = "help KKV66Sfbk 4"
+matcher = "contains"
+expected = "0A001026"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-SFPT"
+title = "help KKV67Sfpt 4: the SFPT KKV67Sfpt is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001027", "KKV67Sfpt", "0A001027"]
+
+[[probe.step]]
+command = "help KKV67Sfpt 4"
+matcher = "contains"
+expected = "0A001027"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-SFTR"
+title = "help KKV68Sftr 4: the SFTR KKV68Sftr is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001028", "KKV68Sftr", "0A001028"]
+
+[[probe.step]]
+command = "help KKV68Sftr 4"
+matcher = "contains"
+expected = "0A001028"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-OTFT"
+title = "help KKV43Otft 4: the OTFT KKV43Otft is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001015", "KKV43Otft", "0A001015"]
+
+[[probe.step]]
+command = "help KKV43Otft 4"
+matcher = "contains"
+expected = "0A001015"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-KYWD"
+title = "help KKV42Kywd 4: the KYWD KKV42Kywd is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001014", "KKV42Kywd", "0A001014"]
+
+[[probe.step]]
+command = "help KKV42Kywd 4"
+matcher = "contains"
+expected = "0A001014"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-GLOB"
+title = "help KKV01Glob 4: the GLOB KKV01Glob is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001029", "KKV01Glob", "0A001029"]
+
+[[probe.step]]
+command = "help KKV01Glob 4"
+matcher = "contains"
+expected = "0A001029"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-FLST"
+title = "help KKV02Flst 4: the FLST KKV02Flst is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00102A", "KKV02Flst", "0A00102A"]
+
+[[probe.step]]
+command = "help KKV02Flst 4"
+matcher = "contains"
+expected = "0A00102A"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-FACT"
+title = "help \"KKV03 Faction\" 4: the FACT KKV03Fact is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00102B", "KKV03Fact", "0A00102B"]
+
+[[probe.step]]
+command = "help \"KKV03 Faction\" 4"
+matcher = "contains"
+expected = "0A00102B"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-QUST"
+title = "help \"KKV04 Quest\" 4: the QUST KKV04Qust is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00102C", "KKV04Qust", "0A00102C"]
+
+[[probe.step]]
+command = "help \"KKV04 Quest\" 4"
+matcher = "contains"
+expected = "0A00102C"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-LCTN"
+title = "help \"KKV05 Location\" 4: the LCTN KKV05Lctn is loaded (presence only)"
+forms = ["KitKraftVerify.esm:00102D", "KKV05Lctn", "0A00102D"]
+
+[[probe.step]]
+command = "help \"KKV05 Location\" 4"
+matcher = "contains"
+expected = "0A00102D"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-AVIF"
+title = "help KKV40Avif 4: the AVIF KKV40Avif is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001012", "KKV40Avif", "0A001012"]
+
+[[probe.step]]
+command = "help KKV40Avif 4"
+matcher = "contains"
+expected = "0A001012"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "V-H-PERK"
+title = "help \"KKV41 Perk\" 4: the PERK KKV41Perk is loaded (presence only)"
+forms = ["KitKraftVerify.esm:001013", "KKV41Perk", "0A001013"]
+
+[[probe.step]]
+command = "help \"KKV41 Perk\" 4"
+matcher = "contains"
+expected = "0A001013"
+why = "the game lists the form under its runtime ID (presence only: no field effect is shown)"
+
+[[probe.step]]
+command = "prid 00000014"

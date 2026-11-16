@@ -1,0 +1,81 @@
+# Written 2026-11-15 for the 2026-11-16 bench session (testplan probe emitters, category A).
+id = "KK-360"
+title = "testplan: an overridden inventory item keeps its help row and gets an additem row (R22)"
+timeout_min = 45
+budget_h = 2
+priority = 1
+owns = [
+  "crates/engine/src/handlers/testplan.rs",
+  "crates/engine/src/handlers/testplan/probes.rs",
+  "crates/engine/src/handlers/testplan/probes/tests.rs",
+  "docs/game-sessions.md",
+]
+brief = """
+`kit testplan` writes three files for a plugin: the console batch `kitkraft-test.txt`, the
+`checklist.md` for a person and `probes.toml` for `kit game session` (one probe per
+checklist step, same order, row `T-<nn>`). The code is
+`crates/engine/src/handlers/testplan.rs` (batch and checklist) and
+`crates/engine/src/handlers/testplan/probes.rs` (`build`, the probes); read the module docs
+of both first.
+
+The gap (ledger `docs/game-observations.md`, the V1 rename session, ruling R22): "testplan
+writes no additem row for an override of a vanilla WEAP", so the `player.additem` half of V1
+has never run. Today each of the three emitters has a branch
+`(f.new && ITEMS.contains(sig)) || f.signature == "ARMO"` that writes an additem row (plus
+equip and look rows for ARMO), and every other form, an overridden WEAP included, gets one
+`help "<FULL>" 4` (or `help <EditorID> 4`) row. `ITEMS` is the list of inventory types at
+the top of `testplan.rs`.
+
+Change all three emitters so that an override (not new) of a type in `ITEMS`, other than
+`ARMO` (ARMO keeps its own rows, unchanged), gets two rows in this order: the `help` row it
+gets today, unchanged, then an additem row exactly like a new item's: batch line
+`player.additem <runtime ID> 1`; checklist step ``player.additem <runtime ID> 1`` with its
+**Expect:** line; probe steps `player.additem <runtime ID> 1` (no matcher) then
+`player.getitemcount <runtime ID>` with the regex matcher `AT_LEAST_ONE`. When the form has
+no runtime ID the probe is `manual` with "the form has no runtime ID", as for a new item.
+New items, ARMO, references and every other type keep exactly the rows they get today. The
+command shapes are already in use: `player.additem <id> 1` was sent in game-20261014-01 (O2-01),
+and `player.getitemcount` is what testplan already writes for new items (grade D, listed in
+the probes' notes; leave that note as is).
+
+Tests, in `crates/engine/src/handlers/testplan/probes/tests.rs` (the helpers `testplan`,
+`read`, `rows`, `commands`, `checklist_steps`, `set_full` and `weapons_data` are there; the
+rename shape in `the_rename_and_overhaul_shapes_search_by_the_new_full` is your template):
+
+- `an_overridden_weapon_gets_an_additem_row_after_its_help_row` (new): `set_full` on
+  `OldRifle` into `Rename.esm`, then `testplan`. Assert rows == checklist steps ==
+  `["T-01", "T-02", "T-03", "T-04"]`; T-01's commands are `["help \\"Old Soviet Marksman
+  Rifle\\" 4"]`; T-02's are `["player.additem 00000800 1", "player.getitemcount
+  00000800"]`, its second step's matcher is `Matcher::Regex`, and it is not manual; T-03 is
+  the persistence row and T-04 the manual "return and look" row, as before; and the batch
+  file `kitkraft-test.txt` in the out folder contains the line `player.additem 00000800 1`.
+- `the_rename_and_overhaul_shapes_search_by_the_new_full` (existing): this is the one
+  existing test you may change, and only its row lists: the rename shape now has four rows
+  (T-01 to T-04, `probes[3]` the manual one), and the overhaul's two `help` rows are T-01 and
+  T-03 (the additem rows T-02 and T-04). Keep every other assertion in it.
+
+Do not change, loosen or `#[ignore]` any other test. If another existing test's row list
+changes because of this behaviour, stop and say so in your commit message (none is expected:
+the POI, actors, ownership and script shapes place references or override cells).
+
+Docs: in `docs/game-sessions.md`, table "Template rows and probes", row O2-01: add that the
+rename plugin's next row is `player.additem <runtime ID> 1` then `player.getitemcount`
+(R22). In `testplan.rs`'s module docs, the batch bullet says additem is for "each new item and
+each new or overridden ARMO": add overridden items. Do not edit `plan/STATUS.md` (no
+"Landed" line); say what you changed in your commit message.
+
+Run `cargo test -p kitkraft-engine --lib testplan` while you work, then `cargo xtask ci`.
+Commit only when the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "additem-row"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::testplan::probes::tests::an_overridden_weapon_gets_an_additem_row_after_its_help_row handlers::testplan::probes::tests::the_rename_and_overhaul_shapes_search_by_the_new_full 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "testplan-all"
+cmd = '''cargo test -p kitkraft-engine --lib testplan 2>&1 | tee /tmp/o; grep -Eq '^test result: ok\. [0-9]+ passed; 0 failed' /tmp/o && grep -q 'an_overridden_weapon_gets_an_additem_row_after_its_help_row ... ok' /tmp/o'''
+
+[[accept]]
+name = "doc-row"
+cmd = '''grep '^| O2-01 |' docs/game-sessions.md | grep -q 'player.additem' '''
