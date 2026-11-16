@@ -50,6 +50,15 @@
 #   - `ExternalDataSource` (EXDC..EXBS, L6140-L6157), `FormLinkData` (ITMC, FLKW/FLFM
 #     pairs, L6158-L6165), `Blueprint` (BUO4..BOID, L6561-L6602) and `HoudiniData` (one
 #     PCCC payload, L6603-L6606, kept opaque as PTCL) (2026-11-16).
+#   - `AdaptiveTrigger` (WFIR, WAIM, L6060-L6074), `AddToInventoryOnDestroy` (INAM,
+#     L6075-L6078), `CityMapsUsage` (MOD2, L6092-L6095), `SpawnOnDestroy` (SODA,
+#     L6231-L6234), `WorldSpaceOverlay` (SNAM, PNAM, BNAM, L6554-L6560),
+#     `ImageSpaceModifiable` (MNAM, L6615-L6618), `ForcedLocRefType` (FTYP, L6686-L6689),
+#     `Container` (COCT, CNTO; L6678-L6681, without COED) and `BodyPartInfo` (one GNAM,
+#     unknown upstream, kept opaque, L6690-L6693)
+#     (2026-11-16).
+#   - `Crowd` (CDND, CDNS, populations of PRPS, CITC, conditions, STRV, FLTV,
+#     L6106-L6117; 2026-11-16), after PropertySheet (see its note).
 # After those groups, the subrecord union `NamedLayout` (ADR 0015; KK-294, 2026-11-15) reads
 # the layouts upstream chooses by the component name, each one DATA or DAT2 subrecord
 # (L1479-L1551 and L6699-L6819): star data, orbited data, unique overlay list, unique pattern
@@ -78,6 +87,59 @@ sig = "BFCB"
 name = "ComponentType"
 type = "zstring"
 note = "component type name, for example BGSQualityUpgrade_Component"
+
+[[member]]
+group = "AdaptiveTrigger"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6060-L6074"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 19 BGSAdaptiveTriggerData_Component blocks of the 14 official ESMs (all KYWD) each hold one 4-byte WFIR and one 4-byte WAIM; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSAdaptiveTriggerData_Component: controller trigger resistance when firing and aiming"
+
+[[member.member]]
+sig = "WFIR"
+name = "FireEffect"
+type = "struct"
+size = 4
+card = "optional"
+field = [
+  { name = "Unused", type = "opaque", size = 1 },
+  { name = "StartPosition", type = "u8" },
+  { name = "EndPosition", type = "u8" },
+  { name = "Strength", type = "u8" },
+]
+
+[[member.member]]
+sig = "WAIM"
+name = "AdsEffect"
+type = "struct"
+size = 4
+card = "optional"
+field = [
+  { name = "Unused", type = "opaque", size = 1 },
+  { name = "StartPosition", type = "u8" },
+  { name = "EndPosition", type = "u8" },
+  { name = "Strength", type = "u8" },
+]
+
+[[member]]
+group = "AddToInventoryOnDestroy"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6075-L6078"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 1,702 BGSAddToInventoryOnDestroy_Component blocks with data of the 14 official ESMs (GBFM 1,701, MSTT 1) each hold one 4-byte INAM; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSAddToInventoryOnDestroy_Component: the leveled item added to the player's inventory when the object is destroyed"
+
+[[member.member]]
+sig = "INAM"
+name = "Item"
+type = "formid"
+targets = ["LVLI"]
+card = "optional"
 
 [[member]]
 group = "AnimationGraph"
@@ -141,6 +203,23 @@ element = "formid"
 targets = ["KYWD"]
 count = "rest"
 card = "optional"
+
+[[member]]
+group = "CityMapsUsage"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6092-L6095"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 4 BGSCityMapsUsage_Component blocks of the 14 official ESMs (all CELL) each hold one 260-byte MOD2; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSCityMapsUsage_Component: the city map model"
+
+[[member.member]]
+sig = "MOD2"
+name = "ModelPath"
+type = "zstring"
+card = "optional"
+note = "upstream caps it at 260 bytes"
 
 [[member]]
 group = "ContactShadow"
@@ -515,6 +594,72 @@ element = "ref:PropertyValue"
 card = "optional"
 
 [[member]]
+group = "Crowd"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6106-L6117"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5688-L5695",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 24 BGSCrowdComponent_Component blocks of the 14 official ESMs (all GBFM) hold CDND, CDNS, then one or two populations (46 in all: PRPS, CITC, 0 to 4 CTDA, STRV, FLTV); every PRPS a whole number of 12-byte entries (0 to 54); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSCrowdComponent_Component: crowd density and its populations. Placed after PropertySheet, unlike upstream's order: every member up to CITC is optional upstream, so before PropertySheet this group would take every PRPS-led property sheet; a crowd block that starts with PRPS (none official) is read as a property sheet"
+
+[[member.member]]
+sig = "CDND"
+name = "Density"
+type = "f32"
+card = "optional"
+
+[[member.member]]
+sig = "CDNS"
+name = "PopulationCount"
+type = "u32"
+card = "optional"
+note = "number of Populations that follow; stored, not derived"
+
+[[member.member]]
+group = "Populations"
+card = "repeated"
+
+[[member.member.member]]
+sig = "PRPS"
+name = "Proportions"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+size_by_version = [{ max = 151, size = 8 }, { min = 152, size = 12 }]
+field = [
+  { name = "Actor", type = "formid", targets = ["NPC_"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"], since = 152, note = "0 when none (upstream also allows NULL)" },
+]
+
+[[member.member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+note = "number of conditions that follow; stored, not derived (upstream: required)"
+
+[[member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member.member.member]]
+sig = "STRV"
+name = "Name"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "FLTV"
+name = "PopulationScale"
+type = "f32"
+card = "optional"
+
+[[member]]
 group = "QualityUpgrade"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6203-L6206"
@@ -624,6 +769,56 @@ field = [
   { name = "WeaponSlot2", type = "i32" },
   { name = "WeaponSlot3", type = "i32" },
 ]
+
+[[member]]
+group = "SpawnOnDestroy"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6231-L6234"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L53",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 75 BGSSpawnOnDestroy_Component blocks of the 14 official ESMs (MSTT 71, GBFM 4) each hold one 4-byte SODA; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSpawnOnDestroy_Component: the object spawned when this one is destroyed"
+
+[[member.member]]
+sig = "SODA"
+name = "Spawn"
+type = "formid"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+card = "optional"
+note = "any base object (upstream's base object list)"
+
+[[member]]
+group = "WorldSpaceOverlay"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6554-L6560"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 582 BGSWorldSpaceOverlay_Component blocks of the 14 official ESMs (WRLD 580, REFR 2) each hold a 4-byte SNAM, PNAM and BNAM in this order; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSWorldSpaceOverlay_Component: the star system, planet and surface block of an overlay worldspace. Upstream lets each member be left out; a block without SNAM and PNAM that starts with BNAM would be read by AnimationGraph (its member order comes first; no official block does that)"
+
+[[member.member]]
+sig = "SNAM"
+name = "StarSystemId"
+type = "i32"
+card = "optional"
+note = "upstream shows it as the star's ID"
+
+[[member.member]]
+sig = "PNAM"
+name = "PlanetId"
+type = "i32"
+card = "optional"
+
+[[member.member]]
+sig = "BNAM"
+name = "SurfaceBlock"
+type = "formid"
+targets = ["SFBK"]
+card = "optional"
+note = "0 when none (upstream also allows NULL)"
 
 [[member]]
 group = "Blueprint"
@@ -760,6 +955,56 @@ type = "lstring"
 card = "optional"
 
 [[member]]
+group = "ImageSpaceModifiable"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6615-L6618"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 50 TESImageSpaceModifiableForm_Component blocks with data of the 14 official ESMs (FURN 49, ARTO 1) each hold one 4-byte MNAM; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESImageSpaceModifiableForm_Component: the image space adapter"
+
+[[member.member]]
+sig = "MNAM"
+name = "ImageSpaceAdapter"
+type = "formid"
+targets = ["IMAD"]
+card = "optional"
+
+[[member]]
+group = "Container"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6678-L6681"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2293-L2327",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L53",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 83 TESContainer_Component blocks with data of the 14 official ESMs (all GBFM) hold one 4-byte COCT and its 8-byte CNTO (154 in all), no COED; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "TESContainer_Component: inventory items. Upstream reads it with the shared container items helper (common/ContainerItems.toml); its optional COED is left out here, since no official block carries one and a `reference` member in this shared block would lower every record type with components below `corpus`, so a block with a COED stays raw"
+
+[[member.member]]
+sig = "COCT"
+name = "Count"
+type = "u32"
+card = "optional"
+note = "number of Items that follow; stored, not derived"
+
+[[member.member]]
+group = "Items"
+card = "repeated"
+
+[[member.member.member]]
+sig = "CNTO"
+name = "Entry"
+type = "struct"
+size = 8
+field = [
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
+  { name = "Count", type = "i32" },
+]
+
+[[member]]
 group = "LightLayer"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6682-L6685"
@@ -828,6 +1073,43 @@ sig = "XLMS"
 name = "RingId"
 type = "zstring"
 card = "optional"
+
+[[member]]
+group = "ForcedLocRefType"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6686-L6689"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the 14 BGSForcedLocRefType_Component blocks with data of the 14 official ESMs (all GBFM) each hold one 4-byte FTYP (one FormID); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSForcedLocRefType_Component: forced location reference types"
+
+[[member.member]]
+sig = "FTYP"
+name = "LocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+card = "optional"
+
+[[member]]
+group = "BodyPartInfo"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6690-L6693"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-16: the one BGSBodyPartInfo_Component block with data of the 14 official ESMs (AVMD) holds one 4-byte GNAM; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSBodyPartInfo_Component: upstream reads its GNAM as unknown bytes"
+
+[[member.member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "optional"
+note = "unknown upstream"
 
 [[member]]
 group_ref = "Keywords"

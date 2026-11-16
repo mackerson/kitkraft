@@ -1567,6 +1567,183 @@ impl Visit for AttackData {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockAdaptiveTriggerFireEffect {
+    pub unused: [u8; 1],
+    pub start_position: u8,
+    pub end_position: u8,
+    pub strength: u8,
+}
+
+impl Field for BfcbBlockAdaptiveTriggerFireEffect {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "BfcbBlock.AdaptiveTrigger.WFIR.Unused", ctx)?;
+        let f1 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WFIR.StartPosition", ctx)?;
+        let f2 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WFIR.EndPosition", ctx)?;
+        let f3 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WFIR.Strength", ctx)?;
+        Ok(Self {
+            unused: f0,
+            start_position: f1,
+            end_position: f2,
+            strength: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.start_position.write(out);
+        self.end_position.write(out);
+        self.strength.write(out);
+    }
+}
+
+impl Visit for BfcbBlockAdaptiveTriggerFireEffect {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockAdaptiveTriggerAdsEffect {
+    pub unused: [u8; 1],
+    pub start_position: u8,
+    pub end_position: u8,
+    pub strength: u8,
+}
+
+impl Field for BfcbBlockAdaptiveTriggerAdsEffect {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "BfcbBlock.AdaptiveTrigger.WAIM.Unused", ctx)?;
+        let f1 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WAIM.StartPosition", ctx)?;
+        let f2 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WAIM.EndPosition", ctx)?;
+        let f3 = u8::read(r, "BfcbBlock.AdaptiveTrigger.WAIM.Strength", ctx)?;
+        Ok(Self {
+            unused: f0,
+            start_position: f1,
+            end_position: f2,
+            strength: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused.write(out);
+        self.start_position.write(out);
+        self.end_position.write(out);
+        self.strength.write(out);
+    }
+}
+
+impl Visit for BfcbBlockAdaptiveTriggerAdsEffect {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockAdaptiveTrigger {
+    /// `WFIR`, optional.
+    pub fire_effect: Option<Sub<BfcbBlockAdaptiveTriggerFireEffect>>,
+    /// `WAIM`, optional.
+    pub ads_effect: Option<Sub<BfcbBlockAdaptiveTriggerAdsEffect>>,
+}
+
+impl BfcbBlockAdaptiveTrigger {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"WFIR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WAIM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.fire_effect,
+                    subs,
+                    *index,
+                    "BfcbBlock.AdaptiveTrigger.WFIR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.ads_effect,
+                    subs,
+                    *index,
+                    "BfcbBlock.AdaptiveTrigger.WAIM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"WFIR", self.fire_effect.as_ref());
+        emit(out, *b"WAIM", self.ads_effect.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockAdaptiveTrigger {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockAddToInventoryOnDestroy {
+    /// `INAM`, optional.
+    pub item: Option<Sub<FormId>>,
+}
+
+impl BfcbBlockAddToInventoryOnDestroy {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"INAM",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.item,
+                    subs,
+                    *index,
+                    "BfcbBlock.AddToInventoryOnDestroy.INAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"INAM", self.item.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockAddToInventoryOnDestroy {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.item, "BfcbBlock.AddToInventoryOnDestroy.INAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.item,
+            "BfcbBlock.AddToInventoryOnDestroy.INAM",
+            out,
+        );
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct BfcbBlockAnimationGraph {
     /// `ANAM`, optional.
@@ -1751,6 +1928,48 @@ impl Visit for BfcbBlockAttachParentArray {
         );
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockCityMapsUsage {
+    /// `MOD2`, optional.
+    pub model_path: Option<Sub<ZString>>,
+}
+
+impl BfcbBlockCityMapsUsage {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"MOD2",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.model_path,
+                    subs,
+                    *index,
+                    "BfcbBlock.CityMapsUsage.MOD2",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"MOD2", self.model_path.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockCityMapsUsage {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BfcbBlockContactShadowContactShadows {
@@ -6838,6 +7057,296 @@ impl Visit for BfcbBlockPropertySheet {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockCrowdPopulationsProportionsItem {
+    pub actor: FormId,
+    pub value: f32,
+    /// Present for form versions 152 and later.
+    pub curve_table: Option<FormId>,
+}
+
+impl Field for BfcbBlockCrowdPopulationsProportionsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "BfcbBlock.Crowd.Populations.PRPS.Actor", ctx)?;
+        let f1 = f32::read(r, "BfcbBlock.Crowd.Populations.PRPS.Value", ctx)?;
+        let f2 = if ctx.has(Some(152), None) {
+            Some(Field::read(
+                r,
+                "BfcbBlock.Crowd.Populations.PRPS.CurveTable",
+                ctx,
+            )?)
+        } else {
+            None
+        };
+        Ok(Self {
+            actor: f0,
+            value: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.actor.write(out);
+        self.value.write(out);
+        if let Some(value) = &self.curve_table {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for BfcbBlockCrowdPopulationsProportionsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.actor, "BfcbBlock.Crowd.Populations.PRPS.Actor", out);
+        visit_form_ids(
+            &self.curve_table,
+            "BfcbBlock.Crowd.Populations.PRPS.CurveTable",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.actor,
+            "BfcbBlock.Crowd.Populations.PRPS.Actor",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.curve_table,
+            "BfcbBlock.Crowd.Populations.PRPS.CurveTable",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockCrowdPopulationsProportions(pub Vec<BfcbBlockCrowdPopulationsProportionsItem>);
+
+impl Field for BfcbBlockCrowdPopulationsProportions {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockCrowdPopulationsProportions {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockCrowdPopulations {
+    /// `PRPS`, optional.
+    pub proportions: Option<Sub<BfcbBlockCrowdPopulationsProportions>>,
+    /// `CITC`, required.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `STRV`, optional.
+    pub name: Option<Sub<ZString>>,
+    /// `FLTV`, optional.
+    pub population_scale: Option<Sub<f32>>,
+}
+
+impl BfcbBlockCrowdPopulations {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"PRPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"STRV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTV",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.proportions,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.Populations.PRPS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.Populations.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 2, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.name,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.Populations.STRV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.population_scale,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.Populations.FLTV",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"PRPS", self.proportions.as_ref());
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"STRV", self.name.as_ref());
+        emit(out, *b"FLTV", self.population_scale.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockCrowdPopulations {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.proportions, "BfcbBlock.Crowd.Populations.PRPS", out);
+        visit_form_ids(
+            &self.conditions,
+            "BfcbBlock.Crowd.Populations.Conditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.proportions,
+            "BfcbBlock.Crowd.Populations.PRPS",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "BfcbBlock.Crowd.Populations.Conditions",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockCrowd {
+    /// `CDND`, optional.
+    pub density: Option<Sub<f32>>,
+    /// `CDNS`, optional.
+    pub population_count: Option<Sub<u32>>,
+    /// Group `Populations`, repeated.
+    pub populations: Vec<BfcbBlockCrowdPopulations>,
+}
+
+impl BfcbBlockCrowd {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"CDND",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CDNS",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlockCrowdPopulations::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.density,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.CDND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.population_count,
+                    subs,
+                    *index,
+                    "BfcbBlock.Crowd.CDNS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlockCrowdPopulations::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.populations.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"CDND", self.density.as_ref());
+        emit(out, *b"CDNS", self.population_count.as_ref());
+        for group in &self.populations {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for BfcbBlockCrowd {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.populations, "BfcbBlock.Crowd.Populations", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.populations, "BfcbBlock.Crowd.Populations", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct BfcbBlockQualityUpgradeQualityUpgrades(pub Vec<FormId>);
 
 impl Field for BfcbBlockQualityUpgradeQualityUpgrades {
@@ -7215,6 +7724,142 @@ impl BfcbBlockSpaceshipWeaponBindings {
 }
 
 impl Visit for BfcbBlockSpaceshipWeaponBindings {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockSpawnOnDestroy {
+    /// `SODA`, optional.
+    pub spawn: Option<Sub<FormId>>,
+}
+
+impl BfcbBlockSpawnOnDestroy {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"SODA",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.spawn,
+                    subs,
+                    *index,
+                    "BfcbBlock.SpawnOnDestroy.SODA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"SODA", self.spawn.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockSpawnOnDestroy {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.spawn, "BfcbBlock.SpawnOnDestroy.SODA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.spawn, "BfcbBlock.SpawnOnDestroy.SODA", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockWorldSpaceOverlay {
+    /// `SNAM`, optional.
+    pub star_system_id: Option<Sub<i32>>,
+    /// `PNAM`, optional.
+    pub planet_id: Option<Sub<i32>>,
+    /// `BNAM`, optional.
+    pub surface_block: Option<Sub<FormId>>,
+}
+
+impl BfcbBlockWorldSpaceOverlay {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"SNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.star_system_id,
+                    subs,
+                    *index,
+                    "BfcbBlock.WorldSpaceOverlay.SNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.planet_id,
+                    subs,
+                    *index,
+                    "BfcbBlock.WorldSpaceOverlay.PNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.surface_block,
+                    subs,
+                    *index,
+                    "BfcbBlock.WorldSpaceOverlay.BNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"SNAM", self.star_system_id.as_ref());
+        emit(out, *b"PNAM", self.planet_id.as_ref());
+        emit(out, *b"BNAM", self.surface_block.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockWorldSpaceOverlay {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.surface_block, "BfcbBlock.WorldSpaceOverlay.BNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.surface_block,
+            "BfcbBlock.WorldSpaceOverlay.BNAM",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Vec3 {
@@ -7918,6 +8563,212 @@ impl Visit for BfcbBlockFullName {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockImageSpaceModifiable {
+    /// `MNAM`, optional.
+    pub image_space_adapter: Option<Sub<FormId>>,
+}
+
+impl BfcbBlockImageSpaceModifiable {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"MNAM",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.image_space_adapter,
+                    subs,
+                    *index,
+                    "BfcbBlock.ImageSpaceModifiable.MNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"MNAM", self.image_space_adapter.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockImageSpaceModifiable {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.image_space_adapter,
+            "BfcbBlock.ImageSpaceModifiable.MNAM",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.image_space_adapter,
+            "BfcbBlock.ImageSpaceModifiable.MNAM",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockContainerItemsEntry {
+    pub item: FormId,
+    pub count: i32,
+}
+
+impl Field for BfcbBlockContainerItemsEntry {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "BfcbBlock.Container.Items.CNTO.Item", ctx)?;
+        let f1 = i32::read(r, "BfcbBlock.Container.Items.CNTO.Count", ctx)?;
+        Ok(Self {
+            item: f0,
+            count: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.item.write(out);
+        self.count.write(out);
+    }
+}
+
+impl Visit for BfcbBlockContainerItemsEntry {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.item, "BfcbBlock.Container.Items.CNTO.Item", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.item, "BfcbBlock.Container.Items.CNTO.Item", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockContainerItems {
+    /// `CNTO`, required.
+    pub entry: Option<Sub<BfcbBlockContainerItemsEntry>>,
+}
+
+impl BfcbBlockContainerItems {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"CNTO",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.entry,
+                    subs,
+                    *index,
+                    "BfcbBlock.Container.Items.CNTO",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"CNTO", self.entry.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockContainerItems {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.entry, "BfcbBlock.Container.Items.CNTO", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.entry, "BfcbBlock.Container.Items.CNTO", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockContainer {
+    /// `COCT`, optional.
+    pub count: Option<Sub<u32>>,
+    /// Group `Items`, repeated.
+    pub items: Vec<BfcbBlockContainerItems>,
+}
+
+impl BfcbBlockContainer {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"COCT",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlockContainerItems::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.count,
+                    subs,
+                    *index,
+                    "BfcbBlock.Container.COCT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlockContainerItems::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.items.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"COCT", self.count.as_ref());
+        for group in &self.items {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for BfcbBlockContainer {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.items, "BfcbBlock.Container.Items", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.items, "BfcbBlock.Container.Items", out);
+    }
+}
+
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct BfcbBlockLightLayerLightLayer(pub u32);
@@ -8134,6 +8985,125 @@ impl BfcbBlockPlanetModel {
 }
 
 impl Visit for BfcbBlockPlanetModel {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockForcedLocRefTypeLocRefTypes(pub Vec<FormId>);
+
+impl Field for BfcbBlockForcedLocRefTypeLocRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockForcedLocRefTypeLocRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockForcedLocRefType {
+    /// `FTYP`, optional.
+    pub loc_ref_types: Option<Sub<BfcbBlockForcedLocRefTypeLocRefTypes>>,
+}
+
+impl BfcbBlockForcedLocRefType {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"FTYP",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.loc_ref_types,
+                    subs,
+                    *index,
+                    "BfcbBlock.ForcedLocRefType.FTYP",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"FTYP", self.loc_ref_types.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockForcedLocRefType {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.loc_ref_types, "BfcbBlock.ForcedLocRefType.FTYP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.loc_ref_types,
+            "BfcbBlock.ForcedLocRefType.FTYP",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockBodyPartInfo {
+    /// `GNAM`, optional.
+    pub gnam: Option<Sub<Bytes>>,
+}
+
+impl BfcbBlockBodyPartInfo {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"GNAM",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.gnam,
+                    subs,
+                    *index,
+                    "BfcbBlock.BodyPartInfo.GNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"GNAM", self.gnam.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockBodyPartInfo {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KeywordsForms(pub Vec<FormId>);
@@ -9389,10 +10359,16 @@ impl Visit for BfcbBlockBlockEditorMetaData {}
 pub struct BfcbBlock {
     /// `BFCB`, required.
     pub component_type: Option<Sub<ZString>>,
+    /// Group `AdaptiveTrigger`, optional.
+    pub adaptive_trigger: Option<BfcbBlockAdaptiveTrigger>,
+    /// Group `AddToInventoryOnDestroy`, optional.
+    pub add_to_inventory_on_destroy: Option<BfcbBlockAddToInventoryOnDestroy>,
     /// Group `AnimationGraph`, optional.
     pub animation_graph: Option<BfcbBlockAnimationGraph>,
     /// Group `AttachParentArray`, optional.
     pub attach_parent_array: Option<BfcbBlockAttachParentArray>,
+    /// Group `CityMapsUsage`, optional.
+    pub city_maps_usage: Option<BfcbBlockCityMapsUsage>,
     /// Group `ContactShadow`, optional.
     pub contact_shadow: Option<BfcbBlockContactShadow>,
     /// Group `Destructible`, optional.
@@ -9413,6 +10389,8 @@ pub struct BfcbBlock {
     pub planet_content_properties: Option<BfcbBlockPlanetContentProperties>,
     /// Group `PropertySheet`, optional.
     pub property_sheet: Option<BfcbBlockPropertySheet>,
+    /// Group `Crowd`, optional.
+    pub crowd: Option<BfcbBlockCrowd>,
     /// Group `QualityUpgrade`, optional.
     pub quality_upgrade: Option<BfcbBlockQualityUpgrade>,
     /// Group `SoundTag`, optional.
@@ -9425,6 +10403,10 @@ pub struct BfcbBlock {
     pub spaceship_hull_code: Option<BfcbBlockSpaceshipHullCode>,
     /// Group `SpaceshipWeaponBindings`, optional.
     pub spaceship_weapon_bindings: Option<BfcbBlockSpaceshipWeaponBindings>,
+    /// Group `SpawnOnDestroy`, optional.
+    pub spawn_on_destroy: Option<BfcbBlockSpawnOnDestroy>,
+    /// Group `WorldSpaceOverlay`, optional.
+    pub world_space_overlay: Option<BfcbBlockWorldSpaceOverlay>,
     /// Group `Blueprint`, optional.
     pub blueprint: Option<BfcbBlockBlueprint>,
     /// Group `HoudiniData`, optional.
@@ -9433,10 +10415,18 @@ pub struct BfcbBlock {
     pub particle_system: Option<BfcbBlockParticleSystem>,
     /// Group `FullName`, optional.
     pub full_name: Option<BfcbBlockFullName>,
+    /// Group `ImageSpaceModifiable`, optional.
+    pub image_space_modifiable: Option<BfcbBlockImageSpaceModifiable>,
+    /// Group `Container`, optional.
+    pub container: Option<BfcbBlockContainer>,
     /// Group `LightLayer`, optional.
     pub light_layer: Option<BfcbBlockLightLayer>,
     /// Group `PlanetModel`, optional.
     pub planet_model: Option<BfcbBlockPlanetModel>,
+    /// Group `ForcedLocRefType`, optional.
+    pub forced_loc_ref_type: Option<BfcbBlockForcedLocRefType>,
+    /// Group `BodyPartInfo`, optional.
+    pub body_part_info: Option<BfcbBlockBodyPartInfo>,
     /// Group `Keywords`, optional.
     pub keywords: Option<Keywords>,
     /// Group `Reflection`, optional.
@@ -9472,11 +10462,23 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockAdaptiveTrigger::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockAddToInventoryOnDestroy::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockAnimationGraph::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockAttachParentArray::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockCityMapsUsage::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -9520,6 +10522,10 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockCrowd::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockQualityUpgrade::MEMBERS,
         },
         MemberDesc::Group {
@@ -9544,6 +10550,14 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockSpawnOnDestroy::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockWorldSpaceOverlay::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockBlueprint::MEMBERS,
         },
         MemberDesc::Group {
@@ -9560,11 +10574,27 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockImageSpaceModifiable::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockContainer::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockLightLayer::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockPlanetModel::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockForcedLocRefType::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockBodyPartInfo::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -9654,178 +10684,228 @@ impl BfcbBlock {
                     ctx,
                     extra,
                 ),
-                Hit::Group { member: 1, hits } if self.animation_graph.is_none() => {
+                Hit::Group { member: 1, hits } if self.adaptive_trigger.is_none() => {
+                    let mut group = BfcbBlockAdaptiveTrigger::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.adaptive_trigger = Some(group);
+                }
+                Hit::Group { member: 2, hits } if self.add_to_inventory_on_destroy.is_none() => {
+                    let mut group = BfcbBlockAddToInventoryOnDestroy::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.add_to_inventory_on_destroy = Some(group);
+                }
+                Hit::Group { member: 3, hits } if self.animation_graph.is_none() => {
                     let mut group = BfcbBlockAnimationGraph::default();
                     group.fill(hits, subs, ctx, extra);
                     self.animation_graph = Some(group);
                 }
-                Hit::Group { member: 2, hits } if self.attach_parent_array.is_none() => {
+                Hit::Group { member: 4, hits } if self.attach_parent_array.is_none() => {
                     let mut group = BfcbBlockAttachParentArray::default();
                     group.fill(hits, subs, ctx, extra);
                     self.attach_parent_array = Some(group);
                 }
-                Hit::Group { member: 3, hits } if self.contact_shadow.is_none() => {
+                Hit::Group { member: 5, hits } if self.city_maps_usage.is_none() => {
+                    let mut group = BfcbBlockCityMapsUsage::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.city_maps_usage = Some(group);
+                }
+                Hit::Group { member: 6, hits } if self.contact_shadow.is_none() => {
                     let mut group = BfcbBlockContactShadow::default();
                     group.fill(hits, subs, ctx, extra);
                     self.contact_shadow = Some(group);
                 }
-                Hit::Group { member: 4, hits } if self.destructible.is_none() => {
+                Hit::Group { member: 7, hits } if self.destructible.is_none() => {
                     let mut group = Destructible::default();
                     group.fill(hits, subs, ctx, extra);
                     self.destructible = Some(group);
                 }
-                Hit::Group { member: 5, hits } if self.display_case.is_none() => {
+                Hit::Group { member: 8, hits } if self.display_case.is_none() => {
                     let mut group = BfcbBlockDisplayCase::default();
                     group.fill(hits, subs, ctx, extra);
                     self.display_case = Some(group);
                 }
-                Hit::Group { member: 6, hits } if self.external_data_source.is_none() => {
+                Hit::Group { member: 9, hits } if self.external_data_source.is_none() => {
                     let mut group = BfcbBlockExternalDataSource::default();
                     group.fill(hits, subs, ctx, extra);
                     self.external_data_source = Some(group);
                 }
-                Hit::Group { member: 7, hits } if self.form_link_data.is_none() => {
+                Hit::Group { member: 10, hits } if self.form_link_data.is_none() => {
                     let mut group = BfcbBlockFormLinkData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.form_link_data = Some(group);
                 }
-                Hit::Group { member: 8, hits } if self.linked_voice_type.is_none() => {
+                Hit::Group { member: 11, hits } if self.linked_voice_type.is_none() => {
                     let mut group = BfcbBlockLinkedVoiceType::default();
                     group.fill(hits, subs, ctx, extra);
                     self.linked_voice_type = Some(group);
                 }
-                Hit::Group { member: 9, hits } if self.object_palette_defaults.is_none() => {
+                Hit::Group { member: 12, hits } if self.object_palette_defaults.is_none() => {
                     let mut group = BfcbBlockObjectPaletteDefaults::default();
                     group.fill(hits, subs, ctx, extra);
                     self.object_palette_defaults = Some(group);
                 }
-                Hit::Group { member: 10, hits } if self.object_window_filter.is_none() => {
+                Hit::Group { member: 13, hits } if self.object_window_filter.is_none() => {
                     let mut group = BfcbBlockObjectWindowFilter::default();
                     group.fill(hits, subs, ctx, extra);
                     self.object_window_filter = Some(group);
                 }
-                Hit::Group { member: 11, hits } if self.planet_content_properties.is_none() => {
+                Hit::Group { member: 14, hits } if self.planet_content_properties.is_none() => {
                     let mut group = BfcbBlockPlanetContentProperties::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_content_properties = Some(group);
                 }
-                Hit::Group { member: 12, hits } if self.property_sheet.is_none() => {
+                Hit::Group { member: 15, hits } if self.property_sheet.is_none() => {
                     let mut group = BfcbBlockPropertySheet::default();
                     group.fill(hits, subs, ctx, extra);
                     self.property_sheet = Some(group);
                 }
-                Hit::Group { member: 13, hits } if self.quality_upgrade.is_none() => {
+                Hit::Group { member: 16, hits } if self.crowd.is_none() => {
+                    let mut group = BfcbBlockCrowd::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.crowd = Some(group);
+                }
+                Hit::Group { member: 17, hits } if self.quality_upgrade.is_none() => {
                     let mut group = BfcbBlockQualityUpgrade::default();
                     group.fill(hits, subs, ctx, extra);
                     self.quality_upgrade = Some(group);
                 }
-                Hit::Group { member: 14, hits } if self.sound_tag.is_none() => {
+                Hit::Group { member: 18, hits } if self.sound_tag.is_none() => {
                     let mut group = BfcbBlockSoundTag::default();
                     group.fill(hits, subs, ctx, extra);
                     self.sound_tag = Some(group);
                 }
-                Hit::Group { member: 15, hits } if self.spaceship_ai_actor.is_none() => {
+                Hit::Group { member: 19, hits } if self.spaceship_ai_actor.is_none() => {
                     let mut group = BfcbBlockSpaceshipAiActor::default();
                     group.fill(hits, subs, ctx, extra);
                     self.spaceship_ai_actor = Some(group);
                 }
-                Hit::Group { member: 16, hits } if self.spaceship_equipment.is_none() => {
+                Hit::Group { member: 20, hits } if self.spaceship_equipment.is_none() => {
                     let mut group = BfcbBlockSpaceshipEquipment::default();
                     group.fill(hits, subs, ctx, extra);
                     self.spaceship_equipment = Some(group);
                 }
-                Hit::Group { member: 17, hits } if self.spaceship_hull_code.is_none() => {
+                Hit::Group { member: 21, hits } if self.spaceship_hull_code.is_none() => {
                     let mut group = BfcbBlockSpaceshipHullCode::default();
                     group.fill(hits, subs, ctx, extra);
                     self.spaceship_hull_code = Some(group);
                 }
-                Hit::Group { member: 18, hits } if self.spaceship_weapon_bindings.is_none() => {
+                Hit::Group { member: 22, hits } if self.spaceship_weapon_bindings.is_none() => {
                     let mut group = BfcbBlockSpaceshipWeaponBindings::default();
                     group.fill(hits, subs, ctx, extra);
                     self.spaceship_weapon_bindings = Some(group);
                 }
-                Hit::Group { member: 19, hits } if self.blueprint.is_none() => {
+                Hit::Group { member: 23, hits } if self.spawn_on_destroy.is_none() => {
+                    let mut group = BfcbBlockSpawnOnDestroy::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.spawn_on_destroy = Some(group);
+                }
+                Hit::Group { member: 24, hits } if self.world_space_overlay.is_none() => {
+                    let mut group = BfcbBlockWorldSpaceOverlay::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.world_space_overlay = Some(group);
+                }
+                Hit::Group { member: 25, hits } if self.blueprint.is_none() => {
                     let mut group = BfcbBlockBlueprint::default();
                     group.fill(hits, subs, ctx, extra);
                     self.blueprint = Some(group);
                 }
-                Hit::Group { member: 20, hits } if self.houdini_data.is_none() => {
+                Hit::Group { member: 26, hits } if self.houdini_data.is_none() => {
                     let mut group = BfcbBlockHoudiniData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.houdini_data = Some(group);
                 }
-                Hit::Group { member: 21, hits } if self.particle_system.is_none() => {
+                Hit::Group { member: 27, hits } if self.particle_system.is_none() => {
                     let mut group = BfcbBlockParticleSystem::default();
                     group.fill(hits, subs, ctx, extra);
                     self.particle_system = Some(group);
                 }
-                Hit::Group { member: 22, hits } if self.full_name.is_none() => {
+                Hit::Group { member: 28, hits } if self.full_name.is_none() => {
                     let mut group = BfcbBlockFullName::default();
                     group.fill(hits, subs, ctx, extra);
                     self.full_name = Some(group);
                 }
-                Hit::Group { member: 23, hits } if self.light_layer.is_none() => {
+                Hit::Group { member: 29, hits } if self.image_space_modifiable.is_none() => {
+                    let mut group = BfcbBlockImageSpaceModifiable::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.image_space_modifiable = Some(group);
+                }
+                Hit::Group { member: 30, hits } if self.container.is_none() => {
+                    let mut group = BfcbBlockContainer::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.container = Some(group);
+                }
+                Hit::Group { member: 31, hits } if self.light_layer.is_none() => {
                     let mut group = BfcbBlockLightLayer::default();
                     group.fill(hits, subs, ctx, extra);
                     self.light_layer = Some(group);
                 }
-                Hit::Group { member: 24, hits } if self.planet_model.is_none() => {
+                Hit::Group { member: 32, hits } if self.planet_model.is_none() => {
                     let mut group = BfcbBlockPlanetModel::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_model = Some(group);
                 }
-                Hit::Group { member: 25, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 33, hits } if self.forced_loc_ref_type.is_none() => {
+                    let mut group = BfcbBlockForcedLocRefType::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.forced_loc_ref_type = Some(group);
+                }
+                Hit::Group { member: 34, hits } if self.body_part_info.is_none() => {
+                    let mut group = BfcbBlockBodyPartInfo::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.body_part_info = Some(group);
+                }
+                Hit::Group { member: 35, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Group { member: 26, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 36, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Group { member: 27, hits } if self.star_data.is_none() => {
+                Hit::Group { member: 37, hits } if self.star_data.is_none() => {
                     let mut group = BfcbBlockStarData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.star_data = Some(group);
                 }
-                Hit::Group { member: 28, hits } if self.orbited_data.is_none() => {
+                Hit::Group { member: 38, hits } if self.orbited_data.is_none() => {
                     let mut group = BfcbBlockOrbitedData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.orbited_data = Some(group);
                 }
-                Hit::Group { member: 29, hits } if self.unique_overlay_list.is_none() => {
+                Hit::Group { member: 39, hits } if self.unique_overlay_list.is_none() => {
                     let mut group = BfcbBlockUniqueOverlayList::default();
                     group.fill(hits, subs, ctx, extra);
                     self.unique_overlay_list = Some(group);
                 }
-                Hit::Group { member: 30, hits } if self.unique_pattern_placement.is_none() => {
+                Hit::Group { member: 40, hits } if self.unique_pattern_placement.is_none() => {
                     let mut group = BfcbBlockUniquePatternPlacement::default();
                     group.fill(hits, subs, ctx, extra);
                     self.unique_pattern_placement = Some(group);
                 }
-                Hit::Group { member: 31, hits } if self.overlay_designated_placement.is_none() => {
+                Hit::Group { member: 41, hits } if self.overlay_designated_placement.is_none() => {
                     let mut group = BfcbBlockOverlayDesignatedPlacement::default();
                     group.fill(hits, subs, ctx, extra);
                     self.overlay_designated_placement = Some(group);
                 }
-                Hit::Group { member: 32, hits } if self.block_height_adjustment.is_none() => {
+                Hit::Group { member: 42, hits } if self.block_height_adjustment.is_none() => {
                     let mut group = BfcbBlockBlockHeightAdjustment::default();
                     group.fill(hits, subs, ctx, extra);
                     self.block_height_adjustment = Some(group);
                 }
-                Hit::Group { member: 33, hits } if self.surface_tree_pattern_swap.is_none() => {
+                Hit::Group { member: 43, hits } if self.surface_tree_pattern_swap.is_none() => {
                     let mut group = BfcbBlockSurfaceTreePatternSwap::default();
                     group.fill(hits, subs, ctx, extra);
                     self.surface_tree_pattern_swap = Some(group);
                 }
-                Hit::Group { member: 34, hits } if self.block_editor_meta_data.is_none() => {
+                Hit::Group { member: 44, hits } if self.block_editor_meta_data.is_none() => {
                     let mut group = BfcbBlockBlockEditorMetaData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.block_editor_meta_data = Some(group);
                 }
-                Hit::Sub { member: 35, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 36, index } => put(
+                Hit::Sub { member: 45, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 46, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -9840,10 +10920,19 @@ impl BfcbBlock {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"BFCB", self.component_type.as_ref());
+        if let Some(group) = &self.adaptive_trigger {
+            group.emit(out);
+        }
+        if let Some(group) = &self.add_to_inventory_on_destroy {
+            group.emit(out);
+        }
         if let Some(group) = &self.animation_graph {
             group.emit(out);
         }
         if let Some(group) = &self.attach_parent_array {
+            group.emit(out);
+        }
+        if let Some(group) = &self.city_maps_usage {
             group.emit(out);
         }
         if let Some(group) = &self.contact_shadow {
@@ -9876,6 +10965,9 @@ impl BfcbBlock {
         if let Some(group) = &self.property_sheet {
             group.emit(out);
         }
+        if let Some(group) = &self.crowd {
+            group.emit(out);
+        }
         if let Some(group) = &self.quality_upgrade {
             group.emit(out);
         }
@@ -9894,6 +10986,12 @@ impl BfcbBlock {
         if let Some(group) = &self.spaceship_weapon_bindings {
             group.emit(out);
         }
+        if let Some(group) = &self.spawn_on_destroy {
+            group.emit(out);
+        }
+        if let Some(group) = &self.world_space_overlay {
+            group.emit(out);
+        }
         if let Some(group) = &self.blueprint {
             group.emit(out);
         }
@@ -9906,10 +11004,22 @@ impl BfcbBlock {
         if let Some(group) = &self.full_name {
             group.emit(out);
         }
+        if let Some(group) = &self.image_space_modifiable {
+            group.emit(out);
+        }
+        if let Some(group) = &self.container {
+            group.emit(out);
+        }
         if let Some(group) = &self.light_layer {
             group.emit(out);
         }
         if let Some(group) = &self.planet_model {
+            group.emit(out);
+        }
+        if let Some(group) = &self.forced_loc_ref_type {
+            group.emit(out);
+        }
+        if let Some(group) = &self.body_part_info {
             group.emit(out);
         }
         if let Some(group) = &self.keywords {
@@ -9950,6 +11060,11 @@ impl BfcbBlock {
 impl Visit for BfcbBlock {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(
+            &self.add_to_inventory_on_destroy,
+            "BfcbBlock.AddToInventoryOnDestroy",
+            out,
+        );
+        visit_form_ids(
             &self.attach_parent_array,
             "BfcbBlock.AttachParentArray",
             out,
@@ -9969,10 +11084,24 @@ impl Visit for BfcbBlock {
             out,
         );
         visit_form_ids(&self.property_sheet, "BfcbBlock.PropertySheet", out);
+        visit_form_ids(&self.crowd, "BfcbBlock.Crowd", out);
         visit_form_ids(&self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
         visit_form_ids(&self.sound_tag, "BfcbBlock.SoundTag", out);
         visit_form_ids(&self.spaceship_ai_actor, "BfcbBlock.SpaceshipAiActor", out);
+        visit_form_ids(&self.spawn_on_destroy, "BfcbBlock.SpawnOnDestroy", out);
+        visit_form_ids(
+            &self.world_space_overlay,
+            "BfcbBlock.WorldSpaceOverlay",
+            out,
+        );
         visit_form_ids(&self.blueprint, "BfcbBlock.Blueprint", out);
+        visit_form_ids(
+            &self.image_space_modifiable,
+            "BfcbBlock.ImageSpaceModifiable",
+            out,
+        );
+        visit_form_ids(&self.container, "BfcbBlock.Container", out);
+        visit_form_ids(&self.forced_loc_ref_type, "BfcbBlock.ForcedLocRefType", out);
         visit_form_ids(&self.keywords, "BfcbBlock.Keywords", out);
         visit_form_ids(
             &self.unique_overlay_list,
@@ -9998,6 +11127,11 @@ impl Visit for BfcbBlock {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(
+            &mut self.add_to_inventory_on_destroy,
+            "BfcbBlock.AddToInventoryOnDestroy",
+            out,
+        );
+        visit_form_ids_mut(
             &mut self.attach_parent_array,
             "BfcbBlock.AttachParentArray",
             out,
@@ -10021,6 +11155,7 @@ impl Visit for BfcbBlock {
             out,
         );
         visit_form_ids_mut(&mut self.property_sheet, "BfcbBlock.PropertySheet", out);
+        visit_form_ids_mut(&mut self.crowd, "BfcbBlock.Crowd", out);
         visit_form_ids_mut(&mut self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
         visit_form_ids_mut(&mut self.sound_tag, "BfcbBlock.SoundTag", out);
         visit_form_ids_mut(
@@ -10028,7 +11163,24 @@ impl Visit for BfcbBlock {
             "BfcbBlock.SpaceshipAiActor",
             out,
         );
+        visit_form_ids_mut(&mut self.spawn_on_destroy, "BfcbBlock.SpawnOnDestroy", out);
+        visit_form_ids_mut(
+            &mut self.world_space_overlay,
+            "BfcbBlock.WorldSpaceOverlay",
+            out,
+        );
         visit_form_ids_mut(&mut self.blueprint, "BfcbBlock.Blueprint", out);
+        visit_form_ids_mut(
+            &mut self.image_space_modifiable,
+            "BfcbBlock.ImageSpaceModifiable",
+            out,
+        );
+        visit_form_ids_mut(&mut self.container, "BfcbBlock.Container", out);
+        visit_form_ids_mut(
+            &mut self.forced_loc_ref_type,
+            "BfcbBlock.ForcedLocRefType",
+            out,
+        );
         visit_form_ids_mut(&mut self.keywords, "BfcbBlock.Keywords", out);
         visit_form_ids_mut(
             &mut self.unique_overlay_list,

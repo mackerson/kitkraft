@@ -1017,8 +1017,8 @@ mod tests {
 
     #[test]
     fn a_repeated_signature_counts_every_slot_of_a_repeating_group() {
-        // A QUST's `CTDA` has one slot per condition group, in schema order: the one in
-        // the BFCB block's PlanetContentProperties layout first, then the nine of the
+        // A QUST's `CTDA` has one slot per condition group, in schema order: the ones in
+        // the BFCB block's PlanetContentProperties and Crowd layouts first, then the nine of the
         // record itself (dialogue and story manager, each stage log entry's and
         // reward's, each objective target's, each reference alias's and location
         // alias's match conditions, a planet content request's, and a collection alias
@@ -1032,7 +1032,7 @@ mod tests {
             .filter(|(_, e)| e.sig == *b"CTDA")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(ctda.len(), 10);
+        assert_eq!(ctda.len(), 11);
         for (k, slot) in ctda.iter().copied().enumerate() {
             assert_eq!(slot_of(&all, *b"CTDA", k, ctda.len()), Some(slot));
         }

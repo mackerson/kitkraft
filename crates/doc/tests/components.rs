@@ -84,6 +84,16 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "FormLinkData" => &["BGSFormLinkData_Component"],
         "Blueprint" => &["Blueprint_Component"],
         "HoudiniData" => &["HoudiniData_Component"],
+        "AdaptiveTrigger" => &["BGSAdaptiveTriggerData_Component"],
+        "AddToInventoryOnDestroy" => &["BGSAddToInventoryOnDestroy_Component"],
+        "CityMapsUsage" => &["BGSCityMapsUsage_Component"],
+        "SpawnOnDestroy" => &["BGSSpawnOnDestroy_Component"],
+        "WorldSpaceOverlay" => &["BGSWorldSpaceOverlay_Component"],
+        "ImageSpaceModifiable" => &["TESImageSpaceModifiableForm_Component"],
+        "ForcedLocRefType" => &["BGSForcedLocRefType_Component"],
+        "Container" => &["TESContainer_Component"],
+        "BodyPartInfo" => &["BGSBodyPartInfo_Component"],
+        "Crowd" => &["BGSCrowdComponent_Component"],
         "SpaceshipAiActor" => &["BGSSpaceshipAIActor_Component"],
         "SpaceshipEquipment" => &["BGSSpaceshipEquipment_Component"],
         "SpaceshipHullCode" => &["BGSSpaceshipHullCode_Component"],
@@ -337,23 +347,33 @@ fn component_layouts_full() {
     // `NamedLayout` union's variants (ADR 0015, KK-294): 1,196 DATA/DAT2 blocks in eight
     // kinds. The GBFM ship-part layouts (2026-11-16): voice type, AI actor, equipment, hull
     // code, weapon bindings; then external data source, form links, blueprint and the
-    // opaque Houdini data.
+    // opaque Houdini data; then the small layouts (adaptive trigger, add to inventory and
+    // spawn on destroy, city maps, world space overlay, image space, forced loc ref type,
+    // container, body part info) and Crowd.
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
         [
+            ("AdaptiveTrigger", 19),
+            ("AddToInventoryOnDestroy", 1_702),
             ("AnimationGraph", 4_853),
             ("AttachParentArray", 2_396),
             ("BlockEditorMetaData", 585),
             ("BlockHeightAdjustment", 255),
             ("Blueprint", 2_030),
+            ("BodyPartInfo", 1),
+            ("CityMapsUsage", 4),
             ("ContactShadow", 147_487),
+            ("Container", 83),
+            ("Crowd", 24),
             ("Destructible", 2_149),
             ("DisplayCase", 156),
             ("ExternalDataSource", 2_030),
+            ("ForcedLocRefType", 14),
             ("FormLinkData", 2_334),
             ("FullName", 5_695),
             ("HoudiniData", 1_825),
+            ("ImageSpaceModifiable", 50),
             ("Keywords", 83_015),
             ("LightLayer", 1_868),
             ("LinkedVoiceType", 2_030),
@@ -372,10 +392,12 @@ fn component_layouts_full() {
             ("SpaceshipEquipment", 2_030),
             ("SpaceshipHullCode", 134),
             ("SpaceshipWeaponBindings", 2_030),
+            ("SpawnOnDestroy", 75),
             ("StarData", 123),
             ("SurfaceTreePatternSwap", 33),
             ("UniqueOverlayList", 38),
             ("UniquePatternPlacement", 38),
+            ("WorldSpaceOverlay", 582),
         ]
     );
 }

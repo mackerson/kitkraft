@@ -227,7 +227,7 @@ fn new_and_clone_refusals_are_typed() {
         ),
         (
             "new",
-            json!({"type": "GLOB", "edid": "KC_A", "fields": {"FLTV[1]": 1.0}}),
+            json!({"type": "KYWD", "edid": "KC_A", "fields": {"TNAM[1]": 1}}),
             "new.occurrence",
         ),
         (
