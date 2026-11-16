@@ -352,7 +352,7 @@ complete.
 
 | Row | Kind | How |
 | --- | ---- | --- |
-| O2-01 | probe | rename plugin: `help "<FULL>" 4` contains the weapon's runtime ID (the inventory screen itself is a screenshot for the owner) |
+| O2-01 | probe | rename plugin: `help "<FULL>" 4` contains the weapon's runtime ID, then `player.additem <runtime ID> 1` and `player.getitemcount <runtime ID>` (R22) (the inventory screen itself is a screenshot for the owner) |
 | O2-02 | manual | installing a package through MO2 is the owner's; the controller installs nothing |
 | O2-03 | manual | as O2-02 |
 | O2-04 | manual | the controller never sends `bat`; its rows send the same commands one by one |

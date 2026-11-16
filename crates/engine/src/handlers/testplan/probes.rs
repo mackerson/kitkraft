@@ -213,6 +213,35 @@ fn probe(
     }
 }
 
+/// The additem row: `player.additem <id> 1` (no matcher), then
+/// `player.getitemcount <id>` against [`AT_LEAST_ONE`]; a manual row when the form has
+/// no runtime ID.
+fn additem_probe(row: String, what: &str, ids: Vec<String>, runtime: Option<u32>) -> Probe {
+    match runtime {
+        Some(r) => probe(
+            row,
+            format!("player.additem {} 1: {what} in the inventory", hex(r)),
+            ids,
+            false,
+            vec![
+                set(format!("player.additem {} 1", hex(r))),
+                check(
+                    format!("player.getitemcount {}", hex(r)),
+                    Matcher::Regex,
+                    AT_LEAST_ONE.into(),
+                    "the item was added",
+                ),
+            ],
+        ),
+        None => manual(
+            row,
+            format!("add {what}"),
+            ids,
+            "the form has no runtime ID",
+        ),
+    }
+}
+
 fn is_ref(f: &Form) -> bool {
     f.signature == "REFR" || f.signature == "ACHR"
 }
@@ -549,29 +578,7 @@ pub(super) fn build(
             || f.signature == "ARMO"
         {
             let row = next(&mut n);
-            match f.runtime {
-                Some(r) => probes.push(probe(
-                    row,
-                    format!("player.additem {} 1: {what} in the inventory", hex(r)),
-                    ids.clone(),
-                    false,
-                    vec![
-                        set(format!("player.additem {} 1", hex(r))),
-                        check(
-                            format!("player.getitemcount {}", hex(r)),
-                            Matcher::Regex,
-                            AT_LEAST_ONE.into(),
-                            "the item was added",
-                        ),
-                    ],
-                )),
-                None => probes.push(manual(
-                    row,
-                    format!("add {what}"),
-                    ids.clone(),
-                    "the form has no runtime ID",
-                )),
-            }
+            probes.push(additem_probe(row, &what, ids.clone(), f.runtime));
             // Armor is an outfit: it must be worn and looked at, not only owned (new or
             // overridden).
             if f.signature == "ARMO" {
@@ -652,6 +659,13 @@ pub(super) fn build(
                     ids.clone(),
                     "the form has no EditorID, no inline FULL and no runtime ID to search by",
                 )),
+            }
+            // An overridden inventory item (a new item and an `ARMO` take the branch
+            // above) gets the additem rows too (R22, docs/game-observations.md), after
+            // its help row.
+            if ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
+                let row = next(&mut n);
+                probes.push(additem_probe(row, &what, ids.clone(), f.runtime));
             }
         }
     }
