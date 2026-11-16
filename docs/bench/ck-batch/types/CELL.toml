@@ -1,0 +1,18 @@
+# CK bench batch (docs/bench/ck-sitting.md): CELL. One new interior cell (the record F20 asks the CK to make).
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/CELL.toml out/bench/KCB_T_CELL.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[new]]
+# A new interior cell with an EditorID and a name; `new` makes it interior (DATA) and files
+# it in the block and sub-block its FormID gives, INCC counted (support-matrix.md).
+name = "cell_new"
+type = "CELL"
+edid = "KCB_CELL_New"
+fields = { FULL = "KCB New Cell" }

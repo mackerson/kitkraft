@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): KYWD. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/KYWD.toml out/bench/KCB_T_KYWD.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:04A0A1 WeaponTypeRifle: the KYWD whose edit dialog sitting 2 observed (S2-08).
+name = "kywd_clone"
+form = "Starfield.esm:04A0A1"
+edid = "KCB_KYWD_Clone"
+
+[[new]]
+# A new KYWD with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "kywd_new"
+type = "KYWD"
+edid = "KCB_KYWD_New"

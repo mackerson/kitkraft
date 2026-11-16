@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): RSPJ. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/RSPJ.toml out/bench/KCB_T_RSPJ.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0C11A5 Equipment_Research_Backpack_01: the first RSPJ kit query lists.
+name = "rspj_clone"
+form = "Starfield.esm:0C11A5"
+edid = "KCB_RSPJ_Clone"
+
+[[new]]
+# A new RSPJ with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "rspj_new"
+type = "RSPJ"
+edid = "KCB_RSPJ_New"

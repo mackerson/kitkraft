@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): PNDT. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/PNDT.toml out/bench/KCB_T_PNDT.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0116C1 _RL082OrbitalPlanetData: the first PNDT kit query lists.
+name = "pndt_clone"
+form = "Starfield.esm:0116C1"
+edid = "KCB_PNDT_Clone"
+
+[[new]]
+# A new PNDT with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "pndt_new"
+type = "PNDT"
+edid = "KCB_PNDT_New"

@@ -1,0 +1,15 @@
+# CK bench: KitKraft's side of fixture F20 (docs/ck-observations.md, fixture matrix): a new
+# interior cell. The CK's F20 also places Crate_MilitarySupply_01 in it; `build` cannot place
+# into a cell it makes in the same spec (docs/schema/support-matrix.md, known limits), so this
+# plugin holds the cell only and the diff against KC_F20.esp compares the CELL record.
+# kit build docs/bench/ck-batch/fixtures/F20k.toml <out>/KCB_F20k.esp
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The EditorID the sitting plan proposes for the CK's cell (owner question 2).
+name = "f20_cell"
+type = "CELL"
+edid = "KC_F20_Cell"

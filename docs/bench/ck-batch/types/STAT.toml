@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): STAT. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/STAT.toml out/bench/KCB_T_STAT.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:1E4FBD Crate_MilitarySupply_01: the F29 crate; its edit dialog was observed (S2-07).
+name = "stat_clone"
+form = "Starfield.esm:1E4FBD"
+edid = "KCB_STAT_Clone"
+
+[[new]]
+# A new STAT with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "stat_new"
+type = "STAT"
+edid = "KCB_STAT_New"

@@ -1,0 +1,30 @@
+# CK bench batch (docs/bench/ck-sitting.md): REFR. The F29 crate placed twice in the F29 cell: once persistent, once temporary.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/REFR.toml out/bench/KCB_T_REFR.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[place]]
+# Crate_MilitarySupply_01 (Starfield.esm:1E4FBD) in CityNewAtlantisApartmentTEMPLATE
+# (Starfield.esm:21966F), on the floor near the first POI's crate; persistent, as
+# KitKraft's recipes place it (ck-20261101-03 saw the CK make its own placement temporary).
+name = "refr_persistent"
+base = "Starfield.esm:1E4FBD"
+cell = "Starfield.esm:21966F"
+position = [-27.0, -4.0, 4.63]
+persistent = true
+edid = "KCB_REFR_Persistent"
+
+[[place]]
+# The same crate, temporary (the CK's own default in ck-20261101-03).
+name = "refr_temporary"
+base = "Starfield.esm:1E4FBD"
+cell = "Starfield.esm:21966F"
+position = [-29.0, -4.0, 4.63]
+persistent = false
+edid = "KCB_REFR_Temporary"

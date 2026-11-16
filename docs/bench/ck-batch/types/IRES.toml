@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): IRES. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/IRES.toml out/bench/KCB_T_IRES.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0057C1 ResInorgCommonLead: the first IRES kit query lists.
+name = "ires_clone"
+form = "Starfield.esm:0057C1"
+edid = "KCB_IRES_Clone"
+
+[[new]]
+# A new IRES with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "ires_new"
+type = "IRES"
+edid = "KCB_IRES_New"

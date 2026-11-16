@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): WKMF. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/WKMF.toml out/bench/KCB_T_WKMF.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:00DF23 WKM_CCT_Skin_05: the first WKMF kit query lists.
+name = "wkmf_clone"
+form = "Starfield.esm:00DF23"
+edid = "KCB_WKMF_Clone"
+
+[[new]]
+# A new WKMF with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "wkmf_new"
+type = "WKMF"
+edid = "KCB_WKMF_New"

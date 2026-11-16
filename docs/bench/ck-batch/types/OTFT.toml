@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): OTFT. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/OTFT.toml out/bench/KCB_T_OTFT.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0021F9 Outfit_Clothes_Medical_Doctor_03: an early OTFT of kit query.
+name = "otft_clone"
+form = "Starfield.esm:0021F9"
+edid = "KCB_OTFT_Clone"
+
+[[new]]
+# A new OTFT with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "otft_new"
+type = "OTFT"
+edid = "KCB_OTFT_New"

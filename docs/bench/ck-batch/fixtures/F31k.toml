@@ -1,0 +1,29 @@
+# CK bench: a stand-in for fixture F31 (the M7 exit plugin: one set, one clone, one place),
+# built from a spec instead of the workbench window, for the case that KC_F31.esp (made in
+# docs/game-sessions.md OW-2 Part 2) does not exist at the sitting. If it exists, the run
+# sheet uses it and not this file.
+# kit build docs/bench/ck-batch/fixtures/F31k.toml <out>/KCB_F31k.esp
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[set]]
+# The rifle's name (OW-2 step 2.2).
+form = "Starfield.esm:21BBCD"
+fields = { FULL = "KC F31 Marksman Rifle" }
+
+[[clone]]
+# The rifle duplicated (OW-2 step 2.3).
+name = "f31_rifle"
+form = "Starfield.esm:21BBCD"
+edid = "KC_F31_Rifle"
+
+[[place]]
+# The F29 crate placed in the F29 cell (OW-2 step 2.4 places a reference).
+name = "f31_crate"
+base = "Starfield.esm:1E4FBD"
+cell = "Starfield.esm:21966F"
+position = [-31.0, -4.0, 4.63]
+persistent = true
+edid = "KC_F31_Crate"

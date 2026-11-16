@@ -1,0 +1,11 @@
+# CK bench groups (docs/bench/ck-sitting.md, "The batch"): one plugin per line,
+# "<plugin stem>: <type> <type> ...". build.ps1 joins each type's recipe body
+# (types/<TYPE>.toml below "--- body ---") into the group plugin, in this order.
+KCB_G1_Core: GLOB KYWD FLST MESG TXST SOUN WWED RSPJ AVIF IRES
+KCB_G2_Items: MISC BOOK KEYM ALCH ARMO ARMA OTFT LVLI ENCH
+KCB_G3_Weapons: WEAP AMDL OMOD COBJ HAZD
+KCB_G4_Objects: STAT ACTI CONT DOOR LIGH FURN FLOR MSTT TERM TMLM PKIN
+KCB_G5_World: CELL REFR ACHR LCTN REGN
+KCB_G6_Actors: NPC_ PACK FACT PERK LVLN LVLP
+KCB_G7_Quest: QUST DIAL INFO
+KCB_G8_Planet: PNDT STDT PCMT PCBN PCCN SFPT SFTR SFBK WKMF

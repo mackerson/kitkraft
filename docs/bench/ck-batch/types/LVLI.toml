@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): LVLI. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/LVLI.toml out/bench/KCB_T_LVLI.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0019F5 LL_Weapon_Reward_MQ105: an early LVLI of kit query.
+name = "lvli_clone"
+form = "Starfield.esm:0019F5"
+edid = "KCB_LVLI_Clone"
+
+[[new]]
+# A new LVLI with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "lvli_new"
+type = "LVLI"
+edid = "KCB_LVLI_New"

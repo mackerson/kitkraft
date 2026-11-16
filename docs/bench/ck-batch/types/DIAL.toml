@@ -1,0 +1,24 @@
+# CK bench batch (docs/bench/ck-sitting.md): DIAL. One new topic under a new quest (as docs/recipes/dialogue.toml).
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/DIAL.toml out/bench/KCB_T_DIAL.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[new]]
+# The quest that owns the topic.
+name = "dial_quest"
+type = "QUST"
+edid = "KCB_DIAL_Quest"
+
+[[new]]
+# The topic: priority 50, category Miscellaneous (7), subtype CUST, as the dialogue recipe.
+name = "dial_topic"
+type = "DIAL"
+edid = "KCB_DIAL_Topic"
+parent = "new:dial_quest"
+fields = { PNAM = 50.0, "DATA.Category" = 7, SNAM = "CUST" }

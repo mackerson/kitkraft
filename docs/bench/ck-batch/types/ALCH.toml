@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): ALCH. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/ALCH.toml out/bench/KCB_T_ALCH.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:003A1F Food_Produce_Onion: a plain food item (kit query's second).
+name = "alch_clone"
+form = "Starfield.esm:003A1F"
+edid = "KCB_ALCH_Clone"
+
+[[new]]
+# A new ALCH with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "alch_new"
+type = "ALCH"
+edid = "KCB_ALCH_New"

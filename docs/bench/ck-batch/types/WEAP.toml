@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): WEAP. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/WEAP.toml out/bench/KCB_T_WEAP.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:21BBCD RussianHuntingRifle: the M2 rename and fixture F02 rifle.
+name = "weap_clone"
+form = "Starfield.esm:21BBCD"
+edid = "KCB_WEAP_Clone"
+
+[[new]]
+# A new WEAP with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "weap_new"
+type = "WEAP"
+edid = "KCB_WEAP_New"

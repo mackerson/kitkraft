@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): PCMT. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/PCMT.toml out/bench/KCB_T_PCMT.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:018BB1 PCM_SpaceshipLandingRequest: the first PCMT kit query lists.
+name = "pcmt_clone"
+form = "Starfield.esm:018BB1"
+edid = "KCB_PCMT_Clone"
+
+[[new]]
+# A new PCMT with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "pcmt_new"
+type = "PCMT"
+edid = "KCB_PCMT_New"

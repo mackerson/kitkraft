@@ -1,0 +1,37 @@
+# CK bench batch (docs/bench/ck-sitting.md): INFO. Two new responses under a new topic and quest (as docs/recipes/dialogue.toml).
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/INFO.toml out/bench/KCB_T_INFO.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[new]]
+name = "info_quest"
+type = "QUST"
+edid = "KCB_INFO_Quest"
+
+[[new]]
+name = "info_topic"
+type = "DIAL"
+edid = "KCB_INFO_Topic"
+parent = "new:info_quest"
+fields = { PNAM = 50.0, "DATA.Category" = 7, SNAM = "CUST" }
+
+[[new]]
+# One response line, inline text (non-localized plugin), no voice file.
+name = "info_hello"
+type = "INFO"
+edid = "KCB_INFO_Hello"
+parent = "new:info_topic"
+fields = { "TRDA.WemFile" = 1, NAM1 = "KitKraft bench hello." }
+
+[[new]]
+name = "info_bye"
+type = "INFO"
+edid = "KCB_INFO_Bye"
+parent = "new:info_topic"
+fields = { "TRDA.WemFile" = 2, NAM1 = "KitKraft bench goodbye." }

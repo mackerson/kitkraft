@@ -1,0 +1,14 @@
+# CK bench: KitKraft's side of fixture F28 (a vanilla outpost object duplicated): `clone` of
+# CoffeeBrewingMachine01 (Starfield.esm:136FDF, the STAT the outpost recipe
+# co_Outpost_Decor_CoffeeMaker01 builds). The CK chooses its own EditorID and FormID for a
+# duplicate; that choice is F28's first question, so the diff is read by hand there.
+# kit build docs/bench/ck-batch/fixtures/F28k.toml <out>/KCB_F28k.esp
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+name = "f28_coffee"
+form = "Starfield.esm:136FDF"
+edid = "KCB_F28_CoffeeBrewingMachine01"

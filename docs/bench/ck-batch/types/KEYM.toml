@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): KEYM. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/KEYM.toml out/bench/KCB_T_KEYM.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:00485E DR020WeaponRackKey: the first KEYM kit query lists.
+name = "keym_clone"
+form = "Starfield.esm:00485E"
+edid = "KCB_KEYM_Clone"
+
+[[new]]
+# A new KEYM with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "keym_new"
+type = "KEYM"
+edid = "KCB_KEYM_New"

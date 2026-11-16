@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): DOOR. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/DOOR.toml out/bench/KCB_T_DOOR.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:001B9E ShpGenIntPerSmWallMid_ExLg_DockingDoor01_Load_AlwaysRed: the first DOOR after PrisonMarker (a marker, skipped).
+name = "door_clone"
+form = "Starfield.esm:001B9E"
+edid = "KCB_DOOR_Clone"
+
+[[new]]
+# A new DOOR with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "door_new"
+type = "DOOR"
+edid = "KCB_DOOR_New"

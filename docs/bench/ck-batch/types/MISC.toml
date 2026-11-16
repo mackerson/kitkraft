@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): MISC. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/MISC.toml out/bench/KCB_T_MISC.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:00081C AK_Plushy_01: the first MISC after Digipick and Credits (hard-coded forms, skipped).
+name = "misc_clone"
+form = "Starfield.esm:00081C"
+edid = "KCB_MISC_Clone"
+
+[[new]]
+# A new MISC with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "misc_new"
+type = "MISC"
+edid = "KCB_MISC_New"

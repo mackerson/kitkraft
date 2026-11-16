@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): ACHR. One vanilla NPC placed in a vanilla interior cell with navmesh (as docs/recipes/actors.toml).
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/ACHR.toml out/bench/KCB_T_ACHR.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[place]]
+# Vendor_ChunksEmployee_M (Starfield.esm:271133), an NPC_ base, placed as an ACHR in
+# CityNewAtlantisFreestarEmbassy (Starfield.esm:017307), which has a navmesh
+# (docs/recipes/actors.md), next to the actors recipe's spot.
+name = "achr_placed"
+base = "Starfield.esm:271133"
+cell = "Starfield.esm:017307"
+position = [4.0, 6.0, 0.0]
+rotation = [0.0, 0.0, 1.57]
+persistent = true
+edid = "KCB_ACHR_Placed"

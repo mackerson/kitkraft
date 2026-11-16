@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): ACTI. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/ACTI.toml out/bench/KCB_T_ACTI.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:03CCF4 ActivatorSwitch01: the mini-site recipe's switch.
+name = "acti_clone"
+form = "Starfield.esm:03CCF4"
+edid = "KCB_ACTI_Clone"
+
+[[new]]
+# A new ACTI with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "acti_new"
+type = "ACTI"
+edid = "KCB_ACTI_New"

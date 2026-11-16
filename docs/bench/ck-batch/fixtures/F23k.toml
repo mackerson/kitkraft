@@ -1,0 +1,15 @@
+# CK bench: KitKraft's side of fixture F23 (one vanilla temporary reference moved): Position X
+# of Starfield.esm:1B21E0 set to the sentinel 1234.5 (00 50 9A 44). 1B21E0 is a temporary
+# REFR of ComIntParSmWallA_MidFull01 in CityNewAtlantisApartmentTEMPLATE (21966F), the wall
+# at (-17, -6, 4.63) right behind the F29 crate at (-17, -4), so it is easy to find in the
+# Render Window (`kit cell --cell Starfield.esm:21966F`); place_corpus.rs already edits it.
+# This is the reference docs/bench/ck-sitting.md recommends for owner question 1.
+# kit build docs/bench/ck-batch/fixtures/F23k.toml <out>/KCB_F23k.esp
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[set]]
+form = "Starfield.esm:1B21E0"
+fields = { "DATA.Position.X" = 1234.5 }

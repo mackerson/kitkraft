@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): QUST. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/QUST.toml out/bench/KCB_T_QUST.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:00118F MQ_TutorialQuest_Misc06: an early QUST after DebugVideoQuest (debug, skipped).
+name = "qust_clone"
+form = "Starfield.esm:00118F"
+edid = "KCB_QUST_Clone"
+
+[[new]]
+# A new QUST with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "qust_new"
+type = "QUST"
+edid = "KCB_QUST_New"

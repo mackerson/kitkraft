@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): GLOB. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/GLOB.toml out/bench/KCB_T_GLOB.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0FB76D CF05_EnsignTestGlobal: the float test global of fixtures F09 and F10.
+name = "glob_clone"
+form = "Starfield.esm:0FB76D"
+edid = "KCB_GLOB_Clone"
+
+[[new]]
+# A new GLOB with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "glob_new"
+type = "GLOB"
+edid = "KCB_GLOB_New"

@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): ENCH. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/ENCH.toml out/bench/KCB_T_ENCH.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:00297D Ench_Legendary_Armor_Incendiary: the first ENCH kit query lists.
+name = "ench_clone"
+form = "Starfield.esm:00297D"
+edid = "KCB_ENCH_Clone"
+
+[[new]]
+# A new ENCH with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "ench_new"
+type = "ENCH"
+edid = "KCB_ENCH_New"

@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): FURN. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/FURN.toml out/bench/KCB_T_FURN.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:001E9A NPCChairRyujinTall02_ExecutiveHandClasp: a chair (kit query's third).
+name = "furn_clone"
+form = "Starfield.esm:001E9A"
+edid = "KCB_FURN_Clone"
+
+[[new]]
+# A new FURN with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "furn_new"
+type = "FURN"
+edid = "KCB_FURN_New"

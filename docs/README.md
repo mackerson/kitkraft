@@ -52,6 +52,7 @@ Don't copy a count into prose: it goes stale. Point at the file that is regenera
 | `foothold/gap-matrix.md` | reference, checked | KitKraft's capability matrix (not Foothold-only, despite the folder): `crates/schema/tests/reconcile.rs` checks it, `cargo xtask parity` rewrites its headline |
 | `game-observations.md` | ledger, checked | In-game evidence; read at runtime by launch authorization and written only by `kit ledger` |
 | `ck-observations.md`, `ck-parity.md`, `game-sessions.md` | ledger / reference, checked | CK observations and the CK feature checklist; several `ui-egui` and engine tests read them |
+| `bench/ck-sitting.md`, `bench/ck-batch/` | process | The CK bench run sheet of 2026-11-16 and its plugin batch: a recipe per typed-writable type, `build.ps1`, `ck-ingest.ps1` (a CK re-export to drafted evidence entries) |
 | `schema/evidence.toml` | checked | Evidence per capability; input to `kit coverage --matrix` and `parity`; its `doc:` pointers resolve by heading |
 | `schema/*-family.md`, `schema/support-matrix.md` | reference | Per-family schema notes; `support-matrix.md` is mostly per-round history |
 | `design/` | reference | Design notes; `design/workbench-style.md` is checked (`ui-egui` theme test) |

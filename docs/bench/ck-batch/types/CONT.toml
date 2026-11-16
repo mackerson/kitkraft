@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): CONT. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/CONT.toml out/bench/KCB_T_CONT.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:04A4F3 SQ_TreasureMap_SpaceCrate: the CONT whose edit dialog sitting 2 observed (S2-06).
+name = "cont_clone"
+form = "Starfield.esm:04A4F3"
+edid = "KCB_CONT_Clone"
+
+[[new]]
+# A new CONT with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "cont_new"
+type = "CONT"
+edid = "KCB_CONT_New"

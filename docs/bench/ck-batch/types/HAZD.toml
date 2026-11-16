@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): HAZD. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/HAZD.toml out/bench/KCB_T_HAZD.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:000B25 ENV_PoolHazard_ParasiticContamination: the first HAZD kit query lists.
+name = "hazd_clone"
+form = "Starfield.esm:000B25"
+edid = "KCB_HAZD_Clone"
+
+[[new]]
+# A new HAZD with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "hazd_new"
+type = "HAZD"
+edid = "KCB_HAZD_New"

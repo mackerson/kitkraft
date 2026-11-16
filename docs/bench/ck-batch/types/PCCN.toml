@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): PCCN. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/PCCN.toml out/bench/KCB_T_PCCN.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0011A0 WorldspaceContent_PCM_QuestRequest064: the first PCCN kit query lists.
+name = "pccn_clone"
+form = "Starfield.esm:0011A0"
+edid = "KCB_PCCN_Clone"
+
+[[new]]
+# A new PCCN with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "pccn_new"
+type = "PCCN"
+edid = "KCB_PCCN_New"

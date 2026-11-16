@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): SFTR. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/SFTR.toml out/bench/KCB_T_SFTR.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:045DAF PodiusSurfaceTree: the first SFTR kit query lists (about 57 KB).
+name = "sftr_clone"
+form = "Starfield.esm:045DAF"
+edid = "KCB_SFTR_Clone"
+
+[[new]]
+# A new SFTR with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "sftr_new"
+type = "SFTR"
+edid = "KCB_SFTR_New"

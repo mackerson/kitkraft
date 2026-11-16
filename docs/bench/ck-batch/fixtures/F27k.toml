@@ -1,0 +1,13 @@
+# CK bench: KitKraft's side of fixture F27 (the owner of one vanilla interior cell changed):
+# the same edit as docs/recipes/ownership.toml, CityNewAtlantisFreestarEmbassy
+# (Starfield.esm:017307) owned by PlayerFaction (Starfield.esm:01C21C), so the CK's
+# KC_F27.esp and this file compare member for member (M4.E8).
+# kit build docs/bench/ck-batch/fixtures/F27k.toml <out>/KCB_F27k.esp
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[set]]
+form = "Starfield.esm:017307"
+fields = { "XOWN.Owner" = "Starfield.esm:01C21C" }

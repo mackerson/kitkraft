@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): COBJ. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/COBJ.toml out/bench/KCB_T_COBJ.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:2AA561 co_ammo_777mm: the COBJ whose edit dialog sitting 2 observed (S2-03).
+name = "cobj_clone"
+form = "Starfield.esm:2AA561"
+edid = "KCB_COBJ_Clone"
+
+[[new]]
+# A new COBJ with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "cobj_new"
+type = "COBJ"
+edid = "KCB_COBJ_New"

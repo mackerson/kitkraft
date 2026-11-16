@@ -1,0 +1,22 @@
+# CK bench batch (docs/bench/ck-sitting.md): TERM. One vanilla clone and one new record.
+# Starfield.esm is the only master. Standalone: kit build docs/bench/ck-batch/types/TERM.toml out/bench/KCB_T_TERM.esp
+# build.ps1 also joins the part below "--- body ---" into its group plugin (groups.toml), so
+# every name is prefixed with the type.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# --- body ---
+
+[[clone]]
+# Starfield.esm:0029A4 LC017_RobotTurretControl: the TERM whose edit dialog sitting 2 observed (S2-05).
+name = "term_clone"
+form = "Starfield.esm:0029A4"
+edid = "KCB_TERM_Clone"
+
+[[new]]
+# A new TERM with its EditorID only: what the CK makes of KitKraft's minimal record.
+name = "term_new"
+type = "TERM"
+edid = "KCB_TERM_New"
