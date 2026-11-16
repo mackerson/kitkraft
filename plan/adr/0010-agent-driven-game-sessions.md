@@ -271,9 +271,11 @@ screenshot based play."
   mouse, a virtual game controller) to the game window, and may give that window the
   focus to do so. Decision 2's other limits stand: no debugger, no reading of game memory,
   no code injection, no scan of the process.
-- "Focus box" is recorded as the owner wrote it. It is read here as taking the window
-  focus; whether it also covers typing into the Creation Kit's file dialog (ADR 0012) is
-  not settled by this amendment and waits for the owner's word.
+- "Focus box" covers taking the window focus and, by the owner's answer the same day
+  ("Yes, CK too"), typing into the Creation Kit's file dialog during an automated sitting
+  (ADR 0012). ADR 0012's other rulings stand: no Creation Kit command-line switches, no
+  static scan of its binary, and a save in the Creation Kit needs the owner's permission
+  for that sitting.
 - Unchanged: a game launch still needs the owner's go for that session (the owner plays
   on the same machine and card); the profile is `Kitkraft Dev` only; every observation
   goes to the ledger as before. Input sent by an agent is recorded in the session's
