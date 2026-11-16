@@ -119,7 +119,9 @@ ledger entry's "Console port" line say what was not checked.
 6. End `Starfield.exe`, `sfse_loader.exe`, MO2's helpers and MO2 itself. Preflight
    guaranteed none of them ran before the session, so the session started them all.
 7. Copy the logs (`Papyrus.0.log`, `StarfieldConsoleHistory.log`) into `observe\<id>\logs\`.
-   A log that was not written is recorded as missing.
+   A log that was not written is recorded as missing, and so is one whose length and
+   modified time are what they were before the launch, with a finding: `2026-11-10-T01`
+   copied a console history last written on 2026-11-01 as if the session had written it.
 8. Hash the backed-up files again. A changed file that existed before is restored byte
    for byte from its backup. A file that appeared is reported and left in place, because
    rollback only restores. Any change is a finding (file it under `plan/STATUS.md`
@@ -187,6 +189,12 @@ except `pass` carries its reason.
   for that was not taken, or a timeout. Missing evidence is never `pass`.
 - A probe that times out is `inconclusive (timeout ...)`. Every later row is
   `not-run (timeout at row X)`, and the game is ended.
+- Before the game is ended after a timeout (the launch wait, the base save's wait, or a
+  row), one finding records what the box showed: which of the session's processes still
+  ran, whether the game had its main window, and a screenshot
+  `observe\<id>\screenshots\stuck-<n>.png` (or why none was taken). It changes no grade;
+  it tells a hung or crashed game from a console that stopped answering
+  (`docs/bench/ow1-prep.md` has the decision tree).
 - `game.stop` makes the remaining rows `not-run (stopped by game.stop before row X)`.
 - A `manual` row is `not-run (manual: <reason>)`. If it asked for a screenshot, it is
   `inconclusive` until the owner looks (Amendment 1 condition 8).

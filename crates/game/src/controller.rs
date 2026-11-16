@@ -417,6 +417,20 @@ struct Run<'a> {
     last: Option<Waiting>,
     /// A late failure of the base `load`: no row's `pass` stands (R41).
     base_failed: Option<String>,
+    /// Each log's length and modified time before the launch, to tell a log the game wrote
+    /// during the session from one left from an earlier run (2026-11-10-T01 copied a
+    /// console history last written on 2026-11-01 as if the session had written it).
+    log_marks: Vec<(String, Option<LogMark>)>,
+    /// Screenshots taken by [`Run::diagnose`] so far.
+    stuck_shots: u32,
+}
+
+/// A log file's length and modified time.
+type LogMark = (u64, Option<std::time::SystemTime>);
+
+fn log_mark(path: &Path) -> Option<LogMark> {
+    let m = std::fs::metadata(path).ok()?;
+    m.is_file().then(|| (m.len(), m.modified().ok()))
 }
 
 /// After a `load`, the game is taken to answer again when this many readiness polls in a
@@ -1295,6 +1309,7 @@ impl Run<'_> {
             self.regrade(rows);
             if timed_out {
                 let why = format!("timeout at row {}", probe.row);
+                self.diagnose(&format!("row {}'s timeout", probe.row));
                 self.findings
                     .push(format!("row {} timed out; the game was ended", probe.row));
                 for r in self.not_run(i.saturating_add(1), &why) {
@@ -1362,6 +1377,59 @@ impl Run<'_> {
         reruns
     }
 
+    /// What the box showed when a wait or a row gave up, before the game is ended: which of
+    /// the session's processes still ran, whether the game had its main window, and a
+    /// screenshot (`observe\<id>\screenshots\stuck-<n>.png`). One finding; no row's grade
+    /// changes. Nothing is captured after `game.stop`. Why: 2026-11-10-T01 timed out at the
+    /// base save with only the transcript to tell a hung game from a dropped answer.
+    fn diagnose(&mut self, what: &str) {
+        if self.shared.stop_requested() {
+            return;
+        }
+        let image = self.plan.game.executables.game.clone();
+        let images = self.plan.game.executables.ended();
+        let procs = match self.deps.host.running() {
+            Ok(r) => {
+                let up: Vec<&str> = images
+                    .iter()
+                    .filter(|i| is_running(&r, i))
+                    .map(String::as_str)
+                    .collect();
+                if up.is_empty() {
+                    "none of the session's processes ran".to_string()
+                } else {
+                    format!("running: {}", up.join(", "))
+                }
+            }
+            Err(e) => format!("processes unknown ({e})"),
+        };
+        let window = match self.deps.host.has_main_window(&image) {
+            Ok(true) => "yes".to_string(),
+            Ok(false) => "no".to_string(),
+            Err(e) => format!("unknown ({e})"),
+        };
+        let n = self.stuck_shots.saturating_add(1);
+        self.stuck_shots = n;
+        let dest = self
+            .plan
+            .observe
+            .join("screenshots")
+            .join(format!("stuck-{n}.png"));
+        let shot = match self
+            .guard
+            .claim(&dest)
+            .and_then(|()| self.deps.host.screenshot(&dest))
+        {
+            Ok(()) if dest.is_file() => dest.display().to_string(),
+            Ok(()) => "not written".to_string(),
+            Err(e) => format!("not taken ({e})"),
+        };
+        self.findings.push(format!(
+            "diagnostics at {what}, {}s after the start: {procs}; main window of {image}: {window}; screenshot: {shot}",
+            self.start.elapsed().as_secs()
+        ));
+    }
+
     /// Ends the processes and waits for them to go.
     fn end(&mut self, child: Option<Box<dyn Launched>>) -> Vec<String> {
         let images = self.plan.game.executables.ended();
@@ -1407,6 +1475,24 @@ impl Run<'_> {
             if !path.is_file() {
                 out.push((name.clone(), None));
                 continue;
+            }
+            // A log whose length and modified time are what they were before the launch
+            // was not written by this session: it is recorded as missing, not copied as
+            // if it were evidence (2026-11-10-T01's console history dated 2026-11-01).
+            let before = self
+                .log_marks
+                .iter()
+                .find(|(n, _)| n == name)
+                .and_then(|(_, m)| *m);
+            if let Some(before @ (_, Some(_))) = before {
+                if log_mark(path) == Some(before) {
+                    self.findings.push(format!(
+                        "log {name} was not written during the session ({} has the length and modified time it had before the launch); recorded as missing",
+                        path.display()
+                    ));
+                    out.push((name.clone(), None));
+                    continue;
+                }
             }
             let file = path
                 .file_name()
@@ -1456,6 +1542,12 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
         waiting: Vec::new(),
         last: None,
         base_failed: None,
+        log_marks: plan
+            .logs
+            .iter()
+            .map(|(n, p)| (n.clone(), log_mark(p)))
+            .collect(),
+        stuck_shots: 0,
     };
     let mut rows: Vec<RowReport> = Vec::new();
     let mut reruns = Vec::new();
@@ -1545,6 +1637,7 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
                     match loaded {
                         Err(why) => {
                             r.findings.push(why.clone());
+                            r.diagnose("the wait before the probes");
                             for x in r.not_run(0, &why) {
                                 r.push_row(&mut rows, x);
                             }
