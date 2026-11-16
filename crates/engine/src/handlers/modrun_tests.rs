@@ -231,6 +231,8 @@ fn with_a_verified_profile_the_session_runs_and_each_probe_has_a_verdict() {
     );
     // The rename's probe: the weapon's name finds its runtime ID.
     c.answer("help", "WEAP: (00000800) 'Old Soviet Marksman Rifle'");
+    // Its additem row (R22): the count after `player.additem`.
+    c.answer("player.getitemcount", "GetItemCount >> 1.00");
     c.answer("player.getincell", "GetInCell >> 1.00");
     // The synthetic load order has no leave cell: the persistence row reads a getter.
     c.answer(
@@ -261,11 +263,16 @@ fn with_a_verified_profile_the_session_runs_and_each_probe_has_a_verdict() {
             )
         })
         .collect();
-    // T-01 finds the renamed weapon's runtime ID, T-02 is the save/reload, T-03 is manual
-    // for a plugin that places nothing.
+    // T-01 finds the renamed weapon's runtime ID, T-02 adds it (R22), T-03 is the
+    // save/reload, T-04 is manual for a plugin that places nothing.
     assert_eq!(
         rows,
-        pairs(&[("T-01", "pass"), ("T-02", "pass"), ("T-03", "not-run")]),
+        pairs(&[
+            ("T-01", "pass"),
+            ("T-02", "pass"),
+            ("T-03", "pass"),
+            ("T-04", "not-run")
+        ]),
         "{d:#}"
     );
     // The verdict is read off the rows: a manual row keeps it partial.
