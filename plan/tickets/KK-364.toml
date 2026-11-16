@@ -1,0 +1,55 @@
+# Written 2026-11-15 for the 2026-11-16 bench session (report-to-evidence tool, category B).
+# Chained after KK-361: it extends the same xtask module.
+id = "KK-364"
+title = "session-evidence: mark proposed entries that docs/schema/evidence.toml already has"
+timeout_min = 45
+budget_h = 1.5
+priority = 1
+after = ["KK-361"]
+owns = [
+  "xtask/src/session_evidence.rs",
+  "xtask/fixtures/",
+  "docs/game-sessions.md",
+]
+brief = """
+`cargo xtask session-evidence <report.json>` (KK-361, `xtask/src/session_evidence.rs`;
+read its module docs and tests first) prints the `docs/schema/evidence.toml` `[[entry]]`
+blocks a game session's passing rows justify. A person then pastes them into
+`docs/schema/evidence.toml`. When that file already has an entry for the same `type` and
+`status` (for example REFR `game-runtime-tested`, which cites game-20261015-03), pasting
+makes a duplicate entry. Make the tool say so.
+
+Change: the tool reads `docs/schema/evidence.toml` (the workspace's, or the file named by
+`--evidence <path>`), parsed with the `toml` crate as an `entry` array. For each proposed
+(type, status) that already has an entry there, it prints, instead of a new block, a comment
+`# <SIG> <status>: already recorded; add "ledger: <id>" to that entry's evidence` and no
+`[[entry]]`. Proposals with no existing entry print as before.
+
+Tests, in the module's `tests`, exact names:
+- `an_existing_entry_is_reported_not_duplicated`: with an evidence file (a small TOML
+  string written to a temporary file, or a fixture under `xtask/fixtures/`) holding one REFR
+  `game-runtime-tested` entry, the KK-361 sample report gives two `[[entry]]` blocks (REFR
+  `save-reload-verified`, WEAP `game-runtime-tested`) and the comment `# REFR
+  game-runtime-tested: already recorded; add "ledger: game-20261101-99" to that entry's
+  evidence`.
+- `an_empty_evidence_file_changes_nothing`: with an evidence file holding no entries, the
+  output equals the KK-361 output for the sample report.
+
+Keep KK-361's three tests (`the_sample_report_proposes_the_entries_its_passing_rows_justify`,
+`the_proposed_entries_parse_as_evidence_entries`,
+`a_report_without_a_ledger_entry_proposes_nothing`) passing unchanged; they must not depend on the real
+`docs/schema/evidence.toml` (pass an empty evidence set there if needed). Update the
+paragraph KK-361 added to `docs/game-sessions.md` with the new behaviour and the flag. Do
+not edit `docs/schema/evidence.toml` or `plan/STATUS.md` (no "Landed" line).
+
+Run `cargo test -p xtask session_evidence`, then `cargo xtask ci`. Commit only when the
+acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "already-recorded"
+cmd = '''cargo test -p xtask -- --exact session_evidence::tests::an_existing_entry_is_reported_not_duplicated session_evidence::tests::an_empty_evidence_file_changes_nothing 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "kk-361-tests"
+cmd = '''cargo test -p xtask -- --exact session_evidence::tests::the_sample_report_proposes_the_entries_its_passing_rows_justify session_evidence::tests::the_proposed_entries_parse_as_evidence_entries session_evidence::tests::a_report_without_a_ledger_entry_proposes_nothing 2>&1 | tee /tmp/o; grep -q '^test result: ok. 3 passed' /tmp/o'''

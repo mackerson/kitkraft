@@ -1,0 +1,79 @@
+# Written 2026-11-15 for the 2026-11-16 bench session (session robustness, category C).
+id = "KK-362"
+title = "game session: agent-sent input is recorded in report.json (ADR 0010 Amendment 2)"
+timeout_min = 45
+budget_h = 2
+priority = 1
+owns = [
+  "crates/game/src/input.rs",
+  "crates/game/src/lib.rs",
+  "crates/game/src/controller.rs",
+  "crates/game/tests/sent_input.rs",
+  "docs/game-sessions.md",
+]
+brief = """
+ADR 0010 Amendment 2 (`plan/adr/0010-agent-driven-game-sessions.md`, last section) lets a
+session send desktop input (keystrokes, mouse, a virtual controller) to the game window, on
+one condition: "Input sent by an agent is recorded in the session's report (what was sent,
+when), so a pass that depended on it says so." No input is sent yet (the first work under
+the amendment is research), but the record must exist before anything sends input. Build
+the record and its place in the report; send nothing.
+
+Read first: `crates/game/src/lib.rs` (the module list), `crates/game/src/controller.rs`:
+`pub struct Report` (the session's `report.json`), `pub struct Shared` and its `impl` (the
+state a running session shares with `game.status`, `game.probe`, `game.stop`; it holds
+`started: Instant`), and the end of `pub fn run`, where `entry` (the ledger entry, with
+`findings: r.findings.clone()`) and then `Report { ... }` are built and `report.json` is
+written. `crates/game/tests/session.rs` shows how a whole session runs against the fakes
+(`kitkraft_game::testing`: a fake `/console` endpoint and a fake host; see "Testing against
+the fakes" in `docs/game-sessions.md`).
+
+Build:
+1. `crates/game/src/input.rs` (new, `pub mod input;` in `lib.rs`): `pub struct SentInput`
+   (`Serialize`, `Deserialize`, `Clone`, `Debug`, `PartialEq`) with `at_ms: u64`
+   (milliseconds since the session started), `row: Option<String>` (the probe row it served,
+   if any), `kind: String` (`"key"`, `"mouse"`, `"controller"`, `"focus"`) and `detail:
+   String` (what was sent, in words: `"F1"`, `"click 640,360"`). Module docs cite the
+   amendment.
+2. In `controller.rs`: a `inputs: Mutex<Vec<SentInput>>` field on `Shared`, initialised
+   empty in `Shared::new`; `pub fn record_input(&self, row: Option<&str>, kind: &str,
+   detail: &str)` that appends with `at_ms` from `started`; `pub fn inputs(&self) ->
+   Vec<SentInput>`. A `pub inputs: Vec<SentInput>` field on `Report`, filled from
+   `shared.inputs()` when the report is built. When it is not empty, push one finding
+   before the ledger entry is built: `agent input sent: <n> (report.json `inputs`); a pass
+   may depend on it`. Keep your change in `controller.rs` to these places (the struct, the
+   `Shared` impl, the report construction at the end of `run`): another lane is changing the
+   base-save wait in the same file, and small, separate hunks merge cleanly. Do not
+   reformat or reorder anything else there.
+3. `crates/game/tests/sent_input.rs` (new): copy the helpers you need from
+   `crates/game/tests/session.rs` (`probes`, `plan`, `console`, `deps`, `host`, `fixture`
+   and what they call) into this file; do not edit `session.rs`. Exact test names:
+   - `recorded_input_is_in_the_report_in_order`: `Shared::new`, then `record_input(Some("T-01"),
+     "key", "F1")` and `record_input(None, "focus", "game window")`, then `run` with the
+     fakes. `report.inputs` has the two entries in that order with those fields, `at_ms` of
+     the second >= the first; `report.findings` has exactly one line starting `agent input
+     sent: 2`; and the `report.json` the session wrote (under the plan's observe folder)
+     has an `inputs` array of length 2.
+   - `a_session_without_input_reports_an_empty_list`: the same session with no
+     `record_input`: `report.inputs` is empty, no finding starts with `agent input sent`,
+     and `report.json` has `"inputs": []`.
+4. `docs/game-sessions.md`: under "Writes" or the report description, one paragraph:
+   `report.json` `inputs` lists every input an agent sent (Amendment 2), and a session that
+   sent any says so in its findings and ledger entry.
+
+Do not add a dependency. Do not edit `crates/game/src/profile.rs`, `preflight.rs` or the
+other test files, or `plan/STATUS.md` (no "Landed" line). If the existing session tests
+fail because `Report` gained a field (a struct literal elsewhere), fix only that construction
+in the files you own; if one is outside them, stop and say so in your commit message.
+
+Run `cargo test -p kitkraft-game` while you work, then `cargo xtask ci`. Commit only when
+the acceptance commands below pass and `cargo xtask ci` is green.
+"""
+
+[[accept]]
+name = "sent-input"
+cmd = '''cargo test -p kitkraft-game --test sent_input -- --exact recorded_input_is_in_the_report_in_order a_session_without_input_reports_an_empty_list 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "game-crate"
+cmd = '''cargo test -p kitkraft-game 2>&1 | tee /tmp/o; ! grep -Eq '^test result: FAILED|[1-9][0-9]* failed' /tmp/o && grep -q 'recorded_input_is_in_the_report_in_order ... ok' /tmp/o'''

@@ -268,6 +268,11 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-341](KK-341.toml) | Typed-write tests for SPCH, STND and MOVT | written 2026-11-15 in KK-291's shape; types outside the family table | queued |
 | [KK-342](KK-342.toml) | Clone-sample corpus test for CONT | written 2026-11-15 in KK-014's shape, one type per ticket | queued |
 | [KK-343](KK-343.toml) | Clone-sample corpus test for KEYM | written 2026-11-15 in KK-014's shape, one type per ticket | queued |
+| [KK-360](KK-360.toml) | testplan: an overridden inventory item keeps its help row and gets an additem row (R22) | written 2026-11-15 for the 2026-11-16 bench session (probe emitters; `priority = 1`) | queued |
+| [KK-361](KK-361.toml) | cargo xtask session-evidence: the evidence.toml entries a session report's passing rows justify | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | queued |
+| [KK-362](KK-362.toml) | game session: agent-sent input is recorded in report.json (ADR 0010 Amendment 2) | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | queued |
+| [KK-363](KK-363.toml) | testplan: a new interior cell is entered by coc and checked by its runtime ID | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | after KK-360 |
+| [KK-364](KK-364.toml) | session-evidence: mark proposed entries that docs/schema/evidence.toml already has | written 2026-11-15 for the 2026-11-16 bench session (`priority = 1`) | after KK-361 |
 
 KK-330 to KK-343 (local-model backlog, written 2026-11-15; none has `after` or `hold`).
 Same night: the ten schema tickets KK-330 to KK-339 own different definitions and share only
