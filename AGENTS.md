@@ -1,7 +1,8 @@
 # AGENTS.md
 
 Operating manual for every agent (and human) working in this repo. Read it in full before your
-first edit. `CLAUDE.md` points here.
+first edit. `CLAUDE.md` points here. What each doc is for, which docs code reads and which are
+generated or history: `docs/README.md`, the docs index.
 
 ## What this is
 
@@ -380,6 +381,7 @@ where the two disagree.
 
 | Path                     | Contents                                                      |
 | ------------------------ | ------------------------------------------------------------- |
+| `docs/README.md`         | Docs index: each doc's role (product, reference, checked, generated, process, history) |
 | `plan/STATUS.md`         | Current milestone, done, next, blockers, requests             |
 | `plan/execution-plan.md` | Tasks, owners, acceptance criteria, ordering                  |
 | `plan/adr/`              | Decisions, numbered, never rewritten (supersede instead)      |

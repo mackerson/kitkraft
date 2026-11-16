@@ -5,7 +5,9 @@
 > `9fb016884bec138ea6c7b872cec831537d464c3e`, is the record-definition reference, as source
 > material only; Mutagen and Spriggit source stay off limits.
 
-Working name only. Status: proposal, 2026-10-14. Nothing built yet.
+Working name only. Status: proposal, 2026-10-14. Nothing built yet. (History, kept as
+written: the plan of record is `ROADMAP.md` and `AGENTS.md`; `docs/README.md` indexes the
+docs.)
 
 ## What we're copying (and what we're not)
 

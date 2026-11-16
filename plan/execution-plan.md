@@ -1,7 +1,9 @@
 # Execution plan
 
-Scope: M0 and M1 (done), and M2 (below). Later milestones are outlined in `ROADMAP.md` and get
-broken down here when the previous one is close.
+Scope: M0 to M7, one section each, plus an M8 sketch (the scope line said "M0 to M2" until
+2026-11-15). Since 2026-10-23 new work is planned as tickets in `plan/tickets/` (ADR 0014),
+and this file is mostly history; read only the section a task names. Later milestones are
+outlined in `ROADMAP.md`.
 
 ## Lanes (ownership)
 

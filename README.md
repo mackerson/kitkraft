@@ -89,12 +89,12 @@ Real mods, built by KitKraft, checked in the real game:
 - 🧰 **Every catalog command is live:** load orders from MO2 profiles, inspect, query, diff,
   conflicts, set, build, validate, schema, archives, Papyrus and string tables. What a command
   doesn't do yet is written in each result's `limitations` and in [docs/gaps.md](docs/gaps.md).
-- 🗂️ **181 record definitions** for the 186 record types in the official files
-  ([docs/record-parity.md](docs/record-parity.md), 2026-10-30; the five without one are
-  queued as a ticket). 95 of them are inventory definitions: every member kept opaque, so
-  the record decodes and re-encodes but its fields are not named yet. 84 definition files
-  were added between 2026-10-26 and 2026-10-30 by an unattended local-agent campaign
-  ([ADR 0014](plan/adr/0014-supervised-local-agent.md), [docs/local-agent.md](docs/local-agent.md)):
+- 🗂️ **A record definition for every record type in the official files.** Some are still
+  inventory definitions: every member kept opaque, so the record decodes and re-encodes but
+  its fields are not named yet. The current counts (types, typed members, inventories) are
+  in [docs/record-parity.md](docs/record-parity.md), which `cargo xtask parity` regenerates.
+  84 definition files were added between 2026-10-26 and 2026-10-30 by an unattended
+  local-agent campaign ([ADR 0014](plan/adr/0014-supervised-local-agent.md), [docs/local-agent.md](docs/local-agent.md)):
   60 tickets merged, each graded by the gate and reviewed before merge.
 - 🪟 **A workbench** (`kit ui`): read-only views over the same commands, plus the cockpit's
   six confirmed writes (`ledger`, `deploy --dev`, `deploy.rollback`, `game.session`,
@@ -234,11 +234,12 @@ crates/   schema esm ba2 pex strings nif (L0)  doc (L1)  io (L3)  engine (L4)  m
 apps/     kit-cli (kit), kit (kit-ui, the workbench)
 xtask/    cargo xtask ci | layers | codegen | parity | inventory-def | inventory-check | add-def | dist
 plan/     STATUS.md, execution-plan.md, adr/, tickets/ (the local agent's queue, ADR 0014)
-docs/     architecture, mcp, parity checklists, gaps, corpus
+docs/     architecture, mcp, parity checklists, gaps, corpus (index: docs/README.md)
 corpus/   README only; the corpus lives in your game install
 ```
 
-New contributors and AI agents: start with [AGENTS.md](AGENTS.md).
+New contributors and AI agents: start with [AGENTS.md](AGENTS.md), then the docs index,
+[docs/README.md](docs/README.md), which says what each doc is for.
 
 ## Clean room
 
