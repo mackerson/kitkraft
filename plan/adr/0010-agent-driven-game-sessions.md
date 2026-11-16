@@ -260,3 +260,26 @@ only), and processes go through `std::process` with Windows' own `tasklist`, `ta
 and PowerShell (screen capture). Its dependencies are workspace crates already in
 `Cargo.lock`: `serde`, `serde_json`, `toml`, `thiserror`, `regex` (all MIT OR Apache-2.0).
 A later HTTP or process crate is listed here first.
+
+## Amendment 2: owner ruling 2026-11-15, desktop input injection allowed
+
+The owner's words, 2026-11-15: "ADR0010 lifted, focus box allowed, let's put some work in
+to seeing if we can automate access via virtual controller, or otherwise speed up
+screenshot based play."
+
+- Amendment 1 (b)'s deferral is lifted: a session may send desktop input (keystrokes,
+  mouse, a virtual game controller) to the game window, and may give that window the
+  focus to do so. Decision 2's other limits stand: no debugger, no reading of game memory,
+  no code injection, no scan of the process.
+- "Focus box" is recorded as the owner wrote it. It is read here as taking the window
+  focus; whether it also covers typing into the Creation Kit's file dialog (ADR 0012) is
+  not settled by this amendment and waits for the owner's word.
+- Unchanged: a game launch still needs the owner's go for that session (the owner plays
+  on the same machine and card); the profile is `Kitkraft Dev` only; every observation
+  goes to the ledger as before. Input sent by an agent is recorded in the session's
+  report (what was sent, when), so a pass that depended on it says so.
+- A virtual controller that needs a driver or a new third-party crate is not covered by
+  these words: the driver install is the owner's, and a crate is listed under "Dependency
+  list" first (Amendment 1 (c)).
+- First work under this amendment is research only (prior art, virtual controllers,
+  faster capture); nothing is built or launched until the owner picks a design.
