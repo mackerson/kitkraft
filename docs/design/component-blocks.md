@@ -47,7 +47,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | ---- | -----: | --------: | ---- | --------------- | ----- |
 | ContactShadowComponent | 147,487 | 147,487 | `FLCS` | L6096-L6105 | yes |
 | KeywordForm | 95,999 | 83,015 | `KSIZ` | Keywords, L6694-L6697 | KK-282 |
-| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | no |
+| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | no (`VLMS` tail width chosen by the entry type) |
 | ObjectPaletteDefaults | 6,226 | 6,105 | `OPDS` | L6170-L6173 | KK-283 |
 | FullName | 5,775 | 5,695 | `FULL` | L6611-L6614 | KK-284 |
 | AnimationGraph | 4,854 | 4,853 | `ANAM` (2 `BNAM`) | L6079-L6087 | yes |
@@ -56,36 +56,37 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | AttachParentArray | 3,321 | 2,396 | `APPR` | L6088-L6091 | KK-287 |
 | ObjectWindowFilter | 3,062 | 3,062 | `INTV` | L6174-L6178 | KK-288 |
 | DestructibleObject | 2,813 | 2,149 | `DEST` | L6118-L6121 | KK-289 |
-| FormLinkData | 2,334 | 2,334 | `ITMC` | L6158-L6165 | no |
-| ExternalComponentDataSource | 2,030 | 2,030 | `EXDC` | L6140-L6157 | no |
-| LinkedVoiceType | 2,030 | 2,030 | `FCTF` | L6166-L6169 | no |
-| SpaceshipAIActor | 2,030 | 2,030 | `SAIA` | L6211-L6214 | no |
-| SpaceshipEquipment | 2,030 | 2,030 | `ESSF` | L6215-L6218 | no |
-| SpaceshipWeaponBindings | 2,030 | 2,030 | `SHWB` | L6223-L6230 | no |
-| Blueprint | 2,030 | 2,030 | `BUO4` | L6561-L6602 | no |
-| ForcedLocRefType | 2,022 | 14 | `FTYP` | L6686-L6689 | no |
-| TESContainer | 2,021 | 83 | `COCT` | Container Items, L6678-L6681 | no |
+| FormLinkData | 2,334 | 2,334 | `ITMC` | L6158-L6165 | 2026-11-16 |
+| ExternalComponentDataSource | 2,030 | 2,030 | `EXDC` | L6140-L6157 | 2026-11-16 |
+| LinkedVoiceType | 2,030 | 2,030 | `FCTF` | L6166-L6169 | 2026-11-16 |
+| SpaceshipAIActor | 2,030 | 2,030 | `SAIA` | L6211-L6214 | 2026-11-16 |
+| SpaceshipEquipment | 2,030 | 2,030 | `ESSF` | L6215-L6218 | 2026-11-16 |
+| SpaceshipWeaponBindings | 2,030 | 2,030 | `SHWB` | L6223-L6230 | 2026-11-16 |
+| Blueprint | 2,030 | 2,030 | `BUO4` | L6561-L6602 | 2026-11-16 |
+| ForcedLocRefType | 2,022 | 14 | `FTYP` | L6686-L6689 | 2026-11-16 |
+| TESContainer | 2,021 | 83 | `COCT` | Container Items, L6678-L6681 | 2026-11-16 (no `COED`) |
 | TESPlanetModel | 1,825 | 1,825 | `MODL` | L6619-L6635 | KK-285 (`XMPM` opaque) |
-| AddToInventoryOnDestroy | 1,724 | 1,702 | `INAM` | L6075-L6078 | no |
+| AddToInventoryOnDestroy | 1,724 | 1,702 | `INAM` | L6075-L6078 | 2026-11-16 |
 | PlanetContentManagerContentProperties | 1,272 | 1,272 | `ZNAM` | L6179-L6198 | yes |
-| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | no |
+| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | no (traversal FormID present by a flag bit; half floats) |
 | SoundTag | 987 | 966 | `STCP` | L6207-L6210 | yes |
-| WorldSpaceOverlay | 582 | 582 | `SNAM` | L6554-L6560 | no |
+| WorldSpaceOverlay | 582 | 582 | `SNAM` | L6554-L6560 | 2026-11-16 |
 | QualityUpgrade | 216 | 216 | `QUPA` | L6203-L6206 | yes |
 | DisplayCase | 156 | 156 | `DCSD` | L6122-L6139 | yes |
-| ImageSpaceModifiableForm | 142 | 50 | `MNAM` | L6615-L6618 | no |
-| SpaceshipHullCode | 134 | 134 | `HULL` | L6219-L6222 | no |
-| SpawnOnDestroy | 75 | 75 | `SODA` | L6231-L6234 | no |
-| CrowdComponent | 24 | 24 | `CDND` | L6106-L6117 | no |
-| AdaptiveTriggerData | 19 | 19 | `WFIR` | L6060-L6074 | no |
-| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | no |
-| BodyPartInfo | 4 | 1 | `GNAM` | GNAM (unknown bytes), L6690-L6693 | no |
-| CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | no |
-| VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no |
+| ImageSpaceModifiableForm | 142 | 50 | `MNAM` | L6615-L6618 | 2026-11-16 |
+| SpaceshipHullCode | 134 | 134 | `HULL` | L6219-L6222 | 2026-11-16 |
+| SpawnOnDestroy | 75 | 75 | `SODA` | L6231-L6234 | 2026-11-16 |
+| CrowdComponent | 24 | 24 | `CDND` | L6106-L6117 | 2026-11-16 (after PropertySheet) |
+| AdaptiveTriggerData | 19 | 19 | `WFIR` | L6060-L6074 | 2026-11-16 |
+| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | no (configuration strings carry FormIDs) |
+| BodyPartInfo | 4 | 1 | `GNAM` | GNAM (unknown bytes), L6690-L6693 | 2026-11-16 (opaque) |
+| CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | 2026-11-16 |
+| VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no (two blocks; length-prefixed strings, WWise GUIDs) |
 
-("Typed" as of 2026-11-15: KK-282..KK-289 took the nine most frequent kinds option (b) reaches without a
-format change, Volumes aside. Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where that stays
-unambiguous; the census prints the full strings.)
+("Typed" as of 2026-11-15: KK-282..KK-289 took the nine most frequent kinds option (b)
+reaches without a format change, Volumes aside; a date marks the kinds typed on 2026-11-16,
+see the last update. Kind names drop the `BGS`/`TES` prefixes and `_Component` suffixes where
+that stays unambiguous; the census prints the full strings.)
 
 So the scoping claim that 55 kinds "need the name decider" (`docs/gaps.md`, EL-02 before this
 note) is wrong: 9 kinds need it to tell their layouts apart; the other 46 non-reflection
@@ -213,4 +214,23 @@ records the design for that day.
 `NamedLayout` subrecord union now types eight of the nine `DATA`/`DAT2` kinds (1,196 blocks;
 `BGSBlockCellHeighGrid_Component` has no upstream decider entry and stays raw), and the
 lead-signature groups above stay as they are.
+
+**Update (2026-11-16):** nineteen more kinds are typed as lead-signature groups, each checked
+over every official block by `component_layouts_full` (0 re-encode differences): the GBFM
+ship parts (LinkedVoiceType, SpaceshipAIActor, SpaceshipEquipment, SpaceshipHullCode,
+SpaceshipWeaponBindings), ExternalComponentDataSource, FormLinkData, Blueprint, HoudiniData
+(its `PCCC` opaque, as `PTCL`), AddToInventoryOnDestroy, SpawnOnDestroy, WorldSpaceOverlay,
+ImageSpaceModifiableForm, ForcedLocRefType, TESContainer (without `COED`: no official block
+has one, and a `reference` member would lower every type with components), AdaptiveTriggerData,
+CityMapsUsage, BodyPartInfo (its `GNAM` opaque, unknown upstream) and CrowdComponent, placed
+after PropertySheet so it cannot take a `PRPS`-led property sheet (a crowd block that starts
+with `PRPS`, none official, is read as a property sheet). 19,027 blocks; with them 44
+layouts type or hold 50 of the 64 kinds and 297,803 of the 349,154 blocks (14,210 of them
+opaque: `REFL`, `PTCL`, `PCCC`, `GNAM`); 26,921 are empty. 24,430 blocks in five kinds stay
+raw: Volumes 23,159 (each `VLMS` entry ends in one, two or three floats chosen by its type,
+and a field union must have one width), StoredTraversals 1,258 (each traversal's FormID is
+present only when a flag bit of the same entry is clear, and its four half floats have no
+type), ActivityTracker 10 (configuration strings that carry FormIDs), VehicleConfig 2 and
+`BGSBlockCellHeighGrid_Component` 1 (no upstream decider entry). `components.rs` prints the
+raw blocks per kind (the census) and, with `KITKRAFT_COMPONENT_SHAPES`, their signature runs.
 

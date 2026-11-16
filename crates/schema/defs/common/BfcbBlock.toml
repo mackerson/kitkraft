@@ -68,7 +68,8 @@
 # data layout (L6721-L6733) is left out: no official block carries it, and a `reference`
 # member in this shared block would lower every record type with components below
 # `corpus` (the KK-289 lesson), so a BGSOrbitalDataComponent_Component block stays raw.
-# Every other layout (about thirty more upstream) stays raw subrecords in `ComponentData`,
+# Every other layout (volumes, stored traversals, activity tracker, vehicle config, the
+# block cell height grid; 2026-11-16) stays raw subrecords in `ComponentData`,
 # the `any_until` member after the typed ones: a block whose data starts with a signature
 # none of the groups above starts with, and that no union variant reads, is kept as read.
 # A component whose name and data disagree is read by the lead-signature groups by its
