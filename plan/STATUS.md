@@ -1,7 +1,7 @@
 # Status
 
-Updated: 2026-11-15 (KK-352: cut to the live state; the integration branch of 2026-11-15
-at `6bace482`, about to become `main`).
+Updated: 2026-11-17 (after the unattended bench of 2026-11-16/17 and the owner's ruling on
+saves; `main` at `5f4da9a2`). Cut to the live state on 2026-11-15 (KK-352).
 
 This file holds only what is live: where the project stands, the owner's next actions, open
 items and blockers. Keep it short (under about 300 lines) and edit facts in place; don't
@@ -21,16 +21,32 @@ append a dated log.
 
 ## Where we are
 
-- **Milestones** (`ROADMAP.md`): M0 to M2 done. M3 and M4 have no agent work left; what
-  stays open is owner-gated (the CK fixture sittings, session 2's ownership and workshop
-  rows, save/reload rows). M5 is partial and owner-gated. M6 (the cockpit) waits on its
-  sign-off sitting (M6.O4). M7 (CK parity) is in progress; the sprint of 2026-11-09 brought
-  most of its recent rows (`23d62954`, `docs/ck-parity.md`).
+- **Milestones** (`ROADMAP.md`): M0 to M2 done. M3 and M4 are closing. Since the ruling of
+  2026-11-16 (ADR 0012 Amendment 3, ADR 0010 Amendment 3) an agent may save in the CK and
+  in the dev profile without asking per sitting, so most of what was owner-gated is agent
+  work again: the CK fixtures F20 to F27 that have not passed, the `ck` write style, the
+  overhaul's save/reload row O5-15, the workshop and fabricator rows O4-05 and O4-06. A
+  game launch still needs the owner's go for that session. Left for the owner alone: the
+  ownership UI rows O4-01 and O4-02 (a person's look), the review of the explained-
+  difference rules, and the milestone sign-offs. M5 is partial. M6 (the cockpit) waits on
+  the window run and its sign-off (M6.O4). M7 (CK parity) is in progress.
+- **Bench of 2026-11-16/17** (unattended, the owner's go for that night): three CK
+  sittings took `ck-differential-tested` from 2 to 37 types; fixtures F28 and F23 pass,
+  F27 is inconclusive, F20 was not run (no way found to create a new interior cell in the
+  CK); the verification mod's 25 rows and the verification quest's 5 rows pass in game;
+  OW-2's command-line parts pass except `help` on the renamed item (inconclusive). Not
+  run: OW-2 in the window and M6.O4 (the computer-use dialog needs a person). Records:
+  `docs/bench/ck-batch/triage-20261117.md`, `resit-20261117.md`, `resit2-20261117.md`,
+  `docs/game-observations.md` `game-20261117-01` to `-06`.
 - **How work runs**: tickets in `plan/tickets/` (ADR 0014). The overnight local agent takes
   the headless ones, graded by the gate, merged by a morning session; Opus lanes take
   design work and anything that relaxes a guard or touches the write path. The queue and
-  each ticket's state: `plan/tickets/README.md`. Runnable now: KK-330 to KK-343 (the
-  local-model backlog, `a45bbe64`).
+  each ticket's state: `plan/tickets/README.md`. Runnable now: KK-371 to KK-404 (the
+  local-model backlog written 2026-11-17; KK-370 merged the same morning).
+- **Merged on 2026-11-16 and 2026-11-17**: KK-330 to KK-343 and KK-360 to KK-370; the
+  component blocks (raw 24,430 to 3); alias scripts, struct properties and the quest
+  fragment checks; the members the CK adds to a new record, for about 40 types
+  (`e7718b5e`, `2c4848f9`).
 - **Merged on 2026-11-14 and 2026-11-15**: KK-252 to KK-266 (Opus lanes, typed types,
   typed-write and clone-sample tests); conditions, KK-267 to KK-272 (`8d6c998a`); dialogue,
   KK-274 to KK-279 (`92773276`); component layouts, KK-280 to KK-288 (`957773f5`) and
@@ -59,10 +75,15 @@ What is left for the owner:
   F30 as clean). Left from them: remove the CK's `KitKraftFirstPOI-CK.esp`, `.esm` and
   `Backup\AutoSaveDEFAULT.bak` from MO2's `overwrite\` folder.
 - Group D (M6.O4, M7.O6) stays his for later.
-- **Bench evening 2026-11-16 (from about 21:30)**: follow `docs/bench/README.md`, the one
-  sheet: select `Kitkraft Dev` in MO2 and close MO2 first, answer its "Owner answers"
-  table in one pass, then the ordered run (OW-1, the verification mod, OW-2 with the input
-  experiment, the CK batch last).
+- **From the bench of 2026-11-16/17**: review the ten rules of
+  `docs/bench/ck-batch/explained-differences.toml` (11 more types pass the CK comparison
+  with them); rule on the send order from the ledger's timestamp table; sit at the desk
+  once for OW-2 in the window and M6.O4 (click Allow on the computer-use dialog); say
+  whether the 37 commits of `e7718b5e`'s CK lane that do not compile alone stay on public
+  `main` as they are.
+- **Saves (ruling of 2026-11-16)**: rows 12 and 15 below say a CK save needs the owner's OK
+  per sitting. That no longer holds (ADR 0012 Amendment 3). The one limit is the owner's
+  primary saves folder, which nothing writes, renames or deletes.
 
 In-game checks use only the MO2 profile **KitKraft Dev**, each on a disposable save. Never
 use `Default` (AGENTS.md, "Owner's live game is off limits").
@@ -83,7 +104,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | 12 | M5.O1 (path (a) of M5's shortest validated path): an owner-assisted CK sitting from the steps in this row, which are enough on their own (M5.A1's session script, when written, adds the ledger detail and the later sittings): **F29** (in the CK, place `Crate_MilitarySupply_01` `Starfield.esm:1E4FBD` in `CityNewAtlantisApartmentTEMPLATE` at the first POI's position, persistent, EditorID `KitKraftFirstPOICrate`, save with `Starfield.esm` as the only master) and **F30** (open `out\poi\KitKraftFirstPOI.esm` in the CK and save an unchanged copy). Screenshots and files into `observe\<date>-F29\` and `observe\<date>-F30\`. Since 2026-11-01 an agent may run CK sittings without you under ADR 0012 Amendment 2 (accepted); a CK save still needs your OK per sitting. You allowed F30 on 2026-11-01, and F29 once F30 comes back clean (sheet item 21), under the same rules: dev profile, files into `observe\`, the CK's settings files restored | M5.A3: the first CK differential (Gate K0 "CK can load/re-export"), run with `cargo xtask observe`, `kit roundtrip --verify --decode` and `kit diff`; every `ck-diff` cell of `docs/foothold/gap-matrix.md` | **F30 first half done 2026-11-01, agent-run** (`docs/ck-observations.md` `ck-20261101-01`): the CK loaded our plugin with no warning naming it; it would not take the master-flagged file as the active file, so nothing was saved and F30's save and the differential are open. **F30 second half done 2026-11-01, agent-run** (`ck-20261101-02`): with the owner's OK the CK opened a non-master `.esp` twin as the active file and saved it unchanged; both records byte-identical, four TES4 differences unexplained (`cargo xtask oracle ck`: fail, match 1/1). The owner counted that clean. **F29 done 2026-11-01, agent-run** (`ck-20261101-03`, the owner counted F30 as clean): the CK placed the crate, saved `KitKraftFirstPOI-CK.esp` and converted it to `.esm`; position exact, rotation 3.13999915, CELL override byte-identical to ours; the CK made the reference temporary (no Persistent checkbox in the Reference dialog). **M5.A3 done 2026-11-01** (`ck-20261101-04`): every difference explained, by the corpus or as CK bookkeeping (`cargo xtask oracle ck`: F30 clean, F29 ours-missing, 0 unexplained); `CELL` and `REFR` are `ck-differential-tested` pass. Owner decision 2026-11-02: a placed reference defaults to temporary, as the CK does (already the default of `kit place` and `[[place]]`; existing recipes keep `persistent = true`, `docs/design/persistence.md` "Default: temporary"); `validate`'s `cell.incc` no longer warns on a non-master plugin without `INCC` |
 | 13 | M5.O2: confirm the dependency list `crates/game` adds (an HTTP client and a process crate) at the M4.T3 merge (ADR 0010 Amendment 1 (c)). Blocks the merge only if a license is not MIT or Apache-2.0 | M4.T3 merge, so path (b) | **M4.T3 merged 2026-10-16** with no third-party crate (ADR 0010 "Dependency list": workspace crates only, all MIT OR Apache-2.0), so it went in under the director assumption above; **closed 2026-11-01** (sheet item 10): the owner confirmed it, nothing to review |
 | 14 | M4.O4: in-game session 2 on `KitKraft Dev` with a disposable save, template O4 in `docs/game-observations.md`: the ownership and actors recipes (O4-01..O4-04), the outpost object and fabricator recipes (O4-05, O4-06; `docs/recipes/workshop.md`, `fabricator.md`), and the **scripts recipe in game** (O4-07; `docs/recipes/scripts.md`, "In game", plugin `KitKraftScripts.esm`) | M5.B3 (the scripted activator in game, Gate K0) unless lane C's M4.T6 closes O4-07 first; M5.O3; M4 exit | **partly done by agent sessions 2026-11-03** (`docs/game-observations.md`, re-graded on controller `e6028aaa`): O4-03 pass (`game-20261103-06` T-01 to T-03), O4-04 persistence pass (`-06` T-05), O4-07 the scripts recipe fires on `OnLoad` (`-04` T-05, Gate K0). Still the owner's: O4-01 and O4-02 (ownership UI rows), O4-05 and O4-06 (workshop and fabricator recipes, not run), and `OnActivate` (activation input deferred) |
-| 15 | M4.O1: the CK sittings for fixtures F20..F28 (`plan/execution-plan.md` M4, "Fixture matrix (M4.H1)"), owner-assisted; a computer-use agent may drive the CK while you watch. Deferred on 2026-10-14 until the workbench existed (row 6); the workbench is built, so the deferral's condition is met. Best after M5.O1 (row 12), whose F29/F30 sitting sets up the CK. Since 2026-11-01 each sitting may be an agent run (ADR 0012 Amendment 2), but each needs the owner's OK on its own (sheet item 21) | M5.A5 (fixtures through the CK differential), and through it FTH-EXP-01, -04, -08 and -10; M4.A1..A6's rules raised to `ck-diff` | pending (owner OK per sitting), after row 12 |
+| 15 | M4.O1: the CK sittings for fixtures F20..F28 (`plan/execution-plan.md` M4, "Fixture matrix (M4.H1)"), owner-assisted; a computer-use agent may drive the CK while you watch. Deferred on 2026-10-14 until the workbench existed (row 6); the workbench is built, so the deferral's condition is met. Best after M5.O1 (row 12), whose F29/F30 sitting sets up the CK. Since 2026-11-01 each sitting may be an agent run (ADR 0012 Amendment 2), but each needs the owner's OK on its own (sheet item 21) | M5.A5 (fixtures through the CK differential), and through it FTH-EXP-01, -04, -08 and -10; M4.A1..A6's rules raised to `ck-diff` | **partly done 2026-11-17, agent-run**: F28 and F23 pass, F27 inconclusive, F20 not run (and so F22, F25, F26, which build on it); F21 and F24 not run. No owner OK needed per sitting any more (ADR 0012 Amendment 3) |
 | 16 | M6 "Cockpit" and M7 "CK parity" owner decisions (`plan/execution-plan.md` "M6" and "M7", lane O). **Decided 2026-10-16** (owner, in chat, verbatim: "Approve Amendment 3 and ADR 0012, start lane V mockups"): **M6.O3**, ADR 0007 Amendment 3 accepted as written. That is the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe` and `game.stop`, each previewed and confirmed per click, and nothing else; the window never launches the game itself, and `testplan` stays out. It also confirms the director's decision on rollback in and `testplan` out. **M7.O1**, ADR 0012 (`plan/adr/0012-ck-interface-clean-room.md`, the CK interface clean-room rule) accepted. Lane V started: M6.V1 and M6.V2 landed. **M6.O1 decided 2026-10-16: Workbench** (owner, in chat, verbatim: "Workbench, themes look great only keep the mocks if there's a good reason."); `workbench` is the default, `studio` selectable, `classic` legacy, the mockups removed. **Still open on 2026-10-16** (decided 2026-11-01, see State): **M6.O2**, fonts, either Windows system fonts (the default) or a compiled-in OFL font or MIT/Apache icon font (row 7's BSL-1.0 ruling is still open beside it); **M7.O5**, the sources for Starfield NIF and geometry layout. Later: M6.O4 (the cockpit sign-off at the end of M6; a check at 125 and 150 percent is optional, lane X is deferred), M7.O2 and M7.O3 (CK interface sittings, combinable with rows 12 and 15), M7.O4 (Amendment 4, the editor write scope) and M7.O6 (A/B sign-off). **Director decisions then pending your confirmation** (confirmed 2026-11-01) (`plan/execution-plan.md` "M6", "Decisions taken by the director 2026-10-16, pending owner"; ADR 0002 Amendment 1): `crates/nif` stays behind the engine and the L2 `render` slot is retired; M7.S5 geometry as base64 buffers in the JSON envelope; CK menu order `unresearched` until sitting 1 | Open: any M6.V4 icon font and a compiled-in font for the type scale (O2), M7.S4 and so M7.R3 to M7.R5 (M7.O5), M6 exit (O4). Unblocked by the 2026-10-16 rulings: M6.G3 to M6.G6 (each still on its other dependencies), M7.K2 onward, M6.V3 onward (O1) | **O3, M7.O1 and O1 decided 2026-10-16**; **O2, M7.O5 and M7.O4 decided 2026-11-01** (sheet items 19, 20, 22: system fonts only; the NIF memo's recommendations 1 to 3, so M7.S4 is unblocked; ADR 0007 Amendment 4 accepted with model A, one confirmed write per OK click, so M7.E2 to M7.E6 are unblocked), and the director decisions listed here confirmed (items 3, 4, 8). Later: M6.O4 and M7.O6 (sign-offs); M7.O2 and M7.O3 can be automated sittings (ADR 0012 Amendment 2) |
 | 17 | Rule whether a static strings scan of `CreationKit.exe` (printable text read from the binary's bytes, no disassembly, debugging or memory) is allowed: AGENTS.md "Clean room" allows the CK only "run and observed as a black box", ADR 0005 §3 forbids disassembly, decompilation, debugging and memory inspection, and the scan is neither. Answer as an ADR 0005 amendment or an AGENTS.md clarification. Until then: no further static analysis, and `docs/ck-observations.md` "M5.A4" is retained but not cited ("Director assumptions pending owner") | M5.A4 (unattended CK route) | **decided 2026-11-01: no** (sheet item 18). Static string scans of `CreationKit.exe` are not allowed (AGENTS.md "Clean room", ADR 0012 Amendment 2 "Owner ruling 2026-11-01"); the M5.A4 entry is deleted. The unattended route is ADR 0012 Amendment 2 |
 
@@ -105,21 +126,27 @@ Owner decisions and work that is owed, newest first. When one closes, delete its
   decision 1 (merge the sprint) is answered; 2 (where the mod ideas are), 3 (agent game
   sessions overnight and one desk sitting), 4 (start "beyond", engine-first) and 5 (small
   and medium plugins) are open.
+- **CK comparison, still differing after the third sitting**: `STAT`, `CELL` (one lighting
+  value), `ACHR` (`XLRL`), `NPC_` (`RNAM`) and the dialogue types (the CK adds branch
+  records); `SFTR` is reopened (a new one with `CNAM` and `DNAM` crashes the CK on load).
+- **Not re-run**: the verification mod on its new build (its 25 passes were seen on the
+  build before the default-member fixes); `validate_corpus_official_files` after the
+  `EQUP.ANAM` reserved-ID pin (76 minutes, outside the gate).
 - **Owed from the owner rulings of 2026-11-07** (archive, "Owner rulings, 2026-11-07
-  (midday)" and "Afternoon of 2026-11-07"): the controller session that confirms the
-  console answers in send order (ruling 2; not run, the director does not start the game
-  unasked); and, for the owner, whether the window's Data dialog should follow ruling 3 (a
+  (midday)" and "Afternoon of 2026-11-07"): the send-order question (ruling 2) was run on
+  2026-11-16 and 2026-11-17; answers sent during a `coc` or within about 6 s of the ready
+  signal are lost, not late, and the owner's reading of that is open; and, for the owner, whether the window's Data dialog should follow ruling 3 (a
   master-flagged file of the owner's may be the active file) or keep the CK's refusal
   (`ck-20261101-01`).
 - **One desk sitting** (archive, "Owner decisions (2026-11-05)" items 8, 11 and 12): the M6
   end-to-end run from the window by computer use, then the owner's M6.O4 sign-off; the
   real-window checks the 2026-11-07 notes list (a load from a real MO2 profile, the Object
   Window's speed, the viewport on the dev profile, a placed reference in the Cell View);
-  the CK fixture saves F28, F23, F20 and F27 and what UI Automation cannot see in the CK.
-  `plan/owner-sitting-2026-11-06.md` is the step list; it cannot run as it stands and ends
-  with seven questions for the owner.
+  what UI Automation cannot see in the CK. The fixture saves are no longer part of it
+  (F28 and F23 pass; F20 and F27 are agent work). `docs/bench/README.md` is the step list.
 - **O5-15** (the overhaul's save/reload row) needs a dev-deployed copy of the overhaul: the
-  controller refuses the copy the owner installed by hand.
+  controller refuses the copy the owner installed by hand. An agent session can do both
+  now, on the owner's go for a game launch.
 - **Reflection payloads** (`docs/research/reflection-scan-2026-10-31.md`): `REFL`, `XNSE`,
   `PTCL`, `PCCC`, `RDIF` and `PSDF` carry their own class and field tables, so a reader
   over `crates/doc/src/refl.rs` can type them from the corpus alone. Not queued.
@@ -129,9 +156,11 @@ Owner decisions and work that is owed, newest first. When one closes, delete its
 ## Blockers
 
 - None for the agent queue.
-- Owner-gated: every CK sitting needs the owner's OK (ADR 0012 Amendment 2), so the CK
-  fixtures (M4.O1, row 15) and every further `ck-diff` upgrade wait on one; the rows above
-  that need the desk.
+- Owner-gated: a game launch needs the owner's go for that session; the window run and
+  M6.O4 need the owner at the desk. CK sittings no longer wait on an OK (ADR 0012
+  Amendment 3).
+- F20 (a new interior cell made in the CK) has no known route by sent input; F22, F25 and
+  F26 build on it.
 
 ## Toolchain (verified on the dev box)
 
