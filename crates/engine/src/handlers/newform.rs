@@ -432,6 +432,8 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"RSPJ", *b"NNAM", 0, "0000"),
     (*b"RSPJ", *b"SNAM", 0, "00000000"),
     (*b"RSPJ", *b"KNAM", 0, "00000000"),
+    (*b"SFPT", *b"FNAM", 0, "0*1024"),
+    (*b"SFPT", *b"GNAM", 0, "0*256"),
     (*b"TERM", *b"FLLD", 0, "01000000"),
     (*b"TERM", *b"WBDT", 0, "00"),
     (*b"TERM", *b"STOP", 0, ""),
