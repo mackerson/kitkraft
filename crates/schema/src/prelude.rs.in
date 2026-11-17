@@ -13,7 +13,8 @@ pub enum DecodeError {
     /// The count for the array `field` is negative or does not fit in `usize`.
     BadCount { field: &'static str, offset: usize },
     /// The union `field` has no layout for this record: no `EDID`, or an EditorID prefix
-    /// no variant names.
+    /// no variant names; or a decider value no variant of a variable-width field union
+    /// names.
     Undecided { field: &'static str },
 }
 
@@ -31,7 +32,7 @@ impl std::fmt::Display for DecodeError {
                 write!(f, "{field}: invalid element count at offset {offset}")
             }
             Self::Undecided { field } => {
-                write!(f, "{field}: no layout for this record's EditorID prefix")
+                write!(f, "{field}: no layout for this EditorID prefix or decider value")
             }
         }
     }
@@ -139,6 +140,42 @@ macro_rules! scalar_field {
 }
 
 scalar_field!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+
+/// An IEEE 754 half-precision float (`type = "f16"`), kept as its stored bits so every
+/// value, NaN payloads included, re-encodes as read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct F16(pub u16);
+
+impl F16 {
+    /// The value as an `f32` (exact: every half-precision value is one).
+    pub fn to_f32(self) -> f32 {
+        let bits = self.0;
+        let sign = u32::from(bits & 0x8000).wrapping_shl(16);
+        let exp = u32::from(bits.wrapping_shr(10) & 0x1F);
+        let mant = u32::from(bits & 0x3FF);
+        let magnitude = match (exp, mant) {
+            (0, 0) => 0,
+            (0, _) => {
+                let shift = mant.leading_zeros().saturating_sub(21);
+                let mant = mant.wrapping_shl(shift) & 0x3FF;
+                113u32.saturating_sub(shift).wrapping_shl(23) | mant.wrapping_shl(13)
+            }
+            (0x1F, _) => 0x7F80_0000 | mant.wrapping_shl(13),
+            _ => exp.saturating_add(112).wrapping_shl(23) | mant.wrapping_shl(13),
+        };
+        f32::from_bits(sign | magnitude)
+    }
+}
+
+impl Field for F16 {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
 
 /// A fixed-count array: exactly `N` elements, so its encoded size cannot drift.
 impl<T: Field, const N: usize> Field for [T; N] {
@@ -324,6 +361,52 @@ pub fn read_rest<T: Field>(
         }
     }
     Ok(out)
+}
+
+/// Reads a stride array (`count = "stride:N"`): the payload's remaining bytes / `stride`
+/// elements, then zero padding to the end. A length that is not a multiple of `stride`, or
+/// a padding byte that is not zero, fails the decode (the subrecord then stays raw).
+pub fn read_strided<T: Field>(
+    r: &mut Reader<'_>,
+    stride: usize,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let start = r.position();
+    let bad = DecodeError::BadCount {
+        field,
+        offset: start,
+    };
+    let remaining = r.data.len().saturating_sub(start);
+    if remaining.checked_rem(stride) != Some(0) {
+        return Err(bad);
+    }
+    let n = remaining.checked_div(stride).ok_or(bad)?;
+    let items = read_array(r, n, field, ctx)?;
+    let pad_at = r.position();
+    if r.rest().iter().any(|b| *b != 0) {
+        return Err(DecodeError::Trailing {
+            field,
+            offset: pad_at,
+        });
+    }
+    Ok(items)
+}
+
+/// Writes a stride array: its elements in order, then zero bytes up to `stride` bytes per
+/// element (none when the elements already fill that or more).
+pub fn write_strided<T: Field>(items: &[T], stride: usize, out: &mut Vec<u8>) {
+    let start = out.len();
+    write_all(items, out);
+    let end = items
+        .len()
+        .checked_mul(stride)
+        .and_then(|n| n.checked_add(start));
+    if let Some(end) = end {
+        if out.len() < end {
+            out.resize(end, 0);
+        }
+    }
 }
 
 /// Converts the value of a count field (`count_from`) to an element count.
@@ -543,7 +626,8 @@ macro_rules! no_visit {
     )*};
 }
 
-no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, F16, f32, f64);
+
 no_visit!(ZString, WString, BString, Bytes, Empty, OwnedSub);
 
 impl Visit for FormId {

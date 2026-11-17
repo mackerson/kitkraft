@@ -97,6 +97,7 @@ fn scalar(s: Scalar, c: &mut Cursor<'_>) -> Result<Decoded, String> {
         Scalar::I16 => Decoded::Int(i128::from(raw as u16 as i16)),
         Scalar::I32 => Decoded::Int(i128::from(raw as u32 as i32)),
         Scalar::I64 => Decoded::Int(i128::from(raw as i64)),
+        Scalar::F16 => Decoded::Float(f64::from(kitkraft_schema::f16_to_f32(raw as u16))),
         Scalar::F32 => Decoded::Float(f64::from(f32::from_bits(raw as u32))),
         Scalar::F64 => Decoded::Float(f64::from_bits(raw)),
     })
@@ -289,6 +290,18 @@ fn decode_in<'t>(
             let n = match count {
                 ArrayCount::Fixed(n) => Some(usize::try_from(*n).map_err(|_| "count")?),
                 ArrayCount::Rest => None,
+                // Remaining bytes / stride elements; the zero padding after them is
+                // consumed below.
+                ArrayCount::Stride(stride) => {
+                    let stride = usize::try_from(*stride).map_err(|_| "stride")?;
+                    let remaining = c.remaining();
+                    if remaining.checked_rem(stride) != Some(0) {
+                        return Err(format!(
+                            "{remaining} bytes are not a multiple of the {stride}-byte stride"
+                        ));
+                    }
+                    Some(remaining.checked_div(stride).ok_or("stride")?)
+                }
                 ArrayCount::From(name) => {
                     let v = siblings
                         .iter()
@@ -320,6 +333,12 @@ fn decode_in<'t>(
                     break;
                 }
             }
+            if matches!(count, ArrayCount::Stride(_)) {
+                let pad = c.remaining();
+                if c.take(pad)?.iter().any(|b| *b != 0) {
+                    return Err("a stride array's padding is not zero".into());
+                }
+            }
             Ok(Decoded::Array(out))
         }
         FieldType::Struct { fields } => {
@@ -334,6 +353,22 @@ fn decode_in<'t>(
                 if f.if_remaining && c.remaining() == 0 {
                     continue;
                 }
+                if let Some(cond) = &f.present_if {
+                    let raw = keys
+                        .iter()
+                        .find(|(k, _)| *k == cond.field)
+                        .and_then(|(_, v)| match v {
+                            // The stored bits of the sibling (a negative value's two's
+                            // complement; the mask fits 32 bits).
+                            Decoded::Int(i) => Some(*i as u64),
+                            _ => None,
+                        })
+                        .ok_or_else(|| format!("condition field `{}` not decoded", cond.field))?;
+                    if !cond.holds(raw) {
+                        continue;
+                    }
+                }
+
                 let packed = match &f.ty {
                     FieldType::Packed { base, .. } => usize::try_from(base.size())
                         .ok()
@@ -1192,7 +1227,7 @@ mod tests {
         // kept raw, whatever follows; a path naming the raw occurrence explicitly is an
         // error, not a guess.
         let raw = [
-            *b"EDID", *b"BFCB", *b"ATCP", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
+            *b"EDID", *b"BFCB", *b"VCSB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
         ];
         let placed = placements(schema, *b"PKIN", &raw).unwrap();
         assert!(matches!(&placed[3], Placement::Raw { .. }), "{placed:?}");
@@ -1324,6 +1359,7 @@ mod tests {
             since: None,
             until: None,
             if_remaining: false,
+            present_if: None,
             note: None,
             provenance: prov.clone(),
         };
@@ -1388,6 +1424,7 @@ mod tests {
             since: None,
             until: None,
             if_remaining: false,
+            present_if: None,
             note: None,
             provenance: prov.clone(),
         };
@@ -1530,5 +1567,84 @@ mod tests {
         assert_eq!(group_gaps(&schema, *b"SUBU", &subs).unwrap(), []);
         let layout = layout_at(&schema, *b"SUBU", &subs, 4).unwrap().unwrap();
         assert_eq!(layout.path, "Block.Beta.Target");
+    }
+
+    /// 2026-11-17 format features in the reader: a field union whose variants differ in
+    /// size reads the tail its own entry's type names (and fails on a type no variant
+    /// names, never guessing a width); a `present_if` field is skipped when its sibling's
+    /// bits say so; an `f16` reads as its float value.
+    #[test]
+    fn variable_unions_conditional_fields_and_half_floats() {
+        let text = "signature = \"WWWW\"\nname = \"Widths\"\n\
+            source = \"corpus: unit test\"\nconfidence = \"corpus\"\n\
+            [[member]]\nsig = \"VOLS\"\nname = \"Volumes\"\ntype = \"array\"\ncount = \"rest\"\n\
+            element = \"struct\"\nfield = [\n\
+              { name = \"Kind\", type = \"u32\" },\n\
+              { name = \"Tail\", type = \"union\", decider = \"field:Kind\", variable_width = true, variants = [\n\
+                { when = 1, name = \"One\", type = \"f32\" },\n\
+                { when = 3, name = \"Two\", type = \"array\", count = 2, element = \"f32\" },\n\
+              ] },\n]\n\
+            [[member]]\nsig = \"TRAV\"\nname = \"Traversals\"\ntype = \"array\"\ncount = \"rest\"\n\
+            element = \"struct\"\nfield = [\n\
+              { name = \"Flags\", type = \"flags\", base = \"u32\", bits = [[\"NoTarget\", 4]] },\n\
+              { name = \"Target\", type = \"formid\", present_if = { field = \"Flags\", mask = 4 } },\n\
+              { name = \"Speed\", type = \"f16\" },\n]\n";
+        let schema = kitkraft_schema::load_sources([("WWWW.toml", text)]).unwrap();
+        let rec = &schema.records.values().next().unwrap().members;
+        let ty = |i: usize| match &rec[i] {
+            kitkraft_schema::Member::Subrecord(s) => &s.ty,
+            _ => panic!("subrecord"),
+        };
+        let mut vols = 1u32.to_le_bytes().to_vec();
+        vols.extend_from_slice(&2.0f32.to_le_bytes());
+        vols.extend_from_slice(&3u32.to_le_bytes());
+        vols.extend_from_slice(&4.0f32.to_le_bytes());
+        vols.extend_from_slice(&5.0f32.to_le_bytes());
+        let Decoded::Array(items) = decode(ty(0), &vols, &ctx()).unwrap() else {
+            panic!("array");
+        };
+        let tails: Vec<&Decoded> = items
+            .iter()
+            .map(|i| match i {
+                Decoded::Struct(fields) => &fields[1].1,
+                _ => panic!("struct"),
+            })
+            .collect();
+        assert_eq!(
+            tails,
+            [
+                &Decoded::Struct(vec![("One".into(), Decoded::Float(2.0))]),
+                &Decoded::Struct(vec![(
+                    "Two".into(),
+                    Decoded::Array(vec![Decoded::Float(4.0), Decoded::Float(5.0)])
+                )]),
+            ]
+        );
+        let mut odd = 2u32.to_le_bytes().to_vec();
+        odd.extend_from_slice(&[0; 4]);
+        assert!(decode(ty(0), &odd, &ctx()).is_err());
+
+        let mut trav = 0u32.to_le_bytes().to_vec();
+        trav.extend_from_slice(&0x0100_0042u32.to_le_bytes());
+        trav.extend_from_slice(&0x3C00u16.to_le_bytes());
+        trav.extend_from_slice(&4u32.to_le_bytes());
+        trav.extend_from_slice(&0xC000u16.to_le_bytes());
+        let Decoded::Array(items) = decode(ty(1), &trav, &ctx()).unwrap() else {
+            panic!("array");
+        };
+        assert_eq!(
+            items,
+            [
+                Decoded::Struct(vec![
+                    ("Flags".into(), Decoded::Int(0)),
+                    ("Target".into(), Decoded::Form(0x0100_0042)),
+                    ("Speed".into(), Decoded::Float(1.0)),
+                ]),
+                Decoded::Struct(vec![
+                    ("Flags".into(), Decoded::Int(4)),
+                    ("Speed".into(), Decoded::Float(-2.0)),
+                ]),
+            ]
+        );
     }
 }

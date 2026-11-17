@@ -47,7 +47,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | ---- | -----: | --------: | ---- | --------------- | ----- |
 | ContactShadowComponent | 147,487 | 147,487 | `FLCS` | L6096-L6105 | yes |
 | KeywordForm | 95,999 | 83,015 | `KSIZ` | Keywords, L6694-L6697 | KK-282 |
-| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | no (`VLMS` tail width chosen by the entry type) |
+| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | 2026-11-17 (variable-width union) |
 | ObjectPaletteDefaults | 6,226 | 6,105 | `OPDS` | L6170-L6173 | KK-283 |
 | FullName | 5,775 | 5,695 | `FULL` | L6611-L6614 | KK-284 |
 | AnimationGraph | 4,854 | 4,853 | `ANAM` (2 `BNAM`) | L6079-L6087 | yes |
@@ -68,7 +68,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | TESPlanetModel | 1,825 | 1,825 | `MODL` | L6619-L6635 | KK-285 (`XMPM` opaque) |
 | AddToInventoryOnDestroy | 1,724 | 1,702 | `INAM` | L6075-L6078 | 2026-11-16 |
 | PlanetContentManagerContentProperties | 1,272 | 1,272 | `ZNAM` | L6179-L6198 | yes |
-| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | no (traversal FormID present by a flag bit; half floats) |
+| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | 2026-11-17 (`present_if`, `f16`) |
 | SoundTag | 987 | 966 | `STCP` | L6207-L6210 | yes |
 | WorldSpaceOverlay | 582 | 582 | `SNAM` | L6554-L6560 | 2026-11-16 |
 | QualityUpgrade | 216 | 216 | `QUPA` | L6203-L6206 | yes |
@@ -78,7 +78,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | SpawnOnDestroy | 75 | 75 | `SODA` | L6231-L6234 | 2026-11-16 |
 | CrowdComponent | 24 | 24 | `CDND` | L6106-L6117 | 2026-11-16 (after PropertySheet) |
 | AdaptiveTriggerData | 19 | 19 | `WFIR` | L6060-L6074 | 2026-11-16 |
-| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | no (configuration strings carry FormIDs) |
+| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | 2026-11-17 (`ATAV` kept opaque) |
 | BodyPartInfo | 4 | 1 | `GNAM` | GNAM (unknown bytes), L6690-L6693 | 2026-11-16 (opaque) |
 | CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | 2026-11-16 |
 | VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no (two blocks; length-prefixed strings, WWise GUIDs) |
@@ -234,3 +234,76 @@ type), ActivityTracker 10 (configuration strings that carry FormIDs), VehicleCon
 `BGSBlockCellHeighGrid_Component` 1 (no upstream decider entry). `components.rs` prints the
 raw blocks per kind (the census) and, with `KITKRAFT_COMPONENT_SHAPES`, their signature runs.
 
+**Update (2026-11-17):** the two largest raw kinds are typed, after three schema-format
+features (`crates/schema/defs/README.md`):
+
+- **Variable-width field unions** (`variable_width = true`): the variants of a struct-field
+  union may differ in size, each still fixed. A decider value no variant names has no width
+  to keep, so the decode fails and the whole subrecord stays raw (no `Other` arm, never a
+  guessed width). Union variants may now be fixed-count arrays.
+- **Conditional fields** (`present_if = { field, mask, value }`): a struct field present
+  only when bits of an earlier sibling match.
+- **Half floats** (`f16`): kept as their bits (`F16(u16)`), shown as their value; the
+  engine's field paths refuse a number for one (`hex:` still sets its bits).
+
+With them `Volumes` (one `VLMS`: a count, then entries of a type, a 4x4 matrix, three floats
+and a tail of one, two or three floats for types 1, 3 and 5; L6636-L6677, the decider
+L1632-L1646) and `StoredTraversals` (one `STRD`: counted traversals, then counted
+placements of a reference, a vector and their own traversals; each traversal the shared
+`common/Traversal.toml`, whose TRAV FormID is present only when flag 0x4 is clear and which
+ends in four half floats; L6235-L6258 with L5789-L5813) are lead-signature groups. In the
+corpus every `VLMS` entry has type 1, 3 or 5 (upstream's enum also names 11, which its
+decider reads with one float; it is left unnamed, so such an entry would keep its `VLMS`
+raw), and every traversal's flags are 0 or 4. A block whose typed layout cannot decode it
+exactly falls back to raw in `extra`; `components.rs` now counts such blocks in the census
+(and requires none in the official files) instead of failing on them.
+
+Census (`component_layouts_full`, 2026-11-17): 46 layouts type or hold 52 of the 64 kinds
+and 322,220 of the 349,154 blocks (Volumes 23,159: REFR 23,157, STAT 2; StoredTraversals
+1,258: GBFM), every record re-encoding identically; 26,921 blocks are empty; **13 blocks
+in 3 kinds stay raw**, 0 of them typed layouts that fell back: ActivityTracker 10 (its
+configuration strings carry FormIDs), VehicleConfig 2 (length-prefixed strings, sound
+references, WWise GUIDs) and `BGSBlockCellHeighGrid_Component` 1 (no upstream decider
+entry). The REFR and CELL `XTV2` traversal arrays have the same entry layout and could
+now use `common/Traversal.toml`; they stay opaque here (not component data).
+
+**Update (2026-11-17, later):** `ActivityTracker` is typed too (L6055-L6059 over the helper
+L5645-L5672, the same layout PERK's rank already uses): `ATCP`, then per activity `ATAN`,
+`FULL`, `DESC`, arguments of `DNAM`, `CITC` and conditions, `ANAM`, `ATAV` and an empty
+`ATAF`. `ATAV` is text without a terminator that upstream says may embed FormIDs; it stays
+opaque bytes, so such FormIDs are neither visited nor remapped (as before, when the whole
+block was raw: no regression, and in the official files every `ATAV` is JSON naming no
+form). Typing it would need a FormID-bearing text type with a remap hook; not built.
+CHAL's `FULL` and `DESC` are now typed lstrings (the lstring table needs no fallback).
+**3 blocks in 2 kinds stay raw**, by design:
+
+- `BGSVehicleConfig` (2 blocks, L6259-L6553): its `VCCD` is a ~700-byte struct of
+  `u32`-length-prefixed strings (xEdit's length string), and the format has `u8`/`u16`
+  prefixes only; a fourth string type for two blocks was not added.
+- `BGSBlockCellHeighGrid_Component` (1 block, one 64-byte `DATA`): no upstream layout
+  (neither name decider lists it) and one occurrence cannot establish one.
+
+REFR `XTV2` (6,027 subrecords) is now a rest array of `common/Traversal.toml`. CELL
+`XTV2` (2,834) stays opaque: upstream sizes the payload as 56 bytes per entry
+(`SetWronglyAssumedFixedSizePerElementOnValue(56)`, L7136-L7141) although an entry
+without a FormID is 52 bytes, and a scan shows all 2,834 are `n x 56` bytes for their `n`
+entries with 4 zero bytes per flag-0x4 entry at the end (3 have none). A rest array would
+read that padding as entries, so typing it needs an array counted as "payload bytes / 56"
+followed by the padding: a fourth format feature, not built.
+
+What the three features would unlock elsewhere (not done here):
+
+| Subrecord | Occurrences | Feature | Note |
+| --------- | ----------: | ------- | ---- |
+| NPC_ `ONA2` race overrides | 337 records | `present_if` | eight override blocks, each present when its flag bit is set (upstream L15328-L15415) |
+| CELL `XTV2` traversals | 2,834 | `present_if`, `f16` + a size-counted array | typed 2026-11-17, below |
+| VehicleConfig `VCCD` | 2 | (needs `u32`-length strings) | see above |
+
+**Update (2026-11-17, stride arrays):** CELL `XTV2` is typed with a fourth format feature,
+the stride array (`count = "stride:56"`, `crates/schema/defs/README.md`): the element count
+is payload bytes / 56, the elements are `common/Traversal.toml` entries, and the zero bytes
+after them are read and written back (an edited array is padded to 56 bytes per entry). A
+payload that is not a multiple of 56, or whose padding is not zero, stays raw. All 2,834
+official CELL `XTV2` decode this way and re-encode identically (`world_family_full`,
+`corpus_full_roundtrip`: 14 files identical, 0 re-encode conflicts); the component census
+is unchanged (3 raw blocks in 2 kinds, 0 fallbacks).

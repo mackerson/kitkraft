@@ -10,7 +10,10 @@
 //!   (the BFCB string) is one upstream gives that layout (the block's data is read by its
 //!   first subrecord, as upstream's record union does; the names must agree);
 //! - the generated decoder keeps none of them raw (`extra`), and the record re-encodes
-//!   identically, subrecord by subrecord.
+//!   identically, subrecord by subrecord. A typed layout's subrecord the decoder cannot
+//!   decode exactly (a variable-width union's unnamed type, a miscounted payload) falls
+//!   back to raw: the census counts those blocks with the raw ones, by layout, and both
+//!   tests require none among the official files.
 //!
 //! `component_layouts_small` runs in `cargo test` (the five small files);
 //! `component_layouts_full` (ignored) runs all 14 and checks the block counts
@@ -94,6 +97,9 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "Container" => &["TESContainer_Component"],
         "BodyPartInfo" => &["BGSBodyPartInfo_Component"],
         "Crowd" => &["BGSCrowdComponent_Component"],
+        "Volumes" => &["Volumes_Component"],
+        "StoredTraversals" => &["BGSStoredTraversals_Component"],
+        "ActivityTracker" => &["BGSActivityTracker"],
         "SpaceshipAiActor" => &["BGSSpaceshipAIActor_Component"],
         "SpaceshipEquipment" => &["BGSSpaceshipEquipment_Component"],
         "SpaceshipHullCode" => &["BGSSpaceshipHullCode_Component"],
@@ -149,6 +155,10 @@ struct Tally {
     raw: BTreeMap<String, u64>,
     /// (component name, the raw data's signatures in order) -> blocks.
     raw_shapes: BTreeMap<(String, String), u64>,
+    /// (layout, component name) -> blocks a typed layout's matcher took but whose
+    /// subrecords the generated decoder could not decode exactly, so they stay raw (`extra`):
+    /// a variable-width union's unnamed type, a truncated payload. Counted in `raw` too.
+    fallback: BTreeMap<(String, String), u64>,
 }
 
 fn check_record(
@@ -180,6 +190,7 @@ fn check_record(
     let mut name = String::new();
     let mut block = 0usize;
     let mut counted: BTreeSet<(usize, String)> = BTreeSet::new();
+    let mut fell_back: BTreeSet<usize> = BTreeSet::new();
     let mut any = false;
     let mut raw_shape: Vec<String> = Vec::new();
     for (i, (s, p)) in subs.iter().zip(&placed).enumerate() {
@@ -217,12 +228,19 @@ fn check_record(
             "{label}: subrecord {i} ({}) is read as the {layout} layout in a `{name}` block",
             s.signature()
         );
-        assert!(
-            !extra.contains(&i),
-            "{label}: subrecord {i} ({}) placed in {path} but kept raw",
-            s.signature()
-        );
         any = true;
+        if extra.contains(&i) {
+            // Placed in a typed layout but not decodable by it: kept raw, counted.
+            eprintln!(
+                "{label}: subrecord {i} ({}) placed in {path} but kept raw",
+                s.signature()
+            );
+            if fell_back.insert(block) {
+                *t.fallback.entry((layout, name.clone())).or_default() += 1;
+                *t.raw.entry(name.clone()).or_default() += 1;
+            }
+            continue;
+        }
         t.placed += 1;
         let len = s.data().len();
         let e = t
@@ -309,7 +327,14 @@ fn scan(dir: &Path, names: &[&str]) -> Tally {
         eprintln!("  {layout} {sig}: {n} subrecords, {lo}..={hi} bytes");
     }
     let raw_total: u64 = t.raw.values().sum();
-    eprintln!("raw component blocks: {raw_total} in {} kinds", t.raw.len());
+    let fallback_total: u64 = t.fallback.values().sum();
+    eprintln!(
+        "raw component blocks: {raw_total} in {} kinds ({fallback_total} of them typed layouts that fell back to raw)",
+        t.raw.len()
+    );
+    for ((layout, name), n) in &t.fallback {
+        eprintln!("  fallback {layout} / {name}: {n}");
+    }
     let mut by_count: Vec<(&String, &u64)> = t.raw.iter().collect();
     by_count.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
     for (name, n) in by_count {
@@ -329,7 +354,8 @@ fn component_layouts_small() {
         eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
-    scan(&dir, &SMALL);
+    let t = scan(&dir, &SMALL);
+    assert!(t.fallback.is_empty(), "fallbacks: {:?}", t.fallback);
 }
 
 #[test]
@@ -340,6 +366,8 @@ fn component_layouts_full() {
         return;
     };
     let t = scan(&dir, &ALL);
+    // No official block falls back to raw from a typed layout.
+    assert!(t.fallback.is_empty(), "fallbacks: {:?}", t.fallback);
     // The counts common/BfcbBlock.toml cites (2026-10-15; round 4 layouts 2026-10-16; the
     // layouts of KK-282 onward 2026-11-15). Recounted 2026-11-15: the record types typed
     // since round 4 carry 93 more animation graph, 1 more contact shadow, 1,188 more
@@ -354,6 +382,7 @@ fn component_layouts_full() {
     assert_eq!(
         blocks,
         [
+            ("ActivityTracker", 10),
             ("AdaptiveTrigger", 19),
             ("AddToInventoryOnDestroy", 1_702),
             ("AnimationGraph", 4_853),
@@ -394,9 +423,11 @@ fn component_layouts_full() {
             ("SpaceshipWeaponBindings", 2_030),
             ("SpawnOnDestroy", 75),
             ("StarData", 123),
+            ("StoredTraversals", 1_258),
             ("SurfaceTreePatternSwap", 33),
             ("UniqueOverlayList", 38),
             ("UniquePatternPlacement", 38),
+            ("Volumes", 23_159),
             ("WorldSpaceOverlay", 582),
         ]
     );

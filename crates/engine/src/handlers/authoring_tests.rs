@@ -135,6 +135,15 @@ fn sample(ty: &FieldType, forced: Option<i64>) -> Vec<u8> {
         FieldType::Flags { base, .. } | FieldType::Packed { base, .. } => {
             le(*base, forced.unwrap_or(1))
         }
+        FieldType::Array {
+            element,
+            count: ArrayCount::Stride(stride),
+        } => {
+            // One element, zero-padded to its stride.
+            let mut one = sample(element, None);
+            one.resize(one.len().max(*stride as usize), 0);
+            one
+        }
         FieldType::Array { element, count } => {
             let n = match count {
                 ArrayCount::Fixed(n) => *n as usize,

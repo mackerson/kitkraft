@@ -160,6 +160,7 @@ fn type_label(ty: &FieldType) -> String {
                 ArrayCount::Fixed(n) => n.to_string(),
                 ArrayCount::Rest => "rest".to_string(),
                 ArrayCount::From(field) => format!("count from {field}"),
+                ArrayCount::Stride(n) => format!("bytes / {n}, zero-padded"),
             };
             format!("[{}; {n}]", type_label(element))
         }
@@ -273,6 +274,14 @@ fn field_json(field: &FieldDef, parent: &Provenance) -> Value {
     if field.if_remaining {
         insert(&mut out, "if_remaining", json!(true));
     }
+    if let Some(cond) = &field.present_if {
+        insert(
+            &mut out,
+            "present_if",
+            json!({ "field": cond.field, "mask": cond.mask, "value": cond.value }),
+        );
+    }
+
     insert(
         &mut out,
         "confidence",
