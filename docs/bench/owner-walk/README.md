@@ -6,7 +6,10 @@ to a folder under `C:\Modding\kitkraft-observe\`, ending with a draft ledger ent
 can enter for you.
 
 It never starts or stops the game or MO2, never saves or loads, never moves you, and
-writes nothing outside its own folder. It refuses the `Default` profile. The plugin owns
+writes nothing outside its own folder. At W-09 and W-10 it lists the profile's own
+`saves` folder (read only: names and times, no file opened, written, renamed or deleted;
+never the primary saves under `Documents\My Games`) to see that `KitKraftWalk.sfs` was
+written during the walk. It refuses the `Default` profile. The plugin owns
 new forms, so play on a disposable save of `Kitkraft Dev` only (the base save
 `KitKraftBase` is one).
 
@@ -49,7 +52,7 @@ kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftOwnerWalk --dev --prof
 kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftOwnerWalk --dev --profile "Kitkraft Dev"
 ```
 
-Check: the plugin `KitKraftOwnerWalk.esm` is 25,171 bytes, SHA-256
+Check: the plugin `KitKraftOwnerWalk.esm` is 26,001 bytes, SHA-256
 `d7c8305c7e06b979be5a143a30c7eeea59db83a3518cb7b45735cf21e2ac6e0a` (the deploy dry run
 prints it). Keep `KitKraftVerify.esm` disabled: its references stand in the same row.
 
@@ -108,8 +111,12 @@ loads are lost), so give it a few seconds.
 - **W-08** You are given the hunting rifle. Expected: Inventory > Weapons reads **Old
   Soviet Marksman Rifle**. Type `p` only if the manifest check was all `ok` too.
 - **W-09** You are given Maelstrom, Hard Target and Drum Beat. Expected magazines: 24, 5,
-  48. Then the console: `save KitKraftWalk`, close it, wait a moment, Enter.
-- **W-10** The console: `load KitKraftWalk` (or Esc > Load). Back in the apartment, close
+  48. Then the console: `save KitKraftWalk` (press Enter in the console), wait until the
+  game has saved, close it, Enter. The recorder then looks for `KitKraftWalk.sfs` in the
+  profile's `saves` folder; if it is not there it says so and asks you to save again
+  (twice), and W-09 fails if it never appears.
+- **W-10** Asked only when `KitKraftWalk.sfs` is in the profile's `saves` folder (else
+  not-run: nothing to load). The console: `load KitKraftWalk` (or Esc > Load). Back in the apartment, close
   the console, check the three magazines again. Expected: the same. (The recorder gave you
   a "KKW14 Reload Marker" after the save; it must be gone after the load, which proves the
   load.)
@@ -154,6 +161,12 @@ swaps the previous one back. For W12, untick the installed `OldSovietMarksmanRif
 package and tick `KitKraft Dev - OldSovietMarksmanRifle` again in MO2.
 
 ## Troubleshooting
+
+- **"The save did not land":** no `KitKraftWalk.sfs` was written in the profile's `saves`
+  folder after W-09. Open the console, type `save KitKraftWalk`, press Enter **in the
+  console**, wait for the save, then press Enter in the terminal. On 2026-11-17 the save
+  of W-09 never reached the disk (`game-20261117-08`): the Papyrus log shows no save in
+  W-09's minutes, only the game's two autosaves.
 
 - **W-00 fails with `Item '...' not found`:** the plugin's runtime slot is not the one the
   recorder inferred. Quit (`q`), read the slot the game uses (in the console, click a KKW

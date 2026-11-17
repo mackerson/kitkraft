@@ -262,6 +262,10 @@ fn the_repo_walk_passes_every_station_when_the_game_does_what_it_should() {
     };
     let p = papyrus.clone();
     let glob = format!("getglobalvalue {}", id("KKW02Glob"));
+    // The profile's own saves folder: the owner's `save KitKraftWalk` writes there (W-09).
+    let saves = root.join("profile").join("saves");
+    std::fs::create_dir_all(&saves).unwrap();
+    let save_dir = saves.clone();
     let owner_script: Vec<(&str, Box<dyn FnMut()>)> = vec![
         ("", noop()),                                               // W-00
         ("p the prompt read Steal", noop()),                        // W-01
@@ -293,7 +297,10 @@ fn the_repo_walk_passes_every_station_when_the_game_does_what_it_should() {
             })),
         ), // W-07
         ("p Old Soviet Marksman Rifle", noop()),                    // W-08
-        ("p 24 5 48, saved", noop()),                               // W-09
+        (
+            "p 24 5 48, saved",
+            Box::new(move || std::fs::write(save_dir.join("KitKraftWalk.sfs"), b"sfs").unwrap()),
+        ), // W-09
         (
             "p same after the reload",
             act(add(count("KKW14Misc"), -1.0)),
@@ -309,6 +316,7 @@ fn the_repo_walk_passes_every_station_when_the_game_does_what_it_should() {
     let mut owner = Owner::new(owner_script);
     let mut s = setup(&file, &root, ids.clone());
     s.papyrus_log = Some(papyrus.clone());
+    s.saves_dir = Some(saves.clone());
     let (report, screen) = walk(&file, &s, &fake, &mut owner);
 
     for (row, label) in labels(&report) {
@@ -385,7 +393,21 @@ fn the_repo_walk_passes_every_station_when_the_game_does_what_it_should() {
         .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
     top.sort();
-    assert_eq!(top, ["Papyrus.0.log", "observe"]);
+    assert_eq!(top, ["Papyrus.0.log", "observe", "profile"]);
+    // The saves folder holds only the owner's save: the recorder listed it, nothing more.
+    let in_saves: Vec<String> = std::fs::read_dir(&saves)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(in_saves, ["KitKraftWalk.sfs"]);
+    let w09 = report.rows.iter().find(|r| r.row.row == "W-09").unwrap();
+    assert!(
+        w09.row
+            .seen
+            .contains("`KitKraftWalk.sfs` is in the profile's saves folder"),
+        "{}",
+        w09.row.seen
+    );
     let _ = std::fs::remove_dir_all(&root);
 }
 
@@ -663,4 +685,135 @@ fn an_unknown_editor_id_stops_the_walk_before_anything_is_sent() {
     assert!(fake.received().is_empty());
     assert!(!s.observe.exists());
     let _ = std::fs::remove_dir_all(&root);
+}
+
+fn save_walk() -> WalkFile {
+    WalkFile::parse(
+        r#"
+format = 1
+title = "t"
+plugin = "X.esm"
+
+[[station]]
+id = "S-09"
+title = "save"
+say = ["save KitKraftWalk"]
+expected = "the save is written"
+judge = "owner"
+makes_save = "KitKraftWalk"
+
+[[station]]
+id = "S-10"
+title = "load"
+say = ["load KitKraftWalk"]
+expected = "back from the save"
+judge = "owner"
+needs_save = "KitKraftWalk"
+"#,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_save_that_did_not_land_is_asked_for_again_and_passes_once_written() {
+    let file = save_walk();
+    let (_game, fake) = mug_game();
+    let root = root("save-again");
+    let saves = root.join("profile").join("saves");
+    std::fs::create_dir_all(&saves).unwrap();
+    let dir = saves.clone();
+    let mut owner = Owner::new(vec![
+        ("p saved", noop()),
+        // Asked again: this time the save lands before the Enter.
+        (
+            "",
+            Box::new(move || std::fs::write(dir.join("KitKraftWalk.sfs"), b"sfs").unwrap()),
+        ),
+        ("p same", noop()),
+    ]);
+    let mut s = setup(&file, &root, BTreeMap::new());
+    s.saves_dir = Some(saves.clone());
+    let (report, screen) = walk(&file, &s, &fake, &mut owner);
+    assert_eq!(
+        labels(&report),
+        [
+            ("S-09".into(), "pass".into()),
+            ("S-10".into(), "pass".into())
+        ],
+        "{screen}"
+    );
+    assert!(screen.contains("The save did not land"), "{screen}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_save_that_never_lands_fails_its_station_and_the_load_is_not_asked() {
+    let file = save_walk();
+    let (_game, fake) = mug_game();
+    let root = root("save-missing");
+    let saves = root.join("profile").join("saves");
+    std::fs::create_dir_all(&saves).unwrap();
+    std::fs::write(saves.join("Other.sfs"), b"sfs").unwrap();
+    let mut owner = Owner::new(vec![("p saved", noop()), ("", noop()), ("", noop())]);
+    let mut s = setup(&file, &root, BTreeMap::new());
+    s.saves_dir = Some(saves.clone());
+    let (report, screen) = walk(&file, &s, &fake, &mut owner);
+    let l = labels(&report);
+    assert!(l[0].1.starts_with("fail"), "{l:?}\n{screen}");
+    assert!(l[0].1.contains("was not written"), "{l:?}");
+    assert!(l[1].1.starts_with("not-run"), "{l:?}");
+    assert!(l[1].1.contains("nothing to load"), "{l:?}");
+    // Nothing was added to, renamed in or removed from the saves folder.
+    let names: Vec<String> = std::fs::read_dir(&saves)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["Other.sfs"]);
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn a_save_older_than_the_walk_does_not_count() {
+    use kitkraft_game::walk::find_save;
+    let root = root("save-old");
+    let saves = root.join("saves");
+    std::fs::create_dir_all(&saves).unwrap();
+    std::fs::write(saves.join("KitKraftWalk.sfs"), b"sfs").unwrap();
+    let later = std::time::SystemTime::now() + Duration::from_secs(3600);
+    assert_eq!(find_save(&saves, "kitkraftwalk", later), Ok(None));
+    let earlier = std::time::SystemTime::UNIX_EPOCH;
+    assert!(find_save(&saves, "kitkraftwalk", earlier)
+        .unwrap()
+        .is_some());
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_owners_primary_saves_folder_is_never_listed() {
+    use kitkraft_game::walk::{find_save, saves_dir_allowed};
+    let primary = PathBuf::from(r"C:\Users\someone\Documents\My Games\Starfield\Saves");
+    assert!(!saves_dir_allowed(&primary));
+    assert!(find_save(&primary, "KitKraftWalk", std::time::SystemTime::UNIX_EPOCH).is_err());
+    assert!(saves_dir_allowed(&PathBuf::from(
+        r"C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\saves"
+    )));
+    assert!(!saves_dir_allowed(&PathBuf::from(r"C:\Modding\elsewhere")));
+}
+
+#[test]
+fn a_save_name_with_a_path_is_refused() {
+    let text = r#"
+format = 1
+title = "t"
+plugin = "X.esm"
+
+[[station]]
+id = "S-09"
+title = "save"
+say = ["save"]
+expected = "e"
+judge = "owner"
+makes_save = "..\\Default\\x"
+"#;
+    assert!(WalkFile::parse(text).is_err());
 }

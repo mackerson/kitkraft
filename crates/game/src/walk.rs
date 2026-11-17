@@ -21,6 +21,14 @@
 //!    (console matchers or the Papyrus log written since the walk started), and takes a
 //!    screenshot when the station asks for one.
 //!
+//! A station may name a save the owner makes (`makes_save`) or loads (`needs_save`). The
+//! recorder then lists the profile's own saves folder ([`WalkSetup::saves_dir`], read only:
+//! a listing and the entry's modified time, never a file opened, written, renamed or
+//! deleted, and never a folder under `My Games`, [`saves_dir_allowed`]) for `<name>.sfs`
+//! written since the walk started. A save that did not land is asked for again, then fails
+//! its station; the station that loads it is then not asked (not-run). The owner walk of
+//! 2026-11-17 (`game-20261117-08`, W-10) found its save missing only at the load.
+//!
 //! Every command and its whole reply is appended to `transcript.txt` as it happens; the
 //! report (`report.json`, in the controller's row shape so `cargo xtask session-evidence`
 //! reads it) and the draft ledger entry (`ledger-draft.md`, the format of
@@ -172,6 +180,15 @@ pub struct Station {
     /// Checks made after the owner acts (a console matcher or `papyrus-log`).
     #[serde(default)]
     pub check: Vec<Step>,
+    /// The owner saves here under this name (`KitKraftWalk`): after the owner's answer the
+    /// recorder lists the profile's saves folder (read only) for `<name>.sfs` written since
+    /// the walk started, and asks again while it is missing (game-20261117-08, W-10).
+    #[serde(default)]
+    pub makes_save: Option<String>,
+    /// This station loads the save of that name: when the profile's saves folder has no
+    /// `<name>.sfs` written since the walk started, the station is not asked (not-run).
+    #[serde(default)]
+    pub needs_save: Option<String>,
 }
 
 /// A getter read before and after; graded when it names an expected change.
@@ -305,6 +322,15 @@ impl WalkFile {
                     return bad(format!("station {}: {why}", s.id));
                 }
             }
+            for name in s.makes_save.iter().chain(s.needs_save.iter()) {
+                if !save_name_ok(name) {
+                    return bad(format!(
+                        "station {}: save name `{}` (letters, digits, `-` and `_` only)",
+                        s.id,
+                        clip(name, 40)
+                    ));
+                }
+            }
             for c in &s.check {
                 if c.matcher.is_none() {
                     return bad(format!("station {}: a check needs a matcher", s.id));
@@ -343,6 +369,56 @@ impl WalkFile {
         }
         out.into_iter().collect()
     }
+}
+
+/// A save name a station may name: 1 to 64 letters, digits, `-` and `_` (no path).
+pub fn save_name_ok(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Whether the recorder may list `dir` for saves: never a folder under `My Games` (the
+/// owner's primary saves, AGENTS.md "Owner's live game is off limits"); only a profile's
+/// own `saves` folder, which `kit walk` passes when the profile says `LocalSaves=true`.
+pub fn saves_dir_allowed(dir: &Path) -> bool {
+    let under_my_games = dir.components().any(|c| {
+        c.as_os_str()
+            .to_string_lossy()
+            .eq_ignore_ascii_case("My Games")
+    });
+    let named_saves = dir
+        .file_name()
+        .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("saves"));
+    !under_my_games && named_saves
+}
+
+/// `<name>.sfs` in `dir`, if it was modified at or after `since`: its modified time. Lists
+/// the folder and reads the entry's metadata; never opens, writes, renames or deletes a
+/// file. `Err` when the folder cannot be listed or is not one a walk may list.
+pub fn find_save(
+    dir: &Path,
+    name: &str,
+    since: std::time::SystemTime,
+) -> std::result::Result<Option<std::time::SystemTime>, String> {
+    if !saves_dir_allowed(dir) {
+        return Err(format!(
+            "{} is not a profile's own saves folder: not listed",
+            dir.display()
+        ));
+    }
+    let want = format!("{name}.sfs");
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    for e in entries.flatten() {
+        if !e.file_name().to_string_lossy().eq_ignore_ascii_case(&want) {
+            continue;
+        }
+        let modified = e.metadata().and_then(|m| m.modified()).ok();
+        return Ok(modified.filter(|m| *m >= since));
+    }
+    Ok(None)
 }
 
 /// Why `command` may not be sent, if it may not.
@@ -533,6 +609,12 @@ pub struct WalkSetup {
     pub ready_limit: Duration,
     /// One console call's limit.
     pub call_timeout: Duration,
+    /// The profile's own saves folder (`<profile>\saves`, when its `settings.ini` says
+    /// `LocalSaves=true`), listed read-only for `makes_save` and `needs_save`; `None`
+    /// turns those checks off (they are then recorded as not verified).
+    pub saves_dir: Option<PathBuf>,
+    /// How many times a missing save is asked for again before the station records it.
+    pub save_asks: u32,
 }
 
 impl WalkSetup {
@@ -551,6 +633,8 @@ impl WalkSetup {
             quiet: Duration::from_secs(file.quiet_secs),
             ready_limit: Duration::from_secs(file.ready_secs),
             call_timeout: Duration::from_secs(10),
+            saves_dir: None,
+            save_asks: 2,
         }
     }
 }
@@ -567,6 +651,7 @@ struct Walker<'a> {
     shoot: Shoot<'a>,
     corr: Correlator,
     start: Instant,
+    started: std::time::SystemTime,
     papyrus_mark: Option<u64>,
     sfse: Option<String>,
     findings: Vec<String>,
@@ -783,6 +868,97 @@ impl Walker<'_> {
         Some(String::from_utf8_lossy(tail).into_owned())
     }
 
+    /// Whether `<name>.sfs` was written since the walk started, in words for the Seen
+    /// column: `Ok(Some(..))` found, `Ok(None)` missing, `Err` not checkable.
+    fn save_seen(&self, name: &str) -> std::result::Result<Option<String>, String> {
+        let dir = self.setup.saves_dir.as_ref().ok_or_else(|| {
+            "no saves folder to list (the profile does not keep its own saves)".to_string()
+        })?;
+        let found = find_save(dir, name, self.started)?;
+        Ok(found.map(|m| {
+            let after = m
+                .duration_since(self.started)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            format!(
+                "`{name}.sfs` is in the profile's saves folder, written {after} s after the walk started"
+            )
+        }))
+    }
+
+    /// After the owner's answer at a station that makes a save: looks for it, and while it
+    /// is missing says so and asks the owner to save again (up to `save_asks` times).
+    fn check_made_save(&mut self, name: &str, seen: &mut Vec<String>) -> Verdict {
+        let mut asks = 0u32;
+        loop {
+            // The game writes the file a moment after the console command: a few polls.
+            let mut status = self.save_seen(name);
+            for _ in 0..5 {
+                if !matches!(status, Ok(None)) {
+                    break;
+                }
+                std::thread::sleep(self.setup.poll);
+                status = self.save_seen(name);
+            }
+            match status {
+                Ok(Some(found)) => {
+                    self.raw(&format!("(save check: {found})"));
+                    self.say(&format!("   ok: {found}"));
+                    seen.push(found);
+                    return Verdict::Pass;
+                }
+                Err(e) => {
+                    let line = format!("save `{name}` not verified: {e}");
+                    self.raw(&format!("(save check: {line})"));
+                    self.say(&format!("   ! {line}"));
+                    seen.push(line.clone());
+                    return Verdict::Inconclusive(line);
+                }
+                Ok(None) => {}
+            }
+            let dir = self
+                .setup
+                .saves_dir
+                .as_ref()
+                .map(|d| d.display().to_string())
+                .unwrap_or_default();
+            let missing = format!("no `{name}.sfs` written since the walk started in {dir}");
+            self.raw(&format!("(save check: {missing})"));
+            if asks >= self.setup.save_asks {
+                let line = format!(
+                    "the save `{name}` was not written: {missing} (asked {asks} more time(s))"
+                );
+                self.say(&format!("   ! {line}"));
+                seen.push(line.clone());
+                return Verdict::Fail(line);
+            }
+            asks = asks.saturating_add(1);
+            self.say(&format!("   ! The save did not land: {missing}."));
+            self.say(&format!(
+                "     Open the console, type  save {name}  and press Enter in the console; wait until the game has saved, close the console."
+            ));
+            let _ = write!(
+                self.out,
+                " > Press Enter here when it has saved (s goes on without the save): "
+            );
+            let _ = self.out.flush();
+            let mut line = String::new();
+            let reply = match self.input.read_line(&mut line) {
+                Ok(0) | Err(_) => "q".to_string(),
+                Ok(_) => line.trim().to_string(),
+            };
+            self.raw(&format!("owner (save asked again): {reply:?}"));
+            let first = reply.chars().next().map(|c| c.to_ascii_lowercase());
+            if matches!(first, Some('s') | Some('q')) {
+                let line = format!(
+                    "the save `{name}` was not written: {missing} (the owner went on without it)"
+                );
+                seen.push(line.clone());
+                return Verdict::Fail(line);
+            }
+        }
+    }
+
     fn answer(&mut self, station: &Station) -> Answer {
         let ask = station.ask.clone().unwrap_or_else(|| "Done?".to_string());
         let _ = write!(
@@ -820,6 +996,42 @@ impl Walker<'_> {
         }
         self.say(&format!("   Expected: {}", station.expected));
         let mut seen: Vec<String> = Vec::new();
+        if let Some(name) = &station.needs_save {
+            match self.save_seen(name) {
+                Ok(Some(found)) => {
+                    self.raw(&format!("(save check: {found})"));
+                    seen.push(found);
+                }
+                Ok(None) => {
+                    let dir = self
+                        .setup
+                        .saves_dir
+                        .as_ref()
+                        .map(|d| d.display().to_string())
+                        .unwrap_or_default();
+                    let why = format!(
+                        "the save `{name}` this station loads is not in the profile's saves folder ({dir}; none written since the walk started): nothing to load"
+                    );
+                    self.raw(&format!("(save check: {why})"));
+                    self.say(&format!("   ! {why}. Skipping this station."));
+                    let report = self.row(
+                        station,
+                        Vec::new(),
+                        vec![why.clone()],
+                        Verdict::NotRun(why),
+                        Vec::new(),
+                        None,
+                        Vec::new(),
+                    );
+                    return (report, false);
+                }
+                Err(e) => {
+                    let line = format!("save `{name}` not verified before the load: {e}");
+                    self.raw(&format!("(save check: {line})"));
+                    seen.push(line);
+                }
+            }
+        }
         let mut parts: Vec<Verdict> = Vec::new();
         let mut commands = Vec::new();
         let console_counts = station.judge != Judge::Owner;
@@ -949,6 +1161,10 @@ impl Walker<'_> {
             _ => {}
         }
         seen.push(format!("owner report: {}", answer.text()));
+        if let Some(name) = &station.makes_save {
+            let v = self.check_made_save(name, &mut seen);
+            parts.push(v);
+        }
 
         // After.
         let mut readings = Vec::new();
@@ -1193,6 +1409,7 @@ pub fn run(
         shoot,
         corr: Correlator::default(),
         start: Instant::now(),
+        started: std::time::SystemTime::now(),
         papyrus_mark,
         sfse: None,
         findings: Vec::new(),

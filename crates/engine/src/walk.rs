@@ -356,6 +356,31 @@ pub fn prepare(o: &WalkOptions) -> Result<PreparedWalk, String> {
         kitkraft_game::ledger::compact(&date),
         hms.get(..4).unwrap_or_default()
     );
+    // The profile's own saves folder, listed (read only) for the stations that make or
+    // load a save; only when the profile keeps its saves (`LocalSaves=true`), never the
+    // owner's primary saves under `My Games`.
+    let local_saves = read_ini(&profile_dir.join("settings.ini"))
+        .and_then(|ini| ini.get("General", "LocalSaves"))
+        .is_some_and(|v| v.trim().eq_ignore_ascii_case("true"));
+    let saves = profile_dir.join("saves");
+    let wants_saves = file
+        .stations
+        .iter()
+        .any(|s| s.makes_save.is_some() || s.needs_save.is_some());
+    if wants_saves {
+        if local_saves && kitkraft_game::walk::saves_dir_allowed(&saves) {
+            header.push((
+                "Saves checked in".into(),
+                format!("{} (listed only)", saves.display()),
+            ));
+            setup.saves_dir = Some(saves);
+        } else {
+            notes.push(format!(
+                "{} does not keep its own saves (settings.ini LocalSaves): the save stations are not verified",
+                profile_dir.display()
+            ));
+        }
+    }
     setup.ids = ids;
     setup.header = header;
     setup.papyrus_log = papyrus;

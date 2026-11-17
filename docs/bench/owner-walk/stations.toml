@@ -233,12 +233,16 @@ title = "before the save: the overhaul's WEAP values in the inventory (KitKraftG
 forms = ["Starfield.esm:2984DF", "Starfield.esm:0546CC", "Starfield.esm:18DE2C", "KitKraftGunOverhaul.esm"]
 say = [
   "kit walk just gave you Maelstrom, Hard Target and Drum Beat. In the inventory note each magazine size (expect 24, 5, 48).",
-  "Then in the console: save KitKraftWalk   (close the console, wait a moment, press Enter).",
+  "Then in the console: save KitKraftWalk   (press Enter in the console, wait until the game has saved, close the console, then press Enter here).",
+  "kit walk then looks for KitKraftWalk.sfs in the profile's saves folder and asks again if it is not there.",
 ]
 expected = "Magazines 24 (Maelstrom), 5 (Hard Target), 48 (Drum Beat), as build 2 (docs/overhaul/build-2.md C3, C10, C11); the save is written"
 judge = "owner"
 ask = "Were the magazines 24, 5 and 48, and did the save finish?"
 setup = ["player.additem 002984DF 1", "player.additem 000546CC 1", "player.additem 0018DE2C 1"]
+# The walk of 2026-11-17 (game-20261117-08) reached W-10 with no KitKraftWalk.sfs on disk:
+# the recorder now lists the profile's saves folder (read only) before going on.
+makes_save = "KitKraftWalk"
 [[station.watch]]
 command = "player.getitemcount 002984DF"
 label = "Maelstrom count"
@@ -262,6 +266,7 @@ expected = "Back in the apartment from the save (the reload marker kit walk adde
 judge = "both"
 ask = "Were the magazines the same after the reload?"
 screenshot = true
+needs_save = "KitKraftWalk"
 setup = ["player.additem {id:KKW14Misc} 1"]
 [[station.watch]]
 command = "player.getitemcount {id:KKW14Misc}"
