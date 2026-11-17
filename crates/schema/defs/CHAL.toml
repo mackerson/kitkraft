@@ -12,11 +12,12 @@
 #     ATAN FULL DESC (DNAM CITC CTDA*)* ANAM ATAV ATAF. Every record decodes with nothing
 #     left over and re-encodes identically.
 #
-# What stays opaque, and why: the component body. Its layout is chosen by the component's
-# name in BFCB (a union by that string upstream), so the whole block is kept as raw
-# subrecords; this includes the FULL and DESC lstrings of each activity (listed for CHAL in
-# the corpus lstring table) and any FormIDs in the conditions and rewards, none of which
-# are visited.
+# The component body is typed since 2026-11-17: BfcbBlock's ActivityTracker group
+# (L6055-L6059 over the helper L5645-L5672) reads ATCP and each activity, so the FULL and
+# DESC lstrings and the conditions' FormIDs are typed and visited. What stays opaque, and
+# why: each activity's ATAV, text without a terminator that upstream says may embed
+# FormIDs; such FormIDs are neither visited nor remapped (in the official files every ATAV
+# is JSON naming no form).
 signature = "CHAL"
 name = "Challenge"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766"
