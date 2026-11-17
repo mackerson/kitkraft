@@ -349,3 +349,432 @@ fn a_new_weapon_is_written_with_the_ck_base_speed() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Every new record of a type the CK bench saved after `new` wrote it with its EditorID
+/// only, as the Creation Kit saved it: the subrecords after `EDID` of each record of
+/// `ck.esp` in the bench folders of `kitkraft-observe\ck-2026-11-17` (sittings
+/// ck-20261117-11 to -18 below; `docs/bench/ck-batch/triage-20261117.md`, class A).
+/// `SIG:hex`, `0*<n>` for `n` zero bytes. What `new` writes otherwise is in
+/// [`ck_saved_new_kept_apart`].
+const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
+    // ck-20261117-15
+    (
+        "CELL",
+        "KCBCELLNew",
+        concat!(
+            "FULL:4B4342204E65772043656C6C00 DATA:01000000 ",
+            "XCLL:000000000000000000000000000000000000000000000000000000000000803F000000000",
+            "000803F000000000000803F00000000000000009F0700000000000000401C46000000000000000",
+            "00000803F0000803F0000803F0000803F0000803F000000000000000000000000 ",
+            "LTMP:00000000 XCLW:FFFF7F7F XILS:0000803F",
+        ),
+    ),
+    // ck-20261117-16
+    (
+        "NPC_",
+        "KCB_NPC_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "ACBS:00000000000000000000000000000000 RNAM:7D340000 AIDT:00000000000000 STOP: ",
+            "DATA: DNAM:0000000000000100 NAM5:FF00 NAM6:0000803F NAM4:0000803F ",
+            "MWGT:000000000000000000000000 EDCT:00 STON:00 PRON:00",
+        ),
+    ),
+    // ck-20261117-13
+    (
+        "WEAP",
+        "KCB_WEAP_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DESC:00 STOP: NNAM:00000000 WAIM:0*35 ",
+            "WAM2:0000000000000000000000000000000000000000000000 WAUD:0*288 ",
+            "WTUR:0000000000000000000000000000000000000000000000000000000000 ",
+            "WCHG:0000000000000000000000000000 WDMG:0*62 ",
+            "WFIR:000000000000000000000000000000000000000000000000000000000000C3F5A83E00C3F",
+            "5A83E000000000000 WFLG:000000000000000000000000 ",
+            "WGEN:0000000000000000000000000000803F0000000000000000 ",
+            "WMEL:00000000000000803F00000000 QNAM:0*36 WRLO:000000000000803F0000 WVAR:0*49 ",
+            "FLLD:01000000 WVIS:000000000000000000000000000000000000000000000000 ",
+            "WTRM:0000000000000000000000000000000000",
+        ),
+    ),
+    // ck-20261117-15
+    (
+        "LCTN",
+        "KCB_LCTN_New",
+        "DATA:0000000000001000 RNAM:00000000 ANAM:0000803F TNAM:00000000",
+    ),
+    // ck-20261117-12
+    (
+        "BOOK",
+        "KCB_BOOK_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DESC:00 DATA:0000000000000000 ",
+            "DNAM:0000000000000000000000000000000000 CNAM:00",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "ARMO",
+        "KCB_ARMO_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 FLLD:01000000 RNAM:00000000 DESC:00 ",
+            "DATA:000000000000000000000000 FNAM:0000000000000000 STOP:",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "ARMA",
+        "KCB_ARMA_New",
+        concat!(
+            "RNAM:00000000 DNAM:00000000000000000000000000 FLLD:01000000 FLLD:01000000 ",
+            "FLLD:01000000 FLLD:01000000 FLLD:01000000 FLLD:01000000 MNAM:00000000 TNAM:00 ",
+            "SNAM:00 VNAM:00 BSMP:00000000 BSMP:01000000",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "MISC",
+        "KCB_MISC_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DATA:0000000000000000",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "ALCH",
+        "KCB_ALCH_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DESC:00 DATA:00000000 ENIT:0*56 DNAM:00",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "KEYM",
+        "KCB_KEYM_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DATA:0000000000000000",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "LVLI",
+        "KCB_LVLI_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "LVLD:00000000 LVLM:00 LVLF:0000 FLLD:01000000",
+        ),
+    ),
+    // ck-20261117-16
+    (
+        "LVLN",
+        "KCB_LVLN_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "LVLD:00000000 LVLM:00 LVLF:0000 FLLD:01000000",
+        ),
+    ),
+    // ck-20261117-16
+    (
+        "LVLP",
+        "KCB_LVLP_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "LVLD:00000000 LVLM:00 LVLF:0000 FLLD:01000000",
+        ),
+    ),
+    // ck-20261117-16
+    (
+        "PACK",
+        "KCB_PACK_New",
+        concat!(
+            "PKDT:000000000000000000000000 PSDT:000000000000000000000000 ",
+            "PKCU:000000000000000000000000 XNAM:00 POBA: INAM:00000000 ",
+            "PDTO:0000000000000000 POEA: INAM:00000000 PDTO:0000000000000000 POCA: ",
+            "INAM:00000000 PDTO:0000000000000000",
+        ),
+    ),
+    // ck-20261117-16
+    (
+        "PERK",
+        "KCB_PERK_New",
+        "DESC:00 DATA:00000000 PRRK: DESC:00 PRUC:02000000 PRRF:",
+    ),
+    // ck-20261117-14
+    (
+        "LIGH",
+        "KCB_LIGH_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 ",
+            "DAT2:FFFFFFFF0000000000000000000000000000803F0000B4420000000000000000000000000",
+            "000000000000000000000000000000000000000000000000000000000000000000000000000804",
+            "0 FLBD:000000000000000000000000000000000000000000000000 ",
+            "FLRD:0000000000000000000000000000000000000000 FLGD:0*88 LLLD:0F000000 ",
+            "FLAD:00000000000000000000000000000000 FVLD:00000000",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "FURN",
+        "KCB_FURN_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 PNAM:00000000 FNAM:0000 JNAM:0000 MNAM:00000040 GNAM:0000 ",
+            "WBDT:00 STOP:",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "TERM",
+        "KCB_TERM_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 NAM1:00 ",
+            "FLLD:01000000 PNAM:00000000 FNAM:0000 JNAM:0000 MNAM:00000040 GNAM:0000 ",
+            "WBDT:00 STOP:",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "ACTI",
+        "KCB_ACTI_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 PNAM:00000000 FNAM:0000 JNAM:0000",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "CONT",
+        "KCB_CONT_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DATA:00 STOP:",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "DOOR",
+        "KCB_DOOR_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 FNAM:00 DEVT:00000000 ANAM:00000000",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "FLOR",
+        "KCB_FLOR_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 PNAM:00000000 FNAM:0000 JNAM:0000 PFPC:00000000 STOP: ",
+            "BNAM:00000000 FMAH:00000000 FMIH:00000000",
+        ),
+    ),
+    // ck-20261117-14
+    (
+        "MSTT",
+        "KCB_MSTT_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DATA:00",
+        ),
+    ),
+    // ck-20261117-13
+    (
+        "HAZD",
+        "KCB_HAZD_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DNAM:0*92",
+        ),
+    ),
+    // ck-20261117-13
+    (
+        "OMOD",
+        "KCB_OMOD_New",
+        concat!(
+            "DESC:00 FLLD:01000000 ",
+            "DATA:00000000000000000000000000000000000000000000000000000000",
+        ),
+    ),
+    // ck-20261117-13
+    (
+        "AMDL",
+        "KCB_AMDL_New",
+        concat!(
+            "ANAM:00000040000000419A99993E000000408FC2753DCDCC4C3F0000FA420000803F0000803E0",
+            "00000400000803F0A00000000007042000000000000803F0000803F00",
+        ),
+    ),
+    // ck-20261117-12
+    (
+        "ENCH",
+        "KCB_ENCH_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "ENIT:000000000000000000000000000000000000000000000000000000",
+        ),
+    ),
+    // ck-20261117-12
+    ("OTFT", "KCB_OTFT_New", "INAM:"),
+    // ck-20261117-14
+    (
+        "PKIN",
+        "KCB_PKIN_New",
+        "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 MOLM:0000",
+    ),
+    // ck-20261117-11
+    (
+        "KYWD",
+        "KCB_KYWD_New",
+        "CNAM:00000000 TNAM:00000000 FNAM:00000000",
+    ),
+    // ck-20261117-11
+    ("FLST", "KCB_FLST_New", "ANAM:00000000"),
+    // ck-20261117-11
+    (
+        "MESG",
+        "KCB_MESG_New",
+        "DESC:00 INAM:00000000 DNAM:00000000 TNAM:02000000 BNAM:00000000",
+    ),
+    // ck-20261117-11
+    (
+        "RSPJ",
+        "KCB_RSPJ_New",
+        concat!(
+            "DESC:00 BNAM:00000000 CNAM:00000000 NNAM:0000 SNAM:00000000 TNAM:00 ",
+            "KNAM:00000000",
+        ),
+    ),
+    // ck-20261117-11
+    (
+        "AVIF",
+        "KCB_AVIF_New",
+        "NAM0:00000000 AVFL:00000000 NAM1:08000000",
+    ),
+    // ck-20261117-18
+    (
+        "SFPT",
+        "KCB_SFPT_New",
+        "CNAM:00000000 FNAM:0*1024 GNAM:0*256",
+    ),
+    // ck-20261117-18
+    ("SFTR", "KCB_SFTR_New", "CNAM:00000000 DNAM:00000000"),
+    // ck-20261117-18
+    (
+        "SFBK",
+        "KCB_SFBK_New",
+        concat!(
+            "DNAM:0000000000000000 ENAM:0000000000000000 GNAM:00 HNAM:0000 INAM:00 JNAM:00 ",
+            "KNAM:00 WHGT:00000000 NAM2:0000000000000000 NAM3:0000000000000000 ",
+            "NAM4:0000000000000000 NAM5:00000000",
+        ),
+    ),
+];
+
+/// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
+/// ours. CELL `FULL` is the bench recipe's name, not a default; NPC_ `RNAM` is the CK's
+/// race `Starfield.esm:00347D`, a master's form; BOOK `CNAM` keeps the 4 zero bytes of its
+/// layout and of every official BOOK (the CK narrows it, class B `BOOK CNAM
+/// zero-narrowed`); ARMO and ARMA keep a zero `BO64` the CK drops (class B `BO64
+/// zero-dropped`, compared apart).
+fn ck_saved_new_kept_apart(sig: &str) -> &'static [(&'static str, &'static str)] {
+    match sig {
+        "CELL" => &[("FULL:4B4342204E65772043656C6C00", "")],
+        "NPC_" => &[("RNAM:7D340000", "RNAM:00000000")],
+        "BOOK" => &[("CNAM:00", "CNAM:00000000")],
+        _ => &[],
+    }
+}
+
+/// The subrecords of the one record of `sig` in `plugin` (uncompressed), as `SIG:hex`.
+fn written_record(plugin: &[u8], sig: &[u8; 4]) -> Vec<String> {
+    fn find<'a>(buf: &'a [u8], sig: &[u8; 4]) -> Option<&'a [u8]> {
+        let mut off = 0;
+        while off + 24 <= buf.len() {
+            let size = u32::from_le_bytes(buf[off + 4..off + 8].try_into().unwrap()) as usize;
+            if &buf[off..off + 4] == b"GRUP" {
+                if let Some(r) = find(&buf[off + 24..off + size], sig) {
+                    return Some(r);
+                }
+                off += size;
+            } else {
+                if &buf[off..off + 4] == sig {
+                    return Some(&buf[off + 24..off + 24 + size]);
+                }
+                off += 24 + size;
+            }
+        }
+        None
+    }
+    let body = find(plugin, sig).expect("the new record");
+    let mut out = Vec::new();
+    let mut o = 0;
+    while o < body.len() {
+        let s = String::from_utf8_lossy(&body[o..o + 4]).into_owned();
+        let n = u16::from_le_bytes([body[o + 4], body[o + 5]]) as usize;
+        let data = &body[o + 6..o + 6 + n];
+        o += 6 + n;
+        if s == "EDID" {
+            continue;
+        }
+        let hex: String = data.iter().map(|b| format!("{b:02X}")).collect();
+        out.push(if data.len() > 32 && data.iter().all(|b| *b == 0) {
+            format!("{s}:0*{}", data.len())
+        } else {
+            format!("{s}:{hex}")
+        });
+    }
+    out
+}
+
+#[test]
+fn a_new_record_is_written_as_the_ck_saved_it() {
+    let d = dir("new-ck-saved");
+    let data = data(&d);
+    let mut wrong = Vec::new();
+    for (sig, edid, saved) in CK_SAVED_NEW {
+        let into = d.join(format!("New{}.esp", sig.trim_end_matches('_')));
+        let _ = std::fs::remove_file(&into);
+        let edid = edid.replace('_', "");
+        if let Err(e) = call("new", &data, &into, json!({"type": sig, "edid": edid})) {
+            wrong.push(format!("{sig}: {e}"));
+            continue;
+        }
+        let mut ours = written_record(
+            &std::fs::read(&into).unwrap(),
+            sig.as_bytes().try_into().unwrap(),
+        );
+        if matches!(*sig, "ARMO" | "ARMA") {
+            let at = ours
+                .iter()
+                .position(|s| s.starts_with("BO64:"))
+                .expect("BO64");
+            assert_eq!(ours.remove(at), format!("BO64:{}", "00".repeat(8)));
+        }
+        let mut want: Vec<String> = saved.split(' ').map(str::to_string).collect();
+        for (ck, kept) in ck_saved_new_kept_apart(sig) {
+            let at = want.iter().position(|s| s == ck).expect("the CK's item");
+            if kept.is_empty() {
+                want.remove(at);
+            } else {
+                want[at] = (*kept).to_string();
+            }
+        }
+        if ours != want {
+            wrong.push(format!(
+                "{sig}:\n  ours {}\n  ck   {}",
+                ours.join(" "),
+                want.join(" ")
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    let _ = std::fs::remove_dir_all(&d);
+}
