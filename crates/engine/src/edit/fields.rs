@@ -2561,7 +2561,7 @@ mod tests {
         assert!(!version.ty.is_opaque());
         assert_ne!(save.ty, version.ty);
         let raw = [
-            *b"EDID", *b"BFCB", *b"ATCP", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
+            *b"EDID", *b"BFCB", *b"VCSB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
         ];
         assert_eq!(layout_at(*b"PKIN", &raw, 3), None);
     }

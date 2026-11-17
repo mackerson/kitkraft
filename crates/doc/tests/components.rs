@@ -99,6 +99,7 @@ fn allowed(layout: &str) -> &'static [&'static str] {
         "Crowd" => &["BGSCrowdComponent_Component"],
         "Volumes" => &["Volumes_Component"],
         "StoredTraversals" => &["BGSStoredTraversals_Component"],
+        "ActivityTracker" => &["BGSActivityTracker"],
         "SpaceshipAiActor" => &["BGSSpaceshipAIActor_Component"],
         "SpaceshipEquipment" => &["BGSSpaceshipEquipment_Component"],
         "SpaceshipHullCode" => &["BGSSpaceshipHullCode_Component"],
@@ -381,6 +382,7 @@ fn component_layouts_full() {
     assert_eq!(
         blocks,
         [
+            ("ActivityTracker", 10),
             ("AdaptiveTrigger", 19),
             ("AddToInventoryOnDestroy", 1_702),
             ("AnimationGraph", 4_853),

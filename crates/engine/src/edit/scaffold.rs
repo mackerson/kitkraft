@@ -1032,7 +1032,7 @@ mod tests {
             .filter(|(_, e)| e.sig == *b"CTDA")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(ctda.len(), 11);
+        assert_eq!(ctda.len(), 12);
         for (k, slot) in ctda.iter().copied().enumerate() {
             assert_eq!(slot_of(&all, *b"CTDA", k, ctda.len()), Some(slot));
         }
@@ -1059,15 +1059,15 @@ mod tests {
             Some(*own.last().unwrap())
         );
         // A signature whose last slot does not repeat reports `None` past it: a QUST's
-        // own `DNAM` is the only non-repeating slot after the block's AnimationGraph
-        // response file.
+        // own `DNAM` is the only non-repeating slot after the block's activity tracker
+        // argument names (since 2026-11-17) and AnimationGraph response file.
         let dnam: Vec<usize> = all
             .iter()
             .enumerate()
             .filter(|(_, e)| e.sig == *b"DNAM")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(dnam.len(), 2);
+        assert_eq!(dnam.len(), 3);
         for (k, slot) in dnam.iter().copied().enumerate() {
             assert_eq!(slot_of(&all, *b"DNAM", k, dnam.len()), Some(slot));
         }

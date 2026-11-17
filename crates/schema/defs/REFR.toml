@@ -1279,16 +1279,19 @@ note = "2 XLIB placed in the corpus"
 [[member]]
 sig = "XTV2"
 name = "Traversals"
-type = "opaque"
+type = "array"
+count = "rest"
+element = "ref:Traversal"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9029-L9029"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5789-L5813",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7136-L7141",
   "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: a throwaway scan of the 14 official ESMs, 2026-11-17 (not committed): the 6,027 REFR XTV2 hold 7,891 traversal entries with flags 0, 1 or 2 (never 0x4, so every entry stores its FormID, none null) and divide exactly into them",
 ]
 confidence = "corpus"
-note = "56-byte traversal entries whose FormID is present only when a flag says so; kept raw; 6,027 XTV2 placed in the corpus"
+note = "the shared traversal entries (typed 2026-11-17); 6,027 XTV2 placed in the corpus. Upstream sizes the payload as 56 bytes per entry although an entry without a FormID is 52 (L7138): a payload padded that way, as every CELL XTV2 with such entries is, would read its zero padding as entries (none in REFR)"
 
 [[member]]
 sig = "XNDP"

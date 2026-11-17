@@ -97,6 +97,79 @@ type = "zstring"
 note = "component type name, for example BGSQualityUpgrade_Component"
 
 [[member]]
+group = "ActivityTracker"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6055-L6059"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5645-L5672",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-17: the 10 BGSActivityTracker blocks of the 14 official ESMs (all CHAL) hold ATCP, then 18 activities of ATAN, FULL, DESC, 45 DNAM/CITC arguments with 17 CTDA, ANAM, ATAV and an empty ATAF; they decode and re-encode identically",
+  "corpus: a throwaway scan of the 14 official ESMs, 2026-11-17 (not committed): every ATAV is JSON text without a NUL (types BGSActivity, BGSCraftActivity, BGSLocationDiscoveredActivity) and none holds a FormID",
+]
+confidence = "corpus"
+note = "BGSActivityTracker: a challenge's activities, their arguments' conditions and progression configuration"
+
+[[member.member]]
+sig = "ATCP"
+name = "ActivityCount"
+type = "u32"
+
+[[member.member]]
+group = "Activities"
+card = "repeated"
+
+[[member.member.member]]
+sig = "ATAN"
+name = "ActivityType"
+type = "zstring"
+
+[[member.member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+
+[[member.member.member]]
+group = "Arguments"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "DNAM"
+name = "Name"
+type = "zstring"
+
+[[member.member.member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+
+[[member.member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member.member.member]]
+sig = "ANAM"
+name = "ConfigurationResource"
+type = "zstring"
+note = "upstream names it nothing; in the corpus a res:<hex>:<hex>:<hex> resource id"
+
+[[member.member.member]]
+sig = "ATAV"
+name = "Configuration"
+type = "opaque"
+note = "text without a terminator (JSON in every official block) that upstream says may carry FormIDs; kept as bytes, so FormIDs written in it are not visited or remapped"
+
+[[member.member.member]]
+sig = "ATAF"
+name = "End"
+type = "empty"
+
+[[member]]
 group = "AdaptiveTrigger"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6060-L6074"

@@ -1209,7 +1209,7 @@ mod tests {
         // kept raw, whatever follows; a path naming the raw occurrence explicitly is an
         // error, not a guess.
         let raw = [
-            *b"EDID", *b"BFCB", *b"ATCP", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
+            *b"EDID", *b"BFCB", *b"VCSB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
         ];
         let placed = placements(schema, *b"PKIN", &raw).unwrap();
         assert!(matches!(&placed[3], Placement::Raw { .. }), "{placed:?}");

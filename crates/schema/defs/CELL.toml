@@ -26,6 +26,7 @@ confidence = "corpus"
 flags = [["IsUnique", 0x4], ["NoPreVis", 0x80], ["Persistent", 0x400], ["PartialForm", 0x4000], ["OffLimits", 0x20000], ["CantWait", 0x80000]]
 evidence = [
   "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 40,251 CELL records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: a throwaway scan of the 14 official ESMs, 2026-11-17 (not committed): each of the 2,834 CELL XTV2 is n x 56 bytes for its n entries; 2,831 hold entries with flag 0x4 (no FormID, 52 bytes) and end in 4 zero bytes per such entry, 3 have none and no padding",
 ]
 
 unordered = true
@@ -495,7 +496,7 @@ evidence = [
   "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 40,251 CELL records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "56-byte traversal entries whose FormID is present only when a flag says so; kept raw; 2,834 XTV2 placed in the corpus"
+note = "the shared traversal entries (common/Traversal.toml), kept raw: upstream sizes the payload as 56 bytes per entry (L7138) although an entry without a FormID is 52, and the tail is zero padding; a rest array cannot stop before it. 2,834 XTV2 placed in the corpus"
 
 [[member]]
 group_ref = "LinkedReferences"

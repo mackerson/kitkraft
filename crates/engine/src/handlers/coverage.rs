@@ -998,14 +998,17 @@ mod tests {
         assert_eq!(find(&weap["signatures"], "EDID")["class"], "typed");
         assert_eq!(find(&weap["signatures"], "MODL")["class"], "typed");
         // WEAP has no DNAM of its own: the schema names DNAM only inside a component
-        // layout (the animation graph's response file), and this one is outside any
-        // component, so it is unknown here.
+        // layouts (the activity tracker's argument names, the animation graph's response
+        // file), and this one is outside any component, so it is unknown here.
         let dnam = find(&weap["signatures"], "DNAM");
         assert_eq!(dnam["class"], "unknown");
         assert_eq!(dnam["outside_components"], 1);
         assert_eq!(
             dnam["members"],
-            json!(["BfcbBlock.AnimationGraph.ResponseFile"])
+            json!([
+                "BfcbBlock.ActivityTracker.Activities.Arguments.Name",
+                "BfcbBlock.AnimationGraph.ResponseFile"
+            ])
         );
         assert_eq!(
             find(&weap["signatures"], "DATA")["first_record"],
