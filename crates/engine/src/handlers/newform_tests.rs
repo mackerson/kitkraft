@@ -666,6 +666,16 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
     ),
     // ck-20261117-18
     ("SFTR", "KCB_SFTR_New", "CNAM:00000000 DNAM:00000000"),
+    // ck-20261117-18
+    (
+        "SFBK",
+        "KCB_SFBK_New",
+        concat!(
+            "DNAM:0000000000000000 ENAM:0000000000000000 GNAM:00 HNAM:0000 INAM:00 JNAM:00 ",
+            "KNAM:00 WHGT:00000000 NAM2:0000000000000000 NAM3:0000000000000000 ",
+            "NAM4:0000000000000000 NAM5:00000000",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
