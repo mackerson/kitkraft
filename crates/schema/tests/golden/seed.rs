@@ -93,7 +93,7 @@
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - EFSQ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official EFSQ record (728) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764; reference)
-// - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
+// - EQUP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11767-L11778; reference)
 // - EXPL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839; corpus)
 // - FACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958; corpus)
 // - FFKW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official FFKW record (493) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -38143,16 +38143,66 @@ impl EnchRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct EqupSlotParents(pub Vec<FormId>);
+
+impl Field for EqupSlotParents {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EqupSlotParents {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EqupFlags(pub u32);
+
+impl EqupFlags {
+    pub const USE_ALL_PARENTS: u32 = 0x1;
+    pub const PARENTS_OPTIONAL: u32 = 0x2;
+    pub const ITEM_SLOT: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for EqupFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EqupFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EqupRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub slot_parents: Option<Sub<EqupSlotParents>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<EqupFlags>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub condition_actor_value: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -38193,15 +38243,25 @@ impl EqupRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "EQUP.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.pnam, subs, *index, "EQUP.PNAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.slot_parents,
+                    subs,
+                    *index,
+                    "EQUP.PNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.data, subs, *index, "EQUP.DATA", ctx, extra)
+                    put(&mut self.flags, subs, *index, "EQUP.DATA", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.anam, subs, *index, "EQUP.ANAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.condition_actor_value,
+                    subs,
+                    *index,
+                    "EQUP.ANAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -38209,13 +38269,23 @@ impl EqupRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"PNAM", self.slot_parents.as_ref());
+        emit(out, *b"DATA", self.flags.as_ref());
+        emit(out, *b"ANAM", self.condition_actor_value.as_ref());
     }
 }
 
-impl Visit for EqupRecord {}
+impl Visit for EqupRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.slot_parents, "EQUP.PNAM", out);
+        visit_form_ids(&self.condition_actor_value, "EQUP.ANAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.slot_parents, "EQUP.PNAM", out);
+        visit_form_ids_mut(&mut self.condition_actor_value, "EQUP.ANAM", out);
+    }
+}
 
 impl EqupRecord {
     /// Record signature.

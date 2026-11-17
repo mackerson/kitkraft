@@ -616,7 +616,6 @@ const BX2_INVENTORY: &[&str] = &[
     "DOBJ",
     "EFSH",
     "EFSQ",
-    "EQUP",
     "FFKW",
     "FOGV",
     "FORC",
