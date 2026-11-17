@@ -102,6 +102,8 @@ struct Form {
     /// For a reference: the scripts its `VMAD` attaches, with the Papyrus log lines they
     /// write (M4.T6, [`traces`]).
     scripts: Vec<traces::Attached>,
+    /// For a `CELL`: an interior cell (KK-363).
+    interior: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -361,6 +363,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             base_signature: None,
             disabled: is_ref && loc.flags & probes::FLAG_INITIALLY_DISABLED != 0,
             scripts: Vec::new(),
+            // KK-363: read from the group path, as for a reference's cell below: an interior
+            // cell sits under the top `CELL` group, an exterior one under its `WRLD`. The
+            // `DATA` interior flag is not read; the path says the same without decoding.
+            interior: sig.0 == *b"CELL" && path.first().is_some_and(|g| g.header.label == *b"CELL"),
         };
         if !is_ref && !tes4.is_localized() {
             let record = read_indexed(&mut file, loc, Some(&limits))
@@ -489,6 +495,16 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 format!("prid {target}"),
                 format!("select {what}, {by}"),
             );
+        } else if let Some((edid, _)) = probes::new_interior_cell(f) {
+            // KK-363: a new interior cell is entered by `coc`.
+            if last_cell.as_deref() != Some(edid) {
+                push(
+                    &mut batch,
+                    format!("coc {edid}"),
+                    format!("go to the new cell {what}"),
+                );
+                last_cell = Some(edid.to_string());
+            }
         } else if ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
             push(
                 &mut batch,
@@ -754,6 +770,15 @@ fn checklist(
                 );
                 n = n.saturating_add(1);
             }
+        } else if let Some((cell, id)) = probes::new_interior_cell(f) {
+            // KK-363: entered by `coc`, checked by its runtime ID (not `help`).
+            let _ = writeln!(
+                s,
+                "{n}. `coc {cell}`: go to the new cell `{cell}`. **Expect:** `player.getincell {}`\n   answers 1 ({}).",
+                hex(id),
+                id_basis.short
+            );
+            n = n.saturating_add(1);
         } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
             || f.signature == "ARMO"
         {

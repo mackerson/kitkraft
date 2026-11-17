@@ -93,4 +93,4 @@ cmd = '''cargo test -p xtask -- --exact session_evidence::tests::the_sample_repo
 
 [[accept]]
 name = "cli"
-cmd = '''cargo xtask session-evidence xtask/fixtures/session-evidence/report.json > /tmp/e 2>&1; grep -q 'ledger: game-20261101-99' /tmp/e && grep -q '# TMLM: row T-06 failed; no entry' /tmp/e && test "$(grep -c '^\[\[entry\]\]' /tmp/e)" = 3'''
+cmd = '''cargo xtask session-evidence xtask/fixtures/session-evidence/report.json --evidence xtask/fixtures/session-evidence/empty-evidence.toml > /tmp/e 2>&1; grep -q 'ledger: game-20261101-99' /tmp/e && grep -q '# TMLM: row T-06 failed; no entry' /tmp/e && test "$(grep -c '^\[\[entry\]\]' /tmp/e)" = 3'''

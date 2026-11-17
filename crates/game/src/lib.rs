@@ -10,6 +10,7 @@
 //! - [`host`]: processes and screenshots (std process and Windows' own tools).
 //! - [`probes`]: the `probes.toml` format `kit testplan` writes, and the verdicts.
 //! - [`authorized`], [`backup`]: the write guard, backups and restore-only rollback.
+//! - [`input`]: the record of input an agent sent to the game window (Amendment 2).
 //! - [`ledger`]: the entry appended to `docs/game-observations.md`.
 //! - [`controller`]: one session from backup to ledger, synchronous, followed through
 //!   [`controller::Shared`].
@@ -29,6 +30,7 @@ pub mod controller;
 pub mod correlate;
 mod error;
 pub mod host;
+pub mod input;
 pub mod ledger;
 pub mod preflight;
 pub mod probes;

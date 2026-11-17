@@ -7,7 +7,8 @@
 //! base's (`prid <ID>`, `getisid <base ID>`), its `DATA` position (`getpos x|y|z`, within
 //! [`POSITION_TOLERANCE`]; an actor's within [`ACTOR_TOLERANCE`] on each axis, then
 //! `player.moveto` and `player.getincell` on its interior cell, KK-251), its cell's
-//! runtime ID (`player.getincell <cell ID>`), an
+//! runtime ID (`player.getincell <cell ID>`), a new interior cell's runtime ID (`coc
+//! <EditorID>`, then `player.getincell <ID>`, instead of a `help` row: KK-363), an
 //! item's runtime ID (`player.getitemcount` after `player.additem`), an armor's equipped
 //! state (`player.getequipped` after `player.equipitem`), a form's inline `FULL`
 //! (`help "<FULL>" 4`), a quest's stage (`getstage`). The persistence protocol
@@ -287,6 +288,17 @@ fn actor_steps(t: &str, p: [f32; 3], cell: Option<u32>) -> Vec<Step> {
         ));
     }
     steps
+}
+
+/// A new (not overridden) interior `CELL` with a console-safe EditorID and a runtime ID:
+/// its EditorID and runtime ID (KK-363). Such a cell is entered by `coc` and checked by
+/// `player.getincell`, which passed in every session since 2026-11-01 where `help` rows
+/// mostly came back with only the echo (game-20261103-09); any other cell keeps its `help`
+/// row.
+pub(super) fn new_interior_cell(f: &Form) -> Option<(&str, u32)> {
+    let ok = f.new && f.signature == "CELL" && f.interior;
+    let edid = f.editor_id.as_deref().filter(|e| ok && token(e))?;
+    Some((edid, f.runtime?))
 }
 
 /// `player.getincell <ID>` answering 1.
@@ -574,6 +586,21 @@ pub(super) fn build(
                 let row = next(&mut n);
                 probes.push(script_row(row, &what, &ids, s));
             }
+        } else if let Some((c, id)) = new_interior_cell(f) {
+            let row = next(&mut n);
+            probes.push(probe(
+                row,
+                format!("coc {c}: the new cell {what}"),
+                ids.clone(),
+                false,
+                vec![
+                    settle(format!("coc {c}")),
+                    in_cell(
+                        id,
+                        "the player is in the new cell, by its runtime ID (game-20261101-T1: the console does not take its EditorID here)",
+                    ),
+                ],
+            ));
         } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
             || f.signature == "ARMO"
         {

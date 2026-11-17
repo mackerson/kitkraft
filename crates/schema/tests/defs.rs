@@ -590,9 +590,10 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
 /// actor family; ACTI, CONT, FLOR, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
 /// items/workshop family). LSCR and MESG became M4.BX2 inventories
-/// ([`BX2_INVENTORY`]), and BPTD got a full definition in KK-212 and AVIF in KK-225.
+/// ([`BX2_INVENTORY`]), and BPTD got a full definition in KK-212, AVIF in KK-225 and
+/// DMGT in KK-337, FXPD in KK-338 and PMFT in KK-339.
 #[rustfmt::skip]
-const LSTRING_ONLY: &[&str] = &["DMGT", "FXPD", "PMFT"];
+const LSTRING_ONLY: &[&str] = &[];
 
 /// The M4.BX2 inventory definitions: corpus order and cardinality for record types no
 /// family lane owns.
@@ -651,7 +652,6 @@ const BX2_INVENTORY: &[&str] = &[
     "STAG",
     "STBH",
     "TODD",
-    "TRNS",
     "VOLI",
     "WBAR",
     "WTHS",
@@ -666,7 +666,6 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "CURV",
     "DFOB",
     "LMSW",
-    "MRPH",
     "MTPT",
     "VTYP",
 ];

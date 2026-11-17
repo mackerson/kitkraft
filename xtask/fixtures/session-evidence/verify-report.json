@@ -1,0 +1,391 @@
+{
+  "session": "2026-11-16-T98",
+  "status": {
+    "status": "inconclusive",
+    "reason": "sample"
+  },
+  "rows": [
+    {
+      "row": "V-01",
+      "title": "coc CityNewAtlantisApartmentTEMPLATE: the test cell",
+      "forms": [
+        "CityNewAtlantisApartmentTEMPLATE",
+        "0021966F"
+      ],
+      "commands": [
+        "coc CityNewAtlantisApartmentTEMPLATE",
+        "player.getincell 0021966F"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; (waited 10s); player.getincell 0021",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-20",
+      "title": "prid 0A00102F; getisid 0A001000: the ACTI KKV10Acti is the base of KKV70Reporter",
+      "forms": [
+        "KitKraftVerify.esm:00102F",
+        "KKV70Reporter",
+        "0A00102F",
+        "KKV10Acti",
+        "0A001000"
+      ],
+      "commands": [
+        "prid 0A00102F",
+        "getisid 0A001000"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-26",
+      "title": "prid 0A001035; getisid 0A001006: the LIGH KKV16Ligh is the base of KKV76LighRef",
+      "forms": [
+        "KitKraftVerify.esm:001035",
+        "KKV76LighRef",
+        "0A001035",
+        "KKV16Ligh",
+        "0A001006"
+      ],
+      "commands": [
+        "prid 0A001035",
+        "getisid 0A001006"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "prid 0A001035 -> prid 0A001035 Command: prid 0A001035; getisid 0A001006 -> getisid 0A001006 Command: getisid 0A001006 GetIsID >> 1.00",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-P00",
+      "title": "Papyrus log: KKV-P00 reporter loaded (ACTI VMAD)",
+      "forms": [
+        "KKV70Reporter",
+        "0A00102F"
+      ],
+      "commands": [],
+      "expected": "papyrus-log KKV-P00 reporter loaded",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-P01",
+      "title": "Papyrus log: KKV-P01 GLOB value=4242 (GLOB)",
+      "forms": [
+        "KKV70Reporter",
+        "0A00102F"
+      ],
+      "commands": [],
+      "expected": "papyrus-log KKV-P01 GLOB value=4242",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-P98",
+      "title": "Papyrus log: KKV-P98 PKIN reference base= (PKIN (diagnostic))",
+      "forms": [
+        "KKV70Reporter",
+        "0A00102F"
+      ],
+      "commands": [],
+      "expected": "papyrus-log KKV-P98 PKIN reference base=",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-P99",
+      "title": "Papyrus log: KKV-P99 done (-)",
+      "forms": [
+        "KKV70Reporter",
+        "0A00102F"
+      ],
+      "commands": [],
+      "expected": "papyrus-log KKV-P99 done",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-I-ARMO",
+      "title": "player.additem 0A001011 1: the ARMO KKV35Armo in the inventory",
+      "forms": [
+        "KitKraftVerify.esm:001011",
+        "KKV35Armo",
+        "0A001011"
+      ],
+      "commands": [
+        "player.additem 0A001011 1",
+        "player.getitemcount 0A001011"
+      ],
+      "expected": "regex >>\\s*[1-9]",
+      "seen": "player.additem 0A001011 1 -> player.additem 0A001011 1 Command: player.additem 0A001011 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A001011 -> player.getitem",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-I-ARMO-EQ",
+      "title": "player.equipitem 0A001011: the ARMO is worn",
+      "forms": [
+        "KKV35Armo",
+        "0A001011"
+      ],
+      "commands": [
+        "player.equipitem 0A001011",
+        "player.getequipped 0A001011"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "player.equipitem 0A001011 -> player.equipitem 0A001011 Command: player.equipitem 0A001011 GetIsRace HumanRace >> 1.00 IsTrueForConditionForm:  >> 1.0...; player.getequipped 0A001011 -> player.getequip",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-I-LVLI",
+      "title": "player.additem 0A00102E 1: the LVLI KKV06Lvli gives its one entry, the wrench 0A00100D",
+      "forms": [
+        "KKV06Lvli",
+        "0A00102E",
+        "KKV31Misc",
+        "0A00100D"
+      ],
+      "commands": [
+        "player.additem 0A00102E 1",
+        "player.getitemcount 0A00100D"
+      ],
+      "expected": "regex >>\\s*[1-9]",
+      "seen": "player.additem 0A00102E 1 -> player.additem 0A00102E 1 Command: player.additem 0A00102E 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0A00100D -> player.getitem",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-C-GLOB",
+      "title": "getglobalvalue 0A001029: 4242",
+      "forms": [
+        "KKV01Glob",
+        "0A001029"
+      ],
+      "commands": [
+        "getglobalvalue 0A001029"
+      ],
+      "expected": "regex (?m)>>\\s*4242(\\.0+)?\\s*$",
+      "seen": "getglobalvalue 0A001029 -> getglobalvalue 0A001029 Command: getglobalvalue 0A001029 GetGlobalValue >> 4242.00; (late, after its answer) getglobalvalue 0A001029 -> GetGlobalValue >> 0.00 (in the reply ",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-C-AVIF",
+      "title": "player.getav KKV40Avif: 7 after the reporter (unverified command)",
+      "forms": [
+        "KKV40Avif",
+        "0A001012"
+      ],
+      "commands": [
+        "player.getav KKV40Avif"
+      ],
+      "expected": "regex (?m)>>\\s*7(\\.0+)?\\s*$",
+      "seen": "player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own",
+      "verdict": {
+        "status": "inconclusive",
+        "reason": "`player.getav KKV40Avif`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-S-01",
+      "title": "persistence 1-3: leave, save to the session's own save, go elsewhere, load it",
+      "forms": [
+        "CityNewAtlantisLodgeInt",
+        "0006BB29",
+        "CityNewAtlantisApartmentTEMPLATE",
+        "0021966F"
+      ],
+      "commands": [
+        "coc CityNewAtlantisLodgeInt",
+        "player.getincell 0006BB29",
+        "save KitKraftSession-20261116-04",
+        "coc CityNewAtlantisApartmentTEMPLATE",
+        "player.getincell 0021966F",
+        "load KitKraftSession-20261116-04",
+        "player.getincell 0006BB29"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$; regex (?m)>>\\s*1(\\.0+)?\\s*$; regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "(a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGl",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-S-02",
+      "title": "return to the test cell after the reload",
+      "forms": [
+        "CityNewAtlantisApartmentTEMPLATE",
+        "0021966F"
+      ],
+      "commands": [
+        "coc CityNewAtlantisApartmentTEMPLATE",
+        "player.getincell 0021966F"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "(a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGlobalValue >> 0.00; not graded); (a line for row V-C-GLOB `getglobalvalue 0A001029`, which had all its answers: GetGl",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-S-20",
+      "title": "after the reload: prid 0A00102F; getisid 0A001000 (ACTI)",
+      "forms": [
+        "KKV70Reporter",
+        "0A00102F",
+        "KKV10Acti",
+        "0A001000"
+      ],
+      "commands": [
+        "prid 0A00102F",
+        "getisid 0A001000"
+      ],
+      "expected": "regex (?m)>>\\s*1(\\.0+)?\\s*$",
+      "seen": "prid 0A00102F -> prid 0A00102F Command: prid 0A00102F; getisid 0A001000 -> getisid 0A001000 Command: getisid 0A001000 GetIsID >> 1.00",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-S-I-ARMO",
+      "title": "after the reload: player.getitemcount 0A001011 (ARMO)",
+      "forms": [
+        "KKV35Armo",
+        "0A001011"
+      ],
+      "commands": [
+        "player.getitemcount 0A001011"
+      ],
+      "expected": "regex >>\\s*[1-9]",
+      "seen": "player.getitemcount 0A001011 -> player.getitemcount 0A001011 Command: player.getitemcount 0A001011 GetItemCount >> 1.00",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-S-AVIF",
+      "title": "after the reload: player.getav KKV40Avif (unverified command)",
+      "forms": [
+        "KKV40Avif"
+      ],
+      "commands": [
+        "player.getav KKV40Avif"
+      ],
+      "expected": "regex (?m)>>\\s*7(\\.0+)?\\s*$",
+      "seen": "player.getav KKV40Avif -> (no line of its own: player.getav KKV40Avif Command: player.getav KKV40Avif GetActorValue: KKV40Avif >> 7.00; again in 2000 ms); player.getav KKV40Avif -> (no line of its own",
+      "verdict": {
+        "status": "inconclusive",
+        "reason": "`player.getav KKV40Avif`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-H-TMLM",
+      "title": "help \"KKV18 Terminal Menu\" 4 TMLM: the TMLM KKV18Tmlm is loaded (presence only)",
+      "forms": [
+        "KitKraftVerify.esm:001008",
+        "KKV18Tmlm",
+        "0A001008"
+      ],
+      "commands": [
+        "help \"KKV18 Terminal Menu\" 4 TMLM",
+        "prid 00000014"
+      ],
+      "expected": "contains 0A001008",
+      "seen": "help \"KKV18 Terminal Menu\" 4 TMLM -> help \"KKV18 Terminal Menu\" 4 TMLM ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- TMLM:  (0...; prid 00000014 -> prid 00000014 Command",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-H-AVIF",
+      "title": "help KKV40Avif 4 AVIF: the AVIF KKV40Avif is loaded (presence only)",
+      "forms": [
+        "KitKraftVerify.esm:001012",
+        "KKV40Avif",
+        "0A001012"
+      ],
+      "commands": [
+        "help KKV40Avif 4 AVIF",
+        "prid 00000014"
+      ],
+      "expected": "contains 0A001012",
+      "seen": "help KKV40Avif 4 AVIF -> help KKV40Avif 4 AVIF ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- AVIF: KKV40Avif (0A00...; prid 00000014 -> prid 00000014 Command: prid 00000",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "V-H-PKIN",
+      "title": "Papyrus log: KKV-H20 PKIN present=True (the PKIN KKV20Pkin is loaded; presence only)",
+      "forms": [
+        "KitKraftVerify.esm:00100A",
+        "KKV20Pkin",
+        "0A00100A"
+      ],
+      "commands": [],
+      "expected": "papyrus-log KKV-H20 PKIN present=True",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    }
+  ],
+  "reruns": [],
+  "changes": [],
+  "backups": [],
+  "findings": [],
+  "terminated": [
+    "Starfield.exe",
+    "ModOrganizer.exe",
+    "pid 11372"
+  ],
+  "logs": [
+    [
+      "papyrus",
+      null
+    ]
+  ],
+  "ledger_entry": "game-20261116-98",
+  "ledger_text": "### game-20261116-98: a trimmed copy of the rows of game-20261116-04 (and V-H-PKIN of game-20261117-01) for cargo xtask session-evidence tests; no game ran.\n",
+  "written": [],
+  "transcript": []
+}

@@ -211,6 +211,15 @@ controller asks it to. Tests run whole sessions on a fixture MO2 instance and as
 written path against this list. They also assert that the instance is byte-identical
 afterwards (`crates/game/tests/session.rs`, `crates/engine/src/handlers/game/tests.rs`).
 
+`report.json` `inputs` lists every input an agent sent to the game window (ADR 0010
+Amendment 2): each entry's `at_ms` (milliseconds since the session started), `row` (the
+probe row it served, or null), `kind` (`key`, `mouse`, `controller`, `focus`) and `detail`
+(what was sent, in words), recorded with `Shared::record_input`
+(`kitkraft_game::input::SentInput`). A session that sent any says so in its findings and
+so in its ledger entry (one finding, "agent input sent: <n> ... a pass may depend on it");
+a session that sent none has `"inputs": []`. Nothing sends input yet
+(`crates/game/tests/sent_input.rs`).
+
 ## `probes.toml` (M4.T2)
 
 `kit testplan` writes `probes.toml` beside `checklist.md`, one probe per checklist step.
@@ -386,6 +395,9 @@ complete.
 | O4-20 | manual | a procedural site landed on twice (PS-32) |
 | O4-21 | manual | needs M4.E9 (PS-39) |
 
+A new interior cell the plugin adds is probed by `coc <EditorID>` and
+`player.getincell <runtime ID>`, not by a `help` row (KK-363).
+
 ## Testing against the fakes
 
 The workbench and the MCP server test their game buttons and tools against the same
@@ -395,6 +407,25 @@ fixture MO2 instance, a fake `/console` endpoint and a fake process host under
 host into an engine's session, `session_args` builds the `game.session` arguments with
 extras such as `start` or `dry_run` merged in, and the fakes remove their folder when
 dropped.
+
+From a session's report to evidence entries: `cargo xtask session-evidence
+observe\<id>\report.json` prints, on stdout, the
+`docs/schema/evidence.toml` `[[entry]]` blocks the session's passing rows justify
+(`game-runtime-tested`, and `save-reload-verified` when both persistence rows passed and a
+passing row of the type shares a form with `persistence 4`), each citing `ledger: <the
+report's ledger_entry>` and a note naming the rows. A type with a failing row gets only a
+comment (`# <SIG>: row T-nn failed; no entry`); a report without a ledger entry proposes
+nothing and fails. Rows of the bench verification mod (`V-...`) are typed from their row id,
+reporter lines (`KKV-P01 GLOB ...`), `the <SIG> <name>` and a trailing `(<SIG>)`; a row
+whose type cannot be told, or whose sources disagree, is listed as skipped with the reason,
+a `presence only` row never counts as a pass, and an `after the reload` row stands in for
+`persistence 4`. The tool reads `docs/schema/evidence.toml` (or the file `--evidence
+<path>` names): a type and status it already has prints only the comment `# <SIG>
+<status>: already recorded; add "ledger: <id>" to that entry's evidence` (or "already
+recorded, citing ledger: <id>" when it does), never a duplicate block. It never writes
+`evidence.toml`: read the entries, check them against
+the ledger entry, and paste the ones that hold. The rules are in the module docs of
+`xtask/src/session_evidence.rs`; `xtask/fixtures/session-evidence/report.json` is a sample.
 
 ## Run sheet OW-1: the send-order session (P2)
 

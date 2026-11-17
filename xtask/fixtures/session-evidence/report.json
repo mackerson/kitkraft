@@ -1,0 +1,150 @@
+{
+  "session": "2026-11-01-T99",
+  "status": {
+    "status": "fail",
+    "reason": "T-06: no line names KC_Menu (sample)"
+  },
+  "rows": [
+    {
+      "row": "T-01",
+      "title": "coc TestInterior: the cell of REFR `KC_TestCrate`",
+      "forms": [
+        "TestInterior"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-02",
+      "title": "player.moveto 01001000: stand at REFR `KC_TestCrate`",
+      "forms": [
+        "KC_TestCrate",
+        "01001000"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-03",
+      "title": "prid 01001000 selects REFR `KC_TestCrate`, a KC_Crate (predicted)",
+      "forms": [
+        "KC_TestCrate",
+        "01001000"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "inconclusive",
+        "reason": "the selection was not echoed (sample)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-04",
+      "title": "prid 01001000; getpos x/y/z: REFR `KC_TestCrate` at (10.0, 20.0, 30.0)",
+      "forms": [
+        "KC_POI.esm:001000",
+        "KC_TestCrate",
+        "01001000"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-05",
+      "title": "help \"Old Rifle\" 4: WEAP `OldRifle`",
+      "forms": [
+        "KC_POI.esm:002000",
+        "OldRifle"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-06",
+      "title": "help KC_Menu 4: TMLM `KC_Menu`",
+      "forms": [
+        "KC_POI.esm:003000",
+        "KC_Menu"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "fail",
+        "reason": "no line names KC_Menu (sample)"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-07",
+      "title": "persistence 1-3: leave, save to the session's own save, load it",
+      "forms": [],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    },
+    {
+      "row": "T-08",
+      "title": "persistence 4: return; every new reference where it was",
+      "forms": [
+        "KC_TestCrate",
+        "01001000"
+      ],
+      "commands": [],
+      "expected": "",
+      "seen": "",
+      "verdict": {
+        "status": "pass"
+      },
+      "screenshots": []
+    }
+  ],
+  "reruns": [],
+  "changes": [],
+  "backups": [],
+  "findings": [],
+  "terminated": [
+    "Starfield.exe",
+    "ModOrganizer.exe"
+  ],
+  "logs": [
+    [
+      "papyrus",
+      null
+    ],
+    [
+      "console-history",
+      null
+    ]
+  ],
+  "ledger_entry": "game-20261101-99",
+  "ledger_text": "### game-20261101-99: agent session 2026-11-01-T99\n\nA sample report for `cargo xtask session-evidence` (KK-361); no game ran.\n",
+  "written": [],
+  "transcript": []
+}
