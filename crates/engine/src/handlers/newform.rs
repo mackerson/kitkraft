@@ -421,6 +421,7 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"PERK", *b"DESC", 1, "00"),
     (*b"PERK", *b"PRUC", 0, "02000000"),
     (*b"PERK", *b"PRRF", 0, ""),
+    (*b"PKIN", *b"MOLM", 0, "0000"),
     (*b"TERM", *b"FLLD", 0, "01000000"),
     (*b"TERM", *b"WBDT", 0, "00"),
     (*b"TERM", *b"STOP", 0, ""),
