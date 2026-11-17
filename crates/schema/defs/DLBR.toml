@@ -1,34 +1,36 @@
-# DLBR: DialogBranch, inventory definition (KK-105).
+# DLBR: DialogBranch, a dialogue branch: the quest it belongs to and the
+# topic it starts with.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-105 scan of every official DLBR record (135 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the DLBR definition of wbDefinitionsSF1.pas at the pinned revision (L11526-L11544),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11526-L11544 - member order and
+#     cardinality, EDID (L11527), the FormID of a QUST named 'Quest'
+#     (L11528-L11529), the u32 category with its two values
+#     (L11531-L11535), the u32 flags with their three bits (L11536-L11542)
+#     and the FormID of a DIAL named 'Starting Topic' (L11543).
+#   corpus: the dlbr_types scan in crates/esm/tests/dlbr_types.rs checks this
+#     definition against every official DLBR record (135 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw. Every official DLBR record holds the five subrecords in the
-# same order, EDID QNAM TNAM DNAM SNAM.
+# It was an inventory (KK-105); it is now typed from the pinned xEdit file. The
+# corpus agrees with xEdit: every one of the five subrecords is in all 135
+# official records, EDID QNAM TNAM DNAM SNAM, and no size differs.
 signature = "DLBR"
 name = "DialogBranch"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11526-L11544"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11526-L11544",
+  "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-105): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11526-L11544): the QUST quest, the u32 category, the u32 flags and the DIAL starting topic; every one of the five subrecords is in all 135 official records"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 135 of 135 official DLBR records (135 occurrences), 12..73 bytes"
+source = "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: in 135 of 135 official DLBR records (135 occurrences), 12..73 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11527-L11527",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,48 +40,57 @@ confidence = "corpus"
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
+source = "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11528-L11528",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11528-L11529",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
+name = "Category"
+type = "enum"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
+values = [
+  ["Player", 0],
+  ["Command", 1],
+]
+source = "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11531-L11531",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11531-L11535",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
+bits = [
+  ["TopLevel", 0x1],
+  ["Blocking", 0x2],
+  ["Exclusive", 0x4],
+]
+source = "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11536-L11536",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11536-L11542",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
+name = "StartingTopic"
+type = "formid"
+targets = ["DIAL"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
+source = "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: in 135 of 135 official DLBR records (135 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11543-L11543",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
