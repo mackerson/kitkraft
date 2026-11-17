@@ -83,7 +83,68 @@ attached by kit": `testplan` reads the compiled script next to the plugin, finds
   value cannot pick a variant yet).
 - The order in which the game looks up a script (loose, plugin archives, other archives) is
   assumed, not observed.
-- Quest stage fragments (`stages` on a `QUST`'s script entry, `docs/mcp.md` `set`) are
-  written in the official layout (two official quest `VMAD`s rebuilt byte for byte,
-  `crates/engine/tests/quest_vmad_corpus.rs`); alias scripts are read and kept but not
-  written, and a fragment's function is not checked against the script.
+- Quest stage fragments (`stages` on a `QUST`'s script entry, `docs/mcp.md` `set`) and
+  scripts on quest aliases (`alias`, below) are written in the official layout (four
+  official quest `VMAD`s rebuilt byte for byte, `crates/engine/tests/quest_vmad_corpus.rs`);
+  a fragment's function is not checked against the script.
+- An alias script is not checked to extend `ReferenceAlias`, `RefCollectionAlias` or
+  `LocationAlias`; an alias value's property type is not checked to be an alias type, and
+  another quest's alias (`{quest, alias}`) is not checked against that quest; `validate`
+  does not read the alias section (`docs/validate.md`, `papyrus.property-unresolved`).
+
+## Scripts on quest aliases
+
+A script entry on a `QUST` may name one of the quest's aliases with `alias`: its ID (an
+integer) or its name (`ALID`, any case). The script then goes into that alias's entry of
+the `VMAD` fragment block, not the quest's script list; properties are typed and checked
+exactly as for any script. The quest must declare the alias by the time scripts are
+attached, so a `fields` edit of the same `[[new]]` or `[[set]]` counts:
+
+```toml
+[[new]]
+name = "quest"
+type = "QUST"
+edid = "KKQ02Quest"
+fields = { ANAM = 1, ALST = 0, ALID = "Target", ALED = "" }
+scripts = [
+  { name = "KitKraft:VerifyAliasReport", alias = "Target", properties = { Count = 7 } },
+]
+```
+
+The alias's other required members (`FNAM` flags, `ALFG`, `VTCK`) are written as zeros
+when not given. Its `FNAM` cannot be given: `fields` paths are signatures, and `FNAM` is
+also the objective's, so `build` refuses it (`new.no-group-lead`); the alias flags stay 0
+until a path can name a member of the alias group.
+
+| Fact | Source |
+| ---- | ------ |
+| The block's alias section: a u16 entry count; each entry the alias as an object value (unused, alias ID, FormID), its own version and object format (i16 each), then a script list | `xedit: wbDefinitionsSF1.pas@9fb01688#L3484-L3531` (`kitkraft_doc::vmad::QuestFragments`) |
+| All 4,404 official entries hold the quest's own FormID, unused 0, version 6, object format 2 and at least one script; 3,865 name a reference alias, 535 a collection alias, none a location alias, 4 an alias the quest does not declare (SFBGS050.esm `001C7187`, `01031F1D`); 312 of 1,050 blocks are not in alias ID order | `quest_vmad_corpus.rs` (release, ignored), 2026-11-17 |
+| `attach` rebuilds `Starfield.esm` `QUST` `002B180A` (alias scripts only: 7 entries, 34 properties, 1,309 bytes) and `002AAE8D` (3 quest scripts, 106 stage fragments, 36 alias entries holding 65 scripts, 395 properties, 22,265 bytes) byte for byte, each the largest such quest whose properties are all scalars, objects, alias values or arrays of these | same test |
+| `SQ_CCT_Enviro_Raking00` (`Starfield.esm` `QUST` `000D40ED`): `inspect` shows its whole `VMAD` (108 bytes) as `0600 0200 0000` (no scripts), `03 0000 0000` (bind data 3, no fragments, no fragment script), `0100` (one entry), `0000 0100 ED400D00` (unused, alias 1, the quest), `0600 0200 0100` and the script; the entry `kit` writes for `KitKraftVerifyQuest.esm` has the same fields in the same order | `kit inspect 0D40ED --plugin Starfield.esm`, 2026-11-17 |
+
+So KitKraft writes a new entry in that one shape, appends entries in the order given, adds
+a second script on the same alias to its entry, and updates the properties of a script of
+the same name. A block holding only alias scripts has an empty fragment script name and no
+fragments, as 26 official quests have. `alias` together with `stages` is refused (an alias
+holds scripts, not fragments), and an alias the quest does not declare is refused with
+`quest.alias-missing`, listing the quest's aliases. A location alias may take a script
+(the layout is the same) though no official quest has one. Whether the game runs it is
+not observed (`docs/bench/verify-mod/verify-quest.toml`, row Q-05, not run).
+
+### Alias values
+
+An object property can hold a quest alias, as 9,946 properties of official quest scripts,
+7,164 of fragment scripts and 1,042 of alias scripts hold one of their own quest's aliases
+(and 314, 119 and 19 another quest's): the object value carries the quest's FormID and
+the alias ID. In a spec, `{ alias = "Target" }` (an ID or a name) is an alias of the quest
+the script is attached to (on a `QUST` only, refused with `quest.alias-missing` like an
+alias script), and `{ quest = "Starfield.esm:0123AB", alias = 3 }` an alias of another
+quest (a formref, EditorID or `new:<name>`; the alias by ID, not checked). Arrays of them
+work as any object array.
+
+```toml
+scripts = [
+  { name = "KitKraft:VerifyQuestReport", properties = { TargetAlias = { alias = "Target" } } },
+]
+```

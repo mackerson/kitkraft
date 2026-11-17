@@ -916,7 +916,18 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   list; elsewhere `stages` is refused. A quest with scripts and no `stages` gets no
   fragment block, as 209 official quests (`crates/engine/tests/quest_vmad_corpus.rs`).
   The report's entry lists `stages`; that each function exists in the script is not
-  checked.
+  checked. On a `QUST`, an entry may instead add `alias` (an alias ID 0 to 32767, or an
+  alias name, `ALID`, any case): the script is attached to that quest alias, written into
+  the alias's entry of the fragment block (the official entry shape: the quest's own
+  FormID, version 6, object format 2; entries appended in the order given, a script of the
+  same name on the alias updated), never the script list. The quest must declare the alias
+  when scripts are attached (a `fields` edit of the same call counts), else `failed` with
+  `quest.alias-missing` listing its aliases; `alias` with `stages`, or off a `QUST`, is
+  refused. The report's entry and the `VMAD` change's `attached[]` list `alias`.
+  An object property's value may also be a quest alias: `{alias}` (an ID or name) is an
+  alias of the quest itself (a `QUST` only, checked as above), `{quest, alias}` an alias of
+  another quest (`quest` as an object value, `alias` an ID, not checked); written as the
+  official files write one, the quest's FormID with the alias ID.
 
 `data`: `target`, `file`, `created`, `masters`, `flags`, `bytes`, `summary`, and
 `records[]` (parents copied to hold a cell/world/topic child come first, `parent: true`)
