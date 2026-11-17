@@ -411,6 +411,18 @@ impl Correlator {
         }
     }
 
+    /// Request `id` waits for nothing more: what it has is its answer, and a line naming it
+    /// that arrives later is surplus (noted, never graded) unless another request is
+    /// waiting for it. `kit walk` closes each read once it has its line, and each read left
+    /// without one after a readiness poll and a quiet period, since the game drops, not
+    /// delays, an answer it does not give (KK-369; `crate::walk`).
+    pub fn close(&mut self, id: usize) {
+        if let Some(r) = self.requests.get_mut(id) {
+            r.sent = r.lines.len();
+            r.failed_here = true;
+        }
+    }
+
     /// Request `id`.
     pub fn request(&self, id: usize) -> Option<&Request> {
         self.requests.get(id)

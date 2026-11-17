@@ -14,6 +14,8 @@
 //! - [`ledger`]: the entry appended to `docs/game-observations.md`.
 //! - [`controller`]: one session from backup to ledger, synchronous, followed through
 //!   [`controller::Shared`].
+//! - [`walk`]: the owner walk recorder (`kit walk`): the owner plays, it reads the
+//!   console around each station and drafts a ledger entry.
 //! - [`testing`]: a fake `/console` endpoint and a fake host, for tests here and in the
 //!   engine.
 //!
@@ -37,6 +39,7 @@ pub mod probes;
 pub mod profile;
 pub mod replay;
 pub mod testing;
+pub mod walk;
 
 pub use error::{GameError, Result};
 pub use profile::GameProfile;
