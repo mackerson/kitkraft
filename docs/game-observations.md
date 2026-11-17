@@ -1997,3 +1997,58 @@ validate 0 errors 0 warnings, roundtrip identical. Probes file
 - `report.json` SHA-256 `4ad813c8199d56035f038afcad30a819128061b7020c5fc6922d4dbe87268a70`.
   The game and MO2 were closed by the controller; `KitKraftVerifyQuest` stays enabled for
   the Q-05 session that may follow.
+
+### game-20261117-06: agent session 2026-11-17-T06 (`kit game session`), KitKraftVerifyQuest.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T06`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-06` |
+| Plugins | `KitKraftVerifyQuest.esm` SHA-256 `f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62` |
+| Probes | `docs\bench\verify-mod\verify-quest-probes.toml` SHA-256 `ed08aa2deefbaef040b65b8859c3f5e788d1c7978440d00b25c772270380952e` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T06` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| Q-01 | `prid 00000014` | KKQ01Qust | papyrus-log KKQ-Q01 quest script running | prid 00000014 -> prid 00000014 Command: prid 00000014; (waited 15s) | **pass** | - |
+| Q-02 | Papyrus log: KKQ-Q02 the quest property names the placed KKQ70Marker | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q02 marker-set=True base-is=True | - | **pass** | - |
+| Q-03 | Papyrus log: KKQ-Q03 the stage 10 fragment ran (QUST VMAD fragment block) | KKQ01Qust | papyrus-log KKQ-Q03 stage 10 fragment ran | - | **pass** | - |
+| Q-04 | Papyrus log: KKQ-Q04 stage 10 done after SetStage | KKQ01Qust | papyrus-log KKQ-Q04 stage10-done=True | - | **pass** | - |
+| Q-05 | Papyrus log: KKQ-Q05 the alias script on MarkerAlias runs (QUST VMAD alias section; NOT RUN) | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q05 alias script running count=7 ref-is-marker=True | - | **pass** | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (4b16aa2c1fa8ec6cde2e9386c05fc4de7fd2f45a90c7ed79803c90c1c5e1b03e -> d12954f5fa75b12b1e6bd87747d5d89e122471b94c1c9410e6e5bfebe488eed2): restored from C:\Modding\kitkraft-observe\2026-11-17-T06\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (65bf61161827c8154e5f3e3001df3e938cca8baa64060aa565253bad76b2e39b -> 48daa0205a602f4a1fd189ad2799c21e2d242176279ab96367bb469e9d4582d0): restored from C:\Modding\kitkraft-observe\2026-11-17-T06\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, 02:29 to 02:33; Q-05, the alias script). Plugin
+and probes are not from this branch: a release `kit.exe` (`kit-cli` only, SHA-256
+`bbbd1c04715f7b2fe12f10ab100fe7988ca9a83f3be5c37e8179c072bf03425b`) was built from
+`ea53c68f` (branch `opus/aliasscripts-20261117`) in a temporary worktree and target, both
+removed afterwards. Its `verify-quest.toml` was used with one line changed: `QSDT = 0`
+added to the quest's fields, as on this branch (`game-20261117-05`), so that Q-03 is not
+the variable. Three scripts compiled with `kit papyrus compile` and the base-game sources
+(`VerifyAliasReport.pex` `393a96dc8dacaa0a46eea04ceb6d52b60fb077cc953eff807cfcd25ee7b6299f`,
+`VerifyQuestReport.pex` `eb512b75...ecf1264`, `QF_KKQ01Qust.pex` `5ccba81f...5d46b50`).
+Plugin 3,413 bytes, SHA-256
+`f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62` (that commit's
+`e6b58d33...` plus the 23 bytes of the stage's log entry); the QUST reads `INDX QSDT QSRD
+QSRD ANAM ALST ALID FNAM ALFG ALFR VTCK ALED`; validate 0 errors 0 warnings, roundtrip
+identical. Probes: that commit's `verify-quest-probes.toml` with only its `sha256` line set to
+the build (file SHA-256 `ed08aa2deefbaef040b65b8859c3f5e788d1c7978440d00b25c772270380952e`).
+Deployed and run with this branch's release `kit.exe` (`627a8a6d...`).
+
+- **5 of 5 rows pass.** At 02:33:00 the Papyrus log holds `KKQ-Q01`, **`KKQ-Q05 alias script
+  running count=7 ref-is-marker=true`**, `KKQ-Q02`, `KKQ-Q03 stage 10 fragment ran` and
+  `KKQ-Q04`. The alias script kit wrote into the alias section of the quest `VMAD` ran on
+  the alias forced to the placed crate, and read its property `Count = 7` (default 0).
+- **After:** `deploy disable --mods KitKraftVerifyQuest` (dry run first). The dev mod
+  `KitKraft Dev - KitKraftVerifyQuest` now holds this alias build, not the
+  `7192216d...` build of `game-20261117-05`. `report.json` SHA-256
+  `ad842e4d7ab0c9bd81006a2833f2c9cfee4a788316b8806a8f04b816d43ee8d7`.
