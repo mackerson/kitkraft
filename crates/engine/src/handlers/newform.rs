@@ -372,6 +372,7 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"ARMO", *b"FLLD", 0, "01000000"),
     (*b"ARMO", *b"FLLD", 1, "01000000"),
     (*b"ARMO", *b"STOP", 0, ""),
+    (*b"AVIF", *b"NAM1", 0, "08000000"),
     (*b"BOOK", *b"FLLD", 0, "01000000"),
     (*b"BOOK", *b"DESC", 0, "00"),
     (*b"BOOK", *b"CNAM", 0, "00000000"),

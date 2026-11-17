@@ -652,6 +652,12 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "KNAM:00000000",
         ),
     ),
+    // ck-20261117-11
+    (
+        "AVIF",
+        "KCB_AVIF_New",
+        "NAM0:00000000 AVFL:00000000 NAM1:08000000",
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
