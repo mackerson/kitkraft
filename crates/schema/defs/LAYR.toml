@@ -1,29 +1,46 @@
-# LAYR: Layer, inventory definition (M4.BX2, lane B).
+# LAYR: Layer, an editor layer that references are sorted into: its parent layer, its
+# colour and how its references take part in LOD.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official LAYR record (10424 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LAYR definition of wbDefinitionsSF1.pas at the pinned revision (L13315-L13341),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13315-L13341 - ten record-header flags
+#     (L13316-L13326; bit 27 carries two meanings upstream, one name is kept here, as
+#     AAPD.toml writes the same ten bits); member order, EDID (L13331), the base form
+#     component block (L13333), the FormID of another LAYR named 'Parent' (L13334), the
+#     colour of three bytes and one unused byte (L13335, required) and the 32-bit enum
+#     named 'LOD Behavior' with three values (L13336-L13340, required). Upstream also
+#     lists the script data (L13332); no official record has it, so it is left out (a
+#     plugin that has it keeps it raw).
+#   corpus: the layr_types scan in crates/esm/tests/layr_types.rs checks this definition
+#     against every official LAYR record (10424 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record. The
+#     earlier inventory scan (M4.BX2, crates/esm/tests/inventory_types.rs) gives the
+#     per-member counts below.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared
+#     BfcbBlock and ColorRgb groups keep their own provenance.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
 # Inside component blocks (kept raw by BfcbBlock): FLCS.
 signature = "LAYR"
 name = "Layer"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13316-L13326",
+  "corpus: layr_types_full (crates/esm/tests/layr_types.rs), 2026-11-17: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L13315-L13341): EDID, the component block frame, the parent layer, the colour, the LOD behaviour and the ten record flags; no official record has the script data, so it is left out"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -50,36 +67,39 @@ note = "base form components; the component data stays raw"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "Parent"
+type = "formid"
+targets = ["LAYR"]
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 8076 of 10424 official LAYR records (8076 occurrences), 4 bytes"
 evidence = [
+  "corpus: layr_types_full (crates/esm/tests/layr_types.rs), 2026-11-17: in 8076 of 10424 official LAYR records, 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13334-L13334",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "XCLP"
-name = "Xclp"
-type = "opaque"
+name = "Color"
+type = "ref:ColorRgb"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 10424 of 10424 official LAYR records (10424 occurrences), 4 bytes"
 evidence = [
+  "corpus: layr_types_full (crates/esm/tests/layr_types.rs), 2026-11-17: in 10424 of 10424 official LAYR records, 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13335-L13335",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "LODB"
-name = "Lodb"
-type = "opaque"
+name = "LodBehavior"
+type = "enum"
+base = "u32"
 card = "required"
+values = [["Default", 0], ["Aggregate", 1], ["NoLods", 2]]
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 10424 of 10424 official LAYR records (10424 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13336-L13336",
+  "corpus: layr_types_full (crates/esm/tests/layr_types.rs), 2026-11-17: in 10424 of 10424 official LAYR records, 4 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13336-L13340",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"

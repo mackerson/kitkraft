@@ -128,7 +128,7 @@
 // - KEYM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272; corpus)
 // - KSSM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically; corpus)
 // - KYWD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13297-L13312; corpus)
-// - LAYR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LAYR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341; reference)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
 // - LENS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636; corpus)
@@ -50466,6 +50466,49 @@ impl KywdRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayrLodBehavior {
+    Default,
+    Aggregate,
+    NoLods,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl LayrLodBehavior {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Default,
+            1 => Self::Aggregate,
+            2 => Self::NoLods,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Default => 0,
+            Self::Aggregate => 1,
+            Self::NoLods => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for LayrLodBehavior {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for LayrLodBehavior {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LayrRecord {
     /// `EDID`, required.
@@ -50473,11 +50516,11 @@ pub struct LayrRecord {
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub parent: Option<Sub<FormId>>,
     /// `XCLP`, required.
-    pub xclp: Option<Sub<Bytes>>,
+    pub color: Option<Sub<ColorRgb>>,
     /// `LODB`, required.
-    pub lodb: Option<Sub<Bytes>>,
+    pub lod_behavior: Option<Sub<LayrLodBehavior>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -50528,14 +50571,19 @@ impl LayrRecord {
                     self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.pnam, subs, *index, "LAYR.PNAM", ctx, extra)
+                    put(&mut self.parent, subs, *index, "LAYR.PNAM", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.xclp, subs, *index, "LAYR.XCLP", ctx, extra)
+                    put(&mut self.color, subs, *index, "LAYR.XCLP", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.lodb, subs, *index, "LAYR.LODB", ctx, extra)
-                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.lod_behavior,
+                    subs,
+                    *index,
+                    "LAYR.LODB",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -50546,19 +50594,21 @@ impl LayrRecord {
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"XCLP", self.xclp.as_ref());
-        emit(out, *b"LODB", self.lodb.as_ref());
+        emit(out, *b"PNAM", self.parent.as_ref());
+        emit(out, *b"XCLP", self.color.as_ref());
+        emit(out, *b"LODB", self.lod_behavior.as_ref());
     }
 }
 
 impl Visit for LayrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "LAYR.BfcbBlock", out);
+        visit_form_ids(&self.parent, "LAYR.PNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "LAYR.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.parent, "LAYR.PNAM", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -50573,6 +50623,26 @@ impl Visit for LayrRecord {
 impl LayrRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"LAYR";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
