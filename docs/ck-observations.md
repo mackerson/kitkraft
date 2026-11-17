@@ -855,7 +855,7 @@ now has nothing left to reset in the four weapon members the fix wrote.
   back unchanged), PCMT (`-48`): 10 types, entered or pointed to in `docs/schema/evidence.toml`.
 - **Pass only with the triage's rules** (pending the owner's review of the rules; no evidence
   entry): COBJ, REGN, PCBN, PCCN, WKMF.
-- **Still differ:** the other 41 types, each on its EditorID-only new record (the CK's default
+- **Still differ:** the other 43 of the 58 types, each on its EditorID-only new record (the CK's default
   members, the triage's "A open" rows), plus: CELL new cell's lighting members; ACHR `XLRL`; DIAL
   `BNAM` on both topics, two DLBR (ours-missing) and TES4 `TNAM`; INFO `TRDA` WEM file
   `1 -> 0x01000001`, `2 -> 0x01000002`; STDT clone `XMPM` entries reordered; G4 the CK's override
@@ -917,3 +917,105 @@ now has nothing left to reset in the four weapon members the fix wrote.
 | ----- | ------- |
 | ck_open | pass (10 rows, classed above) |
 | ck_reexport | pass: PCMT. Pass with rules: PCBN, PCCN, WKMF. Differ: PNDT 6 members, SFPT 2, SFTR 2, SFBK 4 added to the new records; STDT clone `XMPM` entries reordered (`DNAM` 119226 and 119227 came back unchanged) |
+### CK bench resit 2 of 2026-11-17, the group plugins with `CK_NEW_MEMBERS` (`ck-20261117-51` to `-59`), agent-run, saved in place
+
+The third unattended sitting of the night, the same way as `-41` to `-48`: kit and recipes from
+`opus/ck-resit2-20261117` (the first resit merged with `opus/cktriage2-20261117`, `9c62f1cf`),
+the eight group plugins rebuilt into `C:\Modding\kitkraft-observe\ck-2026-11-17c\plugins\` (0
+validate errors, 0 warnings, round-trip identical; G7 byte-identical to `-47`'s, the other seven
+changed). Deploy as in `-41`: each dev mod's CK save (already copied out, hash checked) replaced
+by its deployed file, then `kit deploy --dev` and `kit deploy enable`. `ck-batch.ps1 -Kinds group
+-Save`, 03:44 to 04:05 local, and one retry of G8 (`-59`, 04:07 to 04:09). After the sitting: CK
+and MO2 closed, the two settings files hash-identical to the copies taken before it
+(`3fbea763...`, `2c25a70f...`), `overwrite\` empty, the Saves listing (119 entries) unchanged,
+the eight mods disabled. Per type: `docs/bench/ck-batch/resit2-20261117.md`.
+
+| Id | Plugin | Ours SHA-256, bytes | CK's SHA-256, bytes | Load | Warning rows naming the plugin | Oracle, no rules / with rules (unexplained, ours-missing, explained) |
+| -- | ------ | ------------------- | ------------------- | ---: | -----------------------------: | ------ |
+| `ck-20261117-51` | `KCB_G1_Core.esp` | `adcd37b1...`, 3,235 | `e3df49c6...`, 3,222 | 103 s | 1 | 1, 0, 3 / clean, 4 explained |
+| `ck-20261117-52` | `KCB_G2_Items.esp` | `ccad8f9b...`, 5,630 | `3196cf6f...`, 5,583 | 107 s | 5 | 7, 0, 3 / clean, 10 explained |
+| `ck-20261117-53` | `KCB_G3_Weapons.esp` | `b9a6a910...`, 4,592 | `7a65e021...`, 4,579 | 102 s | 1 | 2, 0, 3 / clean, 5 explained |
+| `ck-20261117-54` | `KCB_G4_Objects.esp` | `e7382f0a...`, 10,991 | `00d586cb...`, 11,250 | 119 s | 3 | 3, 1, 3 / 2, 1, 4 |
+| `ck-20261117-55` | `KCB_G5_World.esp` | `7a7d2360...`, 17,725 | `d776141b...`, 17,657 | 107 s | 1 | 5, 0, 3 / 2, 0, 6 |
+| `ck-20261117-56` | `KCB_G6_Actors.esp` | `77e3dec9...`, 2,693 | `3e33567e...`, 2,607 | 107 s | 6 | 13, 0, 3 / 1, 0, 15 |
+| `ck-20261117-57` | `KCB_G7_Quest.esp` | `1638a2fe...`, 2,032 | - | - | - | not run: the runner stopped in the Data step (a window handle came back null) before the load; CK and MO2 closed by the frame; no save |
+| `ck-20261117-58` | `KCB_G8_Planet.esp` | `ced8f483...` | - | - | - | **ck_open fail**: the CK process was gone about 50 s into the load (a crash); no save |
+| `ck-20261117-59` | `KCB_G8_Planet.esp` | `ced8f483...` | - | - | - | **ck_open fail** again, the same way (the retry) |
+
+Three failures in a row (`-57` to `-59`): the sitting stopped; G7 was not retried (its plugin is
+the one `-47` saved). The CK's saves of G1, G2, G3 and G4 are byte-identical to the first
+sitting's (`-11` to `-14`): with the new members written, ours now come within the explained
+items of what the CK writes for the same recipe. Warning rows: as in `-41` to `-46` (classed
+there), ck_open pass for `-51` to `-56`.
+
+- **ck_reexport pass without rules (31):** all ten of G1; MISC, KEYM, OTFT, ENCH; WEAP, AMDL, OMOD,
+  HAZD; ACTI, CONT, DOOR, LIGH, FURN, FLOR, MSTT, TERM, TMLM, PKIN; REFR, LCTN; FACT. Entered
+  in `docs/schema/evidence.toml` (22 new types, nine pointers).
+- **Pass only with the rules (11), pending the owner's review:** BOOK, ALCH, ARMO, ARMA, LVLI,
+  COBJ, REGN, PACK, PERK, LVLN, LVLP.
+- **Differ (4):** STAT new record `FLLD`, `DNAM`; CELL new cell `XCLL` far height range
+  `0.0 -> 10000.0`; ACHR `XLRL`; NPC_ `RNAM`. G4 again gained the CK's override of
+  `Starfield.esm:01128F`.
+
+### ck-20261117-51: `KCB_G1_Core.esp` (GLOB KYWD FLST MESG TXST SOUN WWED RSPJ AVIF IRES)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, the IRES clone's actor-value link) |
+| ck_reexport | pass: all 10 types; only TES4 `INCC` is left without rules |
+
+### ck-20261117-52: `KCB_G2_Items.esp` (MISC BOOK KEYM ALCH ARMO ARMA OTFT LVLI ENCH)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows, as `-42`) |
+| ck_reexport | pass: MISC, KEYM, OTFT, ENCH. Pass with rules: BOOK (`CNAM` narrowed on the clone and the new record), ALCH (`CTDA`), ARMO and ARMA (`BO64` dropped), LVLI (`LVLO`) |
+
+### ck-20261117-53: `KCB_G3_Weapons.esp` (WEAP AMDL OMOD COBJ HAZD)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, as `-43`) |
+| ck_reexport | pass: WEAP, AMDL, OMOD, HAZD. Pass with rules: COBJ (`CTDA`) |
+
+### ck-20261117-54: `KCB_G4_Objects.esp` (STAT ACTI CONT DOOR LIGH FURN FLOR MSTT TERM TMLM PKIN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (3 rows, as `-44`) |
+| ck_reexport | pass: the other 10. Differ: STAT (new record `FLLD`, `DNAM` added); the CK's override of `Starfield.esm:01128F` (ours-missing) |
+
+### ck-20261117-55: `KCB_G5_World.esp` (CELL REFR ACHR LCTN REGN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, as `-45`) |
+| ck_reexport | pass: REFR, LCTN. Pass with rules: REGN. Differ: CELL (`XCLL` far height range), ACHR (`XLRL`) |
+
+### ck-20261117-56: `KCB_G6_Actors.esp` (NPC_ PACK FACT PERK LVLN LVLP)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows, as `-46`) |
+| ck_reexport | pass: FACT. Pass with rules: PACK (`PSDT`), PERK (`CTDA`), LVLN, LVLP (`LVLO`). Differ: NPC_ `RNAM` |
+
+### ck-20261117-57: `KCB_G7_Quest.esp` (QUST DIAL INFO)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | not-run (the runner's Data step failed before the load) |
+| ck_reexport | not-run |
+
+### ck-20261117-58: `KCB_G8_Planet.esp` (PNDT STDT PCMT PCBN PCCN SFPT SFTR SFBK WKMF)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | **fail**: the CK crashed about 50 s into the load (`-48`'s build of the same recipes loaded in 105 s and saved); not isolated to a type |
+| ck_reexport | not-run |
+
+### ck-20261117-59: `KCB_G8_Planet.esp`, retry of `-58`
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | **fail**, the same crash about 50 s into the load: reproducible |
+| ck_reexport | not-run |

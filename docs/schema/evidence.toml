@@ -1006,6 +1006,7 @@ evidence = [
   "ledger: ck-20261101-04",
   "ledger: ck-20261117-15",
   "ledger: ck-20261117-45",
+  "ledger: ck-20261117-55",
   "ledger: ck-20261117-22",
   "ledger: ck-20261117-25",
 ]
@@ -1019,49 +1020,49 @@ note = "F30: our persistent reference came back byte-identical; F29: the CK's ow
 type = "GLOB"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41", "ledger: ck-20261117-51"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "TXST"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41", "ledger: ck-20261117-51"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "SOUN"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41", "ledger: ck-20261117-51"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "WWED"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41", "ledger: ck-20261117-51"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "IRES"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41", "ledger: ck-20261117-51"]
 note = "CK bench G1: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone carries its source's actor-value link"
 
 [[entry]]
 type = "TMLM"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-14", "ledger: ck-20261117-44"]
+evidence = ["ledger: ck-20261117-14", "ledger: ck-20261117-44", "ledger: ck-20261117-54"]
 note = "CK bench G4: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "FACT"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-16", "ledger: ck-20261117-46"]
+evidence = ["ledger: ck-20261117-16", "ledger: ck-20261117-46", "ledger: ck-20261117-56"]
 note = "CK bench G6: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone's reactions are one-sided (copied from its source)"
 
 [[entry]]
@@ -1082,7 +1083,7 @@ note = "CK bench twin F28k: the clone of CoffeeBrewingMachine01 came back with n
 type = "WEAP"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-25"]
+evidence = ["ledger: ck-20261117-25", "ledger: ck-20261117-53"]
 note = "CK bench twin F31k: the WEAP override (set) and clone came back with no difference (G3's EditorID-only new WEAP came back with reset speeds, ck-20261117-13)"
 
 [[entry]]
@@ -1091,6 +1092,160 @@ status = "ck-differential-tested"
 result = "pass"
 evidence = ["ledger: ck-20261117-47"]
 note = "CK bench resit G7: the clone of Starfield.esm:00637D (stages and a script, no aliases) and the new record came back with no difference (the first sitting's clone of a quest with aliases lost its alias-script block, ck-20261117-17)"
+
+[[entry]]
+type = "ACTI"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "AMDL"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-53"]
+note = "CK bench resit 2 G3: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "AVIF"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-51"]
+note = "CK bench resit 2 G1: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "CONT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "DOOR"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "ENCH"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52"]
+note = "CK bench resit 2 G2: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "FLOR"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "FLST"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-51"]
+note = "CK bench resit 2 G1: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "FURN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "HAZD"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-53"]
+note = "CK bench resit 2 G3: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "KEYM"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52"]
+note = "CK bench resit 2 G2: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "KYWD"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-51"]
+note = "CK bench resit 2 G1: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "LCTN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-55"]
+note = "CK bench resit 2 G5: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "LIGH"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "MESG"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-51"]
+note = "CK bench resit 2 G1: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "MISC"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52"]
+note = "CK bench resit 2 G2: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "MSTT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "OMOD"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-53"]
+note = "CK bench resit 2 G3: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "OTFT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52"]
+note = "CK bench resit 2 G2: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "PKIN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "RSPJ"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-51"]
+note = "CK bench resit 2 G1: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "TERM"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-54"]
+note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
 
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.
