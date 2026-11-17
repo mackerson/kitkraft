@@ -377,6 +377,7 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"CELL", *b"LTMP", 0, "00000000"),
     (*b"CELL", *b"XCLW", 0, "FFFF7F7F"),
     (*b"CELL", *b"XILS", 0, "0000803F"),
+    (*b"FURN", *b"FLLD", 0, "01000000"),
     (*b"KEYM", *b"FLLD", 0, "01000000"),
     (*b"LCTN", *b"DATA", 0, "0000000000001000"),
     (*b"LCTN", *b"RNAM", 0, "00000000"),
