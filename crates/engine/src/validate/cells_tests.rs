@@ -789,3 +789,56 @@ fn acpr_naming_a_master_reference_is_a_limitation() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// `cell.editor-id` (CK bench, ck-20261117-15 and -21): a new interior cell whose EditorID
+/// has an underscore gets a warning; letters and digits only, or a master's cell, none.
+#[test]
+fn a_new_cell_editor_id_with_an_underscore_is_a_warning() {
+    let d = dir("validate-cells-editor-id");
+    let data = world_master(&d);
+    let only = json!(["cell.editor-id"]);
+    let run = |p: &Path| {
+        execute(
+            "validate",
+            json!({"plugin": p.display().to_string(), "rules": only}),
+        )
+        .unwrap()["data"]
+            .clone()
+    };
+    let cell = |id: u32, edid: &str| {
+        let r = rec(b"CELL", 0, id, vec![sub(b"EDID", &zstr(edid))]);
+        let path = at(&r, Parent::CellAt(CellPlace::INTERIOR));
+        (r, path)
+    };
+    let p = patch(
+        &data,
+        "Under.esp",
+        vec![cell(0x0100_0905, "KCB_CELL_New")],
+        Some(1),
+    );
+    let r = run(&p);
+    assert_eq!(found(&r), one("cell.editor-id", "warning", "CELL:01000905"));
+    let message = r["findings"][0]["message"].as_str().unwrap();
+    assert!(message.contains("`KCBCELLNew`"), "{message}");
+    let p = patch(
+        &data,
+        "Plain.esp",
+        vec![cell(0x0100_0905, "KCBCellNew")],
+        Some(1),
+    );
+    assert_eq!(found(&run(&p)), []);
+    // A master's cell (file index 0) keeps its EditorID: not this rule's business.
+    let p = patch(
+        &data,
+        "Override.esp",
+        vec![cell(0x0000_0905, "Test_Interior")],
+        Some(0),
+    );
+    assert_eq!(found(&run(&p)), []);
+    assert_eq!(
+        super::cells::cell_edid_dropped_char(b"KC_F20_Cell\0"),
+        Some('_')
+    );
+    assert_eq!(super::cells::cell_edid_dropped_char(b"KCF20Cell\0"), None);
+    let _ = std::fs::remove_dir_all(&d);
+}

@@ -270,6 +270,74 @@ fn check_edid(
     Ok(())
 }
 
+/// What the Creation Kit writes into a required member of a new record of the type, where
+/// it is not all zeros: each payload as the CK saved it for a record KitKraft had created
+/// with its EditorID only (the CK bench batch, `ck-diff:` sittings ck-20261117-13, -14 and
+/// -16; `docs/bench/ck-batch/triage-20261117.md`, class A). Same size as our zeros.
+const CK_NEW_DEFAULTS: &[([u8; 4], [u8; 4], &[u8])] = &[
+    // WFIR trigger thresholds (primary, second stage) 0.33.
+    (
+        *b"WEAP",
+        *b"WFIR",
+        &[
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0xC3, 0xF5, 0xA8, 0x3E, 0, 0xC3, 0xF5, 0xA8, 0x3E, 0, 0, 0, 0, 0, 0,
+        ],
+    ),
+    // WGEN base speed 1.0.
+    (
+        *b"WEAP",
+        *b"WGEN",
+        &[
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3F, 0, 0, 0, 0, 0, 0, 0, 0,
+        ],
+    ),
+    // WMEL reach 1.0.
+    (
+        *b"WEAP",
+        *b"WMEL",
+        &[0, 0, 0, 0, 0, 0, 0, 0x80, 0x3F, 0, 0, 0, 0],
+    ),
+    // WRLO reload speed 1.0.
+    (*b"WEAP", *b"WRLO", &[0, 0, 0, 0, 0, 0, 0x80, 0x3F, 0, 0]),
+    // DAT2 time -1, falloff exponent 1.0, FOV 90.0, radius falloff exponent 4.0.
+    (
+        *b"LIGH",
+        *b"DAT2",
+        &[
+            0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x3F, 0, 0,
+            0xB4, 0x42, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x40,
+        ],
+    ),
+    // LLLD light layer 15.
+    (*b"LIGH", *b"LLLD", &[0x0F, 0, 0, 0]),
+    // MNAM active markers 0x40000000.
+    (*b"FURN", *b"MNAM", &[0, 0, 0, 0x40]),
+    (*b"TERM", *b"MNAM", &[0, 0, 0, 0x40]),
+    // NAM5 FF00; NAM6 height min 1.0.
+    (*b"NPC_", *b"NAM5", &[0xFF, 0]),
+    (*b"NPC_", *b"NAM6", &[0, 0, 0x80, 0x3F]),
+    // LRNM learn method 3.
+    (*b"COBJ", *b"LRNM", &[3]),
+    // TRDA emotion "none" is FFFFFFFF (the CK's, ck-20261117-17; all 53,822 official
+    // responses without an emotion carry FFFFFFFF, none 0).
+    (
+        *b"INFO",
+        *b"TRDA",
+        &[0xFF, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0],
+    ),
+];
+
+/// The CK's default for a required member of a new `record` ([`CK_NEW_DEFAULTS`]) when it
+/// has the size of `zeros`, our placeholder; else `zeros`.
+pub(crate) fn ck_new_default(record: [u8; 4], member: [u8; 4], zeros: Vec<u8>) -> Vec<u8> {
+    CK_NEW_DEFAULTS
+        .iter()
+        .find(|(r, m, b)| *r == record && *m == member && b.len() == zeros.len())
+        .map_or(zeros, |(_, _, b)| b.to_vec())
+}
+
 /// The patch-writer copy for a `new` request.
 pub(crate) fn plan_new(
     command: &str,
@@ -356,7 +424,7 @@ pub(crate) fn plan_new(
             && !subs.iter().any(|(_, s)| s.signature().0 == m)
             && !wanted.contains_key(&m)
         {
-            match placeholder(sig, m, false) {
+            match placeholder(sig, m, false).map(|zeros| ck_new_default(sig, m, zeros)) {
                 Some(bytes) => {
                     defaulted.push(String::from_utf8_lossy(&m).into_owned());
                     subs.push((i, Subrecord::new(Signature(m), bytes)));
@@ -448,7 +516,9 @@ pub(crate) fn plan_new(
             // starts from its slot's layout too.
             let from_slot = || order.get(slot).and_then(|e| slot_placeholder(&e.ty, whole));
             let bytes = if *n <= 1 {
-                placeholder(sig, *s, whole).or_else(from_slot)
+                placeholder(sig, *s, whole)
+                    .map(|zeros| ck_new_default(sig, *s, zeros))
+                    .or_else(from_slot)
             } else {
                 from_slot()
             };
@@ -491,7 +561,7 @@ pub(crate) fn plan_new(
     }
     if !defaulted.is_empty() {
         limitations.push(format!(
-            "{at}: members the schema requires were written as zeros (or an empty string) unless given in fields: {}",
+            "{at}: members the schema requires were written as zeros (or an empty string), or as the Creation Kit's default where the CK bench observed one (WEAP, LIGH, FURN, TERM, NPC_, COBJ), unless given in fields: {}",
             defaulted.join(", ")
         ));
     }

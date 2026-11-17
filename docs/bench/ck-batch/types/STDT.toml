@@ -14,9 +14,13 @@ plugins = ["Starfield.esm"]
 name = "stdt_clone"
 form = "Starfield.esm:05E5BF"
 edid = "KCB_STDT_Clone"
+# A system ID of its own: the CK reassigned the copy's (its source's 73018) to 119226 and
+# the new star's 0 to 119227 (ck-20261117-18; triage-20261117.md, class C).
+fields = { DNAM = 119226 }
 
 [[new]]
 # A new STDT with its EditorID only: what the CK makes of KitKraft's minimal record.
 name = "stdt_new"
 type = "STDT"
 edid = "KCB_STDT_New"
+fields = { DNAM = 119227 }

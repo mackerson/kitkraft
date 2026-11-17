@@ -1,7 +1,13 @@
 //! `cargo xtask oracle ck` (M5.A2): our plugin against the Creation Kit's export of the
 //! same content, every difference classed (lane A).
 //!
-//! `cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--check]`
+//! `cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--rules <file>] [--check]`
+//!
+//! A `[[normalization]]` entry may name a `transform` (padding, removed, zero-dropped,
+//! zero-narrowed, reversed:<n>; [`Transform`]): it then explains only that exact change of
+//! the subrecord it names, checked on the decoded fields or on both payloads. `--rules`
+//! adds a file of such entries to every fixture's own
+//! (`docs/bench/ck-batch/explained-differences.toml`).
 //!
 //! A fixture folder holds `kitkraft.esm` (ours), `ck.esm` (the CK's export of the same
 //! content) and `fixture.toml` ([`FixtureToml`]; the file names can be overridden there).
@@ -55,7 +61,7 @@ const TOP_KEYS: [&str; 8] = [
     "notes",
 ];
 /// Keys of one `[[normalization]]` entry.
-const RULE_KEYS: [&str; 4] = ["record", "subrecord", "reason", "ledger"];
+const RULE_KEYS: [&str; 5] = ["record", "subrecord", "reason", "ledger", "transform"];
 
 /// `fixture.toml` of a CK oracle fixture.
 #[derive(Debug, Default)]
@@ -89,6 +95,98 @@ pub(crate) struct Normalization {
     pub reason: String,
     /// The ledger finding that shows it (`docs/ck-observations.md` entry id).
     pub ledger: String,
+    /// The exact change the rule allows ([`Transform`]); absent: any change of the
+    /// subrecord (the rules written before the triage of 2026-11-17).
+    pub transform: Option<Transform>,
+}
+
+/// An explained difference narrowed to one exact transformation of the bytes
+/// (`docs/bench/ck-batch/triage-20261117.md`). Each needs the subrecord's payload on both
+/// sides, or its decoded fields, and matches nothing else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Transform {
+    /// `padding`: a changed subrecord whose every differing decoded field is a schema
+    /// padding member (`Unused*`), with the payload length unchanged.
+    Padding,
+    /// `removed`: the subrecord is in ours and not in the CK's file (a `TES4` field too).
+    Removed,
+    /// `zero-dropped`: removed, and our payload was all zero bytes.
+    ZeroDropped,
+    /// `zero-narrowed`: changed, both payloads all zero, the CK's shorter.
+    ZeroNarrowed,
+    /// `reversed:<n>`: changed, same length, and the CK's payload is ours cut into
+    /// `n`-byte elements in reverse order.
+    Reversed(usize),
+}
+
+impl Transform {
+    pub(crate) fn parse(text: &str) -> Option<Self> {
+        match text.trim() {
+            "padding" => Some(Self::Padding),
+            "removed" => Some(Self::Removed),
+            "zero-dropped" => Some(Self::ZeroDropped),
+            "zero-narrowed" => Some(Self::ZeroNarrowed),
+            other => {
+                let n: usize = other.strip_prefix("reversed:")?.parse().ok()?;
+                (n > 0).then_some(Self::Reversed(n))
+            }
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Self::Padding => "padding".into(),
+            Self::Removed => "removed".into(),
+            Self::ZeroDropped => "zero-dropped".into(),
+            Self::ZeroNarrowed => "zero-narrowed".into(),
+            Self::Reversed(n) => format!("reversed:{n}"),
+        }
+    }
+
+    /// Whether `item` is exactly this transformation.
+    fn holds(self, item: &Item) -> bool {
+        let zero = |b: &Option<Vec<u8>>| b.as_ref().is_some_and(|b| b.iter().all(|x| *x == 0));
+        match self {
+            Self::Padding => {
+                item.change == "changed"
+                    && !item.fields.is_empty()
+                    && item.fields.iter().all(|p| {
+                        p.rsplit('.')
+                            .next()
+                            .is_some_and(|leaf| leaf.starts_with("Unused"))
+                    })
+                    && match (&item.ours_bytes, &item.ck_bytes) {
+                        (Some(a), Some(b)) => a.len() == b.len(),
+                        _ => true,
+                    }
+            }
+            Self::Removed => item.change == "removed",
+            Self::ZeroDropped => {
+                item.change == "removed"
+                    && item.ours_bytes.as_ref().is_some_and(|b| !b.is_empty())
+                    && zero(&item.ours_bytes)
+            }
+            Self::ZeroNarrowed => {
+                item.change == "changed"
+                    && zero(&item.ours_bytes)
+                    && zero(&item.ck_bytes)
+                    && match (&item.ours_bytes, &item.ck_bytes) {
+                        (Some(a), Some(b)) => b.len() < a.len(),
+                        _ => false,
+                    }
+            }
+            Self::Reversed(n) => match (&item.ours_bytes, &item.ck_bytes) {
+                (Some(a), Some(b)) => {
+                    item.change == "changed"
+                        && a != b
+                        && a.len() == b.len()
+                        && a.len().checked_rem(n) == Some(0)
+                        && a.chunks(n).rev().flatten().eq(b.iter())
+                }
+                _ => false,
+            },
+        }
+    }
 }
 
 impl Normalization {
@@ -101,7 +199,9 @@ impl Normalization {
                 .as_deref()
                 .is_some_and(|f| f.eq_ignore_ascii_case(record));
         let sub = self.subrecord.as_deref().map_or("*", str::trim);
-        record_ok && (sub == "*" || sub == item.subrecord)
+        record_ok
+            && (sub == "*" || sub == item.subrecord)
+            && self.transform.is_none_or(|t| t.holds(item))
     }
 }
 
@@ -137,6 +237,14 @@ pub(crate) struct Item {
     detail: String,
     class: Class,
     because: Option<String>,
+    /// Decoded field paths `kit diff` lists for a changed subrecord.
+    fields: Vec<String>,
+    /// Where the subrecord's payload is in ours and in the CK's file (offset, length).
+    ours_at: Option<(usize, usize)>,
+    ck_at: Option<(usize, usize)>,
+    /// Those payloads, read from the files ([`attach_payloads`]).
+    ours_bytes: Option<Vec<u8>>,
+    ck_bytes: Option<Vec<u8>>,
 }
 
 impl Item {
@@ -149,6 +257,11 @@ impl Item {
             detail: String::new(),
             class: Class::Unexplained,
             because: None,
+            fields: Vec::new(),
+            ours_at: None,
+            ck_at: None,
+            ours_bytes: None,
+            ck_bytes: None,
         }
     }
 
@@ -175,13 +288,21 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     let mut check = false;
     let mut out = root.join("observe").join("ck-oracle");
     let mut dirs = Vec::new();
+    let mut extra: Vec<Normalization> = Vec::new();
     let mut it = args.iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "--check" => check = true,
             "--out" => out = PathBuf::from(it.next().context("--out needs a folder")?),
+            "--rules" => {
+                let file = it.next().context("--rules needs a file")?;
+                extra.extend(read_rules(Path::new(file))?);
+            }
             "-h" | "--help" => {
-                println!("cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--check]");
+                println!(
+                    "cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--rules <file>] [--check]"
+                );
+                println!("  --rules: [[normalization]] entries added to every fixture's own.");
                 println!();
                 println!("  Each folder: kitkraft.esm (ours), ck.esm (the CK's), fixture.toml.");
                 println!("  Reports: <out>/<fixture>/report.md (default observe/ck-oracle).");
@@ -202,7 +323,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     for dir in &dirs {
         let dir =
             std::path::absolute(dir).with_context(|| format!("bad path {}", dir.display()))?;
-        let report = oracle(&dir, &out, &kit)?;
+        let report = oracle_with(&dir, &out, &kit, &extra)?;
         let verdict = report
             .get("verdict_line")
             .and_then(Value::as_str)
@@ -247,6 +368,32 @@ pub(crate) fn read_fixture(dir: &Path) -> Result<FixtureToml> {
             .with_context(|| format!("{shown}: `match` must list strings"))?,
         Some(_) => bail!("{shown}: `match` must be an array of form labels"),
     };
+    let normalization = parse_rules(&t, &shown.to_string())?;
+    Ok(FixtureToml {
+        fixture: top("fixture")?,
+        title: top("title")?,
+        ck_version: top("ck_version")?,
+        ours: top("ours")?,
+        ck: top("ck")?,
+        matches,
+        normalization,
+    })
+}
+
+/// Reads `--rules <file>`: a TOML file of `[[normalization]]` tables only
+/// (`docs/bench/ck-batch/explained-differences.toml`).
+pub(crate) fn read_rules(path: &Path) -> Result<Vec<Normalization>> {
+    let shown = path.display().to_string();
+    let text = fs::read_to_string(path).with_context(|| format!("reading {shown}"))?;
+    let t: toml::Table = toml::from_str(&text).with_context(|| format!("parsing {shown}"))?;
+    if let Some(k) = t.keys().find(|k| k.as_str() != "normalization") {
+        bail!("{shown}: unknown key `{k}` (a rules file holds [[normalization]] only)");
+    }
+    parse_rules(&t, &shown)
+}
+
+/// The `[[normalization]]` tables of `t`, checked.
+fn parse_rules(t: &toml::Table, shown: &str) -> Result<Vec<Normalization>> {
     let rules = match t.get("normalization") {
         None => Vec::new(),
         Some(toml::Value::Array(a)) => a.clone(),
@@ -277,22 +424,34 @@ pub(crate) fn read_fixture(dir: &Path) -> Result<FixtureToml> {
         }
         let subrecord =
             opt_str(r, "subrecord").with_context(|| format!("{shown}: normalization #{n}"))?;
+        let transform = match opt_str(r, "transform")
+            .with_context(|| format!("{shown}: normalization #{n}"))?
+        {
+            None => None,
+            Some(text) => Some(Transform::parse(&text).with_context(|| {
+                format!(
+                    "{shown}: normalization #{n}: unknown transform `{text}` (padding, removed, \
+                     zero-dropped, zero-narrowed, reversed:<n>)"
+                )
+            })?),
+        };
+        if transform.is_some()
+            && subrecord
+                .as_deref()
+                .map(str::trim)
+                .is_none_or(|s| s.is_empty() || s == "*" || s.starts_with('@'))
+        {
+            bail!("{shown}: normalization #{n}: a transform names one subrecord");
+        }
         normalization.push(Normalization {
             record,
             subrecord,
             reason,
             ledger,
+            transform,
         });
     }
-    Ok(FixtureToml {
-        fixture: top("fixture")?,
-        title: top("title")?,
-        ck_version: top("ck_version")?,
-        ours: top("ours")?,
-        ck: top("ck")?,
-        matches,
-        normalization,
-    })
+    Ok(normalization)
 }
 
 /// The string at `key`, if any; another type is an error.
@@ -414,9 +573,24 @@ pub(crate) fn diff_items(diff: &Value) -> Vec<Item> {
             } else {
                 paths.join("; ")
             };
-            items.push(
-                Item::new(sig, Some(form), s(sub, "signature"), s(sub, "change")).detail(detail),
-            );
+            let at = |side: &str| -> Option<(usize, usize)> {
+                let v = sub.get(side)?;
+                let o = usize::try_from(v.get("file_offset")?.as_u64()?).ok()?;
+                let n = usize::try_from(v.get("length")?.as_u64()?).ok()?;
+                Some((o, n))
+            };
+            let mut item =
+                Item::new(sig, Some(form), s(sub, "signature"), s(sub, "change")).detail(detail);
+            item.fields = sub
+                .get("fields")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .map(|f| s(f, "path").to_string())
+                .collect();
+            item.ours_at = at("a");
+            item.ck_at = at("b");
+            items.push(item);
         }
         if items.len() == before {
             items.push(
@@ -427,12 +601,27 @@ pub(crate) fn diff_items(diff: &Value) -> Vec<Item> {
     items
 }
 
+/// Reads each item's payloads out of the two files by the offsets `kit diff` gave.
+pub(crate) fn attach_payloads(items: &mut [Item], ours: &[u8], ck: &[u8]) {
+    let read = |file: &[u8], at: Option<(usize, usize)>| -> Option<Vec<u8>> {
+        let (o, n) = at?;
+        file.get(o..o.checked_add(n)?).map(<[u8]>::to_vec)
+    };
+    for item in items {
+        item.ours_bytes = read(ours, item.ours_at);
+        item.ck_bytes = read(ck, item.ck_at);
+    }
+}
+
 /// Classes every item against the allow-list.
 pub(crate) fn classify(items: &mut [Item], rules: &[Normalization]) {
     for item in items {
         if let Some(rule) = rules.iter().find(|r| r.matches(item)) {
             item.class = Class::Explained;
-            item.because = Some(format!("{} ({})", rule.reason, rule.ledger));
+            item.because = Some(match rule.transform {
+                Some(t) => format!("{} [{}] ({})", rule.reason, t.label(), rule.ledger),
+                None => format!("{} ({})", rule.reason, rule.ledger),
+            });
         } else if item.change == "ck-only" {
             item.class = Class::OursMissing;
         } else {
@@ -500,7 +689,18 @@ fn locate(kit: &dyn Runner, ours: &Path, ck: &Path, form: &str, cache: &Path) ->
 }
 
 /// Runs the oracle on one fixture folder; writes `<out_root>/<fixture>/`.
+#[cfg(test)]
 pub(crate) fn oracle(dir: &Path, out_root: &Path, kit: &dyn Runner) -> Result<Value> {
+    oracle_with(dir, out_root, kit, &[])
+}
+
+/// [`oracle`] with `extra_rules` (`--rules <file>`) after the fixture's own.
+pub(crate) fn oracle_with(
+    dir: &Path,
+    out_root: &Path,
+    kit: &dyn Runner,
+    extra_rules: &[Normalization],
+) -> Result<Value> {
     if !dir.is_dir() {
         bail!("oracle ck: {} is not a folder", dir.display());
     }
@@ -585,7 +785,10 @@ pub(crate) fn oracle(dir: &Path, out_root: &Path, kit: &dyn Runner) -> Result<Va
             )));
         }
     }
-    classify(&mut items, &fixture.normalization);
+    attach_payloads(&mut items, &ba, &bb);
+    let mut rules = fixture.normalization.clone();
+    rules.extend(extra_rules.iter().cloned());
+    classify(&mut items, &rules);
 
     let mut matches = Vec::new();
     for form in &fixture.matches {
@@ -635,8 +838,9 @@ pub(crate) fn oracle(dir: &Path, out_root: &Path, kit: &dyn Runner) -> Result<Va
         "items": items.iter().map(Item::to_json).collect::<Vec<_>>(),
         "counts": {"explained": explained, "ours_missing": missing, "unexplained": unexplained},
         "match": matches,
-        "normalization": fixture.normalization.iter().map(|r| json!({
+        "normalization": rules.iter().map(|r| json!({
             "record": r.record, "subrecord": r.subrecord, "reason": r.reason, "ledger": r.ledger,
+            "transform": r.transform.map(Transform::label),
         })).collect::<Vec<_>>(),
         "verdict": verdict,
         "verdict_line": verdict_line,
@@ -1002,6 +1206,116 @@ mod tests {
             .as_str()
             .unwrap()
             .starts_with("F99: clean"));
+    }
+
+    /// A changed or removed subrecord item with its payloads and decoded field paths.
+    fn item(sub: &str, change: &str, ours: Option<&[u8]>, ck: Option<&[u8]>, f: &[&str]) -> Item {
+        let mut i = Item::new("CTDA", Some("kitkraft.esp:001003"), sub, change);
+        i.ours_bytes = ours.map(<[u8]>::to_vec);
+        i.ck_bytes = ck.map(<[u8]>::to_vec);
+        i.fields = f.iter().map(|p| (*p).to_string()).collect();
+        i
+    }
+
+    fn rule(sub: &str, t: &str) -> Normalization {
+        Normalization {
+            record: "*".into(),
+            subrecord: Some(sub.into()),
+            reason: "r".into(),
+            ledger: "ck-20990101-05".into(),
+            transform: Transform::parse(t),
+        }
+    }
+
+    #[test]
+    fn padding_explains_unused_members_only() {
+        let r = rule("CTDA", "padding");
+        // The ALCH clone's CTDA of ck-20261117-12: bytes 1..3 and 10..11 rewritten.
+        let ours = hex("600000000000803F4A00F9444C323100000000000000000000000000FFFFFFFF");
+        let ck = hex("608F15000000803F4A0020414C323100000000000000000000000000FFFFFFFF");
+        let pad = ["CTDA.Data.Unused1", "CTDA[1].Data.Unused2"];
+        assert!(r.matches(&item("CTDA", "changed", Some(&ours), Some(&ck), &pad)));
+        // A real field among them, no fields, another subrecord, or a length change: no.
+        let mixed = ["CTDA.Data.Unused1", "CTDA.Data.ComparisonValue"];
+        assert!(!r.matches(&item("CTDA", "changed", Some(&ours), Some(&ck), &mixed)));
+        assert!(!r.matches(&item("CTDA", "changed", Some(&ours), Some(&ck), &[])));
+        assert!(!r.matches(&item("LVLO", "changed", Some(&ours), Some(&ck), &pad)));
+        assert!(!r.matches(&item("CTDA", "changed", Some(&ours), Some(&ck[1..]), &pad)));
+    }
+
+    #[test]
+    fn zero_dropped_and_zero_narrowed_need_zero_payloads() {
+        let dropped = rule("BO64", "zero-dropped");
+        assert!(dropped.matches(&item("BO64", "removed", Some(&[0; 8]), None, &[])));
+        assert!(!dropped.matches(&item("BO64", "removed", Some(&[0, 1, 0, 0]), None, &[])));
+        assert!(!dropped.matches(&item("BO64", "removed", None, None, &[])));
+        assert!(!dropped.matches(&item("BO64", "added", None, Some(&[0; 8]), &[])));
+        let narrowed = rule("CNAM", "zero-narrowed");
+        // The BOOK clone of ck-20261117-12: CNAM 00000000 -> 00.
+        assert!(narrowed.matches(&item("CNAM", "changed", Some(&[0; 4]), Some(&[0]), &[])));
+        assert!(!narrowed.matches(&item("CNAM", "changed", Some(&[0; 4]), Some(&[1]), &[])));
+        assert!(!narrowed.matches(&item("CNAM", "changed", Some(&[0]), Some(&[0; 4]), &[])));
+        assert!(!narrowed.matches(&item("CNAM", "changed", Some(&[0; 4]), Some(&[0; 4]), &[])));
+    }
+
+    #[test]
+    fn reversed_needs_the_exact_reverse_element_order() {
+        let r = rule("RPLD", "reversed:8");
+        // The REGN clone's RPLD of ck-20261117-15: four (x, y) points, last first.
+        let ours = hex("DEE45AC47009B0433C15F6C300D2A6433C7EE5C3CA741944F87548C4BC601A44");
+        let ck = hex("F87548C4BC601A443C7EE5C3CA7419443C15F6C300D2A643DEE45AC47009B043");
+        assert!(r.matches(&item("RPLD", "changed", Some(&ours), Some(&ck), &[])));
+        // A rotation is not a reversal; 4-byte elements reversed are not 8-byte ones.
+        let mut rotated = ours[8..].to_vec();
+        rotated.extend_from_slice(&ours[..8]);
+        assert!(!r.matches(&item("RPLD", "changed", Some(&ours), Some(&rotated), &[])));
+        assert!(!rule("RPLD", "reversed:4").matches(&item(
+            "RPLD",
+            "changed",
+            Some(&ours),
+            Some(&ck),
+            &[]
+        )));
+        assert!(!r.matches(&item("RPLD", "changed", Some(&ours), Some(&ours), &[])));
+    }
+
+    #[test]
+    fn removed_matches_removals_only_and_transforms_need_a_subrecord() {
+        let r = rule("INCC", "removed");
+        assert!(r.matches(&item("INCC", "removed", None, None, &[])));
+        assert!(!r.matches(&item("INCC", "changed", None, None, &[])));
+        assert!(!r.matches(&item("INCC", "added", None, None, &[])));
+        assert_eq!(Transform::parse("reversed:0"), None);
+        assert_eq!(Transform::parse("anything"), None);
+        let tmp = Temp::new("ckoracle-transform");
+        let p = plugin(1, 1.0);
+        for bad in [
+            "[[normalization]]\nrecord = \"*\"\nsubrecord = \"*\"\ntransform = \"padding\"\nreason = \"r\"\nledger = \"l\"\n",
+            "[[normalization]]\nrecord = \"*\"\nsubrecord = \"CTDA\"\ntransform = \"blanket\"\nreason = \"r\"\nledger = \"l\"\n",
+        ] {
+            let dir = fixture(&tmp, &p, &p, bad);
+            assert!(oracle(&dir, &tmp.0.join("out"), &fake(Value::Null)).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_triage_rules_file_parses() {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("docs/bench/ck-batch/explained-differences.toml");
+        let rules = read_rules(&path).unwrap();
+        assert!(!rules.is_empty());
+        assert!(
+            rules.iter().all(|r| r.transform.is_some()),
+            "every triage rule names its exact transformation"
+        );
+    }
+
+    fn hex(s: &str) -> Vec<u8> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
     }
 
     #[test]

@@ -73,7 +73,9 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
             println!(
                 "cargo xtask oracle papyrus [<psc>...] [--sources <Scripts\\Source>] [--optimize] [--out <dir>] [--keep]"
             );
-            println!("cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--check]");
+            println!(
+                "cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--rules <file>] [--check]"
+            );
             println!();
             println!(
                 "  {SPRIGGIT_VAR}: Spriggit.CLI.exe or a .ps1 wrapper; {DATA_DIR_VAR}: masters"

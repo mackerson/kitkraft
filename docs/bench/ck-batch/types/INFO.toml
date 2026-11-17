@@ -19,7 +19,7 @@ name = "info_topic"
 type = "DIAL"
 edid = "KCB_INFO_Topic"
 parent = "new:info_quest"
-fields = { PNAM = 50.0, "DATA.Category" = 7, SNAM = "CUST" }
+fields = { PNAM = 50.0, "DATA.Category" = 0, SNAM = "CUST" }
 
 [[new]]
 # One response line, inline text (non-localized plugin), no voice file.

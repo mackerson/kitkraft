@@ -167,6 +167,12 @@ pub const RULES: &[RuleInfo] = &[
         summary: "An ACHR in a cell that has no NAVM in the plugin or its masters",
     },
     RuleInfo {
+        id: "cell.editor-id",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A new interior cell's EditorID with a character other than ASCII letters and digits: the Creation Kit keeps it without them (KCB_CELL_New -> KCBCELLNew, CK bench 2026-11-17)",
+    },
+    RuleInfo {
         id: "cell.incc",
         severity: Severity::Error,
         input: Input::Plugin,
