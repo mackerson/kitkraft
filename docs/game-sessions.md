@@ -395,6 +395,9 @@ complete.
 | O4-20 | manual | a procedural site landed on twice (PS-32) |
 | O4-21 | manual | needs M4.E9 (PS-39) |
 
+A new interior cell the plugin adds is probed by `coc <EditorID>` and
+`player.getincell <runtime ID>`, not by a `help` row (KK-363).
+
 ## Testing against the fakes
 
 The workbench and the MCP server test their game buttons and tools against the same
