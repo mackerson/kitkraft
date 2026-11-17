@@ -1,6 +1,7 @@
 # Written 2026-11-15 for the 2026-11-16 bench session (session robustness, category C).
 id = "KK-362"
 title = "game session: agent-sent input is recorded in report.json (ADR 0010 Amendment 2)"
+hold = "done by Opus lane opus/tickets361-20261117 (dfd2ada4, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 45
 budget_h = 2
 priority = 1

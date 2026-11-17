@@ -1,0 +1,181 @@
+# OW-2 Rename session re-run with send-order rows (bench night 2026-11-17, game-20261117-07).
+# Hand-written from `kit testplan`'s out/rename-plan/probes.toml (3aa2d0cf...18ea2f); the
+# checks keep their strictness, only shape and pacing change:
+# - T-01: `help <term> 4` with no type answered with an empty list in game-20261117-04; the
+#   shape seen working on 2026-11-16 is `help <term> 4 <TYPE>` (docs/bench/verify-mod.md),
+#   and a `prid 00000014` follows so a late line has a reply to arrive in. T-01b asks with
+#   one unquoted word of the new name.
+# - T-03: in game-20261117-04 every `player.getincell` sent 10 to 16 s after `coc` to the
+#   Lodge answered only its echo, and the later identical getters could not be told apart
+#   (ambiguous). The Lodge `coc` now waits 30 s, the apartment `coc` 20 s.
+# - SO-A..SO-C (SO-03's question): three self-naming getters (`GetPos: X/Y/Z`) sent at once
+#   after an unsettled `coc` (SO-A), after a settled one (SO-B, control), and right after a
+#   `load` and the controller's readiness poll (SO-C). The transcript's elapsed times show
+#   which answers arrive in their own reply, arrive late, or are lost.
+format = 1
+plugin = "OldSovietMarksmanRifle.esm"
+sha256 = "9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27"
+generated_by = "hand-written (bench night 2026-11-17) from kit testplan's rename probes"
+profile = "KitKraft Dev"
+
+[[probe]]
+row = "T-01"
+title = 'help "Old Soviet Marksman Rifle" 4 WEAP: WEAP `RussianHuntingRifle`'
+forms = ["WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm", "RussianHuntingRifle", "0021BBCD"]
+
+[[probe.step]]
+command = 'help "Old Soviet Marksman Rifle" 4 WEAP'
+matcher = "contains"
+expected = "0021BBCD"
+why = "the plugin's FULL finds the form (its runtime ID in the answer)"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "T-01b"
+title = "help Soviet 4 WEAP: one word of the new name finds WEAP `RussianHuntingRifle`"
+forms = ["WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm", "RussianHuntingRifle", "0021BBCD"]
+
+[[probe.step]]
+command = "help Soviet 4 WEAP"
+matcher = "contains"
+expected = "0021BBCD"
+why = "a word only the plugin's FULL holds finds the form"
+
+[[probe.step]]
+command = "prid 00000014"
+
+[[probe]]
+row = "T-02"
+title = "player.additem 0021BBCD 1: WEAP `RussianHuntingRifle` in the inventory"
+forms = ["WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm", "RussianHuntingRifle", "0021BBCD"]
+
+[[probe.step]]
+command = "player.additem 0021BBCD 1"
+
+[[probe.step]]
+command = "player.getitemcount 0021BBCD"
+matcher = "regex"
+expected = '>>\s*[1-9]'
+why = "the item was added"
+
+[[probe]]
+row = "T-03"
+title = "persistence 1-3: leave, save to the session's own save, go elsewhere, load it"
+forms = ["CityNewAtlantisLodgeInt", "0006BB29", "CityNewAtlantisApartmentTEMPLATE", "0021966F"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 30
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player is in the leave cell when the save is made"
+
+[[probe.step]]
+command = "save {save}"
+wait_secs = 10
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+wait_secs = 20
+
+[[probe.step]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player left the leave cell after the save, so only the load can bring them back"
+
+[[probe.step]]
+command = "load {save}"
+wait_secs = 15
+
+[[probe.step]]
+command = "player.getincell 0006BB29"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the load took the player back to the leave cell, where the save was made"
+
+[[probe]]
+row = "SO-A"
+title = "send order: getpos x, y, z sent at once after an unsettled coc to the apartment"
+forms = ["CityNewAtlantisApartmentTEMPLATE"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "late or lost on purpose (no wait after the coc)"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "as x"
+
+[[probe.step]]
+command = "player.getpos z"
+matcher = "regex"
+expected = 'GetPos: Z >> -?\d'
+why = "as x"
+wait_secs = 15
+
+[[probe]]
+row = "SO-B"
+title = "send order control: getpos x, y, z after a coc to the Lodge and a 30 s settle"
+forms = ["CityNewAtlantisLodgeInt"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+wait_secs = 30
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "settled: answers in its own reply"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "as x"
+
+[[probe.step]]
+command = "player.getpos z"
+matcher = "regex"
+expected = 'GetPos: Z >> -?\d'
+why = "as x"
+
+[[probe]]
+row = "SO-C"
+title = "send order: getpos x, y, z sent at once after load and the readiness poll"
+forms = ["CityNewAtlantisLodgeInt"]
+
+[[probe.step]]
+command = "load {save}"
+
+[[probe.step]]
+command = "player.getpos x"
+matcher = "regex"
+expected = 'GetPos: X >> -?\d'
+why = "sent right after the readiness poll said ready"
+
+[[probe.step]]
+command = "player.getpos y"
+matcher = "regex"
+expected = 'GetPos: Y >> -?\d'
+why = "as x"
+
+[[probe.step]]
+command = "player.getpos z"
+matcher = "regex"
+expected = 'GetPos: Z >> -?\d'
+why = "as x"
+wait_secs = 10

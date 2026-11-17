@@ -1,27 +1,44 @@
-# PMFT: PhotoModeFeature, lstring-only definition (lane B round 3, M3.B8).
+# PMFT: PhotoModeFeature, a photo mode feature: a texture, frame or filter, with its name,
+# its placement and size data, and either a texture path or an image space.
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15935-L15972 - member order, the record flags
+#     (L15936-L15946, ten flag bits), EDID (L15952), the name (L15954), the FNAM struct
+#     (L15956-L15969: the feature type, an 8-bit enum whose values are at L2971-L2975, two
+#     float offsets, four 32-bit sizes and 32-bit flags with three bits at L15964-L15968),
+#     the HNAM texture path (L15970) and the INAM image space (L15971). Upstream also lists
+#     the base form component block (L15953) and conditions (L15955); no official record
+#     has either, so both are left out (a plugin that has one keeps it raw; conditions are
+#     another lane's work).
+#   corpus: the pmft_types scan in crates/esm/tests/pmft_types.rs checks this definition
+#     against every official PMFT record (75 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official PMFT record.
-#   xedit: the PMFT definition of wbDefinitionsSF1.pas at the pinned revision (L15935-L15972)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Formerly an lstring-only definition (M3.B8); now a full definition in xEdit member order
+# (KK-339), as AVIF (KK-225) is. Names are ours.
 signature = "PMFT"
 name = "PhotoModeFeature"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15935-L15972"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15935-L15972",
+  "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: every official PMFT record (75) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L15935-L15972): EDID, the name, the FNAM data struct, the texture path and the image space; no official record has the base form component block or conditions, so both are left out"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -30,22 +47,14 @@ type = "zstring"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15952-L15952",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: in 75 of 75 official PMFT records",
 ]
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official PMFT records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15935-L15972",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -54,5 +63,54 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official PMFT records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: in 75 of 75 official PMFT records",
 ]
 confidence = "corpus"
+
+[[member]]
+sig = "FNAM"
+name = "Data"
+type = "struct"
+size = 29
+card = "required"
+field = [
+  { name = "Type", type = "enum", base = "u8", values = [["Texture", 0], ["Frame", 1], ["Filter", 2]] },
+  { name = "OffsetX", type = "f32" },
+  { name = "OffsetY", type = "f32" },
+  { name = "TextureWidth", type = "u32" },
+  { name = "TextureHeight", type = "u32" },
+  { name = "ContentWidth", type = "u32" },
+  { name = "ContentHeight", type = "u32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["TileX", 0x1], ["TileY", 0x2], ["TopMost", 0x4]] },
+]
+source = "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: in 75 of 75 official PMFT records, 29 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15956-L15969",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2971-L2975",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "HNAM"
+name = "Texture"
+type = "zstring"
+card = "optional"
+source = "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: in 37 of 75 official PMFT records, 63..76 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15970-L15970",
+]
+confidence = "corpus"
+note = "in the official records a PMFT has either HNAM or INAM, never both (not modelled)"
+
+[[member]]
+sig = "INAM"
+name = "ImageSpace"
+type = "formid"
+targets = ["IMAD"]
+card = "optional"
+source = "corpus: pmft_types_full (crates/esm/tests/pmft_types.rs), 2026-11-17: in 38 of 75 official PMFT records, 4 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15971-L15971",
+]
+confidence = "corpus"
+note = "in the official records a PMFT has either HNAM or INAM, never both (not modelled)"

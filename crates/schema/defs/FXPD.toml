@@ -1,27 +1,41 @@
-# FXPD: FacialExpression, lstring-only definition (lane B round 3, M3.B8).
+# FXPD: FacialExpression, a facial expression: its name and a list of morphs, each a morph
+# name and its weight.
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12220-L12244 - member order, the record flags
+#     (L12221-L12231, ten flag bits), EDID (L12237), the name (L12239) and the repeated
+#     morph list (L12240-L12243: a morph name string, MNAM, then its float weight, MWGT).
+#     Upstream also lists the base form component block (L12238); no official record has
+#     one, so it is left out (a plugin that has one keeps it raw).
+#   corpus: the fxpd_types scan in crates/esm/tests/fxpd_types.rs checks this definition
+#     against every official FXPD record (31 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official FXPD record.
-#   xedit: the FXPD definition of wbDefinitionsSF1.pas at the pinned revision (L12220-L12244)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Formerly an lstring-only definition (M3.B8); now a full definition in xEdit member order
+# (KK-338), as AVIF (KK-225) is. Names are ours.
 signature = "FXPD"
 name = "FacialExpression"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: every official FXPD record (31) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L12220-L12244): EDID, the name and the morph list; no official record has the base form component block, so it is left out"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -30,22 +44,14 @@ type = "zstring"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12237-L12237",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: in 31 of 31 official FXPD records",
 ]
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official FXPD records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -54,5 +60,36 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official FXPD records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: in 31 of 31 official FXPD records",
+]
+confidence = "corpus"
+
+[[member]]
+group = "Morphs"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12240-L12243",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: the morphs are in all 31 official FXPD records; 31 records, 31 identical",
+]
+confidence = "corpus"
+note = "one entry per morph: MNAM, then MWGT"
+
+[[member.member]]
+sig = "MNAM"
+name = "Morph"
+type = "zstring"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12241-L12241",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: in 31 of 31 official FXPD records, 7..23 bytes; every one decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MWGT"
+name = "Value"
+type = "f32"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12242-L12242",
+  "corpus: fxpd_types_full (crates/esm/tests/fxpd_types.rs), 2026-11-17: in 31 of 31 official FXPD records, 4 bytes; every one decodes and re-encodes identically",
 ]
 confidence = "corpus"

@@ -1,6 +1,7 @@
 # Written 2026-11-15 for the 2026-11-16 bench session (report-to-evidence tool, category B).
 id = "KK-361"
 title = "cargo xtask session-evidence: the evidence.toml entries a session report's passing rows justify"
+hold = "done by Opus lane opus/tickets361-20261117 (5e1ee8b2, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 45
 budget_h = 2
 priority = 1
@@ -93,4 +94,4 @@ cmd = '''cargo test -p xtask -- --exact session_evidence::tests::the_sample_repo
 
 [[accept]]
 name = "cli"
-cmd = '''cargo xtask session-evidence xtask/fixtures/session-evidence/report.json > /tmp/e 2>&1; grep -q 'ledger: game-20261101-99' /tmp/e && grep -q '# TMLM: row T-06 failed; no entry' /tmp/e && test "$(grep -c '^\[\[entry\]\]' /tmp/e)" = 3'''
+cmd = '''cargo xtask session-evidence xtask/fixtures/session-evidence/report.json --evidence xtask/fixtures/session-evidence/empty-evidence.toml > /tmp/e 2>&1; grep -q 'ledger: game-20261101-99' /tmp/e && grep -q '# TMLM: row T-06 failed; no entry' /tmp/e && test "$(grep -c '^\[\[entry\]\]' /tmp/e)" = 3'''

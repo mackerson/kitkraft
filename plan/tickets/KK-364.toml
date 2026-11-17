@@ -2,6 +2,7 @@
 # Chained after KK-361: it extends the same xtask module.
 id = "KK-364"
 title = "session-evidence: mark proposed entries that docs/schema/evidence.toml already has"
+hold = "done by Opus lane opus/tickets361-20261117 (8420c6ce, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 45
 budget_h = 1.5
 priority = 1

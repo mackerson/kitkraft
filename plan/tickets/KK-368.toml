@@ -3,6 +3,7 @@
 # shared target dir), so the session form's ledger and the Cockpit's `out\` were main's.
 id = "KK-368"
 title = "workbench: the checkout above the working directory comes before the one above kit-ui"
+hold = "done by Opus lane opus/tickets365-20261117 (7da9bee2, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 45
 budget_h = 1.5
 priority = 1

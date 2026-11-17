@@ -5,12 +5,13 @@
 # the base save loads with the plugin enabled, before the first row.
 format = 1
 plugin = "KitKraftVerifyQuest.esm"
-sha256 = "94d2ad19feaa10bd8f8ac5da6b80d5f55bb0c2bfe6211cfe666ffb681dea3f6d"
+sha256 = "f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62"
 generated_by = "hand-written (bench 2026-11-16), docs/bench/verify-mod.md \"Self-reporting quest\""
 profile = "KitKraft Dev"
 notes = [
     "Q-01 first waits (a setup step naming the player), so the quest's OnQuestInit and its stage 10 fragment have run before the log is read.",
     "Q-01 and Q-04 show the quest script (a VMAD script-list entry on a QUST) runs; Q-02 that its object property holds the reference the same build placed; Q-03 that the fragment script in the VMAD fragment block runs at its stage.",
+    "Q-05 (added 2026-11-17) shows a script on a quest alias, written into the alias section of the VMAD fragment block, runs and reads its properties. The sha256 above is the build with Q-05 and stage 10's log entry (QSDT = 0), 3,413 bytes, rebuilt headless from the integrated recipe (2026-11-17): all five rows passed on it in game-20261117-06. Earlier builds: 94d2ad19... (game-20261117-02, Q-03 failed), 7192216d... (game-20261117-05, Q-01 to Q-04 passed), e6b58d33... (alias recipe without QSDT, not run).",
 ]
 
 [[probe]]
@@ -60,3 +61,14 @@ command = ""
 matcher = "papyrus-log"
 expected = "KKQ-Q04 stage10-done=True"
 why = "the quest script sets stage 10 (its INDX) and reads it back"
+
+[[probe]]
+row = "Q-05"
+title = "Papyrus log: KKQ-Q05 the alias script on MarkerAlias runs (QUST VMAD alias section)"
+forms = ["KKQ01Qust", "KKQ70Marker"]
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKQ-Q05 alias script running count=7 ref-is-marker=True"
+why = "VerifyAliasReport.psc writes this in OnAliasInit; the recipe attached it to alias 0 (forced to new:marker) with Count = 7 (script default 0)"

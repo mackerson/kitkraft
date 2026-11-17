@@ -420,8 +420,9 @@ fn has_raw_block(members: &[kitkraft_schema::Member], depth: usize) -> bool {
 /// `corpus:` CHAL (`crates/schema/defs/CHAL.toml`, 2026-10-14 scan): every one of the 10
 /// official challenges has exactly one component, the activity tracker, and its `FULL`s
 /// sit inside it (per activity `ATAN FULL DESC ...`). KK-284 typed the full-name component
-/// (a whole-subrecord `FULL`), which made CHAL's `FULL` match by signature alone.
-pub const IN_RAW_COMPONENT: &[(&str, &str)] = &[("CHAL", "FULL")];
+/// (a whole-subrecord `FULL`), which made CHAL's `FULL` match by signature alone. Since
+/// 2026-11-17 the activity tracker is a typed layout too, so no pair is left here.
+pub const IN_RAW_COMPONENT: &[(&str, &str)] = &[];
 
 /// Compares the corpus [`TABLE`] with the schema's lstrings ([`schema_lstrings`]).
 pub fn compare(schema: &kitkraft_schema::Schema) -> Comparison {
@@ -480,16 +481,16 @@ mod tests {
     /// GBFM's hull name), where the table stays the fallback; nothing the table measured
     /// as "not an lstring" is one in the schema. KK-284 typed the full-name component
     /// (PNDT, STDT and GBFM names), which made CHAL's FULL match by signature, but CHAL's
-    /// own FULLs sit in its raw activity tracker block ([`IN_RAW_COMPONENT`]), so it stays
-    /// a fallback. The hull code component (GBFM's HULL) is a typed layout since
-    /// 2026-11-16, so the schema types it.
+    /// own FULLs sat in its raw activity tracker block ([`IN_RAW_COMPONENT`]), a fallback
+    /// until the activity tracker became a typed layout (2026-11-17, with its DESC). The
+    /// hull code component (GBFM's HULL) is a typed layout since 2026-11-16.
     #[test]
     fn the_schema_types_every_table_lstring() {
         let schema = kitkraft_schema::builtin().unwrap();
         let c = compare(schema);
         assert_eq!(c.conflicts, Vec::<String>::new());
-        assert_eq!(c.fallback, ["CHAL.DESC", "CHAL.FULL"]);
-        assert_eq!(c.agree.len(), 103);
+        assert_eq!(c.fallback, Vec::<String>::new());
+        assert_eq!(c.agree.len(), 105);
         let lstrings: usize = TABLE
             .iter()
             .map(|(_, l, ..)| l.split(' ').filter(|s| !s.is_empty()).count())
@@ -498,8 +499,8 @@ mod tests {
     }
 
     /// Where the schema has the member, a layout comes from it with no table limitation;
-    /// inside a raw component block the table is the fallback and says so (CHAL's activity
-    /// tracker block); a typed component layout (GBFM's hull code) needs none.
+    /// a typed component layout (GBFM's hull code; CHAL's activity tracker since
+    /// 2026-11-17) needs none.
     #[test]
     fn schema_first_table_as_fallback() {
         use crate::edit::fields::layouts;
@@ -517,7 +518,7 @@ mod tests {
         );
         let full = chal.get(4).cloned().flatten().unwrap();
         assert_eq!(full.ty, kitkraft_schema::FieldType::LString);
-        assert!(full.fallback.is_some());
+        assert_eq!(full.fallback, None);
     }
 
     /// `distinct` values, `resolved` of them in one kind of table, `anchored` shared with

@@ -17,7 +17,21 @@
 //! the quest's fragment script, written into the `VMAD`'s fragment block with one stage
 //! fragment per item (`edit::vmad::attach`). `index` defaults to 0 and `function` to the
 //! name the official quests use, `Fragment_Stage_<stage, 4 digits>_Item_<index, 2
-//! digits>`. That the function exists in the script is not checked.
+//! digits>`. The stage, its log entry and the function are checked by `validate` on the
+//! written plugin (`quest.fragment-stage`, `quest.fragment-function`), which refuses the
+//! write when one is missing.
+//!
+//! On a `QUST`, an entry may instead carry `alias`: an alias ID (an integer) or an alias name
+//! (`ALID`, a string). The script is then attached to that quest alias, written into the
+//! alias's entry of the `VMAD`'s fragment block; the quest must declare the alias (by the
+//! time scripts are attached, so a `fields` edit of the same call counts), else
+//! `quest.alias-missing`. `alias` and `stages` together are refused.
+//!
+//! An object property may also hold a quest alias: `{alias}` (an ID or name) is an alias
+//! of the quest the script is attached to (a `QUST` only, checked as above), and `{quest,
+//! alias}` an alias of another quest (`quest` a formref, EditorID or `new:<name>`, `alias`
+//! an ID, not checked against that quest). The value is written as the official files
+//! write one: the quest's FormID with the alias ID (`edit::vmad::ObjectTarget::Alias`).
 
 use std::path::Path;
 
@@ -27,7 +41,7 @@ use super::failed;
 use super::load::Loaded;
 use super::set::find_form;
 use crate::edit::patch::FormName;
-use crate::edit::vmad::{Attach, AttachValue, ObjectTarget, StageFragment};
+use crate::edit::vmad::{AliasTarget, Attach, AttachValue, ObjectTarget, StageFragment};
 use crate::exec::EngineError;
 use crate::validate::attached::{type_byte, Chain, Sources};
 
@@ -40,6 +54,8 @@ pub(crate) struct ScriptArg {
     pub properties: Vec<(String, Value)>,
     /// Quest stage fragments (`stages`), when the script is a quest's fragment script.
     pub stages: Vec<StageFragment>,
+    /// The quest alias (`alias`), when the script is attached to one.
+    pub alias: Option<AliasTarget>,
 }
 
 /// The `scripts` argument of a command, typed for `target` (empty when absent).
@@ -75,11 +91,11 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
             .ok_or_else(|| bad(here.clone(), "must be an object {name, properties}"))?;
         if let Some(k) = obj
             .keys()
-            .find(|k| !matches!(k.as_str(), "name" | "properties" | "stages"))
+            .find(|k| !matches!(k.as_str(), "name" | "properties" | "stages" | "alias"))
         {
             return Err(bad(
                 format!("{here}.{k}"),
-                "unknown key; allowed: name, properties, stages",
+                "unknown key; allowed: name, properties, stages, alias",
             ));
         }
         let name = obj
@@ -101,13 +117,47 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
             None => Vec::new(),
             Some(v) => stages(command, &format!("{here}.stages"), v)?,
         };
+        let alias = match obj.get("alias") {
+            None => None,
+            Some(v) => Some(alias(command, &format!("{here}.alias"), v)?),
+        };
+        if alias.is_some() && !stages.is_empty() {
+            return Err(bad(
+                here,
+                "takes `alias` or `stages`, not both (an alias holds scripts, not stage fragments)",
+            ));
+        }
         out.push(ScriptArg {
             name: name.trim().to_string(),
             properties,
             stages,
+            alias,
         });
     }
     Ok(out)
+}
+
+/// Reads an `alias` key: an alias ID (an integer 0 to 32767, the range of the 16-bit alias
+/// of a `VMAD` object value) or an alias name.
+fn alias(command: &str, at: &str, value: &Value) -> Result<AliasTarget, EngineError> {
+    match value {
+        Value::Number(n) => n
+            .as_u64()
+            .filter(|id| *id <= 0x7FFF)
+            .and_then(|id| u32::try_from(id).ok())
+            .map(AliasTarget::Id)
+            .ok_or_else(|| {
+                failed(
+                    command,
+                    format!("{at}: an alias ID must be an integer 0 to 32767"),
+                )
+            }),
+        Value::String(s) if !s.trim().is_empty() => Ok(AliasTarget::Name(s.trim().to_string())),
+        _ => Err(failed(
+            command,
+            format!("{at}: must be an alias ID (an integer) or an alias name (a string)"),
+        )),
+    }
 }
 
 /// Reads a `stages` key: a non-empty array of `{stage, index, function}`.
@@ -253,7 +303,23 @@ pub(crate) fn resolve(
                 )
             })?;
             let t = type_byte(&declared.ty, &is_struct);
-            let typed = typed_value(command, &key, &declared.ty, t, value, loaded, locals)?;
+            let members = if t == 7 || t == 17 {
+                sources
+                    .struct_members(&declared.ty)
+                    .map_err(|e| failed(command, format!("{key}: {e}")))?
+            } else {
+                None
+            };
+            let typed = typed_value(
+                command,
+                &key,
+                &declared.ty,
+                t,
+                value,
+                loaded,
+                locals,
+                members.as_deref(),
+            )?;
             properties.push((declared.name.clone(), typed));
         }
         let mut rep = report(arg, &chain);
@@ -270,7 +336,18 @@ pub(crate) fn resolve(
                         .collect::<Vec<_>>()),
                 );
             }
-            let note = "scripts: a stage fragment's function is not checked against the script, nor its stage against the quest's stages".to_string();
+        }
+        if let Some(alias) = &arg.alias {
+            if let Some(obj) = rep.as_object_mut() {
+                obj.insert(
+                    "alias".into(),
+                    match alias {
+                        AliasTarget::Id(id) => json!(id),
+                        AliasTarget::Name(n) => json!(n),
+                    },
+                );
+            }
+            let note = "scripts: a script on a quest alias is not checked to extend ReferenceAlias, RefCollectionAlias or LocationAlias, nor against the alias's kind".to_string();
             if !limitations.contains(&note) {
                 limitations.push(note);
             }
@@ -280,6 +357,7 @@ pub(crate) fn resolve(
             name: arg.name.clone(),
             properties,
             stages: arg.stages.clone(),
+            alias: arg.alias.clone(),
         });
     }
     if !sources.unreadable.is_empty() {
@@ -300,6 +378,7 @@ pub(crate) fn resolve(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn typed_value(
     command: &str,
     key: &str,
@@ -308,6 +387,7 @@ fn typed_value(
     value: &Value,
     loaded: &Loaded,
     locals: &dyn Fn(&str) -> Option<String>,
+    members: Option<&[(String, String)]>,
 ) -> Result<AttachValue, EngineError> {
     let bad = |why: String| {
         failed(
@@ -315,30 +395,53 @@ fn typed_value(
             format!("papyrus.property-unresolved: {key}: {why}"),
         )
     };
+    let form = |s: &str| -> Result<ObjectTarget, EngineError> {
+        if let Some(name) = crate::build::spec::local_ref(s) {
+            return locals(name).map(ObjectTarget::Local).ok_or_else(|| {
+                bad(format!(
+                    "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
+                ))
+            });
+        }
+        let g =
+            find_form(command, loaded, s, None).map_err(|e| bad(format!("`{s}` ({ty}): {e}")))?;
+        let plugin = loaded
+            .lo
+            .plugin(g.plugin)
+            .map(|p| p.name.clone())
+            .ok_or_else(|| bad(format!("`{s}`: no plugin")))?;
+        Ok(ObjectTarget::Form(FormName {
+            plugin,
+            object_id: g.object_id,
+        }))
+    };
     let scalar = |t: u8, v: &Value| -> Result<AttachValue, EngineError> {
         match (t, v) {
             (1, Value::Null) => Ok(AttachValue::Object(ObjectTarget::Null)),
-            (1, Value::String(s)) => {
-                if let Some(name) = crate::build::spec::local_ref(s) {
-                    return locals(name)
-                        .map(|edid| AttachValue::Object(ObjectTarget::Local(edid)))
-                        .ok_or_else(|| {
-                            bad(format!(
-                                "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
-                            ))
-                        });
+            (1, Value::String(s)) => form(s).map(AttachValue::Object),
+            (1, Value::Object(m)) => {
+                if let Some(k) = m.keys().find(|k| !matches!(k.as_str(), "alias" | "quest")) {
+                    return Err(bad(format!(
+                        "unknown key `{k}` in an alias value; allowed: alias, quest"
+                    )));
                 }
-                let g = find_form(command, loaded, s, None)
-                    .map_err(|e| bad(format!("`{s}` ({ty}): {e}")))?;
-                let plugin = loaded
-                    .lo
-                    .plugin(g.plugin)
-                    .map(|p| p.name.clone())
-                    .ok_or_else(|| bad(format!("`{s}`: no plugin")))?;
-                Ok(AttachValue::Object(ObjectTarget::Form(FormName {
-                    plugin,
-                    object_id: g.object_id,
-                })))
+                let alias = m.get("alias").ok_or_else(|| {
+                    bad(
+                        "an object value given as {...} needs `alias` (an alias ID or name)"
+                            .to_string(),
+                    )
+                })?;
+                let alias = self::alias(command, &format!("{key}.alias"), alias)?;
+                let quest = match m.get("quest") {
+                    None => None,
+                    Some(Value::String(q)) => Some(Box::new(form(q)?)),
+                    Some(_) => {
+                        return Err(bad(
+                            "`quest` must be a formref, EditorID or new:<name>".to_string()
+                        ))
+                    }
+                };
+                Ok(AttachValue::Object(ObjectTarget::Alias { quest, alias }))
             }
             (2, Value::String(s)) => Ok(AttachValue::String(s.clone())),
             (3, Value::Number(n)) => n
@@ -352,12 +455,64 @@ fn typed_value(
                 .map(|f| AttachValue::Float(f as f32))
                 .ok_or_else(|| bad(format!("{n} is not a finite 32-bit float ({ty})"))),
             (5, Value::Bool(b)) => Ok(AttachValue::Bool(*b)),
-            (6 | 7, _) => Err(bad(format!(
-                "a {ty} property cannot be set here (Var and struct values are not attached yet)"
+            (6, _) => Err(bad(format!(
+                "a {ty} property cannot be set here (no official record stores a Var value to follow)"
+            ))),
+            (7, _) => Err(bad(format!(
+                "a {ty} value is a table of its members, given as a struct (an object)"
             ))),
             (_, v) => Err(bad(format!("{v} does not fit the declared type {ty}"))),
         }
     };
+    // A struct: a JSON object of members, typed by the struct's declaration and written in
+    // its order (members are scalars or objects, as in every official struct value).
+    let structure = |v: &Value| -> Result<AttachValue, EngineError> {
+        let Value::Object(m) = v else {
+            return Err(bad(format!("{ty} takes a JSON object of its members")));
+        };
+        let members = members.ok_or_else(|| {
+            bad(format!(
+                "the struct {ty} is not declared by a compiled script found (its members are unknown)"
+            ))
+        })?;
+        if let Some(k) = m
+            .keys()
+            .find(|k| !members.iter().any(|(n, _)| n.eq_ignore_ascii_case(k)))
+        {
+            let names: Vec<&str> = members.iter().map(|(n, _)| n.as_str()).collect();
+            return Err(bad(format!(
+                "{ty} has no member `{k}` (members: {})",
+                names.join(", ")
+            )));
+        }
+        let mut out = Vec::new();
+        for (name, mty) in members {
+            let Some((_, v)) = m.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) else {
+                continue;
+            };
+            let mt = type_byte(mty, &|t: &str| t.contains('#'));
+            if !(1..=5).contains(&mt) {
+                return Err(bad(format!(
+                    "{ty}.{name}: a {mty} member cannot be set (struct members are scalars or objects)"
+                )));
+            }
+            out.push((name.clone(), scalar(mt, v)?));
+        }
+        Ok(AttachValue::Struct(out))
+    };
+    if t == 7 {
+        return structure(value);
+    }
+    if t == 17 {
+        let items = value
+            .as_array()
+            .ok_or_else(|| bad(format!("{ty} takes a JSON array")))?;
+        let typed = items
+            .iter()
+            .map(&structure)
+            .collect::<Result<Vec<_>, _>>()?;
+        return Ok(AttachValue::Array(7, typed));
+    }
     if t > 10 {
         let element = t.saturating_sub(10);
         let items = value

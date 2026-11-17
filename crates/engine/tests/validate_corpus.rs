@@ -97,6 +97,13 @@ const STALE_PROPERTIES: &str = "VMAD (M4.E9) of the file's own records sets prop
     SFBGS00D:SFBGS00DRandomEnableOnLoadScript.KeywordArray; the game logs and skips them. \
     An override that carries such a property unchanged gets a warning, not an error";
 
+const STALE_FRAGMENTS: &str = "QUST VMAD fragment blocks (2026-11-17: the papyrus rules \
+    also read the fragment and alias scripts, and the quest rules the stage fragments) of the \
+    file's own quests hold stage fragments for stages the quest no longer has, or whose \
+    function the compiled fragment script no longer defines, and fragment or alias scripts \
+    with no .pex or with properties their script no longer declares; the game cannot run \
+    those fragments. An override that carries one unchanged gets a warning";
+
 const HUNT_REWARD: &str = "VMAD script properties (M5.D6: formid.dangling follows object \
     values, kitkraft_doc::vmad): ShatteredSpace.esm QUST:010D2626 \
     (SFBGS001_MB_Hunt01Local_00) and QUST:010D262B set \
@@ -113,24 +120,28 @@ const fn papyrus(plugin: &'static str, rule: &'static str, count: u64) -> Known 
         member: "VMAD",
         value: None,
         count,
-        evidence: if matches!(rule.as_bytes(), b"papyrus.missing-script") {
-            STALE_SCRIPTS
-        } else {
-            STALE_PROPERTIES
+        evidence: match rule.as_bytes() {
+            b"papyrus.missing-script" => STALE_SCRIPTS,
+            b"papyrus.property-unresolved" => STALE_PROPERTIES,
+            _ => STALE_FRAGMENTS,
         },
     }
 }
 
 const KNOWN_ERRORS: &[Known] = &[
-    papyrus("Starfield.esm", "papyrus.missing-script", 14),
-    papyrus("Starfield.esm", "papyrus.property-unresolved", 16),
+    papyrus("Starfield.esm", "papyrus.missing-script", 23),
+    papyrus("Starfield.esm", "papyrus.property-unresolved", 28),
+    papyrus("Starfield.esm", "quest.fragment-stage", 2),
+    papyrus("Starfield.esm", "quest.fragment-function", 17),
     papyrus("BlueprintShips-Starfield.esm", "papyrus.missing-script", 1),
-    papyrus("SFBGS00D.esm", "papyrus.missing-script", 2),
-    papyrus("SFBGS00D.esm", "papyrus.property-unresolved", 25),
+    papyrus("SFBGS00D.esm", "papyrus.missing-script", 3),
+    papyrus("SFBGS00D.esm", "papyrus.property-unresolved", 31),
+    papyrus("SFBGS00D.esm", "quest.fragment-function", 3),
     papyrus("SFBGS050.esm", "papyrus.missing-script", 2),
-    papyrus("SFBGS050.esm", "papyrus.property-unresolved", 7),
+    papyrus("SFBGS050.esm", "papyrus.property-unresolved", 13),
     papyrus("ShatteredSpace.esm", "papyrus.missing-script", 3),
-    papyrus("ShatteredSpace.esm", "papyrus.property-unresolved", 13),
+    papyrus("ShatteredSpace.esm", "papyrus.property-unresolved", 17),
+    papyrus("ShatteredSpace.esm", "quest.fragment-function", 6),
     dangling(
         "SFBGS050.esm",
         "PNDT.EOVR.Worldspace",

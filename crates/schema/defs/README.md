@@ -235,6 +235,7 @@ bodies themselves.
 | `type`    | Size    | Extra keys                         | Notes                                                    |
 | --------- | ------- | ---------------------------------- | -------------------------------------------------------- |
 | `u8` `i8` `u16` `i16` `u32` `i32` `u64` `i64` `f32` `f64` | 1-8 | - | Little-endian                                  |
+| `f16`     | 2       | -                                  | IEEE half float (2026-11-17); generated code keeps the bits (`F16(u16)`, `to_f32()`), the `doc` reader shows the value, the engine's field paths refuse a number (no exact conversion) but take `hex:` bits |
 | `formid`  | 4       | `targets = ["KYWD", ...]`          | Omitted `targets` means the target type is not known yet |
 | `sig`     | 4       | -                                  | Four raw characters (`char[4]`)                          |
 | `zstring` | rest    | -                                  | NUL-terminated; must be last in a struct                 |
@@ -268,6 +269,16 @@ Fields take `name`, `type`, the type keys, and:
   group of fields. Use it only when the field split is a sourced fact, not just because a
   subrecord occurs with two sizes (WEAP `DAMA` stays opaque for
   that reason).
+- `present_if = { field = "Flags", mask = 0x4, value = 0 }` (2026-11-17, the stored
+  traversals' FormID): present only when the bits `mask` of the earlier sibling `field`
+  equal `value` (default 0). The sibling is an earlier, ungated, unconditional integer,
+  `enum`, `flags` or `packed` field of at most 32 bits; `mask` is non-zero and fits it;
+  `value` lies inside `mask`. The conditional field is not also gated (`since`, `until`,
+  `if_remaining`), and cannot count an array or decide a union. Generated code holds an
+  `Option` (written when `Some`); a struct with such a field has no fixed size. The `doc`
+  reader skips the field when the condition fails; the engine's field paths skip it too,
+  refuse to set it when absent, and when building a whole struct from JSON take it
+  exactly when the condition on the given sibling (an integer) holds.
 - `note`.
 
 A field that reads to the end of the payload (`zstring`, `lstring`, rest arrays, opaque
@@ -307,6 +318,14 @@ parts = [
 
 - `count = N`: exactly `N` elements (generated as `[T; N]`, so the size cannot drift).
 - `count = "rest"`: elements until the payload ends; must be last.
+- `count = "stride:N"` (2026-11-17, the CELL `XTV2` traversals): payload bytes / `N`
+  elements, then zero padding to the end, for a payload upstream sizes at a fixed `N` bytes
+  per element although some elements are shorter. Only a subrecord member's own type (the
+  padding runs to the end of the payload); `N` is non-zero and no smaller than a
+  fixed-size element. A payload that is not a multiple of `N`, or whose padding is not
+  all zero, fails the decode and stays raw. Generated encode writes the elements and pads
+  with zeros to `N` bytes per element, so an edited array keeps the stored shape; the
+  engine refuses an element value longer than `N`.
 - `count_from = "Count"`: as many elements as the value of the named field, which must be
   an earlier, ungated, non-`if_remaining` integer field of the same struct. Only on struct
   fields (a whole subrecord has no siblings), and one count field serves one array
@@ -346,9 +365,10 @@ variants = [
 - `decider = "edid-prefix"`: the first byte of the record's first `EDID` payload, compared
   exactly with each variant's `when` (one ASCII letter or digit, unique). The record must
   have an `EDID` member.
-- Variants take `name`, `type` (anything but `struct`, `array` and `union`; `formid` may
-  have `targets`, `enum`/`flags` their `base` and `values`/`bits`, `opaque` its `size`)
-  and `note`. `Other` is reserved as a variant name.
+- Variants take `name`, `type` (anything but `struct` and `union`; `formid` may have
+  `targets`, `enum`/`flags` their `base` and `values`/`bits`, `opaque` its `size`, and
+  since 2026-11-17 `array` a fixed `count` and a scalar or `formid` `element`) and
+  `note`. `Other` is reserved as a variant name.
 - Only on subrecord members (not on fields, array elements or shared types). A declared
   `size` must match every variant, so it is not allowed when a variant is variable
   (`lstring`).
@@ -389,6 +409,16 @@ variants = [
 - Every variant has the **same fixed size** (the loader rejects a variable or different
   size). A decider value no variant names keeps the field's bytes as read, so decoding
   never fails because of the decider and re-encoding is byte-identical.
+- **Variable width** (`variable_width = true`, 2026-11-17, the Volumes component's VLMS
+  entries): each variant still has a fixed, non-zero size, but the sizes may differ (a
+  union whose variants all have one size is rejected with the key: it would give up its
+  raw fallback for nothing). The union, and every struct holding it, then has no fixed
+  size. A decider value no variant names has no width to keep, so it fails the decode
+  and the **whole subrecord stays raw** in `extra` (never a guessed width); codegen emits
+  no `Other` variant, and `Field::read` without the decider values is an error
+  (`DecodeError::Undecided`). The `doc` reader reports such a payload as undecodable, and
+  the engine's field paths cannot index into an array of such entries (their elements
+  have no fixed size), so a set is refused rather than misplaced.
 - Variants take the same keys as EditorID-prefix variants; `Other` is reserved.
 - A union field takes no type keys of its own (`size`, `count`, ...), is never gated
   (`since`, `until`, `if_remaining`), and is allowed only as a struct field: not on a

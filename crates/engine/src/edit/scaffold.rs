@@ -377,6 +377,25 @@ fn deref(ty: &FieldType) -> &FieldType {
     }
 }
 
+/// `slot`, or, when the group around it lacks a lead ([`missing_lead`]), another slot of
+/// the same signature (not a component's) whose groups all have one: a signature several
+/// groups use (QUST `FNAM` is an objective's flags and a reference alias's) goes to the
+/// group the record has or the fields start.
+pub(crate) fn led_slot(order: &[Slot], slot: usize, present: impl Fn([u8; 4]) -> bool) -> usize {
+    if missing_lead(order, slot, &present).is_none() {
+        return slot;
+    }
+    let Some(sig) = order.get(slot).map(|e| e.sig) else {
+        return slot;
+    };
+    order
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| e.sig == sig && !e.component && *i != slot)
+        .find(|(i, _)| missing_lead(order, *i, &present).is_none())
+        .map_or(slot, |(i, _)| i)
+}
+
 /// The group a subrecord added at `slot` would lack a lead for: the innermost group around
 /// it (or around a group it starts) that the subrecord does not itself start and none of
 /// whose leads `present` says the record has or gets. Returns the group's member path and
@@ -1032,7 +1051,7 @@ mod tests {
             .filter(|(_, e)| e.sig == *b"CTDA")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(ctda.len(), 11);
+        assert_eq!(ctda.len(), 12);
         for (k, slot) in ctda.iter().copied().enumerate() {
             assert_eq!(slot_of(&all, *b"CTDA", k, ctda.len()), Some(slot));
         }
@@ -1059,15 +1078,15 @@ mod tests {
             Some(*own.last().unwrap())
         );
         // A signature whose last slot does not repeat reports `None` past it: a QUST's
-        // own `DNAM` is the only non-repeating slot after the block's AnimationGraph
-        // response file.
+        // own `DNAM` is the only non-repeating slot after the block's activity tracker
+        // argument names (since 2026-11-17) and AnimationGraph response file.
         let dnam: Vec<usize> = all
             .iter()
             .enumerate()
             .filter(|(_, e)| e.sig == *b"DNAM")
             .map(|(i, _)| i)
             .collect();
-        assert_eq!(dnam.len(), 2);
+        assert_eq!(dnam.len(), 3);
         for (k, slot) in dnam.iter().copied().enumerate() {
             assert_eq!(slot_of(&all, *b"DNAM", k, dnam.len()), Some(slot));
         }

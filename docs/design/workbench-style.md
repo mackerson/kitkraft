@@ -219,7 +219,7 @@ result block; a form error is the notice line under the tabs, also a fail status
 
 - **Top bar** (`theme::top_frame`): the title, the tabs (they wrap), the notice line.
 - **Status line** at the bottom (same frame): engine state, session, the read-only reminder.
-- **Title bar**: `KitKraft Workbench (read-only)`; a debug build adds "debug build" once the
+- **Title bar**: `KitKraft Workbench`; a debug build adds "debug build" once the
   first envelope's `build` member says so (M6.P6a).
 - **About line** (Start tab): `KitKraft <version> (<commit>, <date>, <profile>)` from the
   envelopes' `build` member (M6.P6b), with a warning status on a debug build.

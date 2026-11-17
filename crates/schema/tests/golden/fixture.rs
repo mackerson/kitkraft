@@ -8,6 +8,7 @@
 // - UNOR (corpus: synthetic test fixture, not game data; corpus)
 // - UUUU (corpus: synthetic test fixture, not game data; corpus)
 // - VVVV (corpus: synthetic test fixture, not game data; corpus)
+// - WWWW (corpus: synthetic test fixture, not game data; corpus)
 // - YYYY (corpus: synthetic test fixture, not game data; corpus)
 // - ZZZZ (corpus: synthetic test fixture, not game data; corpus)
 
@@ -26,7 +27,8 @@ pub enum DecodeError {
     /// The count for the array `field` is negative or does not fit in `usize`.
     BadCount { field: &'static str, offset: usize },
     /// The union `field` has no layout for this record: no `EDID`, or an EditorID prefix
-    /// no variant names.
+    /// no variant names; or a decider value no variant of a variable-width field union
+    /// names.
     Undecided { field: &'static str },
 }
 
@@ -44,7 +46,10 @@ impl std::fmt::Display for DecodeError {
                 write!(f, "{field}: invalid element count at offset {offset}")
             }
             Self::Undecided { field } => {
-                write!(f, "{field}: no layout for this record's EditorID prefix")
+                write!(
+                    f,
+                    "{field}: no layout for this EditorID prefix or decider value"
+                )
             }
         }
     }
@@ -152,6 +157,42 @@ macro_rules! scalar_field {
 }
 
 scalar_field!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+
+/// An IEEE 754 half-precision float (`type = "f16"`), kept as its stored bits so every
+/// value, NaN payloads included, re-encodes as read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct F16(pub u16);
+
+impl F16 {
+    /// The value as an `f32` (exact: every half-precision value is one).
+    pub fn to_f32(self) -> f32 {
+        let bits = self.0;
+        let sign = u32::from(bits & 0x8000).wrapping_shl(16);
+        let exp = u32::from(bits.wrapping_shr(10) & 0x1F);
+        let mant = u32::from(bits & 0x3FF);
+        let magnitude = match (exp, mant) {
+            (0, 0) => 0,
+            (0, _) => {
+                let shift = mant.leading_zeros().saturating_sub(21);
+                let mant = mant.wrapping_shl(shift) & 0x3FF;
+                113u32.saturating_sub(shift).wrapping_shl(23) | mant.wrapping_shl(13)
+            }
+            (0x1F, _) => 0x7F80_0000 | mant.wrapping_shl(13),
+            _ => exp.saturating_add(112).wrapping_shl(23) | mant.wrapping_shl(13),
+        };
+        f32::from_bits(sign | magnitude)
+    }
+}
+
+impl Field for F16 {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
 
 /// A fixed-count array: exactly `N` elements, so its encoded size cannot drift.
 impl<T: Field, const N: usize> Field for [T; N] {
@@ -337,6 +378,52 @@ pub fn read_rest<T: Field>(
         }
     }
     Ok(out)
+}
+
+/// Reads a stride array (`count = "stride:N"`): the payload's remaining bytes / `stride`
+/// elements, then zero padding to the end. A length that is not a multiple of `stride`, or
+/// a padding byte that is not zero, fails the decode (the subrecord then stays raw).
+pub fn read_strided<T: Field>(
+    r: &mut Reader<'_>,
+    stride: usize,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let start = r.position();
+    let bad = DecodeError::BadCount {
+        field,
+        offset: start,
+    };
+    let remaining = r.data.len().saturating_sub(start);
+    if remaining.checked_rem(stride) != Some(0) {
+        return Err(bad);
+    }
+    let n = remaining.checked_div(stride).ok_or(bad)?;
+    let items = read_array(r, n, field, ctx)?;
+    let pad_at = r.position();
+    if r.rest().iter().any(|b| *b != 0) {
+        return Err(DecodeError::Trailing {
+            field,
+            offset: pad_at,
+        });
+    }
+    Ok(items)
+}
+
+/// Writes a stride array: its elements in order, then zero bytes up to `stride` bytes per
+/// element (none when the elements already fill that or more).
+pub fn write_strided<T: Field>(items: &[T], stride: usize, out: &mut Vec<u8>) {
+    let start = out.len();
+    write_all(items, out);
+    let end = items
+        .len()
+        .checked_mul(stride)
+        .and_then(|n| n.checked_add(start));
+    if let Some(end) = end {
+        if out.len() < end {
+            out.resize(end, 0);
+        }
+    }
 }
 
 /// Converts the value of a count field (`count_from`) to an element count.
@@ -556,7 +643,8 @@ macro_rules! no_visit {
     )*};
 }
 
-no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, F16, f32, f64);
+
 no_visit!(ZString, WString, BString, Bytes, Empty, OwnedSub);
 
 impl Visit for FormId {
@@ -2977,6 +3065,561 @@ impl VvvvRecord {
     }
 }
 
+/// A field whose layout the value of `Kind` selects (union). A value no variant
+/// names fails to decode (the variants differ in size).
+#[derive(Debug, Clone, PartialEq)]
+pub enum WwwwVolumesEntriesTail {
+    /// `Kind` 1.
+    One(f32),
+    /// `Kind` 3 or 4.
+    Two([f32; 2]),
+    /// `Kind` 5.
+    Ref(FormId),
+}
+
+impl WwwwVolumesEntriesTail {
+    /// Reads the variant the decider values select: `key` is the value of `Kind` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            1 => Field::read(r, field, ctx).map(Self::One),
+            3 | 4 => Field::read(r, field, ctx).map(Self::Two),
+            5 => Field::read(r, field, ctx).map(Self::Ref),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for WwwwVolumesEntriesTail {
+    /// Without the decider values there is no layout (the variants differ in size).
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::One(value) => value.write(out),
+            Self::Two(value) => value.write(out),
+            Self::Ref(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for WwwwVolumesEntriesTail {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwVolumesEntries {
+    pub kind: u32,
+    pub center: f32,
+    pub tail: WwwwVolumesEntriesTail,
+}
+
+impl Field for WwwwVolumesEntries {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "WWWW.VOLS.Entries.Kind", ctx)?;
+        let f1 = f32::read(r, "WWWW.VOLS.Entries.Center", ctx)?;
+        let f2 =
+            WwwwVolumesEntriesTail::read_keyed(i64::from(f0), 0, r, "WWWW.VOLS.Entries.Tail", ctx)?;
+        Ok(Self {
+            kind: f0,
+            center: f1,
+            tail: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.kind.write(out);
+        self.center.write(out);
+        self.tail.write(out);
+    }
+}
+
+impl Visit for WwwwVolumesEntries {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.tail, "WWWW.VOLS.Entries.Tail", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.tail, "WWWW.VOLS.Entries.Tail", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwVolumes {
+    pub count: u32,
+    pub entries: Vec<WwwwVolumesEntries>,
+}
+
+impl Field for WwwwVolumes {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "WWWW.VOLS.Count", ctx)?;
+        let n1 = count(f0, "WWWW.VOLS.Entries", r.position())?;
+        let f1 = read_array(r, n1, "WWWW.VOLS.Entries", ctx)?;
+        Ok(Self {
+            count: f0,
+            entries: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        count_value(self.entries.len(), u32::MAX).write(out);
+        write_counted(&self.entries, u32::MAX, out);
+    }
+}
+
+impl Visit for WwwwVolumes {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.entries, "WWWW.VOLS.Entries", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.entries, "WWWW.VOLS.Entries", out);
+    }
+}
+
+/// A field whose layout the value of `Kind` selects (union). A value no variant
+/// names fails to decode (the variants differ in size).
+#[derive(Debug, Clone, PartialEq)]
+pub enum WwwwLinksTarget {
+    /// `Kind` 0.
+    One(FormId),
+    /// `Kind` 1.
+    Pair([FormId; 2]),
+}
+
+impl WwwwLinksTarget {
+    /// Reads the variant the decider values select: `key` is the value of `Kind` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 => Field::read(r, field, ctx).map(Self::One),
+            1 => Field::read(r, field, ctx).map(Self::Pair),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for WwwwLinksTarget {
+    /// Without the decider values there is no layout (the variants differ in size).
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::One(value) => value.write(out),
+            Self::Pair(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for WwwwLinksTarget {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        match self {
+            Self::One(value) => visit_form_ids(value, path, out),
+            Self::Pair(value) => visit_form_ids(value, path, out),
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        match self {
+            Self::One(value) => visit_form_ids_mut(value, path, out),
+            Self::Pair(value) => visit_form_ids_mut(value, path, out),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwLinks {
+    pub kind: u8,
+    pub target: WwwwLinksTarget,
+}
+
+impl Field for WwwwLinks {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "WWWW.LINK.Kind", ctx)?;
+        let f1 = WwwwLinksTarget::read_keyed(i64::from(f0), 0, r, "WWWW.LINK.Target", ctx)?;
+        Ok(Self {
+            kind: f0,
+            target: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.kind.write(out);
+        self.target.write(out);
+    }
+}
+
+impl Visit for WwwwLinks {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "WWWW.LINK.Target", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "WWWW.LINK.Target", out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WwwwTraversalsItemFlags(pub u32);
+
+impl WwwwTraversalsItemFlags {
+    pub const KEEP: u32 = 0x1;
+    pub const NO_TARGET: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WwwwTraversalsItemFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WwwwTraversalsItemFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwTraversalsItem {
+    pub flags: WwwwTraversalsItemFlags,
+    /// Present only when `Flags` & 0x4 is 0x0.
+    pub target: Option<FormId>,
+    /// Present only when `Flags` & 0x3 is 0x3.
+    pub extra: Option<u8>,
+    pub speeds: [F16; 2],
+}
+
+impl Field for WwwwTraversalsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = WwwwTraversalsItemFlags::read(r, "WWWW.TRAV.Flags", ctx)?;
+        let f1 = if (i64::from(f0.0) & 0x4) == 0x0 {
+            Some(Field::read(r, "WWWW.TRAV.Target", ctx)?)
+        } else {
+            None
+        };
+        let f2 = if (i64::from(f0.0) & 0x3) == 0x3 {
+            Some(u8::read(r, "WWWW.TRAV.Extra", ctx)?)
+        } else {
+            None
+        };
+        let f3 = Field::read(r, "WWWW.TRAV.Speeds", ctx)?;
+        Ok(Self {
+            flags: f0,
+            target: f1,
+            extra: f2,
+            speeds: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flags.write(out);
+        if let Some(value) = &self.target {
+            value.write(out);
+        }
+        if let Some(value) = &self.extra {
+            value.write(out);
+        }
+        self.speeds.write(out);
+    }
+}
+
+impl Visit for WwwwTraversalsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "WWWW.TRAV.Target", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "WWWW.TRAV.Target", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwTraversals(pub Vec<WwwwTraversalsItem>);
+
+impl Field for WwwwTraversals {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WwwwTraversals {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WwwwPaddedItemFlags(pub u32);
+
+impl WwwwPaddedItemFlags {
+    pub const NO_TARGET: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WwwwPaddedItemFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WwwwPaddedItemFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwPaddedItem {
+    pub flags: WwwwPaddedItemFlags,
+    /// Present only when `Flags` & 0x4 is 0x0.
+    pub target: Option<FormId>,
+}
+
+impl Field for WwwwPaddedItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = WwwwPaddedItemFlags::read(r, "WWWW.PADS.Flags", ctx)?;
+        let f1 = if (i64::from(f0.0) & 0x4) == 0x0 {
+            Some(Field::read(r, "WWWW.PADS.Target", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            flags: f0,
+            target: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flags.write(out);
+        if let Some(value) = &self.target {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for WwwwPaddedItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "WWWW.PADS.Target", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "WWWW.PADS.Target", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwPadded(pub Vec<WwwwPaddedItem>);
+
+impl Field for WwwwPadded {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        read_strided(r, 8, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        write_strided(&self.0, 8, out);
+    }
+}
+
+impl Visit for WwwwPadded {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct WwwwRecord {
+    /// `VOLS`, optional.
+    pub volumes: Option<Sub<WwwwVolumes>>,
+    /// `LINK`, optional.
+    pub links: Option<Sub<WwwwLinks>>,
+    /// `TRAV`, optional.
+    pub traversals: Option<Sub<WwwwTraversals>>,
+    /// `PADS`, optional.
+    pub padded: Option<Sub<WwwwPadded>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl WwwwRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"VOLS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LINK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TRAV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PADS",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.volumes, subs, *index, "WWWW.VOLS", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.links, subs, *index, "WWWW.LINK", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.traversals, subs, *index, "WWWW.TRAV", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.padded, subs, *index, "WWWW.PADS", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"VOLS", self.volumes.as_ref());
+        emit(out, *b"LINK", self.links.as_ref());
+        emit(out, *b"TRAV", self.traversals.as_ref());
+        emit(out, *b"PADS", self.padded.as_ref());
+    }
+}
+
+impl Visit for WwwwRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.volumes, "WWWW.VOLS", out);
+        visit_form_ids(&self.links, "WWWW.LINK", out);
+        visit_form_ids(&self.traversals, "WWWW.TRAV", out);
+        visit_form_ids(&self.padded, "WWWW.PADS", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.volumes, "WWWW.VOLS", out);
+        visit_form_ids_mut(&mut self.links, "WWWW.LINK", out);
+        visit_form_ids_mut(&mut self.traversals, "WWWW.TRAV", out);
+        visit_form_ids_mut(&mut self.padded, "WWWW.PADS", out);
+    }
+}
+
+impl WwwwRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"WWWW";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("WWWW", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("WWWW", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("WWWW", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("WWWW", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum YyyyHeadKind {
     First,
@@ -4263,6 +4906,7 @@ pub enum Record {
     Unor(Box<UnorRecord>),
     Uuuu(Box<UuuuRecord>),
     Vvvv(Box<VvvvRecord>),
+    Wwww(Box<WwwwRecord>),
     Yyyy(Box<YyyyRecord>),
     Zzzz(Box<ZzzzRecord>),
 }
@@ -4274,6 +4918,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"UNOR", UnorRecord::MEMBERS),
     (*b"UUUU", UuuuRecord::MEMBERS),
     (*b"VVVV", VvvvRecord::MEMBERS),
+    (*b"WWWW", WwwwRecord::MEMBERS),
     (*b"YYYY", YyyyRecord::MEMBERS),
     (*b"ZZZZ", ZzzzRecord::MEMBERS),
 ];
@@ -4306,6 +4951,7 @@ impl Record {
             b"UNOR" => Self::Unor(Box::new(UnorRecord::decode(subs, ctx))),
             b"UUUU" => Self::Uuuu(Box::new(UuuuRecord::decode(subs, ctx))),
             b"VVVV" => Self::Vvvv(Box::new(VvvvRecord::decode(subs, ctx))),
+            b"WWWW" => Self::Wwww(Box::new(WwwwRecord::decode(subs, ctx))),
             b"YYYY" => Self::Yyyy(Box::new(YyyyRecord::decode(subs, ctx))),
             b"ZZZZ" => Self::Zzzz(Box::new(ZzzzRecord::decode(subs, ctx))),
             _ => return None,
@@ -4320,6 +4966,7 @@ impl Record {
             Self::Unor(record) => record.encode(),
             Self::Uuuu(record) => record.encode(),
             Self::Vvvv(record) => record.encode(),
+            Self::Wwww(record) => record.encode(),
             Self::Yyyy(record) => record.encode(),
             Self::Zzzz(record) => record.encode(),
         }
@@ -4333,6 +4980,7 @@ impl Record {
             Self::Unor(_) => UnorRecord::SIGNATURE,
             Self::Uuuu(_) => UuuuRecord::SIGNATURE,
             Self::Vvvv(_) => VvvvRecord::SIGNATURE,
+            Self::Wwww(_) => WwwwRecord::SIGNATURE,
             Self::Yyyy(_) => YyyyRecord::SIGNATURE,
             Self::Zzzz(_) => ZzzzRecord::SIGNATURE,
         }
@@ -4346,6 +4994,7 @@ impl Record {
             Self::Unor(record) => record.form_ids(),
             Self::Uuuu(record) => record.form_ids(),
             Self::Vvvv(record) => record.form_ids(),
+            Self::Wwww(record) => record.form_ids(),
             Self::Yyyy(record) => record.form_ids(),
             Self::Zzzz(record) => record.form_ids(),
         }
@@ -4359,6 +5008,7 @@ impl Record {
             Self::Unor(record) => record.form_ids_mut(),
             Self::Uuuu(record) => record.form_ids_mut(),
             Self::Vvvv(record) => record.form_ids_mut(),
+            Self::Wwww(record) => record.form_ids_mut(),
             Self::Yyyy(record) => record.form_ids_mut(),
             Self::Zzzz(record) => record.form_ids_mut(),
         }
@@ -4372,6 +5022,7 @@ impl Record {
             Self::Unor(record) => record.lstrings(),
             Self::Uuuu(record) => record.lstrings(),
             Self::Vvvv(record) => record.lstrings(),
+            Self::Wwww(record) => record.lstrings(),
             Self::Yyyy(record) => record.lstrings(),
             Self::Zzzz(record) => record.lstrings(),
         }
@@ -4385,6 +5036,7 @@ impl Record {
             Self::Unor(record) => record.lstrings_mut(),
             Self::Uuuu(record) => record.lstrings_mut(),
             Self::Vvvv(record) => record.lstrings_mut(),
+            Self::Wwww(record) => record.lstrings_mut(),
             Self::Yyyy(record) => record.lstrings_mut(),
             Self::Zzzz(record) => record.lstrings_mut(),
         }
@@ -4399,6 +5051,7 @@ impl Record {
             Self::Unor(record) => &record.extra,
             Self::Uuuu(record) => &record.extra,
             Self::Vvvv(record) => &record.extra,
+            Self::Wwww(record) => &record.extra,
             Self::Yyyy(record) => &record.extra,
             Self::Zzzz(record) => &record.extra,
         }

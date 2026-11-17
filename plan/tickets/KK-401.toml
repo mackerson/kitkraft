@@ -1,0 +1,68 @@
+# Written 2026-11-17 in the shape of KK-342 (clone-sample corpus test, one type per ticket).
+id = "KK-401"
+title = "Clone-sample corpus test for LIGH"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "docs/schema/support-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+`crates/engine/tests/clone_sample_corpus.rs` (read all of it first) holds the clone-sample
+corpus tests: KK-004 wrote them for locations and terminals, KK-014 for pack-ins and
+factions, KK-261 and KK-266 for ingestibles, books, misc items and doors, and KK-342 and
+KK-343 (queued for the night of 2026-11-16; they may have landed) for containers and keys.
+Each test calls `sample_clones(sig, prefix)`, which lists every record of a type in
+`Starfield.esm` with paged `query`, takes 100 records spread evenly by FormID, clones each
+into one patch, compares each clone with its source subrecord by subrecord (the FormID, the
+`EDID` and the inlined lstrings may change; everything else must be byte-identical, same
+order, same count), runs `validate` (0 errors) and prints `clone-sample <TYPE>: <n> cloned,
+<m> identical, <k> explained`. `EXCEPTIONS` lists unexplained differences by source FormID
+and subrecord.
+
+Add one test in that file for `LIGH` (lights; 1723 official records in the 14 files, most of
+them in `Starfield.esm`), with this exact name, after the last test in the file and in the
+style of those that exist (`#[ignore = "reads Starfield.esm; slow"]`):
+
+- `a_sample_of_official_lights_clones_identically`: `sample_clones("LIGH", "Ligh")`.
+
+Lights hold a model, the light data (`DATA`, `FLBD`), keywords, base form component blocks (the object window filter among them) and sometimes script data (`VMAD`); LIGH already has typed-write tests (KK-259). `clone` copies all of it as stored, so 100 identical and 0 explained is the expected
+result. 
+
+If a clone differs where it should not:
+
+- an intended difference the comparison does not know (a member `clone` must reset or
+  rewrite): add it to the comparison's expected changes with a comment citing the code in
+  `crates/engine/src/handlers/newform.rs` that makes it;
+- anything else: do not change `newform.rs` or any other engine file (out of scope here).
+  List it in `EXCEPTIONS` with a one-line reason, add a row to `docs/gaps.md` naming the
+  type, the FormIDs and the subrecord, and count it in `<k>`. Keep the list short; the
+  final QA reads every entry.
+
+Do not loosen the comparison for the types already covered and do not change their tests.
+
+Then add the test as the clone-sample evidence for `LIGH` in
+`docs/schema/support-matrix.md`, as one more list item after the last clone-sample item
+(KK-266's names `a_sample_of_official_doors_clones_identically`; KK-342's and KK-343's
+follow it if they have landed), in the same form: the test name, the line it printed, how
+many `LIGH` records `Starfield.esm` has, and its run time with the build profile you used.
+Do not edit `plan/STATUS.md` (no "Landed" line: the merge commit and
+`plan/tickets/README.md` record the ticket).
+
+The test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and is slow because each clone
+re-reads the master: 16 to 19 minutes in release, about 50 in a debug build. Always run it
+in release, once, and read its whole output before you run it again: `cargo test --release
+-p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact
+a_sample_of_official_lights_clones_identically --nocapture`. Do not run the other tests of the file (hours). Then `cargo xtask ci`.
+Commit only when the acceptance commands below pass; never commit a tree that fails them
+(the harness keeps uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "ligh-sample"
+cmd = '''cargo test --release -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_lights_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample LIGH: (9[0-9]|100) cloned' /tmp/o'''
+
+[[accept]]
+name = "evidence-row"
+cmd = '''grep -q 'a_sample_of_official_lights_clones_identically' docs/schema/support-matrix.md && grep -q 'clone-sample LIGH: ' docs/schema/support-matrix.md'''

@@ -1,21 +1,39 @@
-# MRPH: MorphableObject, inventory definition (KK-224).
+# MRPH: MorphableObject, a morphable object: the morph files of a body or head part (the
+# target morph and the character-generation morph paths) and its base vertex colour.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official MRPH record (1145 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14622-L14649 - member order, the record flags
+#     (L14623-L14633, ten flag bits), EDID (L14639), the two morph path strings TMPP
+#     (L14642) and TCMP (L14643), and the MOBC base vertex colour struct (L14645-L14648: one
+#     8-bit value and three unused bytes). Upstream also lists the script data (L14640),
+#     the base form component block (L14641) and a bone morph definition path, BMPP
+#     (L14644); no official record has any of the three, so they are left out (a plugin
+#     that has one keeps it raw).
+#   corpus: the mrph_types scan in crates/esm/tests/mrph_types.rs checks this definition
+#     against every official MRPH record (1145 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane decodes the record (docs/gaps.md).
 signature = "MRPH"
 name = "MorphableObject"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MRPH record (1145) decodes with every subrecord placed and re-encodes identically"
-confidence = "corpus"
-note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14622-L14649"
+evidence = [
+  "corpus: mrph_types_full (crates/esm/tests/mrph_types.rs), 2026-11-17: every official MRPH record (1145) decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "reference"
+note = "typed from the pinned xEdit file (L14622-L14649): EDID, the two morph paths and the base vertex colour; no official record has the script data, the base form component block or the bone morph definition path, so all three are left out"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -24,33 +42,46 @@ type = "zstring"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1145 of 1145 official MRPH records (1145 occurrences), 18..60 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14639-L14639",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "TMPP"
-name = "Tmpp"
-type = "opaque"
+name = "TargetMorphPath"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 197 of 1145 official MRPH records (197 occurrences), 38..153 bytes"
+source = "corpus: mrph_types_full (crates/esm/tests/mrph_types.rs), 2026-11-17: in 197 of 1145 official MRPH records, 38..153 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14642-L14642",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 38..153 bytes"
 
 [[member]]
 sig = "TCMP"
-name = "Tcmp"
-type = "opaque"
+name = "TargetChargenMorphPath"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1123 of 1145 official MRPH records (1123 occurrences), 38..162 bytes"
+source = "corpus: mrph_types_full (crates/esm/tests/mrph_types.rs), 2026-11-17: in 1123 of 1145 official MRPH records, 38..162 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14643-L14643",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 38..162 bytes"
 
 [[member]]
 sig = "MOBC"
-name = "Mobc"
-type = "opaque"
+name = "BaseVertexColor"
+type = "struct"
+size = 4
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 1145 of 1145 official MRPH records (1145 occurrences), 4 bytes"
+field = [
+  { name = "Value", type = "u8" },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "corpus: mrph_types_full (crates/esm/tests/mrph_types.rs), 2026-11-17: in 1145 of 1145 official MRPH records, 4 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14645-L14648",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"

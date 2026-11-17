@@ -496,3 +496,15 @@ fn a_sample_of_official_misc_items_clones_identically() {
 fn a_sample_of_official_doors_clones_identically() {
     sample_clones("DOOR", "Door");
 }
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_containers_clones_identically() {
+    sample_clones("CONT", "Cont");
+}
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_keys_clones_identically() {
+    sample_clones("KEYM", "Keym");
+}

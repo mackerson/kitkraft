@@ -459,9 +459,10 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
   - Plain rendering: headings, paragraphs, lists, tables, code blocks. A click on any code
     (a `player.additem` line, a FormID, a batch line) copies it.
   - The checkout is, in order: the one set here ("Use this checkout", kept in the UI prefs),
-    `KITKRAFT_REPO_DIR`, the folders above `kit-ui.exe` (a build under the checkout's
-    `target`), the folders above the working directory. A test fails when a doc loses one
-    of these sections.
+    `KITKRAFT_REPO_DIR`, the folders above the working directory, the folders above
+    `kit-ui.exe` (a build under the checkout's `target`; an agent's build under the main
+    checkout's `.targets` no longer wins over the worktree it is run from). A test fails
+    when a doc loses one of these sections.
 
 - **Render Window** (`cell --with-bounds`; M7.R1, M7.R2, M7.R3, 2026-10-16)
   - A 3D viewport drawn with OpenGL through eframe's glow backend: a metric ground grid

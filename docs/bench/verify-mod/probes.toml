@@ -2,11 +2,12 @@
 # regenerate, never edit (docs/bench/verify-mod.md).
 format = 1
 plugin = "KitKraftVerify.esm"
-sha256 = "a9632f11d0ad0ade56170fa424c48d5f5a29bb8475c8977e8870a0289be39faa"
+sha256 = "5398189094d8c16ba5daa1a00674d1a96ed437f7b7bb87e0efd9c239d719aae9"
 generated_by = "docs/bench/verify-mod/make_probes.py (bench 2026-11-16) over kit testplan"
 profile = "KitKraft Dev"
 runtime_id_basis = "inferred:runtime-slots-by-scale"
 notes = [
+    "Build: sha256 above is the integrated build of 2026-11-17 (kit with the CK new-record members, opus/cktriage2-20261117; 81,904 bytes). The game passes recorded for these rows were observed on build a9632f11...e39faa (game-20261116-03 to -05, game-20261117-01); re-run needed on the current build.",
     "Rows are independent: each names its forms by runtime ID and sets up what it reads, except the V-P rows, which read the lines the reporter wrote after V-40, and the V-C and V-S rows, which read what the reporter changed.",
     "Order: proven console commands first, the reporter, inventory, the field getters, the save and reload, the checks after it, presence (by help, or by the reporter where help finds nothing) last.",
 ]

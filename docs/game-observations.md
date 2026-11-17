@@ -1944,3 +1944,199 @@ scenarios; `game.session` `start: true` through a long-lived `kit mcp` of the re
   `modlist.txt` `6bed5567...3bd7a`, `plugins.txt` `9d5991a1...49a289`, `loadorder.txt`
   `22e50236...249ac`, `lockedorder.txt` unchanged; the rename plugin stays enabled and last,
   both verification mods deployed and disabled. `report.json` SHA-256 `4bfffe8d...5c114e`.
+
+### game-20261117-05: agent session 2026-11-17-T05 (`kit game session`), KitKraftVerifyQuest.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T05`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-05` |
+| Plugins | `KitKraftVerifyQuest.esm` SHA-256 `7192216dabb39280b40a85283442dc63ad22e0c2b1f7823d26fa9de4c2b2f0e5` |
+| Probes | `docs\bench\verify-mod\verify-quest-probes.toml` SHA-256 `c59da097804a506bf15a6bab9d91c4597bbb809573ad1424a157dcd67474fcff` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T05` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| Q-01 | `prid 00000014` | KKQ01Qust | papyrus-log KKQ-Q01 quest script running | prid 00000014 -> prid 00000014 Command: prid 00000014; (waited 15s) | **pass** | - |
+| Q-02 | Papyrus log: KKQ-Q02 the quest property names the placed KKQ70Marker | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q02 marker-set=True base-is=True | - | **pass** | - |
+| Q-03 | Papyrus log: KKQ-Q03 the stage 10 fragment ran (QUST VMAD fragment block) | KKQ01Qust | papyrus-log KKQ-Q03 stage 10 fragment ran | - | **pass** | - |
+| Q-04 | Papyrus log: KKQ-Q04 stage 10 done after SetStage | KKQ01Qust | papyrus-log KKQ-Q04 stage10-done=True | - | **pass** | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (4b16aa2c1fa8ec6cde2e9386c05fc4de7fd2f45a90c7ed79803c90c1c5e1b03e -> d12954f5fa75b12b1e6bd87747d5d89e122471b94c1c9410e6e5bfebe488eed2): restored from C:\Modding\kitkraft-observe\2026-11-17-T05\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (65bf61161827c8154e5f3e3001df3e938cca8baa64060aa565253bad76b2e39b -> 48daa0205a602f4a1fd189ad2799c21e2d242176279ab96367bb469e9d4582d0): restored from C:\Modding\kitkraft-observe\2026-11-17-T05\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, second desk window, 02:24 to 02:28; the Q-03
+re-test). One variable changed against `game-20261117-02`: stage 10 of `KKQ01Qust` got its
+log entry (`QSDT = 0` in the stage's fields of `docs/bench/verify-mod/verify-quest.toml`).
+`kit inspect` of the built QUST shows `INDX 0A000000`, then `QSDT 00`, `QSRD 00000000` and
+the empty `QSRD` end marker (the reward count and end the schema requires, written as
+zeros); before, `INDX` had nothing after it. Plugin 3,261 bytes, SHA-256
+`7192216dabb39280b40a85283442dc63ad22e0c2b1f7823d26fa9de4c2b2f0e5` (was `94d2ad19...`);
+validate 0 errors 0 warnings, roundtrip identical. Probes file
+`verify-quest-probes.toml` changed only in its `sha256` line (file SHA-256
+`c59da097804a506bf15a6bab9d91c4597bbb809573ad1424a157dcd67474fcff`). Both `.pex` unchanged
+(`73a7dfce...`, `a8e03809...`), release `kit.exe` `627a8a6d...` as before.
+
+- **4 of 4 rows pass.** At 02:27:05 the Papyrus log holds `KKQ-Q01 quest script running`,
+  `KKQ-Q02 marker-set=true base-is=true`, **`KKQ-Q03 stage 10 fragment ran`** and
+  `KKQ-Q04 stage10-done=true`.
+- **Reading:** the stage fragment kit writes into the quest `VMAD` runs when its stage has a
+  log entry; without one (`game-20261117-02`) it did not run and nothing was logged. This
+  confirms the two agents' diagnosis for this one quest (one stage, one fragment, log entry
+  index 0); other stage shapes are untested. The fragment writer itself needed no change;
+  a recipe stage that carries a fragment needs a log entry (a `validate` rule or a default
+  for `new` would catch it: ticket idea).
+- `report.json` SHA-256 `4ad813c8199d56035f038afcad30a819128061b7020c5fc6922d4dbe87268a70`.
+  The game and MO2 were closed by the controller; `KitKraftVerifyQuest` stays enabled for
+  the Q-05 session that may follow.
+
+### game-20261117-06: agent session 2026-11-17-T06 (`kit game session`), KitKraftVerifyQuest.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T06`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-06` |
+| Plugins | `KitKraftVerifyQuest.esm` SHA-256 `f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62` |
+| Probes | `docs\bench\verify-mod\verify-quest-probes.toml` SHA-256 `ed08aa2deefbaef040b65b8859c3f5e788d1c7978440d00b25c772270380952e` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T06` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| Q-01 | `prid 00000014` | KKQ01Qust | papyrus-log KKQ-Q01 quest script running | prid 00000014 -> prid 00000014 Command: prid 00000014; (waited 15s) | **pass** | - |
+| Q-02 | Papyrus log: KKQ-Q02 the quest property names the placed KKQ70Marker | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q02 marker-set=True base-is=True | - | **pass** | - |
+| Q-03 | Papyrus log: KKQ-Q03 the stage 10 fragment ran (QUST VMAD fragment block) | KKQ01Qust | papyrus-log KKQ-Q03 stage 10 fragment ran | - | **pass** | - |
+| Q-04 | Papyrus log: KKQ-Q04 stage 10 done after SetStage | KKQ01Qust | papyrus-log KKQ-Q04 stage10-done=True | - | **pass** | - |
+| Q-05 | Papyrus log: KKQ-Q05 the alias script on MarkerAlias runs (QUST VMAD alias section; NOT RUN) | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q05 alias script running count=7 ref-is-marker=True | - | **pass** | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (4b16aa2c1fa8ec6cde2e9386c05fc4de7fd2f45a90c7ed79803c90c1c5e1b03e -> d12954f5fa75b12b1e6bd87747d5d89e122471b94c1c9410e6e5bfebe488eed2): restored from C:\Modding\kitkraft-observe\2026-11-17-T06\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (65bf61161827c8154e5f3e3001df3e938cca8baa64060aa565253bad76b2e39b -> 48daa0205a602f4a1fd189ad2799c21e2d242176279ab96367bb469e9d4582d0): restored from C:\Modding\kitkraft-observe\2026-11-17-T06\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, 02:29 to 02:33; Q-05, the alias script). Plugin
+and probes are not from this branch: a release `kit.exe` (`kit-cli` only, SHA-256
+`bbbd1c04715f7b2fe12f10ab100fe7988ca9a83f3be5c37e8179c072bf03425b`) was built from
+`ea53c68f` (branch `opus/aliasscripts-20261117`) in a temporary worktree and target, both
+removed afterwards. Its `verify-quest.toml` was used with one line changed: `QSDT = 0`
+added to the quest's fields, as on this branch (`game-20261117-05`), so that Q-03 is not
+the variable. Three scripts compiled with `kit papyrus compile` and the base-game sources
+(`VerifyAliasReport.pex` `393a96dc8dacaa0a46eea04ceb6d52b60fb077cc953eff807cfcd25ee7b6299f`,
+`VerifyQuestReport.pex` `eb512b75...ecf1264`, `QF_KKQ01Qust.pex` `5ccba81f...5d46b50`).
+Plugin 3,413 bytes, SHA-256
+`f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62` (that commit's
+`e6b58d33...` plus the 23 bytes of the stage's log entry); the QUST reads `INDX QSDT QSRD
+QSRD ANAM ALST ALID FNAM ALFG ALFR VTCK ALED`; validate 0 errors 0 warnings, roundtrip
+identical. Probes: that commit's `verify-quest-probes.toml` with only its `sha256` line set to
+the build (file SHA-256 `ed08aa2deefbaef040b65b8859c3f5e788d1c7978440d00b25c772270380952e`).
+Deployed and run with this branch's release `kit.exe` (`627a8a6d...`).
+
+- **5 of 5 rows pass.** At 02:33:00 the Papyrus log holds `KKQ-Q01`, **`KKQ-Q05 alias script
+  running count=7 ref-is-marker=true`**, `KKQ-Q02`, `KKQ-Q03 stage 10 fragment ran` and
+  `KKQ-Q04`. The alias script kit wrote into the alias section of the quest `VMAD` ran on
+  the alias forced to the placed crate, and read its property `Count = 7` (default 0).
+- **After:** `deploy disable --mods KitKraftVerifyQuest` (dry run first). The dev mod
+  `KitKraft Dev - KitKraftVerifyQuest` now holds this alias build, not the
+  `7192216d...` build of `game-20261117-05`. `report.json` SHA-256
+  `ad842e4d7ab0c9bd81006a2833f2c9cfee4a788316b8806a8f04b816d43ee8d7`.
+
+### game-20261117-07: agent session 2026-11-17-T07 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T07`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-07` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `docs\bench\ow2-rerun-probes.toml` SHA-256 `e457fac2dbd61f2665b29d04a1ca973e8909b35164df55adbcffbaef3d49ed90` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T07` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help "Old Soviet Marksman Rifle" 4 WEAP`, `prid 00000014` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help "Old Soviet Marksman Rifle" 4 WEAP -> (no line of its own: help "Old Soviet Marksman Rifle" 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS----...; again in 2000 ms); help "Old Soviet Marksman Rifle" 4 WEAP -> (no line of its own: help "Old Soviet Marksman Rifle" 4 WEAP ----VIEW... | inconclusive (`help "Old Soviet Marksman Rifle" 4 WEAP`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| T-01b | `help Soviet 4 WEAP`, `prid 00000014` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help Soviet 4 WEAP -> (no line of its own: help Soviet 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- usag...; again in 2000 ms); help Soviet 4 WEAP -> (no line of its own: help Soviet 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS---------------... | inconclusive (`help Soviet 4 WEAP`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| T-02 | `player.additem 0021BBCD 1`, `player.getitemcount 0021BBCD` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | regex >>\s*[1-9] | player.additem 0021BBCD 1 -> player.additem 0021BBCD 1 Command: player.additem 0021BBCD 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0021BBCD -> player.getitemcount 0021BBCD Command: player.getitemcount 0021BBCD GetItemCount >> 1.00 | **pass** | - |
+| T-03 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261117-07`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261117-07`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 30s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00; save KitKraftSession-... | **pass** | - |
+| SO-A | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisApartmentTEMPLATE | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; player.getpos x -> (only the echo; again in 2000 ms); player.getpos x -> player.getpos x Command: player.getpos x GetPos: X >> -8.00; p... | **pass** | - |
+| SO-B | `coc CityNewAtlantisLodgeInt`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisLodgeInt | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 30s); (ambiguous: row SO-A `player.getpos x`, row SO-B `player.getpos x` could each claim `GetPos: X >> 11.01`; given to none); player.g... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-A) are the same getter still waiting for an answer, and the line `GetPos: X >> 11.01` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+| SO-C | `load KitKraftSession-20261117-07`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisLodgeInt | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | load KitKraftSession-20261117-07 -> load KitKraftSession-20261117-07 Command: load KitKraftSession-20261117-07; (readiness poll) GetSFSEVersion -> GetSFSEVersion Command: GetSFSEVersion; (readiness poll) GetSFSEVersion -> GetSFSEVersion Command: GetSFSEVersion; (readiness poll) GetSFSEVersion -> Get... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-A), `player.getpos x` (row SO-B) are the same getter still waiting for an answer, and the line `GetPos: X >> 11.00` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (9476b9444abd44ae8a9e22e350ee16194af604b00e0f1c6ee39387289ecfc630 -> 4d50841844b04a3e26fa4f43ff89c11fccc96789467a8e37199ed7ace866d3f3): restored from C:\Modding\kitkraft-observe\2026-11-17-T07\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (d49cb3a06d1949775a8423ee7eff476aeafd075c98e3f9eae5a065532ac8aee4 -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-17-T07\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, 02:35 to 02:41; OW-2 Rename re-run with send-order
+rows for SO-03). Probes `docs/bench/ow2-rerun-probes.toml` (SHA-256
+`e457fac2dbd61f2665b29d04a1ca973e8909b35164df55adbcffbaef3d49ed90`), hand-written from the
+testplan file of `game-20261117-04` with only shape and pacing changed (its header says
+what). Release `kit.exe` `627a8a6d...`; the rename plugin `9c0b28a6...` enabled and last, both
+verification mods disabled. Times below are ms after launch, from `report.json`
+(`transcript`).
+
+- **Why -04's rows were inconclusive.** T-03: the three `player.getincell 0006BB29` sent
+  10.1 s, 12.2 s and 16.4 s after `coc CityNewAtlantisLodgeInt` all answered only their
+  echo; every later `GetInCell >> 1.00` then had several identical getters waiting for it,
+  so the correlator gave it to none. T-01: the answer was not late; it came in its own
+  reply and listed nothing (`----VIEWER STRINGS NOT AVAILABLE----`, `----OTHER FORMS----`,
+  no form line).
+- **T-03 pass** with the Lodge `coc` waited 30 s and the apartment `coc` 20 s: each of the
+  three getters answered `GetInCell >> 1.00` in its own reply on the first send (145,972;
+  176,332; 201,887), around the save and the load of `KitKraftSession-20261117-07`. The
+  check is unchanged. It proves the reload; no reference's state after it is read
+  (T-04 stays manual), so no save/reload evidence is entered.
+- **T-01 and T-01b inconclusive, not a timing matter.** `help "Old Soviet Marksman Rifle" 4
+  WEAP` and `help Soviet 4 WEAP` each answered at once, three times, with the empty list
+  and the line `usage: help <matchstring> <filter> <form type>`. On this build `help`
+  found no WEAP by the renamed FULL (by a quoted phrase or by one word). The rename shows
+  in the game's UI (the workbench list, `game-20261117-04`'s reading), not through `help`.
+  A check that can grade T-01 needs another getter (ticket idea: read the name another way,
+  e.g. a Papyrus `GetName` reporter as the verification mod does).
+- **T-02 pass** again (`GetItemCount >> 1.00` on the first send). The `additem` reply carried
+  unrelated `GetGlobalValue >> 2.00` lines (the game's own condition checks, as after
+  every `coc`).
+- **Send order (SO-03's question), what one session shows:**
+
+  | When sent | Command | Sent at | Reply |
+  | --------- | ------- | ------: | ----- |
+  | 105 ms after `coc` (apartment, 202,003) | `player.getpos x` | 202,108 | echo only |
+  | retry | `player.getpos x` | 204,215 | `GetPos: X >> -8.00` |
+  | then | `player.getpos y`, `z` | 204,339, 204,445 | own lines, on time |
+  | 30 s after `coc` (Lodge, 219,556) | `player.getpos x` | 249,667 | `GetPos: X >> 11.01` (own reply) |
+  | 4.4 s after the readiness poll's last echo-only poll (load at 256,232) | `player.getpos x` | 266,660 | echo only |
+  | retry | `player.getpos x` | 268,765 | echo only |
+  | retry | `player.getpos x` | 272,883 | `GetPos: X >> 11.00` |
+  | then | `player.getpos y`, `z` | 272,999, 273,119 | own lines, on time |
+
+  Reading: every reply carried **at most one** `GetPos: X` line, and no X line ever arrived
+  in the reply to a later `y`, `z` or other request. If the echo-only sends' answers had
+  only been late, some later reply would have held two X lines; none did. So the answers
+  to getters sent while a `coc` (about 2 s) or a `load` (about 16 s after it) was still
+  moving were **lost, not delayed**, and nothing arrived out of order: the same reading as
+  OW-1 (`game-20261116-01`, `-02`). It does not decide SO-03's two identical `prid` failure
+  lines; it is the evidence for the owner's ruling on send order. Also seen: the readiness
+  poll after a `load` declared ready on three echo-only polls (266,546), about 6 s before the
+  game answered getters (R41's rule counts an echo as a reply); a getter sent then is lost.
+  SO-B and SO-C grade `inconclusive` only because the correlator still counted SO-A's lost
+  X getter as waiting; SO-A passes.
+- `report.json` SHA-256 `f1925596b061b5f483dd6f1c27ccbd3d0a17f765cc876f400693fac6c45df37d`.
+  The game and MO2 were closed by the controller; the session save
+  `KitKraftSession-20261117-07` is in the dev profile.

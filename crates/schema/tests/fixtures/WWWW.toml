@@ -1,0 +1,85 @@
+# WWWW: a synthetic record for struct-field unions whose variants differ in size
+# (`variable_width = true`, 2026-11-17, for the Volumes component's VLMS entries): each array
+# element's tail is as wide as its own `Kind` says; a kind no variant names fails the decode,
+# so the whole subrecord stays raw.
+signature = "WWWW"
+name = "Widths"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+
+[[member]]
+sig = "VOLS"
+name = "Volumes"
+type = "struct"
+card = "optional"
+
+[[member.field]]
+name = "Count"
+type = "u32"
+
+[[member.field]]
+name = "Entries"
+type = "array"
+element = "struct"
+count_from = "Count"
+field = [
+  { name = "Kind", type = "u32" },
+  { name = "Center", type = "f32" },
+  { name = "Tail", type = "union", decider = "field:Kind", variable_width = true, variants = [
+    { when = 1, name = "One", type = "f32" },
+    { when = [3, 4], name = "Two", type = "array", count = 2, element = "f32" },
+    { when = 5, name = "Ref", type = "formid", targets = ["KYWD"] },
+  ] },
+]
+
+# Every variant holds FormIDs, so the visitor's match needs no wildcard arm.
+[[member]]
+sig = "LINK"
+name = "Links"
+type = "struct"
+card = "optional"
+
+[[member.field]]
+name = "Kind"
+type = "u8"
+
+[[member.field]]
+name = "Target"
+type = "union"
+decider = "field:Kind"
+variable_width = true
+variants = [
+  { when = 0, name = "One", type = "formid" },
+  { when = 1, name = "Pair", type = "array", count = 2, element = "formid" },
+]
+
+# Struct fields present only when bits of an earlier sibling match (`present_if`), and half
+# floats (`f16`), 2026-11-17, for the stored traversals' entries: the target is stored only
+# when flag 0x4 is clear.
+[[member]]
+sig = "TRAV"
+name = "Traversals"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [["Keep", 0x1], ["NoTarget", 0x4]] },
+  { name = "Target", type = "formid", present_if = { field = "Flags", mask = 0x4, value = 0 } },
+  { name = "Extra", type = "u8", present_if = { field = "Flags", mask = 0x3, value = 0x3 } },
+  { name = "Speeds", type = "array", count = 2, element = "f16" },
+]
+
+# Stride arrays (`count = "stride:N"`), 2026-11-17, for the CELL traversal arrays: payload
+# bytes / 8 elements of 4 or 8 bytes, then zero padding up to 8 bytes per element.
+[[member]]
+sig = "PADS"
+name = "Padded"
+type = "array"
+card = "optional"
+count = "stride:8"
+element = "struct"
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [["NoTarget", 0x4]] },
+  { name = "Target", type = "formid", present_if = { field = "Flags", mask = 0x4, value = 0 } },
+]

@@ -5,9 +5,10 @@
 //! command or writes anything.
 //!
 //! The checkout is found in this order: the UI prefs' `repo_dir`, `KITKRAFT_REPO_DIR`,
-//! the folders above `kit-ui.exe` (a build in `target\release` sits inside the checkout),
-//! the folders above the working directory. A checkout is a folder with `AGENTS.md` and
-//! `docs\`.
+//! the folders above the working directory, the folders above `kit-ui.exe` (a build in
+//! `target\release` sits inside the checkout). The working directory comes first because
+//! an agent's build sits in the main checkout's `.targets\<agent>` while it works in a
+//! worktree (KK-368). A checkout is a folder with `AGENTS.md` and `docs\`.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -73,7 +74,7 @@ pub fn find_checkout(
             return Some((d, how));
         }
     }
-    for (start, how) in [(exe, "above kit-ui"), (cwd, "above the working directory")] {
+    for (start, how) in [(cwd, "above the working directory"), (exe, "above kit-ui")] {
         if let Some(found) = start
             .as_deref()
             .and_then(|s| s.ancestors().take(12).find(|d| is_checkout(d)))
@@ -84,7 +85,7 @@ pub fn find_checkout(
     None
 }
 
-/// The checkout of this process (prefs, environment, exe, working directory).
+/// The checkout of this process (prefs, environment, working directory, exe).
 pub fn find_checkout_here(pref: Option<&str>) -> Option<(PathBuf, &'static str)> {
     find_checkout(
         pref,
@@ -409,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn the_checkout_is_found_by_prefs_env_exe_then_cwd() {
+    fn the_checkout_is_found_by_prefs_env_cwd_then_exe() {
         let root = repo();
         let exe = root.join("target").join("release").join("kit-ui.exe");
         let elsewhere = std::env::temp_dir();
@@ -433,5 +434,38 @@ mod tests {
             Some("above the working directory")
         );
         assert_eq!(r(None, None, None, Some(elsewhere)), None);
+    }
+
+    #[test]
+    fn the_working_directory_comes_before_kit_ui() {
+        let base = std::env::temp_dir().join(format!(
+            "kitkraft-kk368-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let checkout = |name: &str| {
+            let dir = base.join(name);
+            std::fs::create_dir_all(dir.join("docs")).unwrap();
+            std::fs::write(dir.join("AGENTS.md"), "x").unwrap();
+            dir
+        };
+        let main = checkout("main");
+        let worktree = checkout("worktree");
+        let outside = base.join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        let exe = main.join(".targets").join("a").join("kit-ui.exe");
+        let cwd = worktree.join("docs");
+        assert_eq!(
+            find_checkout(None, None, Some(exe.clone()), Some(cwd)),
+            Some((worktree.clone(), "above the working directory"))
+        );
+        assert_eq!(
+            find_checkout(None, None, Some(exe), Some(outside)),
+            Some((main.clone(), "above kit-ui"))
+        );
+        std::fs::remove_dir_all(&base).unwrap();
     }
 }

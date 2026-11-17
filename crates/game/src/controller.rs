@@ -245,6 +245,8 @@ pub struct Report {
     /// Every command sent to the console and its full reply, in order (M4.T7): what a
     /// replay of the session answers from (`crate::replay`).
     pub transcript: Vec<crate::replay::Sent>,
+    /// Every input an agent sent to the game window, in order (ADR 0010 Amendment 2).
+    pub inputs: Vec<crate::input::SentInput>,
 }
 
 /// What `game.status` shows.
@@ -284,6 +286,7 @@ pub struct Shared {
     started: Instant,
     stop: AtomicBool,
     requests: Mutex<VecDeque<Request>>,
+    inputs: Mutex<Vec<crate::input::SentInput>>,
 }
 
 impl std::fmt::Debug for Shared {
@@ -312,7 +315,32 @@ impl Shared {
             started: Instant::now(),
             stop: AtomicBool::new(false),
             requests: Mutex::new(VecDeque::new()),
+            inputs: Mutex::new(Vec::new()),
         })
+    }
+
+    /// Records one input an agent sent to the game window (ADR 0010 Amendment 2): `row`
+    /// is the probe row it served, if any, `kind` is `key`, `mouse`, `controller` or
+    /// `focus`, and `detail` says what was sent. The time is taken from the session's start.
+    pub fn record_input(&self, row: Option<&str>, kind: &str, detail: &str) {
+        let at_ms = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        self.inputs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(crate::input::SentInput {
+                at_ms,
+                row: row.map(str::to_string),
+                kind: kind.to_string(),
+                detail: detail.to_string(),
+            });
+    }
+
+    /// Every input recorded so far, in order.
+    pub fn inputs(&self) -> Vec<crate::input::SentInput> {
+        self.inputs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     fn with<R>(&self, f: impl FnOnce(&mut Snapshot) -> R) -> R {
@@ -465,9 +493,11 @@ impl Run<'_> {
     }
 
     /// Polls the readiness command until the game answers. At launch (`window`), that is a
-    /// non-empty body containing `ready_expect`, when set, counted in send order: an empty or
-    /// blank answer is not ready, nor is one holding only the command's echo, and the n-th
-    /// `ready_expect` line answers the n-th poll still owed one. After a `load` (no
+    /// reply holding at least one `ready_expect` line, when set (any answer but the echo when
+    /// not): an empty or blank answer is not ready, nor is one holding only the command's
+    /// echo. The lines are not counted in send order: the game drops, rather than delays,
+    /// the answer to a command it takes while busy (game-20261116-01, -02; KK-369), so a poll
+    /// answered only by its echo owes nothing to a later one. After a `load` (no
     /// `window`), the poll only paces (ruling R41): ready once [`PACING_POLLS`] polls in a
     /// row had a reply, the echo at least; an empty body, a timeout or an error starts the
     /// count again, and the reply's text never decides readiness (the caller still reads it
@@ -495,11 +525,10 @@ impl Run<'_> {
         let every = secs(self.plan.timeouts.ready_poll_secs).max(self.plan.poll);
         // When the main window was first seen (only with `window`).
         let mut up: Option<Instant> = None;
-        // Launch only: polls whose `ready_expect` line has not arrived yet (their answers
-        // come in send order, review L1' of the 3b fix round).
-        let mut owed: usize = 0;
         // After a `load`: polls in a row that had a reply (R41).
         let mut streak: u32 = 0;
+        // Whether any poll of this wait had a reply (an empty body included).
+        let mut answered = false;
         let mut last = if window {
             format!("no main window of {image} yet; nothing sent")
         } else {
@@ -549,12 +578,23 @@ impl Run<'_> {
                     wait = wait.min(rest);
                 }
             } else {
-                match self.deps.console.run(&cmd, left.min(secs(5))) {
+                let cap = left.min(secs(5));
+                match self.deps.console.run(&cmd, cap) {
+                    // A poll cut short by this wait's own deadline (its timeout under the
+                    // usual 5 s) says nothing new about the game: keep what the last reply
+                    // showed rather than replacing it with "timeout" (the near-deadline poll
+                    // made `an_empty_answer_is_not_ready` flaky under load).
+                    Err(ConsoleError::Timeout) if cap < secs(5) && answered => {
+                        streak = 0;
+                        last = format!("{last}; the last poll ran into the deadline");
+                    }
                     Ok(out) if out.trim().is_empty() => {
+                        answered = true;
                         streak = 0;
                         last = format!("`{cmd}` answered an empty body, not ready");
                     }
                     Ok(out) if !window => {
+                        answered = true;
                         // R41: the reply arrived; what it says is the caller's to read.
                         streak = streak.saturating_add(1);
                         if streak >= PACING_POLLS {
@@ -571,25 +611,20 @@ impl Run<'_> {
                         replies.push(out);
                     }
                     Ok(out) => {
+                        answered = true;
                         // Only the echo is not the game answering (review M1 of G 3b).
                         let echo = crate::probes::echo_only(&cmd, &out);
-                        // In send order the n-th `ready_expect` line answers the n-th poll
-                        // still owed one, so a poll answered only by its echo owes its line
-                        // to a later reply, and a line arriving while an older poll is owed
-                        // is that poll's (review L1' of the 3b fix round). With no
-                        // `ready_expect` a line cannot be told apart; any answer but the
-                        // echo is ready.
-                        let answers = if expect.is_empty() {
-                            usize::from(!echo)
+                        // Any reply holding a `ready_expect` line is the game answering,
+                        // whichever poll the line was for: the game drops the answers to
+                        // commands it takes while busy (game-20261116-01, -02; KK-369), so
+                        // counting them in send order could wait forever. With no
+                        // `ready_expect` any answer but the echo is ready.
+                        let ready = if expect.is_empty() {
+                            !echo
                         } else {
-                            let n = out
-                                .lines()
-                                .filter(|l| l.to_ascii_lowercase().contains(&expect))
-                                .count();
-                            owed = owed.saturating_add(1).saturating_sub(n);
-                            n
+                            out.lines()
+                                .any(|l| l.to_ascii_lowercase().contains(&expect))
                         };
-                        let ready = answers > 0 && (expect.is_empty() || owed == 0);
                         if ready {
                             self.shared
                                 .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
@@ -598,11 +633,6 @@ impl Run<'_> {
                         }
                         last = if echo {
                             format!("`{cmd}` answered only its echo, not ready")
-                        } else if answers > 0 {
-                            format!(
-                                "`{cmd}` answered `{}`, but {owed} earlier poll(s) still owe their answer, so the line is theirs (send order), not ready",
-                                clip(&out, 60)
-                            )
                         } else {
                             format!("answer `{}`", clip(&out, 80))
                         };
@@ -610,9 +640,6 @@ impl Run<'_> {
                     }
                     Err(e) => {
                         streak = 0;
-                        if window && !expect.is_empty() && matches!(e, ConsoleError::Timeout) {
-                            owed = owed.saturating_add(1);
-                        }
                         last = e.to_string();
                     }
                 }
@@ -1693,6 +1720,14 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
             changes.len()
         ))
     };
+    // Amendment 2: a session that sent input says so, in its findings and its ledger entry.
+    let inputs = shared.inputs();
+    if !inputs.is_empty() {
+        r.findings.push(format!(
+            "agent input sent: {} (report.json `inputs`); a pass may depend on it",
+            inputs.len()
+        ));
+    }
     let mut entry = Entry {
         id: String::new(),
         session: plan.session.clone(),
@@ -1739,6 +1774,7 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
         ledger_text,
         written: Vec::new(),
         transcript: transcript.sends(),
+        inputs,
     };
     let report_path = plan.observe.join("report.json");
     if let Ok(text) = serde_json::to_string_pretty(&report) {

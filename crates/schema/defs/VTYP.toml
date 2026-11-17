@@ -1,21 +1,29 @@
-# VTYP: VoiceType, inventory definition (KK-224).
+# VTYP: VoiceType, the voice type an actor speaks with: two flags, the face animation
+# archetype and a pronoun override.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official VTYP record (915 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-11-02): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18488-L18507 - member order, EDID (L18489),
+#     the 8-bit flags with two named bits (L18492-L18498, required), the FormID of a KYWD
+#     named 'Animation Face Archetype' (L18499) and the 8-bit enum named 'Pronoun
+#     Override' with four values (L18500-L18506). Upstream also lists the script data
+#     (L18490) and the base form component block (L18491); no official record has either,
+#     so they are left out (a plugin that has one keeps it raw).
+#   corpus: the vtyp_types scan in crates/esm/tests/vtyp_types.rs checks this definition
+#     against every official VTYP record (915 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record. The
+#     earlier inventory scan (KK-224, crates/esm/tests/inventory_types.rs) gives the
+#     per-member counts below. PNAM is in every official record although upstream does
+#     not mark it required: the corpus cardinality is kept.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane decodes the record (docs/gaps.md).
 signature = "VTYP"
 name = "VoiceType"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official VTYP record (915) decodes with every subrecord placed and re-encodes identically"
-confidence = "corpus"
-note = "inventory definition (KK-224): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18488-L18507"
+evidence = [
+  "corpus: vtyp_types_full (crates/esm/tests/vtyp_types.rs), 2026-11-17: every official VTYP record (915) decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "reference"
+note = "typed from the pinned xEdit file (L18488-L18507): EDID, the flags, the face animation archetype and the pronoun override; no official record has the script data or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
@@ -24,33 +32,53 @@ type = "zstring"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 8..36 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18489-L18489",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u8"
 card = "required"
+bits = [
+  ["AllowDefaultDialog", 0x1],
+  ["Female", 0x2],
+]
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 1 bytes"
+evidence = [
+  "corpus: vtyp_types_full (crates/esm/tests/vtyp_types.rs), 2026-11-17: in 915 of 915 official VTYP records, 1 byte",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18492-L18498",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 1 bytes"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "AnimationFaceArchetype"
+type = "formid"
+targets = ["KYWD"]
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 263 of 915 official VTYP records (263 occurrences), 4 bytes"
+evidence = [
+  "corpus: vtyp_types_full (crates/esm/tests/vtyp_types.rs), 2026-11-17: in 263 of 915 official VTYP records, 4 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18499-L18499",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 4 bytes"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "PronounOverride"
+type = "enum"
+base = "u8"
 card = "required"
+values = [["Unselected", 0], ["HeHim", 1], ["SheHer", 2], ["TheyThem", 3]]
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: in 915 of 915 official VTYP records (915 occurrences), 1 bytes"
+evidence = [
+  "corpus: vtyp_types_full (crates/esm/tests/vtyp_types.rs), 2026-11-17: in 915 of 915 official VTYP records, 1 byte",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18500-L18506",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-224 inventory); observed 1 bytes"
+note = "in every official record (upstream does not mark it required); the corpus cardinality is kept"

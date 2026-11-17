@@ -1,0 +1,107 @@
+# Written 2026-11-17 in the shape of KK-340 (typed-write tests; KK-291 merged 6/6 by the local agent).
+id = "KK-389"
+title = "Typed-write tests for AMMO, PROJ and ZOOM"
+timeout_min = 60
+budget_h = 1.5
+owns = [
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+  "docs/foothold/gap-matrix.md",
+  "docs/record-parity.md",
+]
+brief = """
+`kit coverage --matrix` (MX) reports a record type `typed-writable` only when
+`docs/schema/evidence.toml` cites a test that writes the type with every typed member and
+reads it back. `AMMO` (Ammunition, typed by lane B round 3: `crates/schema/defs/AMMO.toml`); `PROJ` (Projectile, typed by lane B round 3: `crates/schema/defs/PROJ.toml`); `ZOOM` (Zoom, typed by lane B round 3: `crates/schema/defs/ZOOM.toml`) were typed from the pinned xEdit file and corpus-checked. No test
+writes them, so MX says `not-run` for each. Add the tests and the evidence entries, exactly
+as KK-291 did for WWED (merged 6/6) and KK-340 and KK-341 do for six more types.
+
+Start from `crates/engine/src/handlers/authoring_tests.rs`. Its module docs explain the two
+test shapes, and the WWED tests (`wwed_new_sets_every_typed_member_and_reads_back`,
+`wwed_dangling_link_is_reported`) are your template:
+
+- `<type>_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(sig,
+  layout, component)` with the usual `"ContactShadow",
+  "BGSContactShadowComponent_Component"`: one record built with `new` on a synthetic load
+  order, every typed member given a value, read back, re-encoded, `validate`d. For a type
+  without a base form component block the two names are inert (see the comment above
+  `kywd_new_sets_every_typed_member_and_reads_back`).
+- `<type>_dangling_link_is_reported` calls `dangling(...)` with FormID members set to
+  `MISSING` and checks that `validate`'s `formid.dangling` and `refs` report each. A
+  FormID array is set whole, as a JSON array of its elements (`json!([MISSING])`, as
+  `keym_dangling_link_is_reported` does for `KWDA`).
+
+Add these tests, with these exact names, at the end of the file (after the last test there:
+other tickets of this shape may have added theirs since this was written):
+
+- `ammo_new_sets_every_typed_member_and_reads_back`: `writes_and_reads_back("AMMO", ...)`.
+- `ammo_dangling_link_is_reported`: `dangling("AMMO", ..., &[("SNTP", json!(MISSING)), ("DEFL", json!(MISSING))], &["SNTP", "DEFL"])` (the snap template and the default layer).
+- `proj_new_sets_every_typed_member_and_reads_back`: `writes_and_reads_back("PROJ", ...)`.
+- `proj_dangling_link_is_reported`: `dangling("PROJ", ..., &[("NAM3", json!(MISSING)), ("DEFL", json!(MISSING))], &["NAM3", "DEFL"])` (the curve table and the default layer).
+- `zoom_new_sets_every_typed_member_and_reads_back`: `writes_and_reads_back("ZOOM", ...)`.
+
+`ZOOM` has no top-level FormID member, so no dangling test: the read-back test is its
+evidence alone, as for a type whose links are all inside structs (say so in the comment
+above the test and in the evidence note).
+
+Read each definition before you write its tests, so the comment above each test says in a
+line what the type is and which members the dangling test covers. These calls (the `...`
+being the usual two layout names) were tried on `main` at d8c3b1c3 on 2026-11-17 and passed
+as written, with the plain helpers: you should not need `writes_and_reads_back_with` or any
+change to a helper. Do not reorder, rename or reformat anything that is already in the file.
+
+If a test does not pass on the tree you start from (`new` refuses a member, or `validate`
+reports a finding on what `new` wrote), do not edit the engine or the schema (not yours
+here) and do not relax `check_written` or any other helper's checks: find out why, write the
+reason in a comment above the test and in your commit message, and stop; the run then fails on
+its acceptance and the merge reads your reason. Never change, loosen or `#[ignore]` a test,
+yours or an existing one.
+
+Then:
+
+- `docs/schema/evidence.toml`: one `[[entry]]` per type (AMMO, PROJ and ZOOM) with `status =
+  "typed-writable"`, `result = "pass"`, `evidence` citing that type's tests as the WWED
+  entry does (`test: crates/engine/src/handlers/authoring_tests.rs::<fn>`), and a `note`
+  in the style of the WWED one (the ticket, how many subrecords the read-back wrote, which
+  members the dangling test covers). Write the three lines `type`, `status`, `result` in
+  that order, one after the other. The gate test `every_evidence_pointer_resolves`
+  (`crates/engine/src/handlers/matrix.rs`) fails if a cited test does not exist.
+- `docs/schema/support-matrix.md`: add AMMO, PROJ and ZOOM to the typed-writable list (the
+  `authoring_tests.rs` types, under "Seeded 2026-10-15") and a short section for this
+  round at the end of the typed-write sections, as KK-291's ("WWED (KK-291, 2026-11-15)")
+  is written. Add the types and this ticket's ID to the module docs at the top of
+  `authoring_tests.rs`.
+- Run `cargo xtask parity`: it regenerates the headline of `docs/foothold/gap-matrix.md`
+  (the evidence file is one of its inputs; the typed-writable count rises by 3) and
+  `docs/record-parity.md`. Commit what it writes. None of these types has a row in the
+  hand-written record-family table of the gap matrix, so edit nothing else in that file.
+- Do not edit `plan/STATUS.md` (no "Landed" line: the merge commit and
+  `plan/tickets/README.md` record the ticket); say what each test covers in your commit
+  message.
+
+Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then `cargo xtask
+parity --check` and `cargo xtask ci`. Commit only when every acceptance command below passes
+and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "ammo-tests"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::ammo_new_sets_every_typed_member_and_reads_back handlers::authoring_tests::ammo_dangling_link_is_reported 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "proj-tests"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::proj_new_sets_every_typed_member_and_reads_back handlers::authoring_tests::proj_dangling_link_is_reported 2>&1 | tee /tmp/o; grep -q '^test result: ok. 2 passed' /tmp/o'''
+
+[[accept]]
+name = "zoom-tests"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::zoom_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o'''
+
+[[accept]]
+name = "evidence"
+cmd = '''cargo test -p kitkraft-engine --lib -- --exact handlers::matrix::tests::every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -A2 '^type = "AMMO"' docs/schema/evidence.toml | tr '\n' ' ' | grep -q 'type = "AMMO" status = "typed-writable" result = "pass"' && grep -q 'authoring_tests.rs::ammo_new_sets_every_typed_member_and_reads_back' docs/schema/evidence.toml && grep -q 'authoring_tests.rs::ammo_dangling_link_is_reported' docs/schema/evidence.toml && grep -A2 '^type = "PROJ"' docs/schema/evidence.toml | tr '\n' ' ' | grep -q 'type = "PROJ" status = "typed-writable" result = "pass"' && grep -q 'authoring_tests.rs::proj_new_sets_every_typed_member_and_reads_back' docs/schema/evidence.toml && grep -q 'authoring_tests.rs::proj_dangling_link_is_reported' docs/schema/evidence.toml && grep -A2 '^type = "ZOOM"' docs/schema/evidence.toml | tr '\n' ' ' | grep -q 'type = "ZOOM" status = "typed-writable" result = "pass"' && grep -q 'authoring_tests.rs::zoom_new_sets_every_typed_member_and_reads_back' docs/schema/evidence.toml'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''

@@ -1,27 +1,29 @@
-# DMGT: DamageType, lstring-only definition (lane B round 3, M3.B8).
+# DMGT: DamageType, a damage type: its name, the actor value that resists it and the spell it
+# applies.
 #
-# Sources (ADR 0004, ADR 0005):
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11550-L11559 - member order, EDID (L11551), the
+#     name (L11554) and the DNAM struct (L11555-L11558: a resistance actor value, AVIF or
+#     null, then a spell, SPEL or null). Upstream also lists the script data (L11552) and
+#     the base form component block (L11553); no official record has either, so both are
+#     left out (a plugin that has one keeps it raw).
+#   corpus: the dmgt_types scan in crates/esm/tests/dmgt_types.rs checks this definition
+#     against every official DMGT record (11 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
 #     lstring_table_matches_the_corpus): FULL is an lstring in every official DMGT record.
-#   xedit: the DMGT definition of wbDefinitionsSF1.pas at the pinned revision (L11550-L11559)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Formerly an lstring-only definition (M3.B8); now a full definition in xEdit member order
+# (KK-337), as AVIF (KK-225) is. Names are ours.
 signature = "DMGT"
 name = "DamageType"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559",
+  "corpus: dmgt_types_full (crates/esm/tests/dmgt_types.rs), 2026-11-17: every official DMGT record (11) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11550-L11559): EDID, the name and the DNAM damage type struct; no official record has the script data or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
@@ -30,22 +32,14 @@ type = "zstring"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11551-L11551",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: dmgt_types_full (crates/esm/tests/dmgt_types.rs), 2026-11-17: in 11 of 11 official DMGT records",
 ]
 confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official DMGT records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -54,5 +48,22 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official DMGT records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "corpus: dmgt_types_full (crates/esm/tests/dmgt_types.rs), 2026-11-17: in 10 of 11 official DMGT records",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "DNAM"
+name = "DamageType"
+type = "struct"
+size = 8
+card = "required"
+field = [
+  { name = "ResistanceActorValue", type = "formid", targets = ["AVIF"], note = "may be null" },
+  { name = "Spell", type = "formid", targets = ["SPEL"], note = "may be null" },
+]
+source = "corpus: dmgt_types_full (crates/esm/tests/dmgt_types.rs), 2026-11-17: in 11 of 11 official DMGT records, 8 bytes; every one decodes and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11555-L11558",
 ]
 confidence = "corpus"

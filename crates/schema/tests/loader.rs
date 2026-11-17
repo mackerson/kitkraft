@@ -1470,7 +1470,7 @@ fn load_dir_reads_common_definitions() {
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
     assert_eq!(
         sigs,
-        ["EMPT", "SUBU", "UNOR", "UUUU", "VVVV", "YYYY", "ZZZZ"]
+        ["EMPT", "SUBU", "UNOR", "UUUU", "VVVV", "WWWW", "YYYY", "ZZZZ"]
     );
     assert!(schema.records[&sig("UNOR")].unordered);
     assert!(!schema.records[&sig("ZZZZ")].unordered);
@@ -1774,4 +1774,207 @@ fn subrecord_union_rules() {
         kind_of(parse_definition("TEST.toml", &record(&twice))),
         ErrorKind::DuplicateName("Alpha".into())
     );
+}
+
+/// 2026-11-17: `variable_width = true` lets a field union's variants differ in size (each
+/// still fixed and non-zero, `array` variants with a fixed `count` included); the union
+/// and its struct then have no fixed size. Without the key the same-size rule holds; with
+/// it, a union whose variants all have one size is rejected (it would lose its raw
+/// fallback for nothing), and the key belongs only on a union field.
+#[test]
+fn variable_width_field_unions() {
+    let head = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                [[member.field]]\nname = \"Kind\"\ntype = \"u32\"\n\
+                [[member.field]]\nname = \"Tail\"\ntype = \"union\"\ndecider = \"field:Kind\"\n";
+    let variants = "variants = [\n\
+                    { when = 1, name = \"One\", type = \"f32\" },\n\
+                    { when = 3, name = \"Two\", type = \"array\", count = 2, element = \"f32\" },\n\
+                    { when = 5, name = \"Three\", type = \"array\", count = 3, element = \"f32\" },\n]\n";
+    let body = format!("{head}variable_width = true\n{variants}");
+    let Definition::Record(rec) = parse_definition("TEST.toml", &record(&body)).unwrap() else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[0] else {
+        panic!("DATA");
+    };
+    let FieldType::Struct { fields } = &data.ty else {
+        panic!("struct");
+    };
+    let FieldType::Union { variants: vs, .. } = &fields[1].ty else {
+        panic!("union");
+    };
+    let sizes: Vec<Option<u32>> = vs.iter().map(|v| v.ty.fixed_size(None)).collect();
+    assert_eq!(sizes, [Some(4), Some(8), Some(12)]);
+    assert_eq!(fields[1].ty.fixed_size(None), None);
+    assert_eq!(data.ty.fixed_size(None), None);
+    // Without the key, differing sizes are still an error.
+    assert_eq!(
+        invalid(&format!("{head}{variants}")),
+        ErrorKind::VariantSize {
+            variant: "Two".into(),
+            size: Some(8),
+            first: Some(4)
+        }
+    );
+    // Each variant still needs a fixed, non-zero size.
+    let text = "variants = [{ when = 1, name = \"One\", type = \"f32\" }, \
+                { when = 2, name = \"Text\", type = \"zstring\" }]\n";
+    assert!(matches!(
+        invalid(&format!("{head}variable_width = true\n{text}")),
+        ErrorKind::VariantSize { size: None, .. }
+    ));
+    let rest = "variants = [{ when = 1, name = \"One\", type = \"f32\" }, \
+                { when = 2, name = \"Rest\", type = \"array\", count = \"rest\", element = \"f32\" }]\n";
+    assert!(matches!(
+        invalid(&format!("{head}variable_width = true\n{rest}")),
+        ErrorKind::VariantSize { size: None, .. }
+    ));
+    // One size for every variant: the key is pointless and rejected.
+    let same = "variants = [{ when = 1, name = \"A\", type = \"f32\" }, \
+                { when = 2, name = \"B\", type = \"u32\" }]\n";
+    assert_eq!(
+        invalid(&format!("{head}variable_width = true\n{same}")),
+        ErrorKind::UniformWidth("Tail".into())
+    );
+    // `count` and `element` only on an array variant; the key only on a union field.
+    let stray = "variable_width = true\nvariants = [{ when = 1, name = \"A\", type = \"f32\", count = 2 }, \
+                 { when = 2, name = \"B\", type = \"u64\" }]\n";
+    assert!(matches!(
+        invalid(&format!("{head}{stray}")),
+        ErrorKind::UnexpectedKey { key: "count", .. }
+    ));
+    let plain = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                 [[member.field]]\nname = \"Kind\"\ntype = \"u32\"\nvariable_width = true\n";
+    assert!(matches!(
+        invalid(plain),
+        ErrorKind::UnexpectedKey {
+            key: "variable_width",
+            ..
+        }
+    ));
+}
+
+/// 2026-11-17: `present_if = { field, mask, value }` keeps a struct field only when the
+/// bits `mask` of an earlier sibling equal `value` (default 0). The sibling is an earlier,
+/// ungated, unconditional integer, enum, flags or packed field of at most 32 bits; the
+/// mask is non-zero and fits it; the value lies inside the mask; the conditional field is
+/// not also gated, and cannot count an array or decide a union. A struct with one has no
+/// fixed size. `f16` is a 2-byte float scalar.
+#[test]
+fn conditional_fields_and_half_floats() {
+    let head = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                [[member.field]]\nname = \"Flags\"\ntype = \"flags\"\nbase = \"u32\"\nbits = [[\"NoTarget\", 4]]\n\
+                [[member.field]]\nname = \"Wide\"\ntype = \"u64\"\n";
+    let with = |cond: &str| {
+        format!(
+            "{head}[[member.field]]\nname = \"Target\"\ntype = \"formid\"\n{cond}\n\
+             [[member.field]]\nname = \"Speed\"\ntype = \"f16\"\n"
+        )
+    };
+    let body = with("present_if = { field = \"Flags\", mask = 4 }");
+    let Definition::Record(rec) = parse_definition("TEST.toml", &record(&body)).unwrap() else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[0] else {
+        panic!("DATA");
+    };
+    let FieldType::Struct { fields } = &data.ty else {
+        panic!("struct");
+    };
+    let cond = fields[2].present_if.as_ref().unwrap();
+    assert_eq!(
+        (cond.field.as_str(), cond.mask, cond.value),
+        ("Flags", 4, 0)
+    );
+    assert!(cond.holds(0) && cond.holds(3) && !cond.holds(4) && !cond.holds(7));
+    assert_eq!(fields[3].ty, FieldType::Scalar(Scalar::F16));
+    assert_eq!(fields[3].ty.fixed_size(None), Some(2));
+    assert_eq!(fields[2].ty.fixed_size(None), Some(4));
+    assert_eq!(data.ty.fixed_size(None), None);
+    assert_eq!(Scalar::parse("f16"), Some(Scalar::F16));
+    assert!(!Scalar::F16.is_integer());
+    assert_eq!(Scalar::F16.rust_type(), "F16");
+    let set = with("present_if = { field = \"Flags\", mask = 6, value = 2 }");
+    assert!(parse_definition("TEST.toml", &record(&set)).is_ok());
+
+    let reason = |cond: &str| match invalid(&with(cond)) {
+        ErrorKind::BadCondition { field, reason } => {
+            assert_eq!(field, "Target");
+            reason
+        }
+        other => panic!("{cond}: {other:?}"),
+    };
+    assert!(reason("present_if = { field = \"Later\", mask = 4 }").contains("earlier"));
+    assert!(reason("present_if = { field = \"Wide\", mask = 4 }").contains("32 bits"));
+    assert!(reason("present_if = { field = \"Flags\", mask = 0 }").contains("non-zero"));
+    assert!(reason("present_if = { field = \"Flags\", mask = 0x100000000 }").contains("fit"));
+    assert!(reason("present_if = { field = \"Flags\", mask = 4, value = 8 }").contains("inside"));
+    assert!(reason("present_if = { field = \"Flags\", mask = 4 }\nsince = 3").contains("gated"));
+    // A conditional field neither counts an array nor decides a union.
+    let counted = format!(
+        "{head}[[member.field]]\nname = \"N\"\ntype = \"u8\"\npresent_if = {{ field = \"Flags\", mask = 4 }}\n\
+         [[member.field]]\nname = \"List\"\ntype = \"array\"\nelement = \"u8\"\ncount_from = \"N\"\n"
+    );
+    assert_eq!(invalid(&counted), ErrorKind::BadCountFrom("N".into()));
+    let decided = format!(
+        "{head}[[member.field]]\nname = \"K\"\ntype = \"u8\"\npresent_if = {{ field = \"Flags\", mask = 4 }}\n\
+         [[member.field]]\nname = \"V\"\ntype = \"union\"\ndecider = \"field:K\"\n\
+         variants = [{{ when = 0, name = \"A\", type = \"u8\" }}]\n"
+    );
+    assert_eq!(invalid(&decided), ErrorKind::BadDeciderField("K".into()));
+    // The deciding sibling is itself unconditional.
+    let chained = format!(
+        "{head}[[member.field]]\nname = \"K\"\ntype = \"u8\"\npresent_if = {{ field = \"Flags\", mask = 4 }}\n\
+         [[member.field]]\nname = \"V\"\ntype = \"u8\"\npresent_if = {{ field = \"K\", mask = 1 }}\n"
+    );
+    assert!(matches!(
+        invalid(&chained),
+        ErrorKind::BadCondition { field, .. } if field == "V"
+    ));
+}
+
+/// 2026-11-17: stride arrays (`count = "stride:N"`) are allowed only as a subrecord
+/// member's own type, with a non-zero stride no smaller than a fixed-size element; they
+/// read to the end of the payload and have no fixed size.
+#[test]
+fn stride_arrays() {
+    let member = |count: &str, element: &str| {
+        format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"array\"\ncount = \"{count}\"\nelement = \"{element}\"\n"
+        )
+    };
+    let Definition::Record(rec) =
+        parse_definition("TEST.toml", &record(&member("stride:8", "u32"))).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[0] else {
+        panic!("DATA");
+    };
+    let FieldType::Array { count, .. } = &data.ty else {
+        panic!("array");
+    };
+    assert_eq!(*count, ArrayCount::Stride(8));
+    assert!(data.ty.reads_to_end());
+    assert_eq!(data.ty.fixed_size(None), None);
+    assert!(parse_definition("TEST.toml", &record(&member("stride:4", "u32"))).is_ok());
+
+    for bad in ["stride:0", "stride:x", "stride:", "stride:-1"] {
+        assert!(
+            matches!(invalid(&member(bad, "u32")), ErrorKind::BadCount(_)),
+            "{bad}"
+        );
+    }
+    // Smaller than the element.
+    match invalid(&member("stride:2", "u32")) {
+        ErrorKind::BadCount(reason) => assert!(reason.contains("smaller"), "{reason}"),
+        other => panic!("{other:?}"),
+    }
+    // Not as a struct field.
+    let nested = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                  [[member.field]]\nname = \"List\"\ntype = \"array\"\ncount = \"stride:8\"\nelement = \"u32\"\n";
+    match invalid(nested) {
+        ErrorKind::BadCount(reason) => assert!(reason.contains("own type"), "{reason}"),
+        other => panic!("{other:?}"),
+    }
 }

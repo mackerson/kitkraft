@@ -371,6 +371,7 @@ fn the_persistence_row_goes_elsewhere_between_the_save_and_the_load() {
         base_signature: None,
         disabled: false,
         scripts: Vec::new(),
+        interior: false,
     };
     let lodge = 0x0006_BB29;
     let apartment = 0x0021_966F;
@@ -1324,4 +1325,57 @@ fn an_actor_is_checked_by_cell_and_distance() {
         "{checklist}"
     );
     std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// KK-363: a new interior cell is entered by `coc` and checked by its runtime ID, not by
+/// `help` (help rows mostly came back with only the echo, game-20261103-09).
+#[test]
+fn a_new_interior_cell_is_entered_by_coc_and_checked_by_its_runtime_id() {
+    let d = dir("probes-new-cell");
+    let data = world_master(&d);
+    let plugin = d.join("New.esp");
+    execute(
+        "new",
+        json!({
+            "type": "CELL", "edid": "KC_NewRoom", "fields": {}, "masters": ["World.esm"],
+            "into": plugin.display().to_string(), "plugins": ["World.esm"],
+            "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    testplan(&data, &plugin, &out, json!(["World.esm"]));
+    let (p, _) = read(&out);
+    assert_eq!(rows(&p), checklist_steps(&out));
+    let t01 = p.probes.iter().find(|x| x.row == "T-01").unwrap();
+    assert!(!t01.is_manual(), "{t01:?}");
+    let cmds = commands(&p, "T-01");
+    assert_eq!(cmds.len(), 2, "{cmds:?}");
+    assert_eq!(cmds[0], "coc KC_NewRoom");
+    let id = cmds[1].strip_prefix("player.getincell ").unwrap();
+    assert!(
+        id.len() == 8 && id.chars().all(|c| c.is_ascii_hexdigit()),
+        "{cmds:?}"
+    );
+    assert!(t01.forms.iter().any(|f| f == id), "{:?}", t01.forms);
+    let waits: Vec<Option<u64>> = t01.steps.iter().map(|s| s.wait_secs).collect();
+    assert_eq!(waits, [Some(10), None]);
+    assert!(
+        t01.title
+            .starts_with("coc KC_NewRoom: the new cell CELL `KC_NewRoom`"),
+        "{}",
+        t01.title
+    );
+    for probe in &p.probes {
+        for s in &probe.steps {
+            assert!(
+                !(s.command.starts_with("help") && s.command.contains("KC_NewRoom")),
+                "{}: {}",
+                probe.row,
+                s.command
+            );
+        }
+    }
+    let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
+    assert!(batch.lines().any(|l| l == "coc KC_NewRoom"), "{batch}");
 }
