@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
 | quest           |           10 |          10 |   267,549 |  3,908,978 |    41,753 | 202,084 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,608 |    10,517 |      14 |
-| container/other |          123 |         123 |   252,710 |    860,593 |   217,343 |   1,903 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,993,785 | 2,197,360 | 228,416 |
+| container/other |          123 |         123 |   252,710 |    860,604 |   217,343 |   1,892 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,993,796 | 2,197,360 | 228,405 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:655dfa1b0db16d3d` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:d136e898d9c1caa0` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -220,7 +220,7 @@ Columns:
 | `TODD`        | TimeOfDayDataForm              |        14 |          0 |     6 |     5 |      1 |       0 |
 | `CLFM`        | ColorForm                      |        12 |          0 |     3 |     1 |      2 |       0 |
 | `AORU`        | AttractionRuleForm             |        11 |          0 |     2 |     1 |      1 |       0 |
-| `DMGT`        | DamageType                     |        11 |          0 |     3 |     2 |      0 |       1 |
+| `DMGT`        | DamageType                     |        11 |          0 |     3 |     3 |      0 |       0 |
 | `PSDC`        | ParticleSystemDefineCollection |        11 |          0 |     2 |     1 |      1 |       0 |
 | `CHAL`        | Challenge                      |        10 |          0 |    13 |     8 |      0 |       5 |
 | `CLAS`        | Class                          |         8 |          0 |     5 |     5 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,493 |    236 |      68 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,494 |    236 |      67 |
 
-Subrecord occurrences: 50,419,561 in total; 47,993,785 typed (0 of them failed to decode), 2,197,360 opaque, 228,416 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,993,796 typed (0 of them failed to decode), 2,197,360 opaque, 228,405 unknown.
 
 ## Decoded through the definitions
 
@@ -422,7 +422,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `TODD`    | TimeOfDayDataForm              |            14 |         48 |      0 |         0 |         0 |                   0 |         48 |       0 |        0 |
 | `CLFM`    | ColorForm                      |            12 |         12 |      0 |         0 |         0 |                   0 |         12 |       0 |        0 |
 | `AORU`    | AttractionRuleForm             |            11 |         11 |      0 |         0 |         0 |                   0 |         11 |       0 |        0 |
-| `DMGT`    | DamageType                     |            11 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
+| `DMGT`    | DamageType                     |            11 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `PSDC`    | ParticleSystemDefineCollection |            11 |         11 |      0 |         0 |         0 |                   0 |         11 |       0 |        0 |
 | `CHAL`    | Challenge                      |            10 |        173 |      0 |         0 |         0 |                   0 |        173 |       0 |        0 |
 | `CLAS`    | Class                          |             8 |         40 |      0 |         0 |         0 |                   0 |         40 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,993,785 |      0 |         0 |   402,137 |                   0 | 47,591,648 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,993,796 |      0 |         0 |   402,137 |                   0 | 47,591,659 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -510,7 +510,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DFOB`    | DefaultObject                  |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `DIAL`    | DialogTopic                    |            121 |    115 |      6 |         0 |                   0 |    121 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |              5 |      1 |      4 |         0 |                   0 |      5 |       0 |        0 |
-| `DMGT`    | DamageType                     |              2 |      2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `DMGT`    | DamageType                     |              3 |      3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `DOBJ`    | DefaultObjectManager           |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                           |            147 |    137 |     10 |         4 |                   0 |    143 |       0 |        0 |
 | `EFSH`    | EffectShader                   |            116 |    105 |     11 |         0 |                   0 |    116 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            112 |    106 |      6 |         0 |                   0 |    112 |       0 |        0 |
-| **Total** |                                |         14,528 | 13,626 |    902 |       422 |                   2 | 14,104 |       0 |        0 |
+| **Total** |                                |         14,529 | 13,627 |    902 |       422 |                   2 | 14,105 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -663,7 +663,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `FXPD`: `MNAM` (871), `MWGT` (871)
-- `DMGT`: `DNAM` (11)
 - `CHAL`: `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `DESC` (18)
 
 By design, REFR's FLCS, KSIZ, KWDA, VLMS and OPDS count as unknown: in REFR they

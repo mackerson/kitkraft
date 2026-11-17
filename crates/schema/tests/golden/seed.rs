@@ -87,7 +87,7 @@
 // - DFOB (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DIAL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11297-L11523; corpus)
 // - DLBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically; corpus)
-// - DMGT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - DMGT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559; reference)
 // - DOBJ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -36492,53 +36492,45 @@ impl DlbrRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct DmgtLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct DmgtDamageType {
+    pub resistance_actor_value: FormId,
+    pub spell: FormId,
 }
 
-impl DmgtLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "DMGT.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
-        }
+impl Field for DmgtDamageType {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "DMGT.DNAM.ResistanceActorValue", ctx)?;
+        let f1 = Field::read(r, "DMGT.DNAM.Spell", ctx)?;
+        Ok(Self {
+            resistance_actor_value: f0,
+            spell: f1,
+        })
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    fn write(&self, out: &mut Vec<u8>) {
+        self.resistance_actor_value.write(out);
+        self.spell.write(out);
     }
 }
 
-impl Visit for DmgtLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "DMGT.LocalizedStrings.FULL", out);
+impl Visit for DmgtDamageType {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.resistance_actor_value,
+            "DMGT.DNAM.ResistanceActorValue",
+            out,
+        );
+        visit_form_ids(&self.spell, "DMGT.DNAM.Spell", out);
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "DMGT.LocalizedStrings.FULL", out);
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.resistance_actor_value,
+            "DMGT.DNAM.ResistanceActorValue",
+            out,
+        );
+        visit_form_ids_mut(&mut self.spell, "DMGT.DNAM.Spell", out);
     }
 }
 
@@ -36546,8 +36538,10 @@ impl Visit for DmgtLocalizedStrings {
 pub struct DmgtRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<DmgtLocalizedStrings>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `DNAM`, required.
+    pub damage_type: Option<Sub<DmgtDamageType>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -36562,9 +36556,13 @@ impl DmgtRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
-        MemberDesc::Group {
-            card: Card::Repeated,
-            members: DmgtLocalizedStrings::MEMBERS,
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
         },
     ];
 
@@ -36580,10 +36578,11 @@ impl DmgtRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "DMGT.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = DmgtLocalizedStrings::default();
-                    group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.name, subs, *index, "DMGT.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.damage_type, subs, *index, "DMGT.DNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -36592,19 +36591,26 @@ impl DmgtRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
-            group.emit(out);
-        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"DNAM", self.damage_type.as_ref());
     }
 }
 
 impl Visit for DmgtRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.damage_type, "DMGT.DNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.damage_type, "DMGT.DNAM", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "DMGT.LocalizedStrings", out);
+        visit_lstrings(&self.name, "DMGT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "DMGT.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "DMGT.FULL", out);
     }
 }
 
