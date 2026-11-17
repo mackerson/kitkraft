@@ -143,7 +143,7 @@ kit roundtrip out\verify\KitKraftVerify.esm --verify
 kit package out\verify\KitKraftVerify.esm out\verify\pkg --scripts out\verify\Scripts\KitKraft\VerifyReport.pex --spec docs\bench\verify-mod\verify-mod.toml --plugins Starfield.esm --overwrite
 ```
 
-Expect SHA-256 `a9632f11...e39faa` for the plugin. Then, with MO2 and the game closed,
+Expect SHA-256 `53981890...19aae9` for the plugin (81,904 bytes; the integrated kit of 2026-11-17, which writes the CK's new-record members; the rows' game passes were observed on the earlier build `a9632f11...e39faa`, so a re-run is needed on this one). Then, with MO2 and the game closed,
 and MO2's selected profile `Kitkraft Dev`:
 
 ```text
