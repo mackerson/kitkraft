@@ -591,9 +591,9 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// actor family; ACTI, CONT, FLOR, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
 /// items/workshop family). LSCR and MESG became M4.BX2 inventories
 /// ([`BX2_INVENTORY`]), and BPTD got a full definition in KK-212, AVIF in KK-225 and
-/// DMGT in KK-337 and FXPD in KK-338.
+/// DMGT in KK-337, FXPD in KK-338 and PMFT in KK-339.
 #[rustfmt::skip]
-const LSTRING_ONLY: &[&str] = &["PMFT"];
+const LSTRING_ONLY: &[&str] = &[];
 
 /// The M4.BX2 inventory definitions: corpus order and cardinality for record types no
 /// family lane owns.

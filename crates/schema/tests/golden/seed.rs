@@ -172,7 +172,7 @@
 // - PGRE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132; corpus)
 // - PHZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
-// - PMFT (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
+// - PMFT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15935-L15972; reference)
 // - PNDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16048-L16225; corpus)
 // - PROJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16228-L16325; corpus)
 // - PSDC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PSDC record (11) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -75395,62 +75395,136 @@ impl PkinRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct PmftLocalizedStrings {
-    /// `FULL`, optional.
-    pub name: Option<Sub<LString>>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PmftDataType {
+    Texture,
+    Frame,
+    Filter,
+    /// A value the definition does not name.
+    Other(u8),
 }
 
-impl PmftLocalizedStrings {
-    /// Members in on-disk order.
-    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
-        sig: *b"FULL",
-        card: Card::Optional,
-    }];
-
-    fn fill(
-        &mut self,
-        hits: &[Hit],
-        subs: &[RawSub<'_>],
-        ctx: Ctx,
-        extra: &mut Vec<(usize, OwnedSub)>,
-    ) {
-        for hit in hits {
-            match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.name,
-                    subs,
-                    *index,
-                    "PMFT.LocalizedStrings.FULL",
-                    ctx,
-                    extra,
-                ),
-                _ => unmatched(hit, subs, extra),
-            }
+impl PmftDataType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Texture,
+            1 => Self::Frame,
+            2 => Self::Filter,
+            other => Self::Other(other),
         }
     }
 
-    fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"FULL", self.name.as_ref());
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Texture => 0,
+            Self::Frame => 1,
+            Self::Filter => 2,
+            Self::Other(raw) => raw,
+        }
     }
 }
 
-impl Visit for PmftLocalizedStrings {
-    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.name, "PMFT.LocalizedStrings.FULL", out);
+impl Field for PmftDataType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
     }
 
-    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.name, "PMFT.LocalizedStrings.FULL", out);
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
     }
 }
+
+impl Visit for PmftDataType {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PmftDataFlags(pub u32);
+
+impl PmftDataFlags {
+    pub const TILE_X: u32 = 0x1;
+    pub const TILE_Y: u32 = 0x2;
+    pub const TOP_MOST: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for PmftDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PmftDataFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PmftData {
+    pub type_: PmftDataType,
+    pub offset_x: f32,
+    pub offset_y: f32,
+    pub texture_width: u32,
+    pub texture_height: u32,
+    pub content_width: u32,
+    pub content_height: u32,
+    pub flags: PmftDataFlags,
+}
+
+impl Field for PmftData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PMFT.FNAM.Type", ctx)?;
+        let f1 = f32::read(r, "PMFT.FNAM.OffsetX", ctx)?;
+        let f2 = f32::read(r, "PMFT.FNAM.OffsetY", ctx)?;
+        let f3 = u32::read(r, "PMFT.FNAM.TextureWidth", ctx)?;
+        let f4 = u32::read(r, "PMFT.FNAM.TextureHeight", ctx)?;
+        let f5 = u32::read(r, "PMFT.FNAM.ContentWidth", ctx)?;
+        let f6 = u32::read(r, "PMFT.FNAM.ContentHeight", ctx)?;
+        let f7 = Field::read(r, "PMFT.FNAM.Flags", ctx)?;
+        Ok(Self {
+            type_: f0,
+            offset_x: f1,
+            offset_y: f2,
+            texture_width: f3,
+            texture_height: f4,
+            content_width: f5,
+            content_height: f6,
+            flags: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.type_.write(out);
+        self.offset_x.write(out);
+        self.offset_y.write(out);
+        self.texture_width.write(out);
+        self.texture_height.write(out);
+        self.content_width.write(out);
+        self.content_height.write(out);
+        self.flags.write(out);
+    }
+}
+
+impl Visit for PmftData {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PmftRecord {
     /// `EDID`, optional.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `LocalizedStrings`, repeated.
-    pub localized_strings: Vec<PmftLocalizedStrings>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `FNAM`, required.
+    pub data: Option<Sub<PmftData>>,
+    /// `HNAM`, optional.
+    pub texture: Option<Sub<ZString>>,
+    /// `INAM`, optional.
+    pub image_space: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -75465,9 +75539,21 @@ impl PmftRecord {
             sig: *b"EDID",
             card: Card::Optional,
         },
-        MemberDesc::Group {
-            card: Card::Repeated,
-            members: PmftLocalizedStrings::MEMBERS,
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"INAM",
+            card: Card::Optional,
         },
     ];
 
@@ -75483,10 +75569,17 @@ impl PmftRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "PMFT.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
-                    let mut group = PmftLocalizedStrings::default();
-                    group.fill(hits, subs, ctx, extra);
-                    self.localized_strings.push(group);
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.name, subs, *index, "PMFT.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data, subs, *index, "PMFT.FNAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.texture, subs, *index, "PMFT.HNAM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.image_space, subs, *index, "PMFT.INAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -75495,25 +75588,54 @@ impl PmftRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.localized_strings {
-            group.emit(out);
-        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"FNAM", self.data.as_ref());
+        emit(out, *b"HNAM", self.texture.as_ref());
+        emit(out, *b"INAM", self.image_space.as_ref());
     }
 }
 
 impl Visit for PmftRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.image_space, "PMFT.INAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.image_space, "PMFT.INAM", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
-        visit_lstrings(&self.localized_strings, "PMFT.LocalizedStrings", out);
+        visit_lstrings(&self.name, "PMFT.FULL", out);
     }
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
-        visit_lstrings_mut(&mut self.localized_strings, "PMFT.LocalizedStrings", out);
+        visit_lstrings_mut(&mut self.name, "PMFT.FULL", out);
     }
 }
 
 impl PmftRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"PMFT";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

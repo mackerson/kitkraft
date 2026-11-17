@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
 | quest           |           10 |          10 |   267,549 |  3,908,978 |    41,753 | 202,084 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,608 |    10,517 |      14 |
-| container/other |          123 |         123 |   252,710 |    862,346 |   217,343 |     150 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,995,538 | 2,197,360 | 226,663 |
+| container/other |          123 |         123 |   252,710 |    862,496 |   217,343 |       0 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,995,688 | 2,197,360 | 226,513 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:61cbcc018d9a324a` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:21278782d43ff17f` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -180,7 +180,7 @@ Columns:
 | `FOGV`        | FogVolume                      |        80 |          0 |     2 |     1 |      1 |       0 |
 | `ADDN`        | AddonNode                      |        77 |          0 |    12 |    10 |      2 |       0 |
 | `EFSH`        | EffectShader                   |        77 |          0 |    11 |    10 |      1 |       0 |
-| `PMFT`        | PhotoModeFeature               |        75 |          0 |     5 |     2 |      0 |       3 |
+| `PMFT`        | PhotoModeFeature               |        75 |          0 |     5 |     5 |      0 |       0 |
 | `BMMO`        | BiomeMarker                    |        71 |          0 |    15 |    14 |      1 |       0 |
 | `ANIO`        | AnimatedObject                 |        66 |          0 |     9 |     8 |      1 |       0 |
 | `COLL`        | CollisionLayerForm             |        62 |          0 |     7 |     7 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,496 |    236 |      65 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,499 |    236 |      62 |
 
-Subrecord occurrences: 50,419,561 in total; 47,995,538 typed (0 of them failed to decode), 2,197,360 opaque, 226,663 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,995,688 typed (0 of them failed to decode), 2,197,360 opaque, 226,513 unknown.
 
 ## Decoded through the definitions
 
@@ -382,7 +382,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `FOGV`    | FogVolume                      |            80 |         80 |      0 |         0 |         0 |                   0 |         80 |       0 |        0 |
 | `ADDN`    | AddonNode                      |            77 |        537 |      0 |         0 |         0 |                   0 |        537 |       0 |        0 |
 | `EFSH`    | EffectShader                   |            77 |        454 |      0 |         0 |         0 |                   0 |        454 |       0 |        0 |
-| `PMFT`    | PhotoModeFeature               |            75 |        150 |      0 |         0 |         0 |                   0 |        150 |       0 |        0 |
+| `PMFT`    | PhotoModeFeature               |            75 |        300 |      0 |         0 |         0 |                   0 |        300 |       0 |        0 |
 | `BMMO`    | BiomeMarker                    |            71 |        847 |      0 |         0 |         0 |                   0 |        847 |       0 |        0 |
 | `ANIO`    | AnimatedObject                 |            66 |        239 |      0 |         0 |         0 |                   0 |        239 |       0 |        0 |
 | `COLL`    | CollisionLayerForm             |            62 |        424 |      0 |         0 |         0 |                   0 |        424 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,995,538 |      0 |         0 |   402,137 |                   0 | 47,593,401 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,995,688 |      0 |         0 |   402,137 |                   0 | 47,593,551 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -595,7 +595,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `PGRE`    | PlacedProjectile               |             10 |      9 |      1 |         0 |                   0 |     10 |       0 |        0 |
 | `PHZD`    | PlacedHazard                   |            135 |    127 |      8 |        14 |                   0 |    121 |       0 |        0 |
 | `PKIN`    | PackIn                         |            131 |    124 |      7 |         0 |                   0 |    131 |       0 |        0 |
-| `PMFT`    | PhotoModeFeature               |              2 |      2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `PMFT`    | PhotoModeFeature               |              5 |      5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `PNDT`    | Planet                         |            133 |    127 |      6 |         1 |                   0 |    132 |       0 |        0 |
 | `PROJ`    | Projectile                     |            144 |    137 |      7 |         7 |                   0 |    137 |       0 |        0 |
 | `PSDC`    | ParticleSystemDefineCollection |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            112 |    106 |      6 |         0 |                   0 |    112 |       0 |        0 |
-| **Total** |                                |         14,531 | 13,629 |    902 |       422 |                   2 | 14,107 |       0 |        0 |
+| **Total** |                                |         14,534 | 13,632 |    902 |       422 |                   2 | 14,110 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -661,7 +661,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
 - `GBFM`: `STRD` (1,258)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
-- `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
 - `CHAL`: `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `DESC` (18)
 
 By design, REFR's FLCS, KSIZ, KWDA, VLMS and OPDS count as unknown: in REFR they
