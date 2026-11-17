@@ -612,6 +612,15 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "00000400000803F0A00000000007042000000000000803F0000803F00",
         ),
     ),
+    // ck-20261117-12
+    (
+        "ENCH",
+        "KCB_ENCH_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "ENIT:000000000000000000000000000000000000000000000000000000",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
