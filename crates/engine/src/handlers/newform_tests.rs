@@ -529,6 +529,16 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "WBDT:00 STOP:",
         ),
     ),
+    // ck-20261117-14
+    (
+        "TERM",
+        "KCB_TERM_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 NAM1:00 ",
+            "FLLD:01000000 PNAM:00000000 FNAM:0000 JNAM:0000 MNAM:00000040 GNAM:0000 ",
+            "WBDT:00 STOP:",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
