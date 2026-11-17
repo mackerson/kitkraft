@@ -70,11 +70,28 @@ pub(super) struct Facts {
     added: Vec<(String, usize, u32, Option<u64>)>,
 }
 
+/// `cell.editor-id`: a new interior cell's EditorID with a character other than ASCII
+/// letters and digits. The CK bench saw the CK keep a new cell's EditorID without its
+/// underscores (`KCB_CELL_New` -> `KCBCELLNew`, `KC_F20_Cell` -> `KCF20Cell`;
+/// ck-20261117-15, -21), so a recipe that names the cell by that EditorID loses it.
+/// Outside [`RULES`] so the cell rules' fixtures, whose own cells carry underscores, keep
+/// their exact findings.
+pub const EDITOR_ID_RULE: &str = "cell.editor-id";
+
 impl Facts {
     /// Whether any cell rule is on.
     pub(super) fn any(pass: &Pass<'_>) -> bool {
-        RULES.iter().any(|r| pass.on(r))
+        RULES.iter().any(|r| pass.on(r)) || pass.on(EDITOR_ID_RULE)
     }
+}
+
+/// The first character of `edid` the CK does not keep in a new cell's EditorID (not an
+/// ASCII letter or digit), if any.
+pub(crate) fn cell_edid_dropped_char(edid: &[u8]) -> Option<char> {
+    edid.iter()
+        .take_while(|b| **b != 0)
+        .find(|b| !b.is_ascii_alphanumeric())
+        .map(|b| char::from(*b))
 }
 
 fn finding(
@@ -391,6 +408,27 @@ fn cell_record(
     let top_cell = path.first().is_some_and(|g| g.label == *b"CELL");
     if top_cell {
         pass.cells.interior_cells = pass.cells.interior_cells.saturating_add(1);
+    }
+    // cell.editor-id: only a cell of the plugin's own (file index = its master count).
+    let own = usize::try_from(form_id >> 24).is_ok_and(|i| i == pass.space.masters.len());
+    if pass.on(EDITOR_ID_RULE) && top_cell && own {
+        if let Some((edid, c)) = sub(subs, b"EDID").and_then(|s| {
+            let name = s.data().split(|b| *b == 0).next().unwrap_or_default();
+            cell_edid_dropped_char(name).map(|c| (String::from_utf8_lossy(name).into_owned(), c))
+        }) {
+            let kept: String = edid.chars().filter(char::is_ascii_alphanumeric).collect();
+            findings.push(finding(
+                pass,
+                EDITOR_ID_RULE,
+                Severity::Warning,
+                Some(id.to_string()),
+                Some("EDID".into()),
+                at,
+                format!(
+                    "new interior cell EditorID `{edid}` has `{c}`: the Creation Kit keeps a new cell's EditorID with letters and digits only (`{kept}`; ck-20261117-15, -21), so whatever names the cell by `{edid}` will not find it after a CK save"
+                ),
+            ));
+        }
     }
     // ref.persistent-flag: flag 0x400 exactly on a world's persistent cell.
     let world_persistent = parent == Some(group_type::WORLD_CHILDREN);

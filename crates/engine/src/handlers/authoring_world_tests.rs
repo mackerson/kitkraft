@@ -173,7 +173,7 @@ fn cell_new_sets_every_typed_member_and_reads_back() {
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );
-    let (data, into, r) = new_cell(&d, "KC_NewCELL", &p.fields);
+    let (data, into, r) = new_cell(&d, "KCNewCELL", &p.fields);
     assert_eq!(
         r["data"]["validate"]["passed"],
         json!(true),
@@ -343,7 +343,7 @@ fn build_new_writes_an_interior_cell() {
         &spec,
         format!(
             "version = 3\n\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
-[[new]]\nname = \"room\"\ntype = \"CELL\"\nedid = \"KC_BuiltRoom\"\nmasters = [\"World.esm\"]\n\
+[[new]]\nname = \"room\"\ntype = \"CELL\"\nedid = \"KCBuiltRoom\"\nmasters = [\"World.esm\"]\n\
 fields = {{ FULL = \"Built Room\", XCLW = 1.5, LTMP = \"World.esm:000800\" }}\n",
             data.display()
         ),

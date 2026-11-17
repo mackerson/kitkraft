@@ -277,3 +277,75 @@ fn new_and_clone_refusals_are_typed() {
     assert!(err.to_string().contains(".esl"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+fn unhex(s: &str) -> Vec<u8> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+        .collect()
+}
+
+/// The Creation Kit's defaults for required members of a new record (CK bench 2026-11-17,
+/// class A of `docs/bench/ck-batch/triage-20261117.md`): each payload as the CK saved it in
+/// ck-20261117-13 (WEAP 01001005, COBJ 01001008), -17 (INFO 01001006, emotion only), -14 (LIGH 0100100F, FURN 01001010, TERM
+/// 01001013) and -16 (NPC_ 01001006). A size other than our placeholder's keeps the zeros.
+#[test]
+fn a_new_record_carries_the_ck_defaults_the_bench_observed() {
+    use super::newform::ck_new_default;
+    let ck: [(&[u8; 4], &[u8; 4], &str); 12] = [
+        (b"WEAP", b"WFIR", "000000000000000000000000000000000000000000000000000000000000C3F5A83E00C3F5A83E000000000000"),
+        (b"WEAP", b"WGEN", "0000000000000000000000000000803F0000000000000000"),
+        (b"WEAP", b"WMEL", "00000000000000803F00000000"),
+        (b"WEAP", b"WRLO", "000000000000803F0000"),
+        (b"LIGH", b"DAT2", "FFFFFFFF0000000000000000000000000000803F0000B44200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008040"),
+        (b"LIGH", b"LLLD", "0F000000"),
+        (b"FURN", b"MNAM", "00000040"),
+        (b"TERM", b"MNAM", "00000040"),
+        (b"NPC_", b"NAM5", "FF00"),
+        (b"NPC_", b"NAM6", "0000803F"),
+        (b"COBJ", b"LRNM", "03"),
+        (b"INFO", b"TRDA", "FFFFFFFF0000000000000000"),
+    ];
+    for (record, member, hex) in ck {
+        let want = unhex(hex);
+        assert_eq!(
+            ck_new_default(*record, *member, vec![0; want.len()]),
+            want,
+            "{} {}",
+            String::from_utf8_lossy(record),
+            String::from_utf8_lossy(member)
+        );
+        // Another size (a schema change): our zeros stay.
+        assert_eq!(
+            ck_new_default(*record, *member, vec![0; want.len() + 1]),
+            vec![0; want.len() + 1]
+        );
+    }
+    // A member the CK leaves zero, or another type: zeros.
+    assert_eq!(ck_new_default(*b"WEAP", *b"WDMG", vec![0; 4]), vec![0; 4]);
+    assert_eq!(ck_new_default(*b"ACTI", *b"MNAM", vec![0; 4]), vec![0; 4]);
+}
+
+/// Through `new`: a new WEAP with its EditorID only is written with the CK's WGEN.
+#[test]
+fn a_new_weapon_is_written_with_the_ck_base_speed() {
+    let d = dir("new-weap-ck-defaults");
+    let data = data(&d);
+    let into = d.join("NewWeap.esp");
+    call(
+        "new",
+        &data,
+        &into,
+        json!({"type": "WEAP", "edid": "KC_NewWeap"}),
+    )
+    .unwrap();
+    let bytes = std::fs::read(&into).unwrap();
+    let mut want = b"WGEN".to_vec();
+    want.extend_from_slice(&24u16.to_le_bytes());
+    want.extend(unhex("0000000000000000000000000000803F0000000000000000"));
+    assert!(
+        bytes.windows(want.len()).any(|w| w == want.as_slice()),
+        "WGEN with base speed 1.0"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

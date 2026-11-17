@@ -463,7 +463,8 @@ fn writes_and_reads_back_full(
         assert!(p.fields.contains_key(*s), "{sig} {s}: not written");
         p.opaque += 1;
     }
-    let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
+    // No underscore: a new CELL's EditorID with one gets the `cell.editor-id` warning.
+    let r = new_record(&d, sig, &format!("KCNew{sig}"), &p.fields);
     assert_eq!(
         r["data"]["validate"]["passed"],
         json!(true),
