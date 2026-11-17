@@ -369,6 +369,17 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "LTMP:00000000 XCLW:FFFF7F7F XILS:0000803F",
         ),
     ),
+    // ck-20261117-16
+    (
+        "NPC_",
+        "KCB_NPC_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "ACBS:00000000000000000000000000000000 RNAM:7D340000 AIDT:00000000000000 STOP: ",
+            "DATA: DNAM:0000000000000100 NAM5:FF00 NAM6:0000803F NAM4:0000803F ",
+            "MWGT:000000000000000000000000 EDCT:00 STON:00 PRON:00",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and

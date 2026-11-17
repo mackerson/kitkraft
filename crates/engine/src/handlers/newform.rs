@@ -356,6 +356,13 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"CELL", *b"LTMP", 0, "00000000"),
     (*b"CELL", *b"XCLW", 0, "FFFF7F7F"),
     (*b"CELL", *b"XILS", 0, "0000803F"),
+    (*b"NPC_", *b"STOP", 0, ""),
+    (*b"NPC_", *b"DNAM", 0, "0000000000000100"),
+    (*b"NPC_", *b"NAM4", 0, "0000803F"),
+    (*b"NPC_", *b"MWGT", 0, "000000000000000000000000"),
+    (*b"NPC_", *b"EDCT", 0, "00"),
+    (*b"NPC_", *b"STON", 0, "00"),
+    (*b"NPC_", *b"PRON", 0, "00"),
 ];
 
 /// A [`CK_NEW_MEMBERS`] payload: hex, or `0*<n>` for `n` zero bytes.
