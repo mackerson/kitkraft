@@ -513,3 +513,52 @@ fn a_stage_fragment_needs_its_stage_log_entry_and_function() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// The subrecords of the record `form_id` of the plugin at `path`: signature and payload.
+fn subrecords_of(path: &Path, form_id: u32) -> Vec<(String, Vec<u8>)> {
+    let bytes = std::fs::read(path).unwrap();
+    let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+    let loc = index.records.iter().find(|r| r.form_id == form_id).unwrap();
+    let record = read_indexed(
+        &mut std::io::Cursor::new(&bytes),
+        loc,
+        Some(&DecodeLimits::default()),
+    )
+    .unwrap();
+    record
+        .subrecords()
+        .unwrap()
+        .iter()
+        .map(|s| (s.signature().to_string(), s.data().to_vec()))
+        .collect()
+}
+
+#[test]
+fn an_alias_takes_its_flags_from_fields() {
+    let (d, data) = setup_alias("quest-alias-fnam");
+    // FNAM is an objective's flags and a reference alias's: with ALST given and no QOBJ,
+    // it is the alias's. Starfield.esm QUST 000D40ED's alias 1 (`BehaviorActor`) stores
+    // MatchingRefActorsOnly as 00 00 04 00 (kit inspect 0D40ED --plugin Starfield.esm).
+    let fields =
+        r#"{ ANAM = 1, ALST = 0, ALID = "Target", FNAM = "MatchingRefActorsOnly", ALED = "" }"#;
+    let r = build(
+        &d,
+        &spec_with(&data, fields, "[{ name = \"KK:AliasReport\", alias = 0 }]"),
+        "Flags.esp",
+    )
+    .unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let out = d.join("Flags.esp");
+    let subs = subrecords_of(&out, new_form_id(&r));
+    let sigs: Vec<&str> = subs.iter().map(|(s, _)| s.as_str()).collect();
+    let at = sigs.iter().position(|s| *s == "ALST").unwrap();
+    assert_eq!(sigs[at..at + 3], ["ALST", "ALID", "FNAM"], "{sigs:?}");
+    assert_eq!(subs[at + 2].1, [0x00, 0x00, 0x04, 0x00]);
+    assert!(!sigs.contains(&"QOBJ"));
+    assert!(
+        roundtrip_bytes(&std::fs::read(&out).unwrap(), &RoundtripOptions::default())
+            .unwrap()
+            .identical()
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

@@ -114,9 +114,14 @@ scripts = [
 ```
 
 The alias's other required members (`FNAM` flags, `ALFG`, `VTCK`) are written as zeros
-when not given. Its `FNAM` cannot be given: `fields` paths are signatures, and `FNAM` is
-also the objective's, so `build` refuses it (`new.no-group-lead`); the alias flags stay 0
-until a path can name a member of the alias group.
+when not given. Its flags can be given by name (`FNAM = "Optional|QuestObject"`): `FNAM`
+is also an objective's flags, and one `FNAM` goes to the group the fields start (here the
+alias, with `ALST`; before 2026-11-17 `build` refused it, `new.no-group-lead`).
+`MatchingRefActorsOnly` is written `00 00 04 00`, as `Starfield.esm` `QUST` `000D40ED`'s
+alias 1 stores it (`quest_fragment_tests::an_alias_takes_its_flags_from_fields`). Only one
+stage, one log entry and one alias can be written through a `[[new]]`'s `fields` today: a
+second instance of a repeated group (`INDX[1]`, `QSDT[1]`) is refused
+(`new.group-incomplete`).
 
 A stage fragment needs its stage and a log entry in it: give the stage one with `QSDT`
 (`"INDX.StageIndex" = 10, QSDT = 0`; `build` adds the reward count and end, `QSRD`).
