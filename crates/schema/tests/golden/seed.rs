@@ -101,7 +101,7 @@
 // - FLST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12024-L12053; corpus)
 // - FOGV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FOGV record (80) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FORC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FORC record (5) decodes with every subrecord placed and re-encodes identically; corpus)
-// - FSTP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTP record (134) decodes with every subrecord placed and re-encodes identically; corpus)
+// - FSTP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12086-L12092; reference)
 // - FSTS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTS record (19) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FURN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12126-L12218; corpus)
 // - FXPD (corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus; corpus)
@@ -41499,9 +41499,9 @@ pub struct FstpRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub impact_data_set: Option<Sub<FormId>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub tag: Option<Sub<ZString>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -41538,11 +41538,16 @@ impl FstpRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "FSTP.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.data, subs, *index, "FSTP.DATA", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.impact_data_set,
+                    subs,
+                    *index,
+                    "FSTP.DATA",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.anam, subs, *index, "FSTP.ANAM", ctx, extra)
+                    put(&mut self.tag, subs, *index, "FSTP.ANAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -41551,12 +41556,20 @@ impl FstpRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"DATA", self.impact_data_set.as_ref());
+        emit(out, *b"ANAM", self.tag.as_ref());
     }
 }
 
-impl Visit for FstpRecord {}
+impl Visit for FstpRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.impact_data_set, "FSTP.DATA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.impact_data_set, "FSTP.DATA", out);
+    }
+}
 
 impl FstpRecord {
     /// Record signature.
