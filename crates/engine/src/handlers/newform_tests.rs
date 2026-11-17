@@ -499,6 +499,12 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "INAM:00000000 PDTO:0000000000000000",
         ),
     ),
+    // ck-20261117-16
+    (
+        "PERK",
+        "KCB_PERK_New",
+        "DESC:00 DATA:00000000 PRRK: DESC:00 PRUC:02000000 PRRF:",
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
