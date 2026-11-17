@@ -13,7 +13,7 @@ owner's go of that night ("Done unattended", next); "The run" is what remains.
 | [`input-results.md`](input-results.md) | what the input trial found and measured, and the executor recommendation |
 | [`ck-sitting.md`](ck-sitting.md) | the CK batch, the first-minute checks, the CK after-step |
 | `C:\Modding\kitkraft-observe\scripts\input\README.md` (outside the repo, not under version control) | the input executor and scenarios SC-1 to SC-5 (scripts fixed overnight; see `RESULTS-20261116.md` there) |
-| `plan/adr/0010-agent-driven-game-sessions.md` Amendment 2, `plan/adr/0012-ck-interface-clean-room.md` | the rulings: input and focus allowed, a launch needs the owner's go, a CK save needs the owner's OK per sitting |
+| `plan/adr/0010-agent-driven-game-sessions.md` Amendment 2, `plan/adr/0012-ck-interface-clean-room.md` | the rulings: input and focus allowed, a launch needs the owner's go; CK saves are allowed (ADR 0012 Amendment 3) |
 
 Conventions: `$wt` is the worktree the bench runs from: one at `main` after this sheet's
 branch has merged, named by the director (`C:\Modding\kitkraft-worktrees\bench-ck` is at
