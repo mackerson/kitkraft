@@ -211,6 +211,15 @@ controller asks it to. Tests run whole sessions on a fixture MO2 instance and as
 written path against this list. They also assert that the instance is byte-identical
 afterwards (`crates/game/tests/session.rs`, `crates/engine/src/handlers/game/tests.rs`).
 
+`report.json` `inputs` lists every input an agent sent to the game window (ADR 0010
+Amendment 2): each entry's `at_ms` (milliseconds since the session started), `row` (the
+probe row it served, or null), `kind` (`key`, `mouse`, `controller`, `focus`) and `detail`
+(what was sent, in words), recorded with `Shared::record_input`
+(`kitkraft_game::input::SentInput`). A session that sent any says so in its findings and
+so in its ledger entry (one finding, "agent input sent: <n> ... a pass may depend on it");
+a session that sent none has `"inputs": []`. Nothing sends input yet
+(`crates/game/tests/sent_input.rs`).
+
 ## `probes.toml` (M4.T2)
 
 `kit testplan` writes `probes.toml` beside `checklist.md`, one probe per checklist step.

@@ -245,6 +245,8 @@ pub struct Report {
     /// Every command sent to the console and its full reply, in order (M4.T7): what a
     /// replay of the session answers from (`crate::replay`).
     pub transcript: Vec<crate::replay::Sent>,
+    /// Every input an agent sent to the game window, in order (ADR 0010 Amendment 2).
+    pub inputs: Vec<crate::input::SentInput>,
 }
 
 /// What `game.status` shows.
@@ -284,6 +286,7 @@ pub struct Shared {
     started: Instant,
     stop: AtomicBool,
     requests: Mutex<VecDeque<Request>>,
+    inputs: Mutex<Vec<crate::input::SentInput>>,
 }
 
 impl std::fmt::Debug for Shared {
@@ -312,7 +315,32 @@ impl Shared {
             started: Instant::now(),
             stop: AtomicBool::new(false),
             requests: Mutex::new(VecDeque::new()),
+            inputs: Mutex::new(Vec::new()),
         })
+    }
+
+    /// Records one input an agent sent to the game window (ADR 0010 Amendment 2): `row`
+    /// is the probe row it served, if any, `kind` is `key`, `mouse`, `controller` or
+    /// `focus`, and `detail` says what was sent. The time is taken from the session's start.
+    pub fn record_input(&self, row: Option<&str>, kind: &str, detail: &str) {
+        let at_ms = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        self.inputs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push(crate::input::SentInput {
+                at_ms,
+                row: row.map(str::to_string),
+                kind: kind.to_string(),
+                detail: detail.to_string(),
+            });
+    }
+
+    /// Every input recorded so far, in order.
+    pub fn inputs(&self) -> Vec<crate::input::SentInput> {
+        self.inputs
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
     }
 
     fn with<R>(&self, f: impl FnOnce(&mut Snapshot) -> R) -> R {
@@ -1693,6 +1721,14 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
             changes.len()
         ))
     };
+    // Amendment 2: a session that sent input says so, in its findings and its ledger entry.
+    let inputs = shared.inputs();
+    if !inputs.is_empty() {
+        r.findings.push(format!(
+            "agent input sent: {} (report.json `inputs`); a pass may depend on it",
+            inputs.len()
+        ));
+    }
     let mut entry = Entry {
         id: String::new(),
         session: plan.session.clone(),
@@ -1739,6 +1775,7 @@ pub fn run(plan: &Plan, mut deps: Deps, shared: &Shared) -> Report {
         ledger_text,
         written: Vec::new(),
         transcript: transcript.sends(),
+        inputs,
     };
     let report_path = plan.observe.join("report.json");
     if let Ok(text) = serde_json::to_string_pretty(&report) {
