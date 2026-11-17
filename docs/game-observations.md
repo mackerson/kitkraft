@@ -1944,3 +1944,56 @@ scenarios; `game.session` `start: true` through a long-lived `kit mcp` of the re
   `modlist.txt` `6bed5567...3bd7a`, `plugins.txt` `9d5991a1...49a289`, `loadorder.txt`
   `22e50236...249ac`, `lockedorder.txt` unchanged; the rename plugin stays enabled and last,
   both verification mods deployed and disabled. `report.json` SHA-256 `4bfffe8d...5c114e`.
+
+### game-20261117-05: agent session 2026-11-17-T05 (`kit game session`), KitKraftVerifyQuest.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T05`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-05` |
+| Plugins | `KitKraftVerifyQuest.esm` SHA-256 `7192216dabb39280b40a85283442dc63ad22e0c2b1f7823d26fa9de4c2b2f0e5` |
+| Probes | `docs\bench\verify-mod\verify-quest-probes.toml` SHA-256 `c59da097804a506bf15a6bab9d91c4597bbb809573ad1424a157dcd67474fcff` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T05` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| Q-01 | `prid 00000014` | KKQ01Qust | papyrus-log KKQ-Q01 quest script running | prid 00000014 -> prid 00000014 Command: prid 00000014; (waited 15s) | **pass** | - |
+| Q-02 | Papyrus log: KKQ-Q02 the quest property names the placed KKQ70Marker | KKQ01Qust, KKQ70Marker | papyrus-log KKQ-Q02 marker-set=True base-is=True | - | **pass** | - |
+| Q-03 | Papyrus log: KKQ-Q03 the stage 10 fragment ran (QUST VMAD fragment block) | KKQ01Qust | papyrus-log KKQ-Q03 stage 10 fragment ran | - | **pass** | - |
+| Q-04 | Papyrus log: KKQ-Q04 stage 10 done after SetStage | KKQ01Qust | papyrus-log KKQ-Q04 stage10-done=True | - | **pass** | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (4b16aa2c1fa8ec6cde2e9386c05fc4de7fd2f45a90c7ed79803c90c1c5e1b03e -> d12954f5fa75b12b1e6bd87747d5d89e122471b94c1c9410e6e5bfebe488eed2): restored from C:\Modding\kitkraft-observe\2026-11-17-T05\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (65bf61161827c8154e5f3e3001df3e938cca8baa64060aa565253bad76b2e39b -> 48daa0205a602f4a1fd189ad2799c21e2d242176279ab96367bb469e9d4582d0): restored from C:\Modding\kitkraft-observe\2026-11-17-T05\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, second desk window, 02:24 to 02:28; the Q-03
+re-test). One variable changed against `game-20261117-02`: stage 10 of `KKQ01Qust` got its
+log entry (`QSDT = 0` in the stage's fields of `docs/bench/verify-mod/verify-quest.toml`).
+`kit inspect` of the built QUST shows `INDX 0A000000`, then `QSDT 00`, `QSRD 00000000` and
+the empty `QSRD` end marker (the reward count and end the schema requires, written as
+zeros); before, `INDX` had nothing after it. Plugin 3,261 bytes, SHA-256
+`7192216dabb39280b40a85283442dc63ad22e0c2b1f7823d26fa9de4c2b2f0e5` (was `94d2ad19...`);
+validate 0 errors 0 warnings, roundtrip identical. Probes file
+`verify-quest-probes.toml` changed only in its `sha256` line (file SHA-256
+`c59da097804a506bf15a6bab9d91c4597bbb809573ad1424a157dcd67474fcff`). Both `.pex` unchanged
+(`73a7dfce...`, `a8e03809...`), release `kit.exe` `627a8a6d...` as before.
+
+- **4 of 4 rows pass.** At 02:27:05 the Papyrus log holds `KKQ-Q01 quest script running`,
+  `KKQ-Q02 marker-set=true base-is=true`, **`KKQ-Q03 stage 10 fragment ran`** and
+  `KKQ-Q04 stage10-done=true`.
+- **Reading:** the stage fragment kit writes into the quest `VMAD` runs when its stage has a
+  log entry; without one (`game-20261117-02`) it did not run and nothing was logged. This
+  confirms the two agents' diagnosis for this one quest (one stage, one fragment, log entry
+  index 0); other stage shapes are untested. The fragment writer itself needed no change;
+  a recipe stage that carries a fragment needs a log entry (a `validate` rule or a default
+  for `new` would catch it: ticket idea).
+- `report.json` SHA-256 `4ad813c8199d56035f038afcad30a819128061b7020c5fc6922d4dbe87268a70`.
+  The game and MO2 were closed by the controller; `KitKraftVerifyQuest` stays enabled for
+  the Q-05 session that may follow.

@@ -24,7 +24,7 @@ plugins = ["Starfield.esm"]
 name = "quest"
 type = "QUST"
 edid = "KKQ01Qust"
-fields = { FULL = "KKQ01 Verify Quest", "DNAM.Flags" = "StartGameEnabled", "INDX.StageIndex" = 10 }
+fields = { FULL = "KKQ01 Verify Quest", "DNAM.Flags" = "StartGameEnabled", "INDX.StageIndex" = 10, QSDT = 0 }
 brief = "bench-verify-quest"
 scripts = [
   { name = "KitKraft:VerifyQuestReport", properties = { Marker = "new:marker", MarkerBase = "Starfield.esm:0058BB" } },

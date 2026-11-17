@@ -844,8 +844,8 @@ note = "bench verification mod (KitKraftVerify.esm), rows V-P07, V-C-PERK, V-H-P
 type = "QUST"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04", "ledger: game-20261117-02"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P09, V-C-QUST: getstage answered 10; the new quest started and its stage 10 was set. Verification quest (KitKraftVerifyQuest.esm, game-20261117-02): Q-01, Q-02 and Q-04 passed (the start-game-enabled quest ran the quest script kit attached, its object property held the reference the same build placed, SetStage 10 took); Q-03 failed: the stage 10 fragment kit wrote into the VMAD fragment block left no line in the Papyrus log (a gap of the fragment writer, not of the QUST record)"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-02", "ledger: game-20261117-05"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P09, V-C-QUST: getstage answered 10; the new quest started and its stage 10 was set. Verification quest (KitKraftVerifyQuest.esm, game-20261117-02): Q-01, Q-02 and Q-04 passed (the start-game-enabled quest ran the quest script kit attached, its object property held the reference the same build placed, SetStage 10 took); Q-03 failed: the stage 10 fragment kit wrote into the VMAD fragment block left no line in the Papyrus log: its stage had no log entry. With the stage's log entry added (QSDT; game-20261117-05) all four rows passed, Q-03 on `KKQ-Q03 stage 10 fragment ran`: the stage fragment kit writes runs when its stage carries a log entry"
 
 [[entry]]
 type = "RSPJ"

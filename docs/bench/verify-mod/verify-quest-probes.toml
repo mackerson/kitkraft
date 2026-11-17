@@ -5,7 +5,7 @@
 # the base save loads with the plugin enabled, before the first row.
 format = 1
 plugin = "KitKraftVerifyQuest.esm"
-sha256 = "94d2ad19feaa10bd8f8ac5da6b80d5f55bb0c2bfe6211cfe666ffb681dea3f6d"
+sha256 = "7192216dabb39280b40a85283442dc63ad22e0c2b1f7823d26fa9de4c2b2f0e5"
 generated_by = "hand-written (bench 2026-11-16), docs/bench/verify-mod.md \"Self-reporting quest\""
 profile = "KitKraft Dev"
 notes = [
