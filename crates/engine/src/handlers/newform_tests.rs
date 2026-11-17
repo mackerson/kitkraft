@@ -603,6 +603,15 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "DATA:00000000000000000000000000000000000000000000000000000000",
         ),
     ),
+    // ck-20261117-13
+    (
+        "AMDL",
+        "KCB_AMDL_New",
+        concat!(
+            "ANAM:00000040000000419A99993E000000408FC2753DCDCC4C3F0000FA420000803F0000803E0",
+            "00000400000803F0A00000000007042000000000000803F0000803F00",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
