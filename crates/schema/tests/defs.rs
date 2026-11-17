@@ -651,7 +651,6 @@ const BX2_INVENTORY: &[&str] = &[
     "STAG",
     "STBH",
     "TODD",
-    "TRNS",
     "VOLI",
     "WBAR",
     "WTHS",

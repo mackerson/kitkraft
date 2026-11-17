@@ -1,26 +1,42 @@
-# TRNS: Transform, inventory definition (KK-100).
+# TRNS: Transform, a stored placement for a preview: a position and rotation, a scale and a
+# zoom range, which basis the placement is taken in, and colour-mode flags (inventory
+# previews and load screens use them).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-100 scan of every official TRNS record (733 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the TRNS definition of wbDefinitionsSF1.pas at the pinned revision (L18381-L18428),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18381-L18428 - member order, the record flags
+#     (L18382-L18394, twelve flag bits), EDID (L18400), the DATA struct (L18402-L18413: the
+#     shared position/rotation helper, then the scale and the two zoom limits), the BNAM
+#     basis enum (L18414-L18419) and the ENAM colour-mode flags (L18420-L18427). Upstream
+#     also lists the base form component block (L18401); no official record has one, so it
+#     is left out (a plugin that has one keeps it raw).
+#   corpus: the trns_types scan in crates/esm/tests/trns_types.rs checks this definition
+#     against every official TRNS record (733 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# DATA: upstream marks the members after the rotation as optional, but every official DATA
+# is 36 bytes, so all nine floats are typed as present.
 signature = "TRNS"
 name = "Transform"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official TRNS record (733) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18381-L18428"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18381-L18428",
+  "corpus: trns_types_full (crates/esm/tests/trns_types.rs), 2026-11-17: every official TRNS record (733) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-100): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L18381-L18428): EDID, the DATA placement struct, the BNAM basis enum and the ENAM colour-mode flags; no official record has the base form component block, so it is left out"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["AroundOrigin", 0x10000],
+  ["ApplyTranslation", 0x20000],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
 
 [[member]]
 sig = "EDID"
@@ -38,35 +54,45 @@ confidence = "corpus"
 [[member]]
 sig = "DATA"
 name = "Data"
-type = "opaque"
+type = "struct"
+size = 36
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 733 of 733 official TRNS records (733 occurrences), 36 bytes"
+field = [
+  { name = "Placement", type = "ref:PositionRotation" },
+  { name = "Scale", type = "f32" },
+  { name = "ZoomMin", type = "f32" },
+  { name = "ZoomMax", type = "f32" },
+]
+source = "corpus: trns_types_full (crates/esm/tests/trns_types.rs), 2026-11-17: in 733 of 733 official TRNS records, 36 bytes; every one decodes and re-encodes identically"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18402-L18402",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18402-L18413",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); 36 bytes"
+note = "upstream makes the members after the rotation optional; every official DATA is 36 bytes, so all are typed as present"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "Basis"
+type = "enum"
+base = "u8"
+values = [["WorldBound", 0], ["ObjectOrigin", 1]]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 733 of 733 official TRNS records (733 occurrences), 1 byte"
+source = "corpus: trns_types_full (crates/esm/tests/trns_types.rs), 2026-11-17: in 733 of 733 official TRNS records, 1 byte; every one decodes and re-encodes identically"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18414-L18414",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18414-L18419",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); 1 byte"
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "ColorModeFlags"
+type = "flags"
+base = "u32"
+bits = [["Normal", 0x1], ["Monochrome", 0x2], ["AlphaFill", 0x4]]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 733 of 733 official TRNS records (733 occurrences), 4 bytes"
+source = "corpus: trns_types_full (crates/esm/tests/trns_types.rs), 2026-11-17: in 733 of 733 official TRNS records, 4 bytes; every one decodes and re-encodes identically"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18420-L18420",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18420-L18427",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-100 inventory); 4 bytes"
