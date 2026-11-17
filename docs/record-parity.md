@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 60: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, FFKW, FOGV, FORC, FSTS, GBFT, GCVR, GPOG, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, WBAR, WTHS.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 59: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, FFKW, FOGV, FORC, FSTS, GBFT, GCVR, GPOG, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, MAAM, MRPH, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, TRNS, VOLI, WBAR, WTHS.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 60:
 | quest           |           10 |          10 |   267,549 |  3,908,978 |    41,753 | 202,084 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,608 |    10,517 |      14 |
-| container/other |          123 |         123 |   252,710 |    858,347 |   219,589 |   1,903 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,991,539 | 2,199,606 | 228,416 |
+| container/other |          123 |         123 |   252,710 |    860,062 |   217,874 |   1,903 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,993,254 | 2,197,891 | 228,416 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 60:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:bc4642e118921074` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:b16c079baf26c138` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -133,7 +133,7 @@ Columns:
 | `WEAP`        | Weapon                         |       452 |          0 |    54 |    52 |      2 |       0 |
 | `PHZD`        | PlacedHazard                   |       450 |          0 |    11 |    10 |      1 |       0 |
 | `BIOM`        | Biome                          |       434 |          0 |    45 |    44 |      1 |       0 |
-| `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     1 |      4 |       0 |
+| `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     5 |      0 |       0 |
 | `LSCR`        | LoadScreen                     |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode        |       379 |          0 |    23 |    22 |      1 |       0 |
 | `DOOR`        | Door                           |       376 |          0 |    32 |    28 |      4 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,495 |    234 |      68 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,499 |    230 |      68 |
 
-Subrecord occurrences: 50,419,561 in total; 47,991,539 typed (0 of them failed to decode), 2,199,606 opaque, 228,416 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,993,254 typed (0 of them failed to decode), 2,197,891 opaque, 228,416 unknown.
 
 ## Decoded through the definitions
 
@@ -335,7 +335,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WEAP`    | Weapon                         |           452 |     18,432 |      0 |         0 |         0 |                   0 |     18,432 |       0 |        0 |
 | `PHZD`    | PlacedHazard                   |           450 |      1,420 |      0 |         0 |         0 |                   0 |      1,420 |       0 |        0 |
 | `BIOM`    | Biome                          |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
-| `LTEX`    | LandscapeTexture               |           429 |        429 |      0 |         0 |         0 |                   0 |        429 |       0 |        0 |
+| `LTEX`    | LandscapeTexture               |           429 |      2,144 |      0 |         0 |         0 |                   0 |      2,144 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode        |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
 | `DOOR`    | Door                           |           376 |      6,769 |      0 |         0 |         0 |                   0 |      6,769 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,991,539 |      0 |         0 |   402,137 |                   0 | 47,589,402 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,993,254 |      0 |         0 |   402,137 |                   0 | 47,591,117 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -560,7 +560,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LIGH`    | Light                          |            146 |    138 |      8 |        10 |                   0 |    136 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |            112 |    105 |      7 |         0 |                   0 |    112 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
-| `LTEX`    | LandscapeTexture               |              5 |      1 |      4 |         0 |                   0 |      5 |       0 |        0 |
+| `LTEX`    | LandscapeTexture               |              5 |      5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `LVLB`    | LeveledBaseForm                |            139 |    132 |      7 |        11 |                   0 |    128 |       0 |        0 |
 | `LVLI`    | LeveledItem                    |            145 |    138 |      7 |         9 |                   0 |    136 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |            137 |    129 |      8 |         7 |                   0 |    130 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            112 |    106 |      6 |         0 |                   0 |    112 |       0 |        0 |
-| **Total** |                                |         14,528 | 13,628 |    900 |       422 |                   2 | 14,104 |       0 |        0 |
+| **Total** |                                |         14,528 | 13,632 |    896 |       422 |                   2 | 14,104 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

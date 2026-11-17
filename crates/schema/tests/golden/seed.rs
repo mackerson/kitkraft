@@ -137,7 +137,7 @@
 // - LIGH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899; corpus)
 // - LMSW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LMSW record (17410) decodes with every subrecord placed and re-encodes identically; corpus)
 // - LSCR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LSCR record (393) decodes with every subrecord placed and re-encodes identically; corpus)
-// - LTEX (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LTEX record (429) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LTEX (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13935-L13949; reference)
 // - LVLB (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13952-L14010; reference)
 // - LVLI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14013-L14074; corpus)
 // - LVLN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14077-L14116; corpus)
@@ -56360,18 +56360,42 @@ impl LscrRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct LtexHavokData {
+    pub friction: u8,
+    pub restitution: u8,
+}
+
+impl Field for LtexHavokData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "LTEX.HNAM.Friction", ctx)?;
+        let f1 = u8::read(r, "LTEX.HNAM.Restitution", ctx)?;
+        Ok(Self {
+            friction: f0,
+            restitution: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.friction.write(out);
+        self.restitution.write(out);
+    }
+}
+
+impl Visit for LtexHavokData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LtexRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `BNAM`, optional.
-    pub bnam: Option<Sub<Bytes>>,
+    pub material_file: Option<Sub<ZString>>,
     /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
+    pub material_type: Option<Sub<FormId>>,
     /// `HNAM`, required.
-    pub hnam: Option<Sub<Bytes>>,
+    pub havok_data: Option<Sub<LtexHavokData>>,
     /// `QNAM`, required.
-    pub qnam: Option<Sub<Bytes>>,
+    pub dirtiness: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -56416,17 +56440,27 @@ impl LtexRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "LTEX.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.bnam, subs, *index, "LTEX.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.mnam, subs, *index, "LTEX.MNAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.material_file,
+                    subs,
+                    *index,
+                    "LTEX.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.material_type,
+                    subs,
+                    *index,
+                    "LTEX.MNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.hnam, subs, *index, "LTEX.HNAM", ctx, extra)
+                    put(&mut self.havok_data, subs, *index, "LTEX.HNAM", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.qnam, subs, *index, "LTEX.QNAM", ctx, extra)
+                    put(&mut self.dirtiness, subs, *index, "LTEX.QNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -56435,18 +56469,28 @@ impl LtexRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"HNAM", self.hnam.as_ref());
-        emit(out, *b"QNAM", self.qnam.as_ref());
+        emit(out, *b"BNAM", self.material_file.as_ref());
+        emit(out, *b"MNAM", self.material_type.as_ref());
+        emit(out, *b"HNAM", self.havok_data.as_ref());
+        emit(out, *b"QNAM", self.dirtiness.as_ref());
     }
 }
 
-impl Visit for LtexRecord {}
+impl Visit for LtexRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.material_type, "LTEX.MNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.material_type, "LTEX.MNAM", out);
+    }
+}
 
 impl LtexRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"LTEX";
+    /// Record-header flag.
+    pub const FLAG_UNKNOWN9: u32 = 0x200;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

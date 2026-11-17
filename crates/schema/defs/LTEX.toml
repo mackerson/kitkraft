@@ -1,27 +1,34 @@
-# LTEX: LandscapeTexture, inventory definition (KK-101).
+# LTEX: LandscapeTexture, a landscape texture: its material file, its material type, two
+# physics numbers and how dirty it looks.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-101 scan of every official LTEX record (429 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LTEX definition of wbDefinitionsSF1.pas at the pinned revision (L13935-L13949),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13935-L13949 - one record-header flag, bit 9,
+#     which upstream names only as unknown (L13936-L13938); member order, EDID (L13939),
+#     the string named 'Material File' (L13942), the FormID of a MATT (or null) named
+#     'Material Type' (L13943), the struct named 'Havok Data' of two 8-bit integers,
+#     friction then restitution (L13944-L13947), and the float named 'Dirtiness'
+#     (L13948). Upstream also lists the script data (L13940) and the base form component
+#     block (L13941); no official record has either, so they are left out (a plugin that
+#     has one keeps it raw).
+#   corpus: the ltex_types scan in crates/esm/tests/ltex_types.rs checks this definition
+#     against every official LTEX record (429 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record. The
+#     earlier inventory scan (KK-101, crates/esm/tests/inventory_types.rs) gives the
+#     per-member counts below.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out (the VMAD
-# script and the base form components); a plugin that has one keeps it raw.
 signature = "LTEX"
 name = "LandscapeTexture"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LTEX record (429) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13935-L13949"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13935-L13949",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13936-L13938",
+  "corpus: ltex_types_full (crates/esm/tests/ltex_types.rs), 2026-11-17: every official LTEX record (429) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-101): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L13935-L13949): EDID, the material file, the material type, the Havok data, the dirtiness and the one record flag upstream lists; no official record has the script data or the base form component block, so both are left out"
+flags = [
+  ["Unknown9", 0x200],
+]
 
 [[member]]
 sig = "EDID"
@@ -38,48 +45,55 @@ confidence = "corpus"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "MaterialFile"
+type = "zstring"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 428 of 429 official LTEX records (428 occurrences), 29..54 bytes"
 evidence = [
+  "corpus: ltex_types_full (crates/esm/tests/ltex_types.rs), 2026-11-17: in 428 of 429 official LTEX records, 29..54 bytes, each decodes as a NUL-terminated string and re-encodes identically",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13942-L13942",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 29..54 bytes"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "MaterialType"
+type = "formid"
+targets = ["MATT"]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 429 of 429 official LTEX records (429 occurrences), 4 bytes"
 evidence = [
+  "corpus: ltex_types_full (crates/esm/tests/ltex_types.rs), 2026-11-17: in 429 of 429 official LTEX records, 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13943-L13943",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+note = "a null FormID is allowed"
 
 [[member]]
 sig = "HNAM"
-name = "Hnam"
-type = "opaque"
+name = "HavokData"
+type = "struct"
+size = 2
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 429 of 429 official LTEX records (429 occurrences), 2 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13944-L13944",
+  "corpus: ltex_types_full (crates/esm/tests/ltex_types.rs), 2026-11-17: in 429 of 429 official LTEX records, 2 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13944-L13947",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 2 bytes"
+field = [
+  { name = "Friction", type = "u8" },
+  { name = "Restitution", type = "u8" },
+]
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
+name = "Dirtiness"
+type = "f32"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 429 of 429 official LTEX records (429 occurrences), 4 bytes"
 evidence = [
+  "corpus: ltex_types_full (crates/esm/tests/ltex_types.rs), 2026-11-17: in 429 of 429 official LTEX records, 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13948-L13948",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
