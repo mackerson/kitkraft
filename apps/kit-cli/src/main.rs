@@ -85,6 +85,7 @@ fn main() -> ExitCode {
                 .cloned()
                 .collect(),
         )),
+        Some(("walk", sub)) => run_walk(sub),
         Some(("install", sub)) => run_install(sub, install::Action::Install),
         Some(("uninstall", sub)) => run_install(sub, install::Action::Uninstall),
         Some((word, sub)) => {
@@ -163,6 +164,53 @@ fn ui_words(words: Vec<String>) -> Vec<String> {
         ),
     }
     out
+}
+
+/// `kit walk`: the owner walk recorder (`docs/bench/owner-walk/README.md`). A front end
+/// with no `CommandSpec`: it waits for the owner's Enter at every station, which `execute`
+/// never does, and it stays off MCP (`kitkraft_engine::walk`).
+fn run_walk(sub: &clap::ArgMatches) -> ExitCode {
+    let get = |k: &str| sub.get_one::<String>(k).cloned();
+    let options = kitkraft_engine::walk::WalkOptions {
+        stations: get("stations")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default(),
+        profile: get("profile").unwrap_or_else(|| "KitKraft Dev".into()),
+        mo2: get("mo2").map(std::path::PathBuf::from),
+        observe: get("observe").map_or_else(
+            || std::path::PathBuf::from("observe"),
+            std::path::PathBuf::from,
+        ),
+        slot: get("slot"),
+        papyrus_log: get("papyrus-log").map(std::path::PathBuf::from),
+        url: get("url"),
+        plugin: get("plugin").map(std::path::PathBuf::from),
+    };
+    let prepared = match kitkraft_engine::walk::prepare(&options) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("kit walk: {e}");
+            return ExitCode::from(EXIT_ERROR);
+        }
+    };
+    print!("{}", prepared.describe());
+    if sub.get_flag("dry-run") {
+        println!("dry run: nothing sent, nothing written");
+        return ExitCode::SUCCESS;
+    }
+    match prepared.run_live() {
+        Ok(report) => {
+            if report.status.label() == "pass" {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(EXIT_NEGATIVE)
+            }
+        }
+        Err(e) => {
+            eprintln!("kit walk: {e}");
+            ExitCode::from(EXIT_ERROR)
+        }
+    }
 }
 
 /// `kit install` / `kit uninstall` (front-end setup, no `CommandSpec`: see
@@ -516,6 +564,19 @@ fn cli() -> Command {
                 .to_string(),
         ))
         .subcommand(
+            Command::new("walk")
+                .about("Record the owner walk: you play, it reads the console at each station (docs/bench/owner-walk)")
+                .arg(Arg::new("stations").required(true).value_name("STATIONS.TOML"))
+                .arg(Arg::new("profile").long("profile").value_name("NAME-OR-DIR").help("MO2 profile (default: KitKraft Dev; Default is refused)"))
+                .arg(Arg::new("mo2").long("mo2").value_name("DIR").help("MO2 instance root (default: detected)"))
+                .arg(Arg::new("observe").long("observe").value_name("DIR").help("Folder the walk's own folder is made in (default: observe)"))
+                .arg(Arg::new("slot").long("slot").value_name("HEX").help("The walk plugin's runtime slot, instead of the inferred one"))
+                .arg(Arg::new("papyrus-log").long("papyrus-log").value_name("FILE").help("The Papyrus log, instead of the game profile's"))
+                .arg(Arg::new("url").long("url").value_name("URL").help("The console endpoint (loopback), instead of the game profile's"))
+                .arg(Arg::new("plugin").long("plugin").value_name("ESM").help("The built walk plugin to read EditorIDs from (with --slot: before it is deployed)"))
+                .arg(Arg::new("dry-run").long("dry-run").action(ArgAction::SetTrue).help("Print what the walk would do; send and write nothing")),
+        )
+        .subcommand(
             install_command(
                 "install",
                 "Put this folder on the user PATH and register it as the kitkraft MCP server (--dry-run by default; --apply)",
@@ -761,6 +822,10 @@ fn print_catalog_help() {
     println!(
         "  {:<18} Open the read-only workbench window (kit ui [--dev | --profile DIR] [--theme PRESET])",
         "ui"
+    );
+    println!(
+        "  {:<18} Record the owner walk at the game's console (kit walk <stations.toml> [--dry-run])",
+        "walk"
     );
     println!(
         "  {:<18} Put this folder on PATH, register the MCP server (kit install [--apply])",

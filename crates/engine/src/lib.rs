@@ -35,6 +35,7 @@ mod session;
 pub mod shapes;
 pub mod testing;
 pub mod validate;
+pub mod walk;
 
 pub use args::Violation;
 pub use cmdline::{parse_line, parse_words, Invocation};
