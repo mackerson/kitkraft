@@ -452,6 +452,15 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "FLLD:01000000 DESC:00 DATA:00000000 ENIT:0*56 DNAM:00",
         ),
     ),
+    // ck-20261117-12
+    (
+        "KEYM",
+        "KCB_KEYM_New",
+        concat!(
+            "OBND:000000000000000000000000000000000000000000000000 ODTY:00000000 ",
+            "FLLD:01000000 DATA:0000000000000000",
+        ),
+    ),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
