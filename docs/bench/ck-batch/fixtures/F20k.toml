@@ -9,7 +9,9 @@ version = 3
 plugins = ["Starfield.esm"]
 
 [[new]]
-# The EditorID the sitting plan proposes for the CK's cell (owner question 2).
+# The EditorID the sitting plan proposed was KC_F20_Cell (owner question 2); the CK keeps a
+# new cell's EditorID without underscores (ck-20261117-21, validate rule cell.editor-id), so
+# the twin uses the name the CK writes.
 name = "f20_cell"
 type = "CELL"
-edid = "KC_F20_Cell"
+edid = "KCF20Cell"

@@ -14,5 +14,5 @@ plugins = ["Starfield.esm"]
 # it in the block and sub-block its FormID gives, INCC counted (support-matrix.md).
 name = "cell_new"
 type = "CELL"
-edid = "KCB_CELL_New"
+edid = "KCBCellNew"
 fields = { FULL = "KCB New Cell" }

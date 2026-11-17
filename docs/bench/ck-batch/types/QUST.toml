@@ -10,9 +10,12 @@ plugins = ["Starfield.esm"]
 # --- body ---
 
 [[clone]]
-# Starfield.esm:00118F MQ_TutorialQuest_Misc06: an early QUST after DebugVideoQuest (debug, skipped).
+# Starfield.esm:00637D: a QUST with stages and a script (VMAD) and no aliases. The first
+# sitting cloned 00118F MQ_TutorialQuest_Misc06, whose VMAD alias block names an alias of the
+# source quest (00118F); the CK drops that block from the copy (ck-20261117-17;
+# triage-20261117.md, class C).
 name = "qust_clone"
-form = "Starfield.esm:00118F"
+form = "Starfield.esm:00637D"
 edid = "KCB_QUST_Clone"
 
 [[new]]

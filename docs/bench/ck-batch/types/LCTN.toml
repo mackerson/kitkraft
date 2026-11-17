@@ -10,9 +10,12 @@ plugins = ["Starfield.esm"]
 # --- body ---
 
 [[clone]]
-# Starfield.esm:01295A CityNewAtlantisLocation: the LCTN whose edit dialog sitting 2 observed (S2-04).
+# Starfield.esm:00ADD7: an LCTN with FULL, keywords, DATA, PNAM and no reference lists. The
+# first sitting cloned 01295A CityNewAtlantisLocation, whose six reference lists (LCPR, LCUR,
+# LCUN, LCSR, LCID, LCEP: the master world's references) the CK drops from a copy in another
+# plugin (ck-20261117-15; triage-20261117.md, class C).
 name = "lctn_clone"
-form = "Starfield.esm:01295A"
+form = "Starfield.esm:00ADD7"
 edid = "KCB_LCTN_Clone"
 
 [[new]]

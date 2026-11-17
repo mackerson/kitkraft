@@ -21,4 +21,4 @@ name = "dial_topic"
 type = "DIAL"
 edid = "KCB_DIAL_Topic"
 parent = "new:dial_quest"
-fields = { PNAM = 50.0, "DATA.Category" = 7, SNAM = "CUST" }
+fields = { PNAM = 50.0, "DATA.Category" = 0, SNAM = "CUST" }
