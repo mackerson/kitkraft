@@ -22,7 +22,7 @@
 # written by hand.
 #
 # Only one KitKraft plugin that places into the apartment should be enabled with this one:
-# the first POI's crate stands at (-17, -4) in the same room.
+# the verification mod's references stand in the same row (y -8), so keep it disabled.
 version = 3
 
 [load_order]
@@ -149,19 +149,112 @@ form = "Starfield.esm:017307"
 fields = { "XOWN.Owner" = "Starfield.esm:01C21C" }
 brief = "owner-walk"
 
-# ---- The stations: CityNewAtlantisApartmentTEMPLATE, on the floor (z 4.63) of the bedroom,
-# within 1.2 m of the first POI's crate at (-17, -4), the one spot a person has stood at
-# (M4.O2). The first build put them in a row at y -8, where the verification mod's references
-# stood: the console read those back, but y -8 is behind the bedroom's south wall (wall
-# pieces at y -6), and on 2026-11-17 the owner saw the mugs fall outside the apartment.
-# The workbench is not placed: nothing here says where 3 m of free floor is, so W-07 spawns
-# one at the player's feet (stations.toml). ----
+# ---- The stations: CityNewAtlantisApartmentTEMPLATE, on a deck this plugin lays itself.
+# The cell's own floor pieces show where the rooms are (kit cell --with-bounds): the bedroom
+# is x -25..-17, y -6..-2, the living floor x -21..-9, y 2..18. Two earlier builds guessed a
+# spot and missed: the row at y -8 (where the verification mod's references stood) is behind
+# the bedroom's south wall, and the owner saw the mugs fall (2026-11-17); the first POI's
+# crate at (-17, -4) is on the bedroom's east wall line, and the owner never found it.
+# So the stations stand outside the walls, south of the bedroom, on ten of the apartment's
+# own 4 m floor tiles (ComIntAddonRmSmMidBotB01, Starfield.esm:20BDF3): x -32..-12,
+# y -15..-7, z 4.63. The row of objects is at y -9; the player stands south of it. W-01's
+# setup moves the player there (player.moveto), since no door leads to it. ----
+
+[[place]]
+name = "deck_01"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-14.0, -9.0, 4.63]
+persistent = true
+edid = "KKW60DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_02"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-18.0, -9.0, 4.63]
+persistent = true
+edid = "KKW61DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_03"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-22.0, -9.0, 4.63]
+persistent = true
+edid = "KKW62DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_04"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-26.0, -9.0, 4.63]
+persistent = true
+edid = "KKW63DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_05"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-30.0, -9.0, 4.63]
+persistent = true
+edid = "KKW64DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_06"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-14.0, -13.0, 4.63]
+persistent = true
+edid = "KKW65DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_07"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-18.0, -13.0, 4.63]
+persistent = true
+edid = "KKW66DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_08"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-22.0, -13.0, 4.63]
+persistent = true
+edid = "KKW67DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_09"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-26.0, -13.0, 4.63]
+persistent = true
+edid = "KKW68DeckRef"
+brief = "owner-walk"
+
+[[place]]
+name = "deck_10"
+base = "Starfield.esm:20BDF3"
+cell = "Starfield.esm:21966F"
+position = [-30.0, -13.0, 4.63]
+persistent = true
+edid = "KKW69DeckRef"
+brief = "owner-walk"
 
 [[place]]
 name = "owned_mug_ref"
 base = "new:owned_mug"
 cell = "Starfield.esm:21966F"
-position = [-16.2, -5.0, 4.63]
+position = [-14.0, -9.0, 4.70]
 persistent = true
 edid = "KKW50OwnedMugRef"
 fields = { "XOWN.Owner" = "new:owners" }
@@ -171,7 +264,7 @@ brief = "owner-walk"
 name = "free_mug_ref"
 base = "new:free_mug"
 cell = "Starfield.esm:21966F"
-position = [-16.8, -5.0, 4.63]
+position = [-16.0, -9.0, 4.70]
 persistent = true
 edid = "KKW51FreeMugRef"
 brief = "owner-walk"
@@ -181,7 +274,7 @@ brief = "owner-walk"
 name = "your_mug_ref"
 base = "new:your_mug"
 cell = "Starfield.esm:21966F"
-position = [-17.4, -5.0, 4.63]
+position = [-18.0, -9.0, 4.70]
 persistent = true
 edid = "KKW52YourMugRef"
 fields = { "XOWN.Owner" = "Starfield.esm:000007" }
@@ -191,7 +284,7 @@ brief = "owner-walk"
 name = "locker_ref"
 base = "new:locker"
 cell = "Starfield.esm:21966F"
-position = [-15.9, -3.2, 4.63]
+position = [-21.0, -9.0, 4.66]
 persistent = true
 edid = "KKW53LockerRef"
 fields = { "XOWN.Owner" = "new:owners" }
@@ -201,7 +294,7 @@ brief = "owner-walk"
 name = "switch_ref"
 base = "new:switch"
 cell = "Starfield.esm:21966F"
-position = [-16.6, -3.0, 4.63]
+position = [-24.0, -9.0, 4.66]
 persistent = true
 edid = "KKW54SwitchRef"
 brief = "owner-walk"
@@ -209,3 +302,14 @@ scripts = [
   { name = "KitKraft:WalkSwitch", properties = { Counter = "new:counter", Text = "KitKraft walk: the switch was pressed" } },
 ]
 
+[[place]]
+# WorkbenchIndustrial ("Industrial Workbench", Starfield.esm:1F50AD), the vanilla base: a
+# FURN with WorkbenchIndustrialKeyword (0AA209) in its KWDA and no VMAD, so the fabricator
+# recipe can be tried on the deck.
+name = "bench_ref"
+base = "Starfield.esm:1F50AD"
+cell = "Starfield.esm:21966F"
+position = [-28.0, -9.0, 4.66]
+persistent = true
+edid = "KKW55BenchRef"
+brief = "owner-walk"

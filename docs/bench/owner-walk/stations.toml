@@ -58,7 +58,8 @@ covers = ["O4-01"]
 title = "the prompt on MISC `KKW10Misc` owned by FACT `KKW01Fact` (REFR XOWN)"
 forms = ["KKW50OwnedMugRef", "KKW10Misc", "KKW01Fact"]
 say = [
-  "Go to the bedroom (the room with the double bed). Three mugs stand on the floor near the foot of the bed. The first is a mug named KKW10 Owned Mug.",
+  "The stations stand on a floor deck outside the apartment walls (it is meant to be there). In the console: player.moveto {id:KKW50OwnedMugRef}   (then close the console).",
+  "You land at the first object, a mug named KKW10 Owned Mug; the rest stand in a row to the west. Step back to see it.",
   "Look at it with the crosshair, but do not take it yet.",
 ]
 expected = "The prompt reads Steal (in red): the faction KKW01 Walk Owners owns it and the player is not in it"
@@ -162,7 +163,6 @@ title = "OnActivate of KitKraft:WalkSwitch on ACTI `KKW30Acti` (VMAD on REFR `KK
 forms = ["KKW54SwitchRef", "KKW30Acti", "KKW02Glob", "Scripts\\KitKraft\\WalkSwitch.pex"]
 say = [
   "Next: the switch KKW30 Walk Switch. Activate it once (press E on it).",
-  "Before you press Enter: walk to the middle of the living room, where there is open floor. The next station spawns a workbench where you stand.",
 ]
 expected = "The notification 'KitKraft walk: the switch was pressed'; the counter KKW02Glob goes up by 1; the Papyrus log has KKW-A01"
 judge = "console"
@@ -182,17 +182,17 @@ why = "OnActivate's Debug.Trace (WalkSwitch.psc); needs the profile's [Papyrus] 
 [[station]]
 id = "W-07"
 covers = ["O4-06"]
-title = "the fabricator recipe COBJ `KKW42Cobj` at a spawned FURN WorkbenchIndustrial"
-forms = ["KKW42Cobj", "Starfield.esm:1F50AD", "Starfield.esm:0547A1"]
+title = "the fabricator recipe COBJ `KKW42Cobj` at the placed FURN WorkbenchIndustrial"
+forms = ["KKW42Cobj", "KKW55BenchRef", "Starfield.esm:1F50AD", "Starfield.esm:0547A1"]
 say = [
-  "An Industrial Workbench has just appeared where you were standing (kit walk spawned it, and gave you 10 iron and 10 aluminum). Step back if you are inside it.",
+  "Next: the Industrial Workbench at the west end of the deck (kit walk just gave you 10 iron and 10 aluminum).",
   "Use it; under Manufactured find 12g Shotgun Shell (description starts KKW42); craft it once; leave the bench.",
 ]
 expected = "The recipe is listed, needs 1 iron and 1 aluminum, no research; crafting gives 12g Shotgun Shells (6, NNAM)"
 judge = "both"
 ask = "Was the recipe there, and did it craft?"
 screenshot = true
-setup = ["player.additem 000057C7 10", "player.additem 000057D6 10", "player.placeatme 001F50AD 1"]
+setup = ["player.additem 000057C7 10", "player.additem 000057D6 10"]
 [[station.watch]]
 command = "player.getitemcount 000547A1"
 label = "12g Shotgun Shell count"

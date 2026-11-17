@@ -32,7 +32,7 @@ game was run to prepare this).
 | W-11 | embassy | O4-01, O4-02 | the ownership recipe: embassy items read **Take**, no crime |
 | W-12 | an outpost | O4-05 | **KKW40 Coffee Maker** is in Build > Decorations and builds |
 
-The apartment stations are in the bedroom, on the floor near the foot of the bed; the workbench is spawned where you stand at W-07.
+The apartment stations stand in a row on a floor deck the mod lays outside the apartment walls (south of the bedroom); at W-01 the recorder prints the `player.moveto` line that puts you on it (it never moves you itself).
 Every object's name starts with `KKW` and its station's number.
 
 ## Before you start (MO2 and the game closed)
@@ -50,8 +50,8 @@ kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftOwnerWalk --dev --prof
 ```
 
 Check: the plugin `KitKraftOwnerWalk.esm` is 25,171 bytes, SHA-256
-`1890b6f3cb77408cce58eb7d1277863631a50b96298dc34007b2d646c026b39d` (the deploy dry run
-prints it). `KitKraftVerify.esm` may stay as it is: its references are behind the south wall (y -8), not in the room.
+`d7c8305c7e06b979be5a143a30c7eeea59db83a3518cb7b45735cf21e2ac6e0a` (the deploy dry run
+prints it). Keep `KitKraftVerify.esm` disabled: its references stand in the same row.
 
 Then in MO2, on `Kitkraft Dev`:
 
@@ -102,8 +102,7 @@ loads are lost), so give it a few seconds.
   Wrench**. Expected: the locker shows as owned (red); the wrenches come out stolen.
 - **W-06** Activate **KKW30 Walk Switch** once. Expected: "KitKraft walk: the switch was
   pressed" on screen.
-- **W-07** Before pressing Enter at W-06, walk to open floor in the living room: the
-  recorder spawns an **Industrial Workbench** where you stand. Use it (you have been given 10
+- **W-07** Use the **Industrial Workbench** at the west end of the deck (you have been given 10
   iron and 10 aluminum). Expected: under Manufactured, "12g Shotgun Shell" with a
   description starting KKW42, costing 1 iron and 1 aluminum, no research; craft it once.
 - **W-08** You are given the hunting rifle. Expected: Inventory > Weapons reads **Old
