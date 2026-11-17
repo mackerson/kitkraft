@@ -1,0 +1,340 @@
+# The owner walk (docs/bench/owner-walk/README.md): the stations `kit walk` takes the owner
+# through, in walking order, for `KitKraftOwnerWalk.esm` (owner-walk.toml). Format:
+# `kitkraft_game::walk` (crates/game/src/walk.rs). `{id:<EditorID>}` is the runtime ID of
+# that form of the plugin in the profile's load order, which `kit walk` reads from the
+# built plugin and the profile; vanilla forms are written as their runtime IDs (Starfield.esm
+# loads first, so its runtime ID is its FormID).
+#
+# Vanilla forms used: iron 000057C7, aluminum 000057D6, copper 000057CF, sealant 0007782D
+# (docs/recipes/workshop.md, fabricator.md), AmmoShotgun 000547A1 (fabricator.md), the
+# hunting rifle 0021BBCD (the rename plugin), Maelstrom 002984DF, Hard Target 000546CC and
+# Drum Beat 0018DE2C (docs/overhaul/build-2.md, O5-03, O5-10, O5-11), the apartment
+# 0021966F and the embassy 00017307 (cells), the embassy's vanilla owner 0024F839
+# (docs/recipes/ownership.md).
+#
+# Console facts these rows rest on: `player.getitemcount`, `getglobalvalue <runtime ID>`,
+# `player.getincell <cell ID>`, `prid` + `getisid` answered in game (game-20261116-03, -04;
+# docs/bench/verify-mod.md, method a'). `player.GetStolenItemValueNoCrime`,
+# `player.GetStolenItemValue` and `player.GetCrimeGold` are condition functions of the
+# Starfield list (crates/schema/defs/common/Condition.toml, 366, 373, 459); whether the
+# console answers them is not observed, so they are recorded, never graded.
+format = 1
+title = "KitKraft owner walk (M4 rows O4-01, O4-02, O4-05, O4-06, W12, O5-15, OnActivate)"
+plugin = "KitKraftOwnerWalk.esm"
+also_record = ["OldSovietMarksmanRifle.esm", "KitKraftGunOverhaul.esm"]
+ready_command = "GetSFSEVersion"
+ready_expect = "SFSE version"
+quiet_secs = 8
+ready_secs = 180
+notes = [
+  "Rows judged `owner` rest on the owner's eyes (owner report); the console numbers in their Seen column are recorded, not graded.",
+  "The stolen-goods and crime-gold numbers are recorded only: no session has observed the console answer those functions yet.",
+]
+
+[[station]]
+id = "W-00"
+title = "check-in: in the apartment, the walk plugin loaded at the slot kit walk computed (GLOB `KKW02Glob`)"
+forms = ["KitKraftOwnerWalk.esm:00100B", "KKW02Glob", "{id:KKW02Glob}"]
+say = [
+  "In the console: coc CityNewAtlantisApartmentTEMPLATE   (then close the console).",
+  "When the apartment has loaded, press Enter here. If this station fails, type q and read the README's troubleshooting.",
+]
+expected = "The player is in the apartment (GetInCell 1); the walk plugin's global answers under its runtime ID (a wrong slot answers Item ... not found)"
+judge = "console"
+[[station.check]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the apartment, CityNewAtlantisApartmentTEMPLATE (game-20261103-07 T-01 shape)"
+[[station.check]]
+command = "getglobalvalue {id:KKW02Glob}"
+matcher = "regex"
+expected = '>>\s*\d'
+why = "getglobalvalue <runtime ID> answered GetGlobalValue >> 4242.00 for the verification mod (game-20261116-04, V-C-GLOB)"
+
+[[station]]
+id = "W-01"
+covers = ["O4-01"]
+title = "the prompt on MISC `KKW10Misc` owned by FACT `KKW01Fact` (REFR XOWN)"
+forms = ["KKW50OwnedMugRef", "KKW10Misc", "KKW01Fact"]
+say = [
+  "Walk to the row of objects on the floor (west of the door). The first is a mug named KKW10 Owned Mug.",
+  "Look at it with the crosshair, but do not take it yet.",
+]
+expected = "The prompt reads Steal (in red): the faction KKW01 Walk Owners owns it and the player is not in it"
+judge = "owner"
+ask = "Did the prompt read Steal?"
+screenshot = true
+
+[[station]]
+id = "W-02"
+covers = ["O4-02"]
+title = "taking MISC `KKW10Misc` from its owner FACT `KKW01Fact`"
+forms = ["KKW50OwnedMugRef", "KKW10Misc", "KKW01Fact"]
+say = [
+  "Take KKW10 Owned Mug. Then open the inventory and find it (Misc).",
+]
+expected = "One more KKW10 Owned Mug in the inventory, marked stolen; no bounty message (nobody saw it)"
+judge = "both"
+ask = "Is it marked stolen, and was there no bounty?"
+[[station.watch]]
+command = "player.getitemcount {id:KKW10Misc}"
+label = "KKW10 Owned Mug count"
+change = 1
+why = "the owner took one"
+[[station.watch]]
+command = "player.GetStolenItemValueNoCrime {id:KKW01Fact}"
+label = "stolen from KKW01 (no crime)"
+why = "recorded: 4321 more if the game counts the mug as stolen without a witness"
+[[station.watch]]
+command = "player.GetStolenItemValue {id:KKW01Fact}"
+label = "stolen from KKW01"
+why = "recorded"
+[[station.watch]]
+command = "player.GetCrimeGold"
+label = "crime gold"
+why = "recorded: no change expected (no witness)"
+
+[[station]]
+id = "W-03"
+covers = ["O4-01"]
+title = "control: MISC `KKW11Misc` with no owner"
+forms = ["KKW51FreeMugRef", "KKW11Misc"]
+say = [
+  "Next mug: KKW11 Free Mug. Look at it (note the prompt), then take it.",
+]
+expected = "The prompt reads Take (not red); taking it is no theft"
+judge = "both"
+ask = "Did the prompt read Take?"
+screenshot = true
+[[station.watch]]
+command = "player.getitemcount {id:KKW11Misc}"
+label = "KKW11 Free Mug count"
+change = 1
+[[station.watch]]
+command = "player.GetStolenItemValueNoCrime {id:KKW01Fact}"
+label = "stolen from KKW01 (no crime)"
+why = "recorded: no change expected"
+
+[[station]]
+id = "W-04"
+covers = ["O4-01"]
+title = "MISC `KKW12Misc` owned by the player (REFR XOWN NPC_ Player 000007)"
+forms = ["KKW52YourMugRef", "KKW12Misc", "Starfield.esm:000007"]
+say = [
+  "Next mug: KKW12 Your Mug. Look at it (note the prompt), then take it.",
+]
+expected = "The prompt reads Take: the player owns it"
+judge = "both"
+ask = "Did the prompt read Take?"
+screenshot = true
+[[station.watch]]
+command = "player.getitemcount {id:KKW12Misc}"
+label = "KKW12 Your Mug count"
+change = 1
+
+[[station]]
+id = "W-05"
+covers = ["O4-01", "O4-02"]
+title = "the owned CONT `KKW20Cont` (REFR XOWN FACT `KKW01Fact`) and its three wrenches"
+forms = ["KKW53LockerRef", "KKW20Cont", "KKW13Misc"]
+say = [
+  "Next: the locker KKW20 Owned Locker. Note its prompt, open it, take all three KKW13 Locker Wrench.",
+]
+expected = "The prompt marks it owned (red, or Steal from); the three wrenches arrive marked stolen"
+judge = "both"
+ask = "Was the locker shown as owned, and the wrenches stolen?"
+screenshot = true
+[[station.watch]]
+command = "player.getitemcount {id:KKW13Misc}"
+label = "KKW13 Locker Wrench count"
+change = 3
+why = "CNTO.Count 3 (owner-walk.toml)"
+[[station.watch]]
+command = "player.GetStolenItemValueNoCrime {id:KKW01Fact}"
+label = "stolen from KKW01 (no crime)"
+why = "recorded: 333 more if counted as stolen"
+
+[[station]]
+id = "W-06"
+covers = ["OnActivate"]
+title = "OnActivate of KitKraft:WalkSwitch on ACTI `KKW30Acti` (VMAD on REFR `KKW54SwitchRef`)"
+forms = ["KKW54SwitchRef", "KKW30Acti", "KKW02Glob", "Scripts\\KitKraft\\WalkSwitch.pex"]
+say = [
+  "Next: the switch KKW30 Walk Switch. Activate it once (press E on it).",
+]
+expected = "The notification 'KitKraft walk: the switch was pressed'; the counter KKW02Glob goes up by 1; the Papyrus log has KKW-A01"
+judge = "console"
+ask = "Did the notification show?"
+screenshot = true
+[[station.watch]]
+command = "getglobalvalue {id:KKW02Glob}"
+label = "KKW02Glob (switch presses)"
+change = 1
+why = "OnActivate adds 1 (WalkSwitch.psc)"
+[[station.check]]
+command = ""
+matcher = "papyrus-log"
+expected = "KKW-A01 activated by-player=true"
+why = "OnActivate's Debug.Trace (WalkSwitch.psc); needs the profile's [Papyrus] logging keys"
+
+[[station]]
+id = "W-07"
+covers = ["O4-06"]
+title = "the fabricator recipe COBJ `KKW42Cobj` at the placed FURN WorkbenchIndustrial"
+forms = ["KKW42Cobj", "KKW55BenchRef", "Starfield.esm:1F50AD", "Starfield.esm:0547A1"]
+say = [
+  "Next: the Industrial Workbench at the end of the row (kit walk just gave you 10 iron and 10 aluminum).",
+  "Use it; under Manufactured find 12g Shotgun Shell (description starts KKW42); craft it once; leave the bench.",
+]
+expected = "The recipe is listed, needs 1 iron and 1 aluminum, no research; crafting gives 12g Shotgun Shells (6, NNAM)"
+judge = "both"
+ask = "Was the recipe there, and did it craft?"
+screenshot = true
+setup = ["player.additem 000057C7 10", "player.additem 000057D6 10"]
+[[station.watch]]
+command = "player.getitemcount 000547A1"
+label = "12g Shotgun Shell count"
+min = 1
+why = "crafted once; 6 if the workbench gives NNAM as stored (fabricator.md, open point)"
+[[station.watch]]
+command = "player.getitemcount 000057C7"
+label = "iron count"
+why = "recorded: 1 less expected"
+[[station.watch]]
+command = "player.getitemcount 000057D6"
+label = "aluminum count"
+why = "recorded: 1 less expected"
+
+[[station]]
+id = "W-08"
+covers = ["W12"]
+title = "the rename package: WEAP 0021BBCD `RussianHuntingRifle` named by OldSovietMarksmanRifle.esm"
+forms = ["Starfield.esm:21BBCD", "RussianHuntingRifle", "OldSovietMarksmanRifle.esm"]
+say = [
+  "kit walk just gave you the hunting rifle. Open the inventory, Weapons, and read its name.",
+  "Say p if it reads Old Soviet Marksman Rifle and the package's manifest check (README, before you started) was all ok.",
+]
+expected = "Shown as Old Soviet Marksman Rifle; the installed package's manifest lines all ok"
+judge = "owner"
+ask = "Did it read Old Soviet Marksman Rifle?"
+screenshot = true
+setup = ["player.additem 0021BBCD 1"]
+[[station.watch]]
+command = "player.getitemcount 0021BBCD"
+label = "hunting rifle count"
+why = "recorded"
+
+[[station]]
+id = "W-09"
+covers = ["O5-15"]
+title = "before the save: the overhaul's WEAP values in the inventory (KitKraftGunOverhaul.esm)"
+forms = ["Starfield.esm:2984DF", "Starfield.esm:0546CC", "Starfield.esm:18DE2C", "KitKraftGunOverhaul.esm"]
+say = [
+  "kit walk just gave you Maelstrom, Hard Target and Drum Beat. In the inventory note each magazine size (expect 24, 5, 48).",
+  "Then in the console: save KitKraftWalk   (close the console, wait a moment, press Enter).",
+]
+expected = "Magazines 24 (Maelstrom), 5 (Hard Target), 48 (Drum Beat), as build 2 (docs/overhaul/build-2.md C3, C10, C11); the save is written"
+judge = "owner"
+ask = "Were the magazines 24, 5 and 48, and did the save finish?"
+setup = ["player.additem 002984DF 1", "player.additem 000546CC 1", "player.additem 0018DE2C 1"]
+[[station.watch]]
+command = "player.getitemcount 002984DF"
+label = "Maelstrom count"
+[[station.watch]]
+command = "player.getitemcount 000546CC"
+label = "Hard Target count"
+[[station.watch]]
+command = "player.getitemcount 0018DE2C"
+label = "Drum Beat count"
+
+[[station]]
+id = "W-10"
+covers = ["O5-15"]
+title = "after the reload: the same WEAP values (save/reload of KitKraftGunOverhaul.esm)"
+forms = ["Starfield.esm:2984DF", "Starfield.esm:0546CC", "Starfield.esm:18DE2C", "KKW14Misc"]
+say = [
+  "Now load the save: console  load KitKraftWalk  (or Esc > Load). Wait until you stand in the apartment, close the console.",
+  "Check the three magazine sizes again, then press Enter (p if they are the same).",
+]
+expected = "Back in the apartment from the save (the reload marker kit walk added after the save is gone); the three weapons still there with magazines 24, 5, 48"
+judge = "both"
+ask = "Were the magazines the same after the reload?"
+screenshot = true
+setup = ["player.additem {id:KKW14Misc} 1"]
+[[station.watch]]
+command = "player.getitemcount {id:KKW14Misc}"
+label = "reload marker (added after the save)"
+change = -1
+why = "added after the save, so a reload of that save removes it: proves the load happened"
+[[station.watch]]
+command = "player.getitemcount 002984DF"
+label = "Maelstrom count"
+change = 0
+[[station.watch]]
+command = "player.getitemcount 000546CC"
+label = "Hard Target count"
+change = 0
+[[station.watch]]
+command = "player.getitemcount 0018DE2C"
+label = "Drum Beat count"
+change = 0
+[[station.check]]
+command = "player.getincell 0021966F"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the save was made in the apartment"
+
+[[station]]
+id = "W-11"
+covers = ["O4-01", "O4-02"]
+title = "the ownership recipe: CELL 017307 `CityNewAtlantisFreestarEmbassy` XOWN -> PlayerFaction 01C21C"
+forms = ["Starfield.esm:017307", "CityNewAtlantisFreestarEmbassy", "Starfield.esm:01C21C"]
+say = [
+  "Console: coc CityNewAtlantisFreestarEmbassy  (close the console, wait for the load).",
+  "Look at an item on a shelf (note the prompt), then take it.",
+]
+expected = "The prompt reads Take, not Steal; no crime, no bounty (docs/recipes/ownership.md). A Steal prompt on one item may be that item's own owner: note which"
+judge = "both"
+ask = "Did it read Take, with no crime?"
+screenshot = true
+[[station.watch]]
+command = "player.GetStolenItemValueNoCrime 0024F839"
+label = "stolen from the embassy's vanilla owner (no crime)"
+why = "recorded: no change expected"
+[[station.watch]]
+command = "player.GetCrimeGold"
+label = "crime gold"
+why = "recorded"
+[[station.check]]
+command = "player.getincell 00017307"
+matcher = "regex"
+expected = '(?m)>>\s*1(\.0+)?\s*$'
+why = "the player is in the embassy"
+
+[[station]]
+id = "W-12"
+covers = ["O4-05"]
+title = "the outpost object: COBJ `KKW41Cobj` makes STAT `KKW40Stat` (Decorations)"
+forms = ["KKW41Cobj", "KKW40Stat", "Starfield.esm:293ADF"]
+say = [
+  "Last: go to an outpost (one of yours, or land anywhere outposts are allowed and place a beacon from the scanner).",
+  "Build mode > Decorations: find KKW40 Coffee Maker next to Coffee Maker; build it. (kit walk gave you aluminum, copper, sealant.)",
+]
+expected = "KKW40 Coffee Maker is listed with the vanilla cost (1 aluminum, 1 copper, 1 sealant) and builds, looking like the vanilla coffee maker"
+judge = "owner"
+ask = "Was it in the menu, and did it build?"
+screenshot = true
+setup = ["player.additem 000057D6 5", "player.additem 000057CF 5", "player.additem 0007782D 5"]
+[[station.watch]]
+command = "player.getitemcount 000057D6"
+label = "aluminum count"
+why = "recorded (building may take from outpost storage instead)"
+[[station.watch]]
+command = "player.getitemcount 000057CF"
+label = "copper count"
+why = "recorded"
+[[station.watch]]
+command = "player.getitemcount 0007782D"
+label = "sealant count"
+why = "recorded"

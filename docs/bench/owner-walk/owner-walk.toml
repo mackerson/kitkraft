@@ -1,0 +1,218 @@
+# The owner walk-test mod (docs/bench/owner-walk/README.md): one plugin for one short sitting
+# of the owner at the controls, with `kit walk` recording the console's side. Starfield.esm
+# is the only master. It owns new forms (a faction, a global, items, a container, a switch,
+# a coffee maker and two recipes) and places references, so it is for the disposable saves
+# of the `Kitkraft Dev` profile only (AGENTS.md, "Owner's live game is off limits").
+#
+# Compile first, so that out/owner-walk/Scripts/KitKraft/WalkSwitch.pex sits next to the
+# plugin, then build:
+#   kit papyrus compile docs/bench/owner-walk/scripts/KitKraft/WalkSwitch.psc out/owner-walk/Scripts --sources-zip "<Starfield>/Tools/ContentResources.zip"
+#   kit build docs/bench/owner-walk/owner-walk.toml out/owner-walk/KitKraftOwnerWalk.esm --overwrite
+#
+# Reused recipes: the outpost coffee maker and its recipe (docs/recipes/workshop.toml), the
+# fabricator shotgun shells (docs/recipes/fabricator.toml), the embassy owned by
+# PlayerFaction (docs/recipes/ownership.toml), the faction-as-owner of
+# docs/recipes/ownership-faction.toml (here on references), the cloned items and locker of
+# the verification mod (docs/bench/verify-mod/verify-mod.toml) and a switch carrying a
+# script, as the scripts recipe's (docs/recipes/scripts.toml).
+#
+# Naming: every form's EditorID is `KKW<nn><Type>` and its FULL `KKW<nn> <words>`, so the
+# owner can tell each station's object by its name on screen. `kit walk` finds each form
+# by its EditorID in the built plugin (stations.toml `{id:<EditorID>}`), so no object ID is
+# written by hand.
+#
+# Only one KitKraft plugin that places into the apartment should be enabled with this one:
+# the verification mod uses the same row of floor (y -8) and must be disabled.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+# ---- Items for the ownership stations (W-01 to W-05) ----
+
+[[clone]]
+# CoffeeMug01 ("Coffee Mug"): owned by the walk faction on the floor (W-01, W-02). A
+# value no vanilla item has, so a change in the stolen-goods value names it.
+name = "owned_mug"
+form = "Starfield.esm:03EDC8"
+edid = "KKW10Misc"
+fields = { FULL = "KKW10 Owned Mug", "DATA.Value" = 4321 }
+brief = "owner-walk"
+
+[[clone]]
+# The unowned control (W-03).
+name = "free_mug"
+form = "Starfield.esm:03EDC8"
+edid = "KKW11Misc"
+fields = { FULL = "KKW11 Free Mug", "DATA.Value" = 1234 }
+brief = "owner-walk"
+
+[[clone]]
+# Owned by the player (W-04).
+name = "your_mug"
+form = "Starfield.esm:03EDC8"
+edid = "KKW12Misc"
+fields = { FULL = "KKW12 Your Mug", "DATA.Value" = 2345 }
+brief = "owner-walk"
+
+[[clone]]
+# Tool_Wrench01 ("Wrench"): three of them in the owned locker (W-05).
+name = "wrench"
+form = "Starfield.esm:20B97C"
+edid = "KKW13Misc"
+fields = { FULL = "KKW13 Locker Wrench", "DATA.Value" = 111 }
+brief = "owner-walk"
+
+[[clone]]
+# Never placed: `kit walk` adds one after the owner saves (W-09), so a count back to what
+# it was before proves the reload of W-10 happened.
+name = "marker"
+form = "Starfield.esm:03EDC8"
+edid = "KKW14Misc"
+fields = { FULL = "KKW14 Reload Marker", "DATA.Value" = 1 }
+brief = "owner-walk"
+
+[[clone]]
+# CaptainsLocker01 ("Captain's Locker"), as the verification mod's: its first inventory
+# entry becomes three of the wrench above.
+name = "locker"
+form = "Starfield.esm:17964B"
+edid = "KKW20Cont"
+fields = { FULL = "KKW20 Owned Locker", COCT = 1, "CNTO.Item" = "new:wrench", "CNTO.Count" = 3 }
+brief = "owner-walk"
+
+[[clone]]
+# ActivatorSwitch01 ("Switch"), the scripts recipe's base: no VMAD, has a model.
+name = "switch"
+form = "Starfield.esm:03CCF4"
+edid = "KKW30Acti"
+fields = { FULL = "KKW30 Walk Switch" }
+brief = "owner-walk"
+
+# ---- The workshop and fabricator recipes, as docs/recipes/workshop.toml and fabricator.toml ----
+
+[[clone]]
+# CoffeeBrewingMachine01 ("Coffee Maker"), the STAT co_Outpost_Decor_CoffeeMaker01 creates.
+name = "coffee"
+form = "Starfield.esm:136FDF"
+edid = "KKW40Stat"
+fields = { FULL = "KKW40 Coffee Maker" }
+brief = "owner-walk"
+
+[[clone]]
+# co_Outpost_Decor_CoffeeMaker01: BNAM OutpostCategoryDecorations, no conditions; CNAM the
+# clone above (W-12, row O4-05).
+name = "coffee_recipe"
+form = "Starfield.esm:039657"
+edid = "KKW41Cobj"
+fields = { CNAM = "new:coffee" }
+brief = "owner-walk"
+
+[[clone]]
+# co_mfg_Tier01_AdaptiveFrame: BNAM WorkbenchIndustrialKeyword, no condition, FNAM
+# RecipeManufactured, one iron and one aluminum; makes 6 AmmoShotgun (W-07, row O4-06).
+name = "shells"
+form = "Starfield.esm:2457C1"
+edid = "KKW42Cobj"
+brief = "owner-walk"
+
+[clone.fields]
+CNAM = "Starfield.esm:0547A1"
+NNAM = 6
+DESC = "KKW42: KitKraft walk recipe, shotgun shells from iron and aluminum."
+DATA = 0
+
+# ---- New forms ----
+
+[[new]]
+# The owner of the owned mug and the owned locker: a faction the player is not in, with
+# only a name (docs/recipes/ownership-faction.toml).
+name = "owners"
+type = "FACT"
+edid = "KKW01Fact"
+fields = { FULL = "KKW01 Walk Owners" }
+brief = "owner-walk"
+
+[[new]]
+# How many times the switch was activated (KitKraft:WalkSwitch, W-06).
+name = "counter"
+type = "GLOB"
+edid = "KKW02Glob"
+fields = { FLTV = 0.0 }
+brief = "owner-walk"
+
+# ---- The embassy owned by PlayerFaction (docs/recipes/ownership.toml; W-11, rows O4-01, O4-02) ----
+
+[[set]]
+# CityNewAtlantisFreestarEmbassy: XOWN.Owner Starfield.esm:24F839 -> PlayerFaction.
+form = "Starfield.esm:017307"
+fields = { "XOWN.Owner" = "Starfield.esm:01C21C" }
+brief = "owner-walk"
+
+# ---- The stations: CityNewAtlantisApartmentTEMPLATE, on the floor (z 4.63) in a row at
+# y -8, where the verification mod's references stood and the game read them back
+# (game-20261116-04). Walking order is east to west, from x -14. ----
+
+[[place]]
+name = "owned_mug_ref"
+base = "new:owned_mug"
+cell = "Starfield.esm:21966F"
+position = [-14.0, -8.0, 4.63]
+persistent = true
+edid = "KKW50OwnedMugRef"
+fields = { "XOWN.Owner" = "new:owners" }
+brief = "owner-walk"
+
+[[place]]
+name = "free_mug_ref"
+base = "new:free_mug"
+cell = "Starfield.esm:21966F"
+position = [-16.0, -8.0, 4.63]
+persistent = true
+edid = "KKW51FreeMugRef"
+brief = "owner-walk"
+
+[[place]]
+# Owned by the player's actor base, Player (Starfield.esm:000007, NPC_).
+name = "your_mug_ref"
+base = "new:your_mug"
+cell = "Starfield.esm:21966F"
+position = [-18.0, -8.0, 4.63]
+persistent = true
+edid = "KKW52YourMugRef"
+fields = { "XOWN.Owner" = "Starfield.esm:000007" }
+brief = "owner-walk"
+
+[[place]]
+name = "locker_ref"
+base = "new:locker"
+cell = "Starfield.esm:21966F"
+position = [-21.0, -8.0, 4.63]
+persistent = true
+edid = "KKW53LockerRef"
+fields = { "XOWN.Owner" = "new:owners" }
+brief = "owner-walk"
+
+[[place]]
+name = "switch_ref"
+base = "new:switch"
+cell = "Starfield.esm:21966F"
+position = [-24.0, -8.0, 4.63]
+persistent = true
+edid = "KKW54SwitchRef"
+brief = "owner-walk"
+scripts = [
+  { name = "KitKraft:WalkSwitch", properties = { Counter = "new:counter", Text = "KitKraft walk: the switch was pressed" } },
+]
+
+[[place]]
+# WorkbenchIndustrial ("Industrial Workbench", Starfield.esm:1F50AD), the vanilla base: a
+# FURN with WorkbenchIndustrialKeyword (0AA209) in its KWDA and no VMAD, so the fabricator
+# recipe can be tried in the apartment.
+name = "bench_ref"
+base = "Starfield.esm:1F50AD"
+cell = "Starfield.esm:21966F"
+position = [-28.0, -8.0, 4.63]
+persistent = true
+edid = "KKW55BenchRef"
+brief = "owner-walk"
