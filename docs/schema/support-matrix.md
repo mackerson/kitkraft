@@ -135,6 +135,14 @@ The proofs:
   2916.14 s (about 49 minutes, same), script data (`VMAD`) and component blocks
   (`BFCB` .. `BFCE`) copied as stored. Same claim as above: only the FormID, the `EDID` and
   the inlined lstrings change, and the patch validates with 0 errors.
+- `crates/engine/tests/clone_sample_corpus.rs` (KK-342, ignored, `--include-ignored`):
+  `a_sample_of_official_containers_clones_identically` clones 100 official records, spread
+  evenly by FormID over `Starfield.esm`, into one patch.
+  `clone-sample CONT: 100 cloned, 100 identical, 0 explained` over Starfield.esm's 707
+  CONT, in 427.22 s (about 7 minutes, release build on a shared machine), item entries
+  (`CNTO`, `COED`), component blocks and script data (`VMAD`) copied as stored. Same claim
+  as above: only the FormID, the `EDID` and the inlined lstrings change, and the patch
+  validates with 0 errors.
 
 Known limits: `set` paths do not address the elements of a subrecord whose whole payload is
 an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole (`hex:`).
