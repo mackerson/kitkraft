@@ -5,10 +5,19 @@
 #
 #   cargo xtask oracle ck <fixture-dir>... --rules docs/bench/ck-batch/explained-differences.toml
 #
-# STATUS: proposed, pending the owner's review. ck-ingest.ps1 does not pass this file, and no
-# docs/schema/evidence.toml entry is raised to pass on the strength of these rules alone.
+# STATUS: accepted. The owner ruled on 2026-11-17, in chat, verbatim: "Accept all ten" (asked
+# "Accept the ten explained-difference rules?" after a table listing all ten). Since then
+# ck-ingest.ps1 passes this file to the oracle (-Rules), and a docs/schema/evidence.toml
+# `ck-differential-tested` pass may rest on these rules; such an entry names the rule it rests
+# on (ledger ck-20261117-65, the re-comparison with the accepted rules).
+#
+# Every rule here is also a row of the register of explained non-conformities,
+# docs/explained-nonconformities.md (ENC ids), in case one later turns out to be a bug's root.
+# A new rule gets its register row in the same commit that accepts it (a test checks that
+# every [[normalization]] here is named by a register row).
 # Every rule names a `transform`; a rule without one would explain any change of the
-# subrecord and is not allowed here (a test reads this file).
+# subrecord and is not allowed here (a test reads this file). A rule is not widened beyond its
+# stated transformation; a CK change it does not cover stays unexplained.
 
 [[normalization]]
 record = "TES4"

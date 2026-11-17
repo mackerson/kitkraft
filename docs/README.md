@@ -49,6 +49,7 @@ Don't copy a count into prose: it goes stale. Point at the file that is regenera
 | `playbooks/mod-from-brief.md` | product, checked | The brief-to-mod playbook; `kit mod run` points to it |
 | `gaps.md` | reference, checked | Known gaps; check before claiming something works. `ui-egui` tests read "Interface gaps (M7)" |
 | `engine-limitations.md` | reference | Engine limitations with ids (EL-nn), seeded from `gaps.md` |
+| `explained-nonconformities.md` | reference, checked | Register of explained non-conformities (ENC-nnn): every difference from the CK or the game accepted as explained rather than fixed, what rests on it and how to re-check it; a new explained difference gets its row in the same commit. An `xtask` test checks every rule of `bench/ck-batch/explained-differences.toml` has a row |
 | `foothold/gap-matrix.md` | reference, checked | KitKraft's capability matrix (not Foothold-only, despite the folder): `crates/schema/tests/reconcile.rs` checks it, `cargo xtask parity` rewrites its headline |
 | `game-observations.md` | ledger, checked | In-game evidence; read at runtime by launch authorization and written only by `kit ledger` |
 | `ck-observations.md`, `ck-parity.md`, `game-sessions.md` | ledger / reference, checked | CK observations and the CK feature checklist; several `ui-egui` and engine tests read them |
