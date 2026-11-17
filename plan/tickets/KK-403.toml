@@ -1,0 +1,89 @@
+# Written 2026-11-17: the follow-up plan/tickets/README.md names after KK-330 to KK-339
+# ("Update both once after the batch").
+id = "KK-403"
+title = "docs/gaps.md and the defs README: the schema counts follow docs/record-parity.md"
+timeout_min = 30
+budget_h = 1
+owns = [
+  "docs/gaps.md",
+  "crates/schema/defs/README.md",
+]
+brief = """
+Two hand-written summaries of the schema have fallen behind the generated
+`docs/record-parity.md` as tickets typed record types one by one. Bring both in line with
+the tree you start from; no code changes.
+
+1. `docs/gaps.md`, the table row that starts `| Schema (2026-11-15, `docs/record-parity.md`
+   as regenerated at `957773f5`)`. It counts 186 record definitions, "120 have typed
+   members", "63 are inventory definitions" and "3 are lstring-only (DMGT, FXPD, PMFT:
+   M3.B8)". Rewrite its counts from the current tree:
+   - D, the record definitions: the "Schema: <D> record definitions" line of
+     `docs/record-parity.md` ("Corpus and method").
+   - N, the inventory definitions: the number after the list's name on the line that
+     starts `Inventory definitions` in `docs/record-parity.md` ("Families"), e.g.
+     `Inventory definitions (...), 63: AACT, ...`.
+   - L, the lstring-only definitions: the entries of `const LSTRING_ONLY` in
+     `crates/schema/tests/defs.rs` (read it; do not edit it). Name them in the row as today
+     (`L are lstring-only (A, B: M3.B8)`); when the list is empty, say that no lstring-only
+     definition is left instead, and name none of DMGT, FXPD, PMFT anywhere in the row.
+   - T = D - N - L: "T have typed members".
+   Write the counts exactly as `<D> record definitions`, `<T> have typed members` and `<N>
+   are inventory definitions` (plain integers). Replace "as regenerated at `957773f5`" by
+   "as of <the date of your run>" (`2026-MM-DD`; no commit hash is needed), and the
+   row's leading date the same way. The row must still start with `| Schema (`. Keep the rest of the row (its other sentences and
+   its Impact and Closes-in cells) as it is.
+2. `crates/schema/defs/README.md`, the table under "## Current set". Its row for
+   "`LAYR` `LSCR` `MESG` `RFGP` `SOUN` `WKMF` `WWED`" calls all seven M4.BX2 inventories;
+   MESG (KK-216), RFGP (KK-219), SOUN and WKMF (KK-218) and WWED (KK-290) have since been
+   typed from the pinned xEdit file, and LAYR may have been too (KK-334). Change the row to
+   list only the record types that are still inventories among those seven: one is an
+   inventory exactly when `crates/schema/defs/<SIG>.toml`'s record-level `source` starts
+   with `corpus: inventory_types_full`. Keep the row's first cell starting with the
+   remaining signatures and its last cell's opening words `M4.BX2 inventories (see
+   "Inventory definitions")` (the acceptance finds the row by them). Add the typed ones to the row for "Former M4.BX2
+   inventories" below it (`ARTO` `BPTD` `DOOR` ... `TXST`), in signature order, and add
+   any other record type you find there whose definition is typed but is listed as an
+   inventory or as lstring-only elsewhere in that table; do not rewrite other rows.
+
+Do not edit any other file, and do not edit `plan/STATUS.md` (no "Landed" line: the merge
+commit and `plan/tickets/README.md` record the ticket). Put D, N, L and T and how you read
+each in your commit message.
+
+Check your counts with the acceptance commands below before you commit (they compute D, N
+and L the way this brief says), then run `cargo xtask ci` (the docs lints read these
+files). Commit only when every acceptance command below passes.
+"""
+
+[[accept]]
+name = "gaps-schema-row"
+cmd = '''python3 -c '
+import re, sys
+par = open("docs/record-parity.md").read()
+D = int(re.search(r"^- Schema: (\d+) record definitions", par, re.M).group(1))
+N = int(re.search(r"^Inventory definitions[^:]*, (\d+): ", par, re.M).group(1))
+lst = re.search(r"^const LSTRING_ONLY: &\[&str\] = &\[(.*?)\];", open("crates/schema/tests/defs.rs").read(), re.M | re.S).group(1)
+L = re.findall(r"\"([A-Z0-9_]{4})\"", lst)
+T = D - N - len(L)
+print("D", D, "N", N, "L", L, "T", T)
+rows = [r for r in open("docs/gaps.md").read().splitlines() if r.startswith("| Schema (")]
+assert len(rows) == 1, "one row starting with | Schema ("
+r = rows[0]
+for want in ("%d record definitions" % D, "%d have typed members" % T, "%d are inventory definitions" % N):
+    assert want in r, "the row lacks: " + want
+assert "957773f5" not in r, "the row still cites 957773f5"
+for t in ("DMGT", "FXPD", "PMFT"):
+    assert t in L or not re.search(r"\b%s\b" % t, r), "the row still names " + t
+''''
+
+[[accept]]
+name = "defs-readme-current-set"
+cmd = '''python3 -c '
+import re
+lines = open("crates/schema/defs/README.md").read().splitlines()
+inv = [l for l in lines if "M4.BX2 inventories (see" in l and l.startswith("| `")]
+former = [l for l in lines if l.startswith("| `") and "Former M4.BX2 inventories" in l]
+assert len(inv) == 1 and len(former) == 1, (len(inv), len(former))
+for t in ("MESG", "RFGP", "SOUN", "WKMF", "WWED"):
+    assert "`%s`" % t not in inv[0], "still listed as an inventory: " + t
+    assert "`%s`" % t in former[0], "not in the former-inventories row: " + t
+''''
