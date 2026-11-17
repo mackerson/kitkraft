@@ -94,7 +94,7 @@
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - EFSQ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official EFSQ record (728) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764; reference)
-// - EQUP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically; corpus)
+// - EQUP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11767-L11778; reference)
 // - EXPL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11781-L11839; corpus)
 // - FACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958; corpus)
 // - FFKW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official FFKW record (493) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -102,7 +102,7 @@
 // - FLST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12024-L12053; corpus)
 // - FOGV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FOGV record (80) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FORC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FORC record (5) decodes with every subrecord placed and re-encodes identically; corpus)
-// - FSTP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTP record (134) decodes with every subrecord placed and re-encodes identically; corpus)
+// - FSTP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12086-L12092; reference)
 // - FSTS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTS record (19) decodes with every subrecord placed and re-encodes identically; corpus)
 // - FURN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12126-L12218; corpus)
 // - FXPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244; reference)
@@ -129,7 +129,7 @@
 // - KEYM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272; corpus)
 // - KSSM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically; corpus)
 // - KYWD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13297-L13312; corpus)
-// - LAYR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LAYR record (10424) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LAYR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341; reference)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
 // - LENS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636; corpus)
@@ -138,7 +138,7 @@
 // - LIGH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899; corpus)
 // - LMSW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LMSW record (17410) decodes with every subrecord placed and re-encodes identically; corpus)
 // - LSCR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LSCR record (393) decodes with every subrecord placed and re-encodes identically; corpus)
-// - LTEX (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LTEX record (429) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LTEX (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13935-L13949; reference)
 // - LVLB (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13952-L14010; reference)
 // - LVLI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14013-L14074; corpus)
 // - LVLN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14077-L14116; corpus)
@@ -217,7 +217,7 @@
 // - TRNS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18381-L18428; reference)
 // - TXST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18430-L18464; corpus)
 // - VOLI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official VOLI record (44) decodes with every subrecord placed and re-encodes identically; corpus)
-// - VTYP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official VTYP record (915) decodes with every subrecord placed and re-encodes identically; corpus)
+// - VTYP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18488-L18507; reference)
 // - WATR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592; corpus)
 // - WBAR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically; corpus)
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
@@ -39100,16 +39100,66 @@ impl EnchRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct EqupSlotParents(pub Vec<FormId>);
+
+impl Field for EqupSlotParents {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EqupSlotParents {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EqupFlags(pub u32);
+
+impl EqupFlags {
+    pub const USE_ALL_PARENTS: u32 = 0x1;
+    pub const PARENTS_OPTIONAL: u32 = 0x2;
+    pub const ITEM_SLOT: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for EqupFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EqupFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EqupRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub slot_parents: Option<Sub<EqupSlotParents>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<EqupFlags>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub condition_actor_value: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -39150,15 +39200,25 @@ impl EqupRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "EQUP.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.pnam, subs, *index, "EQUP.PNAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.slot_parents,
+                    subs,
+                    *index,
+                    "EQUP.PNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.data, subs, *index, "EQUP.DATA", ctx, extra)
+                    put(&mut self.flags, subs, *index, "EQUP.DATA", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.anam, subs, *index, "EQUP.ANAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.condition_actor_value,
+                    subs,
+                    *index,
+                    "EQUP.ANAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -39166,13 +39226,23 @@ impl EqupRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"PNAM", self.slot_parents.as_ref());
+        emit(out, *b"DATA", self.flags.as_ref());
+        emit(out, *b"ANAM", self.condition_actor_value.as_ref());
     }
 }
 
-impl Visit for EqupRecord {}
+impl Visit for EqupRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.slot_parents, "EQUP.PNAM", out);
+        visit_form_ids(&self.condition_actor_value, "EQUP.ANAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.slot_parents, "EQUP.PNAM", out);
+        visit_form_ids_mut(&mut self.condition_actor_value, "EQUP.ANAM", out);
+    }
+}
 
 impl EqupRecord {
     /// Record signature.
@@ -42386,9 +42456,9 @@ pub struct FstpRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub impact_data_set: Option<Sub<FormId>>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub tag: Option<Sub<ZString>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -42425,11 +42495,16 @@ impl FstpRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "FSTP.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.data, subs, *index, "FSTP.DATA", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.impact_data_set,
+                    subs,
+                    *index,
+                    "FSTP.DATA",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.anam, subs, *index, "FSTP.ANAM", ctx, extra)
+                    put(&mut self.tag, subs, *index, "FSTP.ANAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -42438,12 +42513,20 @@ impl FstpRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"DATA", self.impact_data_set.as_ref());
+        emit(out, *b"ANAM", self.tag.as_ref());
     }
 }
 
-impl Visit for FstpRecord {}
+impl Visit for FstpRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.impact_data_set, "FSTP.DATA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.impact_data_set, "FSTP.DATA", out);
+    }
+}
 
 impl FstpRecord {
     /// Record signature.
@@ -51379,6 +51462,49 @@ impl KywdRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayrLodBehavior {
+    Default,
+    Aggregate,
+    NoLods,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl LayrLodBehavior {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Default,
+            1 => Self::Aggregate,
+            2 => Self::NoLods,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Default => 0,
+            Self::Aggregate => 1,
+            Self::NoLods => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for LayrLodBehavior {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for LayrLodBehavior {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LayrRecord {
     /// `EDID`, required.
@@ -51386,11 +51512,11 @@ pub struct LayrRecord {
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `PNAM`, optional.
-    pub pnam: Option<Sub<Bytes>>,
+    pub parent: Option<Sub<FormId>>,
     /// `XCLP`, required.
-    pub xclp: Option<Sub<Bytes>>,
+    pub color: Option<Sub<ColorRgb>>,
     /// `LODB`, required.
-    pub lodb: Option<Sub<Bytes>>,
+    pub lod_behavior: Option<Sub<LayrLodBehavior>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -51441,14 +51567,19 @@ impl LayrRecord {
                     self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.pnam, subs, *index, "LAYR.PNAM", ctx, extra)
+                    put(&mut self.parent, subs, *index, "LAYR.PNAM", ctx, extra)
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.xclp, subs, *index, "LAYR.XCLP", ctx, extra)
+                    put(&mut self.color, subs, *index, "LAYR.XCLP", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.lodb, subs, *index, "LAYR.LODB", ctx, extra)
-                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.lod_behavior,
+                    subs,
+                    *index,
+                    "LAYR.LODB",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -51459,19 +51590,21 @@ impl LayrRecord {
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"PNAM", self.pnam.as_ref());
-        emit(out, *b"XCLP", self.xclp.as_ref());
-        emit(out, *b"LODB", self.lodb.as_ref());
+        emit(out, *b"PNAM", self.parent.as_ref());
+        emit(out, *b"XCLP", self.color.as_ref());
+        emit(out, *b"LODB", self.lod_behavior.as_ref());
     }
 }
 
 impl Visit for LayrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "LAYR.BfcbBlock", out);
+        visit_form_ids(&self.parent, "LAYR.PNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "LAYR.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.parent, "LAYR.PNAM", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -51486,6 +51619,26 @@ impl Visit for LayrRecord {
 impl LayrRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"LAYR";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -57273,18 +57426,42 @@ impl LscrRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct LtexHavokData {
+    pub friction: u8,
+    pub restitution: u8,
+}
+
+impl Field for LtexHavokData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "LTEX.HNAM.Friction", ctx)?;
+        let f1 = u8::read(r, "LTEX.HNAM.Restitution", ctx)?;
+        Ok(Self {
+            friction: f0,
+            restitution: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.friction.write(out);
+        self.restitution.write(out);
+    }
+}
+
+impl Visit for LtexHavokData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LtexRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `BNAM`, optional.
-    pub bnam: Option<Sub<Bytes>>,
+    pub material_file: Option<Sub<ZString>>,
     /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
+    pub material_type: Option<Sub<FormId>>,
     /// `HNAM`, required.
-    pub hnam: Option<Sub<Bytes>>,
+    pub havok_data: Option<Sub<LtexHavokData>>,
     /// `QNAM`, required.
-    pub qnam: Option<Sub<Bytes>>,
+    pub dirtiness: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -57329,17 +57506,27 @@ impl LtexRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "LTEX.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.bnam, subs, *index, "LTEX.BNAM", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.mnam, subs, *index, "LTEX.MNAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.material_file,
+                    subs,
+                    *index,
+                    "LTEX.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.material_type,
+                    subs,
+                    *index,
+                    "LTEX.MNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.hnam, subs, *index, "LTEX.HNAM", ctx, extra)
+                    put(&mut self.havok_data, subs, *index, "LTEX.HNAM", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.qnam, subs, *index, "LTEX.QNAM", ctx, extra)
+                    put(&mut self.dirtiness, subs, *index, "LTEX.QNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -57348,18 +57535,28 @@ impl LtexRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"HNAM", self.hnam.as_ref());
-        emit(out, *b"QNAM", self.qnam.as_ref());
+        emit(out, *b"BNAM", self.material_file.as_ref());
+        emit(out, *b"MNAM", self.material_type.as_ref());
+        emit(out, *b"HNAM", self.havok_data.as_ref());
+        emit(out, *b"QNAM", self.dirtiness.as_ref());
     }
 }
 
-impl Visit for LtexRecord {}
+impl Visit for LtexRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.material_type, "LTEX.MNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.material_type, "LTEX.MNAM", out);
+    }
+}
 
 impl LtexRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"LTEX";
+    /// Record-header flag.
+    pub const FLAG_UNKNOWN9: u32 = 0x200;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
@@ -104079,16 +104276,88 @@ impl VoliRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct VtypFlags(pub u8);
+
+impl VtypFlags {
+    pub const ALLOW_DEFAULT_DIALOG: u8 = 0x1;
+    pub const FEMALE: u8 = 0x2;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for VtypFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for VtypFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VtypPronounOverride {
+    Unselected,
+    HeHim,
+    SheHer,
+    TheyThem,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl VtypPronounOverride {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Unselected,
+            1 => Self::HeHim,
+            2 => Self::SheHer,
+            3 => Self::TheyThem,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Unselected => 0,
+            Self::HeHim => 1,
+            Self::SheHer => 2,
+            Self::TheyThem => 3,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for VtypPronounOverride {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for VtypPronounOverride {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct VtypRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<VtypFlags>>,
     /// `ANAM`, optional.
-    pub anam: Option<Sub<Bytes>>,
+    pub animation_face_archetype: Option<Sub<FormId>>,
     /// `PNAM`, required.
-    pub pnam: Option<Sub<Bytes>>,
+    pub pronoun_override: Option<Sub<VtypPronounOverride>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -104130,14 +104399,24 @@ impl VtypRecord {
                     put(&mut self.editor_id, subs, *index, "VTYP.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.dnam, subs, *index, "VTYP.DNAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "VTYP.DNAM", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.anam, subs, *index, "VTYP.ANAM", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.pnam, subs, *index, "VTYP.PNAM", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.animation_face_archetype,
+                    subs,
+                    *index,
+                    "VTYP.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.pronoun_override,
+                    subs,
+                    *index,
+                    "VTYP.PNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -104145,13 +104424,21 @@ impl VtypRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
-        emit(out, *b"PNAM", self.pnam.as_ref());
+        emit(out, *b"DNAM", self.flags.as_ref());
+        emit(out, *b"ANAM", self.animation_face_archetype.as_ref());
+        emit(out, *b"PNAM", self.pronoun_override.as_ref());
     }
 }
 
-impl Visit for VtypRecord {}
+impl Visit for VtypRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.animation_face_archetype, "VTYP.ANAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.animation_face_archetype, "VTYP.ANAM", out);
+    }
+}
 
 impl VtypRecord {
     /// Record signature.

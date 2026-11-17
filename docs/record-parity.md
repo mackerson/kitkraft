@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, EQUP, FFKW, FOGV, FORC, FSTP, FSTS, GBFT, GCVR, GPOG, GWED, IMAD, IMGS, IPDS, KSSM, LAYR, LGTM, LMSW, LSCR, LTEX, MAAM, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, VOLI, VTYP, WBAR, WTHS.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 56: AACT, AAMD, AMBS, AOPF, AOPS, AORU, ATMO, BMOD, BNDS, CLDF, CLFM, CLMT, CUR3, CURV, DEBR, DFOB, DLBR, DOBJ, EFSH, EFSQ, FFKW, FOGV, FORC, FSTS, GBFT, GCVR, GPOG, GWED, IMAD, IMGS, IPDS, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, OVIS, PERS, PSDC, PTST, REVB, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, VOLI, WBAR, WTHS.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
 | quest           |           10 |          10 |   267,549 |  3,909,042 |    41,771 | 202,002 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,610 |    10,517 |      12 |
-| container/other |          123 |         123 |   252,710 |    862,496 |   217,343 |       0 |
-| **Total**       |          186 |         186 | 7,490,102 | 48,029,030 | 2,188,517 | 202,014 |
+| container/other |          123 |         123 |   252,710 |    887,477 |   192,362 |       0 |
+| **Total**       |          186 |         186 | 7,490,102 | 48,054,011 | 2,163,536 | 202,014 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:eb3ecc53057bf529` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:55fe428ef052afbc` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -70,7 +70,7 @@ Columns:
 | `LMSW`        | LayeredMaterialSwap            |    17,410 |          0 |     9 |     8 |      1 |       0 |
 | `PKIN`        | PackIn                         |    15,128 |          0 |    41 |    38 |      3 |       0 |
 | `ACHR`        | PlacedNpc                      |    14,731 |          0 |    29 |    27 |      2 |       0 |
-| `LAYR`        | Layer                          |    10,424 |          0 |     7 |     5 |      2 |       0 |
+| `LAYR`        | Layer                          |    10,424 |          0 |     7 |     7 |      0 |       0 |
 | `SCEN`        | Scene                          |     9,673 |          0 |    89 |    40 |      1 |      48 |
 | `NPC_`        | Npc                            |     8,447 |      8,447 |    92 |    91 |      1 |       0 |
 | `LCTN`        | Location                       |     7,316 |          0 |    29 |    29 |      0 |       0 |
@@ -111,7 +111,7 @@ Columns:
 | `MGEF`        | MagicEffect                    |       989 |          0 |    12 |    10 |      2 |       0 |
 | `TMLM`        | TerminalMenu                   |       974 |          0 |    22 |    21 |      1 |       0 |
 | `FACT`        | Faction                        |       953 |          0 |    20 |    20 |      0 |       0 |
-| `VTYP`        | VoiceType                      |       915 |          0 |     4 |     1 |      3 |       0 |
+| `VTYP`        | VoiceType                      |       915 |          0 |     4 |     4 |      0 |       0 |
 | `MTPT`        | MaterialPath                   |       906 |          0 |     2 |     1 |      1 |       0 |
 | `CONT`        | Container                      |       866 |          0 |    39 |    36 |      3 |       0 |
 | `ASPC`        | AcousticSpace                  |       814 |          0 |    16 |    16 |      0 |       0 |
@@ -133,7 +133,7 @@ Columns:
 | `WEAP`        | Weapon                         |       452 |          0 |    54 |    52 |      2 |       0 |
 | `PHZD`        | PlacedHazard                   |       450 |          0 |    11 |    10 |      1 |       0 |
 | `BIOM`        | Biome                          |       434 |          0 |    45 |    44 |      1 |       0 |
-| `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     1 |      4 |       0 |
+| `LTEX`        | LandscapeTexture               |       429 |          0 |     5 |     5 |      0 |       0 |
 | `LSCR`        | LoadScreen                     |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode        |       379 |          0 |    23 |    22 |      1 |       0 |
 | `DOOR`        | Door                           |       376 |          0 |    32 |    28 |      4 |       0 |
@@ -168,7 +168,7 @@ Columns:
 | `ZOOM`        | Zoom                           |       141 |          0 |     2 |     2 |      0 |       0 |
 | `DLBR`        | DialogBranch                   |       135 |          0 |     5 |     1 |      4 |       0 |
 | `ENCH`        | Enchantment                    |       135 |          0 |    14 |    13 |      1 |       0 |
-| `FSTP`        | Footstep                       |       134 |          0 |     3 |     1 |      2 |       0 |
+| `FSTP`        | Footstep                       |       134 |          0 |     3 |     3 |      0 |       0 |
 | `AMDL`        | AimModel                       |       126 |          0 |     2 |     2 |      0 |       0 |
 | `STDT`        | Star                           |       124 |          0 |    16 |    14 |      2 |       0 |
 | `MUSC`        | MusicTypeForm                  |       117 |          0 |     7 |     7 |      0 |       0 |
@@ -202,7 +202,7 @@ Columns:
 | `CURV`        | CurveTable                     |        29 |          0 |     2 |     1 |      1 |       0 |
 | `BPTD`        | BodyPartData                   |        27 |          0 |    12 |    12 |      0 |       0 |
 | `LENS`        | LensFlare                      |        26 |          0 |     9 |     9 |      0 |       0 |
-| `EQUP`        | EquipType                      |        25 |          0 |     4 |     1 |      3 |       0 |
+| `EQUP`        | EquipType                      |        25 |          0 |     4 |     4 |      0 |       0 |
 | `TRAV`        | Traversal                      |        23 |          0 |     2 |     2 |      0 |       0 |
 | `TXST`        | TextureSet                     |        23 |          0 |    12 |    12 |      0 |       0 |
 | `AAPD`        | AimAssistPoseDataForm          |        22 |          0 |     7 |     7 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,508 |    235 |      54 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,522 |    221 |      54 |
 
-Subrecord occurrences: 50,419,561 in total; 48,029,030 typed (0 of them failed to decode), 2,188,517 opaque, 202,014 unknown.
+Subrecord occurrences: 50,419,561 in total; 48,054,011 typed (0 of them failed to decode), 2,163,536 opaque, 202,014 unknown.
 
 ## Decoded through the definitions
 
@@ -272,7 +272,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `LMSW`    | LayeredMaterialSwap            |        17,410 |     23,763 |      0 |         0 |         0 |                   0 |     23,763 |       0 |        0 |
 | `PKIN`    | PackIn                         |        15,128 |    142,177 |      0 |         0 |         0 |                   0 |    142,177 |       0 |        0 |
 | `ACHR`    | PlacedNpc                      |        14,731 |     86,879 |      0 |         0 |         0 |                   0 |     86,879 |       0 |        0 |
-| `LAYR`    | Layer                          |        10,424 |     18,506 |      0 |         0 |         0 |                   0 |     18,506 |       0 |        0 |
+| `LAYR`    | Layer                          |        10,424 |     39,354 |      0 |         0 |         0 |                   0 |     39,354 |       0 |        0 |
 | `SCEN`    | Scene                          |         9,673 |    872,488 |      0 |         0 |         0 |                   0 |    872,488 |       0 |        0 |
 | `NPC_`    | Npc                            |         8,447 |  1,121,256 |      0 |         0 |         0 |                   0 |  1,121,256 |       0 |        0 |
 | `LCTN`    | Location                       |         7,316 |     78,402 |      0 |         0 |         0 |                   0 |     78,402 |       0 |        0 |
@@ -313,7 +313,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `MGEF`    | MagicEffect                    |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu                   |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
 | `FACT`    | Faction                        |           953 |      6,131 |      0 |         0 |         0 |                   0 |      6,131 |       0 |        0 |
-| `VTYP`    | VoiceType                      |           915 |        915 |      0 |         0 |         0 |                   0 |        915 |       0 |        0 |
+| `VTYP`    | VoiceType                      |           915 |      3,008 |      0 |         0 |         0 |                   0 |      3,008 |       0 |        0 |
 | `MTPT`    | MaterialPath                   |           906 |        906 |      0 |         0 |         0 |                   0 |        906 |       0 |        0 |
 | `CONT`    | Container                      |           866 |     18,190 |      0 |         0 |         0 |                   0 |     18,190 |       0 |        0 |
 | `ASPC`    | AcousticSpace                  |           814 |      9,167 |      0 |         0 |         0 |                   0 |      9,167 |       0 |        0 |
@@ -335,7 +335,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WEAP`    | Weapon                         |           452 |     18,432 |      0 |         0 |         0 |                   0 |     18,432 |       0 |        0 |
 | `PHZD`    | PlacedHazard                   |           450 |      1,420 |      0 |         0 |         0 |                   0 |      1,420 |       0 |        0 |
 | `BIOM`    | Biome                          |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
-| `LTEX`    | LandscapeTexture               |           429 |        429 |      0 |         0 |         0 |                   0 |        429 |       0 |        0 |
+| `LTEX`    | LandscapeTexture               |           429 |      2,144 |      0 |         0 |         0 |                   0 |      2,144 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode        |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
 | `DOOR`    | Door                           |           376 |      6,769 |      0 |         0 |         0 |                   0 |      6,769 |       0 |        0 |
@@ -370,7 +370,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ZOOM`    | Zoom                           |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
 | `DLBR`    | DialogBranch                   |           135 |        135 |      0 |         0 |         0 |                   0 |        135 |       0 |        0 |
 | `ENCH`    | Enchantment                    |           135 |      1,967 |      0 |         0 |         0 |                   0 |      1,967 |       0 |        0 |
-| `FSTP`    | Footstep                       |           134 |        134 |      0 |         0 |         0 |                   0 |        134 |       0 |        0 |
+| `FSTP`    | Footstep                       |           134 |        402 |      0 |         0 |         0 |                   0 |        402 |       0 |        0 |
 | `AMDL`    | AimModel                       |           126 |        252 |      0 |         0 |         0 |                   0 |        252 |       0 |        0 |
 | `STDT`    | Star                           |           124 |      3,189 |      0 |         0 |         0 |                   0 |      3,189 |       0 |        0 |
 | `MUSC`    | MusicTypeForm                  |           117 |        819 |      0 |         0 |       702 |                   0 |        117 |       0 |        0 |
@@ -404,7 +404,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CURV`    | CurveTable                     |            29 |         29 |      0 |         0 |         0 |                   0 |         29 |       0 |        0 |
 | `BPTD`    | BodyPartData                   |            27 |      1,952 |      0 |         0 |         0 |                   0 |      1,952 |       0 |        0 |
 | `LENS`    | LensFlare                      |            26 |      1,160 |      0 |         0 |         0 |                   0 |      1,160 |       0 |        0 |
-| `EQUP`    | EquipType                      |            25 |         25 |      0 |         0 |         0 |                   0 |         25 |       0 |        0 |
+| `EQUP`    | EquipType                      |            25 |         82 |      0 |         0 |         0 |                   0 |         82 |       0 |        0 |
 | `TRAV`    | Traversal                      |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
 | `TXST`    | TextureSet                     |            23 |        191 |      0 |         0 |         0 |                   0 |        191 |       0 |        0 |
 | `AAPD`    | AimAssistPoseDataForm          |            22 |        642 |      0 |         0 |         0 |                   0 |        642 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 48,029,030 |      0 |         0 |   402,137 |                   0 | 47,626,893 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 48,054,011 |      0 |         0 |   402,137 |                   0 | 47,651,874 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -516,7 +516,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `EFSH`    | EffectShader                   |            130 |    118 |     12 |         0 |                   0 |    130 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `ENCH`    | Enchantment                    |            140 |    132 |      8 |         1 |                   0 |    139 |       0 |        0 |
-| `EQUP`    | EquipType                      |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
+| `EQUP`    | EquipType                      |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `EXPL`    | Explosion                      |            140 |    133 |      7 |         1 |                   0 |    139 |       0 |        0 |
 | `FACT`    | Faction                        |            150 |    143 |      7 |         6 |                   0 |    144 |       0 |        0 |
 | `FFKW`    | FormFolderKeywordList          |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -524,7 +524,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `FLST`    | FormIdList                     |            133 |    126 |      7 |         0 |                   0 |    133 |       0 |        0 |
 | `FOGV`    | FogVolume                      |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `FORC`    | ForceData                      |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `FSTP`    | Footstep                       |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
+| `FSTP`    | Footstep                       |              3 |      3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FURN`    | Furniture                      |            173 |    164 |      9 |         5 |                   0 |    168 |       0 |        0 |
 | `FXPD`    | FacialExpression               |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
@@ -551,7 +551,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `KEYM`    | Key                            |             33 |     32 |      1 |         9 |                   0 |     24 |       0 |        0 |
 | `KSSM`    | SoundKeywordMapping            |              6 |      1 |      5 |         0 |                   0 |      6 |       0 |        0 |
 | `KYWD`    | Keyword                        |            133 |    124 |      9 |         1 |                   0 |    132 |       0 |        0 |
-| `LAYR`    | Layer                          |            128 |    118 |     10 |         0 |                   0 |    128 |       0 |        0 |
+| `LAYR`    | Layer                          |            128 |    121 |      7 |         0 |                   0 |    128 |       0 |        0 |
 | `LCRT`    | LocationRefType                |            133 |    124 |      9 |         5 |                   0 |    128 |       0 |        0 |
 | `LCTN`    | Location                       |            162 |    153 |      9 |         8 |                   0 |    154 |       0 |        0 |
 | `LENS`    | LensFlare                      |            135 |    127 |      8 |         1 |                   0 |    134 |       0 |        0 |
@@ -560,7 +560,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LIGH`    | Light                          |            160 |    151 |      9 |        10 |                   0 |    150 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |            126 |    118 |      8 |         0 |                   0 |    126 |       0 |        0 |
 | `LSCR`    | LoadScreen                     |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
-| `LTEX`    | LandscapeTexture               |              5 |      1 |      4 |         0 |                   0 |      5 |       0 |        0 |
+| `LTEX`    | LandscapeTexture               |              5 |      5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `LVLB`    | LeveledBaseForm                |            153 |    145 |      8 |        11 |                   0 |    142 |       0 |        0 |
 | `LVLI`    | LeveledItem                    |            159 |    151 |      8 |         9 |                   0 |    150 |       0 |        0 |
 | `LVLN`    | LeveledNpc                     |            151 |    142 |      9 |         7 |                   0 |    144 |       0 |        0 |
@@ -639,7 +639,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `TRNS`    | Transform                      |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `TXST`    | TextureSet                     |            138 |    130 |      8 |         2 |                   0 |    136 |       0 |        0 |
 | `VOLI`    | VolumetricLighting             |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
-| `VTYP`    | VoiceType                      |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
+| `VTYP`    | VoiceType                      |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `WATR`    | Water                          |            145 |    135 |     10 |         2 |                   0 |    143 |       0 |        0 |
 | `WBAR`    | WeaponBarrelModel              |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `WEAP`    | Weapon                         |            186 |    177 |      9 |         3 |                   0 |    183 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,990 | 14,986 |  1,004 |       422 |                   2 | 15,566 |       0 |        0 |
+| **Total** |                                |         15,990 | 15,001 |    989 |       422 |                   2 | 15,566 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

@@ -9,7 +9,8 @@
 //! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15),
 //! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
 //! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15), GMST (under a `b`
-//! EditorID) and LGDI (2026-11-17) (`docs/schema/support-matrix.md`, the
+//! EditorID) and LGDI (2026-11-17), COLL, MATT and ADDN (KK-340, 2026-11-17) and SPCH,
+//! STND and MOVT (KK-341, 2026-11-17) (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //!
@@ -2354,5 +2355,138 @@ fn lgdi_new_sets_every_typed_member_and_reads_back() {
         "ContactShadow",
         "BGSContactShadowComponent_Component",
         &["FULL"],
+    );
+}
+
+// COLL (CollisionLayerForm, KK-340): a collision layer, on the ContactShadow component
+// layout; every typed member of the definition is written and read back.
+#[test]
+fn coll_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "COLL",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn coll_dangling_link_is_reported() {
+    // The layers it collides with (CNAM, a FormID array, set whole).
+    dangling(
+        "COLL",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("CNAM", json!([MISSING]))],
+        &["CNAM"],
+    );
+}
+
+// MATT (MaterialType, KK-340): a physics material, on the ContactShadow component layout;
+// every typed member of the definition is written and read back.
+#[test]
+fn matt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MATT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn matt_dangling_link_is_reported() {
+    // The parent material (PNAM) and the Havok impact data set (HNAM).
+    dangling(
+        "MATT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("PNAM", json!(MISSING)), ("HNAM", json!(MISSING))],
+        &["PNAM", "HNAM"],
+    );
+}
+
+// ADDN (AddonNode, KK-340): an addon node (a light or particle attachment), on the
+// ContactShadow component layout; every typed member of the definition is written and
+// read back.
+#[test]
+fn addn_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ADDN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn addn_dangling_link_is_reported() {
+    // The light (LNAM).
+    dangling(
+        "ADDN",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LNAM", json!(MISSING))],
+        &["LNAM"],
+    );
+}
+
+// SPCH (SpeechChallengeForm, KK-341): a persuasion challenge, on the ContactShadow
+// component layout; every typed member of the definition is written and read back.
+#[test]
+fn spch_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "SPCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn spch_dangling_link_is_reported() {
+    // The quest (SPQU) and the scenes (SPMA, a FormID array, set whole).
+    dangling(
+        "SPCH",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("SPQU", json!(MISSING)), ("SPMA", json!([MISSING]))],
+        &["SPQU", "SPMA"],
+    );
+}
+
+// STND (SnapTemplateNode, KK-341): a snap node of a snap template, on the ContactShadow
+// component layout; every typed member of the definition is written and read back.
+#[test]
+fn stnd_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "STND",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn stnd_dangling_link_is_reported() {
+    // The snap template (SNTP), the adjacent node (NNAM) and the art object (ANAM).
+    dangling(
+        "STND",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("NNAM", json!(MISSING)),
+            ("ANAM", json!(MISSING)),
+        ],
+        &["SNTP", "NNAM", "ANAM"],
+    );
+}
+
+// MOVT (MovementTypeForm, KK-341): a movement type's speeds and flags. It has no base form
+// component block of its own, so the layout and component name are inert here; every
+// typed member of the definition is written and read back. MOVT has no FormID member,
+// so it gets no dangling-link test.
+#[test]
+fn movt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MOVT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
     );
 }

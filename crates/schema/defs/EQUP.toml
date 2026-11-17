@@ -1,27 +1,28 @@
-# EQUP: EquipType, inventory definition (KK-108).
+# EQUP: EquipType, the equip slot an item or a spell uses: the slots it sits under, three
+# flags, and the actor value that conditions it.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official EQUP record (25 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the EQUP definition of wbDefinitionsSF1.pas at the pinned revision (L11767-L11778),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11767-L11778 - member order, EDID (L11768),
+#     the slot parents, an array of EQUP FormIDs (L11771), the 32-bit flags with three
+#     named bits (L11772-L11776) and the FormID of an AVIF named 'Condition Actor Value'
+#     (L11777). Upstream also lists the script data (L11769) and the base form component
+#     block (L11770); no official record has either, so they are left out (a plugin that
+#     has one keeps it raw).
+#   corpus: the equp_types scan in crates/esm/tests/equp_types.rs checks this definition
+#     against every official EQUP record (25 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record. The
+#     earlier inventory scan (KK-108, crates/esm/tests/inventory_types.rs) gives the
+#     per-member counts below.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
 signature = "EQUP"
 name = "EquipType"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11767-L11778"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11767-L11778",
+  "corpus: equp_types_full (crates/esm/tests/equp_types.rs), 2026-11-17: every official EQUP record (25) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11767-L11778): EDID, the slot parents, the flags and the condition actor value; no official record has the script data or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
@@ -38,36 +39,48 @@ confidence = "corpus"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "SlotParents"
+type = "array"
+element = "formid"
+targets = ["EQUP"]
+count = "rest"
 card = "optional"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 25 official EQUP records (7 occurrences), 4..8 bytes"
 evidence = [
+  "corpus: equp_types_full (crates/esm/tests/equp_types.rs), 2026-11-17: in 7 of 25 official EQUP records, 4..8 bytes, each decodes and re-encodes identically",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11771-L11771",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4..8 bytes"
+note = "one FormID per 4 bytes, filling the subrecord (one or two in the official records); each an EQUP record"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u32"
 card = "required"
+bits = [
+  ["UseAllParents", 0x1],
+  ["ParentsOptional", 0x2],
+  ["ItemSlot", 0x4],
+]
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 25 of 25 official EQUP records (25 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11772-L11772",
+  "corpus: equp_types_full (crates/esm/tests/equp_types.rs), 2026-11-17: in 25 of 25 official EQUP records, 4 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11772-L11776",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "ConditionActorValue"
+type = "formid"
+targets = ["AVIF"]
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 25 of 25 official EQUP records (25 occurrences), 4 bytes"
 evidence = [
+  "corpus: equp_types_full (crates/esm/tests/equp_types.rs), 2026-11-17: in 25 of 25 official EQUP records, 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11777-L11777",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+note = "a null FormID (no actor value) is allowed"

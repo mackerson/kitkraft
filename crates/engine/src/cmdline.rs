@@ -461,16 +461,18 @@ pub fn command_help(spec: &CommandSpec, program: &str) -> Result<String, EngineE
         } else {
             let value = match param.kind {
                 ParamKind::Boolean => String::new(),
-                ParamKind::StringList => format!(" <{}>...", param.name),
                 ParamKind::Json => " <json>".to_string(),
                 _ if !param.choices.is_empty() => format!(" <{}>", param.choices.join("|")),
                 _ => format!(" <{}>", param.name),
             };
             let s = format!("--{flag}{value}");
-            if param.required {
-                (s.clone(), s)
-            } else {
-                (format!("[{s}]"), s)
+            // A list flag takes one value per flag; the whole flag repeats.
+            let list = param.kind == ParamKind::StringList;
+            match (param.required, list) {
+                (true, false) => (s.clone(), s),
+                (false, false) => (format!("[{s}]"), s),
+                (true, true) => (format!("({s})..."), s),
+                (false, true) => (format!("[{s}]..."), s),
             }
         };
         line.push(' ');
@@ -481,6 +483,12 @@ pub fn command_help(spec: &CommandSpec, program: &str) -> Result<String, EngineE
                 text.push(' ');
             }
             text.push_str(&format!("(default: {default})"));
+        }
+        if param.kind == ParamKind::StringList && !is_positional(spec, param) {
+            if !text.is_empty() {
+                text.push(' ');
+            }
+            text.push_str("(repeat the flag for each value)");
         }
         rows.push((row, text));
     }
@@ -763,6 +771,26 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("(default: false)"), "{text}");
+    }
+
+    #[test]
+    fn a_list_flag_is_shown_as_a_repeated_flag() {
+        let text = command_help(find_command("deploy.enable").unwrap(), "kit ").unwrap();
+        assert!(text.contains("(--mods <mods>)..."), "{text}");
+        assert!(text.contains("(repeat the flag for each value)"), "{text}");
+        assert!(!text.contains("<mods>..."), "{text}");
+        let text = command_help(find_command("load").unwrap(), "kit ").unwrap();
+        assert!(text.contains("[--plugins <plugins>]..."), "{text}");
+        let text = command_help(find_command("strings.merge").unwrap(), "kit ").unwrap();
+        assert!(text.contains("(--tables <tables>)..."), "{text}");
+    }
+
+    #[test]
+    fn the_shown_list_form_parses() {
+        let (id, args) = run("deploy enable C:/m --mods a --mods b --dev");
+        assert_eq!(id, "deploy.enable");
+        assert_eq!(args["mods"], json!(["a", "b"]));
+        assert_eq!(kind("deploy enable C:/m --mods a b --dev"), "usage");
     }
 
     #[test]

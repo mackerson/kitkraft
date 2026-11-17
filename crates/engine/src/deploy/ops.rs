@@ -461,6 +461,24 @@ impl Diff {
     }
 }
 
+/// The summary's `plugin: <name> SHA-256 <hash>` line (KK-367): the hash of the `files`
+/// entry (added, replaced or unchanged) whose `path` is `data.plugin`, else `unknown`.
+/// The CLI and MCP text then name the plugin's bytes, as the window's preview does.
+fn plugin_line(data: &Value) -> String {
+    let plugin = data
+        .get("plugin")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let sha = ["added", "replaced", "unchanged"]
+        .iter()
+        .filter_map(|k| data.get("files")?.get(*k)?.as_array())
+        .flatten()
+        .find(|e| e.get("path").and_then(Value::as_str) == Some(plugin))
+        .and_then(|e| e.get("sha256")?.as_str())
+        .unwrap_or("unknown");
+    format!("plugin: {plugin} SHA-256 {sha}")
+}
+
 pub(super) fn combine(mut refusals: Vec<DeployError>) -> DeployError {
     if refusals.len() == 1 {
         if let Some(only) = refusals.pop() {
@@ -828,7 +846,11 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         diff.removed.len(),
         diff.unchanged.len()
     );
-    let mut lines = vec![format!("target: {}", slots.target.display()), counts];
+    let mut lines = vec![
+        format!("target: {}", slots.target.display()),
+        plugin_line(&data),
+        counts,
+    ];
     lines.extend(refusals.iter().map(|r| format!("refusal: {r}")));
     lines.extend(
         warnings_of(&data)

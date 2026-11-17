@@ -617,11 +617,9 @@ const BX2_INVENTORY: &[&str] = &[
     "DOBJ",
     "EFSH",
     "EFSQ",
-    "EQUP",
     "FFKW",
     "FOGV",
     "FORC",
-    "FSTP",
     "FSTS",
     "GBFT",
     "GCVR",
@@ -631,10 +629,8 @@ const BX2_INVENTORY: &[&str] = &[
     "IMGS",
     "IPDS",
     "KSSM",
-    "LAYR",
     "LGTM",
     "LSCR",
-    "LTEX",
     "MAAM",
     "NAVI",
     "NOCM",
@@ -667,7 +663,6 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "DFOB",
     "LMSW",
     "MTPT",
-    "VTYP",
 ];
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R

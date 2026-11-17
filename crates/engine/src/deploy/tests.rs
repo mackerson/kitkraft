@@ -1047,6 +1047,56 @@ fn dry_run_lists_every_path_and_writes_nothing() {
         .contains("would touch (9)"));
 }
 
+/// The `sha256` of the `data.files.added` entry whose `path` is `MyMod.esm`.
+fn added_plugin_sha256(r: &Value) -> String {
+    let sha = r["data"]["files"]["added"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["path"] == "MyMod.esm")
+        .unwrap()["sha256"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert_eq!(sha.len(), 64, "{sha}");
+    assert!(
+        sha.chars().all(|c| matches!(c, '0'..='9' | 'a'..='f')),
+        "{sha}"
+    );
+    sha
+}
+
+#[test]
+fn the_dry_run_summary_names_the_plugin_sha256() {
+    let mo2 = Mo2::new("drysha");
+    let pkg = mo2.package("v1", b"TES4");
+    let r = execute(
+        "deploy",
+        json!({"source": pkg.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "dry_run": true}),
+    )
+    .unwrap();
+    let sha = added_plugin_sha256(&r);
+    let summary = r["data"]["summary"].as_str().unwrap();
+    assert!(
+        summary.contains(&format!("plugin: MyMod.esm SHA-256 {sha}")),
+        "{summary}"
+    );
+}
+
+#[test]
+fn the_deploy_summary_names_the_plugin_sha256() {
+    let mo2 = Mo2::new("deploysha");
+    let pkg = mo2.package("v1", b"TES4");
+    let first = mo2.deploy(&pkg).unwrap();
+    let line = format!("plugin: MyMod.esm SHA-256 {}", added_plugin_sha256(&first));
+    let second = mo2.deploy(&pkg).unwrap();
+    assert_eq!(second["data"]["outcome"], "unchanged", "{second}");
+    for r in [&first, &second] {
+        let summary = r["data"]["summary"].as_str().unwrap();
+        assert!(summary.contains(&line), "{summary}");
+    }
+}
+
 #[test]
 fn package_manifest_is_verified() {
     let mo2 = Mo2::new("pkgmanifest");
