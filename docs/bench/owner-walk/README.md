@@ -120,9 +120,11 @@ loads are lost), so give it a few seconds.
   the console, check the three magazines again. Expected: the same. (The recorder gave you
   a "KKW14 Reload Marker" after the save; it must be gone after the load, which proves the
   load.)
-- **W-11** The console: `coc CityNewAtlantisFreestarEmbassy`. Look at an item on a shelf,
-  then take it. Expected: **Take**, no crime. A Steal on one item may be that item's own
-  owner: say which in the note.
+- **W-11** The console: `coc CityNewAtlantisFreestarEmbassy`. Look at a **Digipick** (on a
+  desk with a folder, a tablet and a pen) or a **to-go coffee cup**, then take it; say which
+  in the note. Expected: **Take**, no crime. Not a vase: the vases and most of the
+  embassy's items have an owner of their own (`CrimeFactionFreestar`), which the recipe
+  does not change, so they read Steal whatever the cell's owner is (`game-20261117-08`).
 - **W-12** Go to an outpost: one of yours, or land anywhere outposts are allowed and place
   a beacon from the scanner. You have been given aluminum, copper and sealant. Build mode
   > Decorations: **KKW40 Coffee Maker** next to the vanilla Coffee Maker, same cost.
@@ -207,7 +209,11 @@ identical; package validate passed; the rename plugin `9c0b28a6...4078ea27`, as
 --dry-run` against `Kitkraft Dev` resolved every EditorID; the deploy dry run plans 2 files
 into `KitKraft Dev - KitKraftOwnerWalk`.
 
-What no game has shown yet: whether a reference's own `XOWN` (a faction, the player's
-actor base) gives the Steal prompt, whether the placed vanilla workbench works as a
-fabricator, whether the console answers `GetStolenItemValueNoCrime`, `GetStolenItemValue`
-and `GetCrimeGold` (recorded, not graded), and the screenshots' content.
+First walk, 2026-11-17 (`docs/game-observations.md` `game-20261117-08`): W-00 to W-08 pass
+(a reference's own `XOWN` gives Steal for a faction and Take for the player's actor base;
+the placed vanilla workbench works as a fabricator; `OnActivate` fires; the rename package
+installs). W-09's save was never written, so W-10 failed (the recorder now checks the
+save); W-11 failed on a vase that has its own owner (the station now names items without
+one); W-12 was skipped (no outpost). The console answered none of
+`GetStolenItemValueNoCrime`, `GetStolenItemValue` and `GetCrimeGold` (only the echo, four
+sends each, every time); they stay recorded, not graded.

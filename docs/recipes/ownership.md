@@ -10,7 +10,8 @@ its items is no longer stealing. Spec: `docs/recipes/ownership.toml`.
 | A cell's owner is `CELL` `XOWN`, 12 bytes: `Owner` (a FormID naming a `FACT` or an `NPC_`), 4 unused bytes, `NoCrime` (a bool), 3 unused bytes | `xedit: wbDefinitionsCommon.pas@9fb01688#L9367-L9391` (the `OwnerData` shared type, `crates/schema/defs/common/OwnerData.toml`); `corpus`: every `XOWN` of the `CELL`, `REFR` and `ACHR` records of the 14 official files decodes with it (`world_family_full`) |
 | `CityNewAtlantisFreestarEmbassy` (`Starfield.esm:017307`) is owned by `Starfield.esm:24F839` | `kit build` of the spec reports `XOWN.Owner "0024F839" -> "0001C21C"` (the value read from the winning version) |
 | `PlayerFaction` is `Starfield.esm:01C21C` | `kit query FACT --where 'EDID == "PlayerFaction"' --plugins Starfield.esm` |
-| What the game does with a cell owned by `PlayerFaction` | **not known**: the in-game check below (grade D until M4.O4); the CK's own choice of members is fixture F27 |
+| What the game does with a cell owned by `PlayerFaction` | **not known**: the in-game check below (grade D until M4.O4); the CK's own choice of members is fixture F27. The owner walk (`game-20261117-08`, W-11) did not answer it: the item looked at, a yellow vase, read Steal, and every vase of the cell carries its own `REFR` `XOWN` (`CrimeFactionFreestar`, `Starfield.esm:0638E5`), which this recipe does not change |
+| Which embassy items carry an owner of their own | `kit cell --cell Starfield.esm:017307 --plugins Starfield.esm` and `kit inspect` of each reference (2026-11-17): of 453 references of `MISC`, `ALCH`, `BOOK`, `LVLI`, `CONT` and `FLOR` bases, 417 have a `REFR` `XOWN` (416 `CrimeFactionFreestar`, one `BOOK` `PlayerFaction`) and 36 none, among them the Digipicks `03E159`, `03E166` and the to-go coffee cups `0F18EE` to `0F18F2` |
 
 The cell is a stand-in: lane H's M4.H1 picks the fixture cell for F27 and M4.O4. Of the
 New Atlantis interiors, four have an `XOWN` on `Starfield.esm` (`kit query CELL --where 'has
@@ -93,7 +94,11 @@ out/recipes/KitKraftOwnership.esm`, which shows `XOWN` per version.
 
 1. Enable `KitKraftOwnership.esm` on **KitKraft Dev** only; load a disposable save.
 2. `coc CityNewAtlantisFreestarEmbassy`.
-3. Look at an item on a shelf. **Expect:** the prompt says "Take", not "Steal".
+3. Look at an item that has **no owner of its own** (the table above: a Digipick at about
+   (-13.2, -4.7), or a to-go coffee cup at about (-9.9, 1.8)); most of the embassy's items,
+   every vase among them, carry their own owner, which this recipe does not change.
+   **Expect:** the prompt says "Take", not "Steal". Control: the same item with the plugin
+   disabled reads "Steal".
 4. Take it. **Expect:** no crime, no bounty.
 5. Record the result in `docs/game-observations.md` (`game-<yyyymmdd>-<nn>`, with the hash
    above). A "Steal" prompt is a result too: the item may carry its own owner (`REFR`

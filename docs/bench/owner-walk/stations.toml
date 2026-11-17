@@ -298,9 +298,10 @@ title = "the ownership recipe: CELL 017307 `CityNewAtlantisFreestarEmbassy` XOWN
 forms = ["Starfield.esm:017307", "CityNewAtlantisFreestarEmbassy", "Starfield.esm:01C21C"]
 say = [
   "Console: coc CityNewAtlantisFreestarEmbassy  (close the console, wait for the load).",
-  "Look at an item on a shelf (note the prompt), then take it.",
+  "Find a Digipick (on a desk, with a folder, a tablet and a pen) or a to-go coffee cup: those carry no owner of their own. Vases and most other items do (CrimeFactionFreestar), so they say Steal whatever the cell's owner is.",
+  "Look at it (note the prompt), then take it. Say which item in your note.",
 ]
-expected = "The prompt reads Take, not Steal; no crime, no bounty (docs/recipes/ownership.md). A Steal prompt on one item may be that item's own owner: note which"
+expected = "On an item with no owner of its own (a Digipick 03E159/03E166, a to-go cup 0F18EE..0F18F2): the prompt reads Take, not Steal; no crime, no bounty (docs/recipes/ownership.md). game-20261117-08 looked at a vase, which has its own owner"
 judge = "both"
 ask = "Did it read Take, with no crime?"
 screenshot = true
