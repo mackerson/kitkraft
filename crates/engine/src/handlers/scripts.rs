@@ -24,6 +24,12 @@
 //! alias's entry of the `VMAD`'s fragment block; the quest must declare the alias (by the
 //! time scripts are attached, so a `fields` edit of the same call counts), else
 //! `quest.alias-missing`. `alias` and `stages` together are refused.
+//!
+//! An object property may also hold a quest alias: `{alias}` (an ID or name) is an alias
+//! of the quest the script is attached to (a `QUST` only, checked as above), and `{quest,
+//! alias}` an alias of another quest (`quest` a formref, EditorID or `new:<name>`, `alias`
+//! an ID, not checked against that quest). The value is written as the official files
+//! write one: the quest's FormID with the alias ID (`edit::vmad::ObjectTarget::Alias`).
 
 use std::path::Path;
 
@@ -373,30 +379,53 @@ fn typed_value(
             format!("papyrus.property-unresolved: {key}: {why}"),
         )
     };
+    let form = |s: &str| -> Result<ObjectTarget, EngineError> {
+        if let Some(name) = crate::build::spec::local_ref(s) {
+            return locals(name).map(ObjectTarget::Local).ok_or_else(|| {
+                bad(format!(
+                    "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
+                ))
+            });
+        }
+        let g =
+            find_form(command, loaded, s, None).map_err(|e| bad(format!("`{s}` ({ty}): {e}")))?;
+        let plugin = loaded
+            .lo
+            .plugin(g.plugin)
+            .map(|p| p.name.clone())
+            .ok_or_else(|| bad(format!("`{s}`: no plugin")))?;
+        Ok(ObjectTarget::Form(FormName {
+            plugin,
+            object_id: g.object_id,
+        }))
+    };
     let scalar = |t: u8, v: &Value| -> Result<AttachValue, EngineError> {
         match (t, v) {
             (1, Value::Null) => Ok(AttachValue::Object(ObjectTarget::Null)),
-            (1, Value::String(s)) => {
-                if let Some(name) = crate::build::spec::local_ref(s) {
-                    return locals(name)
-                        .map(|edid| AttachValue::Object(ObjectTarget::Local(edid)))
-                        .ok_or_else(|| {
-                            bad(format!(
-                                "unknown name `{name}` (a [[new]], [[clone]] or [[place]] of the build)"
-                            ))
-                        });
+            (1, Value::String(s)) => form(s).map(AttachValue::Object),
+            (1, Value::Object(m)) => {
+                if let Some(k) = m.keys().find(|k| !matches!(k.as_str(), "alias" | "quest")) {
+                    return Err(bad(format!(
+                        "unknown key `{k}` in an alias value; allowed: alias, quest"
+                    )));
                 }
-                let g = find_form(command, loaded, s, None)
-                    .map_err(|e| bad(format!("`{s}` ({ty}): {e}")))?;
-                let plugin = loaded
-                    .lo
-                    .plugin(g.plugin)
-                    .map(|p| p.name.clone())
-                    .ok_or_else(|| bad(format!("`{s}`: no plugin")))?;
-                Ok(AttachValue::Object(ObjectTarget::Form(FormName {
-                    plugin,
-                    object_id: g.object_id,
-                })))
+                let alias = m.get("alias").ok_or_else(|| {
+                    bad(
+                        "an object value given as {...} needs `alias` (an alias ID or name)"
+                            .to_string(),
+                    )
+                })?;
+                let alias = self::alias(command, &format!("{key}.alias"), alias)?;
+                let quest = match m.get("quest") {
+                    None => None,
+                    Some(Value::String(q)) => Some(Box::new(form(q)?)),
+                    Some(_) => {
+                        return Err(bad(
+                            "`quest` must be a formref, EditorID or new:<name>".to_string()
+                        ))
+                    }
+                };
+                Ok(AttachValue::Object(ObjectTarget::Alias { quest, alias }))
             }
             (2, Value::String(s)) => Ok(AttachValue::String(s.clone())),
             (3, Value::Number(n)) => n

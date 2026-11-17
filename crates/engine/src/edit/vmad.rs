@@ -39,6 +39,16 @@ pub enum ObjectTarget {
     Local(String),
     /// No object (FormID 0).
     Null,
+    /// A quest alias: the object value holds the quest's FormID and the alias ID. `quest`
+    /// `None` is the quest the script is attached to (a `QUST` only; the alias must be one
+    /// it declares, as for `Attach::alias`); another quest is named by its target and its
+    /// alias by ID only (not checked against that quest).
+    Alias {
+        /// The quest, when not the record itself.
+        quest: Option<Box<ObjectTarget>>,
+        /// The alias.
+        alias: AliasTarget,
+    },
 }
 
 /// One script to attach with the property values to set.
@@ -175,16 +185,58 @@ impl AttachValue {
     }
 }
 
+/// The quest a script is attached to, for alias object values naming its own aliases.
+struct OwnQuest<'a> {
+    /// Its FormID (as stored in the plugin).
+    form_id: u32,
+    /// Its aliases; `None` when the record is not a `QUST`.
+    aliases: Option<&'a [QuestAlias]>,
+}
+
+/// An alias ID as the 16-bit alias of an object value.
+fn alias16(id: u32) -> Result<i16, String> {
+    i16::try_from(id)
+        .map_err(|_| format!("alias ID {id} does not fit the 16-bit alias of a VMAD object value"))
+}
+
 fn stored_value(
     v: &AttachValue,
     form: &dyn Fn(&ObjectTarget) -> Result<u32, String>,
+    own: &OwnQuest<'_>,
 ) -> Result<Value, String> {
     let obj = |t: &ObjectTarget| -> Result<Object, String> {
-        Ok(Object {
-            form_id: form(t)?,
-            alias: -1,
-            unused: 0,
-        })
+        match t {
+            ObjectTarget::Alias { quest: None, alias } => {
+                let aliases = own
+                    .aliases
+                    .ok_or("an alias of the quest itself is only a value on a QUST (name the quest with `quest`)")?;
+                Ok(Object {
+                    form_id: own.form_id,
+                    alias: alias16(alias_id(alias, aliases)?)?,
+                    unused: 0,
+                })
+            }
+            ObjectTarget::Alias {
+                quest: Some(q),
+                alias,
+            } => {
+                let AliasTarget::Id(id) = alias else {
+                    return Err(format!(
+                        "alias {alias} of another quest: name it by ID (its names are not read)"
+                    ));
+                };
+                Ok(Object {
+                    form_id: form(q)?,
+                    alias: alias16(*id)?,
+                    unused: 0,
+                })
+            }
+            _ => Ok(Object {
+                form_id: form(t)?,
+                alias: -1,
+                unused: 0,
+            }),
+        }
     };
     Ok(match v {
         AttachValue::Object(t) => Value::Object(obj(t)?),
@@ -392,6 +444,15 @@ pub fn attach(
     };
     let mut report = Vec::new();
     let quest = record.header.signature == Signature(*b"QUST");
+    let declared = if quest {
+        record.subrecords().map(quest_aliases).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+    let own = OwnQuest {
+        form_id: record.header.form_id,
+        aliases: quest.then_some(declared.as_slice()),
+    };
     let props_of = |a: &Attach| -> Result<Vec<Property>, String> {
         a.properties
             .iter()
@@ -400,7 +461,8 @@ pub fn attach(
                     name: name.as_bytes().to_vec(),
                     ty: v.type_byte(),
                     flags: 1,
-                    value: stored_value(v, form).map_err(|e| format!("{}.{name}: {e}", a.name))?,
+                    value: stored_value(v, form, &own)
+                        .map_err(|e| format!("{}.{name}: {e}", a.name))?,
                 })
             })
             .collect()
@@ -486,17 +548,11 @@ pub fn attach(
                 record.header.signature
             ));
         }
-        let declared = record.subrecords().map(quest_aliases).unwrap_or_default();
         let quest_form = record.header.form_id;
         let mut q = block(&vmad)?;
         for (a, target) in aliased {
             let id = alias_id(target, &declared).map_err(|e| format!("{}: {e}", a.name))?;
-            let id16 = i16::try_from(id).map_err(|_| {
-                format!(
-                    "{}: alias ID {id} does not fit the 16-bit alias of a VMAD object value",
-                    a.name
-                )
-            })?;
+            let id16 = alias16(id).map_err(|e| format!("{}: {e}", a.name))?;
             let props = props_of(a)?;
             let at = match q.aliases.iter().position(|e| e.object.alias == id16) {
                 Some(i) => i,
@@ -1046,5 +1102,78 @@ mod tests {
         }
         let e = attach(&mut big, &one(AliasTarget::Id(40_000)), &map, &limits).unwrap_err();
         assert!(e.contains("does not fit the 16-bit alias"), "{e}");
+    }
+
+    #[test]
+    fn object_properties_hold_quest_aliases() {
+        let limits = DecodeLimits::default();
+        let map = |t: &ObjectTarget| match t {
+            ObjectTarget::Local(_) => Ok(0x0000_1234),
+            _ => Ok(0),
+        };
+        let own =
+            |alias: AliasTarget| AttachValue::Object(ObjectTarget::Alias { quest: None, alias });
+        let mut r = quest_with_aliases();
+        let a = Attach {
+            name: "KK:Main".into(),
+            properties: vec![
+                ("Player".into(), own(AliasTarget::Name("player".into()))),
+                (
+                    "Crowd".into(),
+                    AttachValue::Array(1, vec![own(AliasTarget::Id(1))]),
+                ),
+                (
+                    "Other".into(),
+                    AttachValue::Object(ObjectTarget::Alias {
+                        quest: Some(Box::new(ObjectTarget::Local("OtherQuest".into()))),
+                        alias: AliasTarget::Id(5),
+                    }),
+                ),
+            ],
+            stages: Vec::new(),
+            alias: None,
+        };
+        attach(&mut r, &[a], &map, &limits).unwrap();
+        let data = r.subrecords().unwrap()[1].data().to_vec();
+        // The official form of an alias value: unused 0, the alias ID, the quest's FormID.
+        let mut player = vec![6, 0];
+        player.extend(b"Player");
+        player.extend([1, 1, 0, 0, 0, 0, 0x02, 0x08, 0x00, 0x01]);
+        assert!(data.windows(player.len()).any(|w| w == player.as_slice()));
+        let v = decode(&data).unwrap();
+        let objs: Vec<(String, u32, i16)> = objects(&v)
+            .into_iter()
+            .map(|(p, o)| (p, o.form_id, o.alias))
+            .collect();
+        assert_eq!(
+            objs,
+            [
+                ("KK:Main.Player".to_string(), 0x0100_0802, 0),
+                ("KK:Main.Crowd[0]".to_string(), 0x0100_0802, 1),
+                ("KK:Main.Other".to_string(), 0x0000_1234, 5),
+            ]
+        );
+        // An alias the quest does not declare; an own alias off a quest; another quest's
+        // alias by name.
+        let one = |value: AttachValue| Attach {
+            name: "KK:Main".into(),
+            properties: vec![("P".into(), value)],
+            stages: Vec::new(),
+            alias: None,
+        };
+        let e = attach(&mut r, &[one(own(AliasTarget::Id(9)))], &map, &limits).unwrap_err();
+        assert!(
+            e.contains("KK:Main.P: quest.alias-missing: the quest has no alias 9"),
+            "{e}"
+        );
+        let mut acti = record(b"ACTI");
+        let e = attach(&mut acti, &[one(own(AliasTarget::Id(0)))], &map, &limits).unwrap_err();
+        assert!(e.contains("only a value on a QUST"), "{e}");
+        let by_name = AttachValue::Object(ObjectTarget::Alias {
+            quest: Some(Box::new(ObjectTarget::Local("OtherQuest".into()))),
+            alias: AliasTarget::Name("Player".into()),
+        });
+        let e = attach(&mut acti, &[one(by_name)], &map, &limits).unwrap_err();
+        assert!(e.contains("name it by ID"), "{e}");
     }
 }

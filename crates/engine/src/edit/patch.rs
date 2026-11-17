@@ -1519,6 +1519,9 @@ pub fn write_patch_with(
         let object = |t: &vmad::ObjectTarget| -> Result<u32, String> {
             match t {
                 vmad::ObjectTarget::Null => Ok(0),
+                vmad::ObjectTarget::Alias { .. } => {
+                    Err("an alias value is resolved by the script attachment".to_string())
+                }
                 vmad::ObjectTarget::Form(f) => formref(&f.plugin, f.object_id),
                 vmad::ObjectTarget::Local(edid) => local
                     .iter()

@@ -379,3 +379,66 @@ fn a_script_on_an_undeclared_alias_is_refused() {
     assert!(e.contains("(its aliases: none)"), "{e}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_quest_script_property_holds_one_of_its_aliases() {
+    let (d, data) = setup_alias("quest-alias-value");
+    // KK:QuestReport with a ReferenceAlias property and an array of them.
+    std::fs::write(
+        d.join("Scripts").join("KK").join("QuestReport.pex"),
+        pex_with(
+            "KK:QuestReport",
+            "Quest",
+            &[
+                ("Count", "Int"),
+                ("TargetAlias", "ReferenceAlias"),
+                ("Others", "ReferenceAlias[]"),
+            ],
+        ),
+    )
+    .unwrap();
+    let text = alias_spec(
+        &data,
+        "[{ name = \"KK:QuestReport\", properties = { TargetAlias = { alias = \"Target\" }, \
+Others = [{ alias = 0 }, { quest = \"KC_Crate\", alias = 3 }] } }]",
+    );
+    let r = build(&d, &text, "Value.esp").unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let out = d.join("Value.esp");
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let quest = new_form_id(&r);
+    let v = vmad::decode(&vmad_bytes(&out, quest)).unwrap();
+    let objs: Vec<(String, bool, i16)> = vmad::objects(&v)
+        .into_iter()
+        .map(|(p, o)| (p, o.form_id == quest, o.alias))
+        .collect();
+    assert_eq!(
+        objs,
+        [
+            // Properties in name order (the spec's table is read as a map).
+            ("KK:QuestReport.Others[0]".to_string(), true, 0),
+            ("KK:QuestReport.Others[1]".to_string(), false, 3),
+            ("KK:QuestReport.TargetAlias".to_string(), true, 0),
+        ]
+    );
+    // An alias the quest does not declare, and a malformed value, are refused.
+    for (value, why) in [
+        (
+            "{ alias = 4 }",
+            "quest.alias-missing: the quest has no alias 4 (its aliases: 0 `Target` (reference))",
+        ),
+        ("{ quest = \"KC_Crate\" }", "needs `alias`"),
+        ("{ alias = 0, ref = 1 }", "unknown key `ref`"),
+    ] {
+        let text = alias_spec(
+            &data,
+            &format!("[{{ name = \"KK:QuestReport\", properties = {{ TargetAlias = {value} }} }}]"),
+        );
+        let e = build(&d, &text, "BadValue.esp").unwrap_err();
+        assert!(e.contains(why), "{value}: {e}");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}

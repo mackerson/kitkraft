@@ -12,8 +12,9 @@
 //!    one with scripts and no block, one with a quest script, a fragment script and its
 //!    stage fragments, one holding alias scripts only, and one with a quest script, a
 //!    fragment script and alias scripts (each the one with the most properties among those
-//!    `attach` can write; the alias ones on a copy of the quest's own subrecords, so
-//!    `attach` finds each alias the way a build does);
+//!    `attach` can write: scalars, objects, alias values of the quest itself or another
+//!    quest, and arrays of these; all on a copy of the quest's own subrecords, so `attach`
+//!    finds each alias the way a build does);
 //! 3. the alias entries `attach` writes by: every official entry holds the quest's own
 //!    FormID, 0 unused bytes, version 6 and object format 2, and at least one script; which
 //!    alias kinds carry scripts; how many entries name an alias the quest does not declare
@@ -105,16 +106,31 @@ struct Stats {
     failures: Vec<String>,
 }
 
-/// Whether `attach` writes exactly this script entry: flags 0 and every property a scalar
-/// or an object (alias -1, unused 0) with flags 1.
-fn attachable(s: &vmad::Script) -> bool {
+/// Whether `attach` writes exactly this script entry of a script on `quest` (its FormID)
+/// with the aliases `declared`: flags 0 and every property, with flags 1, a scalar, an
+/// object (unused 0; no alias, an alias the quest declares, or an alias of another quest)
+/// or an array of these.
+fn attachable(s: &vmad::Script, quest: u32, declared: &[vmad::QuestAlias]) -> bool {
+    let object = |o: &vmad::Object| {
+        o.unused == 0
+            && (o.alias == -1
+                || (o.alias >= 0
+                    && (o.form_id != quest
+                        || declared
+                            .iter()
+                            .any(|d| i64::from(d.id) == i64::from(o.alias)))))
+    };
     s.flags == 0
         && s.properties.iter().all(|p| {
             p.flags == 1
                 && match &p.value {
-                    vmad::Value::Object(o) => o.alias == -1 && o.unused == 0,
+                    vmad::Value::Object(o) => object(o),
+                    vmad::Value::Objects(v) => v.iter().all(object),
                     vmad::Value::String(s) => std::str::from_utf8(s).is_ok(),
+                    vmad::Value::Strings(v) => v.iter().all(|s| std::str::from_utf8(s).is_ok()),
                     vmad::Value::Int(_) | vmad::Value::Float(_) | vmad::Value::Bool(0 | 1) => true,
+                    vmad::Value::Ints(_) | vmad::Value::Floats(_) => true,
+                    vmad::Value::Bools(v) => v.iter().all(|b| *b <= 1),
                     _ => false,
                 }
         })
@@ -141,6 +157,7 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         (None, None) => return,
     };
     let declared = vmad::quest_aliases(subs);
+    let attachable = |s: &vmad::Script| attachable(s, record.header.form_id, &declared);
     let sample = |at: &str, vmad: &[u8], properties: usize| Sample {
         at: at.to_string(),
         vmad: vmad.to_vec(),
@@ -322,7 +339,21 @@ fn attach_request(
     script: &vmad::Script,
     stages: Vec<StageFragment>,
     alias: Option<AliasTarget>,
+    quest: u32,
 ) -> vmad::Attach {
+    // An alias of the quest itself by ID; another quest's alias with that quest as a
+    // same-call target.
+    let object = |o: &vmad::Object| {
+        AttachValue::Object(match (o.alias, o.form_id) {
+            (-1, 0) => ObjectTarget::Null,
+            (-1, f) => ObjectTarget::Local(format!("{f:08X}")),
+            (a, f) => ObjectTarget::Alias {
+                quest: (f != quest).then(|| Box::new(ObjectTarget::Local(format!("{f:08X}")))),
+                alias: AliasTarget::Id(u32::try_from(a).unwrap()),
+            },
+        })
+    };
+    let string = |s: &Vec<u8>| AttachValue::String(String::from_utf8(s.clone()).unwrap());
     vmad::Attach {
         name: script.name_text(),
         properties: script
@@ -330,18 +361,30 @@ fn attach_request(
             .iter()
             .map(|p| {
                 let v = match &p.value {
-                    vmad::Value::Object(o) if o.form_id == 0 => {
-                        AttachValue::Object(ObjectTarget::Null)
-                    }
-                    vmad::Value::Object(o) => {
-                        AttachValue::Object(ObjectTarget::Local(format!("{:08X}", o.form_id)))
-                    }
-                    vmad::Value::String(s) => {
-                        AttachValue::String(String::from_utf8(s.clone()).unwrap())
-                    }
+                    vmad::Value::Object(o) => object(o),
+                    vmad::Value::String(s) => string(s),
                     vmad::Value::Int(i) => AttachValue::Int(*i),
                     vmad::Value::Float(f) => AttachValue::Float(f32::from_bits(*f)),
                     vmad::Value::Bool(b) => AttachValue::Bool(*b == 1),
+                    vmad::Value::Objects(v) => {
+                        AttachValue::Array(1, v.iter().map(object).collect())
+                    }
+                    vmad::Value::Strings(v) => {
+                        AttachValue::Array(2, v.iter().map(string).collect())
+                    }
+                    vmad::Value::Ints(v) => {
+                        AttachValue::Array(3, v.iter().map(|i| AttachValue::Int(*i)).collect())
+                    }
+                    vmad::Value::Floats(v) => AttachValue::Array(
+                        4,
+                        v.iter()
+                            .map(|f| AttachValue::Float(f32::from_bits(*f)))
+                            .collect(),
+                    ),
+                    vmad::Value::Bools(v) => AttachValue::Array(
+                        5,
+                        v.iter().map(|b| AttachValue::Bool(*b == 1)).collect(),
+                    ),
                     other => panic!("not attachable: {other:?}"),
                 };
                 (String::from_utf8(p.name.clone()).unwrap(), v)
@@ -360,7 +403,7 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
     let mut requests: Vec<vmad::Attach> = official
         .scripts
         .iter()
-        .map(|s| attach_request(s, Vec::new(), None))
+        .map(|s| attach_request(s, Vec::new(), None, sample.form_id))
         .collect();
     if !official.rest.is_empty() {
         let q = vmad::decode_quest_fragments(&official.rest, 2).unwrap();
@@ -374,7 +417,7 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
             })
             .collect();
         if let Some(fs) = &q.script {
-            requests.push(attach_request(fs, stages, None));
+            requests.push(attach_request(fs, stages, None, sample.form_id));
         }
         for e in &q.aliases {
             for s in &e.scripts {
@@ -382,6 +425,7 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
                     s,
                     Vec::new(),
                     Some(AliasTarget::Id(u32::try_from(e.object.alias).unwrap())),
+                    sample.form_id,
                 ));
             }
         }
@@ -404,7 +448,7 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
     let map = |t: &ObjectTarget| match t {
         ObjectTarget::Null => Ok(0),
         ObjectTarget::Local(id) => u32::from_str_radix(id, 16).map_err(|e| e.to_string()),
-        ObjectTarget::Form(_) => Err("unused".to_string()),
+        ObjectTarget::Form(_) | ObjectTarget::Alias { .. } => Err("unused".to_string()),
     };
     vmad::attach(&mut record, &requests, &map, &DecodeLimits::default()).unwrap();
     let built = record
