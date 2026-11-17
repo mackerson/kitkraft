@@ -42,8 +42,14 @@
 //!    `after the reload` when the `persistence 1-3` row passed and no row of the type failed
 //!    (the verification mod has no `persistence 4` row; its `V-S-*` rows check after the
 //!    reload).
+//! 10. Entries already recorded (KK-364): the tool reads `docs/schema/evidence.toml` (or
+//!     the file `--evidence <path>` names) as an `entry` array. A proposed (type, status)
+//!     that already has an entry there prints, instead of a block, `# <SIG> <status>:
+//!     already recorded; add "ledger: <id>" to that entry's evidence` (or, when that entry
+//!     already cites the ledger entry, `# <SIG> <status>: already recorded, citing
+//!     ledger: <id>`).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -52,27 +58,84 @@ use serde_json::Value;
 const RUNTIME: &str = "game-runtime-tested";
 const RELOAD: &str = "save-reload-verified";
 
-/// The task: reads `args[0]` (a `report.json`; a relative path that does not exist from
-/// the working directory is tried from the workspace root) and prints the proposed
-/// entries. Stdout carries only the entries (no "workspace root" line), so it can be
-/// pasted as it is; on an error it carries nothing.
+const USAGE: &str = "usage: cargo xtask session-evidence <report.json> [--evidence <path>]";
+
+/// The task: `<report.json> [--evidence <path>]`. Reads the report and the evidence file
+/// (default: the workspace's `docs/schema/evidence.toml`; a relative path that does not
+/// exist from the working directory is tried from the workspace root) and prints the
+/// proposed entries. Stdout carries only the entries (no "workspace root" line), so it can
+/// be pasted as it is; on an error it carries nothing.
 pub fn run(args: &[String]) -> Result<()> {
-    let Some(arg) = args.first() else {
-        bail!("usage: cargo xtask session-evidence <report.json>");
+    let mut report_arg: Option<&String> = None;
+    let mut evidence_arg: Option<&String> = None;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--evidence" {
+            let path = it
+                .next()
+                .ok_or_else(|| anyhow!("--evidence needs a path; {USAGE}"))?;
+            evidence_arg = Some(path);
+        } else if report_arg.is_none() && !a.starts_with("--") {
+            report_arg = Some(a);
+        } else {
+            bail!("unexpected argument `{a}`; {USAGE}");
+        }
+    }
+    let Some(report_arg) = report_arg else {
+        bail!("{USAGE}");
     };
-    let given = PathBuf::from(arg);
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent();
-    let path = match root {
-        Some(root) if !given.is_file() && given.is_relative() => root.join(&given),
-        _ => given,
-    };
+    let path = resolve(report_arg);
+    let evidence = resolve(evidence_arg.map_or("docs/schema/evidence.toml", String::as_str));
+    let existing = recorded(&evidence)?;
     let text =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     let report: Value =
         serde_json::from_str(&text).with_context(|| format!("{} is not JSON", path.display()))?;
-    let out = propose(&report).map_err(|e| anyhow!("{}: {e}", path.display()))?;
+    let out = propose_with(&report, &existing).map_err(|e| anyhow!("{}: {e}", path.display()))?;
     print!("{out}");
     Ok(())
+}
+
+/// `arg` as given, or from the workspace root when it is relative and not a file here.
+fn resolve(arg: &str) -> PathBuf {
+    let given = PathBuf::from(arg);
+    match Path::new(env!("CARGO_MANIFEST_DIR")).parent() {
+        Some(root) if !given.is_file() && given.is_relative() => root.join(&given),
+        _ => given,
+    }
+}
+
+/// Every (type, status) an evidence file already has, with the ledger entries each cites.
+pub type Recorded = BTreeMap<(String, String), BTreeSet<String>>;
+
+/// Reads an evidence file's `entry` array (rule 10).
+pub fn recorded(path: &Path) -> Result<Recorded> {
+    let text =
+        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let doc: toml::Table =
+        toml::from_str(&text).with_context(|| format!("{} is not TOML", path.display()))?;
+    let mut out = Recorded::new();
+    let Some(entries) = doc.get("entry") else {
+        return Ok(out);
+    };
+    let entries = entries
+        .as_array()
+        .ok_or_else(|| anyhow!("{}: `entry` is not an array", path.display()))?;
+    for e in entries {
+        let field = |k: &str| e.get(k).and_then(toml::Value::as_str).unwrap_or_default();
+        let ledgers = out
+            .entry((field("type").to_string(), field("status").to_string()))
+            .or_default();
+        if let Some(list) = e.get("evidence").and_then(toml::Value::as_array) {
+            ledgers.extend(
+                list.iter()
+                    .filter_map(toml::Value::as_str)
+                    .filter_map(|p| p.strip_prefix("ledger:"))
+                    .map(|id| id.trim().to_string()),
+            );
+        }
+    }
+    Ok(out)
 }
 
 /// One row of the report, as far as the rules read it.
@@ -91,8 +154,16 @@ impl Row {
     }
 }
 
-/// The entries and comments `report` justifies, as TOML text.
+/// The entries and comments `report` justifies, as TOML text, against an empty evidence
+/// file (the tests' view; the task always reads one).
+#[cfg(test)]
 pub fn propose(report: &Value) -> Result<String, String> {
+    propose_with(report, &Recorded::new())
+}
+
+/// The entries and comments `report` justifies, as TOML text; those `existing` already has
+/// are comments (rule 10).
+pub fn propose_with(report: &Value, existing: &Recorded) -> Result<String, String> {
     let ledger = report
         .get("ledger_entry")
         .and_then(Value::as_str)
@@ -196,7 +267,9 @@ pub fn propose(report: &Value) -> Result<String, String> {
             continue;
         }
         let ids: Vec<&str> = passed.iter().map(|r| r.id.as_str()).collect();
-        out.push_str(&entry(sig, RUNTIME, ledger, session, &ids, &others));
+        out.push_str(&new_or_known(
+            existing, sig, RUNTIME, ledger, session, &ids, &others,
+        ));
         // Rule 3: a passing row sharing a form with `persistence 4`, both persistence rows
         // passed.
         let via_4: Vec<&str> = passed
@@ -223,7 +296,9 @@ pub fn propose(report: &Value) -> Result<String, String> {
             Vec::new()
         };
         if !reload.is_empty() {
-            out.push_str(&entry(sig, RELOAD, ledger, session, &reload, &others));
+            out.push_str(&new_or_known(
+                existing, sig, RELOAD, ledger, session, &reload, &others,
+            ));
         }
     }
     Ok(out)
@@ -235,6 +310,27 @@ fn others(rows: &[Row]) -> Vec<String> {
         .filter(|r| !r.passed() && r.status != "fail")
         .map(|r| format!("{} {}", r.id, r.status))
         .collect()
+}
+
+/// The block for (sig, status), or the comment that it is already recorded (rule 10).
+fn new_or_known(
+    existing: &Recorded,
+    sig: &str,
+    status: &str,
+    ledger: &str,
+    session: &str,
+    passed: &[&str],
+    others: &[String],
+) -> String {
+    match existing.get(&(sig.to_string(), status.to_string())) {
+        Some(cited) if cited.contains(ledger) => {
+            format!("\n# {sig} {status}: already recorded, citing ledger: {ledger}\n")
+        }
+        Some(_) => format!(
+            "\n# {sig} {status}: already recorded; add \"ledger: {ledger}\" to that entry's evidence\n"
+        ),
+        None => entry(sig, status, ledger, session, passed, others),
+    }
 }
 
 fn entry(
@@ -421,6 +517,73 @@ mod tests {
         report["ledger_entry"] = Value::Null;
         let err = propose(&report).unwrap_err();
         assert!(err.contains("no ledger entry"), "{err}");
+    }
+
+    /// An evidence file in a temporary folder, read back with [`recorded`].
+    fn recorded_from(tag: &str, text: &str) -> Recorded {
+        let dir = std::env::temp_dir().join(format!(
+            "kitkraft-session-evidence-{tag}-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("evidence.toml");
+        std::fs::write(&path, text).unwrap();
+        let out = recorded(&path).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        out
+    }
+
+    const REFR_RUNTIME: &str = r#"
+[[entry]]
+type = "REFR"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261015-03"]
+"#;
+
+    const WEAP_CITED: &str = r#"
+[[entry]]
+type = "WEAP"
+status = "game-runtime-tested"
+result = "pass"
+evidence = ["ledger: game-20261101-99"]
+"#;
+
+    #[test]
+    fn an_existing_entry_is_reported_not_duplicated() {
+        let existing = recorded_from("existing", REFR_RUNTIME);
+        let out = propose_with(&sample(), &existing).unwrap();
+        let list = entries(&out);
+        let keys: Vec<(&str, &str)> = list
+            .iter()
+            .map(|t| (get(t, "type"), get(t, "status")))
+            .collect();
+        assert_eq!(keys, [("REFR", RELOAD), ("WEAP", RUNTIME)], "{out}");
+        assert!(
+            out.contains(
+                "# REFR game-runtime-tested: already recorded; add \"ledger: game-20261101-99\" to that entry's evidence"
+            ),
+            "{out}"
+        );
+        // An entry that already cites this session's ledger entry says so instead.
+        let cited = recorded_from("cited", WEAP_CITED);
+        let out = propose_with(&sample(), &cited).unwrap();
+        assert!(
+            out.contains(
+                "# WEAP game-runtime-tested: already recorded, citing ledger: game-20261101-99"
+            ),
+            "{out}"
+        );
+    }
+
+    #[test]
+    fn an_empty_evidence_file_changes_nothing() {
+        let existing = recorded_from("empty", "# no entries yet\n");
+        assert!(existing.is_empty());
+        assert_eq!(
+            propose_with(&sample(), &existing).unwrap(),
+            propose(&sample()).unwrap()
+        );
     }
 
     const VERIFY: &str = include_str!(concat!(

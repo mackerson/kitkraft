@@ -412,7 +412,15 @@ observe\<id>\report.json` prints, on stdout, the
 passing row of the type shares a form with `persistence 4`), each citing `ledger: <the
 report's ledger_entry>` and a note naming the rows. A type with a failing row gets only a
 comment (`# <SIG>: row T-nn failed; no entry`); a report without a ledger entry proposes
-nothing and fails. It never writes `evidence.toml`: read the entries, check them against
+nothing and fails. Rows of the bench verification mod (`V-...`) are typed from their row id,
+reporter lines (`KKV-P01 GLOB ...`), `the <SIG> <name>` and a trailing `(<SIG>)`; a row
+whose type cannot be told, or whose sources disagree, is listed as skipped with the reason,
+a `presence only` row never counts as a pass, and an `after the reload` row stands in for
+`persistence 4`. The tool reads `docs/schema/evidence.toml` (or the file `--evidence
+<path>` names): a type and status it already has prints only the comment `# <SIG>
+<status>: already recorded; add "ledger: <id>" to that entry's evidence` (or "already
+recorded, citing ledger: <id>" when it does), never a duplicate block. It never writes
+`evidence.toml`: read the entries, check them against
 the ledger entry, and paste the ones that hold. The rules are in the module docs of
 `xtask/src/session_evidence.rs`; `xtask/fixtures/session-evidence/report.json` is a sample.
 
