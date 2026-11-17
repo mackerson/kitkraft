@@ -756,10 +756,7 @@ fn a_new_record_is_written_as_the_ck_saved_it() {
                 .iter()
                 .position(|s| s.starts_with("BO64:"))
                 .expect("BO64");
-            assert_eq!(
-                ours.remove(at),
-                format!("BO64:{}", "0".repeat(ours_bo64(sig)))
-            );
+            assert_eq!(ours.remove(at), format!("BO64:{}", "00".repeat(8)));
         }
         let mut want: Vec<String> = saved.split(' ').map(str::to_string).collect();
         for (ck, kept) in ck_saved_new_kept_apart(sig) {
