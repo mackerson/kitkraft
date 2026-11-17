@@ -8,8 +8,8 @@
 //! 2026-11-15; `dialogue_tests.rs` fixture), WWED (KK-291, 2026-11-15), RSPJ (KK-300), AVIF
 //! (KK-301), PERK (KK-302), REGN (KK-303), TXST (KK-304), SOUN and WKMF (KK-305, 2026-11-15),
 //! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
-//! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15)
-//! (`docs/schema/support-matrix.md`, the
+//! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15), GMST (under a `b`
+//! EditorID) and LGDI (2026-11-17) (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
 //! once ignored, pass since KK-220 (scaffold.rs `record_order`).
 //!
@@ -249,9 +249,18 @@ impl Plan {
             self.fields.insert(key, v);
             return;
         }
-        // What validate counts as an unchecked subrecord: a whole-opaque member, and a
-        // struct of opaque fields only (ARMO's AVSG and AFSG Wwise GUIDs).
-        if sub.ty.is_opaque() || all_opaque_struct(&sub.ty) {
+        // What validate counts as an unchecked subrecord: a whole-opaque member, a
+        // struct of opaque fields only (ARMO's AVSG and AFSG Wwise GUIDs), and a union
+        // the EditorID decides (GMST's DATA: `edit::patch::has_opaque` counts it whatever
+        // the variant, since validate does not resolve the EditorID there).
+        let edid_union = matches!(
+            sub.ty,
+            FieldType::Union {
+                decider: Decider::EditorIdPrefix,
+                ..
+            }
+        );
+        if sub.ty.is_opaque() || all_opaque_struct(&sub.ty) || edid_union {
             self.opaque += 1;
         }
         // A whole scalar, FormID or string: its typed value (occurrence 0 only, so the
@@ -400,7 +409,14 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
 /// they are checked, not unchecked. Each must be a whole-opaque member of the definition;
 /// the unchecked count stays an exact equality.
 fn writes_and_reads_back_with(sig: &str, layout: &str, component: &str, lstring_fallback: &[&str]) {
-    writes_and_reads_back_full(sig, layout, component, lstring_fallback, &[]);
+    writes_and_reads_back_full(sig, layout, component, lstring_fallback, &[], None);
+}
+
+/// [`writes_and_reads_back`] under the EditorID `edid` instead of `KCNew<sig>`: for a type
+/// whose payload layout the EditorID decides (GMST's `DATA`, `decider = "edid-prefix"`),
+/// where `KCNew...` would select no variant and leave the payload raw.
+fn writes_and_reads_back_named(sig: &str, layout: &str, component: &str, edid: &str) {
+    writes_and_reads_back_full(sig, layout, component, &[], &[], Some(edid));
 }
 
 /// [`writes_and_reads_back`], where the top-level struct members `opaque_tail` end in an
@@ -415,7 +431,7 @@ fn writes_and_reads_back_with_opaque_tail(
     component: &str,
     opaque_tail: &[&str],
 ) {
-    writes_and_reads_back_full(sig, layout, component, &[], opaque_tail);
+    writes_and_reads_back_full(sig, layout, component, &[], opaque_tail, None);
 }
 
 fn writes_and_reads_back_full(
@@ -424,6 +440,7 @@ fn writes_and_reads_back_full(
     component: &str,
     lstring_fallback: &[&str],
     opaque_tail: &[&str],
+    edid: Option<&str>,
 ) {
     // The layout in the name: two layouts of one type (QUST) must not share a dir,
     // which a parallel run's `dir` wipe would empty out of the other's `Source.esm`.
@@ -464,7 +481,8 @@ fn writes_and_reads_back_full(
         p.opaque += 1;
     }
     // No underscore: a new CELL's EditorID with one gets the `cell.editor-id` warning.
-    let r = new_record(&d, sig, &format!("KCNew{sig}"), &p.fields);
+    let edid = edid.map_or_else(|| format!("KCNew{sig}"), str::to_owned);
+    let r = new_record(&d, sig, &edid, &p.fields);
     assert_eq!(
         r["data"]["validate"]["passed"],
         json!(true),
@@ -2300,5 +2318,32 @@ fn wkmf_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("WMKA", json!([MISSING]))],
         &["WMKA"],
+    );
+}
+
+#[test]
+fn gmst_new_sets_every_typed_member_and_reads_back() {
+    // A game setting: `DATA` is a union the EditorID's first letter decides (b, f, i, s,
+    // u). The plan samples the first variant (`Bool`), so the EditorID starts with `b`;
+    // under the default `KCNewGMST` no variant applies and `DATA` stays raw by design
+    // (GMST.toml's note). No base form component block: the layout names are inert.
+    writes_and_reads_back_named(
+        "GMST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        "bKC_NewGMST",
+    );
+}
+
+#[test]
+fn lgdi_new_sets_every_typed_member_and_reads_back() {
+    // A legendary item: LGDI keeps `FULL` whole-opaque (the corpus lstring table leaves it
+    // unclassified, LGDI.toml), and `validate` reads it through the engine's FULL/DESC
+    // lstring fallback, so it is checked, not unchecked.
+    writes_and_reads_back_with(
+        "LGDI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &["FULL"],
     );
 }
