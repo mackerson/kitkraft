@@ -160,6 +160,7 @@ fn type_label(ty: &FieldType) -> String {
                 ArrayCount::Fixed(n) => n.to_string(),
                 ArrayCount::Rest => "rest".to_string(),
                 ArrayCount::From(field) => format!("count from {field}"),
+                ArrayCount::Stride(n) => format!("bytes / {n}, zero-padded"),
             };
             format!("[{}; {n}]", type_label(element))
         }

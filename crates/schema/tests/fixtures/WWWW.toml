@@ -69,3 +69,17 @@ field = [
   { name = "Extra", type = "u8", present_if = { field = "Flags", mask = 0x3, value = 0x3 } },
   { name = "Speeds", type = "array", count = 2, element = "f16" },
 ]
+
+# Stride arrays (`count = "stride:N"`), 2026-11-17, for the CELL traversal arrays: payload
+# bytes / 8 elements of 4 or 8 bytes, then zero padding up to 8 bytes per element.
+[[member]]
+sig = "PADS"
+name = "Padded"
+type = "array"
+card = "optional"
+count = "stride:8"
+element = "struct"
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [["NoTarget", 0x4]] },
+  { name = "Target", type = "formid", present_if = { field = "Flags", mask = 0x4, value = 0 } },
+]

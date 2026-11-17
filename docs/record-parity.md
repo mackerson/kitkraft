@@ -18,13 +18,13 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 63:
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
 | weapons         |           10 |          10 |    15,986 |    189,176 |       525 |       0 |
-| world           |            7 |           7 | 6,880,278 | 40,650,378 | 1,909,778 |       0 |
+| world           |            7 |           7 | 6,880,278 | 40,653,212 | 1,906,944 |       0 |
 | planet          |           15 |          15 |    26,290 |    803,869 |     8,592 |       0 |
 | quest           |           10 |          10 |   267,549 |  3,909,042 |    41,771 | 202,002 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,610 |    10,517 |      12 |
 | container/other |          123 |         123 |   252,710 |    855,929 |   222,007 |   1,903 |
-| **Total**       |          186 |         186 | 7,490,102 | 48,019,629 | 2,196,015 | 203,917 |
+| **Total**       |          186 |         186 | 7,490,102 | 48,022,463 | 2,193,181 | 203,917 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 63:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:c984a6590b0bbf48` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:aae3ac1cc421ad00` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -65,7 +65,7 @@ Columns:
 | `INFO`        | DialogResponse                 |   162,028 |          0 |    48 |    48 |      0 |       0 |
 | `NAVM`        | Navmesh                        |    92,893 |     92,764 |     6 |     3 |      3 |       0 |
 | `DIAL`        | DialogTopic                    |    87,031 |          0 |    15 |    15 |      0 |       0 |
-| `CELL`        | Cell                           |    40,251 |     32,230 |    34 |    32 |      2 |       0 |
+| `CELL`        | Cell                           |    40,251 |     32,230 |    34 |    33 |      1 |       0 |
 | `STAT`        | Static                         |    22,296 |          0 |    32 |    29 |      3 |       0 |
 | `LMSW`        | LayeredMaterialSwap            |    17,410 |          0 |     9 |     8 |      1 |       0 |
 | `PKIN`        | PackIn                         |    15,128 |          0 |    41 |    38 |      3 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,495 |    242 |      60 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,496 |    241 |      60 |
 
-Subrecord occurrences: 50,419,561 in total; 48,019,629 typed (0 of them failed to decode), 2,196,015 opaque, 203,917 unknown.
+Subrecord occurrences: 50,419,561 in total; 48,022,463 typed (0 of them failed to decode), 2,193,181 opaque, 203,917 unknown.
 
 ## Decoded through the definitions
 
@@ -267,7 +267,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `INFO`    | DialogResponse                 |       162,028 |  1,903,560 |      0 |         0 |         0 |                   0 |  1,903,560 |       0 |        0 |
 | `NAVM`    | Navmesh                        |        92,893 |     92,768 |      0 |         0 |         0 |                   0 |     92,768 |       0 |        0 |
 | `DIAL`    | DialogTopic                    |        87,031 |    527,549 |      0 |         0 |         0 |                   0 |    527,549 |       0 |        0 |
-| `CELL`    | Cell                           |        40,251 |    265,600 |      0 |         0 |         1 |                   0 |    265,599 |       0 |        0 |
+| `CELL`    | Cell                           |        40,251 |    268,434 |      0 |         0 |         1 |                   0 |    268,433 |       0 |        0 |
 | `STAT`    | Static                         |        22,296 |    214,833 |      0 |         0 |         0 |                   0 |    214,833 |       0 |        0 |
 | `LMSW`    | LayeredMaterialSwap            |        17,410 |     23,763 |      0 |         0 |         0 |                   0 |     23,763 |       0 |        0 |
 | `PKIN`    | PackIn                         |        15,128 |    142,177 |      0 |         0 |         0 |                   0 |    142,177 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 48,019,629 |      0 |         0 |   402,137 |                   0 | 47,617,492 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 48,022,463 |      0 |         0 |   402,137 |                   0 | 47,620,326 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -492,7 +492,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `BOOK`    | Book                           |            159 |    151 |      8 |         3 |                   0 |    156 |       0 |        0 |
 | `BPTD`    | BodyPartData                   |            140 |    133 |      7 |         2 |                   0 |    138 |       0 |        0 |
 | `CAMS`    | CameraShot                     |            140 |    132 |      8 |         2 |                   0 |    138 |       0 |        0 |
-| `CELL`    | Cell                           |            157 |    148 |      9 |         4 |                   0 |    153 |       0 |        0 |
+| `CELL`    | Cell                           |            157 |    149 |      8 |         4 |                   0 |    153 |       0 |        0 |
 | `CHAL`    | Challenge                      |            125 |    118 |      7 |         0 |                   0 |    125 |       0 |        0 |
 | `CLAS`    | Class                          |            131 |    122 |      9 |         2 |                   0 |    129 |       0 |        0 |
 | `CLDF`    | Clouds                         |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,984 | 14,973 |  1,011 |       422 |                   2 | 15,560 |       0 |        0 |
+| **Total** |                                |         15,984 | 14,974 |  1,010 |       422 |                   2 | 15,560 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

@@ -2375,6 +2375,20 @@ fn convert_type(
                 (None, Some(source)) => ArrayCount::From(source.to_owned()),
                 (None, None) => return Err(cx.err(ErrorKind::MissingKey("count"))),
                 (Some(RawCount::Word(w)), None) if w == "rest" => ArrayCount::Rest,
+                // `stride:N` (2026-11-17): payload bytes / N elements, then zero padding up
+                // to N bytes per element. Only a whole subrecord's type: the padding runs to
+                // the end of the payload.
+                (Some(RawCount::Word(w)), None) if w.starts_with("stride:") => {
+                    match w.strip_prefix("stride:").map(str::parse::<u32>) {
+                        Some(Ok(n)) if n > 0 && is_member => ArrayCount::Stride(n),
+                        Some(Ok(n)) if n > 0 => {
+                            return Err(cx.err(ErrorKind::BadCount(format!(
+                                "{w:?} (a stride array is only a subrecord member's own type)"
+                            ))))
+                        }
+                        _ => return Err(cx.err(ErrorKind::BadCount(format!("{w:?}")))),
+                    }
+                }
                 (Some(RawCount::Number(n)), None) => match u32::try_from(*n) {
                     Ok(n) if n > 0 => ArrayCount::Fixed(n),
                     _ => return Err(cx.err(ErrorKind::BadCount(n.to_string()))),
@@ -2408,6 +2422,15 @@ fn convert_type(
             // Elements must be self-delimiting and consume at least one byte.
             if element.reads_to_end() || element.fixed_size(None) == Some(0) {
                 return Err(cx.err(ErrorKind::BadElement));
+            }
+            // A stride array's elements must fit their stride (a fixed-size element larger
+            // than it could never decode).
+            if let (ArrayCount::Stride(stride), Some(size)) = (&count, element.fixed_size(None)) {
+                if size > *stride {
+                    return Err(cx.err(ErrorKind::BadCount(format!(
+                        "stride {stride} is smaller than the {size}-byte element"
+                    ))));
+                }
             }
             FieldType::Array {
                 element: Box::new(element),

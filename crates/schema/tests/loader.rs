@@ -1932,3 +1932,49 @@ fn conditional_fields_and_half_floats() {
         ErrorKind::BadCondition { field, .. } if field == "V"
     ));
 }
+
+/// 2026-11-17: stride arrays (`count = "stride:N"`) are allowed only as a subrecord
+/// member's own type, with a non-zero stride no smaller than a fixed-size element; they
+/// read to the end of the payload and have no fixed size.
+#[test]
+fn stride_arrays() {
+    let member = |count: &str, element: &str| {
+        format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"array\"\ncount = \"{count}\"\nelement = \"{element}\"\n"
+        )
+    };
+    let Definition::Record(rec) =
+        parse_definition("TEST.toml", &record(&member("stride:8", "u32"))).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[0] else {
+        panic!("DATA");
+    };
+    let FieldType::Array { count, .. } = &data.ty else {
+        panic!("array");
+    };
+    assert_eq!(*count, ArrayCount::Stride(8));
+    assert!(data.ty.reads_to_end());
+    assert_eq!(data.ty.fixed_size(None), None);
+    assert!(parse_definition("TEST.toml", &record(&member("stride:4", "u32"))).is_ok());
+
+    for bad in ["stride:0", "stride:x", "stride:", "stride:-1"] {
+        assert!(
+            matches!(invalid(&member(bad, "u32")), ErrorKind::BadCount(_)),
+            "{bad}"
+        );
+    }
+    // Smaller than the element.
+    match invalid(&member("stride:2", "u32")) {
+        ErrorKind::BadCount(reason) => assert!(reason.contains("smaller"), "{reason}"),
+        other => panic!("{other:?}"),
+    }
+    // Not as a struct field.
+    let nested = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                  [[member.field]]\nname = \"List\"\ntype = \"array\"\ncount = \"stride:8\"\nelement = \"u32\"\n";
+    match invalid(nested) {
+        ErrorKind::BadCount(reason) => assert!(reason.contains("own type"), "{reason}"),
+        other => panic!("{other:?}"),
+    }
+}

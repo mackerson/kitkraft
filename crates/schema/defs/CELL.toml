@@ -487,7 +487,9 @@ note = "1,073 XEMP placed in the corpus in member order, 145 more elsewhere (pla
 [[member]]
 sig = "XTV2"
 name = "Traversals"
-type = "opaque"
+type = "array"
+count = "stride:56"
+element = "ref:Traversal"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10742-L10742"
 evidence = [
@@ -496,7 +498,7 @@ evidence = [
   "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 40,251 CELL records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the shared traversal entries (common/Traversal.toml), kept raw: upstream sizes the payload as 56 bytes per entry (L7138) although an entry without a FormID is 52, and the tail is zero padding; a rest array cannot stop before it. 2,834 XTV2 placed in the corpus"
+note = "the shared traversal entries (common/Traversal.toml, typed 2026-11-17) as a stride array: upstream sizes the payload as 56 bytes per entry (L7138) although an entry without a FormID is 52, so the entry count is payload bytes / 56 and the tail is zero padding, written back on encode. A payload that is not a multiple of 56 or whose padding is not zero stays raw. 2,834 XTV2 placed in the corpus"
 
 [[member]]
 group_ref = "LinkedReferences"

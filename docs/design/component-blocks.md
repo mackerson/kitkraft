@@ -296,5 +296,14 @@ What the three features would unlock elsewhere (not done here):
 | Subrecord | Occurrences | Feature | Note |
 | --------- | ----------: | ------- | ---- |
 | NPC_ `ONA2` race overrides | 337 records | `present_if` | eight override blocks, each present when its flag bit is set (upstream L15328-L15415) |
-| CELL `XTV2` traversals | 2,834 | `present_if`, `f16` + a size-counted array | see above |
+| CELL `XTV2` traversals | 2,834 | `present_if`, `f16` + a size-counted array | typed 2026-11-17, below |
 | VehicleConfig `VCCD` | 2 | (needs `u32`-length strings) | see above |
+
+**Update (2026-11-17, stride arrays):** CELL `XTV2` is typed with a fourth format feature,
+the stride array (`count = "stride:56"`, `crates/schema/defs/README.md`): the element count
+is payload bytes / 56, the elements are `common/Traversal.toml` entries, and the zero bytes
+after them are read and written back (an edited array is padded to 56 bytes per entry). A
+payload that is not a multiple of 56, or whose padding is not zero, stays raw. All 2,834
+official CELL `XTV2` decode this way and re-encode identically (`world_family_full`,
+`corpus_full_roundtrip`: 14 files identical, 0 re-encode conflicts); the component census
+is unchanged (3 raw blocks in 2 kinds, 0 fallbacks).

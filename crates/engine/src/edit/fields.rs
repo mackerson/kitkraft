@@ -1305,7 +1305,30 @@ fn encode_array(
             ));
         }
         let bytes = encode_value(&at, element, &[], &Op::Set(item.clone()), ctx)?;
+        if let ArrayCount::Stride(n) = count {
+            if usize::try_from(*n).is_ok_and(|n| bytes.len() > n) {
+                return Err(FieldError::new(
+                    &at,
+                    "range",
+                    format!(
+                        "{} bytes; this array's elements take at most {n}",
+                        bytes.len()
+                    ),
+                ));
+            }
+        }
         out.extend_from_slice(&bytes);
+    }
+    // A stride array is zero-padded to its stride per element.
+    if let ArrayCount::Stride(n) = count {
+        let end = usize::try_from(*n)
+            .ok()
+            .and_then(|n| n.checked_mul(items.len()));
+        if let Some(end) = end {
+            if out.len() < end {
+                out.resize(end, 0);
+            }
+        }
     }
     Ok(out)
 }
@@ -1834,6 +1857,9 @@ pub fn array_shapes(ty: &FieldType, form_version: u16) -> Vec<ArrayShape> {
                     ArrayCount::Rest => "to the end of the payload".into(),
                     ArrayCount::From(name) => format!("count from `{name}`"),
                     ArrayCount::Fixed(n) => format!("exactly {n}"),
+                    ArrayCount::Stride(n) => {
+                        format!("payload bytes / {n}, zero-padded to {n} bytes each")
+                    }
                 },
             }),
             FieldType::Struct { fields } => {

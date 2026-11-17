@@ -301,6 +301,8 @@ impl BitCondition {
         raw & self.mask == self.value
     }
 }
+
+/// Element count of a [`FieldType::Array`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrayCount {
     /// Exactly this many elements.
@@ -310,6 +312,11 @@ pub enum ArrayCount {
     /// As many elements as the value of the named earlier sibling field (an ungated
     /// integer field of the same struct).
     From(String),
+    /// Payload bytes / this stride many elements, each at most `stride` bytes, followed by
+    /// zero bytes up to `count * stride` (`count = "stride:56"`, 2026-11-17: upstream sizes
+    /// the CELL traversal arrays at 56 bytes per entry although an entry without a FormID is
+    /// 52, and the stored payload pads to that size). Only a whole subrecord's type.
+    Stride(u32),
 }
 
 /// One named value of an enum or one named bit mask of a flags field.
@@ -525,7 +532,7 @@ impl FieldType {
             }
             Self::Array { element, count } => match count {
                 ArrayCount::Fixed(n) => element.fixed_size(form_version)?.checked_mul(*n),
-                ArrayCount::Rest | ArrayCount::From(_) => None,
+                ArrayCount::Rest | ArrayCount::From(_) | ArrayCount::Stride(_) => None,
             },
             Self::Struct { fields } => {
                 let mut total: u32 = 0;
@@ -560,7 +567,7 @@ impl FieldType {
             Self::ZString | Self::LString => true,
             Self::Opaque { size } => size.is_none(),
             Self::Array { element, count } => {
-                matches!(count, ArrayCount::Rest) || element.reads_to_end()
+                matches!(count, ArrayCount::Rest | ArrayCount::Stride(_)) || element.reads_to_end()
             }
             Self::Struct { fields } => fields
                 .last()

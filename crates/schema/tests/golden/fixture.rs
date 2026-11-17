@@ -380,6 +380,52 @@ pub fn read_rest<T: Field>(
     Ok(out)
 }
 
+/// Reads a stride array (`count = "stride:N"`): the payload's remaining bytes / `stride`
+/// elements, then zero padding to the end. A length that is not a multiple of `stride`, or
+/// a padding byte that is not zero, fails the decode (the subrecord then stays raw).
+pub fn read_strided<T: Field>(
+    r: &mut Reader<'_>,
+    stride: usize,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let start = r.position();
+    let bad = DecodeError::BadCount {
+        field,
+        offset: start,
+    };
+    let remaining = r.data.len().saturating_sub(start);
+    if remaining.checked_rem(stride) != Some(0) {
+        return Err(bad);
+    }
+    let n = remaining.checked_div(stride).ok_or(bad)?;
+    let items = read_array(r, n, field, ctx)?;
+    let pad_at = r.position();
+    if r.rest().iter().any(|b| *b != 0) {
+        return Err(DecodeError::Trailing {
+            field,
+            offset: pad_at,
+        });
+    }
+    Ok(items)
+}
+
+/// Writes a stride array: its elements in order, then zero bytes up to `stride` bytes per
+/// element (none when the elements already fill that or more).
+pub fn write_strided<T: Field>(items: &[T], stride: usize, out: &mut Vec<u8>) {
+    let start = out.len();
+    write_all(items, out);
+    let end = items
+        .len()
+        .checked_mul(stride)
+        .and_then(|n| n.checked_add(start));
+    if let Some(end) = end {
+        if out.len() < end {
+            out.resize(end, 0);
+        }
+    }
+}
+
 /// Converts the value of a count field (`count_from`) to an element count.
 pub fn count<T: TryInto<usize>>(
     value: T,
@@ -3340,6 +3386,93 @@ impl Visit for WwwwTraversals {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WwwwPaddedItemFlags(pub u32);
+
+impl WwwwPaddedItemFlags {
+    pub const NO_TARGET: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WwwwPaddedItemFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WwwwPaddedItemFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwPaddedItem {
+    pub flags: WwwwPaddedItemFlags,
+    /// Present only when `Flags` & 0x4 is 0x0.
+    pub target: Option<FormId>,
+}
+
+impl Field for WwwwPaddedItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = WwwwPaddedItemFlags::read(r, "WWWW.PADS.Flags", ctx)?;
+        let f1 = if (i64::from(f0.0) & 0x4) == 0x0 {
+            Some(Field::read(r, "WWWW.PADS.Target", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            flags: f0,
+            target: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flags.write(out);
+        if let Some(value) = &self.target {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for WwwwPaddedItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "WWWW.PADS.Target", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "WWWW.PADS.Target", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WwwwPadded(pub Vec<WwwwPaddedItem>);
+
+impl Field for WwwwPadded {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        read_strided(r, 8, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        write_strided(&self.0, 8, out);
+    }
+}
+
+impl Visit for WwwwPadded {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct WwwwRecord {
     /// `VOLS`, optional.
@@ -3348,6 +3481,8 @@ pub struct WwwwRecord {
     pub links: Option<Sub<WwwwLinks>>,
     /// `TRAV`, optional.
     pub traversals: Option<Sub<WwwwTraversals>>,
+    /// `PADS`, optional.
+    pub padded: Option<Sub<WwwwPadded>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -3370,6 +3505,10 @@ impl WwwwRecord {
             sig: *b"TRAV",
             card: Card::Optional,
         },
+        MemberDesc::Sub {
+            sig: *b"PADS",
+            card: Card::Optional,
+        },
     ];
 
     fn fill(
@@ -3390,6 +3529,9 @@ impl WwwwRecord {
                 Hit::Sub { member: 2, index } => {
                     put(&mut self.traversals, subs, *index, "WWWW.TRAV", ctx, extra)
                 }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.padded, subs, *index, "WWWW.PADS", ctx, extra)
+                }
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -3399,6 +3541,7 @@ impl WwwwRecord {
         emit(out, *b"VOLS", self.volumes.as_ref());
         emit(out, *b"LINK", self.links.as_ref());
         emit(out, *b"TRAV", self.traversals.as_ref());
+        emit(out, *b"PADS", self.padded.as_ref());
     }
 }
 
@@ -3407,12 +3550,14 @@ impl Visit for WwwwRecord {
         visit_form_ids(&self.volumes, "WWWW.VOLS", out);
         visit_form_ids(&self.links, "WWWW.LINK", out);
         visit_form_ids(&self.traversals, "WWWW.TRAV", out);
+        visit_form_ids(&self.padded, "WWWW.PADS", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.volumes, "WWWW.VOLS", out);
         visit_form_ids_mut(&mut self.links, "WWWW.LINK", out);
         visit_form_ids_mut(&mut self.traversals, "WWWW.TRAV", out);
+        visit_form_ids_mut(&mut self.padded, "WWWW.PADS", out);
     }
 }
 

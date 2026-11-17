@@ -1381,6 +1381,64 @@ fn conditional_fields_and_half_floats() {
     assert_eq!(rec.encode(), short);
 }
 
+/// 2026-11-17: stride arrays (`count = "stride:8"`). The element count is payload bytes /
+/// 8, whatever the elements' own widths; the zero padding after them is read and written
+/// back, so the payload re-encodes byte for byte; an edited array is padded to 8 bytes per
+/// element. A length that is not a multiple of 8, or a non-zero padding byte, keeps the
+/// subrecord raw.
+#[test]
+fn stride_arrays_count_by_payload_size() {
+    use fixture::{WwwwPadded, WwwwPaddedItem, WwwwPaddedItemFlags};
+    let mut pads = Vec::new();
+    // Flags 0: an 8-byte entry with its target.
+    pads.extend_from_slice(&0u32.to_le_bytes());
+    pads.extend_from_slice(&0x0100_0042u32.to_le_bytes());
+    // Flags 4, twice: 4-byte entries without one, then 4 zero bytes per short entry.
+    pads.extend_from_slice(&4u32.to_le_bytes());
+    pads.extend_from_slice(&4u32.to_le_bytes());
+    pads.extend_from_slice(&[0; 8]);
+    assert_eq!(pads.len(), 3 * 8);
+    let subs = vec![sub(b"PADS", &pads)];
+    let rec = Record::decode(*b"WWWW", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Wwww(w) = &rec else {
+        panic!("WWWW");
+    };
+    let items: &Vec<WwwwPaddedItem> = &w.padded.as_ref().unwrap().0;
+    // A rest array would read the padding as two more entries; the count is bytes / 8.
+    assert_eq!(items.len(), 3);
+    assert_eq!(items[0].target, Some(FormId(0x0100_0042)));
+    assert_eq!((items[1].target, items[2].target), (None, None));
+    let ids: Vec<u32> = rec.form_ids().into_iter().map(|(_, f)| f.0).collect();
+    assert_eq!(ids, [0x0100_0042]);
+    assert_eq!(rec.encode(), subs);
+
+    // An edited array is padded to 8 bytes per element.
+    let edited = WwwwPadded(vec![WwwwPaddedItem {
+        flags: WwwwPaddedItemFlags(4),
+        target: None,
+    }]);
+    assert_eq!(fixture::encode(&edited), [4, 0, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(fixture::encode(&WwwwPadded(Vec::new())), Vec::<u8>::new());
+
+    // A non-zero padding byte, or a length that is not a multiple of the stride: the
+    // payload stays raw and re-encodes as read.
+    let mut bad_pad = pads.clone();
+    *bad_pad.last_mut().unwrap() = 1;
+    let short = pads[..20].to_vec();
+    for payload in [bad_pad, short] {
+        let subs = vec![sub(b"PADS", &payload)];
+        let rec = Record::decode(*b"WWWW", &raw(&subs), ctx(1, true)).unwrap();
+        assert_eq!(rec.extra().len(), 1, "{payload:?} kept raw");
+        assert_eq!(rec.encode(), subs);
+    }
+    // An empty payload holds no entries.
+    let empty = vec![sub(b"PADS", &[])];
+    let rec = Record::decode(*b"WWWW", &raw(&empty), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty());
+    assert_eq!(rec.encode(), empty);
+}
+
 /// The prelude's half-float conversion: normals, subnormals, zeros, infinities and NaN,
 /// exactly, and the schema's own conversion (used by the `doc` reader) agrees on every
 /// bit pattern.

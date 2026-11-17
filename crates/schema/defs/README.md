@@ -318,6 +318,14 @@ parts = [
 
 - `count = N`: exactly `N` elements (generated as `[T; N]`, so the size cannot drift).
 - `count = "rest"`: elements until the payload ends; must be last.
+- `count = "stride:N"` (2026-11-17, the CELL `XTV2` traversals): payload bytes / `N`
+  elements, then zero padding to the end, for a payload upstream sizes at a fixed `N` bytes
+  per element although some elements are shorter. Only a subrecord member's own type (the
+  padding runs to the end of the payload); `N` is non-zero and no smaller than a
+  fixed-size element. A payload that is not a multiple of `N`, or whose padding is not
+  all zero, fails the decode and stays raw. Generated encode writes the elements and pads
+  with zeros to `N` bytes per element, so an edited array keeps the stored shape; the
+  engine refuses an element value longer than `N`.
 - `count_from = "Count"`: as many elements as the value of the named field, which must be
   an earlier, ungated, non-`if_remaining` integer field of the same struct. Only on struct
   fields (a whole subrecord has no siblings), and one count field serves one array

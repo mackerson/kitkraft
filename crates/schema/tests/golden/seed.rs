@@ -596,6 +596,52 @@ pub fn read_rest<T: Field>(
     Ok(out)
 }
 
+/// Reads a stride array (`count = "stride:N"`): the payload's remaining bytes / `stride`
+/// elements, then zero padding to the end. A length that is not a multiple of `stride`, or
+/// a padding byte that is not zero, fails the decode (the subrecord then stays raw).
+pub fn read_strided<T: Field>(
+    r: &mut Reader<'_>,
+    stride: usize,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let start = r.position();
+    let bad = DecodeError::BadCount {
+        field,
+        offset: start,
+    };
+    let remaining = r.data.len().saturating_sub(start);
+    if remaining.checked_rem(stride) != Some(0) {
+        return Err(bad);
+    }
+    let n = remaining.checked_div(stride).ok_or(bad)?;
+    let items = read_array(r, n, field, ctx)?;
+    let pad_at = r.position();
+    if r.rest().iter().any(|b| *b != 0) {
+        return Err(DecodeError::Trailing {
+            field,
+            offset: pad_at,
+        });
+    }
+    Ok(items)
+}
+
+/// Writes a stride array: its elements in order, then zero bytes up to `stride` bytes per
+/// element (none when the elements already fill that or more).
+pub fn write_strided<T: Field>(items: &[T], stride: usize, out: &mut Vec<u8>) {
+    let start = out.len();
+    write_all(items, out);
+    let end = items
+        .len()
+        .checked_mul(stride)
+        .and_then(|n| n.checked_add(start));
+    if let Some(end) = end {
+        if out.len() < end {
+            out.resize(end, 0);
+        }
+    }
+}
+
 /// Converts the value of a count field (`count_from`) to an element count.
 pub fn count<T: TryInto<usize>>(
     value: T,
@@ -31296,6 +31342,29 @@ impl CellWaterCurrents {
 
 impl Visit for CellWaterCurrents {}
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellTraversals(pub Vec<Traversal>);
+
+impl Field for CellTraversals {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        read_strided(r, 56, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        write_strided(&self.0, 56, out);
+    }
+}
+
+impl Visit for CellTraversals {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct CellRecord {
     /// `EDID`, optional.
@@ -31355,7 +31424,7 @@ pub struct CellRecord {
     /// `XEMP`, optional.
     pub environment_map: Option<Sub<ZString>>,
     /// `XTV2`, optional.
-    pub traversals: Option<Sub<Bytes>>,
+    pub traversals: Option<Sub<CellTraversals>>,
     /// Group `LinkedReferences`, optional.
     pub linked_references: Option<LinkedReferences>,
     /// The member of each typed value in on-disk order (an unordered record):
@@ -31761,6 +31830,7 @@ impl Visit for CellRecord {
         visit_form_ids(&self.lock_list, "CELL.XILL", out);
         visit_form_ids(&self.time_of_day, "CELL.TODD", out);
         visit_form_ids(&self.owner, "CELL.XOWN", out);
+        visit_form_ids(&self.traversals, "CELL.XTV2", out);
         visit_form_ids(&self.linked_references, "CELL.LinkedReferences", out);
     }
 
@@ -31777,6 +31847,7 @@ impl Visit for CellRecord {
         visit_form_ids_mut(&mut self.lock_list, "CELL.XILL", out);
         visit_form_ids_mut(&mut self.time_of_day, "CELL.TODD", out);
         visit_form_ids_mut(&mut self.owner, "CELL.XOWN", out);
+        visit_form_ids_mut(&mut self.traversals, "CELL.XTV2", out);
         visit_form_ids_mut(&mut self.linked_references, "CELL.LinkedReferences", out);
     }
 

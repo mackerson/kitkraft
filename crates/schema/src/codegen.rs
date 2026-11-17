@@ -961,6 +961,18 @@ impl Field for {name} {{
             ArrayCount::Fixed(n) => format!("[{element}; {n}]"),
             _ => format!("Vec<{element}>"),
         };
+        // A stride array reads `bytes / stride` elements and the zero padding after them,
+        // and writes the padding back.
+        let (read, write) = match count {
+            ArrayCount::Stride(n) => (
+                format!("read_strided(r, {n}, field, ctx).map(Self)"),
+                format!("write_strided(&self.0, {n}, out);"),
+            ),
+            _ => (
+                "Field::read(r, field, ctx).map(Self)".to_owned(),
+                "self.0.write(out);".to_owned(),
+            ),
+        };
         let _ = write!(
             self.out,
             "
@@ -969,11 +981,11 @@ pub struct {type_name}(pub {inner});
 
 impl Field for {type_name} {{
     fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {{
-        Field::read(r, field, ctx).map(Self)
+        {read}
     }}
 
     fn write(&self, out: &mut Vec<u8>) {{
-        self.0.write(out);
+        {write}
     }}
 }}
 "

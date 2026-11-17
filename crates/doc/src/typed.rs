@@ -290,6 +290,18 @@ fn decode_in<'t>(
             let n = match count {
                 ArrayCount::Fixed(n) => Some(usize::try_from(*n).map_err(|_| "count")?),
                 ArrayCount::Rest => None,
+                // Remaining bytes / stride elements; the zero padding after them is
+                // consumed below.
+                ArrayCount::Stride(stride) => {
+                    let stride = usize::try_from(*stride).map_err(|_| "stride")?;
+                    let remaining = c.remaining();
+                    if remaining.checked_rem(stride) != Some(0) {
+                        return Err(format!(
+                            "{remaining} bytes are not a multiple of the {stride}-byte stride"
+                        ));
+                    }
+                    Some(remaining.checked_div(stride).ok_or("stride")?)
+                }
                 ArrayCount::From(name) => {
                     let v = siblings
                         .iter()
@@ -319,6 +331,12 @@ fn decode_in<'t>(
                 out.push(v?);
                 if n.is_none() && c.pos == before {
                     break;
+                }
+            }
+            if matches!(count, ArrayCount::Stride(_)) {
+                let pad = c.remaining();
+                if c.take(pad)?.iter().any(|b| *b != 0) {
+                    return Err("a stride array's padding is not zero".into());
                 }
             }
             Ok(Decoded::Array(out))
