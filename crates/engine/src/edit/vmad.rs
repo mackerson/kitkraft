@@ -28,6 +28,9 @@ pub enum AttachValue {
     Bool(bool),
     /// An array: the element type byte (1..5) and the elements.
     Array(u8, Vec<AttachValue>),
+    /// A struct: its members `(name, value)` in the order to write them (members are
+    /// scalars or objects; no official struct holds a struct or an array).
+    Struct(Vec<(String, AttachValue)>),
 }
 
 /// What an object property points at.
@@ -180,6 +183,7 @@ impl AttachValue {
             AttachValue::Int(_) => 3,
             AttachValue::Float(_) => 4,
             AttachValue::Bool(_) => 5,
+            AttachValue::Struct(_) => 7,
             AttachValue::Array(t, _) => t.saturating_add(10),
         }
     }
@@ -244,9 +248,19 @@ fn stored_value(
         AttachValue::Int(i) => Value::Int(*i),
         AttachValue::Float(f) => Value::Float(f.to_bits()),
         AttachValue::Bool(b) => Value::Bool(u8::from(*b)),
+        AttachValue::Struct(members) => Value::Struct(stored_members(members, form, own)?),
         AttachValue::Array(t, items) => {
             let wrong = || format!("an array element is not of type {t}");
             match t {
+                7 => Value::Structs(
+                    items
+                        .iter()
+                        .map(|i| match i {
+                            AttachValue::Struct(m) => stored_members(m, form, own),
+                            _ => Err(wrong()),
+                        })
+                        .collect::<Result<_, _>>()?,
+                ),
                 1 => Value::Objects(
                     items
                         .iter()
@@ -296,6 +310,30 @@ fn stored_value(
             }
         }
     })
+}
+
+/// A struct's members as stored: each with its type byte and flags 1 (edited), as every
+/// member of the 245 official struct values and 1,408 struct arrays (corpus scan
+/// 2026-11-17: members are scalars or objects, never structs or arrays).
+fn stored_members(
+    members: &[(String, AttachValue)],
+    form: &dyn Fn(&ObjectTarget) -> Result<u32, String>,
+    own: &OwnQuest<'_>,
+) -> Result<Vec<Property>, String> {
+    members
+        .iter()
+        .map(|(name, v)| {
+            if matches!(v, AttachValue::Struct(_) | AttachValue::Array(..)) {
+                return Err(format!("{name}: a struct member is a scalar or an object"));
+            }
+            Ok(Property {
+                name: name.as_bytes().to_vec(),
+                ty: v.type_byte(),
+                flags: 1,
+                value: stored_value(v, form, own).map_err(|e| format!("{name}: {e}"))?,
+            })
+        })
+        .collect()
 }
 
 /// Where a new `VMAD` goes in a record of type `record` whose subrecords are `subs`: after

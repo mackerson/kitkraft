@@ -303,7 +303,23 @@ pub(crate) fn resolve(
                 )
             })?;
             let t = type_byte(&declared.ty, &is_struct);
-            let typed = typed_value(command, &key, &declared.ty, t, value, loaded, locals)?;
+            let members = if t == 7 || t == 17 {
+                sources
+                    .struct_members(&declared.ty)
+                    .map_err(|e| failed(command, format!("{key}: {e}")))?
+            } else {
+                None
+            };
+            let typed = typed_value(
+                command,
+                &key,
+                &declared.ty,
+                t,
+                value,
+                loaded,
+                locals,
+                members.as_deref(),
+            )?;
             properties.push((declared.name.clone(), typed));
         }
         let mut rep = report(arg, &chain);
@@ -362,6 +378,7 @@ pub(crate) fn resolve(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn typed_value(
     command: &str,
     key: &str,
@@ -370,6 +387,7 @@ fn typed_value(
     value: &Value,
     loaded: &Loaded,
     locals: &dyn Fn(&str) -> Option<String>,
+    members: Option<&[(String, String)]>,
 ) -> Result<AttachValue, EngineError> {
     let bad = |why: String| {
         failed(
@@ -437,12 +455,64 @@ fn typed_value(
                 .map(|f| AttachValue::Float(f as f32))
                 .ok_or_else(|| bad(format!("{n} is not a finite 32-bit float ({ty})"))),
             (5, Value::Bool(b)) => Ok(AttachValue::Bool(*b)),
-            (6 | 7, _) => Err(bad(format!(
-                "a {ty} property cannot be set here (Var and struct values are not attached yet)"
+            (6, _) => Err(bad(format!(
+                "a {ty} property cannot be set here (no official record stores a Var value to follow)"
+            ))),
+            (7, _) => Err(bad(format!(
+                "a {ty} value is a table of its members, given as a struct (an object)"
             ))),
             (_, v) => Err(bad(format!("{v} does not fit the declared type {ty}"))),
         }
     };
+    // A struct: a JSON object of members, typed by the struct's declaration and written in
+    // its order (members are scalars or objects, as in every official struct value).
+    let structure = |v: &Value| -> Result<AttachValue, EngineError> {
+        let Value::Object(m) = v else {
+            return Err(bad(format!("{ty} takes a JSON object of its members")));
+        };
+        let members = members.ok_or_else(|| {
+            bad(format!(
+                "the struct {ty} is not declared by a compiled script found (its members are unknown)"
+            ))
+        })?;
+        if let Some(k) = m
+            .keys()
+            .find(|k| !members.iter().any(|(n, _)| n.eq_ignore_ascii_case(k)))
+        {
+            let names: Vec<&str> = members.iter().map(|(n, _)| n.as_str()).collect();
+            return Err(bad(format!(
+                "{ty} has no member `{k}` (members: {})",
+                names.join(", ")
+            )));
+        }
+        let mut out = Vec::new();
+        for (name, mty) in members {
+            let Some((_, v)) = m.iter().find(|(k, _)| k.eq_ignore_ascii_case(name)) else {
+                continue;
+            };
+            let mt = type_byte(mty, &|t: &str| t.contains('#'));
+            if !(1..=5).contains(&mt) {
+                return Err(bad(format!(
+                    "{ty}.{name}: a {mty} member cannot be set (struct members are scalars or objects)"
+                )));
+            }
+            out.push((name.clone(), scalar(mt, v)?));
+        }
+        Ok(AttachValue::Struct(out))
+    };
+    if t == 7 {
+        return structure(value);
+    }
+    if t == 17 {
+        let items = value
+            .as_array()
+            .ok_or_else(|| bad(format!("{ty} takes a JSON array")))?;
+        let typed = items
+            .iter()
+            .map(&structure)
+            .collect::<Result<Vec<_>, _>>()?;
+        return Ok(AttachValue::Array(7, typed));
+    }
     if t > 10 {
         let element = t.saturating_sub(10);
         let items = value

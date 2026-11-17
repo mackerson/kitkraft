@@ -13,7 +13,7 @@
 //!    stage fragments, one holding alias scripts only, and one with a quest script, a
 //!    fragment script and alias scripts (each the one with the most properties among those
 //!    `attach` can write: scalars, objects, alias values of the quest itself or another
-//!    quest, and arrays of these; all on a copy of the quest's own subrecords, so `attach`
+//!    quest, structs of these, and arrays of all of them; all on a copy of the quest's own subrecords, so `attach`
 //!    finds each alias the way a build does);
 //! 3. the alias entries `attach` writes by: every official entry holds the quest's own
 //!    FormID, 0 unused bytes, version 6 and object format 2, and at least one script; which
@@ -103,6 +103,9 @@ struct Stats {
     undeclared: Vec<String>,
     /// Blocks whose alias entries are not in alias ID order.
     entries_unsorted: u64,
+    /// Every quest VMAD `attach` can write whole that holds a struct or struct array
+    /// property: each is rebuilt.
+    with_structs: Vec<Sample>,
     failures: Vec<String>,
 }
 
@@ -120,10 +123,22 @@ fn attachable(s: &vmad::Script, quest: u32, declared: &[vmad::QuestAlias]) -> bo
                             .iter()
                             .any(|d| i64::from(d.id) == i64::from(o.alias)))))
     };
+    // A struct member: flags 1 and a scalar or an object.
+    let member = |p: &vmad::Property| {
+        p.flags == 1
+            && match &p.value {
+                vmad::Value::Object(o) => object(o),
+                vmad::Value::String(s) => std::str::from_utf8(s).is_ok(),
+                vmad::Value::Int(_) | vmad::Value::Float(_) | vmad::Value::Bool(0 | 1) => true,
+                _ => false,
+            }
+    };
     s.flags == 0
         && s.properties.iter().all(|p| {
             p.flags == 1
                 && match &p.value {
+                    vmad::Value::Struct(m) => m.iter().all(member),
+                    vmad::Value::Structs(v) => v.iter().flatten().all(member),
                     vmad::Value::Object(o) => object(o),
                     vmad::Value::Objects(v) => v.iter().all(object),
                     vmad::Value::String(s) => std::str::from_utf8(s).is_ok(),
@@ -181,6 +196,14 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         };
         let main_props: usize = v.scripts.iter().map(|s| s.properties.len()).sum();
         let plain = v.version == 6 && v.object_format == 2 && v.scripts.iter().all(attachable);
+        let has_struct = |sc: &vmad::Script| {
+            sc.properties
+                .iter()
+                .any(|p| matches!(p.value, vmad::Value::Struct(_) | vmad::Value::Structs(_)))
+        };
+        if v.rest.is_empty() && plain && v.scripts.iter().any(has_struct) {
+            stats.with_structs.push(sample(&at, s.data(), main_props));
+        }
         if v.rest.is_empty() {
             stats.no_block += 1;
             if plain && !v.scripts.is_empty() {
@@ -319,6 +342,24 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
                 _ => {}
             }
         }
+        // Whole-VMAD struct samples: the fragment script (if any) and every alias entry in
+        // the shapes attach writes.
+        let fragments_ok = q.script.as_ref().is_none_or(|fs| {
+            attachable(fs)
+                && q.fragments.iter().all(|f| {
+                    f.unknown == 1
+                        && f.script_name == fs.name
+                        && std::str::from_utf8(&f.fragment_name).is_ok()
+                })
+        });
+        let structs = v.scripts.iter().any(has_struct)
+            || q.script.iter().any(has_struct)
+            || q.aliases.iter().flat_map(|e| &e.scripts).any(has_struct);
+        if plain && fragments_ok && (q.aliases.is_empty() || entries_ok) && structs {
+            stats
+                .with_structs
+                .push(sample(&at, s.data(), main_props + alias_props));
+        }
     }
 }
 
@@ -354,6 +395,21 @@ fn attach_request(
         })
     };
     let string = |s: &Vec<u8>| AttachValue::String(String::from_utf8(s.clone()).unwrap());
+    let scalar = |v: &vmad::Value| match v {
+        vmad::Value::Object(o) => object(o),
+        vmad::Value::String(s) => string(s),
+        vmad::Value::Int(i) => AttachValue::Int(*i),
+        vmad::Value::Float(f) => AttachValue::Float(f32::from_bits(*f)),
+        vmad::Value::Bool(b) => AttachValue::Bool(*b == 1),
+        other => panic!("not a struct member: {other:?}"),
+    };
+    let members = |m: &Vec<vmad::Property>| {
+        AttachValue::Struct(
+            m.iter()
+                .map(|p| (String::from_utf8(p.name.clone()).unwrap(), scalar(&p.value)))
+                .collect(),
+        )
+    };
     vmad::Attach {
         name: script.name_text(),
         properties: script
@@ -385,6 +441,10 @@ fn attach_request(
                         5,
                         v.iter().map(|b| AttachValue::Bool(*b == 1)).collect(),
                     ),
+                    vmad::Value::Struct(m) => members(m),
+                    vmad::Value::Structs(v) => {
+                        AttachValue::Array(7, v.iter().map(members).collect())
+                    }
                     other => panic!("not attachable: {other:?}"),
                 };
                 (String::from_utf8(p.name.clone()).unwrap(), v)
@@ -399,6 +459,28 @@ fn attach_request(
 /// alias scripts (the quest holding a copy of the official record's other subrecords, so
 /// its aliases are declared): the `VMAD` it writes.
 fn rebuild(sample: &Sample) -> Vec<u8> {
+    let built = attach_all(sample);
+    let official = vmad::decode(&sample.vmad).unwrap();
+    let block = vmad::decode_quest_fragments(&official.rest, 2).ok();
+    println!(
+        "{}: {} script(s), {} fragment(s), {} alias entries ({} scripts), {} properties, {} bytes; attach wrote {} bytes, identical: {}",
+        sample.at,
+        official.scripts.len(),
+        block.as_ref().map_or(0, |q| q.fragments.len()),
+        block.as_ref().map_or(0, |q| q.aliases.len()),
+        block
+            .as_ref()
+            .map_or(0, |q| q.aliases.iter().map(|e| e.scripts.len()).sum::<usize>()),
+        sample.properties,
+        sample.vmad.len(),
+        built.len(),
+        built == sample.vmad
+    );
+    built
+}
+
+/// [`rebuild`] without the line.
+fn attach_all(sample: &Sample) -> Vec<u8> {
     let official = vmad::decode(&sample.vmad).unwrap();
     let mut requests: Vec<vmad::Attach> = official
         .scripts
@@ -459,21 +541,6 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
         .unwrap()
         .data()
         .to_vec();
-    let block = vmad::decode_quest_fragments(&official.rest, 2).ok();
-    println!(
-        "{}: {} script(s), {} fragment(s), {} alias entries ({} scripts), {} properties, {} bytes; attach wrote {} bytes, identical: {}",
-        sample.at,
-        official.scripts.len(),
-        block.as_ref().map_or(0, |q| q.fragments.len()),
-        block.as_ref().map_or(0, |q| q.aliases.len()),
-        block
-            .as_ref()
-            .map_or(0, |q| q.aliases.iter().map(|e| e.scripts.len()).sum::<usize>()),
-        sample.properties,
-        sample.vmad.len(),
-        built.len(),
-        built == sample.vmad
-    );
     built
 }
 
@@ -564,4 +631,46 @@ fn every_official_quest_fragment_block_roundtrips_and_attach_rebuilds_four() {
         .with_aliases
         .expect("an official quest with a quest script, fragments and alias scripts");
     assert_eq!(rebuild(&all), all.vmad, "{}", all.at);
+
+    // Struct and struct-array properties: every quest VMAD attach can write that holds one.
+    let structs: usize = stats
+        .with_structs
+        .iter()
+        .map(|sm| {
+            let v = vmad::decode(&sm.vmad).unwrap();
+            let mut n = 0usize;
+            let mut count = |sc: &vmad::Script| {
+                n += sc
+                    .properties
+                    .iter()
+                    .map(|p| match &p.value {
+                        vmad::Value::Struct(_) => 1,
+                        vmad::Value::Structs(v) => v.len(),
+                        _ => 0,
+                    })
+                    .sum::<usize>();
+            };
+            v.scripts.iter().for_each(&mut count);
+            if let Ok(q) = vmad::decode_quest_fragments(&v.rest, 2) {
+                q.script.iter().for_each(&mut count);
+                q.aliases
+                    .iter()
+                    .flat_map(|e| &e.scripts)
+                    .for_each(&mut count);
+            }
+            n
+        })
+        .sum();
+    let differ: Vec<&str> = stats
+        .with_structs
+        .iter()
+        .filter(|sm| attach_all(sm) != sm.vmad)
+        .map(|sm| sm.at.as_str())
+        .collect();
+    println!(
+        "quest VMADs with struct properties rebuilt: {} ({structs} struct values), differing: {differ:?}",
+        stats.with_structs.len()
+    );
+    assert!(!stats.with_structs.is_empty());
+    assert!(differ.is_empty(), "{differ:?}");
 }

@@ -562,3 +562,95 @@ fn an_alias_takes_its_flags_from_fields() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+#[test]
+fn a_script_property_takes_a_struct_and_a_struct_array() {
+    let (d, data) = setup("quest-struct-values");
+    std::fs::write(
+        d.join("Scripts").join("KK").join("StructReport.pex"),
+        super::scripts_tests::pex_full(
+            "KK:StructReport",
+            "Quest",
+            &[
+                ("One", "KK:StructReport#Entry"),
+                ("Many", "KK:StructReport#Entry[]"),
+            ],
+            &[],
+            &[("Entry", &[("Count", "Int"), ("Target", "ObjectReference")])],
+        ),
+    )
+    .unwrap();
+    // Members are written in declaration order (Count, Target) whatever the table's order.
+    let scripts = "[{ name = \"KK:StructReport\", properties = { One = { Target = \"KC_Crate\", Count = 3 }, Many = [{ Count = 1 }, { Count = 2, Target = \"KC_Crate\" }] } }]";
+    let r = build(&d, &spec(&data, scripts), "Struct.esp").unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let out = d.join("Struct.esp");
+    assert!(
+        roundtrip_bytes(&std::fs::read(&out).unwrap(), &RoundtripOptions::default())
+            .unwrap()
+            .identical()
+    );
+    let raw = vmad_bytes(&out, new_form_id(&r));
+    let v = vmad::decode(&raw).unwrap();
+    let props = &v.scripts[0].properties;
+    let one = props.iter().find(|p| p.name == b"One").unwrap();
+    let crate_id = match &one.value {
+        vmad::Value::Struct(m) => match m[1].value {
+            vmad::Value::Object(o) => o.form_id,
+            _ => panic!("{m:?}"),
+        },
+        other => panic!("{other:?}"),
+    };
+    // The official layout of a struct value: type 7, flags 1, a u32 member count, then
+    // each member as a property (name, type, flags 1, value).
+    let mut want = vec![3, 0];
+    want.extend(b"One");
+    want.extend([7, 1, 2, 0, 0, 0]);
+    want.extend([5, 0]);
+    want.extend(b"Count");
+    want.extend([3, 1, 3, 0, 0, 0]);
+    want.extend([6, 0]);
+    want.extend(b"Target");
+    want.extend([1, 1, 0, 0, 0xFF, 0xFF]);
+    want.extend(crate_id.to_le_bytes());
+    assert!(
+        raw.windows(want.len()).any(|w| w == want.as_slice()),
+        "{raw:02X?}"
+    );
+    let many = props.iter().find(|p| p.name == b"Many").unwrap();
+    assert_eq!(many.ty, 17);
+    match &many.value {
+        vmad::Value::Structs(v) => {
+            let shape: Vec<Vec<(&[u8], u8, u8)>> = v
+                .iter()
+                .map(|m| {
+                    m.iter()
+                        .map(|p| (p.name.as_slice(), p.ty, p.flags))
+                        .collect()
+                })
+                .collect();
+            assert_eq!(
+                shape,
+                [
+                    vec![(b"Count".as_slice(), 3, 1)],
+                    vec![(b"Count".as_slice(), 3, 1), (b"Target".as_slice(), 1, 1)],
+                ]
+            );
+        }
+        other => panic!("{other:?}"),
+    }
+    // An undeclared member, and a struct given as a scalar, are refused.
+    for (value, why) in [
+        (
+            "{ Nope = 1 }",
+            "has no member `Nope` (members: Count, Target)",
+        ),
+        ("3", "takes a JSON object of its members"),
+    ] {
+        let scripts =
+            format!("[{{ name = \"KK:StructReport\", properties = {{ One = {value} }} }}]");
+        let e = build(&d, &spec(&data, &scripts), "BadStruct.esp").unwrap_err();
+        assert!(e.contains(why), "{value}: {e}");
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}

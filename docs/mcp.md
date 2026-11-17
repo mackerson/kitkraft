@@ -905,7 +905,8 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   archive of the load order), else `failed` with `papyrus.missing-script`; each property
   must be declared by the script or a parent, and each value fit the declared type (a
   number, boolean or string; a formref, EditorID or `null` for an object; in a spec,
-  `new:<name>`; arrays of these), else `papyrus.property-unresolved`. With `scripts`,
+  `new:<name>`; arrays of these; for a struct, a table of its members as its
+  `.pex` declares them, written in declaration order), else `papyrus.property-unresolved`. With `scripts`,
   `fields` may be `{}`. `data.scripts[]`: `script`, `found` (where the `.pex` was read),
   `properties[]` (`name`, `type`, `declared_in`), plus `entry` in a build; the record's
   `fields[]` gains a `VMAD` change listing the scripts before and after. On a `QUST`, an

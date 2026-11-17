@@ -79,8 +79,9 @@ attached by kit": `testplan` reads the compiled script next to the plugin, finds
 - An object property's value is not checked against the declared object type (a formref
   of any record type is written); forms in object properties must be in the record's
   masters or written by the same call.
-- `Var` and struct properties are not attached (their layout is read and kept, but a JSON
-  value cannot pick a variant yet).
+- `Var` properties are not attached: no official record stores a value for one (no
+  type 6 or 16 value in the 14 files, corpus scan 2026-11-17), so there is no layout to
+  follow. Struct properties are (below, "Struct values").
 - The order in which the game looks up a script (loose, plugin archives, other archives) is
   assumed, not observed.
 - Quest stage fragments (`stages` on a `QUST`'s script entry, `docs/mcp.md` `set`) and
@@ -130,6 +131,22 @@ the other 134 name a stage their quest lacks), and in game a fragment on a stage
 that log entry does not run, while the same fragment with `QSDT = 0` does (bench quest
 row Q-03, sessions `game-20261117-05` and `-06` on the bench branch). `build` refuses the
 former (`quest.fragment-stage`).
+
+### Struct values
+
+A struct property (a compiled script names its type `Script#Struct`, an array of them
+`Script#Struct[]`) takes a table of its members, each typed by the struct's declaration in
+the script's `.pex` and written in declaration order, only the members given:
+
+```toml
+properties = { One = { Count = 3, Target = "KC_Crate" }, Many = [{ Count = 1 }, { Count = 2 }] }
+```
+
+Every official struct member is a scalar or an object with flags 1, and no struct holds a
+struct or an array (245 struct values and 1,408 struct arrays, corpus scan 2026-11-17);
+`attach` rebuilds all 644 official quest `VMAD`s it can write that hold a struct or struct
+array (3,786 struct values) byte for byte (`quest_vmad_corpus.rs`). A struct declared only
+in the base game's sources (no `.pex` found) is refused: its members are unknown.
 
 | Fact | Source |
 | ---- | ------ |

@@ -29,6 +29,18 @@ pub(crate) fn pex_with_functions(
     props: &[(&str, &str)],
     functions: &[&str],
 ) -> Vec<u8> {
+    pex_full(name, parent, props, functions, &[])
+}
+
+/// [`pex_with_functions`] plus structs `(name, [(member, type)])` (members without a
+/// default value).
+pub(crate) fn pex_full(
+    name: &str,
+    parent: &str,
+    props: &[(&str, &str)],
+    functions: &[&str],
+    structs: &[(&str, &[(&str, &str)])],
+) -> Vec<u8> {
     let mut b = Vec::new();
     let ws = |b: &mut Vec<u8>, s: &str| {
         b.extend((s.len() as u16).to_le_bytes());
@@ -50,6 +62,23 @@ pub(crate) fn pex_with_functions(
     }
     let first_function = strings.len() as u16;
     strings.extend(functions.iter().map(|f| (*f).to_string()));
+    let mut struct_bytes = Vec::new();
+    struct_bytes.extend((structs.len() as u16).to_le_bytes());
+    for (sname, members) in structs {
+        strings.push((*sname).to_string());
+        struct_bytes.extend(((strings.len() - 1) as u16).to_le_bytes());
+        struct_bytes.extend((members.len() as u16).to_le_bytes());
+        for (m, t) in *members {
+            strings.push((*m).to_string());
+            struct_bytes.extend(((strings.len() - 1) as u16).to_le_bytes());
+            strings.push((*t).to_string());
+            struct_bytes.extend(((strings.len() - 1) as u16).to_le_bytes());
+            struct_bytes.extend(0u32.to_le_bytes()); // user flags
+            struct_bytes.push(0); // no default value
+            struct_bytes.push(0); // const flag
+            struct_bytes.extend(0u16.to_le_bytes()); // doc
+        }
+    }
     b.extend((strings.len() as u16).to_le_bytes());
     for s in &strings {
         ws(&mut b, s);
@@ -64,8 +93,9 @@ pub(crate) fn pex_with_functions(
     o.push(0);
     o.extend(0u32.to_le_bytes());
     o.extend(0u16.to_le_bytes()); // auto state
-    for _ in 0..3 {
-        o.extend(0u16.to_le_bytes()); // structs, variables, guards
+    o.extend(&struct_bytes);
+    for _ in 0..2 {
+        o.extend(0u16.to_le_bytes()); // variables, guards
     }
     o.extend((props.len() as u16).to_le_bytes());
     for i in 0..props.len() {

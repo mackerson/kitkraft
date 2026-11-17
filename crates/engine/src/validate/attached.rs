@@ -47,6 +47,8 @@ struct Decl {
     /// Its functions (lower case, every state), when read from a compiled `.pex`; `None`
     /// for a declaration read from sources, which lists properties only.
     functions: Option<Vec<String>>,
+    /// Its structs with their members `(name, type)`, when read from a compiled `.pex`.
+    structs: Vec<(String, Vec<(String, String)>)>,
 }
 
 /// Where a script was found, or read from.
@@ -296,6 +298,7 @@ impl Sources {
                                 parent,
                                 properties,
                                 functions: None,
+                                structs: Vec::new(),
                             },
                         )
                     })
@@ -335,12 +338,31 @@ impl Sources {
                     .flat_map(|st| &st.functions)
                     .map(|f| pex.string(f.name).to_ascii_lowercase())
                     .collect();
+                let structs = object
+                    .structs
+                    .iter()
+                    .map(|st| {
+                        (
+                            pex.string(st.name).to_string(),
+                            st.members
+                                .iter()
+                                .map(|m| {
+                                    (
+                                        pex.string(m.name).to_string(),
+                                        pex.string(m.type_name).to_string(),
+                                    )
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
                 Some((
                     Decl {
                         name: pex.string(object.name).to_string(),
                         parent,
                         properties,
                         functions: Some(functions),
+                        structs,
                     },
                     at,
                 ))
@@ -360,6 +382,22 @@ impl Sources {
         };
         self.decls.insert(key, found.clone());
         Ok(found)
+    }
+
+    /// The members `(name, type)` of the struct type `ty` (`Script#Struct`, as a compiled
+    /// script names it; a trailing `[]` is ignored), in declaration order, from the
+    /// declaring script's compiled `.pex`; `None` when that is not found.
+    pub fn struct_members(&mut self, ty: &str) -> Result<Option<Vec<(String, String)>>, String> {
+        let base = ty.strip_suffix("[]").unwrap_or(ty);
+        let Some((script, name)) = base.split_once('#') else {
+            return Ok(None);
+        };
+        Ok(self.decl(script)?.and_then(|(d, _)| {
+            d.structs
+                .iter()
+                .find(|(n, _)| n.eq_ignore_ascii_case(name))
+                .map(|(_, m)| m.clone())
+        }))
     }
 
     /// Whether `script` or a parent defines the function `function` (ASCII
