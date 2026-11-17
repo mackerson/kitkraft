@@ -621,6 +621,8 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
             "ENIT:000000000000000000000000000000000000000000000000000000",
         ),
     ),
+    // ck-20261117-12
+    ("OTFT", "KCB_OTFT_New", "INAM:"),
 ];
 
 /// Where `new` keeps writing something else than the CK saved, by type: the CK's item and

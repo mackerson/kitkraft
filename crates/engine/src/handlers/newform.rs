@@ -407,6 +407,7 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"NPC_", *b"PRON", 0, "00"),
     (*b"OMOD", *b"FLLD", 0, "01000000"),
     (*b"OMOD", *b"DATA", 0, "0*28"),
+    (*b"OTFT", *b"INAM", 0, ""),
     (*b"PACK", *b"POBA", 0, ""),
     (*b"PACK", *b"INAM", 0, "00000000"),
     (*b"PACK", *b"PDTO", 0, "0000000000000000"),
