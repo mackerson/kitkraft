@@ -241,6 +241,49 @@ Without the save: `ck_open` for 58 types, `ck-differential-tested` unchanged (an
 without a re-export is not a differential test). Types that come back with differences stay
 `inconclusive` until classed; that is still evidence the matrix lacks today.
 
+## Results, 2026-11-17 (unattended, 01:02 to 01:52)
+
+Run by the CK lane with nobody at the desk, saves under ADR 0012 Amendment 3 (its words in
+`-OwnerSaveOk`), from `C:\Modding\kitkraft-worktrees\bench-night`; `kit.exe` the release
+binary of "Release binaries" in [`README.md`](README.md), not rebuilt. Sitting ids
+`ck-20261117-11` to `-18` (groups), `-21` to `-25` (twins), `-31` (F28); records in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\`; ledger `docs/ck-observations.md`. Step 2's
+self-tests: 0 failed (both). Deploy (step 3): 13 plugins with `kit deploy --dev`, enabled, and
+disabled again after the sitting (step 12). Every launch: the plugin became the active file,
+loaded in 105 to 125 s (F20k alone in 15 s: it names no master), File > Save Plugin saved in
+place with no dialog, the CK closed with no prompt, postflight `ok`. The first-minute checks
+(G1, nobody watching): 2 to 7 held; 1 (primary monitor) is the screenshots' evidence.
+
+| Plugin | Id | ck_open | Saved | ck_reexport pass | Inconclusive (why, in short) |
+| ------ | -- | ------- | ----- | ---------------- | ---------------------------- |
+| `KCB_G1_Core` | `-11` | pass | in place | GLOB, TXST, SOUN, WWED, IRES | KYWD, FLST, MESG, RSPJ, AVIF (the new record gained members) |
+| `KCB_G2_Items` | `-12` | pass | in place | - | all 9 (BOOK `CNAM` width, padding, new records filled) |
+| `KCB_G3_Weapons` | `-13` | pass | in place | - | all 5 (COBJ padding, new records filled, WEAP speeds reset) |
+| `KCB_G4_Objects` | `-14` | pass | in place | TMLM | 10 (new records filled; clones all unchanged) |
+| `KCB_G5_World` | `-15` | pass | in place | REFR | LCTN (clone's reference lists dropped), REGN (point order), CELL (new cell EditorID), ACHR (`XLRL`) |
+| `KCB_G6_Actors` | `-16` | pass | in place | FACT | NPC_, PACK, PERK, LVLN, LVLP (padding, new records filled) |
+| `KCB_G7_Quest` | `-17` | pass | in place | - | QUST (`VMAD`), DIAL (branches made, category), INFO (`TRDA`) |
+| `KCB_G8_Planet` | `-18` | pass | in place | PCMT | 8 (STDT system ID reassigned, new records filled) |
+| `KCB_F20k` | `-21` | pass | in place | - | CELL (EditorID without underscores, lighting added) |
+| `KCB_F23k` | `-22` | pass | in place | CELL, REFR | - |
+| `KCB_F27k` | `-23` | pass | in place | - | CELL (`XOWN` padding only) |
+| `KCB_F28k` | `-24` | pass | in place | STAT | - |
+| `KCB_F31k` | `-25` | pass | in place | WEAP, CELL, REFR | - |
+| F28 (agent) | `-31` | - | `KC_F28.esp` into `overwrite\` (copied out, then removed) | - | against the twin: `EDID` and `OBND` (the CK's duplicate has zero bounds) |
+| F23 (agent) | `-32` | - | `KC_F23.esp` (same) | CELL, REFR: the CK's edit equals the twin's records | - |
+| F27 (agent) | `-33` | - | `KC_F27.esp` (same) | - | owner equal; the CK sets a cell `DATA` flag, moves `XOWN`, adds `aaaMarkers` |
+| F20 (agent) | `-34` | - | nothing | - | not-run: no way to make a new interior cell was found |
+
+F23, F27 and F20 were driven by `steps-fixture-interactive.ps1` (one command file at a time,
+each step's screenshot read before the next; sent input with the CK-in-front guard, window
+messages to the Cell View's Win32 controls), 02:01 to 02:23.
+
+`ck-differential-tested` pass: 2 -> 12 types (`docs/schema/evidence.toml`, `cargo xtask
+parity`). Every CK save also drops TES4 `INCC`. Not run: the per-type fallback (the oracle
+pins every difference to one record, so no group needed splitting); F20's new cell (above);
+F30 and F29 again (done 2026-11-01); Part B and B10. The two settings files hash as before the sitting; `overwrite\` is
+empty; the owner's `Saves` listing is unchanged.
+
 ## Tested on 2026-11-15 (no CK, game, SFSE or MO2 started; no input to the desktop)
 
 - `ck-plugin.selftest.ps1`: 52 checks, 0 failed (62 with `-SaveDialog`). Script parsing; plugin-name and escaping

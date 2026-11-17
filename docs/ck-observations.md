@@ -597,3 +597,249 @@ output in `x11-f28-attempt<n>.out`.
 | List files | MO2 prunes `plugins.txt` and `loadorder.txt` at launch (lines of disabled dev mods). Attempt 1's were restored by hand from the last `kit deploy disable` backup to their preflight hashes (`513953f7...`, `29043dc1...`); from attempt 2 on, the frame copies them to `lists-before\` and restores them, hashes checked. `modlist.txt` and `Default` unchanged throughout |
 | Counts | Observed: nothing new counted (the menu items are screenshot only). Inconclusive: F28's save. Not-run: F23, F20, F27 (no steps file written in time; the Cell View's rows and the render window are not exposed, `ck-20261101-03`) |
 | Requests | (1) The owner saves F28 by hand (Object Window > the coffee maker > Duplicate > File > Save Plugin, `KC_F28.esp`), or allows a sitting to type into the focused file box without a UI Automation element. (2) The CK's context-menu items by an owner sitting or screenshot reading |
+
+### CK bench batch of 2026-11-17, the eight group plugins (`ck-20261117-11` to `-18`), agent-run, saved in place
+
+Unattended night of 2026-11-17 (owner asleep), saves under ADR 0012 Amendment 3 (the owner's
+words of 2026-11-16 went into `-OwnerSaveOk` and every `result.json`). `ck-batch.ps1` ran
+`ck-plugin.ps1 -Save` once per plugin, each its own CK launch through MO2 on `Kitkraft Dev`,
+01:03 to 01:30 local; plugins deployed with `kit deploy --dev` and enabled with `kit deploy
+enable` (13 `KCB_*` mods). Each plugin was set as the active file, loaded, saved with File >
+Save Plugin, which saved **in place into its own dev mod with no dialog** (8 of 8), and the CK
+was closed. Every postflight `ok` (MO2's launch rewrite of the three list files restored,
+hashes checked); the two settings files restored after each launch. Records:
+`C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\` (`session.md`, `result.json`,
+`shots\`, `kitkraft.esp`, `ck.esp`, the CK's two load logs, and `ingest\` with the oracle's
+`report.md`). The after-step was `ck-ingest.ps1` (no `-Apply`; this entry and the evidence
+were written by hand from its drafts). CK 1.16.244.0 from the title in every launch.
+
+| Id | Plugin | Ours SHA-256, bytes | CK's SHA-256, bytes | Load | Warning rows naming the plugin | Oracle |
+| -- | ------ | ------------------- | ------------------- | ---: | -----------------------------: | ------ |
+| `ck-20261117-11` | `KCB_G1_Core.esp` | `17c2fca0...`, 3,140 | `e3df49c6...`, 3,222 | 124 s | 1 | 11 unexplained, 0 ours-missing, 3 explained; both round-trip; match 20/20 |
+| `ck-20261117-12` | `KCB_G2_Items.esp` | `7b6619fb...`, 5,376 | `3196cf6f...`, 5,583 | 114 s | 5 | 32, 0, 3; match 18/18 |
+| `ck-20261117-13` | `KCB_G3_Weapons.esp` | `9bbfc191...`, 4,441 | `7a65e021...`, 4,579 | 111 s | 6 | 14, 0, 3; match 10/10 |
+| `ck-20261117-14` | `KCB_G4_Objects.esp` | `982fa07c...`, 10,878 | `00d586cb...`, 11,250 | 113 s | 4 | 20, 1, 3; match 22/22 |
+| `ck-20261117-15` | `KCB_G5_World.esp` | `6a3ef7b7...`, 57,227 | `d66a50aa...`, 20,278 | 105 s | 1,426 | 19, 0, 3; match 8/8 |
+| `ck-20261117-16` | `KCB_G6_Actors.esp` | `a2c3f24e...`, 2,485 | `a3ddfdb9...`, 2,607 | 109 s | 6 | 37, 0, 3; match 12/12 |
+| `ck-20261117-17` | `KCB_G7_Quest.esp` | `08e4bcf6...`, 1,803 | `6a5a880a...`, 1,921 | 112 s | 5 | 9, 2, 3; match 8/8 |
+| `ck-20261117-18` | `KCB_G8_Planet.esp` | `f5536fdb...`, 163,326 | `15318998...`, 164,677 | 105 s | 12 | 23, 0, 3; match 18/18 |
+
+Each plugin holds, per type, one `[[clone]]` of a vanilla record and one EditorID-only
+`[[new]]` (`docs/bench/ck-batch/types/`). Classed by hand the same night:
+
+- **ck_open: pass for all eight.** Every warning row naming a plugin's forms (in the CK's
+  `EditorWarnings.txt`, kept in each sitting folder) is a data consequence of the recipe, not
+  a load fault: an EditorID-only new record lacks members the CK wants (no effects, no biped
+  slot, no race, zero weapon speeds it resets, no package procedure, no pack-in storage cell,
+  no furniture markers, missing surface blocks, empty keyword list, dangling PCM nodes), or a
+  clone carries its source's unique links (the IRES clone's actor value, the FACT clone's
+  one-sided reaction, the STDT clone's database ID, the PNDT clone's unique celestial body,
+  the WKMF clone's keyword list, the PCBN/PCCN clones in the vanilla node chains, and in G5
+  the LCTN clone's 1,400-odd rows: the source location's references no longer belong to it).
+- **File level, every save:** the CK drops TES4 `INCC` (4 zero bytes); G7's save gains a TES4
+  `TNAM` (12 bytes). The three M5.A3 conventions (HEDR, MAST `DATA`, `BNAM`) as before.
+- **Clones the CK changed** (the other clones came back with no difference): G5 LCTN:
+  `LCPR`, `LCUR`, `LCUN`, `LCSR`, `LCID`, `LCEP` removed (the source location's reference
+  lists; most of the 37 KB the file lost). G7 QUST: `VMAD` 49 bytes shorter, the alias script
+  block gone. G8 STDT: `DNAM` system ID 73018 -> 119226 and `XMPM` rewritten (duplicate ID
+  reassigned). G5 REGN: `RPLD`'s four points written in reverse order. G2 BOOK: `CNAM` 4
+  bytes -> 1 byte. Padding only, values unchanged: `CTDA` unused bytes (ALCH, COBJ, PERK,
+  PCBN; the CK writes non-zero bytes there, e.g. `00 00 00` -> `8F 15 00`), `LVLO` unused
+  (LVLI, LVLN, LVLP), PACK `PSDT` unused, and the carried cell's `XOWN` unused (G5).
+- **Records the CK added:** G4 an override of `Starfield.esm:01128F`
+  (`PackInSCLDCratesMedium02StorageCell`, the cloned pack-in's storage cell); G7 two DLBR
+  (a branch for each of the two topics, which had none).
+- **New records the CK changed:** it fills defaults into most EditorID-only records (`FLLD`,
+  `STOP`, `DESC`, `OBND`, `DNAM` and type-specific members: ARMA 13 subrecords, PACK three
+  procedure blocks, NPC_ 7 added and `RNAM`/`NAM5`/`NAM6` changed, PNDT 6, SFBK 4); it drops
+  `BO64` (ARMO, ARMA), `PRTN` (PCBN, PCCN) and `WMSS` (WKMF); the new cell's EditorID loses
+  its underscores (`KCB_CELL_New` -> `KCBCELLNew`) and gains lighting members; DIAL category
+  7 -> 0 with a `BNAM`; INFO `TRDA` emotion null `00000000` -> `FFFFFFFF`; the placed ACHR
+  gains `XLRL`. New records that came back unchanged: GLOB, TXST, SOUN, WWED, IRES, TMLM,
+  FACT, PCMT.
+
+| Field | Content |
+| ----- | ------- |
+| ck_reexport pass (no unexplained difference in any record of the type) | GLOB, TXST, SOUN, WWED, IRES (`-11`), TMLM (`-14`), REFR (`-15`), FACT (`-16`), PCMT (`-18`): 9 types, entered in `docs/schema/evidence.toml` |
+| ck_reexport inconclusive | the other 47 types of the 56 the groups hold: the clone changed (above) or the new record was filled with defaults; nothing was classed as our layout being wrong |
+| Fallback per type | not run: the oracle pins every difference above to one record, so no group needed splitting |
+| Outside the dev mods | `overwrite\` empty after the groups; the `Documents\My Games\Starfield\Saves` listing unchanged |
+| Requests | (1) Teach the oracle the padding class (`CTDA`, `LVLO`, `PSDT`, `XOWN` unused) and TES4 `INCC`. (2) BOOK `CNAM` width (1 byte in the CK's save, 4 in the vanilla source). (3) The cell EditorID rule (underscores dropped) for `new CELL`. (4) The QUST clone's VMAD alias block |
+
+One entry per launch follows (the shared table above holds hashes, load times and the
+oracle's counts; the oracle's `report.md` in each sitting's `ingest\oracle\` lists every item).
+
+### ck-20261117-11: `KCB_G1_Core.esp` (GLOB KYWD FLST MESG TXST SOUN WWED RSPJ AVIF IRES)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (warning row classed above: the IRES clone's actor-value link) |
+| ck_reexport | pass: GLOB, TXST, SOUN, WWED, IRES. Inconclusive: KYWD (`FNAM` added), FLST (`ANAM`), MESG (`TNAM`), RSPJ (6 members), AVIF (`NAM1`), each on the new record; all 10 clones unchanged |
+
+### ck-20261117-12: `KCB_G2_Items.esp` (MISC BOOK KEYM ALCH ARMO ARMA OTFT LVLI ENCH)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows: new ALCH and ENCH without effects, new ARMO and ARMA without biped slots) |
+| ck_reexport | inconclusive for all 9: clones BOOK (`CNAM` 4 -> 1 byte), ALCH (`CTDA` padding), LVLI (`LVLO` padding) changed; every new record filled with defaults (ARMO, ARMA lost `BO64`) |
+
+### ck-20261117-13: `KCB_G3_Weapons.esp` (WEAP AMDL OMOD COBJ HAZD)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows: the new WEAP's zero speeds reset to 1.0, the new OMOD without its bridge data) |
+| ck_reexport | inconclusive for all 5: COBJ clone `CTDA` padding; new WEAP `WFIR`/`WGEN`/`WMEL`/`WRLO` changed and 3 added, new AMDL `ANAM`, OMOD `FLLD`+`DATA`, COBJ `LRNM` changed, HAZD `FLLD`; WEAP, AMDL, OMOD, HAZD clones unchanged |
+
+### ck-20261117-14: `KCB_G4_Objects.esp` (STAT ACTI CONT DOOR LIGH FURN FLOR MSTT TERM TMLM PKIN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (4 rows: the new PKIN without a storage cell, the new FURN without markers) |
+| ck_reexport | pass: TMLM. Inconclusive: the other 10, each for its new record (`FLLD`, `STOP`, `DNAM`; LIGH `DAT2`/`LLLD` and FURN/TERM `MNAM` changed; TERM `WBDT`; PKIN `MOLM`); all 11 clones unchanged. The CK added an override of the cloned pack-in's storage cell `Starfield.esm:01128F` (the oracle's one ours-missing item) |
+
+### ck-20261117-15: `KCB_G5_World.esp` (CELL REFR ACHR LCTN REGN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1,426 rows: 1,425 the LCTN clone's references, 1 the placed ACHR not in its location's special references) |
+| ck_reexport | pass: REFR. Inconclusive: LCTN (clone lost its 6 reference lists; new record `DATA`, `RNAM`, `ANAM`, `TNAM` added), REGN (clone `RPLD` point order reversed), CELL (new cell's EditorID underscores dropped and lighting added; carried cell `XOWN` padding), ACHR (`XLRL` added) |
+
+### ck-20261117-16: `KCB_G6_Actors.esp` (NPC_ PACK FACT PERK LVLN LVLP)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows: the new NPC_ without a race or speed, the new PACK without a procedure, the FACT clone's one-sided reaction) |
+| ck_reexport | pass: FACT. Inconclusive: PACK (`PSDT` padding; new record 3 procedure blocks), PERK (5 `CTDA` padding; new 4 members), LVLN and LVLP (`LVLO` padding; new `FLLD`), NPC_ (new record 3 changed, 7 added); NPC_ clone unchanged |
+
+### ck-20261117-17: `KCB_G7_Quest.esp` (QUST DIAL INFO)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows: both topics had no branch; the CK made one each) |
+| ck_reexport | inconclusive for all 3: QUST clone `VMAD` 295 -> 246 bytes of script data; DIAL category 7 -> 0 and `BNAM` added; INFO `TRDA` null emotion written `FFFFFFFF`; two DLBR added (ours-missing); TES4 `TNAM` added |
+
+### ck-20261117-18: `KCB_G8_Planet.esp` (PNDT STDT PCMT PCBN PCCN SFPT SFTR SFBK WKMF)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (12 rows: duplicate star database IDs reassigned, the PNDT clone's unique body, PCM node chains, missing surface blocks, keyword lists) |
+| ck_reexport | pass: PCMT. Inconclusive: STDT (clone system ID 73018 -> 119226, `XMPM` rewritten), PCBN (`CTDA` padding; new lost `PRTN`), PCCN (new lost `PRTN`), WKMF (new lost `WMSS`), PNDT, SFPT, SFTR, SFBK (new records filled: 6, 2, 2, 4 members); PNDT, PCCN, SFPT, SFTR, SFBK, WKMF clones unchanged |
+
+### CK bench batch of 2026-11-17, the five fixture twins (`ck-20261117-21` to `-25`), agent-run, saved in place
+
+The same night and runner as the groups (`ck-batch.ps1 -Kinds fixture -Save`), 01:30 to 01:46
+local: KitKraft's side of F20, F23, F27, F28 and the M7 exit plugin's stand-in F31k
+(`docs/bench/ck-batch/fixtures/`), each set as the active file, loaded, saved in place into its
+dev mod with no dialog, and diffed with the oracle. No warning row named any of them; every
+postflight `ok`. Records in `C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\`.
+On every save the CK dropped TES4 `INCC`, as in the groups. Fixture choices (A7 to A9, the
+bench sheet's recommended answers, ADR 0012 Amendment 3 decision 4): F23 `Starfield.esm:1B21E0`
+with X = `1234.5`; F20 `KC_F20_Cell`; F27 Freestar Collective Embassy and `PlayerFaction`; the
+twins were built with them.
+
+### ck-20261117-21: `KCB_F20k.esp` (F20's twin: a new interior cell `KC_F20_Cell`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `6b2b763e...`, 190 bytes; the CK's `4684c94a...`, 277 bytes; loaded in 15 s (the plugin names no master, so the CK loaded it alone) |
+| ck_open | pass |
+| ck_reexport | inconclusive: the CK wrote the cell's EditorID without underscores (`KC_F20_Cell` -> `KCF20Cell`) and added the lighting members `XCLL`, `LTMP`, `XCLW`, `XILS`, as for G5's new cell |
+
+### ck-20261117-22: `KCB_F23k.esp` (F23's twin: `Starfield.esm:1B21E0` moved to X = 1234.5)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `33335273...`, 1,813 bytes; the CK's `5610d4cc...`, 1,800 bytes; loaded in 122 s |
+| ck_open | pass |
+| ck_reexport | pass: the carried cell and the moved reference came back with no difference (`kit diff`: 2 unchanged); CELL and REFR pointers added to `docs/schema/evidence.toml` |
+
+### ck-20261117-23: `KCB_F27k.esp` (F27's twin: the Embassy cell owned by `PlayerFaction`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `d0c4ca31...`, 15,053 bytes; the CK's `362739e7...`, 15,063 bytes; loaded in 118 s |
+| ck_open | pass |
+| ck_reexport | inconclusive by the oracle, classed by hand as padding: `XOWN`'s 3 unused bytes differ (the owner and the rest of the cell unchanged), as G5's carried cell |
+
+### ck-20261117-24: `KCB_F28k.esp` (F28's twin: a clone of `CoffeeBrewingMachine01`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `09496f59...`, 409 bytes; the CK's `a1aa2b49...`, 396 bytes; loaded in 125 s |
+| ck_open | pass |
+| ck_reexport | pass: the STAT clone came back with no difference; STAT entered in `docs/schema/evidence.toml` |
+
+### ck-20261117-25: `KCB_F31k.esp` (stand-in for the M7 exit plugin: one set, one clone, one place)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `8e52c232...`, 6,017 bytes; the CK's `b73c26a5...`, 6,004 bytes; loaded in 123 s |
+| ck_open | pass |
+| ck_reexport | pass: the WEAP override and clone, the carried cell and the placed reference came back with no difference (`kit diff`: 4 unchanged); WEAP entered, CELL and REFR pointers added in `docs/schema/evidence.toml` |
+
+### ck-20261117-31: X11, CK fixture F28 (a vanilla outpost object duplicated), agent-run, saved
+
+`ck-run.ps1 -Id ck-20261117-31 -Name F28 -Steps .\steps-F28.ps1 -SaveAllowed F28` through MO2 on
+`Kitkraft Dev`, 01:46 to 01:51 local, unattended; the save under ADR 0012 Amendment 3 (A6), the
+file dialog filled under ADR 0010 Amendment 2. Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F28\` (`session.md`, `shots\`, the dumps, `ck.esp`
+and `KC_F28.esp`, the same bytes); runner output `..\run-f28.log`. The first time F28 was saved
+(`ck-20261103-01` stopped at the file box seven times).
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-31` |
+| CK version | 1.16.244.0, from the title |
+| Steps | Data: `Starfield.esm` only, no active file. Object Window "*All", Text Filter `CoffeeBrewingMachine01`; the first row's dialog held that EditorID (Cancel); Duplicate from the row's context menu by its place: the list went from 2 to 3 rows and the title gained `*`. File > Save Plugin opened "Select Target Plugin"; the file name went in by `WM_SETTEXT` to the dialog's Edit (control id 1001) and Save by `BM_CLICK` (id 1); no other dialog. The title then named `KC_F28.esp` as the active file |
+| Saved | `overwrite\KC_F28.esp`, 396 bytes, SHA-256 `8b0d532a...`; round-trips identical. Copied into the sitting folder, then removed from `overwrite\` (ADR 0012 Amendment 3, decision 3); the owner has nothing to delete |
+| Against the twin | `KCB_F28k.esp` (`docs/bench/ck-batch/fixtures/`, KitKraft's `clone` of the same STAT, 409 bytes). Same subrecords in the same order and sizes (`EDID`, `OBND`, `ODTY`, `PTT2`, `BFCB`, `BFCE`, `MODL`, `FLLD`, `FULL`, `DNAM`, 261 bytes of body each); every payload identical except two: the CK's `EDID` is `CoffeeBrewingMachine01COPY0000` (ours `KCB_F28_CoffeeBrewingMachine01`), and **the CK's `OBND` is 24 zero bytes** where our clone keeps the source's bounds. FormID: the CK's `000808` (its own counter from `0x800`), ours `001000`; form version 582 (ours 581). TES4 as in F29 |
+| ck_reexport | inconclusive (a fixture, not a re-export: the comparison is with the twin); the OBND difference is for M5.A3 to class. STAT's ck-differential pass rests on the twin's own re-export (`ck-20261117-24`) |
+| Postflight | ok (MO2's list-file rewrite restored, hashes checked; settings restored, hashes match) |
+| Not run in this launch | F20, F23, F27 (the CK side), taken up after it with sent input and screenshots (`ck-20261117-32` on). F30 and F29 were not re-run (done in `ck-20261101-02`, `-03`) |
+
+### ck-20261117-32: CK fixture F23 (a vanilla reference's Position X set to 1234.5), agent-run, saved
+
+`ck-run.ps1 -Id ck-20261117-32 -Name F23 -Steps .\steps-fixture-interactive.ps1 -SaveAllowed F23`
+through MO2 on `Kitkraft Dev`, 02:01 to 02:09 local, unattended. The steps file runs one command
+file at a time from the sitting's `queue\` and the driving agent read each step's screenshot and
+output before writing the next (sent input through `ck-input.ps1`, which stops when the CK is
+not in front; window messages to Win32 controls). Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F23\` (`session.md`, `shots\f23-*`, `queue\` with every
+command and its output, `KC_F23.esp`). Fixture choice A7 (the recommendation): `Starfield.esm:1B21E0`, X = `1234.5`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-32` |
+| CK version | 1.16.244.0, from the title |
+| Steps | Data: `Starfield.esm` only, no active file. The Cell View's content is a Win32 pane under the Qt dock (its controls found by window enumeration, not UI Automation): Cell Filter set by `WM_SETTEXT` to `CityNewAtlantisApartmentTEMPLATE` (1 cell), its row double-clicked (the cell loaded, 432 references); the reference list's filter set to `ComIntParSmWallA_MidFull01` (10 rows). The first row's tooltip and the status bar named `001B21E0`. Enter in the list selected every row (Edit then greyed in the context menu); one click selected one row (`LVM_GETSELECTEDCOUNT` 1), the row's context menu (View, Edit, Delete, ...) > Edit opened "Reference" (`(001B21E0)`, Position -17, -6, 4.6256). Position X: click, Ctrl+A, `1234.5`, Tab (read back `1234.5`); OK (no prompt; title gained `*`); File > Save Plugin > "Select Target Plugin", name by `WM_SETTEXT`, Save by `BM_CLICK` |
+| Saved | `overwrite\KC_F23.esp`, 1,800 bytes, SHA-256 `039f4d1a...`; round-trips identical; copied into the sitting folder, then removed from `overwrite\` |
+| Against the twin | `kit diff KCB_F23k.esp KC_F23.esp`: 0 added, 0 removed, 0 changed, **2 unchanged** (the carried cell and the moved reference). Against the CK's own re-save of the twin (`ck-20261117-22`): 1,800 bytes each, 3 bytes differ, from offset 38 (TES4 `HEDR`). So KitKraft's `set` of `DATA` Position X writes what the CK writes for the same edit |
+| Result | **pass**: the CK's edit and KitKraft's are the same records. Postflight ok, settings restored (hashes match) |
+
+### ck-20261117-33: CK fixture F27 (a vanilla cell's owner set to `PlayerFaction`), agent-run, saved
+
+The same way as `ck-20261117-32`, 02:11 to 02:16 local. Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F27\`. Fixture choice A9 (the recommendation):
+`CityNewAtlantisFreestarEmbassy` (Freestar Collective Embassy, `Starfield.esm:017307`), `PlayerFaction`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-33` |
+| Steps | Cell View: Cell Filter by `WM_SETTEXT` (1 cell); the row's context menu (View, Edit, Delete, Clear Unneeded Persistence on Refs, Duplicate Cell, Add to Recent Cells, Group references, Use Info) > Edit opened "<cell> (Cell)" with tabs Common Data, Interior Data, Space Data; Interior Data: Owner NPC, Owner Faction (`FreestarEmbassyFaction`), Lock List, Required Rank, Public Area, Off Limits, Can't Wait. Owner Faction: click, type `PlayerFaction`, Enter (read back `PlayerFaction`); OK; File > Save Plugin as `KC_F27.esp` |
+| Fault, recovered | The first attempt's click landed on the Object Window (the cell dialog had fallen behind it), so the typed name went to that list and Enter opened an Armor record's dialog; it was cancelled (no change: no ARMO in the saved file), the cell dialog brought to the front and checked as the foreground window before the retry |
+| Saved | `overwrite\KC_F27.esp`, 15,491 bytes, SHA-256 `035ac883...`; round-trips identical; copied out, removed from `overwrite\` |
+| Against the twin | `KCB_F27k.esp` (the ownership recipe's edit): the cell's `XOWN` owner is the same (`PlayerFaction`; the 3 padding bytes differ, as in `-23`). Differences: the CK sets cell `DATA` flag `0x80000` (37 -> 524325), writes `XOWN` at another place in the cell's body (body offset 271 in ours, 23,056 in the CK's), and adds an override of the editor cell `aaaMarkers` (`Starfield.esm:012998`), which no step chose |
+| Result | inconclusive: the owner edit matches; the `DATA` flag, the `XOWN` position and the extra cell are for M5.A3 to class. Postflight ok, settings restored (hashes match) |
+
+### ck-20261117-34: CK fixture F20 (a new interior cell with a placed crate), agent-run, stopped at its first step
+
+The same way as `ck-20261117-32`, 02:17 to about 02:24 local; record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F20\`. Fixture choice A8 (the recommendation):
+`Crate_MilitarySupply_01`, cell EditorID `KC_F20_Cell`. **Nothing was created or saved.**
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-34` |
+| Unreachable step | Making a new interior cell. Looked for and not found: World > Cells... opens "<cell> (Cell)" with a list, three tabs, Apply and OK, and no new-cell control; a right-click on its list opened no menu (it selected the first cell, `aaaMarkers`; the dialog was then closed by Cancel); the Object Window's WorldData category has no Cell entry (Atmosphere to zDeprecated Weather); the Cell View list's context menu, on a row or on blank space with no rows listed, offers View, Edit, Delete, Clear Unneeded Persistence on Refs, Duplicate Cell, Group references, and no New. Duplicate Cell would copy a vanilla cell, which is not F20 |
+| Next | An owner sitting shows where the CK makes a new interior cell (or the agent tries the places not tried: the Cell View's World Space "..." button, the Render Window's context menu); placing the crate then follows F29's drag (`ck-20261101-03`) |
+| Result | not-run (no CK fixture); the CK closed with no unsaved change, postflight ok, settings restored (hashes match) |

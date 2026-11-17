@@ -39,6 +39,23 @@ rule: the game ignores input it does not have focus for.
 | SC-4 workbench | **inconclusive** | the "Weapon Workbench / Use (E)" prompt showed; E hid the HUD briefly and returned to the world, no menu |
 | SC-5 menu save | skipped | no permission for a save not named `KitKraftSession-*` (bench sheet A4) |
 
+### Second night (2026-11-17, 00:42 to 00:46, unattended)
+
+Inside session `2026-11-17-T04` (ledger `game-20261117-04`, which holds the details), the
+game kept up by `game.session` `start: true` through a long-lived `kit mcp` of the release
+`kit.exe`. Run without `--ask`; the agent read the screenshots. Every input sent is in each
+run's `inputs.jsonl` under `C:\Modding\kitkraft-observe\scripts\input\runs\`.
+
+| Id | Result | Note |
+| -- | ------ | ---- |
+| SC-4 workbench | **pass** (retry) | the scenario's aim (10 degrees down) left the crosshair above the bench (`20261117-004233-scenarios`); 300 more counts down showed the bench's name, E opened the workbench menu, Tab left it (`20261117-adhoc-sc4`). The scenario's pitch should go about 35 degrees down from level |
+| SC-2 dialogue opened by E | **pass** | `npc_ref=000057BE` (Vasco, Lodge): "Talk (E)", E opened the dialogue, E picked the first option and the line played (`20261117-004401-scenarios`). The scenario's closing Tab, sent during the NPC's line, did nothing; Tab at the option list closed the dialogue (`20261117-adhoc-sc2`) |
+| SC-5 menu save | **pass** | allowed since ADR 0010 Amendment 3; the save landed in the dev profile's `saves\` (`--param save_dir=` must name that folder: the file's default points at the owner's `Documents` saves, which it only lists); after the menu load x was back at -12.99 (`20261117-004532-scenarios`) |
+
+Also learned: the scenarios' assumed pause-menu order (Resume, Save, Load) is wrong in
+1.16.244 (the menu reads Quicksave, Save, Load, ...), yet one Down plus E reached Save, so
+the cursor starts on Quicksave; and the load list showed only the new save, newest first.
+
 Also learned: Tab in the world opens the Data menu, and **opening it made the game
 autosave** into the dev profile's saves (bench sheet, notes); R with nothing targeted
 reloads; R in the Data menu is Set Course. A key whose meaning depends on the screen needs

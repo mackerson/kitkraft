@@ -704,8 +704,8 @@ note = "bench verification mod (KitKraftVerify.esm), rows V-I-ARMO, V-I-ARMO-EQ:
 type = "AVIF"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P08, V-H-AVIF: help listed the form under its runtime ID (presence only); the cloned actor value was set and read on the player (Papyrus, `KKV-P08 AVIF player-value=7`). V-C-AVIF: `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >> 7.00`, graded inconclusive because the correlator did not match `getav` to `GetActorValue` (fixed after the session in crates/game/src/correlate.rs; the row is not re-graded until a session runs it)"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-01"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P08, V-H-AVIF: help listed the form under its runtime ID (presence only); the cloned actor value was set and read on the player (Papyrus, `KKV-P08 AVIF player-value=7`). V-C-AVIF: `player.getav KKV40Avif` answered `GetActorValue: KKV40Avif >> 7.00`, graded inconclusive in game-20261116-04 because the correlator did not match `getav` to `GetActorValue`; re-run with the fixed correlator in game-20261117-01, where it passed on the same answer"
 
 [[entry]]
 type = "BOOK"
@@ -844,8 +844,8 @@ note = "bench verification mod (KitKraftVerify.esm), rows V-P07, V-C-PERK, V-H-P
 type = "QUST"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P09, V-C-QUST: getstage answered 10; the new quest started and its stage 10 was set"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-02", "ledger: game-20261117-05", "ledger: game-20261117-06"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P09, V-C-QUST: getstage answered 10; the new quest started and its stage 10 was set. Verification quest (KitKraftVerifyQuest.esm, game-20261117-02): Q-01, Q-02 and Q-04 passed (the start-game-enabled quest ran the quest script kit attached, its object property held the reference the same build placed, SetStage 10 took); Q-03 failed: the stage 10 fragment kit wrote into the VMAD fragment block left no line in the Papyrus log: its stage had no log entry. With the stage's log entry added (QSDT; game-20261117-05) all four rows passed, Q-03 on `KKQ-Q03 stage 10 fragment ran`: the stage fragment kit writes runs when its stage carries a log entry. game-20261117-06 (plugin built by the alias-script writer of ea53c68f): Q-05 passed too, the alias script kit wrote into the VMAD alias section ran on the forced alias and read its property"
 
 [[entry]]
 type = "RSPJ"
@@ -875,6 +875,111 @@ result = "inconclusive"
 evidence = ["ledger: game-20261116-04"]
 note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), rows V-H-WWED: help listed the form under its runtime ID (presence only). Presence only: no field of the record was seen to take effect"
 
+[[entry]]
+type = "OTFT"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-OTFT: the reporter wrote `KKV-H43 OTFT present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "SOUN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-SOUN: the reporter wrote `KKV-H51 SOUN present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "IRES"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-IRES: the reporter wrote `KKV-H52 IRES present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "TXST"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-TXST: the reporter wrote `KKV-H53 TXST present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "LVLN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-LVLN: the reporter wrote `KKV-H55 LVLN present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "LVLP"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-LVLP: the reporter wrote `KKV-H56 LVLP present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "PACK"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-PACK: the reporter wrote `KKV-H57 PACK present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "WKMF"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-WKMF: the reporter wrote `KKV-H59 WKMF present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "COBJ"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-COBJ: the reporter wrote `KKV-H62 COBJ present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "REGN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-REGN: the reporter wrote `KKV-H63 REGN present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "PCBN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-PCBN: the reporter wrote `KKV-H64 PCBN present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "PCCN"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-PCCN: the reporter wrote `KKV-H65 PCCN present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "SFBK"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-SFBK: the reporter wrote `KKV-H66 SFBK present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "SFPT"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-SFPT: the reporter wrote `KKV-H67 SFPT present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
+[[entry]]
+type = "SFTR"
+status = "game-runtime-tested"
+result = "inconclusive"
+evidence = ["ledger: game-20261117-01"]
+note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-SFTR: the reporter wrote `KKV-H68 SFTR present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+
 # CK-differential-tested: the CK opened KitKraft's first POI and saved it (F30), and placed
 # the same crate itself (F29); every difference is explained (M5.A3).
 
@@ -886,8 +991,10 @@ evidence = [
   "ledger: ck-20261101-02",
   "ledger: ck-20261101-03",
   "ledger: ck-20261101-04",
+  "ledger: ck-20261117-22",
+  "ledger: ck-20261117-25",
 ]
-note = "the carried interior cell's compressed payload came back byte-identical in both fixtures; the CK raised its form version 581 to 582"
+note = "the carried interior cell's compressed payload came back byte-identical in both fixtures; the CK raised its form version 581 to 582; CK bench twins F23k and F31k (2026-11-17): the carried cell came back with no difference"
 
 [[entry]]
 type = "REFR"
@@ -897,8 +1004,86 @@ evidence = [
   "ledger: ck-20261101-02",
   "ledger: ck-20261101-03",
   "ledger: ck-20261101-04",
+  "ledger: ck-20261117-15",
+  "ledger: ck-20261117-22",
+  "ledger: ck-20261117-25",
+  "ledger: ck-20261117-32",
 ]
-note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent"
+note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent; CK bench (2026-11-17): G5's placed references (persistent and temporary), F23k's moved vanilla reference (X = 1234.5) and F31k's placed reference came back with no difference"
+
+# CK bench batch, 2026-11-17 (docs/bench/ck-sitting.md): each type's clone of a vanilla record
+# and its EditorID-only new record, opened as the active file and saved in place by the CK; the
+# oracle (`cargo xtask oracle ck`) found no unexplained difference in any record of the type.
+
+[[entry]]
+type = "GLOB"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-11"]
+note = "CK bench G1: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "TXST"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-11"]
+note = "CK bench G1: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "SOUN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-11"]
+note = "CK bench G1: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "WWED"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-11"]
+note = "CK bench G1: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "IRES"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-11"]
+note = "CK bench G1: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone carries its source's actor-value link"
+
+[[entry]]
+type = "TMLM"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-14"]
+note = "CK bench G4: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "FACT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-16"]
+note = "CK bench G6: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone's reactions are one-sided (copied from its source)"
+
+[[entry]]
+type = "PCMT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-18"]
+note = "CK bench G8: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "STAT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-24"]
+note = "CK bench twin F28k: the clone of CoffeeBrewingMachine01 came back with no difference (G4's EditorID-only new STAT came back filled, ck-20261117-14)"
+
+[[entry]]
+type = "WEAP"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-25"]
+note = "CK bench twin F31k: the WEAP override (set) and clone came back with no difference (G3's EditorID-only new WEAP came back with reset speeds, ck-20261117-13)"
 
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.
