@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_, PACK, COLL, MATT and ADDN (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_, PACK, COLL, MATT, ADDN, SPCH, STND and MOVT (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -542,3 +542,25 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
   `matt_dangling_link_is_reported` (the parent material `PNAM`, the impact data set
   `HNAM`) and `addn_dangling_link_is_reported` (the light `LNAM`): each link is reported
   by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## SPCH, STND and MOVT (KK-341, 2026-11-17)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`). SPCH and STND on the `ContactShadow`
+component layout; MOVT has no base form component block, so the layout names are inert:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| SPCH | not-run | pass |
+| STND | not-run | pass |
+| MOVT | not-run | pass |
+
+- `spch_new_sets_every_typed_member_and_reads_back` (13 subrecords),
+  `stnd_new_sets_every_typed_member_and_reads_back` (27) and
+  `movt_new_sets_every_typed_member_and_reads_back` (7): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding.
+- `spch_dangling_link_is_reported` (the quest `SPQU`, the scenes `SPMA`, a FormID array)
+  and `stnd_dangling_link_is_reported` (the snap template `SNTP`, the adjacent snap node
+  `NNAM`, the art object `ANAM`): each link is reported by `validate`'s `formid.dangling`
+  and listed as `missing` by `refs`. MOVT has no FormID member, so it has no dangling
+  test.
