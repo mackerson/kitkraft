@@ -724,3 +724,75 @@ oracle's counts; the oracle's `report.md` in each sitting's `ingest\oracle\` lis
 | ----- | ------- |
 | ck_open | pass (12 rows: duplicate star database IDs reassigned, the PNDT clone's unique body, PCM node chains, missing surface blocks, keyword lists) |
 | ck_reexport | pass: PCMT. Inconclusive: STDT (clone system ID 73018 -> 119226, `XMPM` rewritten), PCBN (`CTDA` padding; new lost `PRTN`), PCCN (new lost `PRTN`), WKMF (new lost `WMSS`), PNDT, SFPT, SFTR, SFBK (new records filled: 6, 2, 2, 4 members); PNDT, PCCN, SFPT, SFTR, SFBK, WKMF clones unchanged |
+
+### CK bench batch of 2026-11-17, the five fixture twins (`ck-20261117-21` to `-25`), agent-run, saved in place
+
+The same night and runner as the groups (`ck-batch.ps1 -Kinds fixture -Save`), 01:30 to 01:46
+local: KitKraft's side of F20, F23, F27, F28 and the M7 exit plugin's stand-in F31k
+(`docs/bench/ck-batch/fixtures/`), each set as the active file, loaded, saved in place into its
+dev mod with no dialog, and diffed with the oracle. No warning row named any of them; every
+postflight `ok`. Records in `C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\`.
+On every save the CK dropped TES4 `INCC`, as in the groups. Fixture choices (A7 to A9, the
+bench sheet's recommended answers, ADR 0012 Amendment 3 decision 4): F23 `Starfield.esm:1B21E0`
+with X = `1234.5`; F20 `KC_F20_Cell`; F27 Freestar Collective Embassy and `PlayerFaction`; the
+twins were built with them.
+
+### ck-20261117-21: `KCB_F20k.esp` (F20's twin: a new interior cell `KC_F20_Cell`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `6b2b763e...`, 190 bytes; the CK's `4684c94a...`, 277 bytes; loaded in 15 s (the plugin names no master, so the CK loaded it alone) |
+| ck_open | pass |
+| ck_reexport | inconclusive: the CK wrote the cell's EditorID without underscores (`KC_F20_Cell` -> `KCF20Cell`) and added the lighting members `XCLL`, `LTMP`, `XCLW`, `XILS`, as for G5's new cell |
+
+### ck-20261117-22: `KCB_F23k.esp` (F23's twin: `Starfield.esm:1B21E0` moved to X = 1234.5)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `33335273...`, 1,813 bytes; the CK's `5610d4cc...`, 1,800 bytes; loaded in 122 s |
+| ck_open | pass |
+| ck_reexport | pass: the carried cell and the moved reference came back with no difference (`kit diff`: 2 unchanged); CELL and REFR pointers added to `docs/schema/evidence.toml` |
+
+### ck-20261117-23: `KCB_F27k.esp` (F27's twin: the Embassy cell owned by `PlayerFaction`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `d0c4ca31...`, 15,053 bytes; the CK's `362739e7...`, 15,063 bytes; loaded in 118 s |
+| ck_open | pass |
+| ck_reexport | inconclusive by the oracle, classed by hand as padding: `XOWN`'s 3 unused bytes differ (the owner and the rest of the cell unchanged), as G5's carried cell |
+
+### ck-20261117-24: `KCB_F28k.esp` (F28's twin: a clone of `CoffeeBrewingMachine01`)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `09496f59...`, 409 bytes; the CK's `a1aa2b49...`, 396 bytes; loaded in 125 s |
+| ck_open | pass |
+| ck_reexport | pass: the STAT clone came back with no difference; STAT entered in `docs/schema/evidence.toml` |
+
+### ck-20261117-25: `KCB_F31k.esp` (stand-in for the M7 exit plugin: one set, one clone, one place)
+
+| Field | Content |
+| ----- | ------- |
+| Files | ours `8e52c232...`, 6,017 bytes; the CK's `b73c26a5...`, 6,004 bytes; loaded in 123 s |
+| ck_open | pass |
+| ck_reexport | pass: the WEAP override and clone, the carried cell and the placed reference came back with no difference (`kit diff`: 4 unchanged); WEAP entered, CELL and REFR pointers added in `docs/schema/evidence.toml` |
+
+### ck-20261117-31: X11, CK fixture F28 (a vanilla outpost object duplicated), agent-run, saved
+
+`ck-run.ps1 -Id ck-20261117-31 -Name F28 -Steps .\steps-F28.ps1 -SaveAllowed F28` through MO2 on
+`Kitkraft Dev`, 01:46 to 01:51 local, unattended; the save under ADR 0012 Amendment 3 (A6), the
+file dialog filled under ADR 0010 Amendment 2. Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F28\` (`session.md`, `shots\`, the dumps, `ck.esp`
+and `KC_F28.esp`, the same bytes); runner output `..\run-f28.log`. The first time F28 was saved
+(`ck-20261103-01` stopped at the file box seven times).
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-31` |
+| CK version | 1.16.244.0, from the title |
+| Steps | Data: `Starfield.esm` only, no active file. Object Window "*All", Text Filter `CoffeeBrewingMachine01`; the first row's dialog held that EditorID (Cancel); Duplicate from the row's context menu by its place: the list went from 2 to 3 rows and the title gained `*`. File > Save Plugin opened "Select Target Plugin"; the file name went in by `WM_SETTEXT` to the dialog's Edit (control id 1001) and Save by `BM_CLICK` (id 1); no other dialog. The title then named `KC_F28.esp` as the active file |
+| Saved | `overwrite\KC_F28.esp`, 396 bytes, SHA-256 `8b0d532a...`; round-trips identical. Copied into the sitting folder, then removed from `overwrite\` (ADR 0012 Amendment 3, decision 3); the owner has nothing to delete |
+| Against the twin | `KCB_F28k.esp` (`docs/bench/ck-batch/fixtures/`, KitKraft's `clone` of the same STAT, 409 bytes). Same subrecords in the same order and sizes (`EDID`, `OBND`, `ODTY`, `PTT2`, `BFCB`, `BFCE`, `MODL`, `FLLD`, `FULL`, `DNAM`, 261 bytes of body each); every payload identical except two: the CK's `EDID` is `CoffeeBrewingMachine01COPY0000` (ours `KCB_F28_CoffeeBrewingMachine01`), and **the CK's `OBND` is 24 zero bytes** where our clone keeps the source's bounds. FormID: the CK's `000808` (its own counter from `0x800`), ours `001000`; form version 582 (ours 581). TES4 as in F29 |
+| ck_reexport | inconclusive (a fixture, not a re-export: the comparison is with the twin); the OBND difference is for M5.A3 to class. STAT's ck-differential pass rests on the twin's own re-export (`ck-20261117-24`) |
+| Postflight | ok (MO2's list-file rewrite restored, hashes checked; settings restored, hashes match) |
+| Not run | F20, F23, F27 (the CK side): no automated steps exist; the Cell View's rows and the Render Window are not exposed to UI Automation (`ck-20261101-03`). F30 and F29 were not re-run (done in `ck-20261101-02`, `-03`) |

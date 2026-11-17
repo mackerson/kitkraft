@@ -991,8 +991,10 @@ evidence = [
   "ledger: ck-20261101-02",
   "ledger: ck-20261101-03",
   "ledger: ck-20261101-04",
+  "ledger: ck-20261117-22",
+  "ledger: ck-20261117-25",
 ]
-note = "the carried interior cell's compressed payload came back byte-identical in both fixtures; the CK raised its form version 581 to 582"
+note = "the carried interior cell's compressed payload came back byte-identical in both fixtures; the CK raised its form version 581 to 582; CK bench twins F23k and F31k (2026-11-17): the carried cell came back with no difference"
 
 [[entry]]
 type = "REFR"
@@ -1003,8 +1005,10 @@ evidence = [
   "ledger: ck-20261101-03",
   "ledger: ck-20261101-04",
   "ledger: ck-20261117-15",
+  "ledger: ck-20261117-22",
+  "ledger: ck-20261117-25",
 ]
-note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent; CK bench G5 (2026-11-17): the cloned and the placed reference (persistent and temporary) came back with no difference"
+note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent; CK bench (2026-11-17): G5's placed references (persistent and temporary), F23k's moved vanilla reference (X = 1234.5) and F31k's placed reference came back with no difference"
 
 # CK bench batch, 2026-11-17 (docs/bench/ck-sitting.md): each type's clone of a vanilla record
 # and its EditorID-only new record, opened as the active file and saved in place by the CK; the
@@ -1065,6 +1069,20 @@ status = "ck-differential-tested"
 result = "pass"
 evidence = ["ledger: ck-20261117-18"]
 note = "CK bench G8: the clone and the new record came back with no difference"
+
+[[entry]]
+type = "STAT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-24"]
+note = "CK bench twin F28k: the clone of CoffeeBrewingMachine01 came back with no difference (G4's EditorID-only new STAT came back filled, ck-20261117-14)"
+
+[[entry]]
+type = "WEAP"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-25"]
+note = "CK bench twin F31k: the WEAP override (set) and clone came back with no difference (G3's EditorID-only new WEAP came back with reset speeds, ck-20261117-13)"
 
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.

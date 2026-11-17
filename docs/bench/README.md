@@ -48,7 +48,7 @@ below, not rebuilt; worktree `bench-night` at `d8c3b1c3`.
 | 3 OW-2 part 1, CLI parts only | first launch failed (MO2: "Cannot start sfse_loader.exe", from a Git Bash-started holder; nothing ran); retry: **T-02 `additem` pass** (first real run), T-01 and T-03 `inconclusive` (late or ambiguous replies), T-04 manual. Every window check (KK-032 to KK-036, KK-040) `not-run` (A3) | `game-20261117-03`, `-04` |
 | 3 Input scenarios | **SC-4 pass** (retry with more pitch), **SC-2 pass** (Vasco, E), **SC-5 pass** (menu save in the dev profile) | [`input-results.md`](input-results.md), `game-20261117-04` |
 | 4 OW-2 part 2 and 3, M6.O4 | not run: `KC_F31.esp` is made in the window (A3), and the sign-off is the owner's | - |
-| 5 CK batch | left to the CK lane | - |
+| 5 CK batch | run unattended 01:02 to 01:52 by the CK lane: 8 groups and 5 twins loaded and saved in place, F28 saved by the agent; ck-differential **pass** for 12 types (10 new), the rest inconclusive; the mods disabled again ([`ck-sitting.md`](ck-sitting.md), "Results, 2026-11-17") | `ck-20261117-11` to `-25`, `-31` |
 
 The owner's `Documents\My Games\Starfield\Saves` is unchanged (listing compared before and
 after). The game, MO2 and SFSE are closed; no `ABORT` file.
