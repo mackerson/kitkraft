@@ -18,6 +18,12 @@
 //! fragment per item (`edit::vmad::attach`). `index` defaults to 0 and `function` to the
 //! name the official quests use, `Fragment_Stage_<stage, 4 digits>_Item_<index, 2
 //! digits>`. That the function exists in the script is not checked.
+//!
+//! On a `QUST`, an entry may instead carry `alias`: an alias ID (an integer) or an alias name
+//! (`ALID`, a string). The script is then attached to that quest alias, written into the
+//! alias's entry of the `VMAD`'s fragment block; the quest must declare the alias (by the
+//! time scripts are attached, so a `fields` edit of the same call counts), else
+//! `quest.alias-missing`. `alias` and `stages` together are refused.
 
 use std::path::Path;
 
@@ -27,7 +33,7 @@ use super::failed;
 use super::load::Loaded;
 use super::set::find_form;
 use crate::edit::patch::FormName;
-use crate::edit::vmad::{Attach, AttachValue, ObjectTarget, StageFragment};
+use crate::edit::vmad::{AliasTarget, Attach, AttachValue, ObjectTarget, StageFragment};
 use crate::exec::EngineError;
 use crate::validate::attached::{type_byte, Chain, Sources};
 
@@ -40,6 +46,8 @@ pub(crate) struct ScriptArg {
     pub properties: Vec<(String, Value)>,
     /// Quest stage fragments (`stages`), when the script is a quest's fragment script.
     pub stages: Vec<StageFragment>,
+    /// The quest alias (`alias`), when the script is attached to one.
+    pub alias: Option<AliasTarget>,
 }
 
 /// The `scripts` argument of a command, typed for `target` (empty when absent).
@@ -75,11 +83,11 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
             .ok_or_else(|| bad(here.clone(), "must be an object {name, properties}"))?;
         if let Some(k) = obj
             .keys()
-            .find(|k| !matches!(k.as_str(), "name" | "properties" | "stages"))
+            .find(|k| !matches!(k.as_str(), "name" | "properties" | "stages" | "alias"))
         {
             return Err(bad(
                 format!("{here}.{k}"),
-                "unknown key; allowed: name, properties, stages",
+                "unknown key; allowed: name, properties, stages, alias",
             ));
         }
         let name = obj
@@ -101,13 +109,47 @@ pub(crate) fn parse(command: &str, at: &str, value: &Value) -> Result<Vec<Script
             None => Vec::new(),
             Some(v) => stages(command, &format!("{here}.stages"), v)?,
         };
+        let alias = match obj.get("alias") {
+            None => None,
+            Some(v) => Some(alias(command, &format!("{here}.alias"), v)?),
+        };
+        if alias.is_some() && !stages.is_empty() {
+            return Err(bad(
+                here,
+                "takes `alias` or `stages`, not both (an alias holds scripts, not stage fragments)",
+            ));
+        }
         out.push(ScriptArg {
             name: name.trim().to_string(),
             properties,
             stages,
+            alias,
         });
     }
     Ok(out)
+}
+
+/// Reads an `alias` key: an alias ID (an integer 0 to 32767, the range of the 16-bit alias
+/// of a `VMAD` object value) or an alias name.
+fn alias(command: &str, at: &str, value: &Value) -> Result<AliasTarget, EngineError> {
+    match value {
+        Value::Number(n) => n
+            .as_u64()
+            .filter(|id| *id <= 0x7FFF)
+            .and_then(|id| u32::try_from(id).ok())
+            .map(AliasTarget::Id)
+            .ok_or_else(|| {
+                failed(
+                    command,
+                    format!("{at}: an alias ID must be an integer 0 to 32767"),
+                )
+            }),
+        Value::String(s) if !s.trim().is_empty() => Ok(AliasTarget::Name(s.trim().to_string())),
+        _ => Err(failed(
+            command,
+            format!("{at}: must be an alias ID (an integer) or an alias name (a string)"),
+        )),
+    }
 }
 
 /// Reads a `stages` key: a non-empty array of `{stage, index, function}`.
@@ -275,11 +317,27 @@ pub(crate) fn resolve(
                 limitations.push(note);
             }
         }
+        if let Some(alias) = &arg.alias {
+            if let Some(obj) = rep.as_object_mut() {
+                obj.insert(
+                    "alias".into(),
+                    match alias {
+                        AliasTarget::Id(id) => json!(id),
+                        AliasTarget::Name(n) => json!(n),
+                    },
+                );
+            }
+            let note = "scripts: a script on a quest alias is not checked to extend ReferenceAlias, RefCollectionAlias or LocationAlias, nor against the alias's kind".to_string();
+            if !limitations.contains(&note) {
+                limitations.push(note);
+            }
+        }
         reports.push(rep);
         out.push(Attach {
             name: arg.name.clone(),
             properties,
             stages: arg.stages.clone(),
+            alias: arg.alias.clone(),
         });
     }
     if !sources.unreadable.is_empty() {

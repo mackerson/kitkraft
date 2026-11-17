@@ -3,7 +3,9 @@
 //! script list and a fragment script with stage fragments in its fragment block; the built
 //! plugin roundtrips byte for byte and reads back as written. A quest with only a quest
 //! script gets no fragment block, the form of 209 official quests
-//! (`tests/quest_vmad_corpus.rs`).
+//! (`tests/quest_vmad_corpus.rs`). A script on a quest alias (declared by the same
+//! `[[new]]`'s `fields`) goes into that alias's entry of the block, in the official entry
+//! layout; one on an alias the quest does not declare is refused (`quest.alias-missing`).
 
 #![allow(clippy::arithmetic_side_effects)]
 
@@ -244,5 +246,136 @@ scripts = [{{ name = \"Fragments:Quests:QF_KKQuest\", stages = [{{ stage = 10 }}
     );
     let e = build(&d, &two, "Two.esp").unwrap_err();
     assert!(e.contains("a quest holds one"), "{e}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// `setup` plus `KK:AliasReport extends ReferenceAlias` (a `Count` and a `Marker`
+/// property).
+fn setup_alias(name: &str) -> (PathBuf, PathBuf) {
+    let (d, data) = setup(name);
+    std::fs::write(
+        d.join("Scripts").join("KK").join("AliasReport.pex"),
+        pex_with(
+            "KK:AliasReport",
+            "ReferenceAlias",
+            &[("Count", "Int"), ("Marker", "ObjectReference")],
+        ),
+    )
+    .unwrap();
+    (d, data)
+}
+
+/// A spec whose `[[new]]` quest declares reference alias 0 `Target` through `fields`.
+fn alias_spec(data: &Path, quest_scripts: &str) -> String {
+    format!(
+        "version = 3\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
+[[new]]\nname = \"quest\"\ntype = \"QUST\"\nedid = \"KK_Quest\"\nmasters = [\"World.esm\"]\n\
+fields = {{ ANAM = 1, ALST = 0, ALID = \"Target\", ALED = \"\" }}\n\
+scripts = {quest_scripts}\n",
+        data.display()
+    )
+}
+
+#[test]
+fn a_quest_alias_gets_a_script_with_properties() {
+    let (d, data) = setup_alias("quest-alias-script");
+    let text = alias_spec(
+        &data,
+        "[\n  { name = \"KK:QuestReport\", properties = { Count = 1 } },\n  \
+{ name = \"KK:AliasReport\", alias = \"target\", properties = { Count = 7, Marker = \"KC_Crate\" } },\n]",
+    );
+    let r = build(&d, &text, "Alias.esp").unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let rep = r["data"]["scripts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["script"] == json!("KK:AliasReport"))
+        .unwrap();
+    assert_eq!(rep["alias"], json!("target"));
+    assert!(r["limitations"].as_array().unwrap().iter().any(|l| l
+        .as_str()
+        .unwrap()
+        .contains("not checked to extend ReferenceAlias")));
+
+    let out = d.join("Alias.esp");
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let quest = new_form_id(&r);
+    let raw = vmad_bytes(&out, quest);
+    let v = vmad::decode(&raw).unwrap();
+    // The quest script in the list; the alias script only in the alias entry.
+    assert_eq!(v.scripts.len(), 1);
+    assert_eq!(v.scripts[0].name_text(), "KK:QuestReport");
+    let q = vmad::decode_quest_fragments(&v.rest, v.object_format).unwrap();
+    assert!(q.script.is_none() && q.fragments.is_empty());
+    assert_eq!(q.aliases.len(), 1);
+    let e = &q.aliases[0];
+    // The official entry: the quest's own FormID, alias 0, unused 0, version 6, format 2.
+    assert_eq!(
+        (e.object.form_id, e.object.alias, e.object.unused),
+        (quest, 0, 0)
+    );
+    assert_eq!((e.version, e.object_format), (6, 2));
+    assert_eq!(e.scripts.len(), 1);
+    let s = &e.scripts[0];
+    assert_eq!((s.name_text().as_str(), s.flags), ("KK:AliasReport", 0));
+    assert_eq!(s.properties[0].value, vmad::Value::Int(7));
+    assert!(
+        matches!(s.properties[1].value, vmad::Value::Object(o) if o.form_id != 0 && o.alias == -1)
+    );
+    // The whole payload re-encodes to the bytes written.
+    let mut again = vmad::encode(&vmad::Vmad {
+        rest: Vec::new(),
+        ..v.clone()
+    })
+    .unwrap();
+    again.extend(vmad::encode_quest_fragments(&q, v.object_format).unwrap());
+    assert_eq!(again, raw);
+    let rt = execute(
+        "roundtrip",
+        json!({"plugin": out.display().to_string(), "verify": true}),
+    )
+    .unwrap();
+    assert_eq!(rt["data"]["identical"], json!(true), "{:#}", rt["data"]);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_script_on_an_undeclared_alias_is_refused() {
+    let (d, data) = setup_alias("quest-alias-missing");
+    for (alias, why) in [
+        (
+            "3",
+            "quest.alias-missing: the quest has no alias 3 (its aliases: 0 `Target` (reference))",
+        ),
+        (
+            "\"Nobody\"",
+            "quest.alias-missing: the quest has no alias `Nobody`",
+        ),
+        ("-1", "an alias ID must be an integer 0 to 32767"),
+        (
+            "true",
+            "must be an alias ID (an integer) or an alias name (a string)",
+        ),
+        (
+            "0, stages = [{ stage = 10 }]",
+            "takes `alias` or `stages`, not both",
+        ),
+    ] {
+        let text = alias_spec(
+            &data,
+            &format!("[{{ name = \"KK:AliasReport\", alias = {alias} }}]"),
+        );
+        let e = build(&d, &text, "Missing.esp").unwrap_err();
+        assert!(e.contains(why), "{alias}: {e}");
+        assert!(!d.join("Missing.esp").exists());
+    }
+    // A quest with no aliases at all.
+    let text = spec(&data, "[{ name = \"KK:AliasReport\", alias = 0 }]");
+    let e = build(&d, &text, "None.esp").unwrap_err();
+    assert!(e.contains("(its aliases: none)"), "{e}");
     let _ = std::fs::remove_dir_all(&d);
 }

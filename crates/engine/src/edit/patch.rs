@@ -1582,9 +1582,15 @@ pub fn write_patch_with(
                     before: summary(before.as_deref()),
                     after: json!({
                         "scripts": summary(after.as_deref()).get("scripts").cloned().unwrap_or(Value::Null),
-                        "attached": done.iter().map(|d| json!({
-                            "script": d.script, "outcome": d.outcome, "properties": d.properties,
-                        })).collect::<Vec<_>>(),
+                        "attached": done.iter().map(|d| {
+                            let mut j = json!({
+                                "script": d.script, "outcome": d.outcome, "properties": d.properties,
+                            });
+                            if let (Some(id), Some(o)) = (d.alias, j.as_object_mut()) {
+                                o.insert("alias".into(), json!(id));
+                            }
+                            j
+                        }).collect::<Vec<_>>(),
                     }),
                     changed: before != after,
                     notes: Vec::new(),

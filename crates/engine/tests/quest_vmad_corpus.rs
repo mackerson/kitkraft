@@ -7,10 +7,17 @@
 //!    with stage fragments and never sits in the script list, every fragment names that
 //!    script and has the unknown byte 1 (their order is not the stage order in 886 blocks,
 //!    so `attach` keeps the order given);
-//! 2. `attach` (the path `kit build`, `new` and `set` use) rebuilds two official quest
-//!    `VMAD`s byte for byte from their scripts, property values and stages: one with
-//!    scripts and no block, one with a quest script, a fragment script and its stage
-//!    fragments (each the one with the most properties among those `attach` can write).
+//! 2. `attach` (the path `kit build`, `new` and `set` use) rebuilds four official quest
+//!    `VMAD`s byte for byte from their scripts, property values, stages and alias scripts:
+//!    one with scripts and no block, one with a quest script, a fragment script and its
+//!    stage fragments, one holding alias scripts only, and one with a quest script, a
+//!    fragment script and alias scripts (each the one with the most properties among those
+//!    `attach` can write; the alias ones on a copy of the quest's own subrecords, so
+//!    `attach` finds each alias the way a build does);
+//! 3. the alias entries `attach` writes by: every official entry holds the quest's own
+//!    FormID, 0 unused bytes, version 6 and object format 2, and at least one script; which
+//!    alias kinds carry scripts; how many entries name an alias the quest does not declare
+//!    (`attach` refuses those, `quest.alias-missing`).
 //!
 //! `#[ignore]`: reads 2.5 GB. Run
 //! `cargo test -p kitkraft-engine --release --test quest_vmad_corpus -- --ignored --nocapture`
@@ -27,7 +34,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use kitkraft_engine::edit::vmad::{self, AttachValue, ObjectTarget, StageFragment};
+use kitkraft_engine::edit::vmad::{self, AliasTarget, AttachValue, ObjectTarget, StageFragment};
 use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::{
     Body, DecodeLimits, Entry, ParseOptions, Record, RecordHeader, Signature, Subrecord,
@@ -55,6 +62,10 @@ struct Sample {
     at: String,
     vmad: Vec<u8>,
     properties: usize,
+    /// The quest's FormID and its other subrecords (`attach` reads the aliases the record
+    /// declares).
+    form_id: u32,
+    others: Vec<([u8; 4], Vec<u8>)>,
 }
 
 #[derive(Default)]
@@ -78,6 +89,19 @@ struct Stats {
     scripts_only: Option<Sample>,
     /// A quest script, a fragment script and fragments, no aliases.
     with_fragments: Option<Sample>,
+    /// Alias scripts only: no quest script, no fragment script.
+    aliases_only: Option<Sample>,
+    /// A quest script, a fragment script with fragments, and alias scripts.
+    with_aliases: Option<Sample>,
+    /// Alias entries by (holds the quest's FormID, unused, version, object format, has
+    /// scripts) -> count.
+    entry_shapes: BTreeMap<(bool, u16, i16, i16, bool), u64>,
+    /// Alias entries by the kind of alias they name (`reference`, `location`,
+    /// `collection`, `undeclared`) -> count, and where the undeclared ones are.
+    entry_kinds: BTreeMap<&'static str, u64>,
+    undeclared: Vec<String>,
+    /// Blocks whose alias entries are not in alias ID order.
+    entries_unsorted: u64,
     failures: Vec<String>,
 }
 
@@ -116,6 +140,18 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         (None, Some(s)) => s,
         (None, None) => return,
     };
+    let declared = vmad::quest_aliases(subs);
+    let sample = |at: &str, vmad: &[u8], properties: usize| Sample {
+        at: at.to_string(),
+        vmad: vmad.to_vec(),
+        properties,
+        form_id: record.header.form_id,
+        others: subs
+            .iter()
+            .filter(|s| s.signature() != Signature(*b"VMAD"))
+            .map(|s| (s.signature().0, s.data().to_vec()))
+            .collect(),
+    };
     for s in subs.iter().filter(|s| s.signature() == Signature(*b"VMAD")) {
         stats.quests += 1;
         let at = format!("{file} QUST {:08X}", record.header.form_id);
@@ -131,14 +167,7 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         if v.rest.is_empty() {
             stats.no_block += 1;
             if plain && !v.scripts.is_empty() {
-                keep(
-                    &mut stats.scripts_only,
-                    Sample {
-                        at,
-                        vmad: s.data().to_vec(),
-                        properties: main_props,
-                    },
-                );
+                keep(&mut stats.scripts_only, sample(&at, s.data(), main_props));
             }
             continue;
         }
@@ -192,12 +221,85 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
             {
                 keep(
                     &mut stats.with_fragments,
-                    Sample {
-                        at,
-                        vmad: s.data().to_vec(),
-                        properties: main_props + fs.properties.len(),
-                    },
+                    sample(&at, s.data(), main_props + fs.properties.len()),
                 );
+            }
+        }
+        let is_declared = |alias: i16| {
+            declared
+                .iter()
+                .find(|d| i64::from(d.id) == i64::from(alias))
+        };
+        for e in &q.aliases {
+            *stats
+                .entry_shapes
+                .entry((
+                    e.object.form_id == record.header.form_id,
+                    e.object.unused,
+                    e.version,
+                    e.object_format,
+                    !e.scripts.is_empty(),
+                ))
+                .or_default() += 1;
+            let kind = is_declared(e.object.alias).map_or("undeclared", |d| d.kind);
+            *stats.entry_kinds.entry(kind).or_default() += 1;
+            if kind == "undeclared" {
+                stats
+                    .undeclared
+                    .push(format!("{at} alias {}", e.object.alias));
+            }
+        }
+        if !q
+            .aliases
+            .windows(2)
+            .all(|w| w[0].object.alias < w[1].object.alias)
+        {
+            stats.entries_unsorted += 1;
+        }
+        // Alias samples: every alias script attachable, every entry in the shape attach
+        // writes and naming a declared alias, no alias named twice.
+        let alias_props: usize = q
+            .aliases
+            .iter()
+            .flat_map(|e| &e.scripts)
+            .map(|s| s.properties.len())
+            .sum();
+        let entries_ok = !q.aliases.is_empty()
+            && q.aliases.iter().enumerate().all(|(i, e)| {
+                e.object.form_id == record.header.form_id
+                    && e.object.unused == 0
+                    && (e.version, e.object_format) == (6, 2)
+                    && is_declared(e.object.alias).is_some()
+                    && e.scripts.iter().all(attachable)
+                    && q.aliases
+                        .iter()
+                        .skip(i + 1)
+                        .all(|f| f.object.alias != e.object.alias)
+            });
+        if plain && entries_ok {
+            match &q.script {
+                None if v.scripts.is_empty() => {
+                    keep(&mut stats.aliases_only, sample(&at, s.data(), alias_props));
+                }
+                Some(fs)
+                    if !v.scripts.is_empty()
+                        && attachable(fs)
+                        && q.fragments.iter().all(|f| {
+                            f.unknown == 1
+                                && f.script_name == fs.name
+                                && std::str::from_utf8(&f.fragment_name).is_ok()
+                        }) =>
+                {
+                    keep(
+                        &mut stats.with_aliases,
+                        sample(
+                            &at,
+                            s.data(),
+                            main_props + fs.properties.len() + alias_props,
+                        ),
+                    );
+                }
+                _ => {}
             }
         }
     }
@@ -216,7 +318,11 @@ fn walk(entry: &Entry<'_>, file: &str, stats: &mut Stats) {
 
 /// The attach request that writes `script`'s entry: object values become same-call
 /// targets named by their FormID, which the mapping turns back into it.
-fn attach_request(script: &vmad::Script, stages: Vec<StageFragment>) -> vmad::Attach {
+fn attach_request(
+    script: &vmad::Script,
+    stages: Vec<StageFragment>,
+    alias: Option<AliasTarget>,
+) -> vmad::Attach {
     vmad::Attach {
         name: script.name_text(),
         properties: script
@@ -242,17 +348,19 @@ fn attach_request(script: &vmad::Script, stages: Vec<StageFragment>) -> vmad::At
             })
             .collect(),
         stages,
+        alias,
     }
 }
 
-/// `attach` on a fresh quest with `sample`'s scripts (and fragment script with its
-/// stages): the `VMAD` it writes.
+/// `attach` on a fresh quest with `sample`'s scripts, fragment script with its stages and
+/// alias scripts (the quest holding a copy of the official record's other subrecords, so
+/// its aliases are declared): the `VMAD` it writes.
 fn rebuild(sample: &Sample) -> Vec<u8> {
     let official = vmad::decode(&sample.vmad).unwrap();
     let mut requests: Vec<vmad::Attach> = official
         .scripts
         .iter()
-        .map(|s| attach_request(s, Vec::new()))
+        .map(|s| attach_request(s, Vec::new(), None))
         .collect();
     if !official.rest.is_empty() {
         let q = vmad::decode_quest_fragments(&official.rest, 2).unwrap();
@@ -265,16 +373,33 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
                 function: String::from_utf8(f.fragment_name.clone()).unwrap(),
             })
             .collect();
-        requests.push(attach_request(q.script.as_ref().unwrap(), stages));
+        if let Some(fs) = &q.script {
+            requests.push(attach_request(fs, stages, None));
+        }
+        for e in &q.aliases {
+            for s in &e.scripts {
+                requests.push(attach_request(
+                    s,
+                    Vec::new(),
+                    Some(AliasTarget::Id(u32::try_from(e.object.alias).unwrap())),
+                ));
+            }
+        }
     }
     let mut record = Record::new(
         RecordHeader {
             signature: Signature(*b"QUST"),
-            form_id: 0x800,
+            form_id: sample.form_id,
             form_version: 582,
             ..RecordHeader::default()
         },
-        Body::Raw(vec![Subrecord::new(Signature(*b"EDID"), b"KK\0".to_vec())]),
+        Body::Raw(
+            sample
+                .others
+                .iter()
+                .map(|(sig, data)| Subrecord::new(Signature(*sig), data.clone()))
+                .collect(),
+        ),
     );
     let map = |t: &ObjectTarget| match t {
         ObjectTarget::Null => Ok(0),
@@ -290,11 +415,16 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
         .unwrap()
         .data()
         .to_vec();
+    let block = vmad::decode_quest_fragments(&official.rest, 2).ok();
     println!(
-        "{}: {} script(s), {} fragment(s), {} properties, {} bytes; attach wrote {} bytes, identical: {}",
+        "{}: {} script(s), {} fragment(s), {} alias entries ({} scripts), {} properties, {} bytes; attach wrote {} bytes, identical: {}",
         sample.at,
         official.scripts.len(),
-        vmad::decode_quest_fragments(&official.rest, 2).map_or(0, |q| q.fragments.len()),
+        block.as_ref().map_or(0, |q| q.fragments.len()),
+        block.as_ref().map_or(0, |q| q.aliases.len()),
+        block
+            .as_ref()
+            .map_or(0, |q| q.aliases.iter().map(|e| e.scripts.len()).sum::<usize>()),
         sample.properties,
         sample.vmad.len(),
         built.len(),
@@ -305,7 +435,7 @@ fn rebuild(sample: &Sample) -> Vec<u8> {
 
 #[test]
 #[ignore = "reads 2.5 GB of plugins; run in release"]
-fn every_official_quest_fragment_block_roundtrips_and_attach_rebuilds_two() {
+fn every_official_quest_fragment_block_roundtrips_and_attach_rebuilds_four() {
     let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
         .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
         .map(PathBuf::from)
@@ -371,4 +501,23 @@ fn every_official_quest_fragment_block_roundtrips_and_attach_rebuilds_two() {
         .with_fragments
         .expect("an official quest with a quest script and stage fragments");
     assert_eq!(rebuild(&frag), frag.vmad, "{}", frag.at);
+
+    println!(
+        "alias entries by (quest's FormID, unused, version, object format, has scripts) {:?}; \
+         by alias kind {:?}; blocks whose entries are not in ID order {}; undeclared: {:?}",
+        stats.entry_shapes, stats.entry_kinds, stats.entries_unsorted, stats.undeclared
+    );
+    // The one entry shape attach writes.
+    assert_eq!(
+        stats.entry_shapes.keys().copied().collect::<Vec<_>>(),
+        [(true, 0, 6, 2, true)]
+    );
+    let only = stats
+        .aliases_only
+        .expect("an official quest holding alias scripts only");
+    assert_eq!(rebuild(&only), only.vmad, "{}", only.at);
+    let all = stats
+        .with_aliases
+        .expect("an official quest with a quest script, fragments and alias scripts");
+    assert_eq!(rebuild(&all), all.vmad, "{}", all.at);
 }
