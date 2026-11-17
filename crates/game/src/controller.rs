@@ -527,6 +527,8 @@ impl Run<'_> {
         let mut up: Option<Instant> = None;
         // After a `load`: polls in a row that had a reply (R41).
         let mut streak: u32 = 0;
+        // Whether any poll of this wait had a reply (an empty body included).
+        let mut answered = false;
         let mut last = if window {
             format!("no main window of {image} yet; nothing sent")
         } else {
@@ -576,12 +578,23 @@ impl Run<'_> {
                     wait = wait.min(rest);
                 }
             } else {
-                match self.deps.console.run(&cmd, left.min(secs(5))) {
+                let cap = left.min(secs(5));
+                match self.deps.console.run(&cmd, cap) {
+                    // A poll cut short by this wait's own deadline (its timeout under the
+                    // usual 5 s) says nothing new about the game: keep what the last reply
+                    // showed rather than replacing it with "timeout" (the near-deadline poll
+                    // made `an_empty_answer_is_not_ready` flaky under load).
+                    Err(ConsoleError::Timeout) if cap < secs(5) && answered => {
+                        streak = 0;
+                        last = format!("{last}; the last poll ran into the deadline");
+                    }
                     Ok(out) if out.trim().is_empty() => {
+                        answered = true;
                         streak = 0;
                         last = format!("`{cmd}` answered an empty body, not ready");
                     }
                     Ok(out) if !window => {
+                        answered = true;
                         // R41: the reply arrived; what it says is the caller's to read.
                         streak = streak.saturating_add(1);
                         if streak >= PACING_POLLS {
@@ -598,6 +611,7 @@ impl Run<'_> {
                         replies.push(out);
                     }
                     Ok(out) => {
+                        answered = true;
                         // Only the echo is not the game answering (review M1 of G 3b).
                         let echo = crate::probes::echo_only(&cmd, &out);
                         // Any reply holding a `ready_expect` line is the game answering,
