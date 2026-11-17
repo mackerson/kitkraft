@@ -47,7 +47,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | ---- | -----: | --------: | ---- | --------------- | ----- |
 | ContactShadowComponent | 147,487 | 147,487 | `FLCS` | L6096-L6105 | yes |
 | KeywordForm | 95,999 | 83,015 | `KSIZ` | Keywords, L6694-L6697 | KK-282 |
-| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | no (`VLMS` tail width chosen by the entry type) |
+| Volumes | 23,159 | 23,159 | `VLMS` | L6636-L6677 | 2026-11-17 (variable-width union) |
 | ObjectPaletteDefaults | 6,226 | 6,105 | `OPDS` | L6170-L6173 | KK-283 |
 | FullName | 5,775 | 5,695 | `FULL` | L6611-L6614 | KK-284 |
 | AnimationGraph | 4,854 | 4,853 | `ANAM` (2 `BNAM`) | L6079-L6087 | yes |
@@ -68,7 +68,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | TESPlanetModel | 1,825 | 1,825 | `MODL` | L6619-L6635 | KK-285 (`XMPM` opaque) |
 | AddToInventoryOnDestroy | 1,724 | 1,702 | `INAM` | L6075-L6078 | 2026-11-16 |
 | PlanetContentManagerContentProperties | 1,272 | 1,272 | `ZNAM` | L6179-L6198 | yes |
-| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | no (traversal FormID present by a flag bit; half floats) |
+| StoredTraversals | 1,258 | 1,258 | `STRD` | L6235-L6258 | 2026-11-17 (`present_if`, `f16`) |
 | SoundTag | 987 | 966 | `STCP` | L6207-L6210 | yes |
 | WorldSpaceOverlay | 582 | 582 | `SNAM` | L6554-L6560 | 2026-11-16 |
 | QualityUpgrade | 216 | 216 | `QUPA` | L6203-L6206 | yes |
@@ -234,3 +234,35 @@ type), ActivityTracker 10 (configuration strings that carry FormIDs), VehicleCon
 `BGSBlockCellHeighGrid_Component` 1 (no upstream decider entry). `components.rs` prints the
 raw blocks per kind (the census) and, with `KITKRAFT_COMPONENT_SHAPES`, their signature runs.
 
+**Update (2026-11-17):** the two largest raw kinds are typed, after three schema-format
+features (`crates/schema/defs/README.md`):
+
+- **Variable-width field unions** (`variable_width = true`): the variants of a struct-field
+  union may differ in size, each still fixed. A decider value no variant names has no width
+  to keep, so the decode fails and the whole subrecord stays raw (no `Other` arm, never a
+  guessed width). Union variants may now be fixed-count arrays.
+- **Conditional fields** (`present_if = { field, mask, value }`): a struct field present
+  only when bits of an earlier sibling match.
+- **Half floats** (`f16`): kept as their bits (`F16(u16)`), shown as their value; the
+  engine's field paths refuse a number for one (`hex:` still sets its bits).
+
+With them `Volumes` (one `VLMS`: a count, then entries of a type, a 4x4 matrix, three floats
+and a tail of one, two or three floats for types 1, 3 and 5; L6636-L6677, the decider
+L1632-L1646) and `StoredTraversals` (one `STRD`: counted traversals, then counted
+placements of a reference, a vector and their own traversals; each traversal the shared
+`common/Traversal.toml`, whose TRAV FormID is present only when flag 0x4 is clear and which
+ends in four half floats; L6235-L6258 with L5789-L5813) are lead-signature groups. In the
+corpus every `VLMS` entry has type 1, 3 or 5 (upstream's enum also names 11, which its
+decider reads with one float; it is left unnamed, so such an entry would keep its `VLMS`
+raw), and every traversal's flags are 0 or 4. A block whose typed layout cannot decode it
+exactly falls back to raw in `extra`; `components.rs` now counts such blocks in the census
+(and requires none in the official files) instead of failing on them.
+
+Census (`component_layouts_full`, 2026-11-17): 46 layouts type or hold 52 of the 64 kinds
+and 322,220 of the 349,154 blocks (Volumes 23,159: REFR 23,157, STAT 2; StoredTraversals
+1,258: GBFM), every record re-encoding identically; 26,921 blocks are empty; **13 blocks
+in 3 kinds stay raw**, 0 of them typed layouts that fell back: ActivityTracker 10 (its
+configuration strings carry FormIDs), VehicleConfig 2 (length-prefixed strings, sound
+references, WWise GUIDs) and `BGSBlockCellHeighGrid_Component` 1 (no upstream decider
+entry). The REFR and CELL `XTV2` traversal arrays have the same entry layout and could
+now use `common/Traversal.toml`; they stay opaque here (not component data).
