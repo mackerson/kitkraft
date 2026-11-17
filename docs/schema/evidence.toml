@@ -1262,6 +1262,111 @@ result = "pass"
 evidence = ["ledger: ck-20261117-60", "ledger: ck-20261117-63"]
 note = "CK bench: the SFPT type plugin (-60) and G8 rebuilt without SFTR's crashing members (-63): the clone and the new record (with CK_NEW_MEMBERS) came back with no difference; one load warning row, classed by hand: the new surface pattern has no blocks"
 
+# CK-differential passes that rest on an accepted explained-difference rule (owner, 2026-11-17,
+# "Accept all ten"; docs/bench/ck-batch/explained-differences.toml): the oracle with the rules on
+# the latest sitting's saved pair found no unexplained or ours-missing item for any record of the
+# type, and every item it explained for the type is one rule's exact transformation (ledger
+# ck-20261117-65). Each note names the rule and its register row (docs/explained-nonconformities.md);
+# if a rule is withdrawn, these entries go back to inconclusive.
+
+[[entry]]
+type = "BOOK"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G2 (ck-20261117-52), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule BOOK CNAM zero-narrowed (ENC-007): the clone's and the new record's `CNAM` narrowing"
+
+[[entry]]
+type = "ALCH"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G2 (ck-20261117-52), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule CTDA padding (ENC-002): the clone's `CTDA` padding"
+
+[[entry]]
+type = "ARMO"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G2 (ck-20261117-52), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule BO64 zero-dropped (ENC-008): the new record's zero `BO64` dropped"
+
+[[entry]]
+type = "ARMA"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G2 (ck-20261117-52), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule BO64 zero-dropped (ENC-008): the new record's zero `BO64` dropped"
+
+[[entry]]
+type = "LVLI"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-52", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G2 (ck-20261117-52), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule LVLO padding (ENC-003): the clone's `LVLO` padding"
+
+[[entry]]
+type = "COBJ"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-53", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G3 (ck-20261117-53), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule CTDA padding (ENC-002): the clone's `CTDA` padding"
+
+[[entry]]
+type = "REGN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-55", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G5 (ck-20261117-55), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule REGN RPLD reversed:8 (ENC-006): the clone's `RPLD` points in reverse order"
+
+[[entry]]
+type = "PACK"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-56", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G6 (ck-20261117-56), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule PACK PSDT padding (ENC-004): the clone's `PSDT` padding"
+
+[[entry]]
+type = "PERK"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-56", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G6 (ck-20261117-56), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule CTDA padding (ENC-002): the clone's five `CTDA` paddings"
+
+[[entry]]
+type = "LVLN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-56", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G6 (ck-20261117-56), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule LVLO padding (ENC-003): the clone's two `LVLO` paddings"
+
+[[entry]]
+type = "LVLP"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-56", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G6 (ck-20261117-56), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule LVLO padding (ENC-003): the clone's three `LVLO` paddings"
+
+[[entry]]
+type = "PCBN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-63", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G8 (ck-20261117-63), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule CTDA padding and PRTN zero-dropped (ENC-002, ENC-009): the clone's two `CTDA` paddings and the new record's zero `PRTN` dropped"
+
+[[entry]]
+type = "PCCN"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-63", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G8 (ck-20261117-63), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule PRTN zero-dropped (ENC-009): the new record's zero `PRTN` dropped"
+
+[[entry]]
+type = "WKMF"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-63", "ledger: ck-20261117-65"]
+note = "CK bench resit 2 G8 (ck-20261117-63), re-compared with the accepted rules: the clone and the new record came back with no unexplained difference; the pass rests on the accepted rule WKMF WMSS zero-dropped (ENC-010): the new record's zero `WMSS` dropped"
+
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.
 

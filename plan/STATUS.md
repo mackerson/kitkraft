@@ -27,11 +27,13 @@ append a dated log.
   work again: the CK fixtures F20 to F27 that have not passed, the `ck` write style, the
   overhaul's save/reload row O5-15, the workshop and fabricator rows O4-05 and O4-06. A
   game launch still needs the owner's go for that session. Left for the owner alone: the
-  ownership UI rows O4-01 and O4-02 (a person's look), the review of the explained-
-  difference rules, and the milestone sign-offs. M5 is partial. M6 (the cockpit) waits on
+  ownership UI rows O4-01 and O4-02 (a person's look) and the milestone sign-offs. The ten
+  explained-difference rules were accepted on 2026-11-17 ("Accept all ten"); every accepted
+  explained difference is a row of `docs/explained-nonconformities.md`. M5 is partial. M6 (the cockpit) waits on
   the window run and its sign-off (M6.O4). M7 (CK parity) is in progress.
 - **Bench of 2026-11-16/17** (unattended, the owner's go for that night): three CK
-  sittings took `ck-differential-tested` from 2 to 37 types; fixtures F28 and F23 pass,
+  sittings took `ck-differential-tested` from 2 to 37 types, and the re-comparison with the
+  accepted rules (`ck-20261117-65`) added 14 more; fixtures F28 and F23 pass,
   F27 is inconclusive, F20 was not run (no way found to create a new interior cell in the
   CK); the verification mod's 25 rows and the verification quest's 5 rows pass in game;
   OW-2's command-line parts pass except `help` on the renamed item (inconclusive). Not
@@ -75,9 +77,7 @@ What is left for the owner:
   F30 as clean). Left from them: remove the CK's `KitKraftFirstPOI-CK.esp`, `.esm` and
   `Backup\AutoSaveDEFAULT.bak` from MO2's `overwrite\` folder.
 - Group D (M6.O4, M7.O6) stays his for later.
-- **From the bench of 2026-11-16/17**: review the ten rules of
-  `docs/bench/ck-batch/explained-differences.toml` (11 more types pass the CK comparison
-  with them); rule on the send order from the ledger's timestamp table; sit at the desk
+- **From the bench of 2026-11-16/17**: rule on the send order from the ledger's timestamp table; sit at the desk
   once for OW-2 in the window and M6.O4 (click Allow on the computer-use dialog); say
   whether the 37 commits of `e7718b5e`'s CK lane that do not compile alone stay on public
   `main` as they are.
@@ -126,9 +126,10 @@ Owner decisions and work that is owed, newest first. When one closes, delete its
   decision 1 (merge the sprint) is answered; 2 (where the mod ideas are), 3 (agent game
   sessions overnight and one desk sitting), 4 (start "beyond", engine-first) and 5 (small
   and medium plugins) are open.
-- **CK comparison, still differing after the third sitting**: `STAT`, `CELL` (one lighting
-  value), `ACHR` (`XLRL`), `NPC_` (`RNAM`) and the dialogue types (the CK adds branch
-  records); `SFTR` is reopened (a new one with `CNAM` and `DNAM` crashes the CK on load).
+- **CK comparison, still differing with the accepted rules** (`ck-20261117-65`): `STAT`,
+  `CELL` (one lighting value), `ACHR` (`XLRL`), `NPC_` (`RNAM`), `PNDT`, `STDT` (`XMPM`
+  order) and the dialogue types (the CK adds branch records); `SFTR` is reopened (a new one
+  with `CNAM` and `DNAM` crashes the CK on load).
 - **Not re-run**: the verification mod on its new build (its 25 passes were seen on the
   build before the default-member fixes); `validate_corpus_official_files` after the
   `EQUP.ANAM` reserved-ID pin (76 minutes, outside the gate).

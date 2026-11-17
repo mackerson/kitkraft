@@ -21,6 +21,10 @@ Rules that bind every entry:
   copied from the official files beyond the few bytes needed to locate a field.
 - **One finding per entry**, filed to its lane as a `plan/STATUS.md` Request naming the
   entry id (M3.H3).
+- **An explained difference is registered.** A difference an entry accepts as explained
+  (a `[[normalization]]` of a fixture or of `docs/bench/ck-batch/explained-differences.toml`,
+  CK bookkeeping, an authoring choice) gets a row in `docs/explained-nonconformities.md` in the
+  same commit, so it can be found again if it turns out to be a bug's root.
 
 ## In-game sessions (O2, O4, O5)
 
@@ -900,8 +904,9 @@ now has nothing left to reset in the four weapon members the fix wrote.
 - **ck_reexport pass without rules:** GLOB, TXST, SOUN, WWED, IRES (`-41`), TMLM (`-44`), REFR
   (`-45`), FACT (`-46`), **QUST** (`-47`, new: the recipe's clone of `Starfield.esm:00637D` came
   back unchanged), PCMT (`-48`): 10 types, entered or pointed to in `docs/schema/evidence.toml`.
-- **Pass only with the triage's rules** (pending the owner's review of the rules; no evidence
-  entry): COBJ, REGN, PCBN, PCCN, WKMF.
+- **Pass only with the triage's rules** (pending the owner's review of the rules at the time; no
+  evidence entry from this sitting; the rules were accepted on 2026-11-17, see `ck-20261117-65`):
+  COBJ, REGN, PCBN, PCCN, WKMF.
 - **Still differ:** the other 43 of the 58 types, each on its EditorID-only new record (the CK's default
   members, the triage's "A open" rows), plus: CELL new cell's lighting members; ACHR `XLRL`; DIAL
   `BNAM` on both topics, two DLBR (ours-missing) and TES4 `TNAM`; INFO `TRDA` WEM file
@@ -999,8 +1004,9 @@ there), ck_open pass for `-51` to `-56`.
 - **ck_reexport pass without rules (31):** all ten of G1; MISC, KEYM, OTFT, ENCH; WEAP, AMDL, OMOD,
   HAZD; ACTI, CONT, DOOR, LIGH, FURN, FLOR, MSTT, TERM, TMLM, PKIN; REFR, LCTN; FACT. Entered
   in `docs/schema/evidence.toml` (22 new types, nine pointers).
-- **Pass only with the rules (11), pending the owner's review:** BOOK, ALCH, ARMO, ARMA, LVLI,
-  COBJ, REGN, PACK, PERK, LVLN, LVLP.
+- **Pass only with the rules (11), pending the owner's review** when written (accepted
+  2026-11-17; entered by `ck-20261117-65`): BOOK, ALCH, ARMO, ARMA, LVLI, COBJ, REGN, PACK,
+  PERK, LVLN, LVLP.
 - **Differ (4):** STAT new record `FLLD`, `DNAM`; CELL new cell `XCLL` far height range
   `0.0 -> 10000.0`; ACHR `XLRL`; NPC_ `RNAM`. G4 again gained the CK's override of
   `Starfield.esm:01128F`.
@@ -1129,3 +1135,39 @@ and G7, G8 disabled.
 | ----- | ------- |
 | ck_open | pass (5 rows, as `-47`) |
 | ck_reexport | pass: QUST. Differ: DIAL, INFO (as `-47`) |
+
+### ck-20261117-65: the latest saved pairs re-compared with the accepted explained-difference rules (desk entry; no CK run)
+
+Desk work on 2026-11-17, after the owner's ruling of the same day, in chat, verbatim: "Accept
+all ten" (the question: "Accept the ten explained-difference rules?", after a table of all ten).
+No CK, game or MO2 was run; nothing was written under the game or MO2 folders. The CK-saved
+files already on disk were compared again: `cargo xtask oracle ck <fixture>... --rules
+docs/bench/ck-batch/explained-differences.toml --out <scratch>` on the `ingest\fixture\` folders
+of the latest sitting of every group and type plugin (`-51` to `-56`, `-60`, `-62`, `-63`, `-64`;
+`C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\`), with the rule tables as
+committed in `6c21e298` and a release `kit.exe` built from `main` at `ff0db380`. Every pair
+round-trips on both sides and every `match` record was found in both files.
+
+| Id | Verdict with the rules | Pass with rules (the accepted rule each rests on) | Still differ |
+| -- | ---------------------- | ------------------------------------------------- | ------------ |
+| `ck-20261117-51` | clean (0, 0, 4 explained) | none needed | |
+| `ck-20261117-52` | clean (0, 0, 10) | BOOK (`BOOK CNAM zero-narrowed`, clone and new), ALCH (`CTDA padding`), ARMO and ARMA (`BO64 zero-dropped`), LVLI (`LVLO padding`) | |
+| `ck-20261117-53` | clean (0, 0, 5) | COBJ (`CTDA padding`) | |
+| `ck-20261117-54` | fail (2, 1, 4) | | STAT new record `FLLD`, `DNAM` added; the CK's override of `Starfield.esm:01128F` (ours-missing) |
+| `ck-20261117-55` | fail (2, 0, 6) | REGN (`REGN RPLD reversed:8`) | CELL new cell `XCLL` changed (far height range); ACHR `XLRL` added. The carried cell's `XOWN` padding is explained (`CELL XOWN padding`); CELL's pass is from earlier sittings |
+| `ck-20261117-56` | fail (1, 0, 15) | PACK (`PACK PSDT padding`), PERK (`CTDA padding` x5), LVLN (`LVLO padding` x2), LVLP (`LVLO padding` x3) | NPC_ `RNAM` changed (race) |
+| `ck-20261117-60` | clean (0, 0, 4) | none needed (SFPT) | |
+| `ck-20261117-62` | clean (0, 0, 4) | none needed (SFBK) | |
+| `ck-20261117-63` | fail (9, 0, 9) | PCBN (`CTDA padding` x2, `PRTN zero-dropped`), PCCN (`PRTN zero-dropped`), WKMF (`WKMF WMSS zero-dropped`) | PNDT 6 members added (`BFCB`, `BFCE`, `CNAM`, `BDST`, `KNAM`, `BDED`); SFTR `CNAM`, `DNAM` added (ours-missing by choice: they crash the CK on load, `-61`); STDT `XMPM` changed (entry order) |
+| `ck-20261117-64` | fail (5, 2, 4) | | DIAL `BNAM` added on both topics; two DLBR (ours-missing); INFO `TRDA` changed (WEM file top byte); TES4 `TNAM` added |
+
+Counts are unexplained, ours-missing, explained. In every pair TES4 `INCC` removed is explained
+by `TES4 INCC removed` (file level; it enters no type's status).
+
+| Field | Content |
+| ----- | ------- |
+| Rules held to their transformation | Every item a rule explained was checked against the oracle's detail: `CTDA` only `Unused1`/`Unused2`, `LVLO` only `Unused1`, `PSDT` only `Unused`, `XOWN` only `Unused9`, BOOK `CNAM` 4 zero bytes to 1, `RPLD` the same points reversed, `BO64`, `PRTN`, `WMSS` removed when all zero. No rule explained anything beyond its stated transformation, and none was widened |
+| ck_reexport pass with the rules (14) | BOOK, ALCH, ARMO, ARMA, LVLI (`-52`), COBJ (`-53`), REGN (`-55`), PACK, PERK, LVLN, LVLP (`-56`), PCBN, PCCN, WKMF (`-63`): entered in `docs/schema/evidence.toml` as `ck-differential-tested` pass, each note naming the rule it rests on and its row in `docs/explained-nonconformities.md`. ck_open pass for all of them (`-52`, `-53`, `-55`, `-56`, `-63`) |
+| Still differ | STAT (new record), CELL (`XCLL`), ACHR (`XLRL`), NPC_ (`RNAM`), PNDT, SFTR, STDT, DIAL (and DLBR), INFO; unchanged by the rules |
+| After-step | `ck-ingest.ps1` now passes the rules file to the oracle by default (`-Rules`, `-NoRules` to run without), and a drafted pass that rests on a rule names it |
+| Register | The ten rules and the earlier explained differences are rows of `docs/explained-nonconformities.md` (ENC-001 onward) |
