@@ -47,6 +47,7 @@ mod observe;
 mod oracle;
 mod papyrus;
 mod parity;
+mod session_evidence;
 mod sf1edit;
 mod smuggle;
 mod ui;
@@ -178,6 +179,10 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             gameregress::run(&workspace_root()?, &rest)
         }
+        Some("session-evidence") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            session_evidence::run(&rest)
+        }
         Some("oracle") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             oracle::run(&workspace_root()?, &rest)
@@ -232,6 +237,7 @@ fn print_help() {
     println!("           `oracle ck <fixture-dir>... [--out DIR] [--check]`: kitkraft.esm vs the");
     println!("           CK's ck.esm, every difference classed (lane A, M5.A2)");
     println!("  game-regress  replay recorded game sessions at the desk: rebuild, testplan, compare; then replays each recorded session's transcript against its ledger (M4.T7; the live half not built)");
+    println!("  session-evidence <report.json>  print the docs/schema/evidence.toml entries a game session's passing rows justify (KK-361; never writes the file)");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).

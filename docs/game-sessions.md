@@ -405,6 +405,17 @@ host into an engine's session, `session_args` builds the `game.session` argument
 extras such as `start` or `dry_run` merged in, and the fakes remove their folder when
 dropped.
 
+From a session's report to evidence entries: `cargo xtask session-evidence
+observe\<id>\report.json` prints, on stdout, the
+`docs/schema/evidence.toml` `[[entry]]` blocks the session's passing rows justify
+(`game-runtime-tested`, and `save-reload-verified` when both persistence rows passed and a
+passing row of the type shares a form with `persistence 4`), each citing `ledger: <the
+report's ledger_entry>` and a note naming the rows. A type with a failing row gets only a
+comment (`# <SIG>: row T-nn failed; no entry`); a report without a ledger entry proposes
+nothing and fails. It never writes `evidence.toml`: read the entries, check them against
+the ledger entry, and paste the ones that hold. The rules are in the module docs of
+`xtask/src/session_evidence.rs`; `xtask/fixtures/session-evidence/report.json` is a sample.
+
 ## Run sheet OW-1: the send-order session (P2)
 
 Written at the desk on 2026-11-10 (sprint 2026-11-09, G1); **nothing in it has been run.**
