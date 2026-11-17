@@ -352,6 +352,9 @@ pub(crate) fn ck_new_default(record: [u8; 4], member: [u8; 4], zeros: Vec<u8>) -
 /// layout and of all 992 official BOOKs; the CK narrows it to one (class B rule
 /// `BOOK CNAM zero-narrowed`).
 const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
+    (*b"ALCH", *b"FLLD", 0, "01000000"),
+    (*b"ALCH", *b"DESC", 0, "00"),
+    (*b"ALCH", *b"DNAM", 0, "00"),
     (*b"ARMA", *b"FLLD", 0, "01000000"),
     (*b"ARMA", *b"FLLD", 1, "01000000"),
     (*b"ARMA", *b"FLLD", 2, "01000000"),
