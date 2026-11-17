@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
 | quest           |           10 |          10 |   267,549 |  3,908,978 |    41,753 | 202,084 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,608 |    10,517 |      14 |
-| container/other |          123 |         123 |   252,710 |    860,604 |   217,343 |   1,892 |
-| **Total**       |          186 |         186 | 7,490,102 | 47,993,796 | 2,197,360 | 228,405 |
+| container/other |          123 |         123 |   252,710 |    862,346 |   217,343 |     150 |
+| **Total**       |          186 |         186 | 7,490,102 | 47,995,538 | 2,197,360 | 226,663 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 61:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:d136e898d9c1caa0` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:61cbcc018d9a324a` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -196,7 +196,7 @@ Columns:
 | `CUR3`        | Curve3D                        |        36 |          0 |     2 |     1 |      1 |       0 |
 | `RSGD`        | ResourceGenerationData         |        32 |          0 |     3 |     3 |      0 |       0 |
 | `SECH`        | SoundEchoMarker                |        32 |          0 |    15 |    14 |      1 |       0 |
-| `FXPD`        | FacialExpression               |        31 |          0 |     4 |     2 |      0 |       2 |
+| `FXPD`        | FacialExpression               |        31 |          0 |     4 |     4 |      0 |       0 |
 | `GPOF`        | GameplayOption                 |        31 |          0 |    11 |    11 |      0 |       0 |
 | `STAG`        | AnimationSoundTagSet           |        30 |          0 |     4 |     1 |      3 |       0 |
 | `CURV`        | CurveTable                     |        29 |          0 |     2 |     1 |      1 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     1 |      2 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,494 |    236 |      67 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,496 |    236 |      65 |
 
-Subrecord occurrences: 50,419,561 in total; 47,993,796 typed (0 of them failed to decode), 2,197,360 opaque, 228,405 unknown.
+Subrecord occurrences: 50,419,561 in total; 47,995,538 typed (0 of them failed to decode), 2,197,360 opaque, 226,663 unknown.
 
 ## Decoded through the definitions
 
@@ -398,7 +398,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CUR3`    | Curve3D                        |            36 |         36 |      0 |         0 |         0 |                   0 |         36 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData         |            32 |        168 |      0 |         0 |         0 |                   0 |        168 |       0 |        0 |
 | `SECH`    | SoundEchoMarker                |            32 |        866 |      0 |         0 |         0 |                   0 |        866 |       0 |        0 |
-| `FXPD`    | FacialExpression               |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
+| `FXPD`    | FacialExpression               |            31 |      1,804 |      0 |         0 |         0 |                   0 |      1,804 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |            31 |        793 |      0 |         0 |       412 |                   0 |        381 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |            30 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
 | `CURV`    | CurveTable                     |            29 |         29 |      0 |         0 |         0 |                   0 |         29 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 47,993,796 |      0 |         0 |   402,137 |                   0 | 47,591,659 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 47,995,538 |      0 |         0 |   402,137 |                   0 | 47,593,401 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -527,7 +527,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `FSTP`    | Footstep                       |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FSTS`    | FootstepSet                    |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `FURN`    | Furniture                      |            159 |    151 |      8 |         5 |                   0 |    154 |       0 |        0 |
-| `FXPD`    | FacialExpression               |              2 |      2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `FXPD`    | FacialExpression               |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `GBFM`    | GenericBaseForm                |            125 |    117 |      8 |         0 |                   0 |    125 |       0 |        0 |
 | `GBFT`    | GenericBaseFormTemplate        |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `GCVR`    | GroundCover                    |            115 |    105 |     10 |         0 |                   0 |    115 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            112 |    106 |      6 |         0 |                   0 |    112 |       0 |        0 |
-| **Total** |                                |         14,529 | 13,627 |    902 |       422 |                   2 | 14,105 |       0 |        0 |
+| **Total** |                                |         14,531 | 13,629 |    902 |       422 |                   2 | 14,107 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -662,7 +662,6 @@ Signatures seen in records of a defined type that its definition does not name
 - `GBFM`: `STRD` (1,258)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
-- `FXPD`: `MNAM` (871), `MWGT` (871)
 - `CHAL`: `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `DESC` (18)
 
 By design, REFR's FLCS, KSIZ, KWDA, VLMS and OPDS count as unknown: in REFR they
