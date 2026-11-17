@@ -313,3 +313,34 @@ To run it: `kit package` with both `.pex` files, `deploy --dev`, and `deploy ena
 the first plugin. Then run the session command above without `--dry-run`. The two plugins
 may be enabled together. The quest starts when the base save loads, so its lines are in
 the log before Q-01 reads it.
+
+### Alias script (row Q-05, added 2026-11-17, passed in game)
+
+The same recipe now gives `KKQ01Qust` reference alias 0, `MarkerAlias`, forced to the
+placed crate (`ALFR = "new:marker"`, through `fields`), and attaches
+`KitKraft:VerifyAliasReport` to it with `alias = "MarkerAlias"`: `kit` writes it into the
+alias section of the quest's `VMAD` fragment block (`docs/recipes/scripts.md`, "Scripts on
+quest aliases"; `crates/engine/tests/quest_vmad_corpus.rs` rebuilds two official quests'
+alias sections byte for byte). On `OnAliasInit` the script writes `KKQ-Q05` with its
+`Count` property (7; the script's default is 0) and whether the alias holds the crate.
+Row Q-05 of `verify-quest-probes.toml` expects that line. **Passed in game** (`game-20261117-06`, 5 of 5 rows, with stage 10's `QSDT = 0`; plugin `f341e23a...445e62`, 3,413 bytes).
+
+The alias's flags (`FNAM`) cannot be given in `fields`: the signature is also the
+objective's `FNAM`, so `build` refuses it (`new.no-group-lead`) and writes the required
+member as zero. `VTCK` takes a raw hex FormID (`"00000000"`); TOML has no `null`.
+
+Checked headless (kit built from this branch, 2026-11-17):
+
+| Check | Result |
+| ----- | ------ |
+| `kit papyrus compile` (the three scripts, base-game sources) | `VerifyAliasReport.pex` 1,368 bytes; the other two as above (1,699 and 646) |
+| `kit build docsencherify-moderify-quest.toml outerify-quest\KitKraftVerifyQuest.esm` | 3,390 bytes, 4 records, SHA-256 `e6b58d333db8c33a5d49a0475c687670e72c5f39833c4ee88cff1b2b26e58281` (two builds identical; the probe file's `sha256`) |
+| `kit validate --plugin ... --plugins Starfield.esm` | 0 errors, 0 warnings |
+| `kit roundtrip ... --verify` | identical |
+| `kit inspect KKQ01Qust --plugin ...` | `VMAD` ends with the alias section `0100` (one entry), `0000 0000 00100001` (unused, alias 0, the quest `01001000`), `0600 0200 0100` (version 6, object format 2, one script), then `KitKraft:VerifyAliasReport` with `Count` 7 and `Expected` the crate `01001001`: the layout of `Starfield.esm` `QUST` `000D40ED` |
+
+The table is the alias branch before `QSDT = 0` joined the recipe. The integrated recipe (both
+changes) builds 3,413 bytes, SHA-256
+`f341e23a2bd926d6d445dcf1ea0a0b9d0a2d81fa731d635ec23149a20b445e62` (two builds identical,
+validate 0 errors 0 warnings, roundtrip identical; 2026-11-17), the plugin of
+`game-20261117-06` and the probe file's `sha256`.

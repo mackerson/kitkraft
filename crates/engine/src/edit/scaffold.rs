@@ -377,6 +377,25 @@ fn deref(ty: &FieldType) -> &FieldType {
     }
 }
 
+/// `slot`, or, when the group around it lacks a lead ([`missing_lead`]), another slot of
+/// the same signature (not a component's) whose groups all have one: a signature several
+/// groups use (QUST `FNAM` is an objective's flags and a reference alias's) goes to the
+/// group the record has or the fields start.
+pub(crate) fn led_slot(order: &[Slot], slot: usize, present: impl Fn([u8; 4]) -> bool) -> usize {
+    if missing_lead(order, slot, &present).is_none() {
+        return slot;
+    }
+    let Some(sig) = order.get(slot).map(|e| e.sig) else {
+        return slot;
+    };
+    order
+        .iter()
+        .enumerate()
+        .filter(|(i, e)| e.sig == sig && !e.component && *i != slot)
+        .find(|(i, _)| missing_lead(order, *i, &present).is_none())
+        .map_or(slot, |(i, _)| i)
+}
+
 /// The group a subrecord added at `slot` would lack a lead for: the innermost group around
 /// it (or around a group it starts) that the subrecord does not itself start and none of
 /// whose leads `present` says the record has or gets. Returns the group's member path and

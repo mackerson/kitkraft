@@ -40,8 +40,8 @@ use super::set::{
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit, FormName, Nested, ParentForm};
 use crate::edit::scaffold::{
-    component_name, fill_groups, first_unplaced, lead_refusal, member_order, missing_lead,
-    placeholder, record_order, slot_of, slot_placeholder, wanted_slots,
+    component_name, fill_groups, first_unplaced, lead_refusal, led_slot, member_order,
+    missing_lead, placeholder, record_order, slot_of, slot_placeholder, wanted_slots,
 };
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
@@ -501,6 +501,14 @@ pub(crate) fn plan_new(
                 wanted.get(&m).is_some_and(|n| *n > 0)
                     || subs.iter().any(|(_, s)| s.signature().0 == m)
             };
+            // One occurrence of a signature several groups use (QUST FNAM: an objective's
+            // flags and an alias's) goes to the slot whose group the fields start.
+            let first = slot;
+            let slot = if *n <= 1 {
+                led_slot(&order, slot, gets)
+            } else {
+                slot
+            };
             if let Some((group, leads)) = missing_lead(&order, slot, gets) {
                 return Err(failed(
                     command,
@@ -515,7 +523,7 @@ pub(crate) fn plan_new(
             // A member that cannot follow EDID alone (the BFCE that ends a component)
             // starts from its slot's layout too.
             let from_slot = || order.get(slot).and_then(|e| slot_placeholder(&e.ty, whole));
-            let bytes = if *n <= 1 {
+            let bytes = if *n <= 1 && slot == first {
                 placeholder(sig, *s, whole)
                     .map(|zeros| ck_new_default(sig, *s, zeros))
                     .or_else(from_slot)

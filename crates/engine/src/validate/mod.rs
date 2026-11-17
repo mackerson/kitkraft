@@ -15,6 +15,7 @@ pub mod forms;
 pub mod models;
 #[cfg(test)]
 mod models_tests;
+pub mod quest;
 pub mod scripts;
 #[cfg(test)]
 mod tests;
@@ -225,6 +226,24 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "A VMAD property the attached script and its parents do not declare, or whose stored type differs from the declaration (M4.E9); object values are FormIDs, checked by formid.dangling",
+    },
+    RuleInfo {
+        id: "quest.fragment-stage",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A QUST stage fragment (VMAD fragment block) names a stage the quest does not have, or a log entry that stage does not have: the game does not run it (warning when the previous version in load order has the same fragment)",
+    },
+    RuleInfo {
+        id: "quest.fragment-function",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A QUST stage fragment's function is not defined by its script or a parent, as their compiled .pex show; a warning when no .pex is found, so it was not checked",
+    },
+    RuleInfo {
+        id: "quest.alias-undeclared",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A QUST alias script entry (VMAD fragment block) names an alias the quest does not declare (4 official entries in SFBGS050.esm do)",
     },
     RuleInfo {
         id: "asset.missing-model",
@@ -581,6 +600,8 @@ fn validate_plugin(
                 | "navmesh.unchanged"
                 | "papyrus.missing-script"
                 | "papyrus.property-unresolved"
+                | "quest.fragment-stage"
+                | "quest.fragment-function"
         )
     });
 
@@ -774,6 +795,7 @@ fn validate_plugin(
                 &pass.name,
                 pass.on("papyrus.missing-script"),
                 pass.on("papyrus.property-unresolved"),
+                pass.on("quest.fragment-function"),
                 &mut findings,
                 &mut report.limitations,
             );
@@ -1191,7 +1213,9 @@ fn check_record(
     // Scripts attached through VMAD (M4.E9): names and properties go to the papyrus rules
     // after the walk, with what the previous version in load order already attaches (an
     // override carries those as they were: a warning, not an error).
-    let papyrus = pass.on("papyrus.missing-script") || pass.on("papyrus.property-unresolved");
+    let papyrus = pass.on("papyrus.missing-script")
+        || pass.on("papyrus.property-unresolved")
+        || pass.on("quest.fragment-function");
     if papyrus {
         for s in subs.iter().filter(|s| s.signature() == Signature(*b"VMAD")) {
             match crate::edit::vmad::decode(s.data()) {
@@ -1232,6 +1256,62 @@ fn check_record(
                     format!("the VMAD script list does not decode ({e}); its scripts and properties are not checked"),
                 ),
             }
+        }
+    }
+
+    // The quest rules over a QUST's VMAD fragment block (stage fragments and alias scripts).
+    let stage_on = pass.on("quest.fragment-stage");
+    let alias_on = pass.on("quest.alias-undeclared");
+    if sig == *b"QUST" && (stage_on || alias_on) {
+        for s in subs.iter().filter(|s| s.signature() == Signature(*b"VMAD")) {
+            let Ok(v) = crate::edit::vmad::decode(s.data()) else {
+                continue;
+            };
+            let Some(block) = attached::quest_block(&id, &v) else {
+                continue;
+            };
+            // The previous version's block, read only when a fragment has a problem.
+            let st = quest::stages(subs);
+            let needs_earlier = stage_on
+                && block
+                    .fragments
+                    .iter()
+                    .any(|f| quest::fragment_problem(&st, f.stage, f.stage_index).is_some());
+            let earlier = match (&header, needs_earlier) {
+                (
+                    Target::Form {
+                        owner,
+                        object_id,
+                        master_index,
+                    },
+                    true,
+                ) if *master_index < pass.space.masters.len() => {
+                    previous_record(pass, owner, *object_id, *master_index).and_then(
+                        |(plugin, prev)| {
+                            let data = prev.subrecords().and_then(|subs| {
+                                subs.iter()
+                                    .find(|x| x.signature() == Signature(*b"VMAD"))
+                                    .map(|x| x.data().to_vec())
+                            })?;
+                            let ev = crate::edit::vmad::decode(&data).ok()?;
+                            let eb = attached::quest_block(&id, &ev)?;
+                            Some((plugin, eb))
+                        },
+                    )
+                }
+                _ => None,
+            };
+            quest::check(
+                &id,
+                &plugin_name,
+                subs,
+                sub_offset(s),
+                &block,
+                earlier.as_ref().map(|(p, b)| (p.as_str(), b)),
+                stage_on,
+                alias_on,
+                findings,
+            );
         }
     }
 
