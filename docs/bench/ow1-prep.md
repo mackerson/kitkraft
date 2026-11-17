@@ -38,12 +38,8 @@ this branch.
 
 **What is still open (hypotheses, untested in game):**
 
-- The **launch** wait (before any `load`) still uses the send-order count. If the game
-  drops an echo-only launch poll's answer the same way, the launch wait times out at
-  `ready_secs` (300 s) with "N earlier poll(s) still owe their answer". In T01 the first
-  launch poll (91 s, after the 75 s settle) was answered in full, so this did not happen;
-  the settle makes it unlikely, not impossible. The run sheet already says how to grade
-  it (rows `not-run`, retry once). Changing it is a grader decision, not made here.
+- Since KK-369 the **launch** wait (before any `load`) is ready on any reply holding an
+  `SFSE version` line, no longer counting answers in send order.
 - The game can drop a `load`'s `Save file not found.` the same way; that is the limit no
   grader passes (`docs/game-sessions.md`, "Statuses"). The base save exists and hashes
   right, so it should not arise for the base `load`.

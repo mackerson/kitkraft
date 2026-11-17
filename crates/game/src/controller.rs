@@ -493,9 +493,11 @@ impl Run<'_> {
     }
 
     /// Polls the readiness command until the game answers. At launch (`window`), that is a
-    /// non-empty body containing `ready_expect`, when set, counted in send order: an empty or
-    /// blank answer is not ready, nor is one holding only the command's echo, and the n-th
-    /// `ready_expect` line answers the n-th poll still owed one. After a `load` (no
+    /// reply holding at least one `ready_expect` line, when set (any answer but the echo when
+    /// not): an empty or blank answer is not ready, nor is one holding only the command's
+    /// echo. The lines are not counted in send order: the game drops, rather than delays,
+    /// the answer to a command it takes while busy (game-20261116-01, -02; KK-369), so a poll
+    /// answered only by its echo owes nothing to a later one. After a `load` (no
     /// `window`), the poll only paces (ruling R41): ready once [`PACING_POLLS`] polls in a
     /// row had a reply, the echo at least; an empty body, a timeout or an error starts the
     /// count again, and the reply's text never decides readiness (the caller still reads it
@@ -523,9 +525,6 @@ impl Run<'_> {
         let every = secs(self.plan.timeouts.ready_poll_secs).max(self.plan.poll);
         // When the main window was first seen (only with `window`).
         let mut up: Option<Instant> = None;
-        // Launch only: polls whose `ready_expect` line has not arrived yet (their answers
-        // come in send order, review L1' of the 3b fix round).
-        let mut owed: usize = 0;
         // After a `load`: polls in a row that had a reply (R41).
         let mut streak: u32 = 0;
         let mut last = if window {
@@ -601,23 +600,17 @@ impl Run<'_> {
                     Ok(out) => {
                         // Only the echo is not the game answering (review M1 of G 3b).
                         let echo = crate::probes::echo_only(&cmd, &out);
-                        // In send order the n-th `ready_expect` line answers the n-th poll
-                        // still owed one, so a poll answered only by its echo owes its line
-                        // to a later reply, and a line arriving while an older poll is owed
-                        // is that poll's (review L1' of the 3b fix round). With no
-                        // `ready_expect` a line cannot be told apart; any answer but the
-                        // echo is ready.
-                        let answers = if expect.is_empty() {
-                            usize::from(!echo)
+                        // Any reply holding a `ready_expect` line is the game answering,
+                        // whichever poll the line was for: the game drops the answers to
+                        // commands it takes while busy (game-20261116-01, -02; KK-369), so
+                        // counting them in send order could wait forever. With no
+                        // `ready_expect` any answer but the echo is ready.
+                        let ready = if expect.is_empty() {
+                            !echo
                         } else {
-                            let n = out
-                                .lines()
-                                .filter(|l| l.to_ascii_lowercase().contains(&expect))
-                                .count();
-                            owed = owed.saturating_add(1).saturating_sub(n);
-                            n
+                            out.lines()
+                                .any(|l| l.to_ascii_lowercase().contains(&expect))
                         };
-                        let ready = answers > 0 && (expect.is_empty() || owed == 0);
                         if ready {
                             self.shared
                                 .event(format!("{what}: `{cmd}` answered `{}`", clip(&out, 80)));
@@ -626,11 +619,6 @@ impl Run<'_> {
                         }
                         last = if echo {
                             format!("`{cmd}` answered only its echo, not ready")
-                        } else if answers > 0 {
-                            format!(
-                                "`{cmd}` answered `{}`, but {owed} earlier poll(s) still owe their answer, so the line is theirs (send order), not ready",
-                                clip(&out, 60)
-                            )
                         } else {
                             format!("answer `{}`", clip(&out, 80))
                         };
@@ -638,9 +626,6 @@ impl Run<'_> {
                     }
                     Err(e) => {
                         streak = 0;
-                        if window && !expect.is_empty() && matches!(e, ConsoleError::Timeout) {
-                            owed = owed.saturating_add(1);
-                        }
                         last = e.to_string();
                     }
                 }
