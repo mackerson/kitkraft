@@ -149,7 +149,7 @@
 // - MGEF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554; corpus)
 // - MISC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14557-L14605; corpus)
 // - MOVT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14608-L14619; reference)
-// - MRPH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MRPH record (1145) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MRPH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14622-L14649; reference)
 // - MSTT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14652-L14698; corpus)
 // - MTPT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-11-02: every official MTPT record (906) decodes with every subrecord placed and re-encodes identically; corpus)
 // - MUSC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14701-L14722; reference)
@@ -62754,16 +62754,40 @@ impl MovtRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MrphBaseVertexColor {
+    pub value: u8,
+    pub unused: [u8; 3],
+}
+
+impl Field for MrphBaseVertexColor {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "MRPH.MOBC.Value", ctx)?;
+        let f1 = Field::read(r, "MRPH.MOBC.Unused", ctx)?;
+        Ok(Self {
+            value: f0,
+            unused: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for MrphBaseVertexColor {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MrphRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `TMPP`, optional.
-    pub tmpp: Option<Sub<Bytes>>,
+    pub target_morph_path: Option<Sub<ZString>>,
     /// `TCMP`, optional.
-    pub tcmp: Option<Sub<Bytes>>,
+    pub target_chargen_morph_path: Option<Sub<ZString>>,
     /// `MOBC`, required.
-    pub mobc: Option<Sub<Bytes>>,
+    pub base_vertex_color: Option<Sub<MrphBaseVertexColor>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -62804,15 +62828,30 @@ impl MrphRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "MRPH.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.tmpp, subs, *index, "MRPH.TMPP", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.tcmp, subs, *index, "MRPH.TCMP", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.mobc, subs, *index, "MRPH.MOBC", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.target_morph_path,
+                    subs,
+                    *index,
+                    "MRPH.TMPP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.target_chargen_morph_path,
+                    subs,
+                    *index,
+                    "MRPH.TCMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.base_vertex_color,
+                    subs,
+                    *index,
+                    "MRPH.MOBC",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -62820,9 +62859,9 @@ impl MrphRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"TMPP", self.tmpp.as_ref());
-        emit(out, *b"TCMP", self.tcmp.as_ref());
-        emit(out, *b"MOBC", self.mobc.as_ref());
+        emit(out, *b"TMPP", self.target_morph_path.as_ref());
+        emit(out, *b"TCMP", self.target_chargen_morph_path.as_ref());
+        emit(out, *b"MOBC", self.base_vertex_color.as_ref());
     }
 }
 
@@ -62831,6 +62870,26 @@ impl Visit for MrphRecord {}
 impl MrphRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"MRPH";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
