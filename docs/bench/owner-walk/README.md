@@ -32,13 +32,14 @@ game was run to prepare this).
 | W-11 | embassy | O4-01, O4-02 | the ownership recipe: embassy items read **Take**, no crime |
 | W-12 | an outpost | O4-05 | **KKW40 Coffee Maker** is in Build > Decorations and builds |
 
-The apartment stations stand in a row on the floor, from the first mug to the workbench.
+The apartment stations are in the bedroom, on the floor near the foot of the bed; the workbench is spawned where you stand at W-07.
 Every object's name starts with `KKW` and its station's number.
 
 ## Before you start (MO2 and the game closed)
 
 In PowerShell, from the checkout that holds the build (`out\owner-walk\` and
-`outename\`; an agent hands it over built, with a `kit` new enough to have `kit walk`:
+`out
+ename\`; an agent hands it over built, with a `kit` new enough to have `kit walk`:
 `kit help` lists `walk`):
 
 ```powershell
@@ -49,8 +50,8 @@ kit deploy enable C:\Modding\MO2-Starfield --mods KitKraftOwnerWalk --dev --prof
 ```
 
 Check: the plugin `KitKraftOwnerWalk.esm` is 25,171 bytes, SHA-256
-`12acf98f4c832f92de4acb938824d7e340643961b6ccba176185ff9a781f4083` (the deploy dry run
-prints it). Keep `KitKraftVerify.esm` disabled: it uses the same row of floor.
+`1890b6f3cb77408cce58eb7d1277863631a50b96298dc34007b2d646c026b39d` (the deploy dry run
+prints it). `KitKraftVerify.esm` may stay as it is: its references are behind the south wall (y -8), not in the room.
 
 Then in MO2, on `Kitkraft Dev`:
 
@@ -101,7 +102,8 @@ loads are lost), so give it a few seconds.
   Wrench**. Expected: the locker shows as owned (red); the wrenches come out stolen.
 - **W-06** Activate **KKW30 Walk Switch** once. Expected: "KitKraft walk: the switch was
   pressed" on screen.
-- **W-07** Use the **Industrial Workbench** at the end of the row (you have been given 10
+- **W-07** Before pressing Enter at W-06, walk to open floor in the living room: the
+  recorder spawns an **Industrial Workbench** where you stand. Use it (you have been given 10
   iron and 10 aluminum). Expected: under Manufactured, "12g Shotgun Shell" with a
   description starting KKW42, costing 1 iron and 1 aluminum, no research; craft it once.
 - **W-08** You are given the hunting rifle. Expected: Inventory > Weapons reads **Old

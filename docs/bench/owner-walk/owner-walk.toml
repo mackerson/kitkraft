@@ -22,7 +22,7 @@
 # written by hand.
 #
 # Only one KitKraft plugin that places into the apartment should be enabled with this one:
-# the verification mod uses the same row of floor (y -8) and must be disabled.
+# the first POI's crate stands at (-17, -4) in the same room.
 version = 3
 
 [load_order]
@@ -149,15 +149,19 @@ form = "Starfield.esm:017307"
 fields = { "XOWN.Owner" = "Starfield.esm:01C21C" }
 brief = "owner-walk"
 
-# ---- The stations: CityNewAtlantisApartmentTEMPLATE, on the floor (z 4.63) in a row at
-# y -8, where the verification mod's references stood and the game read them back
-# (game-20261116-04). Walking order is east to west, from x -14. ----
+# ---- The stations: CityNewAtlantisApartmentTEMPLATE, on the floor (z 4.63) of the bedroom,
+# within 1.2 m of the first POI's crate at (-17, -4), the one spot a person has stood at
+# (M4.O2). The first build put them in a row at y -8, where the verification mod's references
+# stood: the console read those back, but y -8 is behind the bedroom's south wall (wall
+# pieces at y -6), and on 2026-11-17 the owner saw the mugs fall outside the apartment.
+# The workbench is not placed: nothing here says where 3 m of free floor is, so W-07 spawns
+# one at the player's feet (stations.toml). ----
 
 [[place]]
 name = "owned_mug_ref"
 base = "new:owned_mug"
 cell = "Starfield.esm:21966F"
-position = [-14.0, -8.0, 4.63]
+position = [-16.2, -5.0, 4.63]
 persistent = true
 edid = "KKW50OwnedMugRef"
 fields = { "XOWN.Owner" = "new:owners" }
@@ -167,7 +171,7 @@ brief = "owner-walk"
 name = "free_mug_ref"
 base = "new:free_mug"
 cell = "Starfield.esm:21966F"
-position = [-16.0, -8.0, 4.63]
+position = [-16.8, -5.0, 4.63]
 persistent = true
 edid = "KKW51FreeMugRef"
 brief = "owner-walk"
@@ -177,7 +181,7 @@ brief = "owner-walk"
 name = "your_mug_ref"
 base = "new:your_mug"
 cell = "Starfield.esm:21966F"
-position = [-18.0, -8.0, 4.63]
+position = [-17.4, -5.0, 4.63]
 persistent = true
 edid = "KKW52YourMugRef"
 fields = { "XOWN.Owner" = "Starfield.esm:000007" }
@@ -187,7 +191,7 @@ brief = "owner-walk"
 name = "locker_ref"
 base = "new:locker"
 cell = "Starfield.esm:21966F"
-position = [-21.0, -8.0, 4.63]
+position = [-15.9, -3.2, 4.63]
 persistent = true
 edid = "KKW53LockerRef"
 fields = { "XOWN.Owner" = "new:owners" }
@@ -197,7 +201,7 @@ brief = "owner-walk"
 name = "switch_ref"
 base = "new:switch"
 cell = "Starfield.esm:21966F"
-position = [-24.0, -8.0, 4.63]
+position = [-16.6, -3.0, 4.63]
 persistent = true
 edid = "KKW54SwitchRef"
 brief = "owner-walk"
@@ -205,14 +209,3 @@ scripts = [
   { name = "KitKraft:WalkSwitch", properties = { Counter = "new:counter", Text = "KitKraft walk: the switch was pressed" } },
 ]
 
-[[place]]
-# WorkbenchIndustrial ("Industrial Workbench", Starfield.esm:1F50AD), the vanilla base: a
-# FURN with WorkbenchIndustrialKeyword (0AA209) in its KWDA and no VMAD, so the fabricator
-# recipe can be tried in the apartment.
-name = "bench_ref"
-base = "Starfield.esm:1F50AD"
-cell = "Starfield.esm:21966F"
-position = [-28.0, -8.0, 4.63]
-persistent = true
-edid = "KKW55BenchRef"
-brief = "owner-walk"
