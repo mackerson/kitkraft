@@ -1035,3 +1035,33 @@ status = "save-reload-verified"
 result = "pass"
 evidence = ["ledger: game-20261116-04"]
 note = "bench verification mod (KitKraftVerify.esm), rows V-S-28: after the reload, getisid on the reference still named the cloned base"
+
+[[entry]]
+type = "COLL"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::coll_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::coll_dangling_link_is_reported",
+]
+note = "KK-340: new with every typed leaf member (10 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling CNAM (the collides-with layer list, a FormID array) reported"
+
+[[entry]]
+type = "MATT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::matt_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::matt_dangling_link_is_reported",
+]
+note = "KK-340: new with every typed leaf member (12 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling PNAM (the parent material) and HNAM (the Havok impact data set) reported"
+
+[[entry]]
+type = "ADDN"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::addn_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::addn_dangling_link_is_reported",
+]
+note = "KK-340: new with every typed leaf member (15 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; the whole-opaque particle system data (PSDF) is its unchecked subrecord; dangling LNAM (the light) reported"

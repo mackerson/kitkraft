@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_ and PACK (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_, PACK, COLL, MATT and ADDN (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -520,3 +520,25 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
 
 - KK-312: `npc_new_sets_every_typed_member_and_reads_back` (116 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and two unchecked subrecords, the whole-opaque `NAM5` and `ONA2`, whose race override blocks are an opaque tail of no fixed size (`validate` cannot rule out a FormID there, `edit::patch::has_opaque`; the test names it through `writes_and_reads_back_with_opaque_tail`, and the count stays an exact equality). `npc_dangling_link_is_reported` (the race `RNAM`, the class `CNAM`, the voice type `VTCK` and the default layer `DEFL`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
 - KK-313: `pack_new_sets_every_typed_member_and_reads_back` (54 subrecords): `new` with every typed leaf member of the definition, read back byte for byte, `validate` with no finding and 1 whole-opaque subrecord unchecked. `pack_dangling_link_is_reported` (the combat style `CNAM`, the owner quest `QNAM`, the animation flavor `FLAV` and the idle list `IDLA`): each link is reported by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+## COLL, MATT and ADDN (KK-340, 2026-11-17)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`). COLL, MATT and ADDN on the
+`ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| COLL | not-run | pass |
+| MATT | not-run | pass |
+| ADDN | not-run | pass |
+
+- `coll_new_sets_every_typed_member_and_reads_back` (10 subrecords),
+  `matt_new_sets_every_typed_member_and_reads_back` (12) and
+  `addn_new_sets_every_typed_member_and_reads_back` (15, the whole-opaque `PSDF`
+  unchecked): `new` with every typed leaf member of the definition, read back byte for
+  byte, `validate` with no finding.
+- `coll_dangling_link_is_reported` (the collides-with layers `CNAM`, a FormID array),
+  `matt_dangling_link_is_reported` (the parent material `PNAM`, the impact data set
+  `HNAM`) and `addn_dangling_link_is_reported` (the light `LNAM`): each link is reported
+  by `validate`'s `formid.dangling` and listed as `missing` by `refs`.
