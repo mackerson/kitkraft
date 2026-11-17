@@ -1069,7 +1069,7 @@ note = "CK bench G6: the clone and the new record came back with no difference; 
 type = "PCMT"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-18", "ledger: ck-20261117-48"]
+evidence = ["ledger: ck-20261117-18", "ledger: ck-20261117-48", "ledger: ck-20261117-63"]
 note = "CK bench G8: the clone and the new record came back with no difference"
 
 [[entry]]
@@ -1090,7 +1090,7 @@ note = "CK bench twin F31k: the WEAP override (set) and clone came back with no 
 type = "QUST"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-47"]
+evidence = ["ledger: ck-20261117-47", "ledger: ck-20261117-64"]
 note = "CK bench resit G7: the clone of Starfield.esm:00637D (stages and a script, no aliases) and the new record came back with no difference (the first sitting's clone of a quest with aliases lost its alias-script block, ck-20261117-17)"
 
 [[entry]]
@@ -1246,6 +1246,20 @@ status = "ck-differential-tested"
 result = "pass"
 evidence = ["ledger: ck-20261117-54"]
 note = "CK bench resit 2 G4: the clone and the new record (written with the CK's new-record members, CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "SFBK"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-62", "ledger: ck-20261117-63"]
+note = "CK bench: the SFBK type plugin (-62) and G8 rebuilt without SFTR's crashing members (-63): the clone and the new record (with CK_NEW_MEMBERS) came back with no difference"
+
+[[entry]]
+type = "SFPT"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-60", "ledger: ck-20261117-63"]
+note = "CK bench: the SFPT type plugin (-60) and G8 rebuilt without SFTR's crashing members (-63): the clone and the new record (with CK_NEW_MEMBERS) came back with no difference; one load warning row, classed by hand: the new surface pattern has no blocks"
 
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.

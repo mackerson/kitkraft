@@ -348,7 +348,9 @@ pub(crate) fn ck_new_default(record: [u8; 4], member: [u8; 4], zeros: Vec<u8>) -
 /// the CK saved it, in hex (`0*<n>`: `n` zero bytes). `new` writes them unless the fields
 /// give that signature. Left out: NPC_ `RNAM` (the CK's race `Starfield.esm:00347D`, a
 /// form of a master the plugin may not have) and PNDT's keyword component (component
-/// layouts are another lane's tonight). BOOK `CNAM` is written as the 4 zero bytes of its
+/// layouts are another lane's tonight), and SFTR's `CNAM` and `DNAM` (4 zero bytes each, as
+/// the CK saved them in ck-20261117-18: a plugin whose new SFTR carries them crashed the CK
+/// on load, ck-20261117-58, -59 and -61, while one without them loaded). BOOK `CNAM` is written as the 4 zero bytes of its
 /// layout and of all 992 official BOOKs; the CK narrows it to one (class B rule
 /// `BOOK CNAM zero-narrowed`).
 const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
@@ -438,8 +440,6 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"SFBK", *b"KNAM", 0, "00"),
     (*b"SFPT", *b"FNAM", 0, "0*1024"),
     (*b"SFPT", *b"GNAM", 0, "0*256"),
-    (*b"SFTR", *b"CNAM", 0, "00000000"),
-    (*b"SFTR", *b"DNAM", 0, "00000000"),
     (*b"TERM", *b"FLLD", 0, "01000000"),
     (*b"TERM", *b"WBDT", 0, "00"),
     (*b"TERM", *b"STOP", 0, ""),

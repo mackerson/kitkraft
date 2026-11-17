@@ -1019,3 +1019,65 @@ there), ck_open pass for `-51` to `-56`.
 | ----- | ------- |
 | ck_open | **fail**, the same crash about 50 s into the load: reproducible |
 | ck_reexport | not-run |
+### CK bench, the G8 crash isolated (`ck-20261117-60` to `-64`), agent-run, saved in place
+
+Same night, same runner and rules, 04:24 to 04:40 local. `kit diff` of the `-48` and `-58` G8
+plugins: three records changed, each only by the members `CK_NEW_MEMBERS` added to the new record
+(SFPT `FNAM` 1,024 and `GNAM` 256 zero bytes; SFTR `CNAM`, `DNAM` 4 zero bytes each; SFBK `HNAM`,
+`INAM`, `JNAM`, `KNAM`); `kit inspect` of the CK's `-48` save shows the same members with the
+same bytes (the CK stored its SFTR compressed). The three type plugins (`docs/bench/ck-batch/types/`,
+built with the kit of `8b9b7d89` into `C:\Modding\kitkraft-observe\ck-2026-11-17d\plugins\types\`)
+were deployed as their own dev mods and sat one per launch: SFPT (`-60`) loaded in 102 s and saved,
+SFBK (`-62`) in 108 s and saved, **SFTR (`-61`) crashed the CK about 50 s into the load**, as G8 did
+in `-58` and `-59`. Member by member was not tried (it needs a kit build per variant). Fix: SFTR's
+two entries removed from `CK_NEW_MEMBERS` (the test `a_new_record_is_written_as_the_ck_saved_it`
+keeps them apart); G8 rebuilt with that kit (164,647 bytes, `eebce829...`) into
+`C:\Modding\kitkraft-observe\ck-2026-11-17e\plugins\` and sat (`-63`): **loaded in 102 s and
+saved** (`4140bebe...`, 164,677 bytes; the CK adds the two SFTR members back in its save, so it
+writes what it cannot load). G7 re-sat (`-64`): loaded in 99 s and saved, byte-identical to `-47`'s
+save. After: CK and MO2 closed, the two settings files hash-identical to the copies taken before
+(`3fbea763...`, `2c25a70f...`), `overwrite\` empty, the Saves listing unchanged, the three type mods
+and G7, G8 disabled.
+
+| Id | Plugin | Load | ck_open | ck_reexport |
+| -- | ------ | ---: | ------- | ----------- |
+| `ck-20261117-60` | `KCB_T_SFPT.esp` | 102 s | pass (1 row: the new surface pattern has no blocks) | pass: SFPT |
+| `ck-20261117-61` | `KCB_T_SFTR.esp` | - | **fail**: the CK crashed during the load | not-run |
+| `ck-20261117-62` | `KCB_T_SFBK.esp` | 108 s | pass (no row) | pass: SFBK |
+| `ck-20261117-63` | `KCB_G8_Planet.esp` (SFTR members removed) | 102 s | pass (10 rows, as `-48`) | pass: PCMT, SFPT, SFBK. Pass with rules: PCBN, PCCN, WKMF. Differ: SFTR `CNAM`, `DNAM` added by the CK (now ours-missing by choice), PNDT 6 members (open row), STDT `XMPM` order |
+| `ck-20261117-64` | `KCB_G7_Quest.esp` | 99 s | pass (5 rows, as `-47`) | pass: QUST. Differ: DIAL `BNAM`, two DLBR, TES4 `TNAM`; INFO `TRDA` WEM file top byte |
+
+### ck-20261117-60: `KCB_T_SFPT.esp` (SFPT alone)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, the new surface pattern without blocks) |
+| ck_reexport | pass: SFPT (clone and new record; only TES4 `INCC` left without rules) |
+
+### ck-20261117-61: `KCB_T_SFTR.esp` (SFTR alone)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | **fail**: the CK crashed about 50 s into the load |
+| ck_reexport | not-run |
+
+### ck-20261117-62: `KCB_T_SFBK.esp` (SFBK alone)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (no row) |
+| ck_reexport | pass: SFBK |
+
+### ck-20261117-63: `KCB_G8_Planet.esp` rebuilt without SFTR's `CNAM`, `DNAM`
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (10 rows, as `-48`) |
+| ck_reexport | pass: PCMT, SFPT, SFBK. Pass with rules: PCBN, PCCN, WKMF. Differ: SFTR (the CK adds `CNAM`, `DNAM`), PNDT, STDT |
+
+### ck-20261117-64: `KCB_G7_Quest.esp` (re-sit of `-57`)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows, as `-47`) |
+| ck_reexport | pass: QUST. Differ: DIAL, INFO (as `-47`) |

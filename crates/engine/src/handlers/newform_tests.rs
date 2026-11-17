@@ -683,10 +683,12 @@ const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
 /// race `Starfield.esm:00347D`, a master's form; BOOK `CNAM` keeps the 4 zero bytes of its
 /// layout and of every official BOOK (the CK narrows it, class B `BOOK CNAM
 /// zero-narrowed`); ARMO and ARMA keep a zero `BO64` the CK drops (class B `BO64
-/// zero-dropped`, compared apart).
+/// zero-dropped`, compared apart). SFTR's `CNAM` and `DNAM` are left out: a plugin whose new
+/// SFTR carries them, as the CK saved them, crashed the CK on load (ck-20261117-58, -59, -61).
 fn ck_saved_new_kept_apart(sig: &str) -> &'static [(&'static str, &'static str)] {
     match sig {
         "CELL" => &[("FULL:4B4342204E65772043656C6C00", "")],
+        "SFTR" => &[("CNAM:00000000", ""), ("DNAM:00000000", "")],
         "NPC_" => &[("RNAM:7D340000", "RNAM:00000000")],
         "BOOK" => &[("CNAM:00", "CNAM:00000000")],
         _ => &[],
