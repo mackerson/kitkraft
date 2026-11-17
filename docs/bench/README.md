@@ -90,6 +90,12 @@ Last night's launch go and desk-free answers covered last night only; tonight's 
 again. The agent records the answers verbatim in the first ledger reading and passes the
 save words to `-OwnerSaveOk`.
 
+**Settled by the owner's ruling of 2026-11-16** (ADR 0012 Amendment 3, ADR 0010 Amendment 3):
+A4 to A13 are no longer asked. A4, A5 and A6 are **yes** (the words for `-OwnerSaveOk` are the
+ruling's, quoted in ADR 0012 Amendment 3); A7 to A12 take the recommended answer; A13 is
+**agent**. Only A1, A2 and A3 are asked at the bench: the launch go, the desk-free time and
+the Allow click.
+
 | # | Question | Pick | Recommended |
 | - | -------- | ---- | ----------- |
 | A1 | Game launch go for this evening: the verification re-run (one launch), the verification quest (one), OW-2 (two in part 1, one in part 2)? | yes / no | **yes** |

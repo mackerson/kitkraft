@@ -272,3 +272,41 @@ The owner, in chat, 2026-11-01, verbatim: "accept all", which takes the recommen
   F30 is not clean yet (`ck-20261101-01`: the CK loaded the plugin but would not take the
   master-flagged file as the active file, so nothing was saved). F20..F28 still need an
   OK each.
+
+## Amendment 3 (2026-11-16, accepted): CK saves in automated sittings
+
+### Owner ruling 2026-11-16
+
+The owner, in chat, 2026-11-16, verbatim: "let's revise this position: I'm interested in
+getting as much of the QA completed by automation as we can. As long as we don't mess up my
+primary save game, I'm fine, and we can probably bubble wrap that or don't even need to
+thanks to MO2."
+
+### Decision
+
+1. **CK saves no longer need an OK per sitting.** An automated sitting may save plugins from
+   the CK (the F20..F30 fixtures, the `KCB_*` bench batch, edit-and-diff sittings) under the
+   rules that already held for F30: the dev profile (`Kitkraft Dev`), each plugin in its own
+   dev mod or `overwrite\`, copies into `C:\Modding\kitkraft-observe\`, and the two CK
+   settings files restored. This replaces Amendment 2's "CK saves stay per sitting" and the
+   last clause of its decision 6.
+2. **The one limit is the owner's primary save games** (`Documents\My Games\Starfield\Saves`).
+   Nothing an agent runs may write, rename or delete there. The CK writes no game saves. The
+   game is launched only through MO2 on a profile whose `settings.ini` says `LocalSaves=true`,
+   so its saves stay in the profile; `kit game session`'s preflight already refuses a profile
+   without it (`profile-settings`).
+3. **Housekeeping inside the dev profile is the agent's.** An agent may delete the CK's own
+   files from MO2's `overwrite\` after a sitting, and may remove saves it made in the dev
+   profile's `saves\`.
+4. **Fixture choices default to the recommendation.** Where a sitting needs a choice the
+   bench sheet lists with a recommended answer (which reference, which EditorID), the agent
+   takes the recommendation and records it; the owner can overrule afterwards.
+
+### What does not change
+
+- No CK command-line switches and no static scan of the CK binary (Amendment 2).
+- Labels remain the only CK text repeated anywhere.
+- A game launch still needs the owner's go for that session (ADR 0010): the owner plays on
+  the same machine and graphics card. That is a scheduling rule, not a QA permission.
+- Sign-offs that are the owner's judgement (M6.O4) stay the owner's.
+- A driver install or a new third-party crate is still the owner's decision.

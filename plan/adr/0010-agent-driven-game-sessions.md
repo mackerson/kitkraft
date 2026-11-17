@@ -285,3 +285,12 @@ screenshot based play."
   list" first (Amendment 1 (c)).
 - First work under this amendment is research only (prior art, virtual controllers,
   faster capture); nothing is built or launched until the owner picks a design.
+
+## Amendment 3: owner ruling 2026-11-16, saves inside the dev profile
+
+The owner, in chat, 2026-11-16: "As long as we don't mess up my primary save game, I'm
+fine" (full text in ADR 0012 Amendment 3). An agent-driven session may therefore make game
+saves that are not named `KitKraftSession-*` (a save through the pause menu, an autosave)
+when a probe needs one, provided the session runs through MO2 on a profile with
+`LocalSaves=true`. The owner's saves in `Documents\My Games\Starfield\Saves` stay untouched.
+The launch still needs the owner's go per session.
