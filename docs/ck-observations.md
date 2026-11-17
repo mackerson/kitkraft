@@ -843,3 +843,124 @@ The same way as `ck-20261117-32`, 02:17 to about 02:24 local; record in
 | Unreachable step | Making a new interior cell. Looked for and not found: World > Cells... opens "<cell> (Cell)" with a list, three tabs, Apply and OK, and no new-cell control; a right-click on its list opened no menu (it selected the first cell, `aaaMarkers`; the dialog was then closed by Cancel); the Object Window's WorldData category has no Cell entry (Atmosphere to zDeprecated Weather); the Cell View list's context menu, on a row or on blank space with no rows listed, offers View, Edit, Delete, Clear Unneeded Persistence on Refs, Duplicate Cell, Group references, and no New. Duplicate Cell would copy a vanilla cell, which is not F20 |
 | Next | An owner sitting shows where the CK makes a new interior cell (or the agent tries the places not tried: the Cell View's World Space "..." button, the Render Window's context menu); placing the crate then follows F29's drag (`ck-20261101-03`) |
 | Result | not-run (no CK fixture); the CK closed with no unsaved change, postflight ok, settings restored (hashes match) |
+
+### CK bench resit of 2026-11-17, the eight group plugins rebuilt after the triage (`ck-20261117-41` to `-48`), agent-run, saved in place
+
+The second unattended sitting of the night (owner asleep; saves under ADR 0012 Amendment 3, the
+owner's words of 2026-11-16 in `-OwnerSaveOk` and every `result.json`), to check the triage of
+`docs/bench/ck-batch/triage-20261117.md` against the CK. Kit and recipes from branch
+`opus/ck-resit-20261117` at `6abd8fcf` (the triage head); the eight group plugins rebuilt with
+`build.ps1`'s group step into `C:\Modding\kitkraft-observe\ck-2026-11-17b\plugins\` (every one 0
+validate errors, 0 warnings, round-trip identical; the 01:02 run's files untouched). G1 and G2
+came out byte-identical to the first sitting's (no fix touched their types); the other six
+changed. Deploy: each dev mod still held the first sitting's CK save, so `kit deploy` refused
+(`target-modified`); the CK's file (already copied out as `ck-2026-11-17\bench-1x-*\ck.esp`,
+hash checked) was replaced by the file the mod's `kitkraft-deploy.json` names, then
+`kit deploy --dev` (dry run first) and `kit deploy enable` for the eight mods. `ck-batch.ps1
+-Kinds group -Save` (through a copy of the first sitting's runner, `ck-2026-11-17b\run-batch-b.ps1`)
+ran `ck-plugin.ps1 -Save` once per plugin, 02:54 to 03:23 local, each its own CK launch through
+MO2 on `Kitkraft Dev`: set as the active file, loaded, File > Save Plugin saved **in place with no
+dialog** (8 of 8), the CK closed. Every postflight `ok`; the two settings files restored after
+each launch and, at the end, hash-identical to the copies taken before the sitting
+(`3fbea763...`, `2c25a70f...`); `overwrite\` empty; the `Documents\My Games\Starfield\Saves`
+listing (119 entries, names, sizes, times) unchanged; the eight mods disabled again with `kit
+deploy disable`. CK 1.16.244.0 from the title in every launch. Records:
+`C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\` (`session.md`, `result.json`,
+`shots\`, `kitkraft.esp`, `ck.esp`, the load logs, `ingest\oracle\` without rules,
+`ingest\oracle-rules\` with `--rules docs/bench/ck-batch/explained-differences.toml`,
+`resit-summary.json`). After-step: `ck-ingest.ps1` (no `-Apply`) and the oracle a second time with
+the rules; the per-type result is in `docs/bench/ck-batch/resit-20261117.md`.
+
+| Id | Plugin | Ours SHA-256, bytes | CK's SHA-256, bytes | Load | Warning rows naming the plugin (first sitting) | Oracle, no rules / with rules (unexplained, ours-missing, explained) |
+| -- | ------ | ------------------- | ------------------- | ---: | ---------------------------------------------: | ------ |
+| `ck-20261117-41` | `KCB_G1_Core.esp` | `17c2fca0...`, 3,140 | `e3df49c6...`, 3,222 | 124 s | 1 (1) | 11, 0, 3 / 10, 0, 4 |
+| `ck-20261117-42` | `KCB_G2_Items.esp` | `7b6619fb...`, 5,376 | `14d8cd1b...`, 5,583 | 120 s | 5 (5) | 32, 0, 3 / 26, 0, 9 |
+| `ck-20261117-43` | `KCB_G3_Weapons.esp` | `789e623a...`, 4,441 | `7a65e021...`, 4,579 | 141 s | 1 (6) | 9, 0, 3 / 7, 0, 5 |
+| `ck-20261117-44` | `KCB_G4_Objects.esp` | `b9a7d21c...`, 10,878 | `00d586cb...`, 11,250 | 114 s | 3 (4) | 16, 1, 3 / 15, 1, 4 |
+| `ck-20261117-45` | `KCB_G5_World.esp` | `4a05ab3d...`, 17,537 | `ef22259f...`, 17,656 | 138 s | 1 (1,426) | 12, 0, 3 / 9, 0, 6 |
+| `ck-20261117-46` | `KCB_G6_Actors.esp` | `eabaeb9b...`, 2,485 | `40d2919e...`, 2,607 | 113 s | 6 (6) | 35, 0, 3 / 23, 0, 15 |
+| `ck-20261117-47` | `KCB_G7_Quest.esp` | `1638a2fe...`, 2,032 | `39b716e7...`, 2,199 | 115 s | 5 (5) | 6, 2, 3 / 5, 2, 4 |
+| `ck-20261117-48` | `KCB_G8_Planet.esp` | `19c99c31...`, 163,326 | `753ac688...`, 164,677 | 105 s | 10 (12) | 21, 0, 3 / 15, 0, 9 |
+
+Both files round-trip in every pair; every match is complete (20/20, 18/18, 10/10, 22/22, 8/8,
+12/12, 8/8, 18/18). Two observations about the CK itself: G1's save is byte-identical to the
+first sitting's (`e3df49c6...`); G2's (same input) differs from it in one byte of the TES4 header
+(offset 38, the HEDR the oracle already explains), and `kit diff` finds the two saves' 18 records
+unchanged. G3's save is byte-identical to the first sitting's although our input changed: the CK
+now has nothing left to reset in the four weapon members the fix wrote.
+
+- **ck_open: pass for all eight**, the warning rows classed by hand as data consequences of the
+  recipes: G1 the IRES clone's actor-value link; G2 new ALCH, ENCH without effects and ARMO, ARMA
+  without biped slots; G3 the new OMOD without its bridge data (the new WEAP's speed rows are gone);
+  G4 the new PKIN without a storage cell (the FURN marker row is gone); G5 one row, the placed
+  ACHR not in its location's special references (the LCTN clone's 1,425 rows are gone); G6 the
+  new PACK without a procedure, the new NPC_ without a race or speed, the FACT clone's one-sided
+  reaction; G7 both topics without a branch (the CK made one each); G8 the star database IDs, the
+  PNDT clone's body, PCM node chains, surface blocks (two rows fewer).
+- **ck_reexport pass without rules:** GLOB, TXST, SOUN, WWED, IRES (`-41`), TMLM (`-44`), REFR
+  (`-45`), FACT (`-46`), **QUST** (`-47`, new: the recipe's clone of `Starfield.esm:00637D` came
+  back unchanged), PCMT (`-48`): 10 types, entered or pointed to in `docs/schema/evidence.toml`.
+- **Pass only with the triage's rules** (pending the owner's review of the rules; no evidence
+  entry): COBJ, REGN, PCBN, PCCN, WKMF.
+- **Still differ:** the other 41 types, each on its EditorID-only new record (the CK's default
+  members, the triage's "A open" rows), plus: CELL new cell's lighting members; ACHR `XLRL`; DIAL
+  `BNAM` on both topics, two DLBR (ours-missing) and TES4 `TNAM`; INFO `TRDA` WEM file
+  `1 -> 0x01000001`, `2 -> 0x01000002`; STDT clone `XMPM` entries reordered; G4 the CK's override
+  of `Starfield.esm:01128F` (ours-missing). Unchanged by the rules: TES4 `INCC` removed is
+  explained with them, unexplained without (file level, no type's verdict).
+
+### ck-20261117-41: `KCB_G1_Core.esp` (GLOB KYWD FLST MESG TXST SOUN WWED RSPJ AVIF IRES)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, classed above) |
+| ck_reexport | pass: GLOB, TXST, SOUN, WWED, IRES. Differ: KYWD `FNAM`, FLST `ANAM`, MESG `TNAM`, RSPJ 6 members, AVIF `NAM1`, each added to the new record (the same as `-11`; no fix touched G1) |
+
+### ck-20261117-42: `KCB_G2_Items.esp` (MISC BOOK KEYM ALCH ARMO ARMA OTFT LVLI ENCH)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows, classed above) |
+| ck_reexport | differ, all 9, each on the new record only once the rules explain the clones (BOOK `CNAM`, ALCH `CTDA`, LVLI `LVLO`) and ARMO, ARMA `BO64`: `FLLD` (all but OTFT, ENCH), BOOK and ALCH `DESC` plus `CNAM`/`DNAM`, ARMO `STOP`, ARMA 12 members, OTFT `INAM`, ENCH `OBND` |
+
+### ck-20261117-43: `KCB_G3_Weapons.esp` (WEAP AMDL OMOD COBJ HAZD)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, classed above) |
+| ck_reexport | pass with rules: COBJ (the clone's `CTDA` padding only; the new record's `LRNM` came back unchanged). Differ: WEAP (`FLLD` x2, `STOP` added; `WFIR`, `WGEN`, `WMEL`, `WRLO` came back unchanged), AMDL `ANAM`, OMOD `FLLD` + `DATA`, HAZD `FLLD` |
+
+### ck-20261117-44: `KCB_G4_Objects.esp` (STAT ACTI CONT DOOR LIGH FURN FLOR MSTT TERM TMLM PKIN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (3 rows, classed above) |
+| ck_reexport | pass: TMLM. Differ, each on the new record: `FLLD` (STAT also `DNAM`; CONT, FLOR also `STOP`; TERM also `WBDT`, `STOP`), PKIN `MOLM`. LIGH `DAT2`/`LLLD`, FURN and TERM `MNAM` came back unchanged. The CK again added an override of `Starfield.esm:01128F` (ours-missing), with G4 loaded and saved and nothing else done |
+
+### ck-20261117-45: `KCB_G5_World.esp` (CELL REFR ACHR LCTN REGN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1 row, classed above) |
+| ck_reexport | pass: REFR. Pass with rules: REGN (`RPLD` reversed). Differ: CELL (the new cell `KCBCellNew` kept its EditorID; `XCLL`, `LTMP`, `XCLW`, `XILS` added; the carried cell's `XOWN` padding explained by the rules), ACHR `XLRL` added, LCTN new record `DATA`, `RNAM`, `ANAM`, `TNAM` added (the clone of `Starfield.esm:00ADD7` came back unchanged) |
+
+### ck-20261117-46: `KCB_G6_Actors.esp` (NPC_ PACK FACT PERK LVLN LVLP)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows, classed above) |
+| ck_reexport | pass: FACT. Differ: NPC_ new record `RNAM` changed and 7 added (`NAM5`, `NAM6` came back unchanged), PACK 3 procedure blocks (9 subrecords; `PSDT` padding explained), PERK 4 members (`CTDA` padding explained), LVLN and LVLP `FLLD` (`LVLO` padding explained) |
+
+### ck-20261117-47: `KCB_G7_Quest.esp` (QUST DIAL INFO)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows, classed above) |
+| ck_reexport | pass: QUST. Differ: DIAL `BNAM` added on both topics (category 0 came back unchanged), two DLBR added (ours-missing), TES4 `TNAM` added; INFO `TRDA` WEM file `1 -> 0x01000001` and `2 -> 0x01000002` (the emotion `FFFFFFFF` came back unchanged) |
+
+### ck-20261117-48: `KCB_G8_Planet.esp` (PNDT STDT PCMT PCBN PCCN SFPT SFTR SFBK WKMF)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (10 rows, classed above) |
+| ck_reexport | pass: PCMT. Pass with rules: PCBN, PCCN, WKMF. Differ: PNDT 6 members, SFPT 2, SFTR 2, SFBK 4 added to the new records; STDT clone `XMPM` entries reordered (`DNAM` 119226 and 119227 came back unchanged) |

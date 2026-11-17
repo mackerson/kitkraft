@@ -1005,6 +1005,7 @@ evidence = [
   "ledger: ck-20261101-03",
   "ledger: ck-20261101-04",
   "ledger: ck-20261117-15",
+  "ledger: ck-20261117-45",
   "ledger: ck-20261117-22",
   "ledger: ck-20261117-25",
   "ledger: ck-20261117-32",
@@ -1019,56 +1020,56 @@ note = "F30: our persistent reference came back byte-identical; F29: the CK's ow
 type = "GLOB"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "TXST"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "SOUN"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "WWED"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
 note = "CK bench G1: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "IRES"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-11"]
+evidence = ["ledger: ck-20261117-11", "ledger: ck-20261117-41"]
 note = "CK bench G1: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone carries its source's actor-value link"
 
 [[entry]]
 type = "TMLM"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-14"]
+evidence = ["ledger: ck-20261117-14", "ledger: ck-20261117-44"]
 note = "CK bench G4: the clone and the new record came back with no difference"
 
 [[entry]]
 type = "FACT"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-16"]
+evidence = ["ledger: ck-20261117-16", "ledger: ck-20261117-46"]
 note = "CK bench G6: the clone and the new record came back with no difference; one load warning row, classed by hand: the clone's reactions are one-sided (copied from its source)"
 
 [[entry]]
 type = "PCMT"
 status = "ck-differential-tested"
 result = "pass"
-evidence = ["ledger: ck-20261117-18"]
+evidence = ["ledger: ck-20261117-18", "ledger: ck-20261117-48"]
 note = "CK bench G8: the clone and the new record came back with no difference"
 
 [[entry]]
@@ -1084,6 +1085,13 @@ status = "ck-differential-tested"
 result = "pass"
 evidence = ["ledger: ck-20261117-25"]
 note = "CK bench twin F31k: the WEAP override (set) and clone came back with no difference (G3's EditorID-only new WEAP came back with reset speeds, ck-20261117-13)"
+
+[[entry]]
+type = "QUST"
+status = "ck-differential-tested"
+result = "pass"
+evidence = ["ledger: ck-20261117-47"]
+note = "CK bench resit G7: the clone of Starfield.esm:00637D (stages and a script, no aliases) and the new record came back with no difference (the first sitting's clone of a quest with aliases lost its alias-script block, ck-20261117-17)"
 
 # Save/reload-verified: the first POI's crate, unattended (M5.C2). The O5-15 persistence
 # row (overhaul build 2) is still pending.
