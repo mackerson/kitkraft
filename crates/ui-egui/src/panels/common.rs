@@ -217,8 +217,9 @@ pub(crate) fn clear_refusal(refusals: &mut Refusals, button: &str) {
     refusals.remove(button);
 }
 
-/// The window's title (the OS title bar).
-pub(crate) const WINDOW_TITLE: &str = "KitKraft Workbench (read-only)";
+/// The window's title (the OS title bar). It names no mode: the window reads, and writes
+/// only what ADR 0007 Amendments 2 to 4 allow, each write previewed and confirmed (KK-366).
+pub(crate) const WINDOW_TITLE: &str = "KitKraft Workbench";
 
 /// The build the results name (M6.P6b's `build` member; the window and the engine are
 /// one process, so any envelope names the window's build).
@@ -1034,6 +1035,20 @@ mod tests {
             "{t}"
         );
         assert_eq!(debug_title(&b("release")), None);
+    }
+
+    #[test]
+    fn the_title_does_not_claim_read_only() {
+        assert_eq!(WINDOW_TITLE, "KitKraft Workbench");
+        assert!(!WINDOW_TITLE.contains("read-only"));
+        let debug = BuildInfo {
+            version: "0.0.0".into(),
+            commit: "abc1234".into(),
+            date: "2026-10-16".into(),
+            profile: "debug".into(),
+        };
+        let t = debug_title(&debug).unwrap();
+        assert!(t.starts_with("KitKraft Workbench - debug build"), "{t}");
     }
 
     /// M6.P4: a 100,000-row table lays out about a screenful of rows per frame, from the
