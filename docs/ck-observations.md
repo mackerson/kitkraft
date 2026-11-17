@@ -597,3 +597,130 @@ output in `x11-f28-attempt<n>.out`.
 | List files | MO2 prunes `plugins.txt` and `loadorder.txt` at launch (lines of disabled dev mods). Attempt 1's were restored by hand from the last `kit deploy disable` backup to their preflight hashes (`513953f7...`, `29043dc1...`); from attempt 2 on, the frame copies them to `lists-before\` and restores them, hashes checked. `modlist.txt` and `Default` unchanged throughout |
 | Counts | Observed: nothing new counted (the menu items are screenshot only). Inconclusive: F28's save. Not-run: F23, F20, F27 (no steps file written in time; the Cell View's rows and the render window are not exposed, `ck-20261101-03`) |
 | Requests | (1) The owner saves F28 by hand (Object Window > the coffee maker > Duplicate > File > Save Plugin, `KC_F28.esp`), or allows a sitting to type into the focused file box without a UI Automation element. (2) The CK's context-menu items by an owner sitting or screenshot reading |
+
+### CK bench batch of 2026-11-17, the eight group plugins (`ck-20261117-11` to `-18`), agent-run, saved in place
+
+Unattended night of 2026-11-17 (owner asleep), saves under ADR 0012 Amendment 3 (the owner's
+words of 2026-11-16 went into `-OwnerSaveOk` and every `result.json`). `ck-batch.ps1` ran
+`ck-plugin.ps1 -Save` once per plugin, each its own CK launch through MO2 on `Kitkraft Dev`,
+01:03 to 01:30 local; plugins deployed with `kit deploy --dev` and enabled with `kit deploy
+enable` (13 `KCB_*` mods). Each plugin was set as the active file, loaded, saved with File >
+Save Plugin, which saved **in place into its own dev mod with no dialog** (8 of 8), and the CK
+was closed. Every postflight `ok` (MO2's launch rewrite of the three list files restored,
+hashes checked); the two settings files restored after each launch. Records:
+`C:\Modding\kitkraft-observe\ck-2026-11-17\bench-<nn>-<plugin>\` (`session.md`, `result.json`,
+`shots\`, `kitkraft.esp`, `ck.esp`, the CK's two load logs, and `ingest\` with the oracle's
+`report.md`). The after-step was `ck-ingest.ps1` (no `-Apply`; this entry and the evidence
+were written by hand from its drafts). CK 1.16.244.0 from the title in every launch.
+
+| Id | Plugin | Ours SHA-256, bytes | CK's SHA-256, bytes | Load | Warning rows naming the plugin | Oracle |
+| -- | ------ | ------------------- | ------------------- | ---: | -----------------------------: | ------ |
+| `ck-20261117-11` | `KCB_G1_Core.esp` | `17c2fca0...`, 3,140 | `e3df49c6...`, 3,222 | 124 s | 1 | 11 unexplained, 0 ours-missing, 3 explained; both round-trip; match 20/20 |
+| `ck-20261117-12` | `KCB_G2_Items.esp` | `7b6619fb...`, 5,376 | `3196cf6f...`, 5,583 | 114 s | 5 | 32, 0, 3; match 18/18 |
+| `ck-20261117-13` | `KCB_G3_Weapons.esp` | `9bbfc191...`, 4,441 | `7a65e021...`, 4,579 | 111 s | 6 | 14, 0, 3; match 10/10 |
+| `ck-20261117-14` | `KCB_G4_Objects.esp` | `982fa07c...`, 10,878 | `00d586cb...`, 11,250 | 113 s | 4 | 20, 1, 3; match 22/22 |
+| `ck-20261117-15` | `KCB_G5_World.esp` | `6a3ef7b7...`, 57,227 | `d66a50aa...`, 20,278 | 105 s | 1,426 | 19, 0, 3; match 8/8 |
+| `ck-20261117-16` | `KCB_G6_Actors.esp` | `a2c3f24e...`, 2,485 | `a3ddfdb9...`, 2,607 | 109 s | 6 | 37, 0, 3; match 12/12 |
+| `ck-20261117-17` | `KCB_G7_Quest.esp` | `08e4bcf6...`, 1,803 | `6a5a880a...`, 1,921 | 112 s | 5 | 9, 2, 3; match 8/8 |
+| `ck-20261117-18` | `KCB_G8_Planet.esp` | `f5536fdb...`, 163,326 | `15318998...`, 164,677 | 105 s | 12 | 23, 0, 3; match 18/18 |
+
+Each plugin holds, per type, one `[[clone]]` of a vanilla record and one EditorID-only
+`[[new]]` (`docs/bench/ck-batch/types/`). Classed by hand the same night:
+
+- **ck_open: pass for all eight.** Every warning row naming a plugin's forms (in the CK's
+  `EditorWarnings.txt`, kept in each sitting folder) is a data consequence of the recipe, not
+  a load fault: an EditorID-only new record lacks members the CK wants (no effects, no biped
+  slot, no race, zero weapon speeds it resets, no package procedure, no pack-in storage cell,
+  no furniture markers, missing surface blocks, empty keyword list, dangling PCM nodes), or a
+  clone carries its source's unique links (the IRES clone's actor value, the FACT clone's
+  one-sided reaction, the STDT clone's database ID, the PNDT clone's unique celestial body,
+  the WKMF clone's keyword list, the PCBN/PCCN clones in the vanilla node chains, and in G5
+  the LCTN clone's 1,400-odd rows: the source location's references no longer belong to it).
+- **File level, every save:** the CK drops TES4 `INCC` (4 zero bytes); G7's save gains a TES4
+  `TNAM` (12 bytes). The three M5.A3 conventions (HEDR, MAST `DATA`, `BNAM`) as before.
+- **Clones the CK changed** (the other clones came back with no difference): G5 LCTN:
+  `LCPR`, `LCUR`, `LCUN`, `LCSR`, `LCID`, `LCEP` removed (the source location's reference
+  lists; most of the 37 KB the file lost). G7 QUST: `VMAD` 49 bytes shorter, the alias script
+  block gone. G8 STDT: `DNAM` system ID 73018 -> 119226 and `XMPM` rewritten (duplicate ID
+  reassigned). G5 REGN: `RPLD`'s four points written in reverse order. G2 BOOK: `CNAM` 4
+  bytes -> 1 byte. Padding only, values unchanged: `CTDA` unused bytes (ALCH, COBJ, PERK,
+  PCBN; the CK writes non-zero bytes there, e.g. `00 00 00` -> `8F 15 00`), `LVLO` unused
+  (LVLI, LVLN, LVLP), PACK `PSDT` unused, and the carried cell's `XOWN` unused (G5).
+- **Records the CK added:** G4 an override of `Starfield.esm:01128F`
+  (`PackInSCLDCratesMedium02StorageCell`, the cloned pack-in's storage cell); G7 two DLBR
+  (a branch for each of the two topics, which had none).
+- **New records the CK changed:** it fills defaults into most EditorID-only records (`FLLD`,
+  `STOP`, `DESC`, `OBND`, `DNAM` and type-specific members: ARMA 13 subrecords, PACK three
+  procedure blocks, NPC_ 7 added and `RNAM`/`NAM5`/`NAM6` changed, PNDT 6, SFBK 4); it drops
+  `BO64` (ARMO, ARMA), `PRTN` (PCBN, PCCN) and `WMSS` (WKMF); the new cell's EditorID loses
+  its underscores (`KCB_CELL_New` -> `KCBCELLNew`) and gains lighting members; DIAL category
+  7 -> 0 with a `BNAM`; INFO `TRDA` emotion null `00000000` -> `FFFFFFFF`; the placed ACHR
+  gains `XLRL`. New records that came back unchanged: GLOB, TXST, SOUN, WWED, IRES, TMLM,
+  FACT, PCMT.
+
+| Field | Content |
+| ----- | ------- |
+| ck_reexport pass (no unexplained difference in any record of the type) | GLOB, TXST, SOUN, WWED, IRES (`-11`), TMLM (`-14`), REFR (`-15`), FACT (`-16`), PCMT (`-18`): 9 types, entered in `docs/schema/evidence.toml` |
+| ck_reexport inconclusive | the other 47 types of the 56 the groups hold: the clone changed (above) or the new record was filled with defaults; nothing was classed as our layout being wrong |
+| Fallback per type | not run: the oracle pins every difference above to one record, so no group needed splitting |
+| Outside the dev mods | `overwrite\` empty after the groups; the `Documents\My Games\Starfield\Saves` listing unchanged |
+| Requests | (1) Teach the oracle the padding class (`CTDA`, `LVLO`, `PSDT`, `XOWN` unused) and TES4 `INCC`. (2) BOOK `CNAM` width (1 byte in the CK's save, 4 in the vanilla source). (3) The cell EditorID rule (underscores dropped) for `new CELL`. (4) The QUST clone's VMAD alias block |
+
+One entry per launch follows (the shared table above holds hashes, load times and the
+oracle's counts; the oracle's `report.md` in each sitting's `ingest\oracle\` lists every item).
+
+### ck-20261117-11: `KCB_G1_Core.esp` (GLOB KYWD FLST MESG TXST SOUN WWED RSPJ AVIF IRES)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (warning row classed above: the IRES clone's actor-value link) |
+| ck_reexport | pass: GLOB, TXST, SOUN, WWED, IRES. Inconclusive: KYWD (`FNAM` added), FLST (`ANAM`), MESG (`TNAM`), RSPJ (6 members), AVIF (`NAM1`), each on the new record; all 10 clones unchanged |
+
+### ck-20261117-12: `KCB_G2_Items.esp` (MISC BOOK KEYM ALCH ARMO ARMA OTFT LVLI ENCH)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows: new ALCH and ENCH without effects, new ARMO and ARMA without biped slots) |
+| ck_reexport | inconclusive for all 9: clones BOOK (`CNAM` 4 -> 1 byte), ALCH (`CTDA` padding), LVLI (`LVLO` padding) changed; every new record filled with defaults (ARMO, ARMA lost `BO64`) |
+
+### ck-20261117-13: `KCB_G3_Weapons.esp` (WEAP AMDL OMOD COBJ HAZD)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows: the new WEAP's zero speeds reset to 1.0, the new OMOD without its bridge data) |
+| ck_reexport | inconclusive for all 5: COBJ clone `CTDA` padding; new WEAP `WFIR`/`WGEN`/`WMEL`/`WRLO` changed and 3 added, new AMDL `ANAM`, OMOD `FLLD`+`DATA`, COBJ `LRNM` changed, HAZD `FLLD`; WEAP, AMDL, OMOD, HAZD clones unchanged |
+
+### ck-20261117-14: `KCB_G4_Objects.esp` (STAT ACTI CONT DOOR LIGH FURN FLOR MSTT TERM TMLM PKIN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (4 rows: the new PKIN without a storage cell, the new FURN without markers) |
+| ck_reexport | pass: TMLM. Inconclusive: the other 10, each for its new record (`FLLD`, `STOP`, `DNAM`; LIGH `DAT2`/`LLLD` and FURN/TERM `MNAM` changed; TERM `WBDT`; PKIN `MOLM`); all 11 clones unchanged. The CK added an override of the cloned pack-in's storage cell `Starfield.esm:01128F` (the oracle's one ours-missing item) |
+
+### ck-20261117-15: `KCB_G5_World.esp` (CELL REFR ACHR LCTN REGN)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (1,426 rows: 1,425 the LCTN clone's references, 1 the placed ACHR not in its location's special references) |
+| ck_reexport | pass: REFR. Inconclusive: LCTN (clone lost its 6 reference lists; new record `DATA`, `RNAM`, `ANAM`, `TNAM` added), REGN (clone `RPLD` point order reversed), CELL (new cell's EditorID underscores dropped and lighting added; carried cell `XOWN` padding), ACHR (`XLRL` added) |
+
+### ck-20261117-16: `KCB_G6_Actors.esp` (NPC_ PACK FACT PERK LVLN LVLP)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (6 rows: the new NPC_ without a race or speed, the new PACK without a procedure, the FACT clone's one-sided reaction) |
+| ck_reexport | pass: FACT. Inconclusive: PACK (`PSDT` padding; new record 3 procedure blocks), PERK (5 `CTDA` padding; new 4 members), LVLN and LVLP (`LVLO` padding; new `FLLD`), NPC_ (new record 3 changed, 7 added); NPC_ clone unchanged |
+
+### ck-20261117-17: `KCB_G7_Quest.esp` (QUST DIAL INFO)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (5 rows: both topics had no branch; the CK made one each) |
+| ck_reexport | inconclusive for all 3: QUST clone `VMAD` 295 -> 246 bytes of script data; DIAL category 7 -> 0 and `BNAM` added; INFO `TRDA` null emotion written `FFFFFFFF`; two DLBR added (ours-missing); TES4 `TNAM` added |
+
+### ck-20261117-18: `KCB_G8_Planet.esp` (PNDT STDT PCMT PCBN PCCN SFPT SFTR SFBK WKMF)
+
+| Field | Content |
+| ----- | ------- |
+| ck_open | pass (12 rows: duplicate star database IDs reassigned, the PNDT clone's unique body, PCM node chains, missing surface blocks, keyword lists) |
+| ck_reexport | pass: PCMT. Inconclusive: STDT (clone system ID 73018 -> 119226, `XMPM` rewritten), PCBN (`CTDA` padding; new lost `PRTN`), PCCN (new lost `PRTN`), WKMF (new lost `WMSS`), PNDT, SFPT, SFTR, SFBK (new records filled: 6, 2, 2, 4 members); PNDT, PCCN, SFPT, SFTR, SFBK, WKMF clones unchanged |
