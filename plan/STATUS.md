@@ -165,11 +165,6 @@ Owner decisions and work that is owed, newest first. When one closes, delete its
   now, on the owner's go for a game launch. The owner walk tried it as W-09/W-10
   (`game-20261117-08`): the save `KitKraftWalk` was never written, so nothing was reloaded;
   `kit walk` now checks the save landed before asking for the load.
-- **M4's first exit criterion, the owner's reading** ("the first POI placed by KitKraft is
-  visited in game"): the visit of 2026-10-15 was `player.moveto` and a console click, and
-  the crate stands on a wall line no one can walk to (`docs/poi/first-poi.md`,
-  "Correction"). Taken as met (presence and persistence passed) unless the owner wants a
-  POI a player can reach on foot before M4 closes.
 - **Ownership recipe in game** (O4-01, O4-02 as the recipe): the next walk's W-11 on an
   embassy item with no owner of its own (a Digipick or a to-go cup), with a control
   without the plugin (`docs/recipes/ownership.md`, `docs/gaps.md`).

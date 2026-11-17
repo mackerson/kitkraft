@@ -28,6 +28,13 @@ walk to it or see it**. Those results stand with that reading; the position is n
 changed here (the plugin owns the reference, and saves carry it). A new placement should
 follow `docs/mcp.md` "Placing in an interior".
 
+**Owner ruling (2026-11-17): the criterion stands.** Asked whether "first POI visited" still
+counts on the 2026-10-15 `player.moveto` visit, the owner answered, verbatim: "I did in fact
+see part of that crate in the wall from our deck, so yes, I think we can mark that as
+complete". So the crate was also seen with the owner's eyes on 2026-11-17, partly inside the
+bedroom wall, from the owner walk's deck (no screenshot names it; owner report). M4's "first
+POI visited" is complete. The position stays a recorded flaw, not a fix owed.
+
 Reproduce (the game's Data folder is detected; `kit doctor` shows it):
 
 ```text
