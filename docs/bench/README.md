@@ -71,8 +71,8 @@ then; it has the `getav` correlation the re-run needs and the quest fragment blo
 
 | Binary | SHA-256 | Built |
 | ------ | ------- | ----- |
-| `C:\Modding\kitkraft\.targets\x\release\kit.exe` (package `kit-cli`) | `6dc1976952affcc59c988d3481868aebdbd2a25db43f4596f9c838d867070267` | 2026-11-17 14:48 from `f304ae93` |
-| `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (package `kit`) | `dddc714c1f54418970aff7440e6e4432eeb485eaf125be80c57fe496f0c1d7ff` | the same build |
+| `C:\Modding\kitkraft\.targets\x\release\kit.exe` (package `kit-cli`) | `9cb6bdb45d0321615552f3463e6b74bf17c5854fae30891f9218f72d6e2edad8` | 2026-11-17 17:18 from `9869f49d` |
+| `C:\Modding\kitkraft\.targets\x\release\kit-ui.exe` (package `kit`) | `40a283cc361fc129812a3049e87638b243cf5aa0b54fc4691134342601cc460a` | the same build |
 
 The morning merge landed KK-360 only (an overridden inventory item gets an `additem` row after
 its `help` row; the OW-2 Rename session therefore shows four rows, T-01 help, T-02 additem,
