@@ -15,6 +15,18 @@ types whose state the session can read again after a reload.
 | `docs/bench/verify-mod/propose_evidence.py` | reads the session's `report.json` and prints the `evidence.toml` entries the rows support |
 | `crates/game/tests/verify_mod.rs` | the probes parse; the controller passes all 106 rows against a console model; one failed check fails only its own row |
 
+**Where the references stand (correction, 2026-11-17).** The 12 placed references stand
+in a row at y -8 (x -34..-14) and one at (-17, -1) in `CityNewAtlantisApartmentTEMPLATE`.
+The cell's own floor pieces (`kit cell --cell Starfield.esm:21966F --with-bounds`) put the
+bedroom at x -25..-17, y -6..-2: y -8 is behind its south wall, over no floor of the cell.
+The owner walk's first build placed its mugs in that same row, and the owner saw them fall
+(2026-11-17; `docs/bench/owner-walk/owner-walk.toml`). The verification mod's passes are
+console and Papyrus presence and field checks (`getisid`, `GetBaseObject`, item counts, the
+reporter's `OnLoad` lines), and they stand: none needs the object to be seen or reached.
+But nobody could have seen those objects in place, and a row that would need a look (a
+model, a prompt) cannot use them where they are. A rebuild that places for the eye follows
+`docs/mcp.md` "Placing in an interior".
+
 ## What was checked tonight (headless)
 
 | Check | Result |

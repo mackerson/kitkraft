@@ -277,6 +277,13 @@ records that sitting, and it has no entry here. The POI cells of
 `docs/foothold/gap-matrix.md` (`TES4`, `GRUP`, `CELL`, `REFR`, master scales, new forms)
 cite this entry; every save/reload cell stays `not-run` (O2-08).
 
+Correction (2026-11-17, `game-20261117-08`): the crate was reached by `player.moveto`, not
+on foot. The owner never found it walking ("I was also never able to find that crate, and
+I think now the reason for that is it's outside the bedroom"); the cell's floor pieces put
+(-17, -4) on the bedroom's east wall line. O2-05 and O2-06 stand as written: they show the
+reference loads in the carried cell, not that a player can reach it (`docs/poi/first-poi.md`,
+"Correction").
+
 ### game-20261016-T1: session facts (M4.T1), research; fact (a) attempted, (b) to (h) wait on M4.O7
 
 | Field | Content |

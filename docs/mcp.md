@@ -1170,6 +1170,31 @@ winning records, and every written record. `dry_run: true` (lane D round 5) retu
 same `placed`, `carried` and `next_object_id` from the staged copy plus the dry run's
 members (above, under `set`), and leaves `into` untouched.
 
+**Placing in an interior: find the real floor first** (owner walk, `game-20261117-08`).
+`place` checks that the cell resolves, not that a person can walk to the position: a
+position inside the cell's bounds can be behind a wall, on a wall line or over nothing.
+Two of our placements in `CityNewAtlantisApartmentTEMPLATE` were: the first POI's crate at
+(-17, -4, 4.63) stands on the bedroom's east wall line (the owner never found it on foot),
+and the verification mod's row at y -8 is behind the bedroom's south wall (the owner saw
+the walk's first mugs, placed in that row, fall). Both were "found" only by `player.moveto`
+and the console. Before choosing a position:
+
+1. List the cell's own pieces with their bounds: `kit cell --cell <id> --with-bounds`
+   (CLI or MCP `cell`). Floor tiles (`...Bot...`, `...Floor...`) and walls (`...Wall...`)
+   carry their position, rotation and `OBND`; a room is where floor tiles meet under
+   ceiling pieces. In the apartment they put the bedroom at x -25..-17, y -6..-2 and the
+   living floor at x -21..-9, y 2..18 (`docs/bench/owner-walk/owner-walk.toml`).
+2. Put the object inside a room, clear of the wall lines (a wall piece's `OBND` is about
+   0.15 thick about its line), at the floor tile's z, and say in the spec which tile it
+   stands on.
+3. Where no room fits (or the rooms must stay as they are), lay a floor of the cell's own
+   tiles and stand on that: the owner walk lays ten `ComIntAddonRmSmMidBotB01`
+   (`Starfield.esm:20BDF3`, 4 by 4 m, top at about +0.015) at x -32..-12, y -15..-7, z 4.63,
+   south of the bedroom, and places its stations on them at z 4.66 to 4.70. The owner
+   walked that deck and the stations stood on it (`game-20261117-08`, W-01 to W-07): the
+   tiles are solid when a plugin places them. Nothing leads to such a deck, so the player
+   gets there with `player.moveto` to a reference on it.
+
 ### `new`, `clone` (M4.E1)
 
 `new {type, edid, into, fields?, masters?, parent?, scripts?, active_file?}` (`scripts` and

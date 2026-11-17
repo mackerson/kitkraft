@@ -16,6 +16,18 @@ validated and planned by agents (lane E, M4.E2/E3/E4/E6); the in-game check is t
 | Carried | the cell, as an unchanged copy of its winner except its `FULL`, written inline ("Player House Apartment"; patches are non-localized) |
 | Runtime ID | **`04001000` on Kitkraft Dev**, confirmed by that profile's newest save and in game (M4.O2, 2026-10-15: `player.moveto 04001000` reached the crate; `kit testplan ... --from-save newest`, `Exitsave0` `000052`, game 1.16.244.0; `first-poi-investigation.md`). Since `kit deploy enable` moved the plugin last in `Kitkraft Dev`'s `plugins.txt` and `loadorder.txt`, the game gives it slot 06: `prid 06001000` selected the crate and `prid 04001000` found nothing (`game-20261101-T1`), and `testplan` now infers `06001000` and no longer calls the older base save's `04` confirmed. Name it by its runtime ID: the console does not take its EditorID (`prid KitKraftFirstPOICrate` answers "not found", `game-20261101-T1`); click it in the console to read the ID. The earlier `28001000` (Default, appended) came from the old slot rule; with the corrected rule `testplan` on Default predicts `26001000` (appended after the last master-flagged plugin, before `EasyLockpick_by_Kor.esp`, which has no master flag; assumptions `runtime-slots-by-scale` and `masters-load-first`, unconfirmed: no Default save has the plugin) |
 
+**Correction (2026-11-17): reached, not walkable to.** The owner, after the owner walk
+(`docs/game-observations.md` `game-20261117-08`), verbatim: "I was also never able to find
+that crate, and I think now the reason for that is it's outside the bedroom." The cell's
+own floor and ceiling pieces (`kit cell --cell Starfield.esm:21966F --with-bounds`) put the
+bedroom at x -25..-17, y -6..-2, so (-17.0, -4.0) is on the bedroom's east wall line, not on
+its floor. M4.O2's "visit PASS" (`game-20261015-03`) was reached with `player.moveto` and a
+console click, and the save/reload pass (`game-20261101-04`) by `prid` and `getpos`: they
+show that the reference exists, loads at its position and persists, **not that a player can
+walk to it or see it**. Those results stand with that reading; the position is not
+changed here (the plugin owns the reference, and saves carry it). A new placement should
+follow `docs/mcp.md` "Placing in an interior".
+
 Reproduce (the game's Data folder is detected; `kit doctor` shows it):
 
 ```text
