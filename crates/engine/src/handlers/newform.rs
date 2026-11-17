@@ -41,7 +41,7 @@ use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit, FormName, Nested, ParentForm};
 use crate::edit::scaffold::{
     component_name, fill_groups, first_unplaced, lead_refusal, member_order, missing_lead,
-    placeholder, record_order, slot_of, slot_placeholder, wanted_slots,
+    placeholder, record_order, slot_of, slot_placeholder, wanted_slots, Slot,
 };
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
@@ -338,6 +338,55 @@ pub(crate) fn ck_new_default(record: [u8; 4], member: [u8; 4], zeros: Vec<u8>) -
         .map_or(zeros, |(_, _, b)| b.to_vec())
 }
 
+/// The members the Creation Kit adds to a new record that the definition does not require
+/// (the CK bench batch, sittings ck-20261117-11 to -18: each record KitKraft had created
+/// with its EditorID only, as the CK saved it; `docs/bench/ck-batch/triage-20261117.md`,
+/// class A). Each is the record type, the member, which slot of that signature it takes
+/// (the `k`-th in schema member order, groups flattened: WEAP's `FLLD` 0 is the model's,
+/// 2 the first-person model's, 1 a destruction stage's; ARMA's four biped models take 0
+/// to 3, its repeating `LightLayers` the other two) and its payload as
+/// the CK saved it, in hex (`0*<n>`: `n` zero bytes). `new` writes them unless the fields
+/// give that signature. Left out: NPC_ `RNAM` (the CK's race `Starfield.esm:00347D`, a
+/// form of a master the plugin may not have) and PNDT's keyword component (component
+/// layouts are another lane's tonight). BOOK `CNAM` is written as the 4 zero bytes of its
+/// layout and of all 992 official BOOKs; the CK narrows it to one (class B rule
+/// `BOOK CNAM zero-narrowed`).
+const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
+    (*b"CELL", *b"XCLL", 0, "000000000000000000000000000000000000000000000000000000000000803F000000000000803F000000000000803F00000000000000009F0700000000000000401C4600000000000000000000803F0000803F0000803F0000803F0000803F000000000000000000000000"),
+    (*b"CELL", *b"LTMP", 0, "00000000"),
+    (*b"CELL", *b"XCLW", 0, "FFFF7F7F"),
+    (*b"CELL", *b"XILS", 0, "0000803F"),
+];
+
+/// A [`CK_NEW_MEMBERS`] payload: hex, or `0*<n>` for `n` zero bytes.
+fn ck_payload(text: &str) -> Vec<u8> {
+    if let Some(n) = text.strip_prefix("0*") {
+        return vec![0; n.parse().unwrap_or(0)];
+    }
+    text.as_bytes()
+        .chunks(2)
+        .filter_map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect()
+}
+
+/// The [`CK_NEW_MEMBERS`] of a new `record` laid out as `order`: each with the index of
+/// its slot and its payload. An entry whose slot the order lacks is skipped.
+pub(crate) fn ck_new_members(record: [u8; 4], order: &[Slot]) -> Vec<(usize, [u8; 4], Vec<u8>)> {
+    CK_NEW_MEMBERS
+        .iter()
+        .filter(|(r, _, _, _)| *r == record)
+        .filter_map(|(_, m, k, hex)| {
+            let slot = order
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| e.sig == *m)
+                .nth(*k)
+                .map(|(i, _)| i)?;
+            Some((slot, *m, ck_payload(hex)))
+        })
+        .collect()
+}
+
 /// The patch-writer copy for a `new` request.
 pub(crate) fn plan_new(
     command: &str,
@@ -440,6 +489,16 @@ pub(crate) fn plan_new(
                 )),
             }
         }
+    }
+    // The members the CK adds to a new record of the type, unless the fields give the
+    // signature or the slot is taken (a required member's).
+    for (slot, m, bytes) in ck_new_members(sig, &order) {
+        let repeats = order.get(slot).is_some_and(|e| e.repeated);
+        if wanted.contains_key(&m) || (!repeats && subs.iter().any(|(i, _)| *i == slot)) {
+            continue;
+        }
+        defaulted.push(String::from_utf8_lossy(&m).into_owned());
+        subs.push((slot, Subrecord::new(Signature(m), bytes)));
     }
     // A new cell is interior: its DATA flags start with Interior unless `fields` give DATA
     // (the writer refuses one that clears it).

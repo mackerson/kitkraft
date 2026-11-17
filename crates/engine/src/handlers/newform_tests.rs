@@ -349,3 +349,128 @@ fn a_new_weapon_is_written_with_the_ck_base_speed() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Every new record of a type the CK bench saved after `new` wrote it with its EditorID
+/// only, as the Creation Kit saved it: the subrecords after `EDID` of each record of
+/// `ck.esp` in the bench folders of `kitkraft-observe\ck-2026-11-17` (sittings
+/// ck-20261117-11 to -18 below; `docs/bench/ck-batch/triage-20261117.md`, class A).
+/// `SIG:hex`, `0*<n>` for `n` zero bytes. What `new` writes otherwise is in
+/// [`ck_saved_new_kept_apart`].
+const CK_SAVED_NEW: &[(&str, &str, &str)] = &[
+    // ck-20261117-15
+    (
+        "CELL",
+        "KCBCELLNew",
+        concat!(
+            "FULL:4B4342204E65772043656C6C00 DATA:01000000 ",
+            "XCLL:000000000000000000000000000000000000000000000000000000000000803F000000000",
+            "000803F000000000000803F00000000000000009F0700000000000000401C46000000000000000",
+            "00000803F0000803F0000803F0000803F0000803F000000000000000000000000 ",
+            "LTMP:00000000 XCLW:FFFF7F7F XILS:0000803F",
+        ),
+    ),
+];
+
+/// Where `new` keeps writing something else than the CK saved, by type: the CK's item and
+/// ours. CELL `FULL` is the bench recipe's name, not a default; NPC_ `RNAM` is the CK's
+/// race `Starfield.esm:00347D`, a master's form; BOOK `CNAM` keeps the 4 zero bytes of its
+/// layout and of every official BOOK (the CK narrows it, class B `BOOK CNAM
+/// zero-narrowed`); ARMO and ARMA keep a zero `BO64` the CK drops (class B `BO64
+/// zero-dropped`, compared apart).
+fn ck_saved_new_kept_apart(sig: &str) -> &'static [(&'static str, &'static str)] {
+    match sig {
+        "CELL" => &[("FULL:4B4342204E65772043656C6C00", "")],
+        "NPC_" => &[("RNAM:7D340000", "RNAM:00000000")],
+        "BOOK" => &[("CNAM:00", "CNAM:00000000")],
+        _ => &[],
+    }
+}
+
+/// The subrecords of the one record of `sig` in `plugin` (uncompressed), as `SIG:hex`.
+fn written_record(plugin: &[u8], sig: &[u8; 4]) -> Vec<String> {
+    fn find<'a>(buf: &'a [u8], sig: &[u8; 4]) -> Option<&'a [u8]> {
+        let mut off = 0;
+        while off + 24 <= buf.len() {
+            let size = u32::from_le_bytes(buf[off + 4..off + 8].try_into().unwrap()) as usize;
+            if &buf[off..off + 4] == b"GRUP" {
+                if let Some(r) = find(&buf[off + 24..off + size], sig) {
+                    return Some(r);
+                }
+                off += size;
+            } else {
+                if &buf[off..off + 4] == sig {
+                    return Some(&buf[off + 24..off + 24 + size]);
+                }
+                off += 24 + size;
+            }
+        }
+        None
+    }
+    let body = find(plugin, sig).expect("the new record");
+    let mut out = Vec::new();
+    let mut o = 0;
+    while o < body.len() {
+        let s = String::from_utf8_lossy(&body[o..o + 4]).into_owned();
+        let n = u16::from_le_bytes([body[o + 4], body[o + 5]]) as usize;
+        let data = &body[o + 6..o + 6 + n];
+        o += 6 + n;
+        if s == "EDID" {
+            continue;
+        }
+        let hex: String = data.iter().map(|b| format!("{b:02X}")).collect();
+        out.push(if data.len() > 32 && data.iter().all(|b| *b == 0) {
+            format!("{s}:0*{}", data.len())
+        } else {
+            format!("{s}:{hex}")
+        });
+    }
+    out
+}
+
+#[test]
+fn a_new_record_is_written_as_the_ck_saved_it() {
+    let d = dir("new-ck-saved");
+    let data = data(&d);
+    let mut wrong = Vec::new();
+    for (sig, edid, saved) in CK_SAVED_NEW {
+        let into = d.join(format!("New{}.esp", sig.trim_end_matches('_')));
+        let _ = std::fs::remove_file(&into);
+        let edid = edid.replace('_', "");
+        if let Err(e) = call("new", &data, &into, json!({"type": sig, "edid": edid})) {
+            wrong.push(format!("{sig}: {e}"));
+            continue;
+        }
+        let mut ours = written_record(
+            &std::fs::read(&into).unwrap(),
+            sig.as_bytes().try_into().unwrap(),
+        );
+        if matches!(*sig, "ARMO" | "ARMA") {
+            let at = ours
+                .iter()
+                .position(|s| s.starts_with("BO64:"))
+                .expect("BO64");
+            assert_eq!(
+                ours.remove(at),
+                format!("BO64:{}", "0".repeat(ours_bo64(sig)))
+            );
+        }
+        let mut want: Vec<String> = saved.split(' ').map(str::to_string).collect();
+        for (ck, kept) in ck_saved_new_kept_apart(sig) {
+            let at = want.iter().position(|s| s == ck).expect("the CK's item");
+            if kept.is_empty() {
+                want.remove(at);
+            } else {
+                want[at] = (*kept).to_string();
+            }
+        }
+        if ours != want {
+            wrong.push(format!(
+                "{sig}:\n  ours {}\n  ck   {}",
+                ours.join(" "),
+                want.join(" ")
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{}", wrong.join("\n"));
+    let _ = std::fs::remove_dir_all(&d);
+}
