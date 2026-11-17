@@ -1007,6 +1007,7 @@ evidence = [
   "ledger: ck-20261117-15",
   "ledger: ck-20261117-22",
   "ledger: ck-20261117-25",
+  "ledger: ck-20261117-32",
 ]
 note = "F30: our persistent reference came back byte-identical; F29: the CK's own reference has the same subrecords, NAME and position; it made it temporary where ours is persistent; CK bench (2026-11-17): G5's placed references (persistent and temporary), F23k's moved vanilla reference (X = 1234.5) and F31k's placed reference came back with no difference"
 

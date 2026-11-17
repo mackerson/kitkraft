@@ -270,12 +270,18 @@ place with no dialog, the CK closed with no prompt, postflight `ok`. The first-m
 | `KCB_F28k` | `-24` | pass | in place | STAT | - |
 | `KCB_F31k` | `-25` | pass | in place | WEAP, CELL, REFR | - |
 | F28 (agent) | `-31` | - | `KC_F28.esp` into `overwrite\` (copied out, then removed) | - | against the twin: `EDID` and `OBND` (the CK's duplicate has zero bounds) |
+| F23 (agent) | `-32` | - | `KC_F23.esp` (same) | CELL, REFR: the CK's edit equals the twin's records | - |
+| F27 (agent) | `-33` | - | `KC_F27.esp` (same) | - | owner equal; the CK sets a cell `DATA` flag, moves `XOWN`, adds `aaaMarkers` |
+| F20 (agent) | `-34` | - | nothing | - | not-run: no way to make a new interior cell was found |
+
+F23, F27 and F20 were driven by `steps-fixture-interactive.ps1` (one command file at a time,
+each step's screenshot read before the next; sent input with the CK-in-front guard, window
+messages to the Cell View's Win32 controls), 02:01 to 02:23.
 
 `ck-differential-tested` pass: 2 -> 12 types (`docs/schema/evidence.toml`, `cargo xtask
 parity`). Every CK save also drops TES4 `INCC`. Not run: the per-type fallback (the oracle
-pins every difference to one record, so no group needed splitting); F20, F23, F27 by the CK
-(no automated steps; they need the owner's hands, step 10); F30 and F29 again (done
-2026-11-01); Part B and B10. The two settings files hash as before the sitting; `overwrite\` is
+pins every difference to one record, so no group needed splitting); F20's new cell (above);
+F30 and F29 again (done 2026-11-01); Part B and B10. The two settings files hash as before the sitting; `overwrite\` is
 empty; the owner's `Saves` listing is unchanged.
 
 ## Tested on 2026-11-15 (no CK, game, SFSE or MO2 started; no input to the desktop)

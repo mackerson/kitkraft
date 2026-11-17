@@ -795,4 +795,51 @@ and `KC_F28.esp`, the same bytes); runner output `..\run-f28.log`. The first tim
 | Against the twin | `KCB_F28k.esp` (`docs/bench/ck-batch/fixtures/`, KitKraft's `clone` of the same STAT, 409 bytes). Same subrecords in the same order and sizes (`EDID`, `OBND`, `ODTY`, `PTT2`, `BFCB`, `BFCE`, `MODL`, `FLLD`, `FULL`, `DNAM`, 261 bytes of body each); every payload identical except two: the CK's `EDID` is `CoffeeBrewingMachine01COPY0000` (ours `KCB_F28_CoffeeBrewingMachine01`), and **the CK's `OBND` is 24 zero bytes** where our clone keeps the source's bounds. FormID: the CK's `000808` (its own counter from `0x800`), ours `001000`; form version 582 (ours 581). TES4 as in F29 |
 | ck_reexport | inconclusive (a fixture, not a re-export: the comparison is with the twin); the OBND difference is for M5.A3 to class. STAT's ck-differential pass rests on the twin's own re-export (`ck-20261117-24`) |
 | Postflight | ok (MO2's list-file rewrite restored, hashes checked; settings restored, hashes match) |
-| Not run | F20, F23, F27 (the CK side): no automated steps exist; the Cell View's rows and the Render Window are not exposed to UI Automation (`ck-20261101-03`). F30 and F29 were not re-run (done in `ck-20261101-02`, `-03`) |
+| Not run in this launch | F20, F23, F27 (the CK side), taken up after it with sent input and screenshots (`ck-20261117-32` on). F30 and F29 were not re-run (done in `ck-20261101-02`, `-03`) |
+
+### ck-20261117-32: CK fixture F23 (a vanilla reference's Position X set to 1234.5), agent-run, saved
+
+`ck-run.ps1 -Id ck-20261117-32 -Name F23 -Steps .\steps-fixture-interactive.ps1 -SaveAllowed F23`
+through MO2 on `Kitkraft Dev`, 02:01 to 02:09 local, unattended. The steps file runs one command
+file at a time from the sitting's `queue\` and the driving agent read each step's screenshot and
+output before writing the next (sent input through `ck-input.ps1`, which stops when the CK is
+not in front; window messages to Win32 controls). Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F23\` (`session.md`, `shots\f23-*`, `queue\` with every
+command and its output, `KC_F23.esp`). Fixture choice A7 (the recommendation): `Starfield.esm:1B21E0`, X = `1234.5`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-32` |
+| CK version | 1.16.244.0, from the title |
+| Steps | Data: `Starfield.esm` only, no active file. The Cell View's content is a Win32 pane under the Qt dock (its controls found by window enumeration, not UI Automation): Cell Filter set by `WM_SETTEXT` to `CityNewAtlantisApartmentTEMPLATE` (1 cell), its row double-clicked (the cell loaded, 432 references); the reference list's filter set to `ComIntParSmWallA_MidFull01` (10 rows). The first row's tooltip and the status bar named `001B21E0`. Enter in the list selected every row (Edit then greyed in the context menu); one click selected one row (`LVM_GETSELECTEDCOUNT` 1), the row's context menu (View, Edit, Delete, ...) > Edit opened "Reference" (`(001B21E0)`, Position -17, -6, 4.6256). Position X: click, Ctrl+A, `1234.5`, Tab (read back `1234.5`); OK (no prompt; title gained `*`); File > Save Plugin > "Select Target Plugin", name by `WM_SETTEXT`, Save by `BM_CLICK` |
+| Saved | `overwrite\KC_F23.esp`, 1,800 bytes, SHA-256 `039f4d1a...`; round-trips identical; copied into the sitting folder, then removed from `overwrite\` |
+| Against the twin | `kit diff KCB_F23k.esp KC_F23.esp`: 0 added, 0 removed, 0 changed, **2 unchanged** (the carried cell and the moved reference). Against the CK's own re-save of the twin (`ck-20261117-22`): 1,800 bytes each, 3 bytes differ, from offset 38 (TES4 `HEDR`). So KitKraft's `set` of `DATA` Position X writes what the CK writes for the same edit |
+| Result | **pass**: the CK's edit and KitKraft's are the same records. Postflight ok, settings restored (hashes match) |
+
+### ck-20261117-33: CK fixture F27 (a vanilla cell's owner set to `PlayerFaction`), agent-run, saved
+
+The same way as `ck-20261117-32`, 02:11 to 02:16 local. Record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F27\`. Fixture choice A9 (the recommendation):
+`CityNewAtlantisFreestarEmbassy` (Freestar Collective Embassy, `Starfield.esm:017307`), `PlayerFaction`.
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-33` |
+| Steps | Cell View: Cell Filter by `WM_SETTEXT` (1 cell); the row's context menu (View, Edit, Delete, Clear Unneeded Persistence on Refs, Duplicate Cell, Add to Recent Cells, Group references, Use Info) > Edit opened "<cell> (Cell)" with tabs Common Data, Interior Data, Space Data; Interior Data: Owner NPC, Owner Faction (`FreestarEmbassyFaction`), Lock List, Required Rank, Public Area, Off Limits, Can't Wait. Owner Faction: click, type `PlayerFaction`, Enter (read back `PlayerFaction`); OK; File > Save Plugin as `KC_F27.esp` |
+| Fault, recovered | The first attempt's click landed on the Object Window (the cell dialog had fallen behind it), so the typed name went to that list and Enter opened an Armor record's dialog; it was cancelled (no change: no ARMO in the saved file), the cell dialog brought to the front and checked as the foreground window before the retry |
+| Saved | `overwrite\KC_F27.esp`, 15,491 bytes, SHA-256 `035ac883...`; round-trips identical; copied out, removed from `overwrite\` |
+| Against the twin | `KCB_F27k.esp` (the ownership recipe's edit): the cell's `XOWN` owner is the same (`PlayerFaction`; the 3 padding bytes differ, as in `-23`). Differences: the CK sets cell `DATA` flag `0x80000` (37 -> 524325), writes `XOWN` at another place in the cell's body (body offset 271 in ours, 23,056 in the CK's), and adds an override of the editor cell `aaaMarkers` (`Starfield.esm:012998`), which no step chose |
+| Result | inconclusive: the owner edit matches; the `DATA` flag, the `XOWN` position and the extra cell are for M5.A3 to class. Postflight ok, settings restored (hashes match) |
+
+### ck-20261117-34: CK fixture F20 (a new interior cell with a placed crate), agent-run, stopped at its first step
+
+The same way as `ck-20261117-32`, 02:17 to about 02:24 local; record in
+`C:\Modding\kitkraft-observe\ck-2026-11-17\F20\`. Fixture choice A8 (the recommendation):
+`Crate_MilitarySupply_01`, cell EditorID `KC_F20_Cell`. **Nothing was created or saved.**
+
+| Field | Content |
+| ----- | ------- |
+| Id | `ck-20261117-34` |
+| Unreachable step | Making a new interior cell. Looked for and not found: World > Cells... opens "<cell> (Cell)" with a list, three tabs, Apply and OK, and no new-cell control; a right-click on its list opened no menu (it selected the first cell, `aaaMarkers`; the dialog was then closed by Cancel); the Object Window's WorldData category has no Cell entry (Atmosphere to zDeprecated Weather); the Cell View list's context menu, on a row or on blank space with no rows listed, offers View, Edit, Delete, Clear Unneeded Persistence on Refs, Duplicate Cell, Group references, and no New. Duplicate Cell would copy a vanilla cell, which is not F20 |
+| Next | An owner sitting shows where the CK makes a new interior cell (or the agent tries the places not tried: the Cell View's World Space "..." button, the Render Window's context menu); placing the crate then follows F29's drag (`ck-20261101-03`) |
+| Result | not-run (no CK fixture); the CK closed with no unsaved change, postflight ok, settings restored (hashes match) |
