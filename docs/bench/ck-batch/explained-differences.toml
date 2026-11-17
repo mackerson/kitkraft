@@ -1,0 +1,81 @@
+# Explained differences of the CK bench batch (triage of 2026-11-17,
+# docs/bench/ck-batch/triage-20261117.md): CK normalisations of bytes that carry no meaning,
+# each narrowed to one subrecord and one exact transformation, which `cargo xtask oracle ck`
+# checks on the decoded fields or on both payloads (xtask/src/ckoracle.rs, `Transform`).
+#
+#   cargo xtask oracle ck <fixture-dir>... --rules docs/bench/ck-batch/explained-differences.toml
+#
+# STATUS: proposed, pending the owner's review. ck-ingest.ps1 does not pass this file, and no
+# docs/schema/evidence.toml entry is raised to pass on the strength of these rules alone.
+# Every rule names a `transform`; a rule without one would explain any change of the
+# subrecord and is not allowed here (a test reads this file).
+
+[[normalization]]
+record = "TES4"
+subrecord = "INCC"
+transform = "removed"
+reason = "the CK writes TES4 INCC (interior cell count) only on a master (F29: the .esp none, the .esm 1); every .esp save of the batch drops ours (13 of 13 sittings, values 0, 1 and 3)"
+ledger = "ck-20261101-04"
+
+[[normalization]]
+record = "*"
+subrecord = "CTDA"
+transform = "padding"
+reason = "the CK rewrites a condition's padding bytes (CTDA Unused1 after the operator, Unused2 after the function index) with its own values; ours keep the source's (ALCH, COBJ, PERK, PCBN clones)"
+ledger = "ck-20261117-12"
+
+[[normalization]]
+record = "*"
+subrecord = "LVLO"
+transform = "padding"
+reason = "the CK writes E04D into a leveled entry's two padding bytes (LVLO Unused1); ours write 0000 (LVLI, LVLN, LVLP clones)"
+ledger = "ck-20261117-16"
+
+[[normalization]]
+record = "PACK"
+subrecord = "PSDT"
+transform = "padding"
+reason = "the CK writes BABABA into a package schedule's three padding bytes (PSDT Unused); ours keep 000000"
+ledger = "ck-20261117-16"
+
+[[normalization]]
+record = "CELL"
+subrecord = "XOWN"
+transform = "padding"
+reason = "the CK rewrites the three padding bytes after an ownership's flag (XOWN Unused9)"
+ledger = "ck-20261117-23"
+
+[[normalization]]
+record = "REGN"
+subrecord = "RPLD"
+transform = "reversed:8"
+reason = "the CK writes a region polygon's (x, y) points in reverse order: the same closed polygon, opposite winding"
+ledger = "ck-20261117-15"
+
+[[normalization]]
+record = "BOOK"
+subrecord = "CNAM"
+transform = "zero-narrowed"
+reason = "the CK writes a zero BOOK CNAM as 1 byte; all 992 official BOOKs carry it as 4 zero bytes, which ours keep"
+ledger = "ck-20261117-12"
+
+[[normalization]]
+record = "*"
+subrecord = "BO64"
+transform = "zero-dropped"
+reason = "the CK omits an all-zero biped object field from a new ARMO or ARMA (every official one carries a non-empty BO64)"
+ledger = "ck-20261117-12"
+
+[[normalization]]
+record = "*"
+subrecord = "PRTN"
+transform = "zero-dropped"
+reason = "the CK omits an all-zero PRTN from a new PCBN or PCCN"
+ledger = "ck-20261117-18"
+
+[[normalization]]
+record = "WKMF"
+subrecord = "WMSS"
+transform = "zero-dropped"
+reason = "the CK omits an all-zero WMSS from a new WKMF"
+ledger = "ck-20261117-18"
