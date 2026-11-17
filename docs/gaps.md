@@ -2,6 +2,11 @@
 
 Check this before claiming something works. Remove a row only with the commit that closes it.
 
+Differences from the CK (or the game) that were accepted as explained rather than fixed (the
+oracle rules of `docs/bench/ck-batch/explained-differences.toml`, the CK's header and group
+bookkeeping, authoring choices such as the `HEDR` count and new-form numbering rows below) are
+listed in `docs/explained-nonconformities.md`, with what would show if an explanation is wrong.
+
 | Gap                                                               | Impact                                                   | Closes in        |
 | ----------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
 | The workbench's edit dialog (M7.E2, `dialogs/set.rs`) edits scalar fields only: struct, list, lstring and link (FormID) fields are shown read-only | Such fields are edited with `kit set` (CLI) or MCP `execute`, not in the window | a later M7.E ticket (member editing; E's report, L6) |

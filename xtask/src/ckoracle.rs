@@ -1311,6 +1311,33 @@ mod tests {
         );
     }
 
+    /// The accepted rules and the register of explained non-conformities cannot drift: every
+    /// `[[normalization]]` of `explained-differences.toml` is named by a register row as
+    /// `` `<record> <subrecord> <transform>` `` (owner, 2026-11-17).
+    #[test]
+    fn every_rule_is_named_by_a_register_row() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let rules =
+            read_rules(&root.join("docs/bench/ck-batch/explained-differences.toml")).unwrap();
+        let register = fs::read_to_string(root.join("docs/explained-nonconformities.md")).unwrap();
+        let rows: Vec<&str> = register
+            .lines()
+            .filter(|l| l.starts_with("| ENC-"))
+            .collect();
+        for r in &rules {
+            let key = format!(
+                "`{} {} {}`",
+                r.record,
+                r.subrecord.as_deref().unwrap_or("*"),
+                r.transform.map(Transform::label).unwrap_or_default()
+            );
+            assert!(
+                rows.iter().any(|l| l.contains(&key)),
+                "docs/explained-nonconformities.md has no ENC row naming {key}"
+            );
+        }
+    }
+
     fn hex(s: &str) -> Vec<u8> {
         (0..s.len())
             .step_by(2)

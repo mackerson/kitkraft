@@ -17,6 +17,9 @@
 # Verdicts: ck_open comes from the run (result.json) or -CkOpen; a type's ck_reexport is `pass`
 # when the CK's file round-trips and the oracle has no unexplained or ours-missing item for any
 # record of that type, otherwise `inconclusive` (to be classed by hand, M5.A3), never `pass`.
+# Rules: the oracle runs with -Rules (default docs/bench/ck-batch/explained-differences.toml,
+# the explained-difference rules the owner accepted on 2026-11-17, "Accept all ten"); a pass
+# that rests on one names the rule in its drafted note. -NoRules runs the oracle without them.
 param(
     [string]$Sitting = '',
     [string]$Manifest = '',
@@ -31,6 +34,8 @@ param(
     [string]$Kit = $(if ($env:KITKRAFT_KIT) { $env:KITKRAFT_KIT } else { '' }),
     [string]$Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path,
     [string]$DocsRoot = '',
+    [string]$Rules = '',
+    [switch]$NoRules,
     [switch]$Apply
 )
 $ErrorActionPreference = 'Stop'
@@ -103,9 +108,15 @@ if ($hasCk) {
     [IO.File]::WriteAllText((Join-Path $fx 'fixture.toml'), ($t -join "`r`n"), $utf8)
     $od = Join-Path $Work 'oracle'
     if ($Kit) { $env:KITKRAFT_KIT = $Kit }
+    $ruleArgs = @()
+    if (-not $NoRules) {
+        if (-not $Rules) { $Rules = Join-Path $Repo 'docs\bench\ck-batch\explained-differences.toml' }
+        if (-not (Test-Path -LiteralPath $Rules)) { throw "no rules file $Rules (or pass -NoRules)" }
+        $ruleArgs = @('--rules', (Resolve-Path -LiteralPath $Rules).Path)
+    }
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     Push-Location $Repo
-    try { $verdict = (& cargo xtask oracle ck $fx --out $od 2>&1 | Out-String).Trim() } finally { Pop-Location; $ErrorActionPreference = $prev }
+    try { $verdict = (& cargo xtask oracle ck $fx --out $od @ruleArgs 2>&1 | Out-String).Trim() } finally { Pop-Location; $ErrorActionPreference = $prev }
     $rp = Join-Path $od "$SittingId\report.json"
     if (-not (Test-Path -LiteralPath $rp)) { throw "the oracle wrote no report ($rp): $verdict" }
     $report = Get-Content -Raw -LiteralPath $rp | ConvertFrom-Json
@@ -129,7 +140,13 @@ foreach ($ty in $Types) {
            elseif (-not $hasCk) { 'no CK file (no save, or the save wrote nothing)' }
            elseif (-not $rtOk) { 'the CK''s file does not round-trip' }
            elseif ($bad.Count) { "$($bad.Count) difference(s) to class by hand: " + (($bad | ForEach-Object { "$($_.class) $($_.form) $($_.subrecord) $($_.change)" }) -join '; ') }
-           else { 'every record of the type came back with no unexplained difference' }
+           else {
+               # A pass that rests on an accepted rule (a transform rule of -Rules) names it.
+               $ruled = @($items | Where-Object { $_.record -eq $ty -and $_.class -eq 'explained' -and $_.because -match '\[([^\]]+)\] \((ck-[0-9-]+)\)$' } | ForEach-Object {
+                   if ($_.because -match '\[([^\]]+)\] \((ck-[0-9-]+)\)$') { "$($_.subrecord) $($Matches[1]) ($($Matches[2]))" } } | Select-Object -Unique)
+               if ($ruled.Count) { 'every record of the type came back with no unexplained difference; rests on the accepted rule(s) of explained-differences.toml: ' + ($ruled -join ', ') }
+               else { 'every record of the type came back with no unexplained difference' }
+           }
     $ev = if ($re -eq 'not-run' -and $entry -and $n -eq 0) { 'not-run' } elseif ($CkOpen -eq 'fail') { 'fail' } elseif ($CkOpen -eq 'pass' -and $re -eq 'pass') { 'pass' } elseif ($CkOpen -eq 'pass' -or $CkOpen -eq 'inconclusive' -or $re -eq 'inconclusive') { 'inconclusive' } else { 'not-run' }
     $rows += [pscustomobject]@{ type = $ty; records = $n; ck_open = $CkOpen; ck_reexport = $re; evidence = $ev; why = $why }
 }

@@ -274,6 +274,17 @@ inventory-def` from the corpus and checked with `inventory-check`; MRPH, CNDF, V
 and ASPC were KK-224, since merged. CK fixtures still wait on the owner's sittings (rows 12
 and 15).
 
+**Owner ruling 2026-11-17** (in chat, verbatim: "close M4 with F20 carried into M7"): F20 (a
+new interior cell made in the CK) has no known route by sent input (`ck-20261117-34`), and
+F22, F25 and F26 build on it. All four are **carried into M7** ("M7: CK parity", below) and
+are no longer M4 exit criteria. M4 is not closed yet; what remains before the close, as
+checked against the repo on 2026-11-17: the ownership UI rows O4-01 and O4-02 (the owner);
+O4-05 and O4-06 (the workshop and fabricator recipes in game, not run; O4-07's `OnActivate`
+row also stays open, activation input deferred, STATUS row 14); W12 (the rename
+package installed through MO2, not run); F27 (inconclusive, `ck-20261117-33`: re-sit); F21
+and F24 (not run); the deletion of the staged xEdit files (still in `C:\Modding\tools\xedit-ref\`)
+and its record; the final `cargo xtask parity` regeneration with `plan/STATUS.md` saying M5.
+
 Exit criteria:
 - The first POI placed by KitKraft is visited in game on a disposable save, with its
   persistence steps recorded.
@@ -534,6 +545,12 @@ Exit criteria:
   - `save_reload`: pass, or `inconclusive` with its reason
 - The owner's A/B sign-off (M7.O6): the same tasks in the CK and in KitKraft (find a
   form, edit a field, duplicate, place, save), and "at home" in KitKraft.
+- The CK fixtures carried from M4 (owner ruling 2026-11-17, "close M4 with F20 carried into
+  M7"): F20 (a new interior cell with one placed vanilla object, made in the CK), and F22
+  (navmesh for F20's cell), F25 (a quest alias on F20's reference) and F26 (F20 as a small
+  and a medium master), which build on it, each sat and through `cargo xtask oracle ck`, or
+  marked not observable with the reason. The first step is finding where the CK makes a new
+  interior cell (`ck-20261117-34`); the M7 interface sittings are where that is observed.
 - `cargo xtask ci` is green; the corpus roundtrip is still identical.
 
 Deliberately not in M7, unless an ADR says otherwise:
