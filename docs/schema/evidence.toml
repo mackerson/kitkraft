@@ -1035,3 +1035,21 @@ status = "save-reload-verified"
 result = "pass"
 evidence = ["ledger: game-20261116-04"]
 note = "bench verification mod (KitKraftVerify.esm), rows V-S-28: after the reload, getisid on the reference still named the cloned base"
+
+# Typed-write read-backs found failing on 2026-11-17 for test-harness reasons, not writer
+# defects (branch opus/readback-20261117): GMST needs an EditorID whose first letter picks
+# the DATA variant; LGDI's whole-opaque FULL is read through the lstring fallback.
+
+[[entry]]
+type = "GMST"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::gmst_new_sets_every_typed_member_and_reads_back"]
+note = "new under the EditorID bKC_NewGMST (the b prefix selects the Bool variant of the DATA union, decider edid-prefix), every typed member set, read back identically, validate with no finding; DATA is its one unchecked subrecord (validate counts every EditorID-decided union unchecked); no FormID member, so no dangling test"
+
+[[entry]]
+type = "LGDI"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::lgdi_new_sets_every_typed_member_and_reads_back"]
+note = "new with every typed leaf member, read back identically, validate with no finding; FULL is whole-opaque in LGDI.toml and checked through the engine's FULL/DESC lstring fallback (writes_and_reads_back_with), so the unchecked count is the remaining whole-opaque members"
