@@ -1101,6 +1101,8 @@ in parallel, each in its own worktree; the staged xEdit files must be on disk (M
 #### Fixture matrix (M4.H1)
 
 Folders and names as in M3 (`observe\<yyyy-mm-dd>-<id>\`, plugins named `KC_`).
+F20, F22, F25 and F26 are carried into M7 (owner ruling 2026-11-17, "close M4 with F20
+carried into M7"; "M7 is done when").
 
 | ID  | Fixture | Base | First question |
 | --- | ------- | ---- | -------------- |
@@ -1222,6 +1224,16 @@ NPC uses a vanilla cell that has one); the `ONAM` rule for edited vanilla refere
 (M4.A6, F23: refused while open); `ref.persistence` stays grade D (F25); M4.H2.
 
 ### M4 is done when
+
+*Owner ruling 2026-11-17* (in chat, verbatim: "close M4 with F20 carried into M7"): fixtures
+F20, F22, F25 and F26 (the "Fixture matrix (M4.H1)" rows that need a new interior cell made
+in the CK, which has no known route by sent input, `ck-20261117-34`) are carried into M7 and
+are not M4 exit criteria; M4.O1, M4.H2 and M5.A5 cover F21, F23, F24, F27 and F28 only, and
+"if F22 exists" below is M7's. Still open before the close (checked 2026-11-17): O4-01 and
+O4-02 (owner, ownership UI); O4-05 and O4-06 (workshop and fabricator in game, not run) and
+O4-07's `OnActivate`; W12 (rename package install); F27 (re-sit, inconclusive); F21 and F24
+(not run); the staged xEdit files' deletion (still on disk) and its record; the final parity
+regeneration.
 
 - Families QUEST, ACTOR and ITEMS/WORKSHOP are typed per the family lane rules, with WORLD,
   PLANET and round 3 merged; M4.BX1 ran after every merge with 0 typed conflicts on all 14
@@ -1882,7 +1894,10 @@ element built before a sitting; it never counts as parity).
 ### M7 is done when
 
 The exit criteria of `ROADMAP.md` "M7: CK parity", read off `docs/ck-parity.md`
-"Interface parity" and checked in `plan/STATUS.md`.
+"Interface parity" and checked in `plan/STATUS.md`. They include the CK fixtures carried from
+M4 by the owner's ruling of 2026-11-17 ("close M4 with F20 carried into M7"): F20, F22, F25
+and F26 (M4's "Fixture matrix (M4.H1)"), each sat and through `cargo xtask oracle ck`,
+or marked not observable with the reason.
 
 ## M8 (sketch): Beyond the CK
 
