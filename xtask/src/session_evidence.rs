@@ -12,7 +12,7 @@
 //!    followed by a space and a backtick in its title (`kit testplan` titles every per-form
 //!    row ``... <SIG> `<name>` ...``). The persistence rows are those whose titles start
 //!    `persistence 1-3` and `persistence 4`. Rows with no type that are not persistence rows
-//!    are ignored.
+//!    are skipped, listed in a comment with the reason (rule 7); a type is never guessed.
 //! 2. `game-runtime-tested` for a type: at least one row of that type passed and none
 //!    failed. Inconclusive and not-run rows do not block; the note lists them.
 //! 3. `save-reload-verified` for a type: both persistence rows passed, a passing row of that
@@ -26,6 +26,22 @@
 //!    `result = "pass"`, `evidence = ["ledger: <ledger_entry>"]` and `note = "<session>:
 //!    rows T-01, T-04 passed[; T-03 inconclusive] (proposed by cargo xtask
 //!    session-evidence; review before adding)"`.
+//! 7. Rows that rule 1 cannot type (the bench verification mod's, `V-...`): the type is
+//!    also read from the row id (a `-`-separated part that is a signature: `V-I-ARMO`,
+//!    `V-S-I-MISC`), a reporter line (`KKV-P01 GLOB value=4242`, `KKV-H20 PKIN present`),
+//!    `the <SIG> <name>` where the name is one of the row's forms (`the ACTI KKV10Acti is
+//!    the base of ...`), and a trailing `(<SIG>)` (`after the reload: ... (ACTI)`). A
+//!    signature is four characters of `A-Z`, `0-9`, `_`, starting with a letter. Every
+//!    source that names a type must name the same one; none, or two that disagree, skips
+//!    the row with that reason. A `(diagnostic)` row is skipped too.
+//! 8. A row whose title says `presence only` (a `help` listing, a "present=True" reporter
+//!    line) never counts as a pass: its `pass` is read as `inconclusive (presence only)`. A
+//!    type whose rows are all inconclusive or not-run gets a comment
+//!    `# <SIG>: no row passed (...); no entry`.
+//! 9. `save-reload-verified` also holds for a type with a passing row whose title starts
+//!    `after the reload` when the `persistence 1-3` row passed and no row of the type failed
+//!    (the verification mod has no `persistence 4` row; its `V-S-*` rows check after the
+//!    reload).
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -62,8 +78,11 @@ pub fn run(args: &[String]) -> Result<()> {
 /// One row of the report, as far as the rules read it.
 struct Row {
     id: String,
+    /// The verdict's status; a presence-only pass is `inconclusive (presence only)` (rule 8).
     status: String,
     forms: Vec<String>,
+    /// An `after the reload` row (rule 9).
+    after_reload: bool,
 }
 
 impl Row {
@@ -92,20 +111,26 @@ pub fn propose(report: &Value) -> Result<String, String> {
     let mut by_type: BTreeMap<String, Vec<Row>> = BTreeMap::new();
     let mut persist_13: Vec<Row> = Vec::new();
     let mut persist_4: Vec<Row> = Vec::new();
+    let mut skipped: Vec<String> = Vec::new();
     for v in rows {
         let title = v.get("title").and_then(Value::as_str).unwrap_or_default();
+        let status = v
+            .get("verdict")
+            .and_then(|x| x.get("status"))
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        let presence = title.to_ascii_lowercase().contains("presence only");
         let row = Row {
             id: v
                 .get("row")
                 .and_then(Value::as_str)
                 .unwrap_or("?")
                 .to_string(),
-            status: v
-                .get("verdict")
-                .and_then(|x| x.get("status"))
-                .and_then(Value::as_str)
-                .unwrap_or("unknown")
-                .to_string(),
+            status: if presence && status == "pass" {
+                "inconclusive (presence only)".to_string()
+            } else {
+                status.to_string()
+            },
             forms: v
                 .get("forms")
                 .and_then(Value::as_array)
@@ -116,29 +141,37 @@ pub fn propose(report: &Value) -> Result<String, String> {
                         .collect()
                 })
                 .unwrap_or_default(),
+            after_reload: title.starts_with("after the reload"),
         };
         if title.starts_with("persistence 1-3") {
             persist_13.push(row);
         } else if title.starts_with("persistence 4") {
             persist_4.push(row);
-        } else if let Some(sig) = record_type(title) {
-            by_type.entry(sig).or_default().push(row);
+        } else if title.contains("(diagnostic)") {
+            skipped.push(format!("{}: a diagnostic row", row.id));
+        } else {
+            match row_type(&row.id, title, &row.forms) {
+                Ok(sig) => by_type.entry(sig).or_default().push(row),
+                Err(why) => skipped.push(format!("{}: {why}", row.id)),
+            }
         }
     }
 
-    let persisted = !persist_13.is_empty()
-        && !persist_4.is_empty()
-        && persist_13.iter().chain(&persist_4).all(Row::passed);
-    let persist_ids: Vec<&str> = persist_13
-        .iter()
-        .chain(&persist_4)
-        .map(|r| r.id.as_str())
-        .collect();
+    let persisted_13 = !persist_13.is_empty() && persist_13.iter().all(Row::passed);
+    let persisted = persisted_13 && !persist_4.is_empty() && persist_4.iter().all(Row::passed);
+    let ids_13: Vec<&str> = persist_13.iter().map(|r| r.id.as_str()).collect();
+    let ids_4: Vec<&str> = persist_4.iter().map(|r| r.id.as_str()).collect();
 
     let mut out = format!(
         "# Proposed by cargo xtask session-evidence from session {session} ({ledger}); review\n\
          # each entry before adding it to docs/schema/evidence.toml.\n"
     );
+    if !skipped.is_empty() {
+        out.push_str("#\n# Rows with no record type, skipped (never guessed):\n");
+        for line in &skipped {
+            out.push_str(&format!("#   {line}\n"));
+        }
+    }
     for (sig, rows) in &by_type {
         let failed: Vec<&str> = rows
             .iter()
@@ -153,28 +186,44 @@ pub fn propose(report: &Value) -> Result<String, String> {
             ));
             continue;
         }
+        let others = others(rows);
         let passed: Vec<&Row> = rows.iter().filter(|r| r.passed()).collect();
         if passed.is_empty() {
+            out.push_str(&format!(
+                "\n# {sig}: no row passed ({}); no entry\n",
+                others.join("; ")
+            ));
             continue;
         }
-        let others = others(rows);
         let ids: Vec<&str> = passed.iter().map(|r| r.id.as_str()).collect();
         out.push_str(&entry(sig, RUNTIME, ledger, session, &ids, &others));
-        if persisted {
-            let shared: Vec<&str> = passed
-                .iter()
-                .filter(|r| {
-                    r.forms
+        // Rule 3: a passing row sharing a form with `persistence 4`, both persistence rows
+        // passed.
+        let via_4: Vec<&str> = passed
+            .iter()
+            .filter(|r| {
+                persisted
+                    && r.forms
                         .iter()
                         .any(|f| persist_4.iter().any(|p| p.forms.contains(f)))
-                })
-                .map(|r| r.id.as_str())
-                .collect();
-            if !shared.is_empty() {
-                let mut ids = shared;
-                ids.extend(persist_ids.iter().copied());
-                out.push_str(&entry(sig, RELOAD, ledger, session, &ids, &others));
-            }
+            })
+            .map(|r| r.id.as_str())
+            .collect();
+        // Rule 9: a passing `after the reload` row, `persistence 1-3` passed.
+        let via_after: Vec<&str> = passed
+            .iter()
+            .filter(|r| persisted_13 && r.after_reload)
+            .map(|r| r.id.as_str())
+            .collect();
+        let reload: Vec<&str> = if !via_4.is_empty() {
+            [via_4, ids_13.clone(), ids_4.clone()].concat()
+        } else if !via_after.is_empty() {
+            [via_after, ids_13.clone()].concat()
+        } else {
+            Vec::new()
+        };
+        if !reload.is_empty() {
+            out.push_str(&entry(sig, RELOAD, ledger, session, &reload, &others));
         }
     }
     Ok(out)
@@ -209,6 +258,73 @@ fn entry(
         quote(&format!("ledger: {ledger}")),
         quote(&note)
     )
+}
+
+/// A record signature as the rules spell it: four characters of `A-Z`, `0-9` or `_`,
+/// starting with a letter.
+fn is_sig(word: &str) -> bool {
+    word.len() == 4
+        && word.starts_with(|c: char| c.is_ascii_uppercase())
+        && word
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// Rules 1 and 7: the row's record type from every source that names one (the backtick,
+/// the row id, a reporter line, `the <SIG> <form>`, a trailing `(<SIG>)`); one type when
+/// they all agree, otherwise why there is none.
+fn row_type(id: &str, title: &str, forms: &[String]) -> Result<String, String> {
+    let mut found: Vec<(String, &str)> = Vec::new();
+    if let Some(sig) = record_type(title) {
+        found.push((sig, "a backtick name"));
+    }
+    for seg in id.split('-').filter(|s| is_sig(s)) {
+        found.push((seg.to_string(), "the row id"));
+    }
+    let words: Vec<&str> = title.split_whitespace().collect();
+    for w in words.windows(3) {
+        let [a, b, c] = w else { continue };
+        // A reporter line: `KKV-P01 GLOB value=4242`.
+        let tag = a.split_once('-').is_some_and(|(p, n)| {
+            p.len() >= 2
+                && p.chars().all(|c| c.is_ascii_uppercase())
+                && n.chars().any(|c| c.is_ascii_digit())
+                && n.chars()
+                    .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+        });
+        if tag && is_sig(b) {
+            found.push((b.to_string(), "a reporter line"));
+        }
+        // `the ACTI KKV10Acti`, the name one of the row's forms.
+        let name = c.trim_end_matches([':', ',', ';', ')', '.']);
+        if a.trim_start_matches('(') == "the" && is_sig(b) && forms.iter().any(|f| f == name) {
+            found.push((b.to_string(), "`the <SIG> <form>`"));
+        }
+    }
+    if let Some(sig) = title
+        .trim_end()
+        .strip_suffix(')')
+        .and_then(|t| t.rsplit_once('('))
+        .map(|(_, s)| s)
+        .filter(|s| is_sig(s))
+    {
+        found.push((sig.to_string(), "a trailing `(<SIG>)`"));
+    }
+    let mut sigs: Vec<&str> = found.iter().map(|(s, _)| s.as_str()).collect();
+    sigs.sort_unstable();
+    sigs.dedup();
+    match sigs.as_slice() {
+        [one] => Ok((*one).to_string()),
+        [] => Err("no record type in its row id or title".to_string()),
+        _ => Err(format!(
+            "ambiguous record type ({})",
+            found
+                .iter()
+                .map(|(s, from)| format!("{s} from {from}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )),
+    }
 }
 
 /// A TOML basic string.
@@ -305,6 +421,95 @@ mod tests {
         report["ledger_entry"] = Value::Null;
         let err = propose(&report).unwrap_err();
         assert!(err.contains("no ledger entry"), "{err}");
+    }
+
+    const VERIFY: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/fixtures/session-evidence/verify-report.json"
+    ));
+
+    /// Real verification-mod rows (a trimmed copy of game-20261116-04's, and V-H-PKIN of
+    /// game-20261117-01): types from the row id, reporter lines, `the <SIG> <form>` and a
+    /// trailing `(<SIG>)`; presence-only rows never pass; untyped rows are listed, skipped.
+    #[test]
+    fn verification_mod_rows_are_typed_from_their_ids_and_titles() {
+        let report: Value = serde_json::from_str(VERIFY).unwrap();
+        let out = propose(&report).unwrap();
+        let list = entries(&out);
+        let keys: Vec<(&str, &str)> = list
+            .iter()
+            .map(|t| (get(t, "type"), get(t, "status")))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("ACTI", RUNTIME),
+                ("ACTI", RELOAD),
+                ("ARMO", RUNTIME),
+                ("ARMO", RELOAD),
+                ("GLOB", RUNTIME),
+                ("LIGH", RUNTIME),
+                ("LVLI", RUNTIME),
+            ],
+            "{out}"
+        );
+        let note = |sig: &str, status: &str| {
+            list.iter()
+                .find(|t| get(t, "type") == sig && get(t, "status") == status)
+                .map(|t| get(t, "note").to_string())
+                .unwrap()
+        };
+        assert!(
+            note("ACTI", RUNTIME).starts_with("2026-11-16-T98: rows V-20, V-S-20 passed ("),
+            "{out}"
+        );
+        assert!(
+            note("ACTI", RELOAD).starts_with("2026-11-16-T98: rows V-S-20, V-S-01 passed ("),
+            "{out}"
+        );
+        assert!(
+            note("ARMO", RUNTIME).contains("rows V-I-ARMO, V-I-ARMO-EQ, V-S-I-ARMO passed"),
+            "{out}"
+        );
+        assert!(
+            note("GLOB", RUNTIME).contains("rows V-P01, V-C-GLOB passed"),
+            "{out}"
+        );
+        // Presence only is never a pass.
+        for sig in ["TMLM", "PKIN", "AVIF"] {
+            assert!(
+                out.contains(&format!("# {sig}: no row passed (")),
+                "{sig}: {out}"
+            );
+        }
+        assert!(
+            out.contains("V-H-TMLM inconclusive (presence only)"),
+            "{out}"
+        );
+        for skipped in [
+            "#   V-01: no record type in its row id or title",
+            "#   V-P00: no record type in its row id or title",
+            "#   V-P98: a diagnostic row",
+            "#   V-P99: no record type in its row id or title",
+            "#   V-S-02: no record type in its row id or title",
+        ] {
+            assert!(out.contains(skipped), "{skipped}: {out}");
+        }
+    }
+
+    #[test]
+    fn a_row_whose_sources_disagree_is_skipped_not_guessed() {
+        let forms = vec!["KKV10Acti".to_string()];
+        let why = row_type("V-I-STAT", "the ACTI KKV10Acti is here", &forms).unwrap_err();
+        assert!(why.starts_with("ambiguous record type"), "{why}");
+        assert!(why.contains("STAT from the row id"), "{why}");
+        // `the <SIG>` counts only when the next word is one of the row's forms.
+        assert!(row_type("V-I-ARMO-EQ", "the ARMO is worn", &[]).is_ok());
+        assert!(row_type("V-50", "the ARMO is worn", &[]).is_err());
+        assert_eq!(
+            row_type("V-P01", "Papyrus log: KKV-P01 GLOB value=4242 (GLOB)", &[]).as_deref(),
+            Ok("GLOB")
+        );
     }
 
     #[test]
