@@ -363,6 +363,9 @@ const CK_NEW_MEMBERS: &[([u8; 4], [u8; 4], usize, &str)] = &[
     (*b"NPC_", *b"EDCT", 0, "00"),
     (*b"NPC_", *b"STON", 0, "00"),
     (*b"NPC_", *b"PRON", 0, "00"),
+    (*b"WEAP", *b"FLLD", 0, "01000000"),
+    (*b"WEAP", *b"FLLD", 2, "01000000"),
+    (*b"WEAP", *b"STOP", 0, ""),
 ];
 
 /// A [`CK_NEW_MEMBERS`] payload: hex, or `0*<n>` for `n` zero bytes.
