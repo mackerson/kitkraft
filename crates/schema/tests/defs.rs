@@ -666,7 +666,6 @@ const INVENTORY_CORPUS_ONLY: &[&str] = &[
     "LMSW",
     "MRPH",
     "MTPT",
-    "VTYP",
 ];
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
