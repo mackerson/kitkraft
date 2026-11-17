@@ -252,6 +252,9 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ("Starfield.esm", "CPTH Condition.CTDA.Reference", 2, "14"),
     // Typed since KK-202: one DOOR's DATA ActorValue names a reserved ID.
     ("Starfield.esm", "DOOR PropertyValue.ActorValue", 1, "2D0"),
+    // Since EQUP was typed (KK-330): ANAM names three reserved IDs; pinned from the full
+    // release run of 2026-11-17 on e7718b5e.
+    ("Starfield.esm", "EQUP EQUP.ANAM", 6, "2CA-2CB,2CF"),
     ("Starfield.esm", "FLST Condition.CTDA.Reference", 28, "14"),
     (
         "Starfield.esm",
@@ -670,6 +673,11 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
 const UNNAMED_RESERVED: &[(&str, &str, u32)] = &[
     ("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 0x3B7),
     ("SFBGS00D.esm", "PERK Condition.CTDA.Parameter1", 0x3B6),
+    // KK-330 typed EQUP: its ANAM names these three; listed, not named (no evidence yet of
+    // what they are).
+    ("Starfield.esm", "EQUP EQUP.ANAM", 0x2CA),
+    ("Starfield.esm", "EQUP EQUP.ANAM", 0x2CB),
+    ("Starfield.esm", "EQUP EQUP.ANAM", 0x2CF),
 ];
 
 /// Sorted object IDs as compact hex runs: `14`, `2D0-2D2,2F1`.
