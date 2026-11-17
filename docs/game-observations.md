@@ -2052,3 +2052,91 @@ Deployed and run with this branch's release `kit.exe` (`627a8a6d...`).
   `KitKraft Dev - KitKraftVerifyQuest` now holds this alias build, not the
   `7192216d...` build of `game-20261117-05`. `report.json` SHA-256
   `ad842e4d7ab0c9bd81006a2833f2c9cfee4a788316b8806a8f04b816d43ee8d7`.
+
+### game-20261117-07: agent session 2026-11-17-T07 (`kit game session`), OldSovietMarksmanRifle.esm
+
+| Field | Content |
+| ----- | ------- |
+| Session | `2026-11-17-T07`, run by the session controller (ADR 0010, lane C); not an owner sitting |
+| Date | 2026-11-17 |
+| Status | inconclusive (2 profile file(s) changed during the session and were restored or reported) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | `sfse_loader.exe` 0.1.1.1 |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console port | 45555; checked against 7 excluded TCP range(s); `Console API and Web Application` [WebConsole] iPort=45555 |
+| MO2 profile | `Kitkraft Dev` (instance C:\Modding\MO2-Starfield) |
+| Save | base `KitKraftBase` SHA-256 `fbed2cc2f3fa0a09046c9818e34f48f1d4ac928739984ffbfe5d81f36eeb5ccf`; session save `KitKraftSession-20261117-07` |
+| Plugins | `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` |
+| Probes | `docs\bench\ow2-rerun-probes.toml` SHA-256 `e457fac2dbd61f2665b29d04a1ca973e8909b35164df55adbcffbaef3d49ed90` |
+| Screenshots | `C:\Modding\kitkraft-observe\2026-11-17-T07` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| T-01 | `help "Old Soviet Marksman Rifle" 4 WEAP`, `prid 00000014` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help "Old Soviet Marksman Rifle" 4 WEAP -> (no line of its own: help "Old Soviet Marksman Rifle" 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS----...; again in 2000 ms); help "Old Soviet Marksman Rifle" 4 WEAP -> (no line of its own: help "Old Soviet Marksman Rifle" 4 WEAP ----VIEW... | inconclusive (`help "Old Soviet Marksman Rifle" 4 WEAP`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| T-01b | `help Soviet 4 WEAP`, `prid 00000014` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | contains 0021BBCD | help Soviet 4 WEAP -> (no line of its own: help Soviet 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS-------------------- usag...; again in 2000 ms); help Soviet 4 WEAP -> (no line of its own: help Soviet 4 WEAP ----VIEWER STRINGS NOT AVAILABLE-------- ----OTHER FORMS---------------... | inconclusive (`help Soviet 4 WEAP`: no correlated reply in 3 answer(s) (only its echo or other requests' lines): no result to judge (a timing anomaly, R20, R28)) | - |
+| T-02 | `player.additem 0021BBCD 1`, `player.getitemcount 0021BBCD` | WEAP 0021BBCD as stored in OldSovietMarksmanRifle.esm, RussianHuntingRifle, 0021BBCD | regex >>\s*[1-9] | player.additem 0021BBCD 1 -> player.additem 0021BBCD 1 Command: player.additem 0021BBCD 1 GetGlobalValue >> 2.00 GetGlobalValue >> 2.00 GetGlobalValu...; player.getitemcount 0021BBCD -> player.getitemcount 0021BBCD Command: player.getitemcount 0021BBCD GetItemCount >> 1.00 | **pass** | - |
+| T-03 | `coc CityNewAtlantisLodgeInt`, `player.getincell 0006BB29`, `save KitKraftSession-20261117-07`, `coc CityNewAtlantisApartmentTEMPLATE`, `player.getincell 0021966F`, `load KitKraftSession-20261117-07`, `player.getincell 0006BB29` | CityNewAtlantisLodgeInt, 0006BB29, CityNewAtlantisApartmentTEMPLATE, 0021966F | regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$; regex (?m)>>\s*1(\.0+)?\s*$ | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 30s); player.getincell 0006BB29 -> player.getincell 0006BB29 Command: player.getincell 0006BB29 GetInCell >> 1.00; save KitKraftSession-... | **pass** | - |
+| SO-A | `coc CityNewAtlantisApartmentTEMPLATE`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisApartmentTEMPLATE | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisApartmentTEMPLATE -> coc CityNewAtlantisApartmentTEMPLATE Command: coc CityNewAtlantisApartmentTEMPLATE IsInSpace >> 0.00 GetGlobalValue >> 0...; player.getpos x -> (only the echo; again in 2000 ms); player.getpos x -> player.getpos x Command: player.getpos x GetPos: X >> -8.00; p... | **pass** | - |
+| SO-B | `coc CityNewAtlantisLodgeInt`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisLodgeInt | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | coc CityNewAtlantisLodgeInt -> coc CityNewAtlantisLodgeInt Command: coc CityNewAtlantisLodgeInt IsInSpace >> 0.00 GetGlobalValue >> 0.00 GetGlobalValue...; (waited 30s); (ambiguous: row SO-A `player.getpos x`, row SO-B `player.getpos x` could each claim `GetPos: X >> 11.01`; given to none); player.g... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-A) are the same getter still waiting for an answer, and the line `GetPos: X >> 11.01` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+| SO-C | `load KitKraftSession-20261117-07`, `player.getpos x`, `player.getpos y`, `player.getpos z` | CityNewAtlantisLodgeInt | regex GetPos: X >> -?\d; regex GetPos: Y >> -?\d; regex GetPos: Z >> -?\d | load KitKraftSession-20261117-07 -> load KitKraftSession-20261117-07 Command: load KitKraftSession-20261117-07; (readiness poll) GetSFSEVersion -> GetSFSEVersion Command: GetSFSEVersion; (readiness poll) GetSFSEVersion -> GetSFSEVersion Command: GetSFSEVersion; (readiness poll) GetSFSEVersion -> Get... | inconclusive (ambiguous reply: `player.getpos x` and `player.getpos x` (row SO-A), `player.getpos x` (row SO-B) are the same getter still waiting for an answer, and the line `GetPos: X >> 11.00` names neither apart; the text cannot tell them apart: no result to judge (a timing anomaly, R20, R28)) | - |
+
+Finding: log console-history was not written during the session (C:\Users\macke\Documents/My Games/Starfield/StarfieldConsoleHistory.log has the length and modified time it had before the launch); recorded as missing
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\modlist.txt changed during the session (9476b9444abd44ae8a9e22e350ee16194af604b00e0f1c6ee39387289ecfc630 -> 4d50841844b04a3e26fa4f43ff89c11fccc96789467a8e37199ed7ace866d3f3): restored from C:\Modding\kitkraft-observe\2026-11-17-T07\backup\00-modlist.txt
+Finding: C:\Modding\MO2-Starfield\profiles\Kitkraft Dev\plugins.txt changed during the session (d49cb3a06d1949775a8423ee7eff476aeafd075c98e3f9eae5a065532ac8aee4 -> e98f0a7950a816430df61854c64a4dbd184c8f35cbfaac6a752947ab4d1d1d72): restored from C:\Modding\kitkraft-observe\2026-11-17-T07\backup\01-plugins.txt
+
+Writer's reading (bench night 2026-11-17, 02:35 to 02:41; OW-2 Rename re-run with send-order
+rows for SO-03). Probes `docs/bench/ow2-rerun-probes.toml` (SHA-256
+`e457fac2dbd61f2665b29d04a1ca973e8909b35164df55adbcffbaef3d49ed90`), hand-written from the
+testplan file of `game-20261117-04` with only shape and pacing changed (its header says
+what). Release `kit.exe` `627a8a6d...`; the rename plugin `9c0b28a6...` enabled and last, both
+verification mods disabled. Times below are ms after launch, from `report.json`
+(`transcript`).
+
+- **Why -04's rows were inconclusive.** T-03: the three `player.getincell 0006BB29` sent
+  10.1 s, 12.2 s and 16.4 s after `coc CityNewAtlantisLodgeInt` all answered only their
+  echo; every later `GetInCell >> 1.00` then had several identical getters waiting for it,
+  so the correlator gave it to none. T-01: the answer was not late; it came in its own
+  reply and listed nothing (`----VIEWER STRINGS NOT AVAILABLE----`, `----OTHER FORMS----`,
+  no form line).
+- **T-03 pass** with the Lodge `coc` waited 30 s and the apartment `coc` 20 s: each of the
+  three getters answered `GetInCell >> 1.00` in its own reply on the first send (145,972;
+  176,332; 201,887), around the save and the load of `KitKraftSession-20261117-07`. The
+  check is unchanged. It proves the reload; no reference's state after it is read
+  (T-04 stays manual), so no save/reload evidence is entered.
+- **T-01 and T-01b inconclusive, not a timing matter.** `help "Old Soviet Marksman Rifle" 4
+  WEAP` and `help Soviet 4 WEAP` each answered at once, three times, with the empty list
+  and the line `usage: help <matchstring> <filter> <form type>`. On this build `help`
+  found no WEAP by the renamed FULL (by a quoted phrase or by one word). The rename shows
+  in the game's UI (the workbench list, `game-20261117-04`'s reading), not through `help`.
+  A check that can grade T-01 needs another getter (ticket idea: read the name another way,
+  e.g. a Papyrus `GetName` reporter as the verification mod does).
+- **T-02 pass** again (`GetItemCount >> 1.00` on the first send). The `additem` reply carried
+  unrelated `GetGlobalValue >> 2.00` lines (the game's own condition checks, as after
+  every `coc`).
+- **Send order (SO-03's question), what one session shows:**
+
+  | When sent | Command | Sent at | Reply |
+  | --------- | ------- | ------: | ----- |
+  | 105 ms after `coc` (apartment, 202,003) | `player.getpos x` | 202,108 | echo only |
+  | retry | `player.getpos x` | 204,215 | `GetPos: X >> -8.00` |
+  | then | `player.getpos y`, `z` | 204,339, 204,445 | own lines, on time |
+  | 30 s after `coc` (Lodge, 219,556) | `player.getpos x` | 249,667 | `GetPos: X >> 11.01` (own reply) |
+  | 4.4 s after the readiness poll's last echo-only poll (load at 256,232) | `player.getpos x` | 266,660 | echo only |
+  | retry | `player.getpos x` | 268,765 | echo only |
+  | retry | `player.getpos x` | 272,883 | `GetPos: X >> 11.00` |
+  | then | `player.getpos y`, `z` | 272,999, 273,119 | own lines, on time |
+
+  Reading: every reply carried **at most one** `GetPos: X` line, and no X line ever arrived
+  in the reply to a later `y`, `z` or other request. If the echo-only sends' answers had
+  only been late, some later reply would have held two X lines; none did. So the answers
+  to getters sent while a `coc` (about 2 s) or a `load` (about 16 s after it) was still
+  moving were **lost, not delayed**, and nothing arrived out of order: the same reading as
+  OW-1 (`game-20261116-01`, `-02`). It does not decide SO-03's two identical `prid` failure
+  lines; it is the evidence for the owner's ruling on send order. Also seen: the readiness
+  poll after a `load` declared ready on three echo-only polls (266,546), about 6 s before the
+  game answered getters (R41's rule counts an echo as a reply); a getter sent then is lost.
+  SO-B and SO-C grade `inconclusive` only because the correlator still counted SO-A's lost
+  X getter as waiting; SO-A passes.
+- `report.json` SHA-256 `f1925596b061b5f483dd6f1c27ccbd3d0a17f765cc876f400693fac6c45df37d`.
+  The game and MO2 were closed by the controller; the session save
+  `KitKraftSession-20261117-07` is in the dev profile.
