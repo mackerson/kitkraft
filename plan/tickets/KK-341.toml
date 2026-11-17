@@ -1,6 +1,7 @@
 # Written 2026-11-15 in the shape of KK-291 (typed-write tests; merged 6/6 by the local agent).
 id = "KK-341"
 title = "Typed-write tests for SPCH, STND and MOVT"
+hold = "done by Opus lane opus/tickets365-20261117 (29cd710a, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 60
 budget_h = 1.5
 owns = [

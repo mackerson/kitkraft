@@ -3,6 +3,7 @@
 # flag", which the parser refuses (`unexpected argument`).
 id = "KK-365"
 title = "kit help: a list flag's synopsis says the flag repeats, as the parser takes it"
+hold = "done by Opus lane opus/tickets365-20261117 (19720c3a, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 45
 budget_h = 1.5
 priority = 1

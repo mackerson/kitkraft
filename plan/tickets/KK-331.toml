@@ -1,6 +1,7 @@
 # Written 2026-11-15 in the shape of KK-290 (inventory to typed; merged 7/7 by the local agent).
 id = "KK-331"
 title = "Type FSTP (Footstep) from the pinned xEdit file, corpus-checked"
+hold = "done by Opus lane opus/tickets365-20261117 (b0394497, landed on main by the integration opus/night-land-20261117, 2026-11-17): do not run again"
 timeout_min = 60
 budget_h = 1.5
 owns = [
