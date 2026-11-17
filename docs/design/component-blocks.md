@@ -78,7 +78,7 @@ empty), the data's first subrecord in the corpus, and the upstream layout that r
 | SpawnOnDestroy | 75 | 75 | `SODA` | L6231-L6234 | 2026-11-16 |
 | CrowdComponent | 24 | 24 | `CDND` | L6106-L6117 | 2026-11-16 (after PropertySheet) |
 | AdaptiveTriggerData | 19 | 19 | `WFIR` | L6060-L6074 | 2026-11-16 |
-| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | no (configuration strings carry FormIDs) |
+| ActivityTracker | 10 | 10 | `ATCP` | L6055-L6059 (helper L5645-L5672) | 2026-11-17 (`ATAV` kept opaque) |
 | BodyPartInfo | 4 | 1 | `GNAM` | GNAM (unknown bytes), L6690-L6693 | 2026-11-16 (opaque) |
 | CityMapsUsage | 4 | 4 | `MOD2` | L6092-L6095 | 2026-11-16 |
 | VehicleConfig | 2 | 2 | `VCSB` | L6259-L6553 | no (two blocks; length-prefixed strings, WWise GUIDs) |
@@ -266,3 +266,35 @@ configuration strings carry FormIDs), VehicleConfig 2 (length-prefixed strings, 
 references, WWise GUIDs) and `BGSBlockCellHeighGrid_Component` 1 (no upstream decider
 entry). The REFR and CELL `XTV2` traversal arrays have the same entry layout and could
 now use `common/Traversal.toml`; they stay opaque here (not component data).
+
+**Update (2026-11-17, later):** `ActivityTracker` is typed too (L6055-L6059 over the helper
+L5645-L5672, the same layout PERK's rank already uses): `ATCP`, then per activity `ATAN`,
+`FULL`, `DESC`, arguments of `DNAM`, `CITC` and conditions, `ANAM`, `ATAV` and an empty
+`ATAF`. `ATAV` is text without a terminator that upstream says may embed FormIDs; it stays
+opaque bytes, so such FormIDs are neither visited nor remapped (as before, when the whole
+block was raw: no regression, and in the official files every `ATAV` is JSON naming no
+form). Typing it would need a FormID-bearing text type with a remap hook; not built.
+CHAL's `FULL` and `DESC` are now typed lstrings (the lstring table needs no fallback).
+**3 blocks in 2 kinds stay raw**, by design:
+
+- `BGSVehicleConfig` (2 blocks, L6259-L6553): its `VCCD` is a ~700-byte struct of
+  `u32`-length-prefixed strings (xEdit's length string), and the format has `u8`/`u16`
+  prefixes only; a fourth string type for two blocks was not added.
+- `BGSBlockCellHeighGrid_Component` (1 block, one 64-byte `DATA`): no upstream layout
+  (neither name decider lists it) and one occurrence cannot establish one.
+
+REFR `XTV2` (6,027 subrecords) is now a rest array of `common/Traversal.toml`. CELL
+`XTV2` (2,834) stays opaque: upstream sizes the payload as 56 bytes per entry
+(`SetWronglyAssumedFixedSizePerElementOnValue(56)`, L7136-L7141) although an entry
+without a FormID is 52 bytes, and a scan shows all 2,834 are `n x 56` bytes for their `n`
+entries with 4 zero bytes per flag-0x4 entry at the end (3 have none). A rest array would
+read that padding as entries, so typing it needs an array counted as "payload bytes / 56"
+followed by the padding: a fourth format feature, not built.
+
+What the three features would unlock elsewhere (not done here):
+
+| Subrecord | Occurrences | Feature | Note |
+| --------- | ----------: | ------- | ---- |
+| NPC_ `ONA2` race overrides | 337 records | `present_if` | eight override blocks, each present when its flag bit is set (upstream L15328-L15415) |
+| CELL `XTV2` traversals | 2,834 | `present_if`, `f16` + a size-counted array | see above |
+| VehicleConfig `VCCD` | 2 | (needs `u32`-length strings) | see above |
