@@ -166,13 +166,16 @@ pub enum Scalar {
     I32,
     U64,
     I64,
+    /// An IEEE 754 half-precision float (binary16), kept as its stored bits
+    /// (`type = "f16"`, 2026-11-17; upstream's half floats).
+    F16,
     F32,
     F64,
 }
 
 impl Scalar {
     /// All scalars, for parsing and tests.
-    pub const ALL: [Scalar; 10] = [
+    pub const ALL: [Scalar; 11] = [
         Self::U8,
         Self::I8,
         Self::U16,
@@ -181,11 +184,13 @@ impl Scalar {
         Self::I32,
         Self::U64,
         Self::I64,
+        Self::F16,
         Self::F32,
         Self::F64,
     ];
 
-    /// The TOML spelling, which is also the Rust type name.
+    /// The TOML spelling, which is also the Rust type name except for `f16` (generated
+    /// code reads it as the prelude's `F16`, the stored bits; see [`Scalar::rust_type`]).
     pub fn as_str(self) -> &'static str {
         match self {
             Self::U8 => "u8",
@@ -196,8 +201,17 @@ impl Scalar {
             Self::I32 => "i32",
             Self::U64 => "u64",
             Self::I64 => "i64",
+            Self::F16 => "f16",
             Self::F32 => "f32",
             Self::F64 => "f64",
+        }
+    }
+
+    /// The Rust type generated code uses for this scalar.
+    pub fn rust_type(self) -> &'static str {
+        match self {
+            Self::F16 => "F16",
+            other => other.as_str(),
         }
     }
 
@@ -205,7 +219,7 @@ impl Scalar {
     pub fn size(self) -> u32 {
         match self {
             Self::U8 | Self::I8 => 1,
-            Self::U16 | Self::I16 => 2,
+            Self::U16 | Self::I16 | Self::F16 => 2,
             Self::U32 | Self::I32 | Self::F32 => 4,
             Self::U64 | Self::I64 | Self::F64 => 8,
         }
@@ -213,14 +227,14 @@ impl Scalar {
 
     /// Whether this is an integer type (enums and flags need one).
     pub fn is_integer(self) -> bool {
-        !matches!(self, Self::F32 | Self::F64)
+        !matches!(self, Self::F16 | Self::F32 | Self::F64)
     }
 
     /// Whether this is a signed type.
     pub fn is_signed(self) -> bool {
         matches!(
             self,
-            Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::F32 | Self::F64
+            Self::I8 | Self::I16 | Self::I32 | Self::I64 | Self::F16 | Self::F32 | Self::F64
         )
     }
 
@@ -235,7 +249,7 @@ impl Scalar {
             Self::I32 => (i32::MIN.into(), i32::MAX.into()),
             Self::U64 => (0, u64::MAX.into()),
             Self::I64 => (i64::MIN.into(), i64::MAX.into()),
-            Self::F32 | Self::F64 => return false,
+            Self::F16 | Self::F32 | Self::F64 => return false,
         };
         (min..=max).contains(&value)
     }
@@ -246,7 +260,47 @@ impl Scalar {
     }
 }
 
-/// Element count of a [`FieldType::Array`].
+/// The value of an IEEE 754 half-precision float stored as `bits` (exact: every binary16
+/// value is a binary32 value; NaN payloads keep their top bits).
+pub fn f16_to_f32(bits: u16) -> f32 {
+    let sign = u32::from(bits & 0x8000).wrapping_shl(16);
+    let exp = u32::from(bits.wrapping_shr(10) & 0x1F);
+    let mant = u32::from(bits & 0x3FF);
+    let magnitude = match (exp, mant) {
+        (0, 0) => 0,
+        // Subnormal: mant * 2^-24, normalised into binary32 (the leading one moved to
+        // bit 10 and dropped; the exponent lowered by the shift).
+        (0, _) => {
+            let shift = mant.leading_zeros().saturating_sub(21);
+            let mant = mant.wrapping_shl(shift) & 0x3FF;
+            let exp = 113u32.saturating_sub(shift);
+            exp.wrapping_shl(23) | mant.wrapping_shl(13)
+        }
+        (0x1F, _) => 0x7F80_0000 | mant.wrapping_shl(13),
+        _ => exp.saturating_add(112).wrapping_shl(23) | mant.wrapping_shl(13),
+    };
+    f32::from_bits(sign | magnitude)
+}
+
+/// A struct field present only when the bits `mask` of an earlier sibling equal `value`
+/// (`present_if = { field = "Flags", mask = 4, value = 0 }`, 2026-11-17: the stored
+/// traversals' FormID, absent when the entry's flag bit 2 is set).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BitCondition {
+    /// The deciding sibling: an earlier, ungated, unconditional integer, enum or flags
+    /// field of at most 32 bits.
+    pub field: String,
+    pub mask: u64,
+    /// The bits under `mask` that make the field present (a subset of `mask`).
+    pub value: u64,
+}
+
+impl BitCondition {
+    /// Whether a field with this condition is present when the sibling holds `raw`.
+    pub fn holds(&self, raw: u64) -> bool {
+        raw & self.mask == self.value
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrayCount {
     /// Exactly this many elements.
@@ -479,9 +533,10 @@ impl FieldType {
                     if !field.present_in(form_version) {
                         continue;
                     }
-                    if field.if_remaining {
+                    if field.if_remaining || field.present_if.is_some() {
                         return None;
                     }
+
                     total = total.checked_add(field.ty.fixed_size(form_version)?)?;
                 }
                 Some(total)
@@ -572,6 +627,8 @@ pub struct FieldDef {
     /// Present only when bytes remain in the payload when the field is reached (a
     /// trailing field that some occurrences omit). Always the last field.
     pub if_remaining: bool,
+    /// Present only when bits of an earlier sibling say so (`present_if`).
+    pub present_if: Option<BitCondition>,
     pub note: Option<String>,
     /// Effective provenance (own keys, else the enclosing member's or definition's).
     pub provenance: Provenance,

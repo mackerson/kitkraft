@@ -1,0 +1,25 @@
+# Traversal: one stored traversal entry (2026-11-17, the StoredTraversals component).
+#
+# Source (ADR 0004): the traversal data struct of wbDefinitionsSF1.pas at the pin
+# (L5789-L5813): four unknown bytes, the from and to vectors, a third vector, a u32 of
+# flags whose bit 2 says the entry has no traversal FormID, that FormID (a TRAV) only when
+# bit 2 is clear, and four half floats. Upstream notes some stored arrays miscount; no
+# official STRD shows that (every one divides exactly into entries).
+name = "Traversal"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5789-L5813"
+evidence = [
+  "corpus: a throwaway scan of the 14 official ESMs, 2026-11-17 (not committed): the 121,923 traversal entries of the 1,258 STRD payloads (all GBFM) carry flags 0 (15,578, each with a non-null FormID) or 4 (106,345, none); every STRD divides exactly into these entries",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-11-17: every STRD decodes with this entry and re-encodes identically",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Unknown", type = "opaque", size = 4 },
+  { name = "From", type = "ref:Vec3" },
+  { name = "To", type = "ref:Vec3" },
+  { name = "UnknownVector", type = "ref:Vec3" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["Unknown0", 0x1], ["Unknown1", 0x2], ["NoTraversalFormId", 0x4]] },
+  { name = "Traversal", type = "formid", targets = ["TRAV"], present_if = { field = "Flags", mask = 0x4, value = 0 }, note = "stored only when flag 0x4 (NoTraversalFormId) is clear" },
+  { name = "UnknownHalves", type = "array", count = 4, element = "f16", note = "upstream's four half floats, kept as their bits" },
+]

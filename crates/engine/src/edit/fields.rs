@@ -748,6 +748,20 @@ fn member_span<'f>(
             }
             continue;
         }
+        if !condition_holds(path, field, &ints)? {
+            if field.name.eq_ignore_ascii_case(name) {
+                return Err(FieldError::new(
+                    path,
+                    "no-member",
+                    format!(
+                        "`{}` is absent from this entry (its condition on `{}` does not hold)",
+                        field.name,
+                        field.present_if.as_ref().map_or("", |c| c.field.as_str())
+                    ),
+                ));
+            }
+            continue;
+        }
         let len = field_len(path, &field.ty, rest, &ints, form_version)?;
         if field.name.eq_ignore_ascii_case(name) {
             return Ok((cursor, len, field, ints));
@@ -818,6 +832,9 @@ fn field_len(
                 if field.if_remaining && sub.is_empty() {
                     continue;
                 }
+                if !condition_holds(path, field, &inner)? {
+                    continue;
+                }
                 let len = field_len(path, &field.ty, sub, &inner, form_version)?;
                 if let Some(s) = int_base(&field.ty) {
                     if let Some(v) = sub.get(..len).and_then(|b| read_int(s, b)) {
@@ -845,6 +862,32 @@ fn field_len(
     Ok(len)
 }
 
+/// Whether `field` is present given the integer values of the members before it: always,
+/// unless it has a `present_if` condition, which its deciding sibling's stored bits must
+/// meet. A sibling not read is a layout error, never a guess.
+fn condition_holds(
+    path: &str,
+    field: &FieldDef,
+    ints: &[(&str, i128)],
+) -> Result<bool, FieldError> {
+    let Some(cond) = &field.present_if else {
+        return Ok(true);
+    };
+    let raw = ints
+        .iter()
+        .rev()
+        .find(|(f, _)| f.eq_ignore_ascii_case(&cond.field))
+        .map(|(_, v)| *v as u64)
+        .ok_or_else(|| {
+            FieldError::new(
+                path,
+                "layout",
+                format!("condition field `{}` not read", cond.field),
+            )
+        })?;
+    Ok(cond.holds(raw))
+}
+
 fn read_int(s: Scalar, b: &[u8]) -> Option<i128> {
     Some(match s {
         Scalar::U8 => i128::from(*b.first()?),
@@ -855,12 +898,15 @@ fn read_int(s: Scalar, b: &[u8]) -> Option<i128> {
         Scalar::I32 => i128::from(i32::from_le_bytes(b.try_into().ok()?)),
         Scalar::U64 => i128::from(u64::from_le_bytes(b.try_into().ok()?)),
         Scalar::I64 => i128::from(i64::from_le_bytes(b.try_into().ok()?)),
-        Scalar::F32 | Scalar::F64 => return None,
+        Scalar::F16 | Scalar::F32 | Scalar::F64 => return None,
     })
 }
 
 fn read_float(s: Scalar, b: &[u8]) -> Option<f64> {
     match s {
+        Scalar::F16 => Some(f64::from(kitkraft_schema::f16_to_f32(u16::from_le_bytes(
+            b.try_into().ok()?,
+        )))),
         Scalar::F32 => Some(f64::from(f32::from_le_bytes(b.try_into().ok()?))),
         Scalar::F64 => Some(f64::from_le_bytes(b.try_into().ok()?)),
         other => read_int(other, b).map(|v| v as f64),
@@ -958,6 +1004,12 @@ pub fn encode_value(
                 )
             })
         }
+        // A half float takes no number: there is no exact conversion from the value
+        // given, and a rounded one would change bits the user did not see (`hex:` bytes,
+        // handled above, still set the stored bits).
+        FieldType::Scalar(Scalar::F16) => Err(type_err(
+            "an f16 (half float) field takes no number; give its bits as `hex:`".to_string(),
+        )),
         FieldType::Scalar(s) => {
             let value = match op {
                 Op::Set(v) => parse_float(v).map_err(|e| match e {
@@ -1310,6 +1362,35 @@ fn encode_struct(
     let mut out = Vec::new();
     for f in &present {
         let at = format!("{path}.{}", f.name);
+        // A conditional member (`present_if`) follows the value given for its deciding
+        // sibling, as an integer: given exactly when the condition holds.
+        if let Some(cond) = &f.present_if {
+            let key = given(&cond.field).and_then(parse_int).ok_or_else(|| {
+                FieldError::new(
+                    &at,
+                    "no-member",
+                    format!(
+                        "`{}` depends on `{}`; give `{}` as an integer",
+                        f.name, cond.field, cond.field
+                    ),
+                )
+            })?;
+            let holds = cond.holds(key as u64);
+            match (holds, given(&f.name).is_some()) {
+                (false, false) => continue,
+                (false, true) => {
+                    return Err(FieldError::new(
+                        &at,
+                        "no-member",
+                        format!(
+                            "`{}` is absent when `{}` & {:#X} is not {:#X}; leave it out",
+                            f.name, cond.field, cond.mask, cond.value
+                        ),
+                    ))
+                }
+                _ => {}
+            }
+        }
         let value = match (given(&f.name), counted(&f.name)) {
             (Some(v), Some(len)) => {
                 if parse_int(v).and_then(|n| usize::try_from(n).ok()) != Some(len) {
@@ -1608,7 +1689,7 @@ fn encode_int(s: Scalar, value: i128) -> Option<Vec<u8>> {
         Scalar::I32 => i32::try_from(value).ok()?.to_le_bytes().to_vec(),
         Scalar::U64 => u64::try_from(value).ok()?.to_le_bytes().to_vec(),
         Scalar::I64 => i64::try_from(value).ok()?.to_le_bytes().to_vec(),
-        Scalar::F32 | Scalar::F64 => return None,
+        Scalar::F16 | Scalar::F32 | Scalar::F64 => return None,
     })
 }
 
@@ -1853,6 +1934,7 @@ mod tests {
             since: None,
             until: None,
             if_remaining: false,
+            present_if: None,
             note: None,
             provenance: Provenance {
                 source: "corpus: test".into(),
@@ -2189,6 +2271,129 @@ mod tests {
         // A payload shorter than the layout says.
         let err = locate("X", &ty, &payload[..8], &steps("DATA.Speed"), 582).unwrap_err();
         assert_eq!(err.rule, "payload");
+    }
+
+    /// 2026-11-17 format features in field paths: a `present_if` member is located only
+    /// when its sibling's bits say it is stored, and later members move with it; a whole
+    /// struct takes it exactly when the given sibling's condition holds; an `f16` reads as
+    /// its value and refuses a number (`hex:` writes its bits); a variable-width union's
+    /// struct has no fixed size, so
+    /// an array of them cannot be indexed (refused, never misplaced).
+    #[test]
+    fn conditional_members_half_floats_and_variable_unions() {
+        use kitkraft_schema::BitCondition;
+        let ty = FieldType::Struct {
+            fields: vec![
+                field("Flags", FieldType::Scalar(Scalar::U32)),
+                FieldDef {
+                    present_if: Some(BitCondition {
+                        field: "Flags".into(),
+                        mask: 4,
+                        value: 0,
+                    }),
+                    ..field("Target", FieldType::FormId { targets: vec![] })
+                },
+                field("Speed", FieldType::Scalar(Scalar::F16)),
+            ],
+        };
+        let steps = |p: &str| parse_path(p).unwrap().steps;
+        let mut with = 0u32.to_le_bytes().to_vec();
+        with.extend_from_slice(&0x0100_0042u32.to_le_bytes());
+        with.extend_from_slice(&0x3C00u16.to_le_bytes());
+        let at = locate("X", &ty, &with, &steps("DATA.Target"), 582).unwrap();
+        assert_eq!((at.start, at.len), (4, 4));
+        let at = locate("X", &ty, &with, &steps("DATA.Speed"), 582).unwrap();
+        assert_eq!((at.start, at.len), (8, 2));
+        let mut without = 4u32.to_le_bytes().to_vec();
+        without.extend_from_slice(&0xC000u16.to_le_bytes());
+        let err = locate("X", &ty, &without, &steps("DATA.Target"), 582).unwrap_err();
+        assert_eq!(err.rule, "no-member");
+        let at = locate("X", &ty, &without, &steps("DATA.Speed"), 582).unwrap();
+        assert_eq!((at.start, at.len), (4, 2));
+        let half = FieldType::Scalar(Scalar::F16);
+        assert_eq!(display(&half, &0xC000u16.to_le_bytes(), false), json!(-2.0));
+        assert_eq!(set(&half, json!(1.0)).unwrap_err().rule, "type");
+
+        // `hex:` still writes the stored bits exactly, alone or inside a whole struct.
+        assert_eq!(set(&half, json!("hex:003C")).unwrap(), [0x00, 0x3C]);
+        let built = set(&ty, json!({ "Flags": 4, "Speed": "hex:00C0" })).unwrap();
+        assert_eq!(built, [4, 0, 0, 0, 0x00, 0xC0]);
+        let err = set(&ty, json!({ "Flags": 4, "Speed": 1.5 })).unwrap_err();
+        assert_eq!(err.rule, "type");
+        let no_half = FieldType::Struct {
+            fields: vec![
+                field("Flags", FieldType::Scalar(Scalar::U32)),
+                FieldDef {
+                    present_if: Some(BitCondition {
+                        field: "Flags".into(),
+                        mask: 4,
+                        value: 0,
+                    }),
+                    ..field("Target", FieldType::Scalar(Scalar::U8))
+                },
+                field("Tail", FieldType::Scalar(Scalar::U8)),
+            ],
+        };
+        assert_eq!(
+            set(&no_half, json!({ "Flags": 0, "Target": 7, "Tail": 9 })).unwrap(),
+            [0, 0, 0, 0, 7, 9]
+        );
+        assert_eq!(
+            set(&no_half, json!({ "Flags": 4, "Tail": 9 })).unwrap(),
+            [4, 0, 0, 0, 9]
+        );
+        let err = set(&no_half, json!({ "Flags": 4, "Target": 7, "Tail": 9 })).unwrap_err();
+        assert_eq!(err.rule, "no-member");
+        let err = set(&no_half, json!({ "Flags": 0, "Tail": 9 })).unwrap_err();
+        assert_eq!(err.rule, "no-member");
+
+        // Entries of a variable-width union have no fixed size: no index into them.
+        let entry = FieldType::Struct {
+            fields: vec![
+                field("Kind", FieldType::Scalar(Scalar::U32)),
+                field(
+                    "Tail",
+                    FieldType::Union {
+                        decider: kitkraft_schema::Decider::Field {
+                            name: "Kind".into(),
+                            secondary: None,
+                        },
+                        variants: vec![
+                            kitkraft_schema::UnionVariant {
+                                when: vec![1],
+                                secondary_when: None,
+                                name: "One".into(),
+                                ty: FieldType::Scalar(Scalar::F32),
+                                note: None,
+                            },
+                            kitkraft_schema::UnionVariant {
+                                when: vec![3],
+                                secondary_when: None,
+                                name: "Two".into(),
+                                ty: FieldType::Array {
+                                    element: Box::new(FieldType::Scalar(Scalar::F32)),
+                                    count: ArrayCount::Fixed(2),
+                                },
+                                note: None,
+                            },
+                        ],
+                    },
+                ),
+            ],
+        };
+        let list = FieldType::Struct {
+            fields: vec![field(
+                "Entries",
+                FieldType::Array {
+                    element: Box::new(entry),
+                    count: ArrayCount::Rest,
+                },
+            )],
+        };
+        let mut payload = 1u32.to_le_bytes().to_vec();
+        payload.extend_from_slice(&2.0f32.to_le_bytes());
+        let err = locate("X", &list, &payload, &steps("DATA.Entries[0].Kind"), 582).unwrap_err();
+        assert_eq!(err.rule, "layout");
     }
 
     /// Lane D round 5 (gap 2): a whole array takes a JSON array of element values, FormIDs,

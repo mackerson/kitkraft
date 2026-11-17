@@ -37,6 +37,7 @@
 // - common ScriptAttachment (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411; corpus)
 // - common SoundReference (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227; corpus)
 // - common Transforms (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978; corpus)
+// - common Traversal (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5789-L5813; corpus)
 // - common Vec3 (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740; corpus)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
@@ -242,7 +243,8 @@ pub enum DecodeError {
     /// The count for the array `field` is negative or does not fit in `usize`.
     BadCount { field: &'static str, offset: usize },
     /// The union `field` has no layout for this record: no `EDID`, or an EditorID prefix
-    /// no variant names.
+    /// no variant names; or a decider value no variant of a variable-width field union
+    /// names.
     Undecided { field: &'static str },
 }
 
@@ -260,7 +262,10 @@ impl std::fmt::Display for DecodeError {
                 write!(f, "{field}: invalid element count at offset {offset}")
             }
             Self::Undecided { field } => {
-                write!(f, "{field}: no layout for this record's EditorID prefix")
+                write!(
+                    f,
+                    "{field}: no layout for this EditorID prefix or decider value"
+                )
             }
         }
     }
@@ -368,6 +373,42 @@ macro_rules! scalar_field {
 }
 
 scalar_field!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+
+/// An IEEE 754 half-precision float (`type = "f16"`), kept as its stored bits so every
+/// value, NaN payloads included, re-encodes as read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct F16(pub u16);
+
+impl F16 {
+    /// The value as an `f32` (exact: every half-precision value is one).
+    pub fn to_f32(self) -> f32 {
+        let bits = self.0;
+        let sign = u32::from(bits & 0x8000).wrapping_shl(16);
+        let exp = u32::from(bits.wrapping_shr(10) & 0x1F);
+        let mant = u32::from(bits & 0x3FF);
+        let magnitude = match (exp, mant) {
+            (0, 0) => 0,
+            (0, _) => {
+                let shift = mant.leading_zeros().saturating_sub(21);
+                let mant = mant.wrapping_shl(shift) & 0x3FF;
+                113u32.saturating_sub(shift).wrapping_shl(23) | mant.wrapping_shl(13)
+            }
+            (0x1F, _) => 0x7F80_0000 | mant.wrapping_shl(13),
+            _ => exp.saturating_add(112).wrapping_shl(23) | mant.wrapping_shl(13),
+        };
+        f32::from_bits(sign | magnitude)
+    }
+}
+
+impl Field for F16 {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
 
 /// A fixed-count array: exactly `N` elements, so its encoded size cannot drift.
 impl<T: Field, const N: usize> Field for [T; N] {
@@ -772,7 +813,8 @@ macro_rules! no_visit {
     )*};
 }
 
-no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, F16, f32, f64);
+
 no_visit!(ZString, WString, BString, Bytes, Empty, OwnedSub);
 
 impl Visit for FormId {
@@ -7775,6 +7817,318 @@ impl Visit for BfcbBlockSpawnOnDestroy {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Vec3 {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for Vec3 {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "Vec3.X", ctx)?;
+        let f1 = f32::read(r, "Vec3.Y", ctx)?;
+        let f2 = f32::read(r, "Vec3.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for Vec3 {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TraversalFlags(pub u32);
+
+impl TraversalFlags {
+    pub const UNKNOWN0: u32 = 0x1;
+    pub const UNKNOWN1: u32 = 0x2;
+    pub const NO_TRAVERSAL_FORM_ID: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for TraversalFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for TraversalFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Traversal {
+    pub unknown: [u8; 4],
+    pub from: Vec3,
+    pub to: Vec3,
+    pub unknown_vector: Vec3,
+    pub flags: TraversalFlags,
+    /// Present only when `Flags` & 0x4 is 0x0.
+    pub traversal: Option<FormId>,
+    pub unknown_halves: [F16; 4],
+}
+
+impl Field for Traversal {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "Traversal.Unknown", ctx)?;
+        let f1 = Field::read(r, "Traversal.From", ctx)?;
+        let f2 = Field::read(r, "Traversal.To", ctx)?;
+        let f3 = Field::read(r, "Traversal.UnknownVector", ctx)?;
+        let f4 = TraversalFlags::read(r, "Traversal.Flags", ctx)?;
+        let f5 = if (i64::from(f4.0) & 0x4) == 0x0 {
+            Some(Field::read(r, "Traversal.Traversal", ctx)?)
+        } else {
+            None
+        };
+        let f6 = Field::read(r, "Traversal.UnknownHalves", ctx)?;
+        Ok(Self {
+            unknown: f0,
+            from: f1,
+            to: f2,
+            unknown_vector: f3,
+            flags: f4,
+            traversal: f5,
+            unknown_halves: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unknown.write(out);
+        self.from.write(out);
+        self.to.write(out);
+        self.unknown_vector.write(out);
+        self.flags.write(out);
+        if let Some(value) = &self.traversal {
+            value.write(out);
+        }
+        self.unknown_halves.write(out);
+    }
+}
+
+impl Visit for Traversal {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.traversal, "Traversal.Traversal", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.traversal, "Traversal.Traversal", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockStoredTraversalsStoredTraversalsPlacements {
+    pub reference: FormId,
+    pub vector: Vec3,
+    pub count: u32,
+    pub traversals: Vec<Traversal>,
+}
+
+impl Field for BfcbBlockStoredTraversalsStoredTraversalsPlacements {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(
+            r,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Reference",
+            ctx,
+        )?;
+        let f1 = Field::read(r, "BfcbBlock.StoredTraversals.STRD.Placements.Vector", ctx)?;
+        let f2 = u32::read(r, "BfcbBlock.StoredTraversals.STRD.Placements.Count", ctx)?;
+        let n3 = count(
+            f2,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Traversals",
+            r.position(),
+        )?;
+        let f3 = read_array(
+            r,
+            n3,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Traversals",
+            ctx,
+        )?;
+        Ok(Self {
+            reference: f0,
+            vector: f1,
+            count: f2,
+            traversals: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.reference.write(out);
+        self.vector.write(out);
+        count_value(self.traversals.len(), u32::MAX).write(out);
+        write_counted(&self.traversals, u32::MAX, out);
+    }
+}
+
+impl Visit for BfcbBlockStoredTraversalsStoredTraversalsPlacements {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.reference,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Reference",
+            out,
+        );
+        visit_form_ids(
+            &self.traversals,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Traversals",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.reference,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Reference",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.traversals,
+            "BfcbBlock.StoredTraversals.STRD.Placements.Traversals",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockStoredTraversalsStoredTraversals {
+    pub count: u32,
+    pub traversals: Vec<Traversal>,
+    pub placement_count: u32,
+    pub placements: Vec<BfcbBlockStoredTraversalsStoredTraversalsPlacements>,
+}
+
+impl Field for BfcbBlockStoredTraversalsStoredTraversals {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "BfcbBlock.StoredTraversals.STRD.Count", ctx)?;
+        let n1 = count(
+            f0,
+            "BfcbBlock.StoredTraversals.STRD.Traversals",
+            r.position(),
+        )?;
+        let f1 = read_array(r, n1, "BfcbBlock.StoredTraversals.STRD.Traversals", ctx)?;
+        let f2 = u32::read(r, "BfcbBlock.StoredTraversals.STRD.PlacementCount", ctx)?;
+        let n3 = count(
+            f2,
+            "BfcbBlock.StoredTraversals.STRD.Placements",
+            r.position(),
+        )?;
+        let f3 = read_array(r, n3, "BfcbBlock.StoredTraversals.STRD.Placements", ctx)?;
+        Ok(Self {
+            count: f0,
+            traversals: f1,
+            placement_count: f2,
+            placements: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        count_value(self.traversals.len(), u32::MAX).write(out);
+        write_counted(&self.traversals, u32::MAX, out);
+        count_value(self.placements.len(), u32::MAX).write(out);
+        write_counted(&self.placements, u32::MAX, out);
+    }
+}
+
+impl Visit for BfcbBlockStoredTraversalsStoredTraversals {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.traversals,
+            "BfcbBlock.StoredTraversals.STRD.Traversals",
+            out,
+        );
+        visit_form_ids(
+            &self.placements,
+            "BfcbBlock.StoredTraversals.STRD.Placements",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.traversals,
+            "BfcbBlock.StoredTraversals.STRD.Traversals",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.placements,
+            "BfcbBlock.StoredTraversals.STRD.Placements",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockStoredTraversals {
+    /// `STRD`, required.
+    pub stored_traversals: Option<Sub<BfcbBlockStoredTraversalsStoredTraversals>>,
+}
+
+impl BfcbBlockStoredTraversals {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"STRD",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.stored_traversals,
+                    subs,
+                    *index,
+                    "BfcbBlock.StoredTraversals.STRD",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"STRD", self.stored_traversals.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockStoredTraversals {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.stored_traversals,
+            "BfcbBlock.StoredTraversals.STRD",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.stored_traversals,
+            "BfcbBlock.StoredTraversals.STRD",
+            out,
+        );
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct BfcbBlockWorldSpaceOverlay {
     /// `SNAM`, optional.
@@ -7860,34 +8214,6 @@ impl Visit for BfcbBlockWorldSpaceOverlay {
         );
     }
 }
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Vec3 {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-impl Field for Vec3 {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = f32::read(r, "Vec3.X", ctx)?;
-        let f1 = f32::read(r, "Vec3.Y", ctx)?;
-        let f2 = f32::read(r, "Vec3.Z", ctx)?;
-        Ok(Self {
-            x: f0,
-            y: f1,
-            z: f2,
-        })
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.x.write(out);
-        self.y.write(out);
-        self.z.write(out);
-    }
-}
-
-impl Visit for Vec3 {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PositionRotation {
@@ -8620,6 +8946,158 @@ impl Visit for BfcbBlockImageSpaceModifiable {
         );
     }
 }
+
+/// A field whose layout the value of `Type` selects (union). A value no variant
+/// names fails to decode (the variants differ in size).
+#[derive(Debug, Clone, PartialEq)]
+pub enum BfcbBlockVolumesVolumesEntriesTail {
+    /// `Type` 1.
+    One(f32),
+    /// `Type` 3.
+    Two([f32; 2]),
+    /// `Type` 5.
+    Three([f32; 3]),
+}
+
+impl BfcbBlockVolumesVolumesEntriesTail {
+    /// Reads the variant the decider values select: `key` is the value of `Type` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            1 => Field::read(r, field, ctx).map(Self::One),
+            3 => Field::read(r, field, ctx).map(Self::Two),
+            5 => Field::read(r, field, ctx).map(Self::Three),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for BfcbBlockVolumesVolumesEntriesTail {
+    /// Without the decider values there is no layout (the variants differ in size).
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::One(value) => value.write(out),
+            Self::Two(value) => value.write(out),
+            Self::Three(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for BfcbBlockVolumesVolumesEntriesTail {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockVolumesVolumesEntries {
+    pub type_: u32,
+    pub matrix: [f32; 16],
+    pub unknown: [f32; 3],
+    pub tail: BfcbBlockVolumesVolumesEntriesTail,
+}
+
+impl Field for BfcbBlockVolumesVolumesEntries {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "BfcbBlock.Volumes.VLMS.Entries.Type", ctx)?;
+        let f1 = Field::read(r, "BfcbBlock.Volumes.VLMS.Entries.Matrix", ctx)?;
+        let f2 = Field::read(r, "BfcbBlock.Volumes.VLMS.Entries.Unknown", ctx)?;
+        let f3 = BfcbBlockVolumesVolumesEntriesTail::read_keyed(
+            i64::from(f0),
+            0,
+            r,
+            "BfcbBlock.Volumes.VLMS.Entries.Tail",
+            ctx,
+        )?;
+        Ok(Self {
+            type_: f0,
+            matrix: f1,
+            unknown: f2,
+            tail: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.type_.write(out);
+        self.matrix.write(out);
+        self.unknown.write(out);
+        self.tail.write(out);
+    }
+}
+
+impl Visit for BfcbBlockVolumesVolumesEntries {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockVolumesVolumes {
+    pub count: u32,
+    pub entries: Vec<BfcbBlockVolumesVolumesEntries>,
+}
+
+impl Field for BfcbBlockVolumesVolumes {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "BfcbBlock.Volumes.VLMS.Count", ctx)?;
+        let n1 = count(f0, "BfcbBlock.Volumes.VLMS.Entries", r.position())?;
+        let f1 = read_array(r, n1, "BfcbBlock.Volumes.VLMS.Entries", ctx)?;
+        Ok(Self {
+            count: f0,
+            entries: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        count_value(self.entries.len(), u32::MAX).write(out);
+        write_counted(&self.entries, u32::MAX, out);
+    }
+}
+
+impl Visit for BfcbBlockVolumesVolumes {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockVolumes {
+    /// `VLMS`, required.
+    pub volumes: Option<Sub<BfcbBlockVolumesVolumes>>,
+}
+
+impl BfcbBlockVolumes {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"VLMS",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.volumes,
+                    subs,
+                    *index,
+                    "BfcbBlock.Volumes.VLMS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"VLMS", self.volumes.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockVolumes {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct BfcbBlockContainerItemsEntry {
@@ -10405,6 +10883,8 @@ pub struct BfcbBlock {
     pub spaceship_weapon_bindings: Option<BfcbBlockSpaceshipWeaponBindings>,
     /// Group `SpawnOnDestroy`, optional.
     pub spawn_on_destroy: Option<BfcbBlockSpawnOnDestroy>,
+    /// Group `StoredTraversals`, optional.
+    pub stored_traversals: Option<BfcbBlockStoredTraversals>,
     /// Group `WorldSpaceOverlay`, optional.
     pub world_space_overlay: Option<BfcbBlockWorldSpaceOverlay>,
     /// Group `Blueprint`, optional.
@@ -10417,6 +10897,8 @@ pub struct BfcbBlock {
     pub full_name: Option<BfcbBlockFullName>,
     /// Group `ImageSpaceModifiable`, optional.
     pub image_space_modifiable: Option<BfcbBlockImageSpaceModifiable>,
+    /// Group `Volumes`, optional.
+    pub volumes: Option<BfcbBlockVolumes>,
     /// Group `Container`, optional.
     pub container: Option<BfcbBlockContainer>,
     /// Group `LightLayer`, optional.
@@ -10554,6 +11036,10 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockStoredTraversals::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockWorldSpaceOverlay::MEMBERS,
         },
         MemberDesc::Group {
@@ -10575,6 +11061,10 @@ impl BfcbBlock {
         MemberDesc::Group {
             card: Card::Optional,
             members: BfcbBlockImageSpaceModifiable::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockVolumes::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -10799,113 +11289,123 @@ impl BfcbBlock {
                     group.fill(hits, subs, ctx, extra);
                     self.spawn_on_destroy = Some(group);
                 }
-                Hit::Group { member: 24, hits } if self.world_space_overlay.is_none() => {
+                Hit::Group { member: 24, hits } if self.stored_traversals.is_none() => {
+                    let mut group = BfcbBlockStoredTraversals::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.stored_traversals = Some(group);
+                }
+                Hit::Group { member: 25, hits } if self.world_space_overlay.is_none() => {
                     let mut group = BfcbBlockWorldSpaceOverlay::default();
                     group.fill(hits, subs, ctx, extra);
                     self.world_space_overlay = Some(group);
                 }
-                Hit::Group { member: 25, hits } if self.blueprint.is_none() => {
+                Hit::Group { member: 26, hits } if self.blueprint.is_none() => {
                     let mut group = BfcbBlockBlueprint::default();
                     group.fill(hits, subs, ctx, extra);
                     self.blueprint = Some(group);
                 }
-                Hit::Group { member: 26, hits } if self.houdini_data.is_none() => {
+                Hit::Group { member: 27, hits } if self.houdini_data.is_none() => {
                     let mut group = BfcbBlockHoudiniData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.houdini_data = Some(group);
                 }
-                Hit::Group { member: 27, hits } if self.particle_system.is_none() => {
+                Hit::Group { member: 28, hits } if self.particle_system.is_none() => {
                     let mut group = BfcbBlockParticleSystem::default();
                     group.fill(hits, subs, ctx, extra);
                     self.particle_system = Some(group);
                 }
-                Hit::Group { member: 28, hits } if self.full_name.is_none() => {
+                Hit::Group { member: 29, hits } if self.full_name.is_none() => {
                     let mut group = BfcbBlockFullName::default();
                     group.fill(hits, subs, ctx, extra);
                     self.full_name = Some(group);
                 }
-                Hit::Group { member: 29, hits } if self.image_space_modifiable.is_none() => {
+                Hit::Group { member: 30, hits } if self.image_space_modifiable.is_none() => {
                     let mut group = BfcbBlockImageSpaceModifiable::default();
                     group.fill(hits, subs, ctx, extra);
                     self.image_space_modifiable = Some(group);
                 }
-                Hit::Group { member: 30, hits } if self.container.is_none() => {
+                Hit::Group { member: 31, hits } if self.volumes.is_none() => {
+                    let mut group = BfcbBlockVolumes::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.volumes = Some(group);
+                }
+                Hit::Group { member: 32, hits } if self.container.is_none() => {
                     let mut group = BfcbBlockContainer::default();
                     group.fill(hits, subs, ctx, extra);
                     self.container = Some(group);
                 }
-                Hit::Group { member: 31, hits } if self.light_layer.is_none() => {
+                Hit::Group { member: 33, hits } if self.light_layer.is_none() => {
                     let mut group = BfcbBlockLightLayer::default();
                     group.fill(hits, subs, ctx, extra);
                     self.light_layer = Some(group);
                 }
-                Hit::Group { member: 32, hits } if self.planet_model.is_none() => {
+                Hit::Group { member: 34, hits } if self.planet_model.is_none() => {
                     let mut group = BfcbBlockPlanetModel::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_model = Some(group);
                 }
-                Hit::Group { member: 33, hits } if self.forced_loc_ref_type.is_none() => {
+                Hit::Group { member: 35, hits } if self.forced_loc_ref_type.is_none() => {
                     let mut group = BfcbBlockForcedLocRefType::default();
                     group.fill(hits, subs, ctx, extra);
                     self.forced_loc_ref_type = Some(group);
                 }
-                Hit::Group { member: 34, hits } if self.body_part_info.is_none() => {
+                Hit::Group { member: 36, hits } if self.body_part_info.is_none() => {
                     let mut group = BfcbBlockBodyPartInfo::default();
                     group.fill(hits, subs, ctx, extra);
                     self.body_part_info = Some(group);
                 }
-                Hit::Group { member: 35, hits } if self.keywords.is_none() => {
+                Hit::Group { member: 37, hits } if self.keywords.is_none() => {
                     let mut group = Keywords::default();
                     group.fill(hits, subs, ctx, extra);
                     self.keywords = Some(group);
                 }
-                Hit::Group { member: 36, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 38, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Group { member: 37, hits } if self.star_data.is_none() => {
+                Hit::Group { member: 39, hits } if self.star_data.is_none() => {
                     let mut group = BfcbBlockStarData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.star_data = Some(group);
                 }
-                Hit::Group { member: 38, hits } if self.orbited_data.is_none() => {
+                Hit::Group { member: 40, hits } if self.orbited_data.is_none() => {
                     let mut group = BfcbBlockOrbitedData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.orbited_data = Some(group);
                 }
-                Hit::Group { member: 39, hits } if self.unique_overlay_list.is_none() => {
+                Hit::Group { member: 41, hits } if self.unique_overlay_list.is_none() => {
                     let mut group = BfcbBlockUniqueOverlayList::default();
                     group.fill(hits, subs, ctx, extra);
                     self.unique_overlay_list = Some(group);
                 }
-                Hit::Group { member: 40, hits } if self.unique_pattern_placement.is_none() => {
+                Hit::Group { member: 42, hits } if self.unique_pattern_placement.is_none() => {
                     let mut group = BfcbBlockUniquePatternPlacement::default();
                     group.fill(hits, subs, ctx, extra);
                     self.unique_pattern_placement = Some(group);
                 }
-                Hit::Group { member: 41, hits } if self.overlay_designated_placement.is_none() => {
+                Hit::Group { member: 43, hits } if self.overlay_designated_placement.is_none() => {
                     let mut group = BfcbBlockOverlayDesignatedPlacement::default();
                     group.fill(hits, subs, ctx, extra);
                     self.overlay_designated_placement = Some(group);
                 }
-                Hit::Group { member: 42, hits } if self.block_height_adjustment.is_none() => {
+                Hit::Group { member: 44, hits } if self.block_height_adjustment.is_none() => {
                     let mut group = BfcbBlockBlockHeightAdjustment::default();
                     group.fill(hits, subs, ctx, extra);
                     self.block_height_adjustment = Some(group);
                 }
-                Hit::Group { member: 43, hits } if self.surface_tree_pattern_swap.is_none() => {
+                Hit::Group { member: 45, hits } if self.surface_tree_pattern_swap.is_none() => {
                     let mut group = BfcbBlockSurfaceTreePatternSwap::default();
                     group.fill(hits, subs, ctx, extra);
                     self.surface_tree_pattern_swap = Some(group);
                 }
-                Hit::Group { member: 44, hits } if self.block_editor_meta_data.is_none() => {
+                Hit::Group { member: 46, hits } if self.block_editor_meta_data.is_none() => {
                     let mut group = BfcbBlockBlockEditorMetaData::default();
                     group.fill(hits, subs, ctx, extra);
                     self.block_editor_meta_data = Some(group);
                 }
-                Hit::Sub { member: 45, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 46, index } => put(
+                Hit::Sub { member: 47, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 48, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -10989,6 +11489,9 @@ impl BfcbBlock {
         if let Some(group) = &self.spawn_on_destroy {
             group.emit(out);
         }
+        if let Some(group) = &self.stored_traversals {
+            group.emit(out);
+        }
         if let Some(group) = &self.world_space_overlay {
             group.emit(out);
         }
@@ -11005,6 +11508,9 @@ impl BfcbBlock {
             group.emit(out);
         }
         if let Some(group) = &self.image_space_modifiable {
+            group.emit(out);
+        }
+        if let Some(group) = &self.volumes {
             group.emit(out);
         }
         if let Some(group) = &self.container {
@@ -11089,6 +11595,7 @@ impl Visit for BfcbBlock {
         visit_form_ids(&self.sound_tag, "BfcbBlock.SoundTag", out);
         visit_form_ids(&self.spaceship_ai_actor, "BfcbBlock.SpaceshipAiActor", out);
         visit_form_ids(&self.spawn_on_destroy, "BfcbBlock.SpawnOnDestroy", out);
+        visit_form_ids(&self.stored_traversals, "BfcbBlock.StoredTraversals", out);
         visit_form_ids(
             &self.world_space_overlay,
             "BfcbBlock.WorldSpaceOverlay",
@@ -11164,6 +11671,11 @@ impl Visit for BfcbBlock {
             out,
         );
         visit_form_ids_mut(&mut self.spawn_on_destroy, "BfcbBlock.SpawnOnDestroy", out);
+        visit_form_ids_mut(
+            &mut self.stored_traversals,
+            "BfcbBlock.StoredTraversals",
+            out,
+        );
         visit_form_ids_mut(
             &mut self.world_space_overlay,
             "BfcbBlock.WorldSpaceOverlay",

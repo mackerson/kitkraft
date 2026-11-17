@@ -50,6 +50,7 @@ pub const RESERVED_TYPE_NAMES: &[&str] = &[
     "Ctx",
     "DecodeError",
     "Empty",
+    "F16",
     "Field",
     "FormId",
     "FormIds",
@@ -189,7 +190,7 @@ impl Gen {
         path: &str,
     ) -> Result<String, CodegenError> {
         Ok(match ty {
-            FieldType::Scalar(s) => s.as_str().to_owned(),
+            FieldType::Scalar(s) => s.rust_type().to_owned(),
             FieldType::FormId { .. } => "FormId".to_owned(),
             FieldType::Sig => "Sig".to_owned(),
             FieldType::ZString => "ZString".to_owned(),
@@ -252,10 +253,14 @@ impl Gen {
         path: &str,
     ) -> Result<(), CodegenError> {
         self.claim(name)?;
-        let size = variants
-            .first()
-            .and_then(|v| v.ty.fixed_size(None))
-            .ok_or_else(|| CodegenError::BadIdentifier(name.to_owned()))?;
+        // A uniform union keeps a value no variant names as raw bytes (`Other`); a
+        // variable-width one (`variable_width = true`) cannot size those bytes, so such a
+        // value fails the decode and the whole subrecord stays raw.
+        if variants.iter().any(|v| v.ty.fixed_size(None).is_none()) {
+            return Err(CodegenError::BadIdentifier(name.to_owned()));
+        }
+        let first = variants.first().and_then(|v| v.ty.fixed_size(None));
+        let size = first.filter(|_| variants.iter().all(|v| v.ty.fixed_size(None) == first));
         let mut decls = String::new();
         let mut first_arms = String::new();
         let mut arms = String::new();
@@ -324,16 +329,35 @@ impl Gen {
                 format!("`key` is the value of `{decider}` (`secondary` is unused)"),
             ),
         };
+        let (lead, other_decl, fallback, plain, other_write, params) = match size {
+            Some(size) => (
+                "keeps the field's bytes as read in `Other`",
+                format!(
+                    "    /// A decider value no variant names: the bytes as read.\n    Other([u8; {size}]),\n"
+                ),
+                "Field::read(r, field, ctx).map(Self::Other)",
+                "Without the decider values the bytes are kept as read (`Other`).",
+                "            Self::Other(value) => value.write(out),\n",
+                ("r", "ctx"),
+            ),
+            None => (
+                "fails to decode (the variants differ in size)",
+                String::new(),
+                "Err(DecodeError::Undecided { field })",
+                "Without the decider values there is no layout (the variants differ in size).",
+                "",
+                ("_r", "_ctx"),
+            ),
+        };
+        let (reader, context) = params;
         let _ = write!(
             self.out,
             "
 /// A field whose layout the value of `{decider}` selects (union). A value no variant
-/// names keeps the field's bytes as read in `Other`.
+/// names {lead}.
 #[derive(Debug, Clone, PartialEq)]
 pub enum {name} {{
-{decls}    /// A decider value no variant names: the bytes as read.
-    Other([u8; {size}]),
-}}
+{decls}{other_decl}}}
 
 impl {name} {{
     /// Reads the variant the decider values select: {keys_doc}.
@@ -345,21 +369,20 @@ impl {name} {{
         ctx: Ctx,
     ) -> Result<Self, DecodeError> {{
         match {scrutinee} {{
-{first_arms}{arms}            _ => Field::read(r, field, ctx).map(Self::Other),
+{first_arms}{arms}            _ => {fallback},
         }}
     }}
 }}
 
 impl Field for {name} {{
-    /// Without the decider values the bytes are kept as read (`Other`).
-    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {{
-        Field::read(r, field, ctx).map(Self::Other)
+    /// {plain}
+    fn read({reader}: &mut Reader<'_>, field: &'static str, {context}: Ctx) -> Result<Self, DecodeError> {{
+        {fallback}
     }}
 
     fn write(&self, out: &mut Vec<u8>) {{
         match self {{
-{writes}            Self::Other(value) => value.write(out),
-        }}
+{writes}{other_write}        }}
     }}
 }}
 "
@@ -377,13 +400,19 @@ impl Field for {name} {{
                 ),
                 // Several variants: one `match` (a run of `if let`s cannot borrow
                 // `&'a mut self` twice; the CTDA parameters have many FormID variants).
-                // `Other` (raw bytes) holds none, so the wildcard is reachable.
+                // `Other` (raw bytes) holds none, so the wildcard is reachable when the
+                // union has an `Other` or a variant without the visited values.
                 many => {
                     let arms: String = many
                         .iter()
                         .map(|n| format!("            Self::{n}(value) => {method}(value, path, out),\n"))
                         .collect();
-                    format!("        match self {{\n{arms}            _ => {{}}\n        }}\n")
+                    let rest = if size.is_some() || many.len() < variants.len() {
+                        "            _ => {}\n"
+                    } else {
+                        ""
+                    };
+                    format!("        match self {{\n{arms}{rest}        }}\n")
                 }
             };
             bodies.push(format!(
@@ -753,7 +782,7 @@ impl Visit for {name} {{}}
                 FieldType::Scalar(s) => (
                     None,
                     (
-                        format!("{}::read", s.as_str()),
+                        format!("{}::read", s.rust_type()),
                         vec!["r".to_owned(), p.clone(), "ctx".to_owned()],
                     ),
                 ),
@@ -815,6 +844,21 @@ impl Visit for {name} {{}}
                 let _ = writeln!(
                     decls,
                     "    /// Present only when bytes remain in the payload."
+                );
+            }
+            if let Some(cond) = &f.present_if {
+                let key = decider_value(fields, &cond.field)?;
+                conditions.push(format!(
+                    "({key} & {}) == {}",
+                    hex(i128::from(cond.mask)),
+                    hex(i128::from(cond.value))
+                ));
+                let _ = writeln!(
+                    decls,
+                    "    /// Present only when `{}` & {} is {}.",
+                    cond.field,
+                    hex(i128::from(cond.mask)),
+                    hex(i128::from(cond.value))
                 );
             }
             // `count_from` (M3.B10): a count field is written from its array's length, and
@@ -1728,17 +1772,22 @@ fn int_max(ty: &FieldType) -> String {
 }
 
 fn decides_union(fields: &[FieldDef], name: &str) -> bool {
-    fields.iter().any(|f| match &f.ty {
-        FieldType::Union {
-            decider:
-                Decider::Field {
-                    name: key,
-                    secondary,
-                },
-            ..
-        } => key == name || secondary.as_deref() == Some(name),
-        _ => false,
-    })
+    // A `present_if` sibling is read the same way: its value is used before the literal.
+    let conditions = fields
+        .iter()
+        .any(|f| f.present_if.as_ref().is_some_and(|c| c.field == name));
+    conditions
+        || fields.iter().any(|f| match &f.ty {
+            FieldType::Union {
+                decider:
+                    Decider::Field {
+                        name: key,
+                        secondary,
+                    },
+                ..
+            } => key == name || secondary.as_deref() == Some(name),
+            _ => false,
+        })
 }
 
 /// The `i64` expression for the value of decider field `name` (read earlier into its
@@ -1755,7 +1804,7 @@ fn decider_value(fields: &[FieldDef], name: &str) -> Result<String, CodegenError
     }
     Ok(match ty {
         FieldType::Enum { .. } => format!("i64::from(f{j}.to_raw())"),
-        FieldType::Packed { .. } => format!("i64::from(f{j}.0)"),
+        FieldType::Packed { .. } | FieldType::Flags { .. } => format!("i64::from(f{j}.0)"),
         _ => format!("i64::from(f{j})"),
     })
 }

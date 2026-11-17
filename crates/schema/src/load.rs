@@ -15,9 +15,10 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::model::{
-    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
-    FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, PackedPart, Provenance,
-    RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VariantOf, VersionedSize,
+    AnyUntilDef, ArrayCount, BitCondition, Cardinality, CommonBody, CommonDef, Confidence, Decider,
+    Definition, FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, PackedPart,
+    Provenance, RecordDef, Scalar, Schema, Signature, SubrecordDef, UnionVariant, VariantOf,
+    VersionedSize,
 };
 use crate::names::{is_pascal_case, snake_case};
 
@@ -183,6 +184,10 @@ pub enum ErrorKind {
         size: Option<u32>,
         first: Option<u32>,
     },
+    #[error("`present_if` on field {field:?}: {reason}")]
+    BadCondition { field: String, reason: String },
+    #[error("union {0:?} sets `variable_width = true`, but all its variants have the same size: drop the key (a uniform union keeps unnamed decider values as raw bytes)")]
+    UniformWidth(String),
     #[error("`secondary_when = {0}` must be an integer or four printable ASCII characters, on a union that sets `secondary`, and fit the secondary field")]
     BadSecondaryWhen(String),
     #[error(
@@ -278,6 +283,9 @@ struct RawVariant {
     values: Option<Vec<(String, i64)>>,
     bits: Option<Vec<(String, i64)>>,
     size: Option<u32>,
+    /// A fixed-count array variant (`type = "array"`): its `count` and `element`.
+    count: Option<RawCount>,
+    element: Option<String>,
     note: Option<String>,
 }
 
@@ -359,7 +367,20 @@ struct RawField {
     decider: Option<String>,
     secondary: Option<String>,
     variants: Option<Vec<RawVariant>>,
+    /// A field union whose variants may differ in size (`variable_width = true`).
+    variable_width: Option<bool>,
     parts: Option<Vec<RawPart>>,
+    /// Present only when bits of an earlier sibling match (`present_if = { .. }`).
+    present_if: Option<RawCondition>,
+}
+
+/// `present_if = { field = "Flags", mask = 4, value = 0 }` on a struct field.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCondition {
+    field: String,
+    mask: i64,
+    value: Option<i64>,
 }
 
 /// One bit range of a `type = "packed"` field.
@@ -1441,9 +1462,14 @@ fn convert_union(
 /// earlier, ungated integer or enum sibling of at most 32 bits).
 fn decider_base(fields: &[FieldDef], name: &str) -> Option<Scalar> {
     let field = fields.iter().find(|f| f.name == name)?;
-    if field.since.is_some() || field.until.is_some() || field.if_remaining {
+    if field.since.is_some()
+        || field.until.is_some()
+        || field.if_remaining
+        || field.present_if.is_some()
+    {
         return None;
     }
+
     let mut ty = &field.ty;
     while let FieldType::Ref { ty: inner, .. } = ty {
         ty = inner;
@@ -1637,16 +1663,23 @@ fn convert_field_union(
         .ok_or_else(|| cx.err(ErrorKind::MissingKey("variants")))?;
     let variants = convert_variants(cx, raw, Some((base, secondary_base)), prov)?;
     // One fixed size for every variant: the raw fallback keeps exactly that many bytes.
+    // With `variable_width = true` each variant has its own fixed size, and a decider
+    // value no variant names fails the decode (the whole subrecord stays raw).
+    let variable = f.variable_width.unwrap_or(false);
     let first = variants.first().and_then(|v| v.ty.fixed_size(None));
     for v in &variants {
         let size = v.ty.fixed_size(None);
-        if size.is_none() || size != first || size == Some(0) {
+        let differs = size != first && !variable;
+        if size.is_none() || differs || size == Some(0) {
             return Err(cx.err(ErrorKind::VariantSize {
                 variant: v.name.clone(),
                 size,
                 first,
             }));
         }
+    }
+    if variable && variants.iter().all(|v| v.ty.fixed_size(None) == first) {
+        return Err(cx.err(ErrorKind::UniformWidth(f.name.clone())));
     }
     Ok(FieldType::Union { decider, variants })
 }
@@ -1742,18 +1775,24 @@ fn convert_variants(
                     return Err(cx.err(ErrorKind::DuplicateValue(i128::from(*value))));
                 }
             }
-            if v.ty == "union" || v.ty == "struct" || v.ty == "array" {
+            if v.ty == "union" || v.ty == "struct" {
                 return Err(cx.err(ErrorKind::UnexpectedKey {
                     key: "type",
                     context: format!("a union variant (type {:?})", v.ty),
                 }));
             }
+            reject(
+                cx,
+                v.ty != "array" && (v.count.is_some() || v.element.is_some()),
+                "count",
+                "a union variant that is not an array",
+            )?;
             let spec = TypeSpec {
                 ty: &v.ty,
                 targets: v.targets.as_ref(),
-                count: None,
+                count: v.count.as_ref(),
                 count_from: None,
-                element: None,
+                element: v.element.as_deref(),
                 base: v.base.as_deref(),
                 values: v.values.as_ref(),
                 bits: v.bits.as_ref(),
@@ -2005,7 +2044,7 @@ fn convert_fields(
     }
     let mut fields: Vec<FieldDef> = Vec::with_capacity(raw.len());
     for (i, f) in raw.iter().enumerate() {
-        let field = cx.scoped(format!("field[{i}]"), |cx| {
+        let mut field = cx.scoped(format!("field[{i}]"), |cx| {
             let prov = provenance(cx, parent, &f.prov())?;
             version_range(cx, f.since, f.until)?;
             if f.ty == "packed" {
@@ -2016,6 +2055,7 @@ fn convert_fields(
                     since: f.since,
                     until: f.until,
                     if_remaining: f.if_remaining.unwrap_or(false),
+                    present_if: None,
                     note: f.note.clone(),
                     provenance: prov,
                 });
@@ -2034,6 +2074,7 @@ fn convert_fields(
                     since: None,
                     until: None,
                     if_remaining: false,
+                    present_if: None,
                     note: f.note.clone(),
                     provenance: prov,
                 });
@@ -2042,6 +2083,7 @@ fn convert_fields(
                 (f.decider.is_some(), "decider"),
                 (f.secondary.is_some(), "secondary"),
                 (f.variants.is_some(), "variants"),
+                (f.variable_width.is_some(), "variable_width"),
             ] {
                 reject(cx, present, key, "a field that is not `type = \"union\"`")?;
             }
@@ -2068,6 +2110,7 @@ fn convert_fields(
                         && s.since.is_none()
                         && s.until.is_none()
                         && !s.if_remaining
+                        && s.present_if.is_none()
                         && matches!(s.ty, FieldType::Scalar(sc) if sc.is_integer())
                 });
                 if !ok {
@@ -2091,10 +2134,17 @@ fn convert_fields(
                 since: f.since,
                 until: f.until,
                 if_remaining: f.if_remaining.unwrap_or(false),
+                present_if: None,
                 note: f.note.clone(),
                 provenance: prov,
             })
         })?;
+        if let Some(raw) = &f.present_if {
+            let condition = cx.scoped(format!("field[{i}]"), |cx| {
+                convert_condition(cx, raw, &field, &fields)
+            })?;
+            field.present_if = Some(condition);
+        }
         fields.push(field);
     }
     check_unique_names(cx, fields.iter().map(|f| f.name.as_str()), &[])?;
@@ -2107,6 +2157,71 @@ fn convert_fields(
         }
     }
     Ok(fields)
+}
+
+/// `present_if` on `field`: the deciding sibling is an earlier field of `earlier` that is
+/// ungated, unconditional and an integer, enum, flags or packed field of at most 32 bits;
+/// `mask` is non-zero and fits it, `value` (default 0) lies inside `mask`; the field
+/// itself is not also gated (`since`, `until`, `if_remaining`).
+fn convert_condition(
+    cx: &Cx<'_, '_>,
+    raw: &RawCondition,
+    field: &FieldDef,
+    earlier: &[FieldDef],
+) -> Result<BitCondition, SchemaError> {
+    let bad = |reason: &str| {
+        cx.err(ErrorKind::BadCondition {
+            field: field.name.clone(),
+            reason: reason.to_owned(),
+        })
+    };
+    if field.since.is_some() || field.until.is_some() || field.if_remaining {
+        return Err(bad("a conditional field is not also gated"));
+    }
+    let sibling = earlier
+        .iter()
+        .find(|s| s.name == raw.field)
+        .ok_or_else(|| bad("`field` must name an earlier field of the same struct"))?;
+    if sibling.since.is_some()
+        || sibling.until.is_some()
+        || sibling.if_remaining
+        || sibling.present_if.is_some()
+    {
+        return Err(bad("the deciding field must be ungated and unconditional"));
+    }
+    let mut ty = &sibling.ty;
+    while let FieldType::Ref { ty: inner, .. } = ty {
+        ty = inner;
+    }
+    let base = match ty {
+        FieldType::Scalar(s) if s.is_integer() => *s,
+        FieldType::Enum { base, .. }
+        | FieldType::Flags { base, .. }
+        | FieldType::Packed { base, .. } => *base,
+        _ => {
+            return Err(bad(
+                "the deciding field must be an integer, enum, flags or packed",
+            ))
+        }
+    };
+    if base.size() > 4 {
+        return Err(bad("the deciding field must be at most 32 bits"));
+    }
+    let mask = u64::try_from(raw.mask).map_err(|_| bad("`mask` must be positive"))?;
+    let value =
+        u64::try_from(raw.value.unwrap_or(0)).map_err(|_| bad("`value` must not be negative"))?;
+    let limit = 1u64.checked_shl(base.size().saturating_mul(8)).unwrap_or(0);
+    if mask == 0 || mask >= limit {
+        return Err(bad("`mask` must be non-zero and fit the deciding field"));
+    }
+    if value & !mask != 0 {
+        return Err(bad("`value` must lie inside `mask`"));
+    }
+    Ok(BitCondition {
+        field: sibling.name.clone(),
+        mask,
+        value,
+    })
 }
 
 fn version_range(cx: &Cx<'_, '_>, min: Option<u16>, max: Option<u16>) -> Result<(), SchemaError> {

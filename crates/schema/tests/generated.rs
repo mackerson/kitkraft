@@ -497,7 +497,7 @@ fn record_dispatch() {
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
     assert_eq!(
         sigs,
-        [*b"EMPT", *b"SUBU", *b"UNOR", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]
+        [*b"EMPT", *b"SUBU", *b"UNOR", *b"UUUU", *b"VVVV", *b"WWWW", *b"YYYY", *b"ZZZZ"]
     );
     assert_eq!(fixture::UNORDERED, [*b"UNOR"]);
     assert!(rec.extra().is_empty());
@@ -799,13 +799,13 @@ fn seed_weap_typed_shape() {
 #[test]
 fn seed_glob_gmst_kywd_inventory_shapes() {
     use seed::{Ctx, GlobRecord, GmstRecord, KywdRecord};
-    // GLOB "EDID BFCB VLMS BFCE FLTV" and "FLTV" shapes (VLMS: a component layout the
-    // block keeps raw; QUPA and SODA, earlier examples, are typed since lane D round 4
-    // and 2026-11-16).
+    // GLOB "EDID BFCB VCSB BFCE FLTV" and "FLTV" shapes (VCSB: a component layout the
+    // block keeps raw; QUPA, SODA and VLMS, earlier examples, are typed since lane D
+    // round 4, 2026-11-16 and 2026-11-17).
     let glob = vec![
         s(b"EDID", b"Gv\0"),
         s(b"BFCB", b"Type\0"),
-        s(b"VLMS", &[1, 2]),
+        s(b"VCSB", &[1, 2]),
         s(b"BFCE", &[]),
         s(b"FLTV", &1.0f32.to_le_bytes()),
     ];
@@ -1222,4 +1222,189 @@ fn subrecord_union_variants_are_member_descs() {
             (0, &[&b"Beta_Component"[..], &b"BetaToo"[..]][..], *b"BEND"),
         ]
     );
+}
+
+/// 2026-11-17: a field union whose variants differ in size (`variable_width = true`). Each
+/// array element reads the tail its own kind names, so the elements differ in width; a
+/// kind no variant names fails the decode and the whole subrecord stays raw (never a
+/// guessed width); FormID variants are visited, without a wildcard when every variant has
+/// one; every body re-encodes byte for byte.
+#[test]
+fn variable_width_unions_follow_their_sibling() {
+    use fixture::{WwwwLinksTarget, WwwwVolumesEntriesTail};
+    let entry = |kind: u32, tail: &[u8]| {
+        let mut out = kind.to_le_bytes().to_vec();
+        out.extend_from_slice(&1.5f32.to_le_bytes());
+        out.extend_from_slice(tail);
+        out
+    };
+    let mut vols = 4u32.to_le_bytes().to_vec();
+    vols.extend(entry(1, &2.0f32.to_le_bytes()));
+    vols.extend(entry(
+        3,
+        &[3.0f32.to_le_bytes(), 4.0f32.to_le_bytes()].concat(),
+    ));
+    vols.extend(entry(5, &0x0100_0042u32.to_le_bytes()));
+    vols.extend(entry(
+        4,
+        &[5.0f32.to_le_bytes(), 6.0f32.to_le_bytes()].concat(),
+    ));
+    let mut link = vec![1u8];
+    link.extend_from_slice(&0x0100_0001u32.to_le_bytes());
+    link.extend_from_slice(&0x0100_0002u32.to_le_bytes());
+    let subs = vec![sub(b"VOLS", &vols), sub(b"LINK", &link)];
+    let rec = Record::decode(*b"WWWW", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Wwww(w) = &rec else {
+        panic!("WWWW");
+    };
+    let entries = &w.volumes.as_ref().unwrap().entries;
+    let tails: Vec<WwwwVolumesEntriesTail> = entries.iter().map(|e| e.tail.clone()).collect();
+    assert_eq!(
+        tails,
+        [
+            WwwwVolumesEntriesTail::One(2.0),
+            WwwwVolumesEntriesTail::Two([3.0, 4.0]),
+            WwwwVolumesEntriesTail::Ref(FormId(0x0100_0042)),
+            WwwwVolumesEntriesTail::Two([5.0, 6.0]),
+        ]
+    );
+    assert!(entries.iter().all(|e| e.center == 1.5));
+    assert_eq!(
+        w.links.as_ref().unwrap().target,
+        WwwwLinksTarget::Pair([FormId(0x0100_0001), FormId(0x0100_0002)])
+    );
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("WWWW.VOLS.Entries.Tail", 0x0100_0042),
+            ("WWWW.LINK.Target", 0x0100_0001),
+            ("WWWW.LINK.Target", 0x0100_0002)
+        ]
+    );
+    assert_eq!(rec.encode(), subs);
+
+    // A kind no variant names (2): no width is guessed; the subrecord stays raw.
+    let mut odd = 1u32.to_le_bytes().to_vec();
+    odd.extend(entry(2, &[0; 8]));
+    let bad = vec![sub(b"VOLS", &odd), sub(b"LINK", &[7, 1, 2, 3, 4])];
+    let rec = Record::decode(*b"WWWW", &raw(&bad), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 2);
+    assert_eq!(rec.encode(), bad);
+    // A tail shorter than its kind's variant fails too.
+    let short = vec![sub(b"VOLS", &vols[..vols.len() - 4])];
+    let rec = Record::decode(*b"WWWW", &raw(&short), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 1);
+    assert_eq!(rec.encode(), short);
+    // Without its decider a variable-width union has no layout.
+    let err = fixture::decode::<WwwwLinksTarget>(&[1, 2, 3, 4], "T", ctx(1, true)).unwrap_err();
+    assert_eq!(err, DecodeError::Undecided { field: "T" });
+}
+
+/// 2026-11-17: fields present only when bits of an earlier sibling match (`present_if`)
+/// and half floats (`f16`, kept as their bits). Each array element reads its target only
+/// when its own flag 0x4 is clear, and its extra byte only when flags 0x3 are both set; the
+/// elements differ in width; every body re-encodes byte for byte, NaN halves included; a
+/// truncated element fails the whole payload, which stays raw.
+#[test]
+fn conditional_fields_and_half_floats() {
+    use fixture::{WwwwTraversalsItem, WwwwTraversalsItemFlags, F16};
+    let half = |bits: u16| bits.to_le_bytes();
+    let mut trav = Vec::new();
+    // Flags 0: target present, no extra.
+    trav.extend_from_slice(&0u32.to_le_bytes());
+    trav.extend_from_slice(&0x0100_0042u32.to_le_bytes());
+    trav.extend_from_slice(&half(0x3C00));
+    trav.extend_from_slice(&half(0xC000));
+    // Flags 4: no target.
+    trav.extend_from_slice(&4u32.to_le_bytes());
+    trav.extend_from_slice(&half(0x7E01));
+    trav.extend_from_slice(&half(0x0001));
+    // Flags 3: target and extra.
+    trav.extend_from_slice(&3u32.to_le_bytes());
+    trav.extend_from_slice(&0x0100_0043u32.to_le_bytes());
+    trav.push(9);
+    trav.extend_from_slice(&half(0x0000));
+    trav.extend_from_slice(&half(0x8000));
+    let subs = vec![sub(b"TRAV", &trav)];
+    let rec = Record::decode(*b"WWWW", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Wwww(w) = &rec else {
+        panic!("WWWW");
+    };
+    let items: &Vec<WwwwTraversalsItem> = &w.traversals.as_ref().unwrap().0;
+    assert_eq!(
+        items[0],
+        WwwwTraversalsItem {
+            flags: WwwwTraversalsItemFlags(0),
+            target: Some(FormId(0x0100_0042)),
+            extra: None,
+            speeds: [F16(0x3C00), F16(0xC000)],
+        }
+    );
+    assert_eq!((items[1].target, items[1].extra), (None, None));
+    assert_eq!(items[2].target, Some(FormId(0x0100_0043)));
+    assert_eq!(items[2].extra, Some(9));
+    assert_eq!(items[0].speeds.map(F16::to_f32), [1.0, -2.0]);
+    assert!(items[1].speeds[0].to_f32().is_nan());
+    assert_eq!(items[1].speeds[1].to_f32(), 2f32.powi(-24));
+    assert_eq!(items[2].speeds[1].to_f32().to_bits(), (-0.0f32).to_bits());
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("WWWW.TRAV.Target", 0x0100_0042),
+            ("WWWW.TRAV.Target", 0x0100_0043)
+        ]
+    );
+    assert_eq!(rec.encode(), subs);
+
+    // Flag 0x4 set on the first entry: the condition is read per entry, so the entry has
+    // no target and the bytes after its flags are read as its speeds; whatever the
+    // entries become, the payload re-encodes as read.
+    let mut flipped = trav.clone();
+    flipped[0] = 4;
+    let bad = vec![sub(b"TRAV", &flipped)];
+    let rec = Record::decode(*b"WWWW", &raw(&bad), ctx(1, true)).unwrap();
+    if let Record::Wwww(w) = &rec {
+        if let Some(t) = &w.traversals {
+            assert_eq!(t.0[0].target, None);
+            assert_eq!(t.0[0].speeds, [F16(0x0042), F16(0x0100)]);
+        }
+    }
+    assert_eq!(rec.encode(), bad);
+
+    let short = vec![sub(b"TRAV", &trav[..trav.len() - 1])];
+    let rec = Record::decode(*b"WWWW", &raw(&short), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 1);
+    assert_eq!(rec.encode(), short);
+}
+
+/// The prelude's half-float conversion: normals, subnormals, zeros, infinities and NaN,
+/// exactly, and the schema's own conversion (used by the `doc` reader) agrees on every
+/// bit pattern.
+#[test]
+fn half_floats_convert_exactly() {
+    use fixture::F16;
+    for (bits, want) in [
+        (0x3C00u16, 1.0f32),
+        (0xC000, -2.0),
+        (0x3555, 0.333_251_95),
+        (0x7BFF, 65504.0),
+        (0x0400, 2f32.powi(-14)),
+        (0x03FF, 1023.0 * 2f32.powi(-24)),
+        (0x0001, 2f32.powi(-24)),
+        (0x0000, 0.0),
+        (0x7C00, f32::INFINITY),
+        (0xFC00, f32::NEG_INFINITY),
+    ] {
+        assert_eq!(F16(bits).to_f32(), want, "{bits:#06x}");
+    }
+    assert!(F16(0x7E00).to_f32().is_nan());
+    for bits in 0..=u16::MAX {
+        let a = F16(bits).to_f32();
+        let b = kitkraft_schema::f16_to_f32(bits);
+        assert_eq!(a.to_bits(), b.to_bits(), "{bits:#06x}");
+    }
 }
