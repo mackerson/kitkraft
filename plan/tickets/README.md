@@ -278,6 +278,63 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-367](KK-367.toml) | deploy: the text summary names the plugin's SHA-256, as the window's preview does | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
 | [KK-368](KK-368.toml) | workbench: the checkout above the working directory comes before the one above kit-ui | written 2026-11-16 from the OW-2 rehearsal (`priority = 1`) | queued |
 | [KK-369](KK-369.toml) | game session: one echo-only launch poll no longer makes the launch wait time out | written 2026-11-16 from OW-1's runs, `game-20261116-01` (`priority = 1`) | after KK-362 |
+| [KK-370](KK-370.toml) | Type DLBR (DialogBranch) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-371](KK-371.toml) | Type CLFM (ColorForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-372](KK-372.toml) | Type AORU (AttractionRuleForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-373](KK-373.toml) | Type WBAR (WeaponBarrelModel) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-374](KK-374.toml) | Type REVB (ReverbParameters) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-375](KK-375.toml) | Type DFOB (DefaultObject) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-376](KK-376.toml) | Type AACT (ActionForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-377](KK-377.toml) | Type AOPF (AudioOcclusionPrimitive) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-378](KK-378.toml) | Type BNDS (BendableSplineForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-379](KK-379.toml) | Type IPDS (ImpactDataSet) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-380](KK-380.toml) | Type SFPC (SurfacePatternConfig) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-381](KK-381.toml) | Type SDLT (SecondaryDamageListForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-382](KK-382.toml) | Type SCCO (SceneCollection) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-383](KK-383.toml) | Type CLMT (ClimateForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-384](KK-384.toml) | Type SPGD (ShaderParticleGeometry) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-385](KK-385.toml) | Type LGTM (LightingTemplateForm) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-386](KK-386.toml) | Type STAG (AnimationSoundTagSet) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-387](KK-387.toml) | Type AAMD (AimAssistModelData) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-388](KK-388.toml) | Type MAAM (MeleeAimAssistModel) from the pinned xEdit file, corpus-checked | written 2026-11-17 in KK-330's shape (inventory to typed); `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-389](KK-389.toml) | Typed-write tests for AMMO, PROJ and ZOOM | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-390](KK-390.toml) | Typed-write tests for ARTO, HDPT and BPTD | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-391](KK-391.toml) | Typed-write tests for EXPL, IPCT and LENS | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-392](KK-392.toml) | Typed-write tests for MUSC, MUST and SECH | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-393](KK-393.toml) | Typed-write tests for CSTY, AAPD and BMMO | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-394](KK-394.toml) | Typed-write tests for AVMD, CAMS and PDCL | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-395](KK-395.toml) | Typed-write tests for STMP, IDLM and SCOL | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-396](KK-396.toml) | Typed-write tests for CNDF, LVSC and LVLB | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-397](KK-397.toml) | Typed-write tests for WATR, GPOF and ASPC | written 2026-11-17 in KK-340's shape; MX `not-run` for typed types (calls tried on `d8c3b1c3`) | queued |
+| [KK-398](KK-398.toml) | Clone-sample corpus test for ARMO | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
+| [KK-399](KK-399.toml) | Clone-sample corpus test for WEAP | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
+| [KK-400](KK-400.toml) | Clone-sample corpus test for FLOR | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
+| [KK-401](KK-401.toml) | Clone-sample corpus test for LIGH | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
+| [KK-402](KK-402.toml) | Clone-sample corpus test for ACTI | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
+| [KK-403](KK-403.toml) | docs/gaps.md and the defs README: the schema counts follow docs/record-parity.md | written 2026-11-17: the README's note on KK-330 to KK-339 ("Update both once after the batch") | queued |
+| [KK-404](KK-404.toml) | gap matrix: the CS row names every clone-sample corpus test | written 2026-11-17: `docs/foothold/gap-matrix.md` CS row names 4 of the file's tests | queued |
+
+KK-370 to KK-404 (local-model backlog, written 2026-11-17; none has `after` or `hold`).
+`priority` orders the simplest schema tickets first (KK-370 to KK-373 at 2, then the
+structs and arrays at 1, the one- and two-record types at 0). Same night and merge notes:
+
+- KK-370 to KK-388 each type one inventory definition (KK-387 and KK-388 one each of the
+  aim-assist pair); like KK-330 to KK-339 they own different definitions and share only the
+  regenerated and sorted-list files and Markdown, so `auto` may pick all of them together.
+  Each removes its own line from `BX2_INVENTORY` (KK-375: `INVENTORY_CORPUS_ONLY`) in
+  `crates/schema/tests/defs.rs`; keep the lines whose ticket did not merge, then rebuild the
+  generated files ("Generated tickets" above). None owns `docs/gaps.md`: its Schema row is
+  KK-403's, which counts whatever main holds when it runs, so it can run before or after.
+- KK-389 to KK-397 (typed-write tests) all own `authoring_tests.rs` and
+  `docs/schema/evidence.toml`, as KK-340 and KK-341 do: the picker takes one of them a
+  night. Each appends at the end of the file; a hand merge keeps every ticket's tests and
+  entries. The 27 `writes_and_reads_back` and 22 `dangling` calls the briefs name were run
+  on `main` at `d8c3b1c3` on 2026-11-17 and passed with the plain helpers (of 56 typed
+  types tried, GMST, LGDI, PGRE and PHZD failed the read-back and are left out).
+- KK-398 to KK-402 (clone-sample) all own `clone_sample_corpus.rs`, as KK-342 and KK-343
+  do: one a night, each run 16 to 19 minutes in release in the run and again in the grade.
+- KK-404 owns the gap matrix's CS row only; the schema and typed-write tickets rewrite
+  that file's generated headline. Shared Markdown, merged by hand.
 
 KK-330 to KK-343 (local-model backlog, written 2026-11-15; none has `after` or `hold`).
 Same night: the ten schema tickets KK-330 to KK-339 own different definitions and share only

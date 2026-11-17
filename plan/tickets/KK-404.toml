@@ -1,0 +1,52 @@
+# Written 2026-11-17 from docs/foothold/gap-matrix.md: its CS evidence row still names the
+# four clone-sample tests of KK-004 and KK-014; the file holds more since KK-261 and KK-266.
+id = "KK-404"
+title = "gap matrix: the CS row names every clone-sample corpus test"
+timeout_min = 30
+budget_h = 1
+owns = [
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`docs/foothold/gap-matrix.md` has an evidence table (`| Key | Evidence |`); its `CS` row
+describes the clone-sample corpus tests of `crates/engine/tests/clone_sample_corpus.rs`
+but names only the four that KK-004 and KK-014 wrote (LCTN, TERM, PKIN, FACT) and says
+"24 to 32 minutes each". The file now holds more: KK-261 (ALCH, BOOK), KK-266 (MISC, DOOR)
+and possibly KK-342 (CONT), KK-343 (KEYM) and later tickets. Their results are in
+`docs/schema/support-matrix.md` (the list items that quote `clone-sample <TYPE>: ...`).
+
+Rewrite that one row so that it names every test of the file: read the file, and for each
+`#[test]` that calls `sample_clones("<SIG>", ...)` write its name and, in parentheses, the
+signature, as the row does today (`` `a_sample_of_official_locations_clones_identically`
+(LCTN) `` or the shortened `` `..._terminals_...` (TERM) ``). Name the tickets that wrote
+them in the row's opening parenthesis (KK-004, KK-014, KK-261, KK-266 and any later one you
+find in the file's history: `git log --format=%s -- crates/engine/tests/clone_sample_corpus.rs`).
+Replace "24 to 32 minutes each" by the run times `docs/schema/support-matrix.md` quotes
+(release 16 to 19 minutes, debug about 50, as those items say) and keep the claim that each
+result was 100 of 100 identical only for the types whose support-matrix item says so. Keep
+the row's key `CS` and the rest of the table as it is.
+
+Edit nothing else in the file: its generated headline belongs to `cargo xtask parity` (do
+not run it; this ticket changes none of its inputs) and the record-family table to the
+tickets that change a type's evidence. Do not edit `plan/STATUS.md` (no "Landed" line).
+
+Then run `cargo xtask ci` (the docs lints read this file). Commit only when the acceptance
+command below passes.
+"""
+
+[[accept]]
+name = "cs-row"
+cmd = '''python3 -c '
+import re
+rows = [r for r in open("docs/foothold/gap-matrix.md").read().splitlines() if r.startswith("| CS |")]
+assert len(rows) == 1, "one CS row"
+r = rows[0]
+sigs = sorted(set(re.findall(r"sample_clones\(\"([A-Z0-9_]{4})\"", open("crates/engine/tests/clone_sample_corpus.rs").read())))
+print("tests for", sigs)
+assert len(sigs) >= 8, sigs
+for t in sigs:
+    assert "(%s)" % t in r, "the CS row lacks " + t
+for k in ("KK-261", "KK-266"):
+    assert k in r, "the CS row does not name " + k
+assert "24 to 32 minutes each" not in r, "the old run time is still there"
+''''
