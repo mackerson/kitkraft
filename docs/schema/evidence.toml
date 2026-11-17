@@ -625,7 +625,7 @@ evidence = [
   "doc: docs/poi/first-poi.md#First POI",
   "ledger: game-20261103-08",
 ]
-note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2). game-20261103-08 rows T-08, T-13, T-18: the mini-site's override of the same cell (XLCN added) loaded and the player was in it (`GetInCell >> 1.00`); that the XLCN location took effect was not observed"
+note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2). game-20261103-08 rows T-08, T-13, T-18: the mini-site's override of the same cell (XLCN added) loaded and the player was in it (`GetInCell >> 1.00`); that the XLCN location took effect was not observed. Not counted: game-20261117-08 W-11 (fail), the embassy override's XOWN -> PlayerFaction: the vase the owner looked at read Steal, and every vase of the cell carries its own REFR XOWN (CrimeFactionFreestar), so the cell owner's effect is unobserved"
 
 [[entry]]
 type = "REFR"
@@ -634,8 +634,9 @@ result = "pass"
 evidence = [
   "ledger: game-20261015-03",
   "doc: docs/poi/first-poi.md#First POI",
+  "ledger: game-20261117-08",
 ]
-note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2)"
+note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2); reached by moveto, not on foot: it stands on a wall line (docs/poi/first-poi.md, Correction). Owner walk (game-20261117-08, owner report): W-01, W-04, W-05, a placed reference's own XOWN took effect: a new faction as owner gave Steal, the player's actor base (Starfield.esm:000007) gave Take; W-06, the VMAD kit attached to a placed reference ran on OnActivate"
 
 # Transcribed 2026-11-15 from the re-graded mini-site session game-20261103-08 (2026-11-03-T10,
 # KitKraftMiniSite.esm 05aac031...8d495d80; docs/recipes/mini-site.toml). Its writer's reading
@@ -718,8 +719,8 @@ note = "bench verification mod (KitKraftVerify.esm), rows V-I-BOOK: player.addit
 type = "CONT"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-27, V-P11, V-P27: Papyrus: base is the cloned container; getisid: the reference's base is the cloned container; the container's CNTO gave three of the item"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-08"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-27, V-P11, V-P27: Papyrus: base is the cloned container; getisid: the reference's base is the cloned container; the container's CNTO gave three of the item. Owner walk (KitKraftOwnerWalk.esm d7c8305c...e6a0a, game-20261117-08, owner report): W-05, the cloned locker (COCT 1, CNTO three cloned wrenches) on an owned reference read as owned and gave its three wrenches (KKW13 Locker Wrench 0 -> 3)"
 
 [[entry]]
 type = "DOOR"
@@ -739,8 +740,8 @@ note = "Presence only, not counted as a pass: bench verification mod (KitKraftVe
 type = "FACT"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P06, V-C-FACT, V-H-FACT: help listed the form under its runtime ID (presence only); player.getinfaction answered 1; the player was added to the new faction"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-08"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P06, V-C-FACT, V-H-FACT: help listed the form under its runtime ID (presence only); player.getinfaction answered 1; the player was added to the new faction. Owner walk (KitKraftOwnerWalk.esm d7c8305c...e6a0a, game-20261117-08, owner report): W-01 and W-05, a new FACT with only FULL named as a reference's XOWN owner gave the Steal prompt (the faction as owner took effect)"
 
 [[entry]]
 type = "FLOR"
@@ -767,8 +768,8 @@ note = "bench verification mod (KitKraftVerify.esm), rows V-23, V-P23: Papyrus: 
 type = "GLOB"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-P01, V-C-GLOB: Papyrus read the global's FLTV 4242; getglobalvalue answered 4242"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-08"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-P01, V-C-GLOB: Papyrus read the global's FLTV 4242; getglobalvalue answered 4242. Owner walk (game-20261117-08) W-00 and W-06: getglobalvalue answered the new global under its runtime ID (0.00), and the switch's script raised it to 1.00"
 
 [[entry]]
 type = "HAZD"
@@ -816,8 +817,8 @@ note = "Presence only, not counted as a pass: bench verification mod (KitKraftVe
 type = "MISC"
 status = "game-runtime-tested"
 result = "pass"
-evidence = ["ledger: game-20261116-04"]
-note = "bench verification mod (KitKraftVerify.esm), rows V-30, V-P04, V-P30, V-I-MISC: Papyrus read the item's DATA Value 777; Papyrus: base is the cloned item; getisid: the placed reference's base is the cloned item; player.additem / getitemcount"
+evidence = ["ledger: game-20261116-04", "ledger: game-20261117-08"]
+note = "bench verification mod (KitKraftVerify.esm), rows V-30, V-P04, V-P30, V-I-MISC: Papyrus read the item's DATA Value 777; Papyrus: base is the cloned item; getisid: the placed reference's base is the cloned item; player.additem / getitemcount. Owner walk (KitKraftOwnerWalk.esm d7c8305c...e6a0a, game-20261117-08, owner report): W-01 to W-05, the cloned mugs and wrenches placed with and without a reference XOWN read Steal (owned by the new faction) or Take (no owner; owned by the player) as their owners say, and were taken (counts 0 -> 1, 0 -> 3)"
 
 [[entry]]
 type = "MSTT"
@@ -934,9 +935,9 @@ note = "Presence only, not counted as a pass: bench verification mod (KitKraftVe
 [[entry]]
 type = "COBJ"
 status = "game-runtime-tested"
-result = "inconclusive"
-evidence = ["ledger: game-20261117-01"]
-note = "Presence only, not counted as a pass: bench verification mod (KitKraftVerify.esm), row V-H-COBJ: the reporter wrote `KKV-H62 COBJ present=true` (Game.GetFormFromFile of the clone is not None). Presence only: no field of the record was seen to take effect"
+result = "pass"
+evidence = ["ledger: game-20261117-08", "ledger: game-20261117-01"]
+note = "Owner walk (KitKraftOwnerWalk.esm d7c8305c...e6a0a, game-20261117-08) W-07: the cloned recipe KKW42Cobj (BNAM WorkbenchIndustrialKeyword, FNAM RecipeManufactured, CNAM AmmoShotgun, NNAM 6, one iron and one aluminum, the new DESC) was listed at the placed Industrial Workbench and crafted (owner report), and the console counted 12g Shotgun Shells 0 -> 6 (NNAM took effect). The outpost recipe KKW41Cobj (W-12, O4-05) was not run. Before: bench verification mod, row V-H-COBJ, presence only (`KKV-H62 COBJ present=true`, game-20261117-01)"
 
 [[entry]]
 type = "REGN"

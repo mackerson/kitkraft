@@ -278,10 +278,11 @@ and 15).
 new interior cell made in the CK) has no known route by sent input (`ck-20261117-34`), and
 F22, F25 and F26 build on it. All four are **carried into M7** ("M7: CK parity", below) and
 are no longer M4 exit criteria. M4 is not closed yet; what remains before the close, as
-checked against the repo on 2026-11-17: the ownership UI rows O4-01 and O4-02 (the owner);
-O4-05 and O4-06 (the workshop and fabricator recipes in game, not run; O4-07's `OnActivate`
-row also stays open, activation input deferred, STATUS row 14); W12 (the rename
-package installed through MO2, not run); F27 (inconclusive, `ck-20261117-33`: re-sit); F21
+checked against the repo on 2026-11-17 and updated after the owner walk of that evening
+(`docs/game-observations.md` `game-20261117-08`, which passed O4-06, O4-07's `OnActivate`
+and W12): the ownership rows O4-01 and O4-02 in the recipe's form (the embassy's cell
+owner: the walk's W-11 looked at an item with its own owner, so it is untested; the
+reference-owner form passed); O4-05 (the outpost object, not run: no outpost); F27 (inconclusive, `ck-20261117-33`: re-sit); F21
 and F24 (not run); the deletion of the staged xEdit files (still in `C:\Modding\tools\xedit-ref\`)
 and its record; the final `cargo xtask parity` regeneration with `plan/STATUS.md` saying M5.
 

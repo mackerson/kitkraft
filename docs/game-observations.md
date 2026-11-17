@@ -2147,3 +2147,124 @@ verification mods disabled. Times below are ms after launch, from `report.json`
 - `report.json` SHA-256 `f1925596b061b5f483dd6f1c27ccbd3d0a17f765cc876f400693fac6c45df37d`.
   The game and MO2 were closed by the controller; the session save
   `KitKraftSession-20261117-07` is in the dev profile.
+
+### game-20261117-08: owner walk walk-2026-11-17-211238 (`kit walk`), KitKraftOwnerWalk.esm, OldSovietMarksmanRifle.esm, KitKraftGunOverhaul.esm
+
+Entered from the recorder's draft (`game-20261117-walk2112` in its `report.json`, renumbered
+here) by an agent on 2026-11-17; no game was run to enter it. Grade: rows judged by the
+owner are **owner report**; the console numbers beside them are recorded, and a number
+whose answer was lost is not used. An earlier attempt the same evening
+(`walk-2026-11-17-205043`) stopped at W-00 (the stations stood outside the apartment's
+walls, before the deck of `5dd4d588`); it is not evidence and has no entry.
+
+| Field | Content |
+| ----- | ------- |
+| Session | `walk-2026-11-17-211238`, an owner sitting recorded by `kit walk` (the owner played; the recorder only read the console) |
+| Date | 2026-11-17 (the session name is UTC; the walk ran from about 16:12 to 16:38 local time, UTC-5) |
+| Status | fail (W-10, W-11; owner report) |
+| Game build | `Starfield.exe` 1.16.244.0 |
+| Script extender | SFSE 0.2.21, release idx 26, runtime 01100F40 (the console endpoint's answer to `GetSFSEVersion`) |
+| Console tools | Console API and Web Application 2.19.0.0; Console Command Runner Updated 1.11.0.0 |
+| Console endpoint | http://127.0.0.1:45555/console |
+| MO2 profile | `Kitkraft Dev` (C:\Modding\MO2-Starfield\profiles\Kitkraft Dev) |
+| Save | started from `KitKraftBase` (the owner's); the walk sends no save or load. W-09's `KitKraftWalk` was never written (W-10 below) |
+| Plugins | `KitKraftOwnerWalk.esm` 26,001 bytes, SHA-256 `d7c8305c7e06b979be5a143a30c7eeea59db83a3518cb7b45735cf21e2ac6e0a` (the build `out\owner-walk\` of `5dd4d588`), position 18, slot 08, confirmed in game by W-00 (`getglobalvalue 0800100B` answered); `OldSovietMarksmanRifle.esm` SHA-256 `9c0b28a6e9c4cdf4c7878cf7dd745a022cf6e0ae943d2ad3da6c8f044078ea27` (installed from the package, W12), position 17, slot 07; `KitKraftGunOverhaul.esm` SHA-256 `5e2f84e7b1dfd6a7876664a3bf203c3bbeff8679907bccd240c6ecb148f982d1`, position 14, slot 04 |
+| Stations | `docs\bench\owner-walk\stations.toml` SHA-256 `d51745c124644d13d5b98b1ba9e80e2fa01c6f8499a0d1f1af5d40859054d3ad` (as of `5dd4d588`) |
+| Runtime IDs | slot 08: KKW01Fact 0800100A, KKW02Glob 0800100B, KKW10Misc 08001000, KKW11Misc 08001001, KKW12Misc 08001002, KKW13Misc 08001003, KKW14Misc 08001004, KKW50OwnedMugRef 08001016 |
+| Papyrus log | `Documents\My Games\Starfield\Logs\Script\Papyrus.0.log`; the walk's part copied as `papyrus-tail.log` |
+| Screenshots | `C:\Modding\kitkraft-observe\walk-2026-11-17-211238\screenshots\` (W-01, W-03 to W-08, W-10, W-11) |
+| Files | `report.json` SHA-256 `a406f9604aae325cbfc655a0dc326e93f7719eb920f3270a936a2f210dfcbd1b`; `transcript.txt` `783a0953156079dcfdd353236dddf0e974c7e42c7f2bcb0969905216215d5e2e`; `ledger-draft.md` `a06d82f526d0d22387b40790a3cc3d6e6a09703c4b311a09ee5e040bf52eb4eb`; `papyrus-tail.log` `e622370c329004c5939b42e4cec31c603e6bfa9056b532d723f854b76868a40b` |
+
+| Row | Step | Forms | Expected | Seen | Result | Evidence |
+| --- | ---- | ----- | -------- | ---- | ------ | -------- |
+| W-00 | check-in: `coc CityNewAtlantisApartmentTEMPLATE` (owner), then the console | GLOB `KitKraftOwnerWalk.esm:00100B` `KKW02Glob`, 0800100B | In the apartment; the walk plugin's global answers under its runtime ID | `player.getincell 0021966F` -> `GetInCell >> 1.00`; `getglobalvalue 0800100B` -> `GetGlobalValue >> 0.00` | **pass** | transcript +19.6 s |
+| W-01 (O4-01) | look at `KKW10 Owned Mug` (REFR XOWN -> FACT `KKW01Fact`) | REFR KKW50OwnedMugRef 08001016, MISC KKW10Misc 08001000, FACT KKW01Fact 0800100A | The prompt reads Steal (red) | owner: p | **pass** (owner report) | W-01.png |
+| W-02 (O4-02) | take it | as W-01 | One more, marked stolen; no bounty | owner: p (stolen, no bounty). Console: KKW10 Owned Mug 0 -> 1. `GetStolenItemValueNoCrime`, `GetStolenItemValue`, `GetCrimeGold`: answer lost (echo only, 4 sends each, before and after), so no console number supports "stolen" or "no bounty" | **pass** (owner report) | - |
+| W-03 (O4-01) | control: `KKW11 Free Mug`, no owner; look, take | REFR KKW51FreeMugRef, MISC KKW11Misc 08001001 | Take, not red | owner: p. KKW11 Free Mug 0 -> 1; the stolen-goods getter's answer lost | **pass** (owner report) | W-03.png |
+| W-04 (O4-01) | `KKW12 Your Mug`, REFR XOWN -> NPC_ `Starfield.esm:000007` (Player); look, take | REFR KKW52YourMugRef, MISC KKW12Misc 08001002 | Take | owner: p. KKW12 Your Mug 0 -> 1 | **pass** (owner report) | W-04.png |
+| W-05 (O4-01, O4-02) | `KKW20 Owned Locker` (REFR XOWN -> KKW01Fact); open, take the three wrenches | REFR KKW53LockerRef, CONT KKW20Cont, MISC KKW13Misc 08001003 | The locker reads owned; the wrenches come out stolen | owner: p. KKW13 Locker Wrench 0 -> 3; the stolen-goods getter's answer lost | **pass** (owner report) | W-05.png |
+| W-06 (O4-07 `OnActivate`) | the owner activates `KKW30 Walk Switch` once | REFR KKW54SwitchRef (VMAD `KitKraft:WalkSwitch`), ACTI KKW30Acti, GLOB KKW02Glob 0800100B, `Scripts\KitKraft\WalkSwitch.pex` SHA-256 `e468882b...827d49d8` | The notification; KKW02Glob +1; the Papyrus log has `KKW-A01` | owner: p (the notification). Console: `KKW02Glob` 0 -> 1. Papyrus log: `[16:20:57] KKW-A01 activated by-player=true count=1` | **pass** (console and log; the notification by owner report) | W-06.png, papyrus-tail.log |
+| W-07 (O4-06) | at the placed Industrial Workbench (`Starfield.esm:1F50AD`), craft `KKW42Cobj` | COBJ KKW42Cobj, REFR KKW55BenchRef, AMMO `Starfield.esm:0547A1` | Listed under Manufactured, 1 iron and 1 aluminum, no research; crafts 6 shells | owner: p (listed, crafted). Console: 12g Shotgun Shell 0 -> 6 (NNAM 6). Iron and aluminum counts: answer lost, so the cost rests on the owner's report | **pass** (owner report; the 6 shells by the console) | W-07.png |
+| W-08 (W12) | the rename package installed through MO2, its manifest check; the rifle in the inventory | WEAP `Starfield.esm:21BBCD` `RussianHuntingRifle`, `OldSovietMarksmanRifle.esm` | "Old Soviet Marksman Rifle"; every manifest line `ok` | owner: p (the name, and the manifest check all `ok`, as the station asks). Hunting rifle count 2 -> 2 (read after the setup's additem) | **pass** (owner report) | W-08.png |
+| W-09 (O5-15, before the save) | the three weapons' magazines, then `save KitKraftWalk` (owner) | WEAP `Starfield.esm:2984DF`, `0546CC`, `18DE2C`; `KitKraftGunOverhaul.esm` | Magazines 24, 5, 48; the save is written | owner: p (24, 5, 48 and "the save finished"). The save was **not** written (W-10 below). Counts 3, 1, 1 (after the setup's additem) | magazines **pass** (owner report); the save **fail** (corrected here: the draft passed the row on the owner's p) | - |
+| W-10 (O5-15) | `load KitKraftWalk` (owner), check the magazines | as W-09; MISC KKW14Misc 08001004 (reload marker) | Back from the save (marker gone), magazines 24, 5, 48 | owner: f "save not found, also can't find in menu". Reload marker 1 -> 1 (no load happened); still in the apartment (`GetInCell >> 1.00`). W-10.png shows the Load menu: the 4:21 PM autosave, the 3:57 PM exit save, the 3:56 PM autosave and a 12:45 AM save, no `KitKraftWalk` | **fail** (owner report; the marker agrees) | W-10.png |
+| W-11 (O4-01, O4-02) | `coc CityNewAtlantisFreestarEmbassy` (owner); look at an item on a shelf, take it | CELL `Starfield.esm:017307`, XOWN `24F839` -> `PlayerFaction` `01C21C` in this plugin | Take, no crime (`docs/recipes/ownership.md`); a Steal may be the item's own owner | owner: f "yellow mustard vase said steel". In the embassy (`player.getincell 00017307` -> `GetInCell >> 1.00`; W-11.png is the status screen, "Jemison - Freestar Collective Embassy"). The stolen-goods and crime-gold getters: answer lost | **fail** (owner report) | W-11.png |
+| W-12 (O4-05) | outpost: build `KKW40 Coffee Maker` | COBJ KKW41Cobj, STAT KKW40Stat | Listed and builds | owner: s "no outpost" (a level-one character) | not-run (skipped by the owner: no outpost) | - |
+
+Owner's answers (verbatim, from `transcript.txt`): W-01 to W-09 `p`; W-10 `f "save not
+found, also can't find in menu"`; W-11 `f "yellow mustard vase said steel"`; W-12 `s "no
+outpost"`.
+
+Writer's reading (2026-11-17, from the walk's folder and the disk, read only; no game run).
+
+- **What passed.** A reference's own `XOWN` takes effect: a new faction with only a name
+  as owner gives Steal (W-01, W-05), the player's actor base as owner gives Take (W-04),
+  no owner gives Take (W-03); the cloned locker's `CNTO` gave its three cloned wrenches
+  (W-05). `OnActivate` fired on the script `kit` attached to a placed reference when the
+  owner pressed it (W-06): the counter and the log line are machine evidence, the press a
+  person's. The cloned fabricator recipe works at a placed vanilla workbench (W-07). The
+  rename package installs through MO2 and its manifest checks `ok` (W-08, W12). Every
+  ownership and crime number the console was asked for (`GetStolenItemValueNoCrime`,
+  `GetStolenItemValue`, `GetCrimeGold`) came back as its echo only, four sends each, in
+  every station: whether the console answers those functions is still not observed, and
+  no row rests on them. The deck of ten `ComIntAddonRmSmMidBotB01` tiles held the owner
+  and the stations (W-01 to W-07; `docs/mcp.md`, "Placing in an interior").
+- **W-10: the save of W-09 was never written.** On disk: no `KitKraftWalk.sfs` in the
+  profile's `saves` folder (listed; the owner's primary saves folder was not looked at).
+  The folder's files written during the walk are `Autosave2_..._20261117212100` (16:21:00)
+  and `Autosave3_..._20261117213301` (16:33:01). The Papyrus log has a `Saving game...`
+  block at exactly those two times and none other; W-09 ran from 16:26:22 to 16:28:36
+  (`transcript.txt` +824 s to +958 s; walk start 21:12:38 UTC). W-10.png, taken at the
+  owner's answer, shows the Load menu without it. The game's console history
+  (`Documents\My Games\Starfield\StarfieldConsoleHistory.log`, read only, modified 16:31:32)
+  ends `coc CityNewAtlantisApartmentTEMPLATE`, `load KitKraftWalk`, `coc
+  CityNewAtlantisFreestarEmbassy`, with no `save KitKraftWalk`; but it also lacks W-01's
+  `player.moveto 08001016`, which the owner must have typed to stand on the deck, so it is
+  not a complete record. The recorder saw nothing of it: it reads only the replies to its
+  own commands, and its transcript has no line about a save. The reload marker logic
+  behaved: `KKW14Misc` was added at +967 s, after W-09's answer, and read 1 before and 1
+  after, which says no load happened even without the owner's note. **Cause (inference,
+  not shown):** the `save KitKraftWalk` command did not run in the game (not submitted, or
+  mistyped): a console `save` does land in this folder when the session controller sends
+  it (`KitKraftSession-20261117-07.sfs`, `game-20261117-07`). The draft passed W-09 on the
+  owner's `p`; its "the save is written" part is a fail, corrected above. **Changed:** `kit
+  walk` now lists the profile's `saves` folder after W-09 (`makes_save`), asks again while
+  `KitKraftWalk.sfs` is missing and fails W-09 if it never appears; W-10 (`needs_save`) is
+  not asked without it (`crates/game/src/walk.rs`, `docs/bench/owner-walk/README.md`).
+  O5-15 stays open.
+- **W-11: the item has its own owner.** The walk plugin carries the override: its `CELL`
+  `Starfield.esm:017307` wins in `Kitkraft Dev` (`kit inspect`: 2 versions, winner
+  `KitKraftOwnerWalk.esm`, `XOWN.Owner` `24F839` -> `01C21C`, every other subrecord the
+  winner's but the inline `FULL`). The vanilla cell's owner is `FreestarEmbassyFaction`
+  (`Starfield.esm:24F839`, FACT). The embassy has 9 vase references, all `MISC` and all
+  with their own `REFR` `XOWN` -> `CrimeFactionFreestar` (`Starfield.esm:0638E5`); the two
+  yellow ones are `VaseTableMed01_Yellow01` (`Starfield.esm:03DC66`, at (3.86, 2.82, 0.44))
+  and `VaseTableLG03_Yellow01` (`2D5C0C`, at (-15.33, 9.89, 0.20)). Of the cell's 453
+  references of takeable or lootable bases, 417 carry their own owner (360 of 384 `MISC`,
+  all 26 `ALCH`, 26 of 27 `LVLI`, 3 `FLOR`, 1 `CONT`: `CrimeFactionFreestar`; one `BOOK`,
+  `3C805A`: `PlayerFaction`), and 36 none (24 `MISC`, 1 `BOOK`, 10 `CONT`, 1 `LVLI`). The
+  recipe changes only the cell's `XOWN`, so a Steal on the vase is what its own owner
+  predicts **if** a reference's owner outranks the cell's; that order is not observed (the
+  apartment, where W-01 to W-05 ran, has no cell owner). So W-11 does not show the recipe
+  wrong: it did not test it. The recipe's claim (`docs/recipes/ownership.md`: the cell is
+  owned by `24F839`, and with `PlayerFaction` as owner its items read Take) rests on the
+  records only; the in-game half was never observed before this walk and still is not.
+  **Next probe:** in the embassy with the walk plugin, look at an item with **no** owner of
+  its own, e.g. the two Digipicks `03E159` and `03E166` with the folder, tablet and pen at
+  about (-13.2, -4.5, 0.6), or the to-go coffee cups `0F18EE` to `0F18F2` at about
+  (-9.9, 1.8, 0.8): Take means the cell override took effect. Control: the same item with
+  the plugin disabled should read Steal (the vanilla cell owner). `stations.toml` W-11 now
+  says so. The station's watch `GetStolenItemValueNoCrime 0024F839` names the cell's owner,
+  not an item's; its answer was lost anyway.
+- **Corrections the walk exposed** (not results of this walk's rows): the first POI's
+  crate (-17, -4, 4.63) stands on the bedroom's east wall line, and the owner never found it
+  on foot; M4.O2's visit pass (`game-20261015-03`) was a `player.moveto` and a console
+  click and shows presence and persistence, not reachability. The verification mod's
+  references (y -8) are behind the bedroom's south wall; their console passes stand.
+  `docs/poi/first-poi.md` and `docs/bench/verify-mod.md` ("Correction"), `docs/gaps.md`.
+
+Findings: (1) W-10, the owner's save not written: fixed in the recorder (above), O5-15
+open. (2) W-11, the ownership recipe untested on an item without its own owner: the next
+probe above; `docs/gaps.md`. (3) The stolen-goods and crime-gold console functions answered
+nothing in this walk (ticket idea: read them through Papyrus, as the verification mod's
+reporter reads other state).
