@@ -85,8 +85,10 @@ attached by kit": `testplan` reads the compiled script next to the plugin, finds
   assumed, not observed.
 - Quest stage fragments (`stages` on a `QUST`'s script entry, `docs/mcp.md` `set`) and
   scripts on quest aliases (`alias`, below) are written in the official layout (four
-  official quest `VMAD`s rebuilt byte for byte, `crates/engine/tests/quest_vmad_corpus.rs`);
-  a fragment's function is not checked against the script.
+  official quest `VMAD`s rebuilt byte for byte, `crates/engine/tests/quest_vmad_corpus.rs`).
+  `validate` refuses the write when a fragment's stage or log entry is missing
+  (`quest.fragment-stage`) or its function is not in the compiled script
+  (`quest.fragment-function`; a warning when no `.pex` is found to check).
 - An alias script is not checked to extend `ReferenceAlias`, `RefCollectionAlias` or
   `LocationAlias`; an alias value's property type is not checked to be an alias type, and
   another quest's alias (`{quest, alias}`) is not checked against that quest; `validate`
@@ -115,6 +117,14 @@ The alias's other required members (`FNAM` flags, `ALFG`, `VTCK`) are written as
 when not given. Its `FNAM` cannot be given: `fields` paths are signatures, and `FNAM` is
 also the objective's, so `build` refuses it (`new.no-group-lead`); the alias flags stay 0
 until a path can name a member of the alias group.
+
+A stage fragment needs its stage and a log entry in it: give the stage one with `QSDT`
+(`"INDX.StageIndex" = 10, QSDT = 0`; `build` adds the reward count and end, `QSRD`).
+Every official fragment whose stage exists names an existing log entry (13,813 of 13,947;
+the other 134 name a stage their quest lacks), and in game a fragment on a stage without
+that log entry does not run, while the same fragment with `QSDT = 0` does (bench quest
+row Q-03, sessions `game-20261117-05` and `-06` on the bench branch). `build` refuses the
+former (`quest.fragment-stage`).
 
 | Fact | Source |
 | ---- | ------ |

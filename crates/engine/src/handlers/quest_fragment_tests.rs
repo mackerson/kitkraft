@@ -17,7 +17,7 @@ use kitkraft_esm::{DecodeLimits, Signature};
 use serde_json::{json, Value};
 
 use super::place_tests::world_master;
-use super::scripts_tests::pex_with;
+use super::scripts_tests::{pex_with, pex_with_functions};
 use crate::edit::patch_tests::dir;
 use crate::edit::vmad;
 use crate::execute;
@@ -38,21 +38,36 @@ fn setup(name: &str) -> (PathBuf, PathBuf) {
     std::fs::create_dir_all(&frag).unwrap();
     std::fs::write(
         frag.join("QF_KKQuest.pex"),
-        pex_with(
+        pex_with_functions(
             "Fragments:Quests:QF_KKQuest",
             "Quest",
             &[("Marker", "ObjectReference")],
+            &[
+                "Report",
+                "Fragment_Stage_0010_Item_00",
+                "Fragment_Stage_0020_Item_00",
+            ],
         ),
     )
     .unwrap();
     (d, data)
 }
 
+/// Stage 10 with one log entry (`QSDT` opens it; `new` adds the required reward count and
+/// end, `QSRD`): a stage fragment runs from a log entry, so `validate` refuses one without
+/// (`quest.fragment-stage`). Only one stage: a second instance of the repeated `Stage`
+/// group cannot be written through `fields` yet (`new.group-incomplete`).
+const STAGES: &str = r#"{ "INDX.StageIndex" = 10, QSDT = 0 }"#;
+
 fn spec(data: &Path, quest_scripts: &str) -> String {
+    spec_with(data, STAGES, quest_scripts)
+}
+
+fn spec_with(data: &Path, fields: &str, quest_scripts: &str) -> String {
     format!(
         "version = 3\n[load_order]\nplugins = [\"World.esm\"]\ndata_dir = '{}'\nno_cache = true\n\n\
 [[new]]\nname = \"quest\"\ntype = \"QUST\"\nedid = \"KK_Quest\"\nmasters = [\"World.esm\"]\n\
-scripts = {quest_scripts}\n",
+fields = {fields}\nscripts = {quest_scripts}\n",
         data.display()
     )
 }
@@ -105,7 +120,7 @@ fn a_quest_gets_a_quest_script_and_stage_fragments() {
         &data,
         "[\n  { name = \"KK:QuestReport\", properties = { Count = 3 } },\n  \
 { name = \"Fragments:Quests:QF_KKQuest\", properties = { Marker = \"KC_Crate\" }, \
-stages = [{ stage = 10, function = \"Report\" }, { stage = 20 }] },\n]",
+stages = [{ stage = 10 }] },\n]",
     );
     let r = build(&d, &text, "Quest.esp").unwrap();
     assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
@@ -115,13 +130,9 @@ stages = [{ stage = 10, function = \"Report\" }, { stage = 20 }] },\n]",
         .find(|s| s["script"] == json!("Fragments:Quests:QF_KKQuest"))
         .unwrap();
     assert_eq!(
-        frag["stages"][1]["function"],
-        json!("Fragment_Stage_0020_Item_00")
+        frag["stages"][0]["function"],
+        json!("Fragment_Stage_0010_Item_00")
     );
-    assert!(r["limitations"].as_array().unwrap().iter().any(|l| l
-        .as_str()
-        .unwrap()
-        .contains("stage fragment's function is not checked")));
 
     let out = d.join("Quest.esp");
     let bytes = std::fs::read(&out).unwrap();
@@ -140,7 +151,7 @@ stages = [{ stage = 10, function = \"Report\" }, { stage = 20 }] },\n]",
     assert_eq!(fs.flags, 0);
     assert_eq!(fs.properties[0].name, b"Marker");
     assert!(matches!(fs.properties[0].value, vmad::Value::Object(o) if o.form_id != 0));
-    // The order given; the default function name for stage 20.
+    // The default function name for stage 10, log entry 0.
     let stages: Vec<(u32, u32, String, String)> = q
         .fragments
         .iter()
@@ -155,20 +166,12 @@ stages = [{ stage = 10, function = \"Report\" }, { stage = 20 }] },\n]",
         .collect();
     assert_eq!(
         stages,
-        [
-            (
-                10,
-                0,
-                "Fragments:Quests:QF_KKQuest".to_string(),
-                "Report".to_string()
-            ),
-            (
-                20,
-                0,
-                "Fragments:Quests:QF_KKQuest".to_string(),
-                "Fragment_Stage_0020_Item_00".to_string()
-            ),
-        ]
+        [(
+            10,
+            0,
+            "Fragments:Quests:QF_KKQuest".to_string(),
+            "Fragment_Stage_0010_Item_00".to_string()
+        )]
     );
     assert!(q.fragments.iter().all(|f| f.unknown == 1));
     assert!(q.aliases.is_empty());
@@ -440,5 +443,73 @@ Others = [{ alias = 0 }, { quest = \"KC_Crate\", alias = 3 }] } }]",
         let e = build(&d, &text, "BadValue.esp").unwrap_err();
         assert!(e.contains(why), "{value}: {e}");
     }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_stage_fragment_needs_its_stage_log_entry_and_function() {
+    let (d, data) = setup("quest-fragment-checks");
+    // A fragment script that extends nothing, so its compiled functions are the whole
+    // chain: a missing function is known to be missing.
+    std::fs::write(
+        d.join("Scripts")
+            .join("Fragments")
+            .join("Quests")
+            .join("QF_Bare.pex"),
+        pex_with_functions(
+            "Fragments:Quests:QF_Bare",
+            "",
+            &[],
+            &["Fragment_Stage_0010_Item_00"],
+        ),
+    )
+    .unwrap();
+    let frag = |script: &str, stage: &str| {
+        format!("[{{ name = \"Fragments:Quests:{script}\", stages = [{stage}] }}]")
+    };
+    for (fields, scripts, why) in [
+        (
+            STAGES,
+            frag("QF_KKQuest", "{ stage = 20 }"),
+            "quest.fragment-stage QUST:01001000: stage fragment `Fragment_Stage_0020_Item_00` (stage 20, log entry 0): the quest has no stage 20; the game does not run it",
+        ),
+        (
+            r#"{ "INDX.StageIndex" = 10 }"#,
+            frag("QF_KKQuest", "{ stage = 10 }"),
+            "stage 10 has no log entry (a fragment runs from a log entry; give the stage one, QSDT)",
+        ),
+        (
+            STAGES,
+            frag("QF_KKQuest", "{ stage = 10, index = 1 }"),
+            "stage 10 has 1 log entry (0 to 0), not 1",
+        ),
+        (
+            STAGES,
+            frag("QF_Bare", "{ stage = 10, function = \"Missing\" }"),
+            "quest.fragment-function QUST:01001000: stage 10 log entry 0: fragment `Missing` is not a function of `Fragments:Quests:QF_Bare` or its parents",
+        ),
+    ] {
+        let e = build(&d, &spec_with(&data, fields, &scripts), "Bad.esp").unwrap_err();
+        assert!(e.contains("the built plugin fails validate, so nothing was written"), "{e}");
+        assert!(e.contains(why), "{scripts}: {e}");
+        assert!(!d.join("Bad.esp").exists());
+    }
+    // A function of a script whose parent is not found as a .pex cannot be told missing:
+    // written, with a warning that it was not checked.
+    let r = build(
+        &d,
+        &spec(
+            &data,
+            &frag("QF_KKQuest", "{ stage = 10, function = \"Missing\" }"),
+        ),
+        "Unchecked.esp",
+    )
+    .unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let text = r.to_string();
+    assert!(
+        text.contains("quest.fragment-function") && text.contains("was not checked"),
+        "{text}"
+    );
     let _ = std::fs::remove_dir_all(&d);
 }

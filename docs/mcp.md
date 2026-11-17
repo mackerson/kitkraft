@@ -915,8 +915,9 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   script per quest, a fragment of the same stage and index replaced) instead of its script
   list; elsewhere `stages` is refused. A quest with scripts and no `stages` gets no
   fragment block, as 209 official quests (`crates/engine/tests/quest_vmad_corpus.rs`).
-  The report's entry lists `stages`; that each function exists in the script is not
-  checked. On a `QUST`, an entry may instead add `alias` (an alias ID 0 to 32767, or an
+  The report's entry lists `stages`; the written plugin is refused by `validate` when a
+  fragment's stage or log entry is missing (`quest.fragment-stage`) or its function is not
+  in the compiled script (`quest.fragment-function`). On a `QUST`, an entry may instead add `alias` (an alias ID 0 to 32767, or an
   alias name, `ALID`, any case): the script is attached to that quest alias, written into
   the alias's entry of the fragment block (the official entry shape: the quest's own
   FormID, version 6, object format 2; entries appended in the order given, a script of the

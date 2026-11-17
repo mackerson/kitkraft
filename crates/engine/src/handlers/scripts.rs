@@ -17,7 +17,9 @@
 //! the quest's fragment script, written into the `VMAD`'s fragment block with one stage
 //! fragment per item (`edit::vmad::attach`). `index` defaults to 0 and `function` to the
 //! name the official quests use, `Fragment_Stage_<stage, 4 digits>_Item_<index, 2
-//! digits>`. That the function exists in the script is not checked.
+//! digits>`. The stage, its log entry and the function are checked by `validate` on the
+//! written plugin (`quest.fragment-stage`, `quest.fragment-function`), which refuses the
+//! write when one is missing.
 //!
 //! On a `QUST`, an entry may instead carry `alias`: an alias ID (an integer) or an alias name
 //! (`ALID`, a string). The script is then attached to that quest alias, written into the
@@ -317,10 +319,6 @@ pub(crate) fn resolve(
                         )
                         .collect::<Vec<_>>()),
                 );
-            }
-            let note = "scripts: a stage fragment's function is not checked against the script, nor its stage against the quest's stages".to_string();
-            if !limitations.contains(&note) {
-                limitations.push(note);
             }
         }
         if let Some(alias) = &arg.alias {

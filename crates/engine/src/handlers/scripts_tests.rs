@@ -19,6 +19,16 @@ use crate::execute;
 /// A compiled script `name extends parent` with auto properties `(name, type)` and no
 /// functions (the layout `kitkraft-pex` reads; see `papyrus::tests::tiny_pex`).
 pub(crate) fn pex_with(name: &str, parent: &str, props: &[(&str, &str)]) -> Vec<u8> {
+    pex_with_functions(name, parent, props, &[])
+}
+
+/// [`pex_with`] plus one (empty) state holding empty functions named `functions`.
+pub(crate) fn pex_with_functions(
+    name: &str,
+    parent: &str,
+    props: &[(&str, &str)],
+    functions: &[&str],
+) -> Vec<u8> {
     let mut b = Vec::new();
     let ws = |b: &mut Vec<u8>, s: &str| {
         b.extend((s.len() as u16).to_le_bytes());
@@ -38,6 +48,8 @@ pub(crate) fn pex_with(name: &str, parent: &str, props: &[(&str, &str)]) -> Vec<
         strings.push((*t).to_string());
         strings.push(format!("::{n}_var"));
     }
+    let first_function = strings.len() as u16;
+    strings.extend(functions.iter().map(|f| (*f).to_string()));
     b.extend((strings.len() as u16).to_le_bytes());
     for s in &strings {
         ws(&mut b, s);
@@ -65,7 +77,23 @@ pub(crate) fn pex_with(name: &str, parent: &str, props: &[(&str, &str)]) -> Vec<
         o.push(7); // read, write, auto
         o.extend((base + 2).to_le_bytes()); // backing variable
     }
-    o.extend(0u16.to_le_bytes()); // states
+    if functions.is_empty() {
+        o.extend(0u16.to_le_bytes()); // states
+    } else {
+        o.extend(1u16.to_le_bytes()); // one state, the empty one
+        o.extend(0u16.to_le_bytes());
+        o.extend((functions.len() as u16).to_le_bytes());
+        for i in 0..functions.len() {
+            o.extend((first_function + i as u16).to_le_bytes()); // name
+            o.extend(0u16.to_le_bytes()); // return type ""
+            o.extend(0u16.to_le_bytes()); // doc
+            o.extend(0u32.to_le_bytes()); // user flags
+            o.push(0); // flags
+            for _ in 0..3 {
+                o.extend(0u16.to_le_bytes()); // params, locals, instructions
+            }
+        }
+    }
     b.extend(1u16.to_le_bytes()); // object name
     b.extend((o.len() as u32 + 4).to_le_bytes());
     b.extend(o);

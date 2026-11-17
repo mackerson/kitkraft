@@ -44,6 +44,9 @@ struct Decl {
     name: String,
     parent: Option<String>,
     properties: Vec<(String, String)>,
+    /// Its functions (lower case, every state), when read from a compiled `.pex`; `None`
+    /// for a declaration read from sources, which lists properties only.
+    functions: Option<Vec<String>>,
 }
 
 /// Where a script was found, or read from.
@@ -292,6 +295,7 @@ impl Sources {
                                 name,
                                 parent,
                                 properties,
+                                functions: None,
                             },
                         )
                     })
@@ -325,11 +329,18 @@ impl Sources {
                         )
                     })
                     .collect();
+                let functions = object
+                    .states
+                    .iter()
+                    .flat_map(|st| &st.functions)
+                    .map(|f| pex.string(f.name).to_ascii_lowercase())
+                    .collect();
                 Some((
                     Decl {
                         name: pex.string(object.name).to_string(),
                         parent,
                         properties,
+                        functions: Some(functions),
                     },
                     at,
                 ))
@@ -349,6 +360,32 @@ impl Sources {
         };
         self.decls.insert(key, found.clone());
         Ok(found)
+    }
+
+    /// Whether `script` or a parent defines the function `function` (ASCII
+    /// case-insensitive, any state): `Some(true)` when a compiled script of the chain has
+    /// it, `Some(false)` when every script of the chain is compiled and none has it, `None`
+    /// when that cannot be told (the script or a parent not found, or read from sources).
+    pub fn has_function(&mut self, script: &str, function: &str) -> Result<Option<bool>, String> {
+        let wanted = function.to_ascii_lowercase();
+        let mut next = Some(script.to_string());
+        let mut seen: Vec<String> = Vec::new();
+        while let Some(name) = next.take() {
+            if seen.len() >= MAX_CHAIN || seen.contains(&name.to_ascii_lowercase()) {
+                break;
+            }
+            seen.push(name.to_ascii_lowercase());
+            let Some((d, _)) = self.decl(&name)? else {
+                return Ok(None);
+            };
+            match &d.functions {
+                Some(f) if f.contains(&wanted) => return Ok(Some(true)),
+                Some(_) => {}
+                None => return Ok(None),
+            }
+            next = d.parent.clone();
+        }
+        Ok(Some(false))
     }
 
     /// Every property `script` can set (its own, then its parents'), or `None` when the
@@ -425,17 +462,58 @@ pub struct Attached {
     /// override was read against, and that version's scripts with their property names:
     /// what the override carries from there is reported as a warning, not an error.
     pub inherited: Option<(String, ScriptNames)>,
+    /// A quest's stage fragments as `(stage, log entry index, script, function)`.
+    pub fragments: Vec<(u32, u32, String, String)>,
+}
+
+/// Every script a decoded VMAD attaches: its script list and, on a `QUST`, the fragment
+/// script and the alias scripts of its fragment block (when the block decodes).
+fn all_scripts<'v>(
+    v: &'v crate::edit::vmad::Vmad,
+    block: Option<&'v crate::edit::vmad::QuestFragments>,
+) -> Vec<&'v crate::edit::vmad::Script> {
+    let mut out: Vec<&crate::edit::vmad::Script> = v.scripts.iter().collect();
+    if let Some(q) = block {
+        out.extend(q.script.iter());
+        out.extend(q.aliases.iter().flat_map(|a| &a.scripts));
+    }
+    out
+}
+
+/// The fragment block of a `QUST`'s VMAD (`record` is `QUST:...`), when it has one that
+/// decodes.
+pub fn quest_block(
+    record: &str,
+    v: &crate::edit::vmad::Vmad,
+) -> Option<crate::edit::vmad::QuestFragments> {
+    if record.starts_with("QUST:") && !v.rest.is_empty() {
+        crate::edit::vmad::decode_quest_fragments(&v.rest, v.object_format).ok()
+    } else {
+        None
+    }
 }
 
 impl Attached {
     /// The scripts of a decoded VMAD.
     pub fn from_vmad(record: &str, offset: Option<u64>, v: &crate::edit::vmad::Vmad) -> Attached {
+        let block = quest_block(record, v);
         Attached {
             record: record.to_string(),
             offset,
-            scripts: v
-                .scripts
+            fragments: block
                 .iter()
+                .flat_map(|q| &q.fragments)
+                .map(|f| {
+                    (
+                        f.stage,
+                        f.stage_index,
+                        String::from_utf8_lossy(&f.script_name).into_owned(),
+                        String::from_utf8_lossy(&f.fragment_name).into_owned(),
+                    )
+                })
+                .collect(),
+            scripts: all_scripts(v, block.as_ref())
+                .into_iter()
                 .map(|s| {
                     (
                         s.name_text(),
@@ -452,11 +530,11 @@ impl Attached {
 
     /// Records what `plugin`'s earlier version of the record attaches (`earlier`).
     pub fn inherit(&mut self, plugin: &str, earlier: &crate::edit::vmad::Vmad) {
+        let block = quest_block(&self.record, earlier);
         self.inherited = Some((
             plugin.to_string(),
-            earlier
-                .scripts
-                .iter()
+            all_scripts(earlier, block.as_ref())
+                .into_iter()
                 .map(|s| {
                     (
                         s.name_text(),
@@ -509,6 +587,7 @@ pub fn check(
     plugin: &str,
     missing_on: bool,
     properties_on: bool,
+    function_on: bool,
     findings: &mut Vec<super::Finding>,
     limitations: &mut Vec<String>,
 ) {
@@ -606,6 +685,9 @@ pub fn check(
             }
         }
     }
+    if function_on {
+        fragment_functions(list, sources, plugin, findings, &mut errors);
+    }
     for e in errors {
         limitations.push(format!("papyrus rules: a script could not be read: {e}"));
     }
@@ -619,6 +701,66 @@ pub fn check(
     }
     // Unreadable archives are reported once, by the caller (they are shared with the
     // model rules' listing).
+}
+
+/// `quest.fragment-function`: each stage fragment's function must be defined by its
+/// script or a parent, as far as their compiled `.pex` show (an error when none does; a
+/// warning when that cannot be told: the script, or a parent, is not found as a `.pex`).
+/// A fragment on a script the previous version in load order already attaches is a
+/// warning.
+fn fragment_functions(
+    list: &[Attached],
+    sources: &mut Sources,
+    plugin: &str,
+    findings: &mut Vec<super::Finding>,
+    errors: &mut Vec<String>,
+) {
+    for a in list {
+        for (stage, index, script, function) in &a.fragments {
+            let known = match sources.has_function(script, function) {
+                Ok(k) => k,
+                Err(e) => {
+                    if !errors.contains(&e) {
+                        errors.push(e);
+                    }
+                    None
+                }
+            };
+            let (severity, message) = match known {
+                Some(true) => continue,
+                Some(false) => match a.inherited_from(script, None) {
+                    None => (
+                        super::Severity::Error,
+                        format!(
+                            "stage {stage} log entry {index}: fragment `{function}` is not a function of `{script}` or its parents (their compiled scripts); the game cannot run it"
+                        ),
+                    ),
+                    Some(master) => (
+                        super::Severity::Warning,
+                        format!(
+                            "stage {stage} log entry {index}: fragment `{function}` is not a function of `{script}` or its parents; carried from {master}'s version of the record, so a warning"
+                        ),
+                    ),
+                },
+                None => (
+                    super::Severity::Warning,
+                    format!(
+                        "stage {stage} log entry {index}: fragment `{function}` was not checked: `{script}` (or a parent) is not found as a compiled .pex (searched {})",
+                        sources.searched()
+                    ),
+                ),
+            };
+            findings.push(super::Finding {
+                rule: "quest.fragment-function",
+                severity,
+                plugin: plugin.to_string(),
+                record: Some(a.record.clone()),
+                subrecord: Some("VMAD".to_string()),
+                offset: a.offset,
+                message,
+            });
+        }
+    }
 }
 
 /// The VMAD type byte a declared type takes, or why it cannot be set: `Int` 3, `Float` 4,
