@@ -37445,9 +37445,9 @@ pub struct DlbrRecord {
     pub editor_id: Option<Sub<ZString>>,
     /// `QNAM`, required.
     pub quest: Option<Sub<FormId>>,
-    /// `TNAM`, required.
+    /// `TNAM`, optional.
     pub category: Option<Sub<DlbrCategory>>,
-    /// `DNAM`, required.
+    /// `DNAM`, optional.
     pub flags: Option<Sub<DlbrFlags>>,
     /// `SNAM`, required.
     pub starting_topic: Option<Sub<FormId>>,
@@ -37471,11 +37471,11 @@ impl DlbrRecord {
         },
         MemberDesc::Sub {
             sig: *b"TNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"DNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"SNAM",

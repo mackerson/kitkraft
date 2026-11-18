@@ -16,6 +16,10 @@
 # It was an inventory (KK-105); it is now typed from the pinned xEdit file. The
 # corpus agrees with xEdit: every one of the five subrecords is in all 135
 # official records, EDID QNAM TNAM DNAM SNAM, and no size differs.
+#
+# Cardinality follows xEdit (owner ruling 2026-11-07, defs/README.md): QNAM
+# (L11529) and SNAM (L11543) carry `.SetRequired`; TNAM and DNAM do not, so
+# they are optional although all 135 official records carry them.
 signature = "DLBR"
 name = "DialogBranch"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11526-L11544"
@@ -23,7 +27,7 @@ evidence = [
   "corpus: dlbr_types_full (crates/esm/tests/dlbr_types.rs), 2026-11-17: every official DLBR record (135) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "reference"
-note = "typed from the pinned xEdit file (L11526-L11544): the QUST quest, the u32 category, the u32 flags and the DIAL starting topic; every one of the five subrecords is in all 135 official records"
+note = "typed from the pinned xEdit file (L11526-L11544): the QUST quest, the u32 category, the u32 flags and the DIAL starting topic; every one of the five subrecords is in all 135 official records; TNAM and DNAM are optional because xEdit does not require them (L11531-L11542)"
 
 [[member]]
 sig = "EDID"
@@ -55,7 +59,7 @@ sig = "TNAM"
 name = "Category"
 type = "enum"
 base = "u32"
-card = "required"
+card = "optional"
 values = [
   ["Player", 0],
   ["Command", 1],
@@ -71,7 +75,7 @@ sig = "DNAM"
 name = "Flags"
 type = "flags"
 base = "u32"
-card = "required"
+card = "optional"
 bits = [
   ["TopLevel", 0x1],
   ["Blocking", 0x2],
