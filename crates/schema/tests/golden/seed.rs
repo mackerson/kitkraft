@@ -74,7 +74,7 @@
 // - CHAL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766; corpus)
 // - CLAS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10769-L10780; corpus)
 // - CLDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLDF record (21) decodes with every subrecord placed and re-encodes identically; corpus)
-// - CLFM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLFM record (12) decodes with every subrecord placed and re-encodes identically; corpus)
+// - CLFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10806-L10840; reference)
 // - CLMT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLMT record (48) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CNDF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10861-L10883; reference)
 // - COBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950; corpus)
@@ -32406,14 +32406,41 @@ impl CldfRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ClfmFlags(pub u32);
+
+impl ClfmFlags {
+    pub const PLAYABLE: u32 = 0x1;
+    pub const REMAPPING_INDEX: u32 = 0x2;
+    pub const EXTENDED_LUT: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for ClfmFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ClfmFlags {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ClfmRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
+    /// `CNAM`, optional.
+    pub color_or_index: Option<Sub<u32>>,
     /// `FNAM`, required.
-    pub fnam: Option<Sub<Bytes>>,
+    pub flags: Option<Sub<ClfmFlags>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -32430,7 +32457,7 @@ impl ClfmRecord {
         },
         MemberDesc::Sub {
             sig: *b"CNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"FNAM",
@@ -32450,11 +32477,16 @@ impl ClfmRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "CLFM.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.cnam, subs, *index, "CLFM.CNAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.color_or_index,
+                    subs,
+                    *index,
+                    "CLFM.CNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.fnam, subs, *index, "CLFM.FNAM", ctx, extra)
+                    put(&mut self.flags, subs, *index, "CLFM.FNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -32463,8 +32495,8 @@ impl ClfmRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
+        emit(out, *b"CNAM", self.color_or_index.as_ref());
+        emit(out, *b"FNAM", self.flags.as_ref());
     }
 }
 
