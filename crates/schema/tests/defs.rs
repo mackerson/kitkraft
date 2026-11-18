@@ -609,7 +609,6 @@ const BX2_INVENTORY: &[&str] = &[
     "BMOD",
     "BNDS",
     "CLDF",
-    "CLFM",
     "CLMT",
     "CUR3",
     "DEBR",

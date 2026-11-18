@@ -1,34 +1,34 @@
-# CLFM: ColorForm, inventory definition (KK-109).
+# CLFM: ColorForm, a named colour or a colour-remapping index.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official CLFM record (12 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the CLFM definition of wbDefinitionsSF1.pas at the pinned revision (L10806-L10840),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e L10806-L10840 - member
+#     order, EDID (L10823), the 32-bit value named 'Color/Index' (L10829) and the 32-bit flags
+#     named 'Flags' with three named bits (L10834-L10838). Upstream also lists VMAD (L10824),
+#     the base form component block (L10825), FULL (L10826) and conditions (L10839); no official
+#     record has any of them, so they are left out (a plugin that has one keeps it raw).
+#   corpus: the clfm_types scan in crates/esm/tests/clfm_types.rs checks this definition
+#     against every official CLFM record (12 in the 14 ESMs): every subrecord is placed, every
+#     placed subrecord decodes, and the re-encoding reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# CNAM is typed u32, not a union: the stored value is either four byte colours or a float
+# remapping index, and which one it is is decided by FNAM, which comes after it. Upstream
+# reads it as an integer for that reason; our format's sibling-field decider reads an
+# earlier sibling only, so a union decided by FNAM cannot be expressed (README.md, "Unions").
 signature = "CLFM"
 name = "ColorForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLFM record (12) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10806-L10840"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10806-L10840",
+  "corpus: clfm_types_full (crates/esm/tests/clfm_types.rs), 2026-11-18: every official CLFM record (12) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L10806-L10840): EDID, the 32-bit colour/index and the flags typed; no official record has VMAD, the base form component block, FULL or conditions, so they are left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 12 of 12 official CLFM records (12 occurrences), 25 bytes"
+source = "corpus: clfm_types_full (crates/esm/tests/clfm_types.rs), 2026-11-18: in 12 of 12 official CLFM records (12 occurrences), 25 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10823-L10823",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,24 +38,29 @@ confidence = "corpus"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 12 of 12 official CLFM records (12 occurrences), 4 bytes"
+name = "ColorOrIndex"
+type = "u32"
+card = "optional"
+source = "corpus: clfm_types_full (crates/esm/tests/clfm_types.rs), 2026-11-18: in 12 of 12 official CLFM records (12 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10829-L10829",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
+note = "32 bits held as stored: either four byte colours or a float remapping index. Not a union - the value that decides between them (FNAM) comes after CNAM, and the format's `decider = \"field:<Sibling>\"` reads an earlier sibling only (README.md, \"Unions\"), so the 32 bits are kept whole"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "Flags"
+type = "flags"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 12 of 12 official CLFM records (12 occurrences), 4 bytes"
+bits = [
+  ["Playable", 0x1],
+  ["RemappingIndex", 0x2],
+  ["ExtendedLut", 0x4],
+]
+source = "corpus: clfm_types_full (crates/esm/tests/clfm_types.rs), 2026-11-18: in 12 of 12 official CLFM records (12 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10834-L10834",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10834-L10838",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
