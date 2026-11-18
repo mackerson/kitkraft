@@ -1,34 +1,36 @@
-# AORU: AttractionRuleForm, inventory definition (KK-109).
+# AORU: AttractionRuleForm, an attraction rule: a radius, two delays and two switches.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official AORU record (11 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AORU definition of wbDefinitionsSF1.pas at the pinned revision (L9605-L9617),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0004, ADR 0005 Amendment 2):
+#   xedit: the AORU definition of wbDefinitionsSF1.pas at the pinned revision (L9605-L9617):
+#     member order, EDID (L9606) and the AOR2 struct named 'Data' (L9609-L9616) of three
+#     floats (radius, minimum delay, maximum delay), two one-byte booleans and two unused
+#     bytes. Upstream also lists the VMAD (L9607) and the base form component block (L9608);
+#     no official AORU record has either, so they are left out (a plugin that has one keeps
+#     it raw).
+#   corpus: the aoru_types scan in crates/esm/tests/aoru_types.rs checks this definition
+#     against every official AORU record (11 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. One-byte booleans use the shared Bool8 enum. The trailing two bytes are unused
+# in upstream's layout and stay opaque, as AMMO.toml writes its unused bytes.
 signature = "AORU"
 name = "AttractionRuleForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AORU record (11) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9605-L9617"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9605-L9617",
+  "corpus: aoru_types_full (crates/esm/tests/aoru_types.rs), 2026-11-18: every official AORU record (11) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9605-L9617): EDID and the AOR2 'Data' struct (three floats, two one-byte booleans, two unused bytes) are typed; the VMAD and the base form component block are left out because no official AORU record has either"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 11 of 11 official AORU records (11 occurrences), 22..32 bytes"
+source = "corpus: aoru_types_full (crates/esm/tests/aoru_types.rs), 2026-11-18: in 11 of 11 official AORU records (11 occurrences), 22..32 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9606-L9606",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,12 +40,20 @@ confidence = "corpus"
 
 [[member]]
 sig = "AOR2"
-name = "Aor2"
-type = "opaque"
+name = "Data"
+type = "struct"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 11 of 11 official AORU records (11 occurrences), 16 bytes"
+source = "corpus: aoru_types_full (crates/esm/tests/aoru_types.rs), 2026-11-18: in 11 of 11 official AORU records (11 occurrences), 16 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9609-L9609",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9609-L9616",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 16 bytes"
+note = "the trailing two bytes are unused in upstream's layout and stay opaque (as AMMO.toml writes its unused bytes)"
+field = [
+  { name = "Radius", type = "f32" },
+  { name = "MinDelay", type = "f32" },
+  { name = "MaxDelay", type = "f32" },
+  { name = "RequiresLineOfSight", type = "ref:Bool8" },
+  { name = "CombatTarget", type = "ref:Bool8" },
+  { name = "Unused", type = "opaque", size = 2 },
+]
