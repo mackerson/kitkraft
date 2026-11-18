@@ -2,7 +2,7 @@
 # (plan/STATUS.md "Campaign", "Docs drift", and a read of the file at 8182b84b).
 id = "KK-264"
 title = "docs/gaps.md: fix the four rows that main already contradicts"
-hold = "done by the Opus housekeeping lane opus/house-20261115 (KK-321, 3dbeb92a, the four docs/gaps.md rows): do not run again"
+hold = "done by Opus lane opus/house-20261115 (KK-321, 3dbeb92a, the four docs/gaps.md rows; landed on main by its merge 91a694ee, 2026-11-15; rechecked against main f275b5c9 on 2026-11-18, its gaps-rows acceptance holds): do not run again"
 timeout_min = 30
 owns = [
   "docs/gaps.md",
