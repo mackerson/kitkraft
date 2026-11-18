@@ -1,8 +1,11 @@
 # Drafted 2026-11-13 on plan/ticket-drafts-20261113: UX principle 3 as a standing harness
 # check, once KK-247 has fixed the one duplicate the 2026-11-01 audit found (A5).
+# Checked against main f275b5c9 on 2026-11-18 (plan/holds-20261118) and released: the owned
+# paths, helpers and test names hold; `click` lives in tests.rs, not harness.rs; the Landed
+# line (retired 2026-11-15) is gone; `audit_every_tab` run on f275b5c9 found no duplicate
+# label on any of the 15 tabs, so the new test can pass, and it does not exist yet.
 id = "KK-263"
 title = "Workbench: a harness test that no tab has two buttons with one label (UX principle 3)"
-hold = "drafted 2026-11-13, never run: check the brief against main (KK-247 merged; the sprint 2026-11-09 merge changed crates/ui-egui) before removing this hold"
 timeout_min = 45
 after = ["KK-247"]
 owns = [
@@ -18,38 +21,46 @@ fixed by KK-247, which labels them "copy kit line" and "copy MCP call"). Nothing
 new panel from adding a duplicate again. Make the principle a test that runs in the gate.
 
 Read first: `docs/design/workbench-ux.md` (the principles, the harness, the findings
-table), then `crates/ui-egui/src/app/harness.rs` (the helpers: `workbench`, `open_tab`,
-`click`, `one`, `settle`, `tab_labels`) and `crates/ui-egui/src/app/harness/tests.rs`,
-especially `audit_every_tab` and its private helper `buttons` (every button with a label
-below the tab bar, with its rectangle and enabled state), and KK-247's
-`audit_a5_each_result_block_has_distinct_copy_buttons`. Every harness test starts with
-`let Some(mut h) = workbench() else { return };` (it skips on a machine with no font).
-Colours, sizes and spacing come from `crate::theme` only: a source scan
-(`no_color_size_or_spacing_literal_outside_the_theme`) fails on a number given to a sizing
-call, a `Color32`, or a spacing edit, in tests too (`SIZE[1] / 12.0`, as `buttons` uses, is
-the harness's own constant). The workbench writes nothing but `ui.json`; do not add a write,
+table), then `crates/ui-egui/src/app/harness.rs` (the shared helpers: `workbench`,
+`open_tab`, `one`, `settle`, `tab_labels`, `text_of`; `TABS` comes from `super`) and
+`crates/ui-egui/src/app/harness/tests.rs`: its private helpers `click` (scrolls a button
+into view, clicks it, settles) and `buttons` (every non-toggle button with a label below
+the tab bar, with its rectangle and enabled state), `audit_every_tab` (the duplicate count
+you will share), and KK-247's `audit_a5_each_result_block_has_distinct_copy_buttons` (it
+opens the Schema tab and clicks "Show"). The sibling files `tests_e.rs`, `tests_r.rs`,
+`tests_w.rs`, `e2e.rs` and `live.rs` are other lanes' tests: leave them alone. Every
+harness test starts with `let Some(mut h) = workbench() else { return };` (it skips on a
+machine with no font, printing "harness: skipped"). Colours, sizes and spacing come from
+`crate::theme` only: the source scan `no_color_size_or_spacing_literal_outside_the_theme`
+(in `crates/ui-egui/src/theme/mod.rs`) fails on a number given to a sizing call, a
+`Color32`, or a spacing edit, in tests too (`SIZE[1] / 12.0`, as `buttons` uses, is the
+harness's own constant). The workbench writes nothing but `ui.json`; do not add a write,
 and do not touch `crates/ui-egui/src/gate.rs` or any file under `src/panels/`.
 
 Write one harness test, `principle_3_no_tab_has_two_buttons_with_one_label`, in
 `crates/ui-egui/src/app/harness/tests.rs`:
-- for every tab of `tab_labels()` (the engine with nothing loaded), open it and collect the
-  labels of `buttons(&h)`; a label that occurs more than once on one tab is a failure;
-- then open the Schema tab, click "Show" (the engine answers `schema` with nothing loaded,
-  so a result block is drawn), `settle`, and check the same on that tab with its result
+- for every tab of `tab_labels()` (the engine with nothing loaded; 15 tabs on 2026-11-18,
+  from Start to Cell View), find its `Tab` in `TABS` as `audit_every_tab` does, open it,
+  and collect the labels of `buttons(&h)`; a label that occurs more than once on one tab
+  is a failure;
+- then open the Schema tab, `click` "Show" (the engine answers `schema` with nothing
+  loaded, so a result block is drawn), and check the same on that tab with its result
   block in view: this is the case A5 was about;
 - on failure, the message names every tab and label that occurs twice, with the count.
 Reuse `buttons`; you may move the duplicate count `audit_every_tab` computes into a small
 shared helper that both use, as long as `audit_every_tab` prints what it prints today.
 
-The audit found no duplicate other than "copy", so on `main` after KK-247 the test should
-pass. If it finds another duplicate, do not change any panel (out of scope here): commit
-the test as it is, failing, and name each tab and label in the commit message; the merge
-will cut a ticket for it. Do not `#[ignore]` the test and do not filter labels out of it.
+`audit_every_tab` run on `main` at `f275b5c9` (2026-11-18) printed `duplicates []` for all
+15 tabs, so the test should pass. If it finds a duplicate anyway, do not change any panel
+(out of scope here): commit the test as it is, failing, and name each tab and label in the
+commit message; the merge will cut a ticket for it. Do not `#[ignore]` the test and do not
+filter labels out of it.
 
 Then name the test in principle 3's "Check:" sentence in `docs/design/workbench-ux.md`
-(today it says the audit lists every label that appears twice). Run `cargo test -p
-kitkraft-ui-egui --lib app::harness`, then `cargo xtask ci`. Add this ticket's one "Landed"
-line at the end of `plan/STATUS.md`. Commit when the test passes.
+(today it says the audit lists every label that appears twice). Do not write
+`plan/STATUS.md`. Run `cargo test -p kitkraft-ui-egui --lib app::harness`, then `cargo
+xtask ci`. Commit when the test passes, with what it checked (the tab count) in the commit
+message.
 """
 
 [[accept]]
