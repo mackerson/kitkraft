@@ -1,34 +1,35 @@
-# WBAR: WeaponBarrelModel, inventory definition (M4.BX2, lane B).
+# WBAR: WeaponBarrelModel, how a weapon's barrel lowers when it is pressed against a wall.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official WBAR record (6 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the WBAR definition of wbDefinitionsSF1.pas at the pinned revision (L18835-L18844),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the WBAR definition of wbDefinitionsSF1.pas at the pinned revision (L18835-L18844):
+#     member order, the ZNAM struct's name, its field order and types (the boolean is the
+#     shared Bool8 enum). Upstream also lists the base form component block (L18837); no
+#     official record has one, so it is left out (a plugin that has one keeps it raw).
+#   corpus: the wbar_types test (crates/esm/tests/wbar_types.rs, wbar_types_full, 2026-11-17)
+#     checks this definition against the 6 official WBAR records: which subrecords occur,
+#     their counts and sizes, every subrecord is placed, every placed subrecord decodes, and
+#     the re-encoding reproduces every record. The M4.BX2 inventory scan
+#     (crates/esm/tests/inventory_types.rs, 2026-10-28) saw the same subrecords first.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no WBAR subrecord is an lstring (M3.B8).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). xEdit lists wbBaseFormComponents, but no official record shows a
-# BFCB..BFCE block, so it is left out; a plugin that has one keeps it raw.
+# The ZNAM struct is not padded: its 13 bytes are the boolean and the three floats, with no
+# alignment after the one-byte boolean. No WBAR subrecord is an lstring (lane E's corpus
+# lstring table).
 signature = "WBAR"
 name = "WeaponBarrelModel"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18835-L18844"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18835-L18844",
+  "corpus: wbar_types_full (crates/esm/tests/wbar_types.rs), 2026-11-17: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L18835-L18844): EDID and the ZNAM struct (SupportGunDownState, DistanceFromWall, and the two transition durations); no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 6 of 6 official WBAR records (6 occurrences), 12..18 bytes"
+source = "corpus: wbar_types_full (crates/esm/tests/wbar_types.rs), 2026-11-17: in 6 of 6 official WBAR records (6 occurrences), 12..18 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18836-L18836",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,12 +39,19 @@ confidence = "corpus"
 
 [[member]]
 sig = "ZNAM"
-name = "Znam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 6 of 6 official WBAR records (6 occurrences), 13 bytes"
+name = "Data"
+type = "struct"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18838-L18843"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18838-L18838",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18839-L18842",
+  "corpus: wbar_types_full (crates/esm/tests/wbar_types.rs), 2026-11-17: in 6 of 6 official WBAR records (6 occurrences), 13 bytes; every ZNAM decodes into the struct and re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 13 bytes"
+note = "the durations are in seconds (the xEdit labels); xEdit does not require ZNAM, so it is optional, and every official record carries it (6 of 6)"
+field = [
+  { name = "SupportGunDownState", type = "ref:Bool8" },
+  { name = "DistanceFromWall", type = "f32" },
+  { name = "GunUpToGunDownDuration", type = "f32" },
+  { name = "GunDownToGunUpDuration", type = "f32" },
+]
