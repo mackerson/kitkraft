@@ -313,6 +313,50 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-402](KK-402.toml) | Clone-sample corpus test for ACTI | written 2026-11-17 in KK-342's shape, one type per ticket | queued |
 | [KK-403](KK-403.toml) | docs/gaps.md and the defs README: the schema counts follow docs/record-parity.md | written 2026-11-17: the README's note on KK-330 to KK-339 ("Update both once after the batch") | queued |
 | [KK-404](KK-404.toml) | gap matrix: the CS row names every clone-sample corpus test | written 2026-11-17: `docs/foothold/gap-matrix.md` CS row names 4 of the file's tests | queued |
+| [KK-405](KK-405.toml) | Type GBFT (GenericBaseFormTemplate) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-406](KK-406.toml) | Type ATMO (Atmosphere) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-407](KK-407.toml) | Type IMGS (ImageSpaceForm) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-408](KK-408.toml) | Type WTHS (WeatherSettings) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-409](KK-409.toml) | Type OVIS (ObjectVisibilityManager) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-410](KK-410.toml) | Type DOBJ (DefaultObjectManager) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-411](KK-411.toml) | Type FSTS (FootstepSet) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-412](KK-412.toml) | Type GCVR (GroundCover) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-413](KK-413.toml) | Type GPOG (GameplayOptionsGroup) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-414](KK-414.toml) | Type PERS (UnknownPers) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-415](KK-415.toml) | Type LSCR (LoadScreen) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-416](KK-416.toml) | Type NOCM (NavmeshObstacleManager) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-417](KK-417.toml) | Type KSSM (SoundKeywordMapping) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-418](KK-418.toml) | Type AOPS (AimOpticalSightMarker) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-419](KK-419.toml) | Type EFSH (EffectShader) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-420](KK-420.toml) | Type STBH (SnapTemplateBehavior) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-421](KK-421.toml) | Type AMBS (AmbienceSetForm) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-422](KK-422.toml) | Type DEBR (Debris) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-423](KK-423.toml) | Type SFTR (SurfaceTreeForm) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-424](KK-424.toml) | Type BMOD (BoneModifier) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+| [KK-425](KK-425.toml) | Type NAVI (NavmeshInfoMap) from the pinned xEdit file, corpus-checked, values pinned | written 2026-11-18 in KK-371's shape plus a value check; `docs/record-parity.md` "Inventory definitions" | queued |
+
+KK-405 to KK-425 (local-model backlog, written 2026-11-18; none has `after` or `hold`):
+one inventory definition each, in KK-371's shape, ordered easiest first (`priority` 2 for
+KK-405 to KK-412, 1 for KK-413 to KK-420, 0 for KK-421 to KK-425, the hardest: AMBS, DEBR,
+SFTR, BMOD, NAVI). Each brief says what makes its type harder than the template. New in
+this batch: a value check. The corpus test also decodes one named official record and
+asserts the decoded values of named fields, read from the generated types (not from raw
+bytes), prints `<sig> value check: ok`, and an acceptance command greps the test file for
+the expected constants, so a definition of the right width but the wrong layout fails, and
+so does an edited expectation. Values were read from the official files on 2026-11-18 with a
+read-only walker outside the repo. Cardinality follows the defs README rule (owner ruling
+2026-11-07): required only where the pinned file requires it; the corpus decides which
+members exist, their order and sizes, and overrides a requirement only where an official
+record lacks the member (AMBS's sound run). Same-night and merge notes as for KK-370 to
+KK-388 above: each removes its own line from `BX2_INVENTORY`; regenerated and sorted-list
+files are rebuilt at the merge.
+
+Not ticketed, from the same "Inventory definitions" list: the 14 types whose only untyped
+payload is a reflection payload (`REFL`/`RDIF`: CLDF, CUR3, CURV, EFSQ, FFKW, FOGV, FORC,
+GWED, IMAD, LMSW, MTPT, PSDC, TODD, VOLI), since the schema has no type for that format and
+a ticket could only rename an opaque member; and OSWP and PTST, whose official records hold
+nothing but EDID. ATMO, IMGS and WTHS (KK-406 to KK-408) type only their `RFDP` parent link
+and keep `REFL`/`RDIF` opaque.
 
 KK-370 to KK-404 (local-model backlog, written 2026-11-17; none has `after` or `hold`).
 `priority` orders the simplest schema tickets first (KK-370 to KK-373 at 2, then the

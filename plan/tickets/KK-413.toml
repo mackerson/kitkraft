@@ -1,0 +1,160 @@
+# Written 2026-11-18 in the shape of KK-371 (inventory to typed, from the pinned xEdit file),
+# with a value check on a named official record (planning lane plan/tickets-20261118).
+id = "KK-413"
+title = "Type GPOG (GameplayOptionsGroup) from the pinned xEdit file, corpus-checked, values pinned"
+timeout_min = 60
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/schema/defs/GPOG.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/gpog_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`GPOG` (GameplayOptionsGroup, a group of gameplay options in the game's settings menu; 4 official records, 4 signatures in
+the corpus: `EDID`, `NNAM`, `BNAM`, `GOGL`) has an inventory definition:
+`crates/schema/defs/GPOG.toml`. Only EDID, lstrings and shared blocks are typed; every other
+payload is `opaque` or an opaque group. Its xEdit definition is at `L12432-L12470` of the pinned
+file. Parity target: the first `GPOG` row of `docs/record-parity.md` (the per-type table,
+columns records, compressed, signatures, typed, opaque, unknown) must show at least
+4 typed and 0 opaque and 0 unknown.
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): EDID, required; `NNAM`, a localized name, required; a required run 'Type Data': `BNAM`, a
+one-byte boolean 'Root Group', required, then `GOGL`, a FormID list whose targets the pinned
+file chooses by `BNAM` through a record union: `GPOF` (options) when `BNAM` is 0, `GPOG`
+(groups) when it is 1. Type them so:
+
+- `EDID` stays as it is.
+- `NNAM`: named `Name`, `type = "lstring"`, required.
+- `BNAM`: named `RootGroup`, `type = "ref:Bool8"`, required.
+- `GOGL`: named `Options`, `type = "array"`, `element = "formid"`, `targets = ["GPOF",
+  "GPOG"]`, `count = "rest"`, required, with a `note`: the pinned file picks the target type
+  by `RootGroup` (another subrecord), which the format cannot express; both layouts are a
+  FormID list, so one array with both targets reads every official record.
+- Keep `BNAM` and `GOGL` as plain top-level members (no group): the run has no repeat and
+  the format adds nothing by grouping them.
+
+What makes this one harder than the template: Three things. (1) The record union by `BNAM` is not expressible; the brief's single array
+is the answer, do not try a `union`. (2) `NNAM` becomes an lstring: the corpus lstring table
+(`crates/engine/src/edit/lstrings.rs`) lists GPOG `NNAM` as unclassified (4 records are too
+few to classify), and `compare` does not check unclassified pairs, so the table stays as it
+is: do not edit it. (3) The four records are in DLC files (`SFBGS007.esm`, `SFBGS00D.esm`,
+`SFBGS050.esm`), none in `Starfield.esm`.
+
+Which members are required: follow "Members" in `crates/schema/defs/README.md` (owner ruling
+2026-11-07): a member is `required` only where the pinned file requires it; a member every
+official record carries but the pinned file leaves optional is `optional`, with the corpus
+count in its `evidence`; the first member of a group stays `required` (the group is
+recognised by it). Where the pinned file requires a member that some official record lacks,
+the corpus wins: `optional`, with the count in a `note`. Which members exist, their order and
+their sizes also follow the corpus: leave out members no official record has.
+
+Change the record-level `source` to the xEdit citation (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12432-L12470`), as
+`crates/schema/defs/WWED.toml` (KK-290) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. Keep each member's corpus facts (which records have
+it, its sizes) in its `source` or `evidence`. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops GPOG from the "Inventory definitions" list
+of `docs/record-parity.md`. Remove `"GPOG"` from its inventory list in
+`crates/schema/tests/defs.rs` (GPOG is in `BX2_INVENTORY`): those lists are for definitions that type
+nothing but EDID, lstrings and shared blocks, and
+`bx2_inventories_type_only_edid_lstrings_and_shared_blocks` fails while GPOG is listed with a
+typed member. Leave `crates/esm/tests/inventory_types.rs` and `xtask/src/parity.rs` alone
+(out of scope). The record header flags xEdit lists are out of scope too. Do not edit the
+corpus lstring table (`crates/engine/src/edit/lstrings.rs`); it must still match.
+
+Read first: `crates/schema/defs/README.md` (the definition format: structs, flags, enums,
+arrays, groups, `ref:` types, "Not supported"), then `crates/schema/defs/WWED.toml` (KK-290: its header comment, citations and evidence lines are the style to follow) and `crates/schema/defs/common/Bool8.toml`.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase; use the names this brief gives (the value check
+below and later tickets rely on them). The corpus wins over xEdit: where a size or an order
+differs, follow the corpus and say so in a `note`. If one member cannot be typed as
+described, keep that one `opaque` with a `note` that says why; do not guess a layout. Write
+a `corpus:` evidence line only after a test of yours has printed the fact it cites; until
+then cite xEdit with `confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/gpog_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `gpog_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `gpog GPOG: <n>
+records, <m> identical` and, for each signature, `gpog GPOG <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Value check (required: the checks above pass for a wrong layout of the right width; this one
+does not). The record `SFBGS007.esm` FormID `FE000026` (as stored in that file), EditorID `GPO_PEO` must decode to these values:
+
+- `Name` is `LString::Id(0x00000020)` (the file is localized).
+- `RootGroup` is false (stored 0).
+- `Options` has 18 entries; `Options[0]` is `FormId(0xFE000043)` and `Options[17]` is `FormId(0xFE000028)`.
+
+Do it mechanically: add `value_checked: bool` to `Stats`. In `check_record`, after
+`Typed::decode`, add `if name == "SFBGS007.esm" && form_id == 0xFE000026 { let Typed::Gpog(r) = &typed
+else { panic!("FE000026: not a GPOG") }; ... t.value_checked = true; }`. Read every value from
+`r`'s generated typed fields (run `cargo xtask codegen`, then look up `pub struct GpogRecord`
+in `crates/esm/src/generated/records.rs`: member `FooBar` is field `foo_bar`, an optional or
+required member is an `Option<Sub<T>>`, a repeated one a `Vec`, and `Sub<T>` dereferences
+to its value), never from the raw subrecord bytes, and check each with `assert_eq!` (or
+`assert!` for `starts_with`/`ends_with`). Compare an `f32` by its bits:
+`assert_eq!(x.to_bits(), 0x3F800000)`. In `gpog_types_full`, after `assert_clean(&t)`, add
+`assert!(t.value_checked, "FE000026 not seen")` and then print exactly `gpog value check: ok`.
+Write these constants in the test exactly as given, in that spelling: `0xFE000026`, `0x00000020`, `0xFE000043`, `0xFE000028` (the
+acceptance looks for them in the file). Never change an expected value to make the check
+pass: if a decoded value differs, your layout is wrong; fix the definition.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: GPOG has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. Do not edit `docs/gaps.md` (its schema summary row is updated
+after the batch). Do not edit `plan/STATUS.md` (tickets no longer add a "Landed" line there:
+the merge commit and `plan/tickets/README.md` record the ticket). Put the xEdit lines, what
+is typed, what stays opaque, the corpus counts your test printed and the parity row in your
+commit message.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test gpog_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "gpog-full"
+cmd = '''cargo test --release -p kitkraft-esm --test gpog_types -- --ignored --exact gpog_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^gpog GPOG: 4 records, 4 identical' /tmp/o && grep -Eq '^gpog GPOG EDID: 4 records' /tmp/o && grep -Eq '^gpog GPOG NNAM: 4 records' /tmp/o && grep -Eq '^gpog GPOG BNAM: 4 records' /tmp/o && grep -Eq '^gpog GPOG GOGL: 4 records' /tmp/o && grep -q '^gpog value check: ok' /tmp/o'''
+
+[[accept]]
+name = "gpog-values-pinned"
+cmd = '''grep -qiF '0xFE000026' crates/esm/tests/gpog_types.rs && grep -qiF '0x00000020' crates/esm/tests/gpog_types.rs && grep -qiF '0xFE000043' crates/esm/tests/gpog_types.rs && grep -qiF '0xFE000028' crates/esm/tests/gpog_types.rs'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`GPOG` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity GPOG:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "GameplayOptionsGroup" && $7 + 0 >= 4 && $8 + 0 == 0 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]GPOG[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''

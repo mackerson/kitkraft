@@ -1,0 +1,156 @@
+# Written 2026-11-18 in the shape of KK-371 (inventory to typed, from the pinned xEdit file),
+# with a value check on a named official record (planning lane plan/tickets-20261118).
+id = "KK-415"
+title = "Type LSCR (LoadScreen) from the pinned xEdit file, corpus-checked, values pinned"
+timeout_min = 60
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/schema/defs/LSCR.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/lscr_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`LSCR` (LoadScreen, a load screen: its description text, conditions and image; 393 official records, 4 signatures in
+the corpus: `EDID`, `DESC`, `CTDA`, `ICON`) has an inventory definition:
+`crates/schema/defs/LSCR.toml`. Only EDID, lstrings and shared blocks are typed; every other
+payload is `opaque` or an opaque group. Its xEdit definition is at `L13910-L13932` of the pinned
+file. Parity target: the first `LSCR` row of `docs/record-parity.md` (the per-type table,
+columns records, compressed, signatures, typed, opaque, unknown) must show at least
+4 typed and 0 opaque and 0 unknown.
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): EDID; VMAD; the base form component block; `DESC`, required; conditions (`CTDA` with
+optional `CIS1`/`CIS2`, no count subrecord); `ICON`, a string (the load screen image);
+then `NNAM` (a FormID of a `STAT`/`SCOL`), `TNAM` (a `TRNS`), `ONAM` (two i16), `ZNAM` (two
+floats) and `MOD2` (a camera path string). Type them so:
+
+- `EDID` and `DESC` (already an lstring) stay as they are.
+- `CTDA`: replace the opaque member with the shared condition group: `group_ref =
+  "Condition"`, `name = "Conditions"`, `card = "repeated"`, as `crates/schema/defs/ACTI.toml`
+  writes it (LSCR has no `CITC` count).
+- `ICON`: named `Image`, `type = "zstring"`, `card = "optional"`.
+- VMAD, the component block, `NNAM`, `TNAM`, `ONAM`, `ZNAM` and `MOD2`: in no official LSCR
+  record; leave them out and say so in the header comment. Do not add them from the pinned
+  file: the corpus decides which members a definition lists.
+
+What makes this one harder than the template: The pinned file lists five members after `ICON` that no official record has; a
+transcription that adds them is wrong here (the corpus wins). The conditions are a shared
+group: reuse it, do not redefine CTDA.
+
+Which members are required: follow "Members" in `crates/schema/defs/README.md` (owner ruling
+2026-11-07): a member is `required` only where the pinned file requires it; a member every
+official record carries but the pinned file leaves optional is `optional`, with the corpus
+count in its `evidence`; the first member of a group stays `required` (the group is
+recognised by it). Where the pinned file requires a member that some official record lacks,
+the corpus wins: `optional`, with the count in a `note`. Which members exist, their order and
+their sizes also follow the corpus: leave out members no official record has.
+
+Change the record-level `source` to the xEdit citation (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13910-L13932`), as
+`crates/schema/defs/WWED.toml` (KK-290) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. Keep each member's corpus facts (which records have
+it, its sizes) in its `source` or `evidence`. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops LSCR from the "Inventory definitions" list
+of `docs/record-parity.md`. Remove `"LSCR"` from its inventory list in
+`crates/schema/tests/defs.rs` (LSCR is in `BX2_INVENTORY`): those lists are for definitions that type
+nothing but EDID, lstrings and shared blocks, and
+`bx2_inventories_type_only_edid_lstrings_and_shared_blocks` fails while LSCR is listed with a
+typed member. Leave `crates/esm/tests/inventory_types.rs` and `xtask/src/parity.rs` alone
+(out of scope). The record header flags xEdit lists are out of scope too. Do not edit the
+corpus lstring table (`crates/engine/src/edit/lstrings.rs`); it must still match.
+
+Read first: `crates/schema/defs/README.md` (the definition format: structs, flags, enums,
+arrays, groups, `ref:` types, "Not supported"), then `crates/schema/defs/WWED.toml` (KK-290: its header comment, citations and evidence lines are the style to follow), `crates/schema/defs/ACTI.toml` (the condition group) and `crates/schema/defs/common/Condition.toml`.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase; use the names this brief gives (the value check
+below and later tickets rely on them). The corpus wins over xEdit: where a size or an order
+differs, follow the corpus and say so in a `note`. If one member cannot be typed as
+described, keep that one `opaque` with a `note` that says why; do not guess a layout. Write
+a `corpus:` evidence line only after a test of yours has printed the fact it cites; until
+then cite xEdit with `confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/lscr_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `lscr_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `lscr LSCR: <n>
+records, <m> identical` and, for each signature, `lscr LSCR <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Value check (required: the checks above pass for a wrong layout of the right width; this one
+does not). The record `Starfield.esm` FormID `0002AA26` (as stored in that file), EditorID `LS_GeneralGameplay02` must decode to these values:
+
+- `Description` is `LString::Id(0x00032763)`.
+- `Conditions` is empty.
+- `Image` ends with the bytes `starfield_general_009_color.dds` (`ends_with(b"starfield_general_009_color.dds")`).
+
+Do it mechanically: add `value_checked: bool` to `Stats`. In `check_record`, after
+`Typed::decode`, add `if name == "Starfield.esm" && form_id == 0x0002AA26 { let Typed::Lscr(r) = &typed
+else { panic!("0002AA26: not a LSCR") }; ... t.value_checked = true; }`. Read every value from
+`r`'s generated typed fields (run `cargo xtask codegen`, then look up `pub struct LscrRecord`
+in `crates/esm/src/generated/records.rs`: member `FooBar` is field `foo_bar`, an optional or
+required member is an `Option<Sub<T>>`, a repeated one a `Vec`, and `Sub<T>` dereferences
+to its value), never from the raw subrecord bytes, and check each with `assert_eq!` (or
+`assert!` for `starts_with`/`ends_with`). Compare an `f32` by its bits:
+`assert_eq!(x.to_bits(), 0x3F800000)`. In `lscr_types_full`, after `assert_clean(&t)`, add
+`assert!(t.value_checked, "0002AA26 not seen")` and then print exactly `lscr value check: ok`.
+Write these constants in the test exactly as given, in that spelling: `0x0002AA26`, `0x00032763`, `starfield_general_009_color.dds` (the
+acceptance looks for them in the file). Never change an expected value to make the check
+pass: if a decoded value differs, your layout is wrong; fix the definition.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: LSCR has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. Do not edit `docs/gaps.md` (its schema summary row is updated
+after the batch). Do not edit `plan/STATUS.md` (tickets no longer add a "Landed" line there:
+the merge commit and `plan/tickets/README.md` record the ticket). Put the xEdit lines, what
+is typed, what stays opaque, the corpus counts your test printed and the parity row in your
+commit message.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test lscr_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "lscr-full"
+cmd = '''cargo test --release -p kitkraft-esm --test lscr_types -- --ignored --exact lscr_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^lscr LSCR: 393 records, 393 identical' /tmp/o && grep -Eq '^lscr LSCR EDID: 393 records' /tmp/o && grep -Eq '^lscr LSCR DESC: 393 records' /tmp/o && grep -Eq '^lscr LSCR CTDA: 158 records' /tmp/o && grep -Eq '^lscr LSCR ICON: 378 records' /tmp/o && grep -q '^lscr value check: ok' /tmp/o'''
+
+[[accept]]
+name = "lscr-values-pinned"
+cmd = '''grep -qiF '0x0002AA26' crates/esm/tests/lscr_types.rs && grep -qiF '0x00032763' crates/esm/tests/lscr_types.rs && grep -qiF 'starfield_general_009_color.dds' crates/esm/tests/lscr_types.rs'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`LSCR` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity LSCR:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "LoadScreen" && $7 + 0 >= 4 && $8 + 0 == 0 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]LSCR[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''
