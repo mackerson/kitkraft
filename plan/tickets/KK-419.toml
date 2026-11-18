@@ -1,0 +1,169 @@
+# Written 2026-11-18 in the shape of KK-371 (inventory to typed, from the pinned xEdit file),
+# with a value check on a named official record (planning lane plan/tickets-20261118).
+id = "KK-419"
+title = "Type EFSH (EffectShader) from the pinned xEdit file, corpus-checked, values pinned"
+timeout_min = 60
+budget_h = 1.5
+priority = 1
+owns = [
+  "crates/schema/defs/EFSH.toml",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/efsh_types.rs",
+  "docs/record-parity.md",
+  "docs/foothold/gap-matrix.md",
+]
+brief = """
+`EFSH` (EffectShader, an effect shader: edge effect, alpha animation, sounds and the effect sequence it plays; 77 official records, 6 signatures in
+the corpus: `EDID`, `ENAM`, `DATA`, `DNAM`, `MODL`, `FLLD`) has an inventory definition:
+`crates/schema/defs/EFSH.toml`. Only EDID, lstrings and shared blocks are typed; every other
+payload is `opaque` or an opaque group. Its xEdit definition is at `L11651-L11712` of the pinned
+file. Parity target: the first `EFSH` row of `docs/record-parity.md` (the per-type table,
+columns records, compressed, signatures, typed, opaque, unknown) must show at least
+11 typed and 0 opaque and 0 unknown.
+
+What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
+cite): EDID; the base form component block; `ENAM`, a FormID of an `EFSQ`; `DATA`, an empty
+marker; `DNAM`, a 97-byte struct: an edge effect (fall off, a byte colour, alpha fade in
+time, full alpha time, alpha fade out time, persistent alpha ratio, alpha pulse amplitude,
+alpha pulse frequency, full alpha ratio: floats except the colour), holes (start time,
+stop time, start value, stop value: floats), a sound reference, a u8 bone depth, u32 flags
+(named bits 0x1, 0x8, 0x10, 0x20, 0x200, 0x800, 0x2000, 0x1000000); then the generic model
+block, required (L7008-L7029: `MODL`, `MOLM`, `FLLD`, `MODC`, `XFLG`). Type them so:
+
+- `EDID` and the base form component group stay as they are.
+- `ENAM`: named `EffectSequence`, `formid`, `targets = ["EFSQ"]`, `card = "optional"`.
+- `DATA`: named `Empty`, `type = "empty"`; optional (not required in the pinned file),
+  with the corpus count (77 of 77) in its `evidence`.
+- `DNAM`: named `Data`, `struct`, optional (likewise, 77 of 77), flat fields in order:
+  `EdgeFallOff` (`f32`), `EdgeColor` (`ref:ColorRgb`, the byte colour), `EdgeAlphaFadeInTime`,
+  `EdgeFullAlphaTime`, `EdgeAlphaFadeOutTime`, `EdgePersistentAlphaRatio`,
+  `EdgeAlphaPulseAmplitude`, `EdgeAlphaPulseFrequency`, `EdgeFullAlphaRatio`,
+  `HolesStartTime`, `HolesStopTime`, `HolesStartValue`, `HolesStopValue` (all `f32`),
+  `Sounds` (`ref:SoundReference`), `BoneDepth` (`u8`), `Flags` (`flags`, `base = "u32"`,
+  our names for the eight named bits; leave the unnamed ones out). 52 + 40 + 1 + 4 = 97.
+- `MODL` and `FLLD`: replace them with the shared model group, `group_ref = "Model"`,
+  required, as most typed records write it (`crates/schema/defs/ACTI.toml`).
+
+What makes this one harder than the template: The model block: `FLLD` is in all 77 records but `MODL` only in 37. That is fine with
+the shared `Model` group (its `FileName` is optional, `LightLayer` required), so do not
+split it. `DNAM` is a long fixed struct: count the bytes (97) before you run anything.
+Today's parity row already shows 10 of 11 signatures typed (other members type some of
+these signatures); the target is 11 typed and 0 opaque, and the value check shows the
+layout.
+
+Which members are required: follow "Members" in `crates/schema/defs/README.md` (owner ruling
+2026-11-07): a member is `required` only where the pinned file requires it; a member every
+official record carries but the pinned file leaves optional is `optional`, with the corpus
+count in its `evidence`; the first member of a group stays `required` (the group is
+recognised by it). Where the pinned file requires a member that some official record lacks,
+the corpus wins: `optional`, with the count in a `note`. Which members exist, their order and
+their sizes also follow the corpus: leave out members no official record has.
+
+Change the record-level `source` to the xEdit citation (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11651-L11712`), as
+`crates/schema/defs/WWED.toml` (KK-290) does, and rewrite the header comment and the record
+`note`: it is no longer an inventory. Keep each member's corpus facts (which records have
+it, its sizes) in its `source` or `evidence`. With the source no longer starting `corpus:
+inventory_types_full`, `cargo xtask parity` drops EFSH from the "Inventory definitions" list
+of `docs/record-parity.md`. Remove `"EFSH"` from its inventory list in
+`crates/schema/tests/defs.rs` (EFSH is in `BX2_INVENTORY`): those lists are for definitions that type
+nothing but EDID, lstrings and shared blocks, and
+`bx2_inventories_type_only_edid_lstrings_and_shared_blocks` fails while EFSH is listed with a
+typed member. Leave `crates/esm/tests/inventory_types.rs` and `xtask/src/parity.rs` alone
+(out of scope). The record header flags xEdit lists are out of scope too. Do not edit the
+corpus lstring table (`crates/engine/src/edit/lstrings.rs`); it must still match.
+
+Read first: `crates/schema/defs/README.md` (the definition format: structs, flags, enums,
+arrays, groups, `ref:` types, "Not supported"), then `crates/schema/defs/WWED.toml` (KK-290: its header comment, citations and evidence lines are the style to follow), `crates/schema/defs/COLL.toml` (KK-242, flags), `crates/schema/defs/common/Model.toml` and `crates/schema/defs/common/ColorRgb.toml`.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas` (revision
+9fb016884bec138ea6c7b872cec831537d464c3e), and the helpers it names in
+`/opt/xedit-ref/wbDefinitionsCommon.pas`. Cite line ranges in `source`/`evidence` as
+`crates/schema/defs/WWED.toml` does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words; never copy its code or
+comments. Names are ours, UpperCamelCase; use the names this brief gives (the value check
+below and later tickets rely on them). The corpus wins over xEdit: where a size or an order
+differs, follow the corpus and say so in a `note`. If one member cannot be typed as
+described, keep that one `opaque` with a `note` that says why; do not guess a layout. Write
+a `corpus:` evidence line only after a test of yours has printed the fact it cites; until
+then cite xEdit with `confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/efsh_types.rs`, modelled on
+`crates/esm/tests/wwed_types.rs` (KK-290; same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record). One
+new test, `efsh_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly (plain integers, no separators, at the start of the line) `efsh EFSH: <n>
+records, <m> identical` and, for each signature, `efsh EFSH <SIG>: <k> records` (how many
+records have it, not how many times it occurs). It must fail when it reads no record.
+
+Value check (required: the checks above pass for a wrong layout of the right width; this one
+does not). The record `Starfield.esm` FormID `0001914F` (as stored in that file), EditorID `OreMineFXS` must decode to these values:
+
+- `EffectSequence` is absent and `Empty` is present.
+- `Data.EdgeFallOff` has the bits `0x3F4CCCCD`, `Data.EdgeAlphaFadeInTime` the bits `0x40000000`, `Data.EdgeFullAlphaTime` the bits `0x3F99999A`.
+- `Data.HolesStopTime` has the bits `0x41200000` and `Data.HolesStartValue` the bits `0x437F0000`.
+- `Data.BoneDepth` is 4 and the stored `Data.Flags` value is `0x00000008`.
+- The model's `FileName` ends with `OreMineFXP.nif` (`ends_with(b"OreMineFXP.nif")`).
+
+Do it mechanically: add `value_checked: bool` to `Stats`. In `check_record`, after
+`Typed::decode`, add `if name == "Starfield.esm" && form_id == 0x0001914F { let Typed::Efsh(r) = &typed
+else { panic!("0001914F: not a EFSH") }; ... t.value_checked = true; }`. Read every value from
+`r`'s generated typed fields (run `cargo xtask codegen`, then look up `pub struct EfshRecord`
+in `crates/esm/src/generated/records.rs`: member `FooBar` is field `foo_bar`, an optional or
+required member is an `Option<Sub<T>>`, a repeated one a `Vec`, and `Sub<T>` dereferences
+to its value), never from the raw subrecord bytes, and check each with `assert_eq!` (or
+`assert!` for `starts_with`/`ends_with`). Compare an `f32` by its bits:
+`assert_eq!(x.to_bits(), 0x3F800000)`. In `efsh_types_full`, after `assert_clean(&t)`, add
+`assert!(t.value_checked, "0001914F not seen")` and then print exactly `efsh value check: ok`.
+Write these constants in the test exactly as given, in that spelling: `0x0001914F`, `0x3F4CCCCD`, `0x41200000`, `0x437F0000`, `OreMineFXP.nif` (the
+acceptance looks for them in the file). Never change an expected value to make the check
+pass: if a decoded value differs, your layout is wrong; fix the definition.
+
+Regenerate code with `cargo xtask codegen` and the golden seed as the schema tests describe
+(`KITKRAFT_UPDATE_GOLDEN=1`, `crates/schema/tests/codegen.rs`); never hand-edit generated
+files. Regenerate `docs/record-parity.md` and the gap-matrix headline with `cargo xtask
+parity` (it reads the Data folder) and check the parity target above.
+
+Docs: EFSH has no row in the hand-written tables of `docs/foothold/gap-matrix.md`; `cargo
+xtask parity` rewrites only that file's generated headline, so commit what it writes and
+edit nothing else there. Do not edit `docs/gaps.md` (its schema summary row is updated
+after the batch). Do not edit `plan/STATUS.md` (tickets no longer add a "Landed" line there:
+the merge commit and `plan/tickets/README.md` record the ticket). Put the xEdit lines, what
+is typed, what stays opaque, the corpus counts your test printed and the parity row in your
+commit message.
+
+Do not change any other definition, any shared block in `crates/schema/defs/common/`, or the
+output of any command for another record type. Other schema tickets run the same night on
+other types: in the shared lists touch only the line of your type.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release: `cargo
+test --release -p kitkraft-esm --test efsh_types -- --ignored --nocapture`. Then `cargo
+xtask parity --check` and `cargo xtask ci`. Commit only when every acceptance command below
+passes and `cargo xtask ci` is green; never commit a tree that fails them (the harness keeps
+uncommitted work if the time runs out).
+"""
+
+[[accept]]
+name = "efsh-full"
+cmd = '''cargo test --release -p kitkraft-esm --test efsh_types -- --ignored --exact efsh_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^efsh EFSH: 77 records, 77 identical' /tmp/o && grep -Eq '^efsh EFSH EDID: 77 records' /tmp/o && grep -Eq '^efsh EFSH DATA: 77 records' /tmp/o && grep -Eq '^efsh EFSH DNAM: 77 records' /tmp/o && grep -Eq '^efsh EFSH FLLD: 77 records' /tmp/o && grep -q '^efsh value check: ok' /tmp/o'''
+
+[[accept]]
+name = "efsh-values-pinned"
+cmd = '''grep -qiF '0x0001914F' crates/esm/tests/efsh_types.rs && grep -qiF '0x3F4CCCCD' crates/esm/tests/efsh_types.rs && grep -qiF '0x41200000' crates/esm/tests/efsh_types.rs && grep -qiF '0x437F0000' crates/esm/tests/efsh_types.rs && grep -qiF 'OreMineFXP.nif' crates/esm/tests/efsh_types.rs'''
+
+[[accept]]
+name = "schema-all"
+cmd = '''cargo test -p kitkraft-schema'''
+
+[[accept]]
+name = "codegen-fresh"
+cmd = '''cargo xtask codegen --check'''
+
+[[accept]]
+name = "parity-row"
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`EFSH` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity EFSH:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "EffectShader" && $7 + 0 >= 11 && $8 + 0 == 0 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]EFSH[,.]' docs/record-parity.md'''
+
+[[accept]]
+name = "parity-fresh"
+cmd = '''cargo xtask parity --check'''
