@@ -1,27 +1,28 @@
-# REVB: ReverbParameters, inventory definition (KK-107).
+# REVB: ReverbParameters, a reverb setting: its Wwise aux bus and its class.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-107 scan of every official REVB record (41 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the REVB definition of wbDefinitionsSF1.pas at the pinned revision (L16883-L16891),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0004, ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16883-L16891 - member order and names: EDID (L16884),
+#     the Wwise aux bus GUID named 'Aux Bus' (L16887-L16889) and the 32-bit enum named
+#     'Reverb Class' (L16890). The enum's values are declared near L2940-L2947 and are
+#     listed in ANAM below. Upstream also lists the script data (L16885) and the base form
+#     component block (L16886); no official record has either, so they are left out (a
+#     plugin that has one keeps it raw).
+#   corpus: the revb_types scan in crates/esm/tests/revb_types.rs checks this definition
+#     against every official REVB record (41 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record. The KK-107
+#     inventory scan (crates/esm/tests/inventory_types.rs) gave the same counts and sizes.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has — VMAD and the base form
-# component block — are left out; a plugin that has one keeps it raw.
+# The Wwise aux bus (RABG) is kept raw: the pinned files declare a Wwise GUID type but give
+# it no field layout, and every Wwise GUID in this repo stays raw (WWED.toml gives its Wwise
+# GUIDs; common/SoundReference.toml StartEvent/StopEvent, SECH.toml ECTE, ARMO.toml AVSG).
 signature = "REVB"
 name = "ReverbParameters"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official REVB record (41) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16883-L16891"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16883-L16891",
+  "corpus: revb_types_full (crates/esm/tests/revb_types.rs), 2026-11-18: every official REVB record (41) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-107): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L16883-L16891): EDID, the Wwise aux bus kept raw (no field layout in the pinned files) and the reverb class enum; no official record has the script data or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
@@ -38,24 +39,30 @@ confidence = "corpus"
 
 [[member]]
 sig = "RABG"
-name = "Rabg"
+name = "AuxBus"
 type = "opaque"
+size = 16
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 35 of 41 official REVB records (35 occurrences), 16 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16887-L16889"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16887-L16887",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 35 of 41 official REVB records (35 occurrences), 16 bytes",
+  "corpus: revb_types_full (crates/esm/tests/revb_types.rs), 2026-11-18: in 35 of 41 official REVB records (35 occurrences), 16 bytes",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 16 bytes"
+confidence = "reference"
+note = "Wwise GUID of the aux bus; kept raw - the pinned files declare the Wwise GUID type but give it no field layout, and every Wwise GUID in this repo stays raw (WWED.toml gives its Wwise GUIDs)"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "ReverbClass"
+type = "enum"
+base = "u32"
+values = [["Default", 0], ["ClassA", 1], ["ClassB", 2], ["ClassC", 3], ["ClassD", 4], ["ClassE", 5]]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 41 of 41 official REVB records (41 occurrences), 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16890-L16890"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16890-L16890",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2940-L2947",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 41 of 41 official REVB records (41 occurrences), 4 bytes",
+  "corpus: revb_types_full (crates/esm/tests/revb_types.rs), 2026-11-18: in 41 of 41 official REVB records (41 occurrences), 4 bytes",
 ]
-confidence = "corpus"
-note = "payload not decoded (KK-107 inventory); observed 4 bytes"
+confidence = "reference"
+note = "the enum values are the ones xEdit declares (Default, Class A to Class E); the corpus shows the 4-byte payload only, so values outside the list are preserved, not rejected"
