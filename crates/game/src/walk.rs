@@ -383,15 +383,17 @@ pub fn save_name_ok(name: &str) -> bool {
 /// Whether the recorder may list `dir` for saves: never a folder under `My Games` (the
 /// owner's primary saves, AGENTS.md "Owner's live game is off limits"); only a profile's
 /// own `saves` folder, which `kit walk` passes when the profile says `LocalSaves=true`.
+///
+/// The path is split on both `\` and `/` whatever the host: a Windows path read on Linux
+/// (WSL, the ticket harness) is one component to `Path`, and this guard must not depend on
+/// where it runs.
 pub fn saves_dir_allowed(dir: &Path) -> bool {
-    let under_my_games = dir.components().any(|c| {
-        c.as_os_str()
-            .to_string_lossy()
-            .eq_ignore_ascii_case("My Games")
-    });
-    let named_saves = dir
-        .file_name()
-        .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case("saves"));
+    let text = dir.to_string_lossy();
+    let parts: Vec<&str> = text.split(['\\', '/']).filter(|p| !p.is_empty()).collect();
+    let under_my_games = parts.iter().any(|p| p.eq_ignore_ascii_case("My Games"));
+    let named_saves = parts
+        .last()
+        .is_some_and(|p| p.eq_ignore_ascii_case("saves"));
     !under_my_games && named_saves
 }
 
