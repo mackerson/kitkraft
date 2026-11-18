@@ -219,7 +219,7 @@
 // - VOLI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official VOLI record (44) decodes with every subrecord placed and re-encodes identically; corpus)
 // - VTYP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18488-L18507; reference)
 // - WATR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18509-L18592; corpus)
-// - WBAR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official WBAR record (6) decodes with every subrecord placed and re-encodes identically; corpus)
+// - WBAR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18835-L18844; reference)
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
 // - WKMF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107; reference)
 // - WRLD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035; corpus)
@@ -105381,12 +105381,44 @@ impl WatrRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct WbarData {
+    pub support_gun_down_state: Bool8,
+    pub distance_from_wall: f32,
+    pub gun_up_to_gun_down_duration: f32,
+    pub gun_down_to_gun_up_duration: f32,
+}
+
+impl Field for WbarData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "WBAR.ZNAM.SupportGunDownState", ctx)?;
+        let f1 = f32::read(r, "WBAR.ZNAM.DistanceFromWall", ctx)?;
+        let f2 = f32::read(r, "WBAR.ZNAM.GunUpToGunDownDuration", ctx)?;
+        let f3 = f32::read(r, "WBAR.ZNAM.GunDownToGunUpDuration", ctx)?;
+        Ok(Self {
+            support_gun_down_state: f0,
+            distance_from_wall: f1,
+            gun_up_to_gun_down_duration: f2,
+            gun_down_to_gun_up_duration: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.support_gun_down_state.write(out);
+        self.distance_from_wall.write(out);
+        self.gun_up_to_gun_down_duration.write(out);
+        self.gun_down_to_gun_up_duration.write(out);
+    }
+}
+
+impl Visit for WbarData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct WbarRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `ZNAM`, required.
-    pub znam: Option<Sub<Bytes>>,
+    /// `ZNAM`, optional.
+    pub data: Option<Sub<WbarData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -105403,7 +105435,7 @@ impl WbarRecord {
         },
         MemberDesc::Sub {
             sig: *b"ZNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -105420,7 +105452,7 @@ impl WbarRecord {
                     put(&mut self.editor_id, subs, *index, "WBAR.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.znam, subs, *index, "WBAR.ZNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "WBAR.ZNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -105429,7 +105461,7 @@ impl WbarRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"ZNAM", self.znam.as_ref());
+        emit(out, *b"ZNAM", self.data.as_ref());
     }
 }
 
