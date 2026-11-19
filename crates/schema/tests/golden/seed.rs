@@ -120,7 +120,7 @@
 // - IDLE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685; corpus)
 // - IDLM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12688-L12703; reference)
 // - IMAD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMAD record (224) decodes with every subrecord placed and re-encodes identically; corpus)
-// - IMGS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IMGS record (303) decodes with every subrecord placed and re-encodes identically; corpus)
+// - IMGS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12712-L12717; reference)
 // - INFO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12756-L12884; corpus)
 // - INNR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12887-L13144; corpus)
 // - IPCT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13147-L13183; corpus)
@@ -47696,11 +47696,11 @@ pub struct ImgsRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `REFL`, optional.
-    pub refl: Option<Sub<Bytes>>,
+    pub reflection: Option<Sub<Bytes>>,
     /// `RFDP`, optional.
-    pub rfdp: Option<Sub<Bytes>>,
+    pub reflection_parent: Option<Sub<FormId>>,
     /// `RDIF`, optional.
-    pub rdif: Option<Sub<Bytes>>,
+    pub reflection_diff: Option<Sub<Bytes>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -47742,14 +47742,24 @@ impl ImgsRecord {
                     put(&mut self.editor_id, subs, *index, "IMGS.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.refl, subs, *index, "IMGS.REFL", ctx, extra)
+                    put(&mut self.reflection, subs, *index, "IMGS.REFL", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.rfdp, subs, *index, "IMGS.RFDP", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.rdif, subs, *index, "IMGS.RDIF", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.reflection_parent,
+                    subs,
+                    *index,
+                    "IMGS.RFDP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.reflection_diff,
+                    subs,
+                    *index,
+                    "IMGS.RDIF",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -47757,13 +47767,21 @@ impl ImgsRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"REFL", self.refl.as_ref());
-        emit(out, *b"RFDP", self.rfdp.as_ref());
-        emit(out, *b"RDIF", self.rdif.as_ref());
+        emit(out, *b"REFL", self.reflection.as_ref());
+        emit(out, *b"RFDP", self.reflection_parent.as_ref());
+        emit(out, *b"RDIF", self.reflection_diff.as_ref());
     }
 }
 
-impl Visit for ImgsRecord {}
+impl Visit for ImgsRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.reflection_parent, "IMGS.RFDP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.reflection_parent, "IMGS.RFDP", out);
+    }
+}
 
 impl ImgsRecord {
     /// Record signature.
