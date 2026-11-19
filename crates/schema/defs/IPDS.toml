@@ -1,26 +1,28 @@
-# IPDS: ImpactDataSet, inventory definition (KK-102).
+# IPDS: ImpactDataSet, which impact effect plays on which material: a repeated
+# list of material/impact pairs (PNAM) and an optional parent impact data set (ENAM).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-102 scan of every official IPDS record (356 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the IPDS definition of wbDefinitionsSF1.pas at the pinned revision (L13186-L13194),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13186-L13194 - the member order, EDID
+#     (L13187), the repeated PNAM, each a struct of a FormID of a MATT named
+#     'Material Type' and a FormID of an IPCT named 'Impact Data' (L13189-L13192),
+#     and a FormID of an IPDS named 'Parent Impact Data Set' (L13193). Upstream also
+#     lists the base form component block (L13188); no official IPDS record has it,
+#     so it is left out (a plugin that has one keeps it raw).
+#   corpus: the ipds_types scan in crates/esm/tests/ipds_types.rs checks this
+#     definition against every official IPDS record (356 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# Order: the members follow the pinned xEdit file.
 signature = "IPDS"
 name = "ImpactDataSet"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official IPDS record (356) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13186-L13194"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13186-L13194",
+  "corpus: ipds_types_full (crates/esm/tests/ipds_types.rs), 2026-11-19: every official IPDS record (356) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-102): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L13186-L13194): EDID, the PNAM impact pairs and the ENAM parent typed; no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
@@ -37,24 +39,31 @@ confidence = "corpus"
 
 [[member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
+name = "Impacts"
+type = "struct"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 353 of 356 official IPDS records (30860 occurrences, up to 230 per record), 8 bytes"
+size = 8
+source = "corpus: ipds_types_full (crates/esm/tests/ipds_types.rs), 2026-11-19: in 353 of 356 official IPDS records, 8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13189-L13189",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13189-L13192",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 30860 occurrences, up to 230 per record",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
+field = [
+  { name = "MaterialType", type = "formid", targets = ["MATT"] },
+  { name = "ImpactData", type = "formid", targets = ["IPCT"] },
+]
+note = "xEdit sorts this array for display; the stored order is kept (the encoder writes what it read)"
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "Parent"
+type = "formid"
+targets = ["IPDS"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 12 of 356 official IPDS records (12 occurrences), 4 bytes"
+source = "corpus: ipds_types_full (crates/esm/tests/ipds_types.rs), 2026-11-19: in 12 of 356 official IPDS records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13193-L13193",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 12 occurrences",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-102 inventory)"
