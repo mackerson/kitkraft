@@ -618,7 +618,6 @@ const BX2_INVENTORY: &[&str] = &[
     "FOGV",
     "FORC",
     "FSTS",
-    "GBFT",
     "GCVR",
     "GPOG",
     "GWED",

@@ -107,7 +107,7 @@
 // - FURN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12126-L12218; corpus)
 // - FXPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244; reference)
 // - GBFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12247-L12264; corpus)
-// - GBFT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GBFT record (8) decodes with every subrecord placed and re-encodes identically; corpus)
+// - GBFT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12267-L12287; reference)
 // - GCVR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GCVR record (98) decodes with every subrecord placed and re-encodes identically; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
@@ -44195,7 +44195,7 @@ pub struct GbftRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `STRV`, repeated.
-    pub strv: Vec<Sub<Bytes>>,
+    pub components: Vec<Sub<ZString>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -44229,7 +44229,7 @@ impl GbftRecord {
                     put(&mut self.editor_id, subs, *index, "GBFT.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    push(&mut self.strv, subs, *index, "GBFT.STRV", ctx, extra)
+                    push(&mut self.components, subs, *index, "GBFT.STRV", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -44238,7 +44238,7 @@ impl GbftRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for value in &self.strv {
+        for value in &self.components {
             emit(out, *b"STRV", Some(value));
         }
     }
