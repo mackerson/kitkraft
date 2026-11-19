@@ -1,37 +1,30 @@
-# OVIS: ObjectVisibilityManager, inventory definition (M4.BX2, ticket KK-112).
+# OVIS: ObjectVisibilityManager, the one manager record listing the static objects the
+# game hides or reveals, each with the bounds of the area it is visible in.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official OVIS record (1 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and the
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the OVIS definition of wbDefinitionsSF1.pas at the pinned revision (L15514-L15537),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15514-L15537 - member order, EDID (L15515),
+#     the repeated pair (L15516-L15536): the FormID of a STAT named 'Object' (L15518)
+#     and the struct of six floats named 'Object Bounds' (L15519-L15526, X1, Y1, Z1,
+#     X2, Y2, Z2).
+#   corpus: the ovis_types scan in crates/esm/tests/ovis_types.rs checks this definition
+#     against every official OVIS record (1 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces the record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
-#
-# The corpus order is 114 repeated (INDX, DATA) pairs after the EDID, so the pairs are
-# grouped as xEdit nests them (an array of an index and its object bounds); the group name
-# is a placeholder.
 signature = "OVIS"
 name = "ObjectVisibilityManager"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official OVIS record (1) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15514-L15537"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15514-L15537",
+  "corpus: ovis_types_full (crates/esm/tests/ovis_types.rs), 2026-11-19: every official OVIS record (1) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L15514-L15537): EDID and the repeated (INDX, DATA) pair; an entry is a STAT FormID and the six floats of its bounds"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official OVIS records (1 occurrences), 24 bytes"
+source = "corpus: ovis_types_full (crates/esm/tests/ovis_types.rs), 2026-11-19: in 1 of 1 official OVIS records (1 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15515-L15515",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -40,35 +33,45 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "Visibility"
+group = "Objects"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official OVIS records (114 occurrences)"
+source = "corpus: ovis_types_full (crates/esm/tests/ovis_types.rs), 2026-11-19: in 1 of 1 official OVIS records (114 occurrences)"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15518-L15519",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15516-L15536",
 ]
 confidence = "corpus"
-note = "one visibility pair: an index (INDX) and its object bounds (DATA, 24 bytes)"
+note = "one entry per listed object: its FormID (INDX) and the bounds of its visible area (DATA)"
 
 [[member.member]]
 sig = "INDX"
-name = "Indx"
-type = "opaque"
+name = "Object"
+type = "formid"
+targets = ["STAT"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official OVIS records (114 occurrences), 4 bytes"
+source = "corpus: ovis_types_full (crates/esm/tests/ovis_types.rs), 2026-11-19: in 1 of 1 official OVIS records (114 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15518-L15518",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "required because the group is recognised by it; the pinned file marks nothing required"
 
 [[member.member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Bounds"
+type = "struct"
+size = 24
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official OVIS records (114 occurrences), 24 bytes"
+source = "corpus: ovis_types_full (crates/esm/tests/ovis_types.rs), 2026-11-19: in 1 of 1 official OVIS records (114 occurrences), 24 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15519-L15519",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15519-L15526",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "required: every official entry carries it (114 of 114) and the group is a pair, although the pinned file marks nothing required"
+field = [
+  { name = "X1", type = "f32" },
+  { name = "Y1", type = "f32" },
+  { name = "Z1", type = "f32" },
+  { name = "X2", type = "f32" },
+  { name = "Y2", type = "f32" },
+  { name = "Z2", type = "f32" },
+]
