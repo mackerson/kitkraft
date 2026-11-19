@@ -623,7 +623,6 @@ const BX2_INVENTORY: &[&str] = &[
     "GPOG",
     "GWED",
     "IMAD",
-    "IMGS",
     "IPDS",
     "KSSM",
     "LGTM",
