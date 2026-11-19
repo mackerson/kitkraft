@@ -645,7 +645,6 @@ const BX2_INVENTORY: &[&str] = &[
     "STBH",
     "TODD",
     "VOLI",
-    "WTHS",
 ];
 
 /// Inventory definitions cited to the corpus alone (no xEdit citation; KK-008 and the
