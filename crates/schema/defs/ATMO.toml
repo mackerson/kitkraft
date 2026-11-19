@@ -1,36 +1,39 @@
-# ATMO: Atmosphere, inventory definition (KK-101).
+# ATMO: Atmosphere, a planet's atmosphere: its scattering, stars and celestial
+# bodies, held in reflection payloads.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-101 scan of every official ATMO record (599 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the ATMO definition of wbDefinitionsSF1.pas at the pinned revision (L9852-L9874),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9852-L9874 - member order, EDID (L9869),
+#     the reflection payload (L9871), the FormID naming the parent ATMO whose
+#     settings this one starts from ('Reflection Parent') (L9872) and the
+#     reflection payload holding the differences from that parent (L9873).
+#     Upstream also lists the base form component block (L9870); no official
+#     record has it, so it is left out (a plugin that has one keeps it raw).
+#   corpus: the atmo_types scan in crates/esm/tests/atmo_types.rs checks this
+#     definition against every official ATMO record (599 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out (the base
-# form components); a plugin that has one keeps it raw.
-# Order: REFL never occurs with RFDP or RDIF in an official ATMO record, so its position
-# follows the pinned xEdit file.
+# The reflection payloads (REFL and RDIF) are kept raw: the chunk format
+# crates/doc/src/refl.rs decodes describes its classes and fields in the payload
+# itself, and the schema has no type for it.
+#
+# Order: REFL never occurs with RFDP or RDIF in an official ATMO record, so its
+# position follows the pinned xEdit file.
 signature = "ATMO"
 name = "Atmosphere"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9852-L9874"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9852-L9874",
+  "corpus: atmo_types_full (crates/esm/tests/atmo_types.rs), 2026-11-19: every official ATMO record (599) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-101): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9852-L9874): the RFDP reflection parent typed, the two reflection payloads kept raw (the chunk format describes itself in the payload; the schema has no type for it); no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 599 of 599 official ATMO records (599 occurrences), 9..28 bytes"
+source = "corpus: atmo_types_full (crates/esm/tests/atmo_types.rs), 2026-11-19: in 599 of 599 official ATMO records (599 occurrences), 9..28 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9869-L9869",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -40,36 +43,36 @@ confidence = "corpus"
 
 [[member]]
 sig = "REFL"
-name = "RefL"
+name = "Reflection"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 2 of 599 official ATMO records (2 occurrences), 1971 bytes"
+source = "corpus: atmo_types_full (crates/esm/tests/atmo_types.rs), 2026-11-19: in 2 of 599 official ATMO records (2 occurrences), 1971 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9871-L9871",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 1971 bytes"
+note = "reflection payload; kept raw - the chunk format crates/doc/src/refl.rs decodes describes its classes and fields in the payload itself, and the schema has no type for it"
 
 [[member]]
 sig = "RFDP"
-name = "RfDp"
-type = "opaque"
+name = "ReflectionParent"
+type = "formid"
+targets = ["ATMO"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 597 of 599 official ATMO records (597 occurrences), 4 bytes"
+source = "corpus: atmo_types_full (crates/esm/tests/atmo_types.rs), 2026-11-19: in 597 of 599 official ATMO records (597 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9872-L9872",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
 
 [[member]]
 sig = "RDIF"
-name = "RdIf"
+name = "ReflectionDiff"
 type = "opaque"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 597 of 599 official ATMO records (597 occurrences), 1787..1973 bytes"
+source = "corpus: atmo_types_full (crates/esm/tests/atmo_types.rs), 2026-11-19: in 597 of 599 official ATMO records (597 occurrences), 1787..1973 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9873-L9873",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 1787..1973 bytes"
+note = "reflection payload holding the differences from the ReflectionParent; kept raw - the chunk format crates/doc/src/refl.rs decodes describes its classes and fields in the payload itself, and the schema has no type for it"
