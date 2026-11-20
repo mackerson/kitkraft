@@ -1,33 +1,35 @@
-# DOBJ: DefaultObjectManager, inventory definition (KK-111).
+# DOBJ: DefaultObjectManager, the one record mapping each default-object use (a
+# four-character code) to a form.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-111 scan of every official DOBJ record (1 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the DOBJ definition of wbDefinitionsSF1.pas at the pinned revision (L11563-L11572),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11563-L11572 - member order, EDID
+#     (L11564), and the DNAM object array named 'Objects' (L11565-L11569), required
+#     (L11571): a 32-bit 'Use' read as an enum of four-character use codes (L11567;
+#     its value list is built at L7741 from many Sig2Int entries) and a FormID of
+#     any type (L11568).
+#   corpus: the dobj_types scan in crates/esm/tests/dobj_types.rs checks this
+#     definition against every official DOBJ record (1 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md).
+# The 'Use' codes are kept as the four raw characters (a sig field): the pinned
+# file's value list names hundreds of codes, and a reader needs only the stored
+# code, which a sig reads as text.
 signature = "DOBJ"
 name = "DefaultObjectManager"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11563-L11572"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11563-L11572",
+  "corpus: dobj_types_full (crates/esm/tests/dobj_types.rs), 2026-11-20: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-111): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11563-L11572): EDID and the DNAM object entries typed; 'Use' kept as the four raw characters (its value list is not transcribed), 'Object' a FormID of any type"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official DOBJ records (1 occurrences), 21 bytes"
+source = "corpus: dobj_types_full (crates/esm/tests/dobj_types.rs), 2026-11-20: in 1 of 1 official DOBJ records (1 occurrences), 21 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11564-L11564",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -37,12 +39,19 @@ confidence = "corpus"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Objects"
+type = "array"
+element = "struct"
+count = "rest"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official DOBJ records (1 occurrences), 2912 bytes"
+source = "corpus: dobj_types_full (crates/esm/tests/dobj_types.rs), 2026-11-20: in 1 of 1 official DOBJ records (1 occurrences), 2912 bytes (364 entries of 8)"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11565-L11565",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11565-L11570",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7741-L7741",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-111 inventory); observed 2912 bytes"
+note = "the default objects: an 8-byte entry per use, a four-character 'Use' code and the FormID of the object it names (any form type); 'Use' stays a sig because the pinned file's value list names hundreds of codes and is not transcribed"
+field = [
+  { name = "Use", type = "sig" },
+  { name = "Object", type = "formid" },
+]
