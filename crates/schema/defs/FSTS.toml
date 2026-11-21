@@ -1,27 +1,31 @@
-# FSTS: FootstepSet, inventory definition (KK-109).
+# FSTS: FootstepSet, a footstep set: the footstep forms for walking, running,
+# sprinting, sneaking and swimming.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official FSTS record (19 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the FSTS definition of wbDefinitionsSF1.pas at the pinned revision (L12095-L12123),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12095-L12123 - member order, EDID
+#     (L12096), the required footstep count struct XCNT (L12099-L12105: five u32
+#     counts, walking, running, sprinting, sneaking and swimming) and the
+#     required footstep list DATA (L12106-L12122: FormIDs of FSTP). Upstream
+#     also lists VMAD (L12097) and the base form component block (L12098); no
+#     official record has either, so they are left out (a plugin that has one
+#     keeps it raw).
+#   corpus: the fsts_types scan in crates/esm/tests/fsts_types.rs checks this
+#     definition against every official FSTS record (19 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# The pinned file splits DATA into five FormID lists sized by the five XCNT
+# counts (swimming first, walking last); a count kept in another subrecord is
+# not expressible in the format, so DATA is one list whose length is the sum
+# of the counts.
 signature = "FSTS"
 name = "FootstepSet"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official FSTS record (19) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12095-L12123"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12095-L12123",
+  "corpus: fsts_types_full (crates/esm/tests/fsts_types.rs), 2026-11-20: every official FSTS record (19) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L12095-L12123): EDID, the XCNT count struct and the DATA footstep list typed; no official record has VMAD or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
@@ -38,24 +42,36 @@ confidence = "corpus"
 
 [[member]]
 sig = "XCNT"
-name = "Xcnt"
-type = "opaque"
+name = "FootstepCounts"
+type = "struct"
+size = 20
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 19 of 19 official FSTS records (19 occurrences), 20 bytes"
+source = "corpus: fsts_types_full (crates/esm/tests/fsts_types.rs), 2026-11-20: in 19 of 19 official FSTS records (19 occurrences), 20 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12099-L12099",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 19 of 19 official FSTS records (19 occurrences), 20 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12099-L12105",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 20 bytes"
+field = [
+  { name = "Walking", type = "u32" },
+  { name = "Running", type = "u32" },
+  { name = "Sprinting", type = "u32" },
+  { name = "Sneaking", type = "u32" },
+  { name = "Swimming", type = "u32" },
+]
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Footsteps"
+type = "array"
+element = "formid"
+targets = ["FSTP"]
+count = "rest"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 19 of 19 official FSTS records (19 occurrences), 16..112 bytes"
+source = "corpus: fsts_types_full (crates/esm/tests/fsts_types.rs), 2026-11-20: in 19 of 19 official FSTS records (19 occurrences), 16..112 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12106-L12106",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 19 of 19 official FSTS records (19 occurrences), 16..112 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12106-L12122",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 16..112 bytes"
+note = "the pinned file splits it into five FormID lists sized by the five XCNT counts (swimming first, then sneaking, sprinting, running, walking); a count kept in another subrecord is not expressible in the format, so it is one list whose length is the sum of the counts"
