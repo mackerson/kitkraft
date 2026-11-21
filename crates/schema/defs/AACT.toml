@@ -1,86 +1,93 @@
-# AACT: Action, inventory definition (M4.BX2, lane B).
+# AACT: ActionForm, an action (a named event animations and keywords refer to): a
+# colour, an optional note, a keyword type and four bytes the pinned files do not lay
+# out.
 #
 # Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official AACT record (222 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AACT definition of wbDefinitionsSF1.pas at the pinned revision (L9086-L9114),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#   xedit: the AACT definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L9086-L9114): member order, EDID (L9104), the byte RGBA colour (L9107), the
+#     string named 'Notes' (L9108), the 32-bit integer named 'Type' (L9109) and the
+#     unknown four bytes (L9110). Upstream also lists the version data (L9105), the
+#     base form component block (L9106), FULL (L9111), the AORU form (L9112) and the
+#     string named 'Flash Linkage Name' (L9113); no official AACT record has any of
+#     them, so they are left out (a plugin that has one keeps it raw).
+#   corpus: the aact_types scan in crates/esm/tests/aact_types.rs checks this definition
+#     against every official AACT record (222 in the 14 ESMs): every subrecord is
+#     placed, every placed subrecord decodes, and the re-encoding reproduces every
+#     record.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no AACT subrecord is an lstring (M3.B8).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# Names are ours (UpperCamelCase); no xEdit code, comments or labels are copied. The
+# keyword-type enumeration TNAM names is not transcribed (as in KYWD, which shares
+# it): the value is a plain u32. FNAM stays opaque: xEdit names it unknown and
+# gives it no layout.
 signature = "AACT"
 name = "ActionForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AACT record (222) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9114"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9114",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: every official AACT record (222) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9086-L9114): EDID, the byte RGBA colour, the note and the keyword type typed, the unknown four bytes kept raw (no field layout in the pinned files); no official record has the version data, the base form component block, FULL, the AORU form or the flash linkage name, so they are left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 222 of 222 official AACT records (222 occurrences), 11..40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9104-L9104"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9104-L9104",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: in 222 of 222 official AACT records (222 occurrences), 11..40 bytes",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 222 of 222 official AACT records (222 occurrences), 4 bytes"
+name = "Color"
+type = "ref:ColorRgba"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9107-L9107"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9107-L9107",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: in 222 of 222 official AACT records (222 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Notes"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 4 of 222 official AACT records (4 occurrences), 49..72 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9108-L9108"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9108-L9108",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: in 4 of 222 official AACT records (4 occurrences), 49..72 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "a NUL-terminated note of variable size"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 222 of 222 official AACT records (222 occurrences), 4 bytes"
+name = "KeywordType"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9109-L9109"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9109-L9109",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4162-L4250",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: in 222 of 222 official AACT records (222 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "keyword type enumeration (shared with KYWD); the values are not transcribed, kept as a plain u32"
 
 [[member]]
 sig = "FNAM"
 name = "Fnam"
 type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 222 of 222 official AACT records (222 occurrences), 4 bytes"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9110-L9110"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9110-L9110",
+  "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: in 222 of 222 official AACT records (222 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "xEdit names it unknown and gives it no layout; 4 bytes in every official record; stays opaque"
