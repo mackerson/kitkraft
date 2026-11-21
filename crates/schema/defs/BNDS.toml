@@ -1,34 +1,33 @@
-# BNDS: BendableSplineForm, inventory definition (KK-109).
+# BNDS: BendableSplineForm, a bendable spline (cables and hoses): bounds, tiling, colour,
+# wind and its material.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-109 scan of every official BNDS record (14 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the BNDS definition of wbDefinitionsSF1.pas at the pinned revision (L10374-L10392),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10374-L10392 - member order, EDID (L10378), the
+#     object bounds (L10380, helper at wbDefinitionsCommon.pas L9348-L9365), the dirtiness
+#     scale (L10381, helper at L3921-L3923), the struct named 'Data' (L10383-L10390: a
+#     float, a u16, a u16 boolean (helper at wbDefinitionsCommon.pas L7514-L7521), three
+#     float colours (helper at wbDefinitionsCommon.pas L7105-L7123), two floats) and the
+#     FormID of an MTPT named 'Material Path' (L10391). Upstream also lists the script
+#     data (L10379) and the base form component block (L10382); no official record has
+#     either, so they are left out (a plugin that has one keeps it raw).
+#   corpus: the bnds_types scan in crates/esm/tests/bnds_types.rs checks this definition
+#     against every official BNDS record (14 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 signature = "BNDS"
 name = "BendableSplineForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official BNDS record (14) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10374-L10392"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10374-L10392",
+  "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: every official BNDS record (14) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-109): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L10374-L10392): EDID, the object bounds, the dirtiness scale, the Data struct and the material path typed; no official record has the script data or the base form component block, so both are left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 14 official BNDS records (14 occurrences), 13..36 bytes"
+source = "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: in 14 of 14 official BNDS records (14 occurrences), 13..36 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10378-L10378",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,48 +37,61 @@ confidence = "corpus"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 14 official BNDS records (14 occurrences), 24 bytes"
+source = "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: in 14 of 14 official BNDS records (14 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10380-L10380",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 14 official BNDS records (14 occurrences), 4 bytes"
+source = "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: in 14 of 14 official BNDS records (14 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10381-L10381",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Data"
+type = "struct"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 14 official BNDS records (14 occurrences), 28 bytes"
+size = 28
+source = "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: in 14 of 14 official BNDS records (14 occurrences), 28 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10383-L10383",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10383-L10390",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7105-L7123",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 28 bytes"
+note = "a float, two u16s (the second a boolean), three float colours and two floats: 28 bytes in every official record"
+field = [
+  { name = "DefaultTileCount", type = "f32" },
+  { name = "DefaultSliceCount", type = "u16" },
+  { name = "TilesRelativeToLength", type = "enum", base = "u16", values = [["False", 0], ["True", 1]] },
+  { name = "ColorRed", type = "f32" },
+  { name = "ColorGreen", type = "f32" },
+  { name = "ColorBlue", type = "f32" },
+  { name = "WindSensibility", type = "f32" },
+  { name = "WindFlexibility", type = "f32" },
+]
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "MaterialPath"
+type = "formid"
+targets = ["MTPT"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 14 official BNDS records (14 occurrences), 4 bytes"
+source = "corpus: bnds_types_full (crates/esm/tests/bnds_types.rs), 2026-11-21: in 14 of 14 official BNDS records (14 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10391-L10391",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-109 inventory); observed 4 bytes"
