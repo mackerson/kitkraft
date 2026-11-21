@@ -85,7 +85,7 @@
 // - CUR3 (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CUR3 record (36) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CURV (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official CURV record (29) decodes with every subrecord placed and re-encodes identically; corpus)
 // - DEBR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DEBR record (3) decodes with every subrecord placed and re-encodes identically; corpus)
-// - DFOB (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically; corpus)
+// - DFOB (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11289-L11294; reference)
 // - DIAL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11297-L11523; corpus)
 // - DLBR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11526-L11544; reference)
 // - DMGT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559; reference)
@@ -36881,9 +36881,9 @@ pub struct DfobRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `XALG`, optional.
-    pub xalg: Option<Sub<Bytes>>,
+    pub xalg_flags: Option<Sub<u64>>,
     /// `DATA`, optional.
-    pub data: Option<Sub<Bytes>>,
+    pub object: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -36921,10 +36921,10 @@ impl DfobRecord {
                     put(&mut self.editor_id, subs, *index, "DFOB.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.xalg, subs, *index, "DFOB.XALG", ctx, extra)
+                    put(&mut self.xalg_flags, subs, *index, "DFOB.XALG", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.data, subs, *index, "DFOB.DATA", ctx, extra)
+                    put(&mut self.object, subs, *index, "DFOB.DATA", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -36933,12 +36933,20 @@ impl DfobRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"XALG", self.xalg.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        emit(out, *b"DATA", self.object.as_ref());
     }
 }
 
-impl Visit for DfobRecord {}
+impl Visit for DfobRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.object, "DFOB.DATA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.object, "DFOB.DATA", out);
+    }
+}
 
 impl DfobRecord {
     /// Record signature.
