@@ -1,47 +1,56 @@
-# DFOB: DefaultObject, inventory definition (KK-022).
+# DFOB: DefaultObject, a named default object the engine looks up by one FormID.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the inventory scan of every official DFOB record (1273 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-29): which
-#     subrecords occur, in which order and how often, written out by `cargo xtask
-#     inventory-def`. Every member is listed because the corpus has it, and every official
-#     record decodes with nothing left unplaced and re-encodes byte for byte.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane decodes the record (docs/gaps.md).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11289-L11294 - member order, EDID (L11290), the
+#     shared XALG flag set (L11291; the wbXALG declaration at L3230) and the FormID named
+#     'Object' with no target list (L11293). Upstream also lists the base form component
+#     block (L11292); no official DFOB record has one, so it is left out (a plugin that
+#     has one keeps it raw).
+#   corpus: the dfob_types scan in crates/esm/tests/dfob_types.rs checks this definition
+#     against every official DFOB record (1273 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 signature = "DFOB"
 name = "DefaultObject"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically"
-confidence = "corpus"
-note = "inventory definition (KK-022): corpus order and cardinality; EDID typed, every other payload opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11289-L11294"
+evidence = [
+  "corpus: dfob_types_full (crates/esm/tests/dfob_types.rs), 2026-11-21: every official DFOB record (1273) decodes with every subrecord placed and re-encodes identically",
+]
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11289-L11294): EDID, the XALG flag set and the DATA object FormID typed; no official DFOB record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1273 of 1273 official DFOB records (1273 occurrences), 9..58 bytes"
+source = "corpus: dfob_types_full (crates/esm/tests/dfob_types.rs), 2026-11-21: in 1273 of 1273 official DFOB records (1273 occurrences), 9..58 bytes"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11290-L11290",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
 confidence = "corpus"
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 8 of 1273 official DFOB records (8 occurrences), 8 bytes"
+source = "corpus: dfob_types_full (crates/esm/tests/dfob_types.rs), 2026-11-21: in 8 of 1273 official DFOB records (8 occurrences), 8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-022 inventory); observed 8 bytes"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Object"
+type = "formid"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: in 1200 of 1273 official DFOB records (1200 occurrences), 4 bytes"
+source = "corpus: dfob_types_full (crates/esm/tests/dfob_types.rs), 2026-11-21: in 1200 of 1273 official DFOB records (1200 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11293-L11293",
+]
 confidence = "corpus"
-note = "payload not decoded (KK-022 inventory); observed 4 bytes"
+note = "any form type upstream"
