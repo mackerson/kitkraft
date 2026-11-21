@@ -89,7 +89,7 @@
 // - DIAL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11297-L11523; corpus)
 // - DLBR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11526-L11544; reference)
 // - DMGT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559; reference)
-// - DOBJ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official DOBJ record (1) decodes with every subrecord placed and re-encodes identically; corpus)
+// - DOBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11563-L11572; reference)
 // - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
 // - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
 // - EFSQ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official EFSQ record (728) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -37796,12 +37796,67 @@ impl DmgtRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DobjObjectsItem {
+    pub use_: Sig,
+    pub object: FormId,
+}
+
+impl Field for DobjObjectsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "DOBJ.DNAM.Use", ctx)?;
+        let f1 = Field::read(r, "DOBJ.DNAM.Object", ctx)?;
+        Ok(Self {
+            use_: f0,
+            object: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.use_.write(out);
+        self.object.write(out);
+    }
+}
+
+impl Visit for DobjObjectsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.object, "DOBJ.DNAM.Object", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.object, "DOBJ.DNAM.Object", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct DobjObjects(pub Vec<DobjObjectsItem>);
+
+impl Field for DobjObjects {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for DobjObjects {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DobjRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub objects: Option<Sub<DobjObjects>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -37835,7 +37890,7 @@ impl DobjRecord {
                     put(&mut self.editor_id, subs, *index, "DOBJ.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.dnam, subs, *index, "DOBJ.DNAM", ctx, extra)
+                    put(&mut self.objects, subs, *index, "DOBJ.DNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -37844,11 +37899,19 @@ impl DobjRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
+        emit(out, *b"DNAM", self.objects.as_ref());
     }
 }
 
-impl Visit for DobjRecord {}
+impl Visit for DobjRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.objects, "DOBJ.DNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.objects, "DOBJ.DNAM", out);
+    }
+}
 
 impl DobjRecord {
     /// Record signature.
