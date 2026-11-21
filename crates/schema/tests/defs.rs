@@ -627,7 +627,6 @@ const BX2_INVENTORY: &[&str] = &[
     "PTST",
     "SCCO",
     "SDLT",
-    "SFPC",
     "SFTR",
     "SPGD",
     "STAG",

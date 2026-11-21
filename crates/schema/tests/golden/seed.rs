@@ -192,7 +192,7 @@
 // - SDLT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
-// - SFPC (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SFPC record (62) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SFPC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17593-L17605; reference)
 // - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)
 // - SFTR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-29: every official SFTR record (1514) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SMBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17674-L17687; corpus)
@@ -96218,14 +96218,14 @@ impl SfbkRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct SfpcStyleEntries {
+pub struct SfpcStyles {
     /// `BNAM`, required.
-    pub bnam: Option<Sub<Bytes>>,
+    pub style: Option<Sub<ZString>>,
     /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
+    pub weight: Option<Sub<f32>>,
 }
 
-impl SfpcStyleEntries {
+impl SfpcStyles {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
@@ -96248,18 +96248,18 @@ impl SfpcStyleEntries {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.bnam,
+                    &mut self.style,
                     subs,
                     *index,
-                    "SFPC.StyleEntries.BNAM",
+                    "SFPC.Styles.BNAM",
                     ctx,
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.cnam,
+                    &mut self.weight,
                     subs,
                     *index,
-                    "SFPC.StyleEntries.CNAM",
+                    "SFPC.Styles.CNAM",
                     ctx,
                     extra,
                 ),
@@ -96269,23 +96269,51 @@ impl SfpcStyleEntries {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"BNAM", self.bnam.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
+        emit(out, *b"BNAM", self.style.as_ref());
+        emit(out, *b"CNAM", self.weight.as_ref());
     }
 }
 
-impl Visit for SfpcStyleEntries {}
+impl Visit for SfpcStyles {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfpcRarity {
+    pub common: f32,
+    pub uncommon: f32,
+    pub rare: f32,
+}
+
+impl Field for SfpcRarity {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "SFPC.DNAM.Common", ctx)?;
+        let f1 = f32::read(r, "SFPC.DNAM.Uncommon", ctx)?;
+        let f2 = f32::read(r, "SFPC.DNAM.Rare", ctx)?;
+        Ok(Self {
+            common: f0,
+            uncommon: f1,
+            rare: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.common.write(out);
+        self.uncommon.write(out);
+        self.rare.write(out);
+    }
+}
+
+impl Visit for SfpcRarity {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SfpcRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `ENAM`, required.
-    pub enam: Option<Sub<Bytes>>,
-    /// Group `StyleEntries`, repeated.
-    pub style_entries: Vec<SfpcStyleEntries>,
+    pub pattern_style: Option<Sub<FormId>>,
+    /// Group `Styles`, repeated.
+    pub styles: Vec<SfpcStyles>,
     /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub rarity: Option<Sub<SfpcRarity>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -96306,7 +96334,7 @@ impl SfpcRecord {
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: SfpcStyleEntries::MEMBERS,
+            members: SfpcStyles::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"DNAM",
@@ -96326,16 +96354,21 @@ impl SfpcRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "SFPC.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.enam, subs, *index, "SFPC.ENAM", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.pattern_style,
+                    subs,
+                    *index,
+                    "SFPC.ENAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Group { member: 2, hits } => {
-                    let mut group = SfpcStyleEntries::default();
+                    let mut group = SfpcStyles::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.style_entries.push(group);
+                    self.styles.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.dnam, subs, *index, "SFPC.DNAM", ctx, extra)
+                    put(&mut self.rarity, subs, *index, "SFPC.DNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -96344,15 +96377,23 @@ impl SfpcRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"ENAM", self.enam.as_ref());
-        for group in &self.style_entries {
+        emit(out, *b"ENAM", self.pattern_style.as_ref());
+        for group in &self.styles {
             group.emit(out);
         }
-        emit(out, *b"DNAM", self.dnam.as_ref());
+        emit(out, *b"DNAM", self.rarity.as_ref());
     }
 }
 
-impl Visit for SfpcRecord {}
+impl Visit for SfpcRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.pattern_style, "SFPC.ENAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.pattern_style, "SFPC.ENAM", out);
+    }
+}
 
 impl SfpcRecord {
     /// Record signature.
