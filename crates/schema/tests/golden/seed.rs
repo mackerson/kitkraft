@@ -41,7 +41,7 @@
 // - common Vec3 (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740; corpus)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
-// - AACT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AACT record (222) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9114; reference)
 // - AAMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAMD record (7) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AAPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150; reference)
 // - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
@@ -16748,13 +16748,13 @@ impl RecordHeader {
 pub struct AactRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `CNAM`, required.
-    pub cnam: Option<Sub<Bytes>>,
+    /// `CNAM`, optional.
+    pub color: Option<Sub<ColorRgba>>,
     /// `DNAM`, optional.
-    pub dnam: Option<Sub<Bytes>>,
-    /// `TNAM`, required.
-    pub tnam: Option<Sub<Bytes>>,
-    /// `FNAM`, required.
+    pub notes: Option<Sub<ZString>>,
+    /// `TNAM`, optional.
+    pub keyword_type: Option<Sub<u32>>,
+    /// `FNAM`, optional.
     pub fnam: Option<Sub<Bytes>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
@@ -16772,7 +16772,7 @@ impl AactRecord {
         },
         MemberDesc::Sub {
             sig: *b"CNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"DNAM",
@@ -16780,11 +16780,11 @@ impl AactRecord {
         },
         MemberDesc::Sub {
             sig: *b"TNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"FNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -16801,14 +16801,19 @@ impl AactRecord {
                     put(&mut self.editor_id, subs, *index, "AACT.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.cnam, subs, *index, "AACT.CNAM", ctx, extra)
+                    put(&mut self.color, subs, *index, "AACT.CNAM", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.dnam, subs, *index, "AACT.DNAM", ctx, extra)
+                    put(&mut self.notes, subs, *index, "AACT.DNAM", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.tnam, subs, *index, "AACT.TNAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.keyword_type,
+                    subs,
+                    *index,
+                    "AACT.TNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 4, index } => {
                     put(&mut self.fnam, subs, *index, "AACT.FNAM", ctx, extra)
                 }
@@ -16819,9 +16824,9 @@ impl AactRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"CNAM", self.cnam.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
-        emit(out, *b"TNAM", self.tnam.as_ref());
+        emit(out, *b"CNAM", self.color.as_ref());
+        emit(out, *b"DNAM", self.notes.as_ref());
+        emit(out, *b"TNAM", self.keyword_type.as_ref());
         emit(out, *b"FNAM", self.fnam.as_ref());
     }
 }
