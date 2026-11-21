@@ -53,7 +53,7 @@
 // - AMDL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9387-L9409; corpus)
 // - AMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470; corpus)
 // - ANIO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9519-L9528; corpus)
-// - AOPF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPF record (20) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AOPF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9531-L9564; reference)
 // - AOPS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPS record (21) decodes with every subrecord placed and re-encodes identically; corpus)
 // - AORU (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9605-L9617; reference)
 // - ARMA (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9619-L9704; reference)
@@ -21420,13 +21420,13 @@ pub struct AopfRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
-    pub odty: Option<Sub<Bytes>>,
+    pub dirtiness_scale: Option<Sub<f32>>,
     /// `OBSV`, required.
-    pub obsv: Option<Sub<Bytes>>,
+    pub obstruction: Option<Sub<f32>>,
     /// `OCCV`, required.
-    pub occv: Option<Sub<Bytes>>,
+    pub occlusion: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -21471,17 +21471,27 @@ impl AopfRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "AOPF.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "AOPF.OBND", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.odty, subs, *index, "AOPF.ODTY", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "AOPF.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "AOPF.ODTY",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.obsv, subs, *index, "AOPF.OBSV", ctx, extra)
+                    put(&mut self.obstruction, subs, *index, "AOPF.OBSV", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.occv, subs, *index, "AOPF.OCCV", ctx, extra)
+                    put(&mut self.occlusion, subs, *index, "AOPF.OCCV", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -21490,10 +21500,10 @@ impl AopfRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
-        emit(out, *b"ODTY", self.odty.as_ref());
-        emit(out, *b"OBSV", self.obsv.as_ref());
-        emit(out, *b"OCCV", self.occv.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OBSV", self.obstruction.as_ref());
+        emit(out, *b"OCCV", self.occlusion.as_ref());
     }
 }
 
