@@ -601,7 +601,6 @@ const LSTRING_ONLY: &[&str] = &[];
 const BX2_INVENTORY: &[&str] = &[
     "AAMD",
     "AMBS",
-    "AOPF",
     "AOPS",
     "BMOD",
     "BNDS",

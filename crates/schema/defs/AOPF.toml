@@ -1,34 +1,31 @@
-# AOPF: AudioOcclusionPrimitive, inventory definition (KK-108).
+# AOPF: AudioOcclusionPrimitive, a box that occludes sound: its object bounds, dirtiness
+# scale, and the obstruction and occlusion values.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official AOPF record (20 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AOPF definition of wbDefinitionsSF1.pas at the pinned revision (L9531-L9564),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9531-L9564 - member order, EDID (L9551), the
+#     object bounds (L9552), the dirtiness scale, listed twice (L9553-L9554), the float
+#     named 'Obstruction' (L9562) and the float named 'Occlusion' (L9563). Upstream also
+#     lists the placement and snap members OPDS, PTT2, SNTP, SNBH and DEFL (L9555-L9559),
+#     the XALG (L9560) and the base form component block (L9561); no official AOPF record
+#     has any of them, so they are left out (a plugin that has one keeps it raw).
+#   corpus: the aopf_types scan in crates/esm/tests/aopf_types.rs checks this definition
+#     against every official AOPF record (20 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 signature = "AOPF"
 name = "AudioOcclusionPrimitive"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPF record (20) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9531-L9564"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9531-L9564",
+  "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: every official AOPF record (20) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9531-L9564): every member typed (EDID, the object bounds, the dirtiness scale, the obstruction and occlusion floats); xEdit lists the dirtiness scale twice and every official record has it once, so one member; no official record has the placement and snap members, the XALG or the base form component block, so they are left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official AOPF records (20 occurrences), 36..80 bytes"
+source = "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: in 20 of 20 official AOPF records (20 occurrences), 36..80 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9551-L9551",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -38,48 +35,46 @@ confidence = "corpus"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official AOPF records (20 occurrences), 24 bytes"
+source = "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: in 20 of 20 official AOPF records (20 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9552-L9552",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 24 bytes"
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
+name = "DirtinessScale"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
+source = "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9553-L9553",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9553-L9554",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
+note = "xEdit lists it twice (L9553-L9554); every official record has it once (20 occurrences in 20 records), so one member"
 
 [[member]]
 sig = "OBSV"
-name = "Obsv"
-type = "opaque"
+name = "Obstruction"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
+source = "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9562-L9562",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
 
 [[member]]
 sig = "OCCV"
-name = "Occv"
-type = "opaque"
+name = "Occlusion"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
+source = "corpus: aopf_types_full (crates/esm/tests/aopf_types.rs), 2026-11-21: in 20 of 20 official AOPF records (20 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9563-L9563",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 4 bytes"
