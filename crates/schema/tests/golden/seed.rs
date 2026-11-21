@@ -108,7 +108,7 @@
 // - FXPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12220-L12244; reference)
 // - GBFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12247-L12264; corpus)
 // - GBFT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12267-L12287; reference)
-// - GCVR (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GCVR record (98) decodes with every subrecord placed and re-encodes identically; corpus)
+// - GCVR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12290-L12318; reference)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - GPOF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12368-L12430; corpus)
@@ -44461,9 +44461,9 @@ impl GbftRecord {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GcvrGrasses {
     /// `GNAM`, required.
-    pub gnam: Option<Sub<Bytes>>,
-    /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
+    pub grass: Option<Sub<FormId>>,
+    /// `DNAM`, optional.
+    pub override_density: Option<Sub<i16>>,
 }
 
 impl GcvrGrasses {
@@ -44475,7 +44475,7 @@ impl GcvrGrasses {
         },
         MemberDesc::Sub {
             sig: *b"DNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -44489,7 +44489,7 @@ impl GcvrGrasses {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.gnam,
+                    &mut self.grass,
                     subs,
                     *index,
                     "GCVR.Grasses.GNAM",
@@ -44497,7 +44497,7 @@ impl GcvrGrasses {
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.dnam,
+                    &mut self.override_density,
                     subs,
                     *index,
                     "GCVR.Grasses.DNAM",
@@ -44510,12 +44510,20 @@ impl GcvrGrasses {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"GNAM", self.gnam.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
+        emit(out, *b"GNAM", self.grass.as_ref());
+        emit(out, *b"DNAM", self.override_density.as_ref());
     }
 }
 
-impl Visit for GcvrGrasses {}
+impl Visit for GcvrGrasses {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.grass, "GCVR.Grasses.GNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.grass, "GCVR.Grasses.GNAM", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GcvrRecord {
@@ -44526,9 +44534,9 @@ pub struct GcvrRecord {
     /// Group `Grasses`, repeated.
     pub grasses: Vec<GcvrGrasses>,
     /// `LNAM`, repeated.
-    pub lnam: Vec<Sub<Bytes>>,
+    pub landscape_textures: Vec<Sub<FormId>>,
     /// `YNAM`, required.
-    pub ynam: Option<Sub<Bytes>>,
+    pub painted_material_threshold: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -44583,12 +44591,22 @@ impl GcvrRecord {
                     group.fill(hits, subs, ctx, extra);
                     self.grasses.push(group);
                 }
-                Hit::Sub { member: 3, index } => {
-                    push(&mut self.lnam, subs, *index, "GCVR.LNAM", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.ynam, subs, *index, "GCVR.YNAM", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => push(
+                    &mut self.landscape_textures,
+                    subs,
+                    *index,
+                    "GCVR.LNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.painted_material_threshold,
+                    subs,
+                    *index,
+                    "GCVR.YNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -44602,20 +44620,24 @@ impl GcvrRecord {
         for group in &self.grasses {
             group.emit(out);
         }
-        for value in &self.lnam {
+        for value in &self.landscape_textures {
             emit(out, *b"LNAM", Some(value));
         }
-        emit(out, *b"YNAM", self.ynam.as_ref());
+        emit(out, *b"YNAM", self.painted_material_threshold.as_ref());
     }
 }
 
 impl Visit for GcvrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "GCVR.BfcbBlock", out);
+        visit_form_ids(&self.grasses, "GCVR.Grasses", out);
+        visit_form_ids(&self.landscape_textures, "GCVR.LNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "GCVR.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.grasses, "GCVR.Grasses", out);
+        visit_form_ids_mut(&mut self.landscape_textures, "GCVR.LNAM", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {

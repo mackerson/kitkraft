@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 43: AACT, AAMD, AMBS, AOPF, AOPS, BMOD, BNDS, CLDF, CLMT, CUR3, CURV, DEBR, DFOB, EFSH, EFSQ, FFKW, FOGV, FORC, GCVR, GPOG, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PERS, PSDC, PTST, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, VOLI.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 42: AACT, AAMD, AMBS, AOPF, AOPS, BMOD, BNDS, CLDF, CLMT, CUR3, CURV, DEBR, DFOB, EFSH, EFSQ, FFKW, FOGV, FORC, GPOG, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PERS, PSDC, PTST, SCCO, SDLT, SFPC, SFTR, SPGD, STAG, STBH, TODD, VOLI.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 43:
 | quest           |           10 |          10 |   267,549 |  3,909,042 |    41,771 | 202,002 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,610 |    10,517 |      12 |
-| container/other |          123 |         123 |   252,710 |    920,130 |   159,709 |       0 |
-| **Total**       |          186 |         186 | 7,490,102 | 48,086,664 | 2,130,883 | 202,014 |
+| container/other |          123 |         123 |   252,710 |    920,509 |   159,330 |       0 |
+| **Total**       |          186 |         186 | 7,490,102 | 48,087,043 | 2,130,504 | 202,014 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 43:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:58f284e1eb309f92` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:3c0a85789214bf5a` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -173,7 +173,7 @@ Columns:
 | `STDT`        | Star                           |       124 |          0 |    16 |    14 |      2 |       0 |
 | `MUSC`        | MusicTypeForm                  |       117 |          0 |     7 |     7 |      0 |       0 |
 | `STBH`        | SnapTemplateBehavior           |       103 |          0 |    11 |    11 |      0 |       0 |
-| `GCVR`        | GroundCover                    |        98 |          0 |     9 |     7 |      2 |       0 |
+| `GCVR`        | GroundCover                    |        98 |          0 |     9 |     9 |      0 |       0 |
 | `HAZD`        | Hazard                         |        87 |          0 |    16 |    14 |      2 |       0 |
 | `RSPJ`        | ResearchProject                |        82 |          0 |    12 |    12 |      0 |       0 |
 | `WKMF`        | WwiseKeywordMapping            |        81 |          0 |     6 |     6 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     3 |      0 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,542 |    201 |      54 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,544 |    199 |      54 |
 
-Subrecord occurrences: 50,419,561 in total; 48,086,664 typed (0 of them failed to decode), 2,130,883 opaque, 202,014 unknown.
+Subrecord occurrences: 50,419,561 in total; 48,087,043 typed (0 of them failed to decode), 2,130,504 opaque, 202,014 unknown.
 
 ## Decoded through the definitions
 
@@ -375,7 +375,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `STDT`    | Star                           |           124 |      3,189 |      0 |         0 |         0 |                   0 |      3,189 |       0 |        0 |
 | `MUSC`    | MusicTypeForm                  |           117 |        819 |      0 |         0 |       702 |                   0 |        117 |       0 |        0 |
 | `STBH`    | SnapTemplateBehavior           |           103 |      3,292 |      0 |         0 |         0 |                   0 |      3,292 |       0 |        0 |
-| `GCVR`    | GroundCover                    |            98 |        629 |      0 |         0 |         0 |                   0 |        629 |       0 |        0 |
+| `GCVR`    | GroundCover                    |            98 |      1,008 |      0 |         0 |         0 |                   0 |      1,008 |       0 |        0 |
 | `HAZD`    | Hazard                         |            87 |        744 |      0 |         0 |         0 |                   0 |        744 |       0 |        0 |
 | `RSPJ`    | ResearchProject                |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping            |            81 |        690 |      0 |         0 |         0 |                   0 |        690 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |        229 |      0 |         0 |         0 |                   0 |        229 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 48,086,664 |      0 |         0 |   402,178 |                   0 | 47,684,486 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 48,087,043 |      0 |         0 |   402,178 |                   0 | 47,684,865 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -530,7 +530,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `FXPD`    | FacialExpression               |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `GBFM`    | GenericBaseForm                |            139 |    130 |      9 |         0 |                   0 |    139 |       0 |        0 |
 | `GBFT`    | GenericBaseFormTemplate        |              2 |      2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `GCVR`    | GroundCover                    |            129 |    118 |     11 |         0 |                   0 |    129 |       0 |        0 |
+| `GCVR`    | GroundCover                    |            129 |    122 |      7 |         0 |                   0 |    129 |       0 |        0 |
 | `GLOB`    | Global                         |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
 | `GMST`    | GameSetting                    |              3 |      3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |            137 |    130 |      7 |         6 |                   0 |    131 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,990 | 15,021 |    969 |       424 |                   2 | 15,564 |       0 |        0 |
+| **Total** |                                |         15,990 | 15,025 |    965 |       424 |                   2 | 15,564 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

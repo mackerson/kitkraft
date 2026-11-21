@@ -1,38 +1,44 @@
-# GCVR: GroundCover, inventory definition (M4.BX2, lane B).
+# GCVR: GroundCover, ground cover: the grasses painted on a surface and their
+# densities, the landscape textures painted on it, and the painted material
+# threshold.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official GCVR record (98 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the GCVR definition of wbDefinitionsSF1.pas at the pinned revision (L12290-L12318),
-#     cited per member for its position where it lists the subrecord (Grasses is the array of
-#     GNAM/DNAM pairs).
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
-#     group keeps its own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12290-L12318 - the member order, EDID
+#     (L12307), the base form component block (L12309), the repeated Grasses
+#     entries (L12310-L12313: the FormID of a GRAS at L12311 and the signed
+#     16-bit override density at L12312), the repeated FormIDs of LTEX
+#     (L12314) and the required float 'Painted Material Threshold'
+#     (L12315-L12317). Upstream also lists the script data (L12308, VMAD); no
+#     official record has it, so it is left out (a plugin that has one keeps
+#     it raw).
+#   corpus: the gcvr_types scan in crates/esm/tests/gcvr_types.rs checks this
+#     definition against every official GCVR record (98 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record. The per-member occurrence counts and sizes
+#     below are the M4.BX2 inventory scan (crates/esm/tests/inventory_types.rs,
+#     inventory_types_full, 2026-10-28).
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#   lane E's corpus lstring table: no subrecord of this type is an lstring
+#     (M3.B8).
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Inside component blocks (kept raw by BfcbBlock): KSIZ KWDA.
+# The base form component data stays raw in the BfcbBlock group.
 signature = "GCVR"
 name = "GroundCover"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GCVR record (98) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12290-L12318"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12290-L12318",
+  "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: every official GCVR record (98) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L12290-L12318): the grass entries, the LTEX list and the painted material threshold typed, the component block stays raw; no official record has the VMAD, so it is left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (98 occurrences), 11..42 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 98 of 98 official GCVR records, 11..42 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 98 occurrences, 11..42 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12307-L12307",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
@@ -42,8 +48,9 @@ confidence = "corpus"
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 14 of 98 official GCVR records (14 occurrences), 25 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 14 of 98 official GCVR records, 25 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 14 occurrences, 25 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12309-L12309",
 ]
 confidence = "corpus"
@@ -52,57 +59,64 @@ note = "base form components; the component data stays raw"
 [[member]]
 group = "Grasses"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (377 occurrences, up to 7 per record), 6 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 98 of 98 official GCVR records"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12310-L12310",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 377 occurrences, up to 7 per record",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12310-L12313",
 ]
 confidence = "corpus"
-note = "one grass: GNAM then DNAM"
+note = "one grass entry: the FormID of a GRAS then its override density, 6 bytes per entry"
 
 [[member.member]]
 sig = "GNAM"
-name = "Gnam"
-type = "opaque"
+name = "Grass"
+type = "formid"
+targets = ["GRAS"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (377 occurrences, up to 7 per record), 4 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 98 of 98 official GCVR records, 4 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 377 occurrences, up to 7 per record",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12311-L12311",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+note = "the grass the entry paints"
 
 [[member.member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (377 occurrences, up to 7 per record), 2 bytes"
+name = "OverrideDensity"
+type = "i16"
+card = "optional"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 98 of 98 official GCVR records, 2 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 377 occurrences, up to 7 per record",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12312-L12312",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 2 bytes"
+note = "the density override, signed 16-bit, -1 for none; optional although every official record carries it, since the pinned xEdit file does not require it (owner ruling 2026-11-07)"
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "LandscapeTextures"
+type = "formid"
+targets = ["LTEX"]
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 98 official GCVR records (2 occurrences, up to 2 per record), 4 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 1 of 98 official GCVR records, 4 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 2 occurrences, up to 2 per record",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12314-L12314",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+note = "the landscape textures painted on the surface"
 
 [[member]]
 sig = "YNAM"
-name = "Ynam"
-type = "opaque"
+name = "PaintedMaterialThreshold"
+type = "f32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 98 of 98 official GCVR records (98 occurrences), 4 bytes"
+source = "corpus: gcvr_types_full (crates/esm/tests/gcvr_types.rs), 2026-11-20: in 98 of 98 official GCVR records, 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12315-L12315",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 98 occurrences, 4 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12315-L12317",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+note = "the painted material threshold, required (the pinned xEdit file marks it required)"
