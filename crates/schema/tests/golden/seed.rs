@@ -169,7 +169,7 @@
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - PDCL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15829-L15869; reference)
 // - PERK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15872-L15921; corpus)
-// - PERS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically; corpus)
+// - PERS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15925-L15932; reference)
 // - PGRE (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7132-L7132; corpus)
 // - PHZD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7133-L7133; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
@@ -75603,12 +75603,71 @@ impl PerkRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PersEntriesItem {
+    pub form: FormId,
+    pub unknown1: [u8; 4],
+    pub unknown2: [u8; 4],
+}
+
+impl Field for PersEntriesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PERS.DAT2.Form", ctx)?;
+        let f1 = Field::read(r, "PERS.DAT2.Unknown1", ctx)?;
+        let f2 = Field::read(r, "PERS.DAT2.Unknown2", ctx)?;
+        Ok(Self {
+            form: f0,
+            unknown1: f1,
+            unknown2: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.form.write(out);
+        self.unknown1.write(out);
+        self.unknown2.write(out);
+    }
+}
+
+impl Visit for PersEntriesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.form, "PERS.DAT2.Form", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.form, "PERS.DAT2.Form", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PersEntries(pub Vec<PersEntriesItem>);
+
+impl Field for PersEntries {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PersEntries {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PersRecord {
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub entry_count: Option<Sub<u32>>,
     /// `DAT2`, repeated.
-    pub dat2: Vec<Sub<Bytes>>,
+    pub entries: Vec<Sub<PersEntries>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -75639,10 +75698,10 @@ impl PersRecord {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => {
-                    put(&mut self.data, subs, *index, "PERS.DATA", ctx, extra)
+                    put(&mut self.entry_count, subs, *index, "PERS.DATA", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    push(&mut self.dat2, subs, *index, "PERS.DAT2", ctx, extra)
+                    push(&mut self.entries, subs, *index, "PERS.DAT2", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -75650,14 +75709,22 @@ impl PersRecord {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"DATA", self.data.as_ref());
-        for value in &self.dat2 {
+        emit(out, *b"DATA", self.entry_count.as_ref());
+        for value in &self.entries {
             emit(out, *b"DAT2", Some(value));
         }
     }
 }
 
-impl Visit for PersRecord {}
+impl Visit for PersRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.entries, "PERS.DAT2", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.entries, "PERS.DAT2", out);
+    }
+}
 
 impl PersRecord {
     /// Record signature.
