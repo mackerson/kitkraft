@@ -1,46 +1,55 @@
-# PERS: UnknownPers, inventory definition (KK-111).
+# PERS: UnknownPers, an unnamed record type of the ship blueprint files: an entry
+# count and very large lists of 12-byte entries.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-111 scan of every official PERS record (2 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the PERS definition of wbDefinitionsSF1.pas at the pinned revision (L15925-L15932),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15925-L15932 - member order, the u32 xEdit
+#     leaves unnamed, our EntryCount (L15926), and the repeated DAT2 arrays of 12-byte entries
+#     to the end of the payload, each a FormID followed by two 4-byte values the
+#     pinned file leaves unknown (L15927-L15931). The record has no EDID.
+#   corpus: the pers_types scan in crates/esm/tests/pers_types.rs checks this
+#     definition against every official PERS record (2 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 #
-# An inventory: every payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). xEdit's
-# definition has no EDID, and neither does the corpus.
+# The record has no EDID, and neither does the corpus.
 signature = "PERS"
 name = "UnknownPers"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official PERS record (2) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15925-L15932"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15925-L15932",
+  "corpus: pers_types_full (crates/esm/tests/pers_types.rs), 2026-11-22: every official PERS record (2) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-111): corpus order and cardinality; every payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L15925-L15932): the entry count and the DAT2 entries (a FormID plus two unknown 4-byte values) typed; no official record has an EDID"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "EntryCount"
+type = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official PERS records (2 occurrences), 4 bytes"
+source = "corpus: pers_types_full (crates/esm/tests/pers_types.rs), 2026-11-22: in 2 of 2 official PERS records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15926-L15926",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-111 inventory); observed 4 bytes"
+note = "in both official records it equals the number of entries over all DAT2 payloads (78173 = 938076 / 12 in BlueprintShips-SFBGS050.esm)"
 
 [[member]]
 sig = "DAT2"
-name = "Dat2"
-type = "opaque"
+name = "Entries"
+type = "array"
+element = "struct"
+count = "rest"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 2 of 2 official PERS records (18 occurrences, up to 17 per record), 938076..1048572 bytes"
+source = "corpus: pers_types_full (crates/esm/tests/pers_types.rs), 2026-11-22: in 2 of 2 official PERS records, 938076..1048572 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15927-L15927",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 18 occurrences, up to 17 per record",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15927-L15931",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-111 inventory); observed 938076..1048572 bytes"
+note = "each DAT2 payload is an array of 12-byte entries to the end of the payload; the pinned file leaves the two trailing 4-byte values of each entry unknown"
+field = [
+  { name = "Form", type = "formid" },
+  { name = "Unknown1", type = "opaque", size = 4 },
+  { name = "Unknown2", type = "opaque", size = 4 },
+]
