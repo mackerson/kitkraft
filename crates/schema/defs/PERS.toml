@@ -2,8 +2,8 @@
 # count and very large lists of 12-byte entries.
 #
 # Sources (ADR 0005 Amendment 2):
-#   xedit: wbDefinitionsSF1.pas@9fb01688 L15925-L15932 - member order, the unnamed
-#     u32 named 'EntryCount' (L15926) and the repeated DAT2 arrays of 12-byte entries
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15925-L15932 - member order, the u32 xEdit
+#     leaves unnamed, our EntryCount (L15926), and the repeated DAT2 arrays of 12-byte entries
 #     to the end of the payload, each a FormID followed by two 4-byte values the
 #     pinned file leaves unknown (L15927-L15931). The record has no EDID.
 #   corpus: the pers_types scan in crates/esm/tests/pers_types.rs checks this
