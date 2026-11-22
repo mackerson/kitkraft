@@ -75,7 +75,7 @@
 // - CLAS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10769-L10780; corpus)
 // - CLDF (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLDF record (21) decodes with every subrecord placed and re-encodes identically; corpus)
 // - CLFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10806-L10840; reference)
-// - CLMT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official CLMT record (48) decodes with every subrecord placed and re-encodes identically; corpus)
+// - CLMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10843-L10858; reference)
 // - CNDF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10861-L10883; reference)
 // - COBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950; corpus)
 // - COLL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10953-L10969; corpus)
@@ -32745,16 +32745,174 @@ impl ClfmRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClmtWeatherTypesItem {
+    pub weather: FormId,
+    pub chance: i32,
+    pub global: FormId,
+}
+
+impl Field for ClmtWeatherTypesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "CLMT.WLST.Weather", ctx)?;
+        let f1 = i32::read(r, "CLMT.WLST.Chance", ctx)?;
+        let f2 = Field::read(r, "CLMT.WLST.Global", ctx)?;
+        Ok(Self {
+            weather: f0,
+            chance: f1,
+            global: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.weather.write(out);
+        self.chance.write(out);
+        self.global.write(out);
+    }
+}
+
+impl Visit for ClmtWeatherTypesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.weather, "CLMT.WLST.Weather", out);
+        visit_form_ids(&self.global, "CLMT.WLST.Global", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.weather, "CLMT.WLST.Weather", out);
+        visit_form_ids_mut(&mut self.global, "CLMT.WLST.Global", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClmtWeatherTypes(pub Vec<ClmtWeatherTypesItem>);
+
+impl Field for ClmtWeatherTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ClmtWeatherTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClmtWeatherSettingsItem {
+    pub weather: FormId,
+    pub chance: i32,
+    pub global: FormId,
+}
+
+impl Field for ClmtWeatherSettingsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "CLMT.WSLT.Weather", ctx)?;
+        let f1 = i32::read(r, "CLMT.WSLT.Chance", ctx)?;
+        let f2 = Field::read(r, "CLMT.WSLT.Global", ctx)?;
+        Ok(Self {
+            weather: f0,
+            chance: f1,
+            global: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.weather.write(out);
+        self.chance.write(out);
+        self.global.write(out);
+    }
+}
+
+impl Visit for ClmtWeatherSettingsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.weather, "CLMT.WSLT.Weather", out);
+        visit_form_ids(&self.global, "CLMT.WSLT.Global", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.weather, "CLMT.WSLT.Weather", out);
+        visit_form_ids_mut(&mut self.global, "CLMT.WSLT.Global", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClmtWeatherSettings(pub Vec<ClmtWeatherSettingsItem>);
+
+impl Field for ClmtWeatherSettings {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ClmtWeatherSettings {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ClmtTiming {
+    pub sunrise_begin: u8,
+    pub sunrise_end: u8,
+    pub sunset_begin: u8,
+    pub sunset_end: u8,
+    pub volatility: u8,
+}
+
+impl Field for ClmtTiming {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "CLMT.TNAM.SunriseBegin", ctx)?;
+        let f1 = u8::read(r, "CLMT.TNAM.SunriseEnd", ctx)?;
+        let f2 = u8::read(r, "CLMT.TNAM.SunsetBegin", ctx)?;
+        let f3 = u8::read(r, "CLMT.TNAM.SunsetEnd", ctx)?;
+        let f4 = u8::read(r, "CLMT.TNAM.Volatility", ctx)?;
+        Ok(Self {
+            sunrise_begin: f0,
+            sunrise_end: f1,
+            sunset_begin: f2,
+            sunset_end: f3,
+            volatility: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.sunrise_begin.write(out);
+        self.sunrise_end.write(out);
+        self.sunset_begin.write(out);
+        self.sunset_end.write(out);
+        self.volatility.write(out);
+    }
+}
+
+impl Visit for ClmtTiming {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ClmtRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `WLST`, optional.
-    pub wlst: Option<Sub<Bytes>>,
-    /// `WSLT`, required.
-    pub wslt: Option<Sub<Bytes>>,
+    pub weather_types: Option<Sub<ClmtWeatherTypes>>,
+    /// `WSLT`, optional.
+    pub weather_settings: Option<Sub<ClmtWeatherSettings>>,
     /// `TNAM`, required.
-    pub tnam: Option<Sub<Bytes>>,
+    pub timing: Option<Sub<ClmtTiming>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -32775,7 +32933,7 @@ impl ClmtRecord {
         },
         MemberDesc::Sub {
             sig: *b"WSLT",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"TNAM",
@@ -32795,14 +32953,24 @@ impl ClmtRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "CLMT.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.wlst, subs, *index, "CLMT.WLST", ctx, extra)
-                }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.wslt, subs, *index, "CLMT.WSLT", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.weather_types,
+                    subs,
+                    *index,
+                    "CLMT.WLST",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.weather_settings,
+                    subs,
+                    *index,
+                    "CLMT.WSLT",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.tnam, subs, *index, "CLMT.TNAM", ctx, extra)
+                    put(&mut self.timing, subs, *index, "CLMT.TNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -32811,13 +32979,23 @@ impl ClmtRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"WLST", self.wlst.as_ref());
-        emit(out, *b"WSLT", self.wslt.as_ref());
-        emit(out, *b"TNAM", self.tnam.as_ref());
+        emit(out, *b"WLST", self.weather_types.as_ref());
+        emit(out, *b"WSLT", self.weather_settings.as_ref());
+        emit(out, *b"TNAM", self.timing.as_ref());
     }
 }
 
-impl Visit for ClmtRecord {}
+impl Visit for ClmtRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.weather_types, "CLMT.WLST", out);
+        visit_form_ids(&self.weather_settings, "CLMT.WSLT", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.weather_types, "CLMT.WLST", out);
+        visit_form_ids_mut(&mut self.weather_settings, "CLMT.WSLT", out);
+    }
+}
 
 impl ClmtRecord {
     /// Record signature.
