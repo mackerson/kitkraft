@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 35: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSH, EFSQ, FFKW, FOGV, FORC, GPOG, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PERS, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 34: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSH, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PERS, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 35:
 | quest           |           10 |          10 |   267,549 |  3,909,042 |    41,771 | 202,002 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,610 |    10,517 |      12 |
-| container/other |          123 |         123 |   252,710 |    923,810 |   156,029 |       0 |
-| **Total**       |          186 |         186 | 7,490,102 | 48,090,344 | 2,127,203 | 202,014 |
+| container/other |          123 |         123 |   252,710 |    923,822 |   156,017 |       0 |
+| **Total**       |          186 |         186 | 7,490,102 | 48,090,356 | 2,127,191 | 202,014 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 35:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:aeccf16a70dbb671` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:232df3831e1ced48` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -232,7 +232,7 @@ Columns:
 | `WBAR`        | WeaponBarrelModel              |         6 |          0 |     2 |     2 |      0 |       0 |
 | `FORC`        | ForceData                      |         5 |          0 |     2 |     1 |      1 |       0 |
 | `PCMT`        | PlanetContentTree              |         5 |          0 |     6 |     6 |      0 |       0 |
-| `GPOG`        | GameplayOptionsGroup           |         4 |          0 |     4 |     1 |      3 |       0 |
+| `GPOG`        | GameplayOptionsGroup           |         4 |          0 |     4 |     4 |      0 |       0 |
 | `REGN`        | Region                         |         4 |          0 |     6 |     6 |      0 |       0 |
 | `DEBR`        | Debris                         |         3 |          0 |     3 |     1 |      2 |       0 |
 | `OSWP`        | ObjectSwap                     |         3 |          0 |     1 |     1 |      0 |       0 |
@@ -246,9 +246,9 @@ Columns:
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     3 |      0 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,567 |    176 |      54 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,570 |    173 |      54 |
 
-Subrecord occurrences: 50,419,561 in total; 48,090,344 typed (0 of them failed to decode), 2,127,203 opaque, 202,014 unknown.
+Subrecord occurrences: 50,419,561 in total; 48,090,356 typed (0 of them failed to decode), 2,127,191 opaque, 202,014 unknown.
 
 ## Decoded through the definitions
 
@@ -434,7 +434,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WBAR`    | WeaponBarrelModel              |             6 |         12 |      0 |         0 |         0 |                   0 |         12 |       0 |        0 |
 | `FORC`    | ForceData                      |             5 |          5 |      0 |         0 |         0 |                   0 |          5 |       0 |        0 |
 | `PCMT`    | PlanetContentTree              |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| `GPOG`    | GameplayOptionsGroup           |             4 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
+| `GPOG`    | GameplayOptionsGroup           |             4 |         16 |      0 |         0 |         0 |                   0 |         16 |       0 |        0 |
 | `REGN`    | Region                         |             4 |         17 |      0 |         0 |         0 |                   0 |         17 |       0 |        0 |
 | `DEBR`    | Debris                         |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |             3 |          3 |      0 |         0 |         0 |                   0 |          3 |       0 |        0 |
@@ -448,7 +448,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `OVIS`    | ObjectVisibilityManager        |             1 |        229 |      0 |         0 |         0 |                   0 |        229 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 48,090,344 |      0 |         0 |   402,178 |                   0 | 47,688,166 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 48,090,356 |      0 |         0 |   402,178 |                   0 | 47,688,178 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -534,7 +534,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `GLOB`    | Global                         |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
 | `GMST`    | GameSetting                    |              3 |      3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption                 |            137 |    130 |      7 |         6 |                   0 |    131 |       0 |        0 |
-| `GPOG`    | GameplayOptionsGroup           |              4 |      1 |      3 |         0 |                   0 |      4 |       0 |        0 |
+| `GPOG`    | GameplayOptionsGroup           |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `GRAS`    | Grass                          |            135 |    128 |      7 |         3 |                   0 |    132 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `HAZD`    | Hazard                         |            146 |    138 |      8 |         8 |                   0 |    138 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,990 | 15,048 |    942 |       424 |                   2 | 15,564 |       0 |        0 |
+| **Total** |                                |         15,990 | 15,051 |    939 |       424 |                   2 | 15,564 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

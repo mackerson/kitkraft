@@ -1,33 +1,35 @@
-# GPOG: GameplayOptionsGroup, inventory definition (M4.BX2, lane B).
+# GPOG: GameplayOptionsGroup, a group of gameplay options in the game's settings menu:
+# its name, whether it is a root group, and the FormIDs of the options (or sub-groups)
+# it holds.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official GPOG record (4 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the GPOG definition of wbDefinitionsSF1.pas at the pinned revision (L12432-L12470),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no GPOG subrecord is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12432-L12470 - member order, EDID (L12449),
+#     the localized name NNAM named 'Name' (L12450) and the required run 'Type Data':
+#     BNAM, a one-byte boolean named 'Root Group' (L12452), and the GOGL FormID array
+#     whose target the upstream record union chooses by BNAM (L12455-L12468): GPOF
+#     options when 0, GPOG groups when 1.
+#   corpus: the gpog_types scan in crates/esm/tests/gpog_types.rs checks this definition
+#     against every official GPOG record (4 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
+#   uesp-skyrim: the EDID string convention (M2.B2).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md).
+# The union by BNAM is not expressible in this format; both variants are FormID lists, so
+# GOGL is one array with both targets (see its note).
 signature = "GPOG"
 name = "GameplayOptionsGroup"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official GPOG record (4) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12432-L12470"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12432-L12470",
+  "corpus: gpog_types_full (crates/esm/tests/gpog_types.rs), 2026-11-22: every official GPOG record (4) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L12432-L12470): EDID and the localized name typed, BNAM typed as a one-byte boolean, GOGL as an array of FormIDs with both targets; the upstream union picks the target type by BNAM, which the format cannot express"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 4 of 4 official GPOG records (4 occurrences), 8..17 bytes"
+source = "corpus: gpog_types_full (crates/esm/tests/gpog_types.rs), 2026-11-22: in 4 of 4 official GPOG records (4 occurrences), 8..17 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12449-L12449",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -37,36 +39,39 @@ confidence = "corpus"
 
 [[member]]
 sig = "NNAM"
-name = "Nnam"
-type = "opaque"
+name = "Name"
+type = "lstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 4 of 4 official GPOG records (4 occurrences), 4 bytes"
+source = "corpus: gpog_types_full (crates/esm/tests/gpog_types.rs), 2026-11-22: in 4 of 4 official GPOG records (4 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12450-L12450",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 4 bytes"
+note = "the corpus lstring table leaves GPOG NNAM unclassified (4 records are too few to classify); this definition types it as an lstring from the pinned file"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "RootGroup"
+type = "ref:Bool8"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 4 of 4 official GPOG records (4 occurrences), 1 byte"
+source = "corpus: gpog_types_full (crates/esm/tests/gpog_types.rs), 2026-11-22: in 4 of 4 official GPOG records (4 occurrences), 1 byte"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12452-L12452",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 1 byte"
 
 [[member]]
 sig = "GOGL"
-name = "Gogl"
-type = "opaque"
+name = "Options"
+type = "array"
+element = "formid"
+targets = ["GPOF", "GPOG"]
+count = "rest"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 4 of 4 official GPOG records (4 occurrences), 4..72 bytes"
+source = "corpus: gpog_types_full (crates/esm/tests/gpog_types.rs), 2026-11-22: in 4 of 4 official GPOG records (4 occurrences), 4..72 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12466-L12466",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12455-L12468",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 4..72 bytes"
+note = "the pinned file picks the target type by RootGroup (another subrecord) through a record union: GPOF options when 0, GPOG groups when 1; the format cannot express that, and both layouts are a FormID list, so one array with both targets reads every official record"
