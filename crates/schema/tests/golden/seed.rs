@@ -202,7 +202,7 @@
 // - SPCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763; corpus)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
 // - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
-// - STAG (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STAG record (30) decodes with every subrecord placed and re-encodes identically; corpus)
+// - STAG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17820-L17845; reference)
 // - STAT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894; corpus)
 // - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
@@ -99299,9 +99299,9 @@ impl SpgdRecord {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StagEntries {
     /// `STAE`, required.
-    pub stae: Option<Sub<Bytes>>,
+    pub tag: Option<Sub<ZString>>,
     /// `STAD`, required.
-    pub stad: Option<Sub<Bytes>>,
+    pub sound: Option<Sub<SoundReference>>,
 }
 
 impl StagEntries {
@@ -99326,16 +99326,11 @@ impl StagEntries {
     ) {
         for hit in hits {
             match hit {
-                Hit::Sub { member: 0, index } => put(
-                    &mut self.stae,
-                    subs,
-                    *index,
-                    "STAG.Entries.STAE",
-                    ctx,
-                    extra,
-                ),
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.tag, subs, *index, "STAG.Entries.STAE", ctx, extra)
+                }
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.stad,
+                    &mut self.sound,
                     subs,
                     *index,
                     "STAG.Entries.STAD",
@@ -99348,19 +99343,27 @@ impl StagEntries {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"STAE", self.stae.as_ref());
-        emit(out, *b"STAD", self.stad.as_ref());
+        emit(out, *b"STAE", self.tag.as_ref());
+        emit(out, *b"STAD", self.sound.as_ref());
     }
 }
 
-impl Visit for StagEntries {}
+impl Visit for StagEntries {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sound, "STAG.Entries.STAD", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sound, "STAG.Entries.STAD", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StagRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `STMS`, required.
-    pub stms: Option<Sub<Bytes>>,
+    /// `STMS`, optional.
+    pub entry_count: Option<Sub<u32>>,
     /// Group `Entries`, repeated.
     pub entries: Vec<StagEntries>,
     /// Subrecords that matched no member or failed to decode, each with its index
@@ -99379,7 +99382,7 @@ impl StagRecord {
         },
         MemberDesc::Sub {
             sig: *b"STMS",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Group {
             card: Card::Repeated,
@@ -99400,7 +99403,7 @@ impl StagRecord {
                     put(&mut self.editor_id, subs, *index, "STAG.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.stms, subs, *index, "STAG.STMS", ctx, extra)
+                    put(&mut self.entry_count, subs, *index, "STAG.STMS", ctx, extra)
                 }
                 Hit::Group { member: 2, hits } => {
                     let mut group = StagEntries::default();
@@ -99414,14 +99417,22 @@ impl StagRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"STMS", self.stms.as_ref());
+        emit(out, *b"STMS", self.entry_count.as_ref());
         for group in &self.entries {
             group.emit(out);
         }
     }
 }
 
-impl Visit for StagRecord {}
+impl Visit for StagRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.entries, "STAG.Entries", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.entries, "STAG.Entries", out);
+    }
+}
 
 impl StagRecord {
     /// Record signature.
