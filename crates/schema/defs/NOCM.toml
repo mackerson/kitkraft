@@ -1,38 +1,39 @@
-# NOCM: NavmeshObstacleManager, inventory definition (M4.BX2, ticket KK-112).
+# NOCM: NavmeshObstacleManager, navmesh obstacle data: one official record lists, per
+# model, a run of obstacle entries, each its index, a run of unknown data points and an
+# unknown interval, followed by the model's NIF path.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official NOCM record (1 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and the
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the NOCM definition of wbDefinitionsSF1.pas at the pinned revision (L14920-L14935),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14920-L14935 - member order, EDID (L14921) and
+#     the nested runs: the outer array (L14925-L14934) of obstacle groups, each the inner
+#     array (L14927-L14932) of entries then the model path (L14933); each entry the u32
+#     index (L14929), the repeated unknown data points (L14930) and the unknown interval
+#     (L14931).
+#   corpus: the nocm_types scan in crates/esm/tests/nocm_types.rs checks this definition
+#     against every official NOCM record (1 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces the record.
+#   uesp-skyrim: the EDID string convention (M2.B2).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
+# The data points (DATA) and the interval (INTV) stay opaque: the pinned file declares
+# them unknown (12 and 4 bytes in every official occurrence) and gives them no layout.
 #
-# The corpus order interleaves obstacle entries and model names: runs of entries (INDX, 0
-# or more DATA, INTV) each followed by one model name (NAM1), so the members are grouped
-# as xEdit nests them (the inner array of entries, the outer array that ends in the model
-# string); the groups are named placeholders.
+# The corpus order interleaves entries and model paths: a run of entries (INDX, 0 or more
+# DATA, INTV) each followed by one model path (NAM1), so the members are grouped as xEdit
+# nests them (the inner array of entries, the outer array that ends in the model string).
 signature = "NOCM"
 name = "NavmeshObstacleManager"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14920-L14935"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14920-L14935",
+  "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L14920-L14935): EDID, the entry index and the model path typed; the data points and the interval stay opaque - the pinned file leaves them unknown (12 and 4 bytes in every official occurrence)"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1 occurrences), 28 bytes"
+source = "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: in 1 of 1 official NOCM records, 28 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14921-L14921",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -41,69 +42,75 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-group = "ObstacleGroup"
+group = "Obstacles"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead: 1694 obstacle entries in 1365 groups"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14925-L14934"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14933",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 1694 obstacle entries in 1365 groups",
 ]
-confidence = "corpus"
-note = "one or more obstacle entries followed by their model name (NAM1)"
+confidence = "reference"
+note = "one or more obstacle entries followed by their model path (NAM1)"
 
 [[member.member]]
-group = "Obstacle"
+group = "Entries"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences) of its INDX lead, with 12693 data points in all"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14927-L14932"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14931",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: 1694 entries, 12693 data points in all",
 ]
-confidence = "corpus"
+confidence = "reference"
 note = "one obstacle entry: its index (INDX), its data points (DATA, 12 bytes each) and its interval (INTV)"
 
 [[member.member.member]]
 sig = "INDX"
-name = "Indx"
-type = "opaque"
+name = "Index"
+type = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes"
+source = "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: in 1 of 1 official NOCM records, 4 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14929-L14929",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "required because the group is recognised by it; the pinned file marks nothing required"
 
 [[member.member.member]]
 sig = "DATA"
-name = "Data"
+name = "UnknownData"
 type = "opaque"
+size = 12
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (12693 occurrences), 12 bytes"
+source = "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: in 1 of 1 official NOCM records, 12 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (12693 occurrences), 12 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14930-L14930",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "kept opaque - the pinned file leaves it unknown (12 bytes in every official occurrence) and gives it no layout"
 
 [[member.member.member]]
 sig = "INTV"
-name = "Intv"
+name = "UnknownInterval"
 type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes"
+size = 4
+card = "optional"
+source = "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: in 1 of 1 official NOCM records, 4 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1694 occurrences), 4 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14931-L14931",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "kept opaque - the pinned file leaves it unknown (4 bytes in every official occurrence) and gives it no layout; in every official entry (1694 of 1694) although the pinned file leaves it optional"
 
 [[member.member]]
 sig = "NAM1"
-name = "Nam1"
-type = "opaque"
+name = "Model"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1365 occurrences), 20..134 bytes"
+source = "corpus: nocm_types_full (crates/esm/tests/nocm_types.rs), 2026-11-23: in 1 of 1 official NOCM records, 20..134 bytes"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official NOCM records (1365 occurrences), 20..134 bytes",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14933-L14933",
 ]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+confidence = "reference"
+note = "the model's NIF path; in every official obstacle group (1365 of 1365) although the pinned file leaves it optional"
