@@ -1,35 +1,36 @@
-# LSCR: LoadScreen, inventory definition (M4.BX2, lane B).
+# LSCR: LoadScreen, a load screen: its description text, conditions and image.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official LSCR record (393 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LSCR definition of wbDefinitionsSF1.pas at the pinned revision (L13910-L13932),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13910-L13932 - the member order, EDID (L13915),
+#     the required DESC (L13918), the conditions (L13919) and the load screen image
+#     string (L13920). Upstream also lists the version data (L13916), the base form
+#     component block (L13917) and, after the image, a NIF FormID (L13921), a Transform
+#     FormID (L13922), a two-i16 rotation range (L13923-L13926), a two-float zoom range
+#     (L13927-L13930) and a camera path string (L13931); no official LSCR record has
+#     any of those, so they are left out - the corpus decides which members a
+#     definition lists (a plugin that has one keeps it raw).
+#   corpus: the lscr_types scan in crates/esm/tests/lscr_types.rs checks this
+#     definition against every official LSCR record (393 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+# The conditions are the shared Condition group (common/Condition.toml): a CTDA with
+# its optional CIS1/CIS2 string parameters; LSCR has no CITC condition count.
 signature = "LSCR"
 name = "LoadScreen"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official LSCR record (393) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13910-L13932"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13910-L13932",
+  "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: every official LSCR record (393) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+note = "typed from the pinned xEdit file (L13910-L13932): EDID, the required DESC and the load screen image typed, the conditions the shared Condition group; the version data, the base form component block and the five members after the image (NNAM, TNAM, ONAM, ZNAM, MOD2) are in no official record, so they are left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 393 of 393 official LSCR records (393 occurrences), 9..37 bytes"
+source = "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: in 393 of 393 official LSCR records, 9..37 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13915-L13915",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -42,7 +43,7 @@ sig = "DESC"
 name = "Description"
 type = "lstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 393 of 393 official LSCR records (393 occurrences), 4 bytes"
+source = "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: in 393 of 393 official LSCR records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13918-L13918",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3192-L3192",
@@ -51,25 +52,25 @@ evidence = [
 confidence = "corpus"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 158 of 393 official LSCR records (311 occurrences, up to 5 per record), 32 bytes"
+source = "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: in 158 of 393 official LSCR records, each a 32-byte CTDA, and no official record has a CIS1 or CIS2"
 evidence = [
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: 311 CTDA occurrences, up to 5 per record, in the 158 official LSCR records that carry conditions",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13919-L13919",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "the shared Condition group (a CTDA with its optional CIS1/CIS2); LSCR has no CITC condition count"
 
 [[member]]
 sig = "ICON"
-name = "Icon"
-type = "opaque"
+name = "Image"
+type = "zstring"
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 378 of 393 official LSCR records (378 occurrences), 63..90 bytes"
+source = "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: in 378 of 393 official LSCR records, 63..90 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13920-L13920",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
