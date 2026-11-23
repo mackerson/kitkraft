@@ -37,7 +37,8 @@ Class E, 0 to 5) and `RSMH`, a sound reference. Type them so:
 - The `RSMC`/`RSMH` pairs (today an opaque group): a group named `ReverbSounds`, `card =
   "repeated"`, with `RSMC` named `ReverbClass` (`enum`, `base = "u32"`, values `Default` 0,
   `ClassA` 1, `ClassB` 2, `ClassC` 3, `ClassD` 4, `ClassE` 5; required, it starts the group)
-  and `RSMH` named `Sound` (`ref:SoundReference`, required).
+  and `RSMH` named `Sound` (`ref:SoundReference`, optional: the pinned file does not
+  require it).
 
 What makes this one harder than the template: One signature, `RSMC`, is used twice with two meanings: first the count, then each
 entry's class. The format allows the same signature at two positions with different names

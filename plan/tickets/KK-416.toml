@@ -88,7 +88,7 @@ Value check (required: the checks above pass for a wrong layout of the right wid
 does not). The record `Starfield.esm` FormID `00000026` (as stored in that file), EditorID `NavmeshObstacleCoverManager` must decode to these values:
 
 - `Obstacles` has 1365 entries.
-- `Obstacles[0].Entries` has 1 entry, whose `Index` is 0 and which has 12 `UnknownData`.
+- `Obstacles[0].Entries` has 1 entry, whose `Index` is 0 and which has 10 `UnknownData`.
 - `Obstacles[0].Model` ends with `ConsoleKit_TallFullA01.nif` (`ends_with(b"ConsoleKit_TallFullA01.nif")`).
 
 Do it mechanically: add `value_checked: bool` to `Stats`. In `check_record`, after

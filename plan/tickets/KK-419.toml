@@ -21,7 +21,7 @@ the corpus: `EDID`, `ENAM`, `DATA`, `DNAM`, `MODL`, `FLLD`) has an inventory def
 payload is `opaque` or an opaque group. Its xEdit definition is at `L11651-L11712` of the pinned
 file. Parity target: the first `EFSH` row of `docs/record-parity.md` (the per-type table,
 columns records, compressed, signatures, typed, opaque, unknown) must show at least
-11 typed and 0 opaque and 0 unknown.
+10 typed, at most 1 opaque (`PTCL`, in the shared component group) and 0 unknown.
 
 What xEdit says, member by member (read the lines yourself; this is a guide, not a source to
 cite): EDID; the base form component block; `ENAM`, a FormID of an `EFSQ`; `DATA`, an empty
@@ -50,7 +50,7 @@ What makes this one harder than the template: The model block: `FLLD` is in all 
 the shared `Model` group (its `FileName` is optional, `LightLayer` required), so do not
 split it. `DNAM` is a long fixed struct: count the bytes (97) before you run anything.
 Today's parity row already shows 10 of 11 signatures typed (other members type some of
-these signatures); the target is 11 typed and 0 opaque, and the value check shows the
+these signatures); `PTCL` stays opaque in the shared group, so the target is still 10, and the value check shows the
 layout.
 
 Which members are required: follow "Members" in `crates/schema/defs/README.md` (owner ruling
@@ -162,7 +162,7 @@ cmd = '''cargo xtask codegen --check'''
 
 [[accept]]
 name = "parity-row"
-cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`EFSH` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity EFSH:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "EffectShader" && $7 + 0 >= 11 && $8 + 0 == 0 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]EFSH[,.]' docs/record-parity.md'''
+cmd = '''awk -F'|' 'BEGIN { ok = 0 } !seen && $2 ~ /^ *`EFSH` *$/ { seen = 1; for (i = 2; i < NF; i++) { gsub(/[ ,]/, "", $i) } print "parity EFSH:", $3, "typed", $7, "opaque", $8, "unknown", $9; ok = (NF == 10 && $3 == "EffectShader" && $7 + 0 >= 10 && $8 + 0 <= 1 && $9 + 0 == 0) } END { exit ok ? 0 : 1 }' docs/record-parity.md && grep -q '^Inventory definitions' docs/record-parity.md && ! grep -Eq '^Inventory definitions.*[ ,]EFSH[,.]' docs/record-parity.md'''
 
 [[accept]]
 name = "parity-fresh"
