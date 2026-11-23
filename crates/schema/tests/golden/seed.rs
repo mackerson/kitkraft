@@ -51818,7 +51818,7 @@ impl Visit for KssmReverbSoundsReverbClass {}
 pub struct KssmReverbSounds {
     /// `RSMC`, required.
     pub reverb_class: Option<Sub<KssmReverbSoundsReverbClass>>,
-    /// `RSMH`, required.
+    /// `RSMH`, optional.
     pub sound: Option<Sub<SoundReference>>,
 }
 
@@ -51831,7 +51831,7 @@ impl KssmReverbSounds {
         },
         MemberDesc::Sub {
             sig: *b"RSMH",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 

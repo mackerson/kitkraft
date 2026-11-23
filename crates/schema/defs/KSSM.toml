@@ -115,11 +115,11 @@ note = "the entry's reverb class; the same RSMC signature as the leading count, 
 sig = "RSMH"
 name = "Sound"
 type = "ref:SoundReference"
-card = "required"
+card = "optional"
 source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 233 of 591 official KSSM records (1080 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13292-L13292",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227",
 ]
 confidence = "corpus"
-note = "the entry's sound reference"
+note = "the entry's sound reference; the pinned file leaves it optional, but every official entry has it (1080 of 1080)"
