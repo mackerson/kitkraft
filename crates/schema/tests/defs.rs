@@ -617,7 +617,6 @@ const BX2_INVENTORY: &[&str] = &[
     "LGTM",
     "MAAM",
     "NAVI",
-    "NOCM",
     "OSWP",
     "PSDC",
     "PTST",

@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 32: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSH, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, KSSM, LGTM, LMSW, MAAM, MTPT, NAVI, NOCM, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 31: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSH, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, KSSM, LGTM, LMSW, MAAM, MTPT, NAVI, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -23,8 +23,8 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 32:
 | quest           |           10 |          10 |   267,549 |  3,909,042 |    41,771 | 202,002 |
 | actor           |            9 |           9 |    13,350 |  1,211,625 |     2,825 |       0 |
 | items           |           12 |          12 |    33,939 |    399,610 |    10,517 |      12 |
-| container/other |          123 |         123 |   252,710 |    924,531 |   155,308 |       0 |
-| **Total**       |          186 |         186 | 7,490,102 | 48,091,065 | 2,126,482 | 202,014 |
+| container/other |          123 |         123 |   252,710 |    927,590 |   152,249 |       0 |
+| **Total**       |          186 |         186 | 7,490,102 | 48,094,124 | 2,123,423 | 202,014 |
 
 ## Corpus and method
 
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 32:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:67bf5dd500ee4869` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:61f19e636097ad8c` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -242,13 +242,13 @@ Columns:
 | `DOBJ`        | DefaultObjectManager           |         1 |          0 |     2 |     2 |      0 |       0 |
 | `GWED`        | GravityWielderEffectData       |         1 |          0 |     2 |     1 |      1 |       0 |
 | `MAAM`        | MeleeAimAssistModel            |         1 |          0 |     2 |     1 |      1 |       0 |
-| `NOCM`        | NavmeshObstacleManager         |         1 |          0 |     5 |     1 |      4 |       0 |
+| `NOCM`        | NavmeshObstacleManager         |         1 |          0 |     5 |     3 |      2 |       0 |
 | `OVIS`        | ObjectVisibilityManager        |         1 |          0 |     3 |     3 |      0 |       0 |
 | `SCCO`        | SceneCollection                |         1 |          0 |     5 |     1 |      4 |       0 |
 | `SPGD`        | ShaderParticleGeometry         |         1 |          0 |     3 |     1 |      2 |       0 |
-| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,574 |    169 |      54 |
+| **186 types** | 186 defined                    | 7,490,102 |    136,741 | 2,797 | 2,576 |    167 |      54 |
 
-Subrecord occurrences: 50,419,561 in total; 48,091,065 typed (0 of them failed to decode), 2,126,482 opaque, 202,014 unknown.
+Subrecord occurrences: 50,419,561 in total; 48,094,124 typed (0 of them failed to decode), 2,123,423 opaque, 202,014 unknown.
 
 ## Decoded through the definitions
 
@@ -444,11 +444,11 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `DOBJ`    | DefaultObjectManager           |             1 |          2 |      0 |         0 |         0 |                   0 |          2 |       0 |        0 |
 | `GWED`    | GravityWielderEffectData       |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `MAAM`    | MeleeAimAssistModel            |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| `NOCM`    | NavmeshObstacleManager         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
+| `NOCM`    | NavmeshObstacleManager         |             1 |      3,060 |      0 |         0 |     3,059 |                   0 |          1 |       0 |        0 |
 | `OVIS`    | ObjectVisibilityManager        |             1 |        229 |      0 |         0 |         0 |                   0 |        229 |       0 |        0 |
 | `SCCO`    | SceneCollection                |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
 | `SPGD`    | ShaderParticleGeometry         |             1 |          1 |      0 |         0 |         0 |                   0 |          1 |       0 |        0 |
-| **Total** |                                |     7,490,102 | 48,091,065 |      0 |         0 |   402,178 |                   0 | 47,688,887 |       0 |        0 |
+| **Total** |                                |     7,490,102 | 48,094,124 |      0 |         0 |   405,237 |                   0 | 47,688,887 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -579,7 +579,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `MUST`    | MusicTrack                     |            137 |    129 |      8 |         1 |                   0 |    136 |       0 |        0 |
 | `NAVI`    | NavmeshInfoMap                 |              3 |      0 |      3 |         0 |                   0 |      3 |       0 |        0 |
 | `NAVM`    | Navmesh                        |            128 |    118 |     10 |         1 |                   0 |    127 |       0 |        0 |
-| `NOCM`    | NavmeshObstacleManager         |              5 |      1 |      4 |         0 |                   0 |      5 |       0 |        0 |
+| `NOCM`    | NavmeshObstacleManager         |              5 |      3 |      2 |         4 |                   0 |      1 |       0 |        0 |
 | `NPC_`    | Npc                            |            238 |    229 |      9 |        10 |                   0 |    228 |       0 |        0 |
 | `OMOD`    | ObjectModification             |            142 |    133 |      9 |         6 |                   0 |    136 |       0 |        0 |
 | `OSWP`    | ObjectSwap                     |              1 |      1 |      0 |         0 |                   0 |      1 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,992 | 15,057 |    935 |       424 |                   2 | 15,566 |       0 |        0 |
+| **Total** |                                |         15,992 | 15,059 |    933 |       428 |                   2 | 15,562 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

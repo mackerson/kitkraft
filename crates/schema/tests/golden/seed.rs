@@ -157,7 +157,7 @@
 // - MUST (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14725-L14744; corpus)
 // - NAVI (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NAVI record (8) decodes with every subrecord placed and re-encodes identically; corpus)
 // - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
-// - NOCM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official NOCM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
+// - NOCM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14920-L14935; reference)
 // - NPC_ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14993-L15426; corpus)
 // - OMOD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15429-L15476; corpus)
 // - OSWP (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official OSWP record (3) decodes with every subrecord placed and re-encodes identically; corpus)
@@ -66412,16 +66412,16 @@ impl NavmRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct NocmObstacleGroupObstacle {
+pub struct NocmObstaclesEntries {
     /// `INDX`, required.
-    pub indx: Option<Sub<Bytes>>,
+    pub index: Option<Sub<u32>>,
     /// `DATA`, repeated.
-    pub data: Vec<Sub<Bytes>>,
-    /// `INTV`, required.
-    pub intv: Option<Sub<Bytes>>,
+    pub unknown_data: Vec<Sub<[u8; 12]>>,
+    /// `INTV`, optional.
+    pub unknown_interval: Option<Sub<[u8; 4]>>,
 }
 
-impl NocmObstacleGroupObstacle {
+impl NocmObstaclesEntries {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
@@ -66434,7 +66434,7 @@ impl NocmObstacleGroupObstacle {
         },
         MemberDesc::Sub {
             sig: *b"INTV",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -66448,26 +66448,26 @@ impl NocmObstacleGroupObstacle {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.indx,
+                    &mut self.index,
                     subs,
                     *index,
-                    "NOCM.ObstacleGroup.Obstacle.INDX",
+                    "NOCM.Obstacles.Entries.INDX",
                     ctx,
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => push(
-                    &mut self.data,
+                    &mut self.unknown_data,
                     subs,
                     *index,
-                    "NOCM.ObstacleGroup.Obstacle.DATA",
+                    "NOCM.Obstacles.Entries.DATA",
                     ctx,
                     extra,
                 ),
                 Hit::Sub { member: 2, index } => put(
-                    &mut self.intv,
+                    &mut self.unknown_interval,
                     subs,
                     *index,
-                    "NOCM.ObstacleGroup.Obstacle.INTV",
+                    "NOCM.Obstacles.Entries.INTV",
                     ctx,
                     extra,
                 ),
@@ -66477,30 +66477,30 @@ impl NocmObstacleGroupObstacle {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"INDX", self.indx.as_ref());
-        for value in &self.data {
+        emit(out, *b"INDX", self.index.as_ref());
+        for value in &self.unknown_data {
             emit(out, *b"DATA", Some(value));
         }
-        emit(out, *b"INTV", self.intv.as_ref());
+        emit(out, *b"INTV", self.unknown_interval.as_ref());
     }
 }
 
-impl Visit for NocmObstacleGroupObstacle {}
+impl Visit for NocmObstaclesEntries {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct NocmObstacleGroup {
-    /// Group `Obstacle`, repeated.
-    pub obstacle: Vec<NocmObstacleGroupObstacle>,
+pub struct NocmObstacles {
+    /// Group `Entries`, repeated.
+    pub entries: Vec<NocmObstaclesEntries>,
     /// `NAM1`, optional.
-    pub nam1: Option<Sub<Bytes>>,
+    pub model: Option<Sub<ZString>>,
 }
 
-impl NocmObstacleGroup {
+impl NocmObstacles {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Group {
             card: Card::Repeated,
-            members: NocmObstacleGroupObstacle::MEMBERS,
+            members: NocmObstaclesEntries::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"NAM1",
@@ -66518,15 +66518,15 @@ impl NocmObstacleGroup {
         for hit in hits {
             match hit {
                 Hit::Group { member: 0, hits } => {
-                    let mut group = NocmObstacleGroupObstacle::default();
+                    let mut group = NocmObstaclesEntries::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.obstacle.push(group);
+                    self.entries.push(group);
                 }
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.nam1,
+                    &mut self.model,
                     subs,
                     *index,
-                    "NOCM.ObstacleGroup.NAM1",
+                    "NOCM.Obstacles.NAM1",
                     ctx,
                     extra,
                 ),
@@ -66536,21 +66536,21 @@ impl NocmObstacleGroup {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        for group in &self.obstacle {
+        for group in &self.entries {
             group.emit(out);
         }
-        emit(out, *b"NAM1", self.nam1.as_ref());
+        emit(out, *b"NAM1", self.model.as_ref());
     }
 }
 
-impl Visit for NocmObstacleGroup {}
+impl Visit for NocmObstacles {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct NocmRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// Group `ObstacleGroup`, repeated.
-    pub obstacle_group: Vec<NocmObstacleGroup>,
+    /// Group `Obstacles`, repeated.
+    pub obstacles: Vec<NocmObstacles>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -66567,7 +66567,7 @@ impl NocmRecord {
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: NocmObstacleGroup::MEMBERS,
+            members: NocmObstacles::MEMBERS,
         },
     ];
 
@@ -66584,9 +66584,9 @@ impl NocmRecord {
                     put(&mut self.editor_id, subs, *index, "NOCM.EDID", ctx, extra)
                 }
                 Hit::Group { member: 1, hits } => {
-                    let mut group = NocmObstacleGroup::default();
+                    let mut group = NocmObstacles::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.obstacle_group.push(group);
+                    self.obstacles.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -66595,7 +66595,7 @@ impl NocmRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        for group in &self.obstacle_group {
+        for group in &self.obstacles {
             group.emit(out);
         }
     }
