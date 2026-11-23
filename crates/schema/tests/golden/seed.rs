@@ -127,7 +127,7 @@
 // - IPDS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13186-L13194; reference)
 // - IRES (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13197-L13238; corpus)
 // - KEYM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13240-L13272; corpus)
-// - KSSM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically; corpus)
+// - KSSM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13275-L13294; reference)
 // - KYWD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13297-L13312; corpus)
 // - LAYR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13315-L13341; reference)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
@@ -51762,12 +51762,64 @@ impl KeymRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KssmReverbSoundsReverbClass {
+    Default,
+    ClassA,
+    ClassB,
+    ClassC,
+    ClassD,
+    ClassE,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl KssmReverbSoundsReverbClass {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Default,
+            1 => Self::ClassA,
+            2 => Self::ClassB,
+            3 => Self::ClassC,
+            4 => Self::ClassD,
+            5 => Self::ClassE,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Default => 0,
+            Self::ClassA => 1,
+            Self::ClassB => 2,
+            Self::ClassC => 3,
+            Self::ClassD => 4,
+            Self::ClassE => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for KssmReverbSoundsReverbClass {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for KssmReverbSoundsReverbClass {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct KssmReverbSounds {
     /// `RSMC`, required.
-    pub rsmc: Option<Sub<Bytes>>,
+    pub reverb_class: Option<Sub<KssmReverbSoundsReverbClass>>,
     /// `RSMH`, required.
-    pub rsmh: Option<Sub<Bytes>>,
+    pub sound: Option<Sub<SoundReference>>,
 }
 
 impl KssmReverbSounds {
@@ -51793,7 +51845,7 @@ impl KssmReverbSounds {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.rsmc,
+                    &mut self.reverb_class,
                     subs,
                     *index,
                     "KSSM.ReverbSounds.RSMC",
@@ -51801,7 +51853,7 @@ impl KssmReverbSounds {
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.rsmh,
+                    &mut self.sound,
                     subs,
                     *index,
                     "KSSM.ReverbSounds.RSMH",
@@ -51814,23 +51866,31 @@ impl KssmReverbSounds {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"RSMC", self.rsmc.as_ref());
-        emit(out, *b"RSMH", self.rsmh.as_ref());
+        emit(out, *b"RSMC", self.reverb_class.as_ref());
+        emit(out, *b"RSMH", self.sound.as_ref());
     }
 }
 
-impl Visit for KssmReverbSounds {}
+impl Visit for KssmReverbSounds {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sound, "KSSM.ReverbSounds.RSMH", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sound, "KSSM.ReverbSounds.RSMH", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct KssmRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `WED0`, required.
-    pub wed0: Option<Sub<Bytes>>,
+    /// `WED0`, optional.
+    pub sound: Option<Sub<SoundReference>>,
     /// `KNAM`, repeated.
-    pub knam: Vec<Sub<Bytes>>,
+    pub keywords: Vec<Sub<FormId>>,
     /// `RSMC`, required.
-    pub rsmc: Option<Sub<Bytes>>,
+    pub reverb_count: Option<Sub<u32>>,
     /// Group `ReverbSounds`, repeated.
     pub reverb_sounds: Vec<KssmReverbSounds>,
     /// Subrecords that matched no member or failed to decode, each with its index
@@ -51849,7 +51909,7 @@ impl KssmRecord {
         },
         MemberDesc::Sub {
             sig: *b"WED0",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"KNAM",
@@ -51878,14 +51938,19 @@ impl KssmRecord {
                     put(&mut self.editor_id, subs, *index, "KSSM.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.wed0, subs, *index, "KSSM.WED0", ctx, extra)
+                    put(&mut self.sound, subs, *index, "KSSM.WED0", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => {
-                    push(&mut self.knam, subs, *index, "KSSM.KNAM", ctx, extra)
+                    push(&mut self.keywords, subs, *index, "KSSM.KNAM", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
-                    put(&mut self.rsmc, subs, *index, "KSSM.RSMC", ctx, extra)
-                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.reverb_count,
+                    subs,
+                    *index,
+                    "KSSM.RSMC",
+                    ctx,
+                    extra,
+                ),
                 Hit::Group { member: 4, hits } => {
                     let mut group = KssmReverbSounds::default();
                     group.fill(hits, subs, ctx, extra);
@@ -51898,18 +51963,30 @@ impl KssmRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"WED0", self.wed0.as_ref());
-        for value in &self.knam {
+        emit(out, *b"WED0", self.sound.as_ref());
+        for value in &self.keywords {
             emit(out, *b"KNAM", Some(value));
         }
-        emit(out, *b"RSMC", self.rsmc.as_ref());
+        emit(out, *b"RSMC", self.reverb_count.as_ref());
         for group in &self.reverb_sounds {
             group.emit(out);
         }
     }
 }
 
-impl Visit for KssmRecord {}
+impl Visit for KssmRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sound, "KSSM.WED0", out);
+        visit_form_ids(&self.keywords, "KSSM.KNAM", out);
+        visit_form_ids(&self.reverb_sounds, "KSSM.ReverbSounds", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sound, "KSSM.WED0", out);
+        visit_form_ids_mut(&mut self.keywords, "KSSM.KNAM", out);
+        visit_form_ids_mut(&mut self.reverb_sounds, "KSSM.ReverbSounds", out);
+    }
+}
 
 impl KssmRecord {
     /// Record signature.
