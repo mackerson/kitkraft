@@ -54,7 +54,7 @@
 // - AMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470; corpus)
 // - ANIO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9519-L9528; corpus)
 // - AOPF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9531-L9564; reference)
-// - AOPS (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPS record (21) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AOPS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9567-L9602; reference)
 // - AORU (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9605-L9617; reference)
 // - ARMA (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9619-L9704; reference)
 // - ARMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9707-L9775; corpus)
@@ -21573,12 +21573,101 @@ impl AopfRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AopsData {
+    pub activate_on_sighted_mode: Bool8,
+    pub attach_node_length: u32,
+    pub attach_node: Vec<u8>,
+    pub delay_before_activation: f32,
+    pub delay_before_deactivation: f32,
+    pub sight_light: FormId,
+    pub focal_point_distance: f32,
+    pub focal_point_distance_aiming: f32,
+    pub delay_between_shots: f32,
+    pub laser_art: FormId,
+    pub laser_dot_art: FormId,
+    pub max_laser_pointer_distance: f32,
+    pub sight_controls_firing_direction: Bool8,
+    pub activate_on_non_sighted_mode: Bool8,
+    pub activate_on_scoped_mode: Bool8,
+}
+
+impl Field for AopsData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "AOPS.ANAM.ActivateOnSightedMode", ctx)?;
+        let f1 = u32::read(r, "AOPS.ANAM.AttachNodeLength", ctx)?;
+        let n2 = count(f1, "AOPS.ANAM.AttachNode", r.position())?;
+        let f2 = read_array(r, n2, "AOPS.ANAM.AttachNode", ctx)?;
+        let f3 = f32::read(r, "AOPS.ANAM.DelayBeforeActivation", ctx)?;
+        let f4 = f32::read(r, "AOPS.ANAM.DelayBeforeDeactivation", ctx)?;
+        let f5 = Field::read(r, "AOPS.ANAM.SightLight", ctx)?;
+        let f6 = f32::read(r, "AOPS.ANAM.FocalPointDistance", ctx)?;
+        let f7 = f32::read(r, "AOPS.ANAM.FocalPointDistanceAiming", ctx)?;
+        let f8 = f32::read(r, "AOPS.ANAM.DelayBetweenShots", ctx)?;
+        let f9 = Field::read(r, "AOPS.ANAM.LaserArt", ctx)?;
+        let f10 = Field::read(r, "AOPS.ANAM.LaserDotArt", ctx)?;
+        let f11 = f32::read(r, "AOPS.ANAM.MaxLaserPointerDistance", ctx)?;
+        let f12 = Field::read(r, "AOPS.ANAM.SightControlsFiringDirection", ctx)?;
+        let f13 = Field::read(r, "AOPS.ANAM.ActivateOnNonSightedMode", ctx)?;
+        let f14 = Field::read(r, "AOPS.ANAM.ActivateOnScopedMode", ctx)?;
+        Ok(Self {
+            activate_on_sighted_mode: f0,
+            attach_node_length: f1,
+            attach_node: f2,
+            delay_before_activation: f3,
+            delay_before_deactivation: f4,
+            sight_light: f5,
+            focal_point_distance: f6,
+            focal_point_distance_aiming: f7,
+            delay_between_shots: f8,
+            laser_art: f9,
+            laser_dot_art: f10,
+            max_laser_pointer_distance: f11,
+            sight_controls_firing_direction: f12,
+            activate_on_non_sighted_mode: f13,
+            activate_on_scoped_mode: f14,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.activate_on_sighted_mode.write(out);
+        count_value(self.attach_node.len(), u32::MAX).write(out);
+        write_counted(&self.attach_node, u32::MAX, out);
+        self.delay_before_activation.write(out);
+        self.delay_before_deactivation.write(out);
+        self.sight_light.write(out);
+        self.focal_point_distance.write(out);
+        self.focal_point_distance_aiming.write(out);
+        self.delay_between_shots.write(out);
+        self.laser_art.write(out);
+        self.laser_dot_art.write(out);
+        self.max_laser_pointer_distance.write(out);
+        self.sight_controls_firing_direction.write(out);
+        self.activate_on_non_sighted_mode.write(out);
+        self.activate_on_scoped_mode.write(out);
+    }
+}
+
+impl Visit for AopsData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sight_light, "AOPS.ANAM.SightLight", out);
+        visit_form_ids(&self.laser_art, "AOPS.ANAM.LaserArt", out);
+        visit_form_ids(&self.laser_dot_art, "AOPS.ANAM.LaserDotArt", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sight_light, "AOPS.ANAM.SightLight", out);
+        visit_form_ids_mut(&mut self.laser_art, "AOPS.ANAM.LaserArt", out);
+        visit_form_ids_mut(&mut self.laser_dot_art, "AOPS.ANAM.LaserDotArt", out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AopsRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    /// `ANAM`, optional.
+    pub data: Option<Sub<AopsData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -21595,7 +21684,7 @@ impl AopsRecord {
         },
         MemberDesc::Sub {
             sig: *b"ANAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -21612,7 +21701,7 @@ impl AopsRecord {
                     put(&mut self.editor_id, subs, *index, "AOPS.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.anam, subs, *index, "AOPS.ANAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "AOPS.ANAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -21621,11 +21710,19 @@ impl AopsRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        emit(out, *b"ANAM", self.data.as_ref());
     }
 }
 
-impl Visit for AopsRecord {}
+impl Visit for AopsRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.data, "AOPS.ANAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.data, "AOPS.ANAM", out);
+    }
+}
 
 impl AopsRecord {
     /// Record signature.
