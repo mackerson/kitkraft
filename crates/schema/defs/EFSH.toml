@@ -1,29 +1,29 @@
-# EFSH: EffectShader, inventory definition (M4.BX2, lane B).
+# EFSH: EffectShader, effect shader: the edge effect, the holes alpha-test
+# animation, a sound reference and the effect sequence it plays.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official EFSH record (77 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the EFSH definition of wbDefinitionsSF1.pas at the pinned revision (L11651-L11712),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
-#     and BfcbBlock groups keep their own provenance.
-#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+# Sources (ADR 0005):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11651-L11712 - member order: EDID
+#     (L11652), the base form component block (L11653), the FormID of an EFSQ
+#     named 'Effect Sequence' (L11654), an empty marker named 'Empty' (L11655),
+#     a 97-byte struct named 'Data' (L11656-L11710) and the generic model block,
+#     marked required (L11711; wbGenericModel at L7008-L7029).
+#   corpus: the efsh_types scan in crates/esm/tests/efsh_types.rs checks this
+#     definition against every official EFSH record (77 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared
+#     BfcbBlock and Model groups keep their own provenance.
 #
-# An inventory: EDID, the lstrings, the keyword list and the component block frame are
-# typed; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
-# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
-# Inside component blocks (kept raw by BfcbBlock): ANAM BNAM PTCL.
+# Order: the members follow the pinned xEdit file, which is also the corpus
+# order; the corpus has no other EFSH subrecords.
 signature = "EFSH"
 name = "EffectShader"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11651-L11712"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11651-L11712",
+  "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L11651-L11712): the EFSQ effect sequence is a FormID, Empty is a zero-byte marker, the 97-byte Data struct is typed and the model block is the shared Model group; the base form component group is the shared BfcbBlock, whose PTCL particle data stays opaque"
 
 [[member]]
 sig = "EDID"
@@ -46,61 +46,75 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11653-L11653",
 ]
 confidence = "corpus"
-note = "base form components; the component data stays raw"
+note = "base form components (the shared group); PTCL, in 4 of 77 official EFSH records, stays opaque there"
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "EffectSequence"
+type = "formid"
+targets = ["EFSQ"]
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 73 of 77 official EFSH records (73 occurrences), 4 bytes"
+source = "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: in 73 of 77 official EFSH records (73 occurrences), 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11654-L11654",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 4 bytes"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official EFSH records (77 occurrences), 0 bytes"
+name = "Empty"
+type = "empty"
+card = "optional"
+source = "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: in 77 of 77 official EFSH records (77 occurrences), 0 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11655-L11655",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 0 bytes"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official EFSH records (77 occurrences), 97 bytes"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11656-L11656",
-]
-confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 97 bytes"
-
-[[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+name = "Data"
+type = "struct"
+size = 97
 card = "optional"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 37 of 77 official EFSH records (37 occurrences), 24..47 bytes"
+source = "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: in 77 of 77 official EFSH records (77 occurrences), 97 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11711-L11711",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11656-L11710",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 24..47 bytes"
+field = [
+  { name = "EdgeFallOff", type = "f32" },
+  { name = "EdgeColor", type = "ref:ColorRgb" },
+  { name = "EdgeAlphaFadeInTime", type = "f32" },
+  { name = "EdgeFullAlphaTime", type = "f32" },
+  { name = "EdgeAlphaFadeOutTime", type = "f32" },
+  { name = "EdgePersistentAlphaRatio", type = "f32" },
+  { name = "EdgeAlphaPulseAmplitude", type = "f32" },
+  { name = "EdgeAlphaPulseFrequency", type = "f32" },
+  { name = "EdgeFullAlphaRatio", type = "f32" },
+  { name = "HolesStartTime", type = "f32" },
+  { name = "HolesStopTime", type = "f32" },
+  { name = "HolesStartValue", type = "f32" },
+  { name = "HolesStopValue", type = "f32" },
+  { name = "Sounds", type = "ref:SoundReference" },
+  { name = "BoneDepth", type = "u8" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["MembraneShaderOff", 0x1],
+    ["Unknown3", 0x8],
+    ["EdgeEffectInverse", 0x10],
+    ["AffectSkinOnly", 0x20],
+    ["IgnoreBaseGeometryTextureAlpha", 0x200],
+    ["UseAlphaSorting", 0x800],
+    ["DitherShields", 0x2000],
+    ["UseBloodGeometryWeaponsOnly", 0x1000000],
+  ] },
+]
 
 [[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 77 of 77 official EFSH records (77 occurrences), 4 bytes"
+group_ref = "Model"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: FLLD in 77 of 77 official EFSH records (4 bytes), MODL in 37 of 77 (24..47 bytes); 77 records, 77 identical",
+]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory): 4 bytes"
+note = "the shared model block; the block is required (its light layer flag is in every official record), the model file name only in some"
