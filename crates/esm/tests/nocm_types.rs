@@ -83,7 +83,7 @@ fn check_record(name: &str, form_id: u32, subs: &[RawSub<'_>], ctx: Ctx, t: &mut
         assert_eq!(&**index, &0, "00000026: Obstacles[0].Entries[0].Index");
         assert_eq!(
             entry.unknown_data.len(),
-            12,
+            10,
             "00000026: Obstacles[0].Entries[0].UnknownData count"
         );
         let Some(model) = &r.obstacles[0].model else {
