@@ -1,35 +1,40 @@
-# KSSM: SoundKeywordMapping, inventory definition (KK-101).
+# KSSM: SoundKeywordMapping, a sound keyword mapping: a sound, the keywords that
+# select it, and reverb-class variants.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-101 scan of every official KSSM record (591 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the KSSM definition of wbDefinitionsSF1.pas at the pinned revision (L13275-L13294),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13275-L13294 - member order, EDID (L13276),
+#     the sound reference named 'Sound' (L13277, the subrecord form of the
+#     wbSoundReference helper at L2213-L2227), the repeated keyword FormIDs targeting
+#     KYWD (L13278-L13280), the required u32 count named 'Count' (L13281-L13282), and the
+#     repeated reverb entries: each a u32 class enum (L13284-L13291) and a sound
+#     reference (L13292), the group counted by the leading RSMC (L13283, L13293).
+#   corpus: the kssm_types scan in crates/esm/tests/kssm_types.rs checked this definition
+#     against every official KSSM record (591 in the 14 ESMs): every subrecord placed,
+#     every placed subrecord decoded, every record re-encoded identically, and one
+#     record's values pinned (Starfield.esm 0x00000B54).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md).
-# RSMC serves two roles in the corpus: the leading RSMC counts the reverb sound entries, and
-# every entry opens with its own RSMC (the class). Each entry is one repeated group.
+# RSMC stands for two things at two positions: the leading RSMC is the stored count of
+# the reverb entries (a separate subrecord, so nothing can derive it), and each entry's
+# RSMC is that entry's class. The ordered matcher gives the first RSMC to ReverbCount
+# and the later ones to the group.
+#
+# WED0 and RSMH are the shared SoundReference layout (common/SoundReference.toml); the
+# Wwise event GUIDs inside it stay raw.
 signature = "KSSM"
 name = "SoundKeywordMapping"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13275-L13294"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13275-L13294",
+  "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: every official KSSM record (591) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-101): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L13275-L13294): EDID, the WED0 sound reference, the KNAM keyword FormIDs and the RSMC count typed, the reverb entries a repeated group of a class enum and a sound reference; no longer an inventory"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 17..55 bytes"
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 591 of 591 official KSSM records (591 occurrences), 17..55 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13276-L13276",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -39,70 +44,82 @@ confidence = "corpus"
 
 [[member]]
 sig = "WED0"
-name = "Wed0"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 40 bytes"
+name = "Sound"
+type = "ref:SoundReference"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13277-L13277"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13277-L13277",
+  "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 591 of 591 official KSSM records (591 occurrences), 40 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 40 bytes"
+note = "the sound reference; the pinned file leaves it optional, but every official record has it"
 
 [[member]]
 sig = "KNAM"
-name = "Knam"
-type = "opaque"
+name = "Keywords"
+type = "formid"
+targets = ["KYWD"]
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (1317 occurrences, up to 5 per record), 4 bytes"
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 591 of 591 official KSSM records (1317 occurrences, up to 5 per record), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13278-L13278",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13278-L13280",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+note = "the keywords that select the sound; each a FormID of a KYWD record"
 
 [[member]]
 sig = "RSMC"
-name = "Rsmc"
-type = "opaque"
+name = "ReverbCount"
+type = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 591 of 591 official KSSM records (591 occurrences), 4 bytes"
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 591 of 591 official KSSM records (one per record), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13281-L13281",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13281-L13282",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+note = "the number of reverb entries that follow; stored, not derived - the pinned file marks it required and reuses the RSMC signature for the entry class below"
 
 [[member]]
 group = "ReverbSounds"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), each an RSMC (4 bytes) followed by its RSMH (40 bytes)"
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), each an RSMC (4 bytes) followed by its RSMH (40 bytes)"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13283-L13283",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13283-L13293",
 ]
 confidence = "corpus"
 note = "one reverb sound entry: the RSMC class then the RSMH sound reference; the leading RSMC stores their number (kept as read)"
 
 [[member.member]]
 sig = "RSMC"
-name = "Rsmc"
-type = "opaque"
+name = "ReverbClass"
+type = "enum"
+base = "u32"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), 4 bytes"
+values = [
+  ["Default", 0],
+  ["ClassA", 1],
+  ["ClassB", 2],
+  ["ClassC", 3],
+  ["ClassD", 4],
+  ["ClassE", 5],
+]
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 233 of 591 official KSSM records (one per reverb entry), 4 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13284-L13284",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13284-L13291",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 4 bytes"
+note = "the entry's reverb class; the same RSMC signature as the leading count, at a different position"
 
 [[member.member]]
 sig = "RSMH"
-name = "Rsmh"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 233 of 591 official KSSM records (1080 occurrences, up to 6 per record), 40 bytes"
+name = "Sound"
+type = "ref:SoundReference"
+card = "optional"
+source = "corpus: kssm_types_full (crates/esm/tests/kssm_types.rs), 2026-11-23: in 233 of 591 official KSSM records (1080 occurrences), 40 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13292-L13292",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-101 inventory); observed 40 bytes"
+note = "the entry's sound reference; the pinned file leaves it optional, but every official entry has it (1080 of 1080)"
