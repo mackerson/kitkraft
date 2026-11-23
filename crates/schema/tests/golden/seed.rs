@@ -75881,7 +75881,7 @@ impl Visit for PersEntries {
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PersRecord {
-    /// `DATA`, required.
+    /// `DATA`, optional.
     pub entry_count: Option<Sub<u32>>,
     /// `DAT2`, repeated.
     pub entries: Vec<Sub<PersEntries>>,
@@ -75897,7 +75897,7 @@ impl PersRecord {
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
             sig: *b"DATA",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Sub {
             sig: *b"DAT2",

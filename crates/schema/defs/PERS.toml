@@ -26,13 +26,13 @@ note = "typed from the pinned xEdit file (L15925-L15932): the entry count and th
 sig = "DATA"
 name = "EntryCount"
 type = "u32"
-card = "required"
+card = "optional"
 source = "corpus: pers_types_full (crates/esm/tests/pers_types.rs), 2026-11-22: in 2 of 2 official PERS records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15926-L15926",
 ]
 confidence = "corpus"
-note = "in both official records it equals the number of entries over all DAT2 payloads (78173 = 938076 / 12 in BlueprintShips-SFBGS050.esm)"
+note = "in every official record (2 of 2) although upstream leaves it optional; in both it equals the number of entries over all DAT2 payloads (78173 = 938076 / 12 in BlueprintShips-SFBGS050.esm)"
 
 [[member]]
 sig = "DAT2"
