@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 33: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSH, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 32: AAMD, AMBS, AOPS, BMOD, CLDF, CUR3, CURV, DEBR, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, KSSM, LGTM, LMSW, LSCR, MAAM, MTPT, NAVI, NOCM, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 33:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:39330d5d9df4d47e` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:9c6dd256fece7040` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -513,7 +513,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `DMGT`    | DamageType                     |              3 |      3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `DOBJ`    | DefaultObjectManager           |              2 |      2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `DOOR`    | Door                           |            161 |    150 |     11 |         4 |                   0 |    157 |       0 |        0 |
-| `EFSH`    | EffectShader                   |            130 |    118 |     12 |         0 |                   0 |    130 |       0 |        0 |
+| `EFSH`    | EffectShader                   |            133 |    126 |      7 |         1 |                   0 |    132 |       0 |        0 |
 | `EFSQ`    | EffectSequence                 |              2 |      1 |      1 |         0 |                   0 |      2 |       0 |        0 |
 | `ENCH`    | Enchantment                    |            140 |    132 |      8 |         1 |                   0 |    139 |       0 |        0 |
 | `EQUP`    | EquipType                      |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,990 | 15,053 |    937 |       424 |                   2 | 15,564 |       0 |        0 |
+| **Total** |                                |         15,993 | 15,061 |    932 |       425 |                   2 | 15,566 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

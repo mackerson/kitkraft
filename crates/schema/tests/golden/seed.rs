@@ -91,7 +91,7 @@
 // - DMGT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11550-L11559; reference)
 // - DOBJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11563-L11572; reference)
 // - DOOR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11575-L11621; corpus)
-// - EFSH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically; corpus)
+// - EFSH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11651-L11712; reference)
 // - EFSQ (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official EFSQ record (728) decodes with every subrecord placed and re-encodes identically; corpus)
 // - ENCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11738-L11764; reference)
 // - EQUP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11767-L11778; reference)
@@ -38914,6 +38914,126 @@ impl DoorRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct EfshDataFlags(pub u32);
+
+impl EfshDataFlags {
+    pub const MEMBRANE_SHADER_OFF: u32 = 0x1;
+    pub const UNKNOWN3: u32 = 0x8;
+    pub const EDGE_EFFECT_INVERSE: u32 = 0x10;
+    pub const AFFECT_SKIN_ONLY: u32 = 0x20;
+    pub const IGNORE_BASE_GEOMETRY_TEXTURE_ALPHA: u32 = 0x200;
+    pub const USE_ALPHA_SORTING: u32 = 0x800;
+    pub const DITHER_SHIELDS: u32 = 0x2000;
+    pub const USE_BLOOD_GEOMETRY_WEAPONS_ONLY: u32 = 0x1000000;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for EfshDataFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for EfshDataFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EfshData {
+    pub edge_fall_off: f32,
+    pub edge_color: ColorRgb,
+    pub edge_alpha_fade_in_time: f32,
+    pub edge_full_alpha_time: f32,
+    pub edge_alpha_fade_out_time: f32,
+    pub edge_persistent_alpha_ratio: f32,
+    pub edge_alpha_pulse_amplitude: f32,
+    pub edge_alpha_pulse_frequency: f32,
+    pub edge_full_alpha_ratio: f32,
+    pub holes_start_time: f32,
+    pub holes_stop_time: f32,
+    pub holes_start_value: f32,
+    pub holes_stop_value: f32,
+    pub sounds: SoundReference,
+    pub bone_depth: u8,
+    pub flags: EfshDataFlags,
+}
+
+impl Field for EfshData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "EFSH.DNAM.EdgeFallOff", ctx)?;
+        let f1 = Field::read(r, "EFSH.DNAM.EdgeColor", ctx)?;
+        let f2 = f32::read(r, "EFSH.DNAM.EdgeAlphaFadeInTime", ctx)?;
+        let f3 = f32::read(r, "EFSH.DNAM.EdgeFullAlphaTime", ctx)?;
+        let f4 = f32::read(r, "EFSH.DNAM.EdgeAlphaFadeOutTime", ctx)?;
+        let f5 = f32::read(r, "EFSH.DNAM.EdgePersistentAlphaRatio", ctx)?;
+        let f6 = f32::read(r, "EFSH.DNAM.EdgeAlphaPulseAmplitude", ctx)?;
+        let f7 = f32::read(r, "EFSH.DNAM.EdgeAlphaPulseFrequency", ctx)?;
+        let f8 = f32::read(r, "EFSH.DNAM.EdgeFullAlphaRatio", ctx)?;
+        let f9 = f32::read(r, "EFSH.DNAM.HolesStartTime", ctx)?;
+        let f10 = f32::read(r, "EFSH.DNAM.HolesStopTime", ctx)?;
+        let f11 = f32::read(r, "EFSH.DNAM.HolesStartValue", ctx)?;
+        let f12 = f32::read(r, "EFSH.DNAM.HolesStopValue", ctx)?;
+        let f13 = Field::read(r, "EFSH.DNAM.Sounds", ctx)?;
+        let f14 = u8::read(r, "EFSH.DNAM.BoneDepth", ctx)?;
+        let f15 = Field::read(r, "EFSH.DNAM.Flags", ctx)?;
+        Ok(Self {
+            edge_fall_off: f0,
+            edge_color: f1,
+            edge_alpha_fade_in_time: f2,
+            edge_full_alpha_time: f3,
+            edge_alpha_fade_out_time: f4,
+            edge_persistent_alpha_ratio: f5,
+            edge_alpha_pulse_amplitude: f6,
+            edge_alpha_pulse_frequency: f7,
+            edge_full_alpha_ratio: f8,
+            holes_start_time: f9,
+            holes_stop_time: f10,
+            holes_start_value: f11,
+            holes_stop_value: f12,
+            sounds: f13,
+            bone_depth: f14,
+            flags: f15,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.edge_fall_off.write(out);
+        self.edge_color.write(out);
+        self.edge_alpha_fade_in_time.write(out);
+        self.edge_full_alpha_time.write(out);
+        self.edge_alpha_fade_out_time.write(out);
+        self.edge_persistent_alpha_ratio.write(out);
+        self.edge_alpha_pulse_amplitude.write(out);
+        self.edge_alpha_pulse_frequency.write(out);
+        self.edge_full_alpha_ratio.write(out);
+        self.holes_start_time.write(out);
+        self.holes_stop_time.write(out);
+        self.holes_start_value.write(out);
+        self.holes_stop_value.write(out);
+        self.sounds.write(out);
+        self.bone_depth.write(out);
+        self.flags.write(out);
+    }
+}
+
+impl Visit for EfshData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.sounds, "EFSH.DNAM.Sounds", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.sounds, "EFSH.DNAM.Sounds", out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct EfshRecord {
     /// `EDID`, required.
@@ -38921,15 +39041,13 @@ pub struct EfshRecord {
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `ENAM`, optional.
-    pub enam: Option<Sub<Bytes>>,
-    /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
-    /// `DNAM`, required.
-    pub dnam: Option<Sub<Bytes>>,
-    /// `MODL`, optional.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    pub effect_sequence: Option<Sub<FormId>>,
+    /// `DATA`, optional.
+    pub empty: Option<Sub<Empty>>,
+    /// `DNAM`, optional.
+    pub data: Option<Sub<EfshData>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -38954,19 +39072,15 @@ impl EfshRecord {
         },
         MemberDesc::Sub {
             sig: *b"DATA",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"DNAM",
-            card: Card::Required,
-        },
-        MemberDesc::Sub {
-            sig: *b"MODL",
             card: Card::Optional,
         },
         MemberDesc::Sub {
-            sig: *b"FLLD",
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
     ];
 
@@ -38987,20 +39101,24 @@ impl EfshRecord {
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.enam, subs, *index, "EFSH.ENAM", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.effect_sequence,
+                    subs,
+                    *index,
+                    "EFSH.ENAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
-                    put(&mut self.data, subs, *index, "EFSH.DATA", ctx, extra)
+                    put(&mut self.empty, subs, *index, "EFSH.DATA", ctx, extra)
                 }
                 Hit::Sub { member: 4, index } => {
-                    put(&mut self.dnam, subs, *index, "EFSH.DNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "EFSH.DNAM", ctx, extra)
                 }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.modl, subs, *index, "EFSH.MODL", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    put(&mut self.flld, subs, *index, "EFSH.FLLD", ctx, extra)
+                Hit::Group { member: 5, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -39012,21 +39130,28 @@ impl EfshRecord {
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"ENAM", self.enam.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"DNAM", self.dnam.as_ref());
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
+        emit(out, *b"ENAM", self.effect_sequence.as_ref());
+        emit(out, *b"DATA", self.empty.as_ref());
+        emit(out, *b"DNAM", self.data.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
     }
 }
 
 impl Visit for EfshRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "EFSH.BfcbBlock", out);
+        visit_form_ids(&self.effect_sequence, "EFSH.ENAM", out);
+        visit_form_ids(&self.data, "EFSH.DNAM", out);
+        visit_form_ids(&self.model, "EFSH.Model", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "EFSH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.effect_sequence, "EFSH.ENAM", out);
+        visit_form_ids_mut(&mut self.data, "EFSH.DNAM", out);
+        visit_form_ids_mut(&mut self.model, "EFSH.Model", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
