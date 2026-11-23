@@ -14,7 +14,7 @@
 //! `Starfield.esm` FormID `0x0001914F` (EditorID `OreMineFXS`, as stored in that file) is
 //! checked value for value; the test prints `efsh value check: ok`.
 //!
-//! - `efsh_types_full` (ignored) runs all 14 files, every record:
+//! - `efsh_types_full` (ignored) runs all 14 files, every record; run it in release:
 //!   `cargo test -p kitkraft-esm --release --test efsh_types -- --ignored --nocapture`
 
 // Test-only code: a panic fails the test.

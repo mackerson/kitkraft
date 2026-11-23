@@ -23,7 +23,7 @@ evidence = [
   "corpus: efsh_types_full (crates/esm/tests/efsh_types.rs), 2026-11-23: every official EFSH record (77) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "reference"
-note = "typed from the pinned xEdit file (L11651-L11712): the EFSQ effect sequence is a FormID, Empty is a zero-byte marker, the 97-byte Data struct is typed and the model block is the shared Model group; the base form component block stays raw"
+note = "typed from the pinned xEdit file (L11651-L11712): the EFSQ effect sequence is a FormID, Empty is a zero-byte marker, the 97-byte Data struct is typed and the model block is the shared Model group; the base form component group is the shared BfcbBlock, whose PTCL particle data stays opaque"
 
 [[member]]
 sig = "EDID"
@@ -46,7 +46,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11653-L11653",
 ]
 confidence = "corpus"
-note = "base form components; the component data stays raw"
+note = "base form components (the shared group); PTCL, in 4 of 77 official EFSH records, stays opaque there"
 
 [[member]]
 sig = "ENAM"
