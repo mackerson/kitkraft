@@ -1,27 +1,37 @@
-# AOPS: AimOpticalSightMarker, inventory definition (KK-108).
+# AOPS: AimOpticalSightMarker, an optical sight marker: the attach node, laser and
+# timing of a weapon sight.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-108 scan of every official AOPS record (21 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AOPS definition of wbDefinitionsSF1.pas at the pinned revision (L9567-L9602),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9567-L9602 - member order, EDID (L9584) and
+#     the ANAM struct named 'Data' (L9586-L9601): the one-byte boolean 'Activate Sight
+#     on Sighted Mode' (L9587), the length-prefixed string of the sight attach node
+#     (L9588), the floats 'Delay Before Sight Activation' and 'Delay Before Sight
+#     Deactivation' (L9589-L9590), the FormID of a LIGH (L9591), the floats 'Focal
+#     Point Distance', 'Focal Point Distance During Aiming' and 'Delay Between Shots'
+#     (L9592-L9594), the two FormIDs of ARTO objects for the laser and the laser dot
+#     (L9595-L9596), the float 'Max Laser Pointer Distance' (L9597) and the three
+#     one-byte booleans for the sight controls firing direction and the activate-on
+#     non-sighted and scoped modes (L9598-L9600). Upstream also lists the base form
+#     component block (L9585); no official record has it, so it is left out (a plugin
+#     that has one keeps it raw).
+#   corpus: the aops_types scan in crates/esm/tests/aops_types.rs checks this
+#     definition against every official AOPS record (21 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
+#   uesp-skyrim: the EDID string convention (M2.B2).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin that
-# has one keeps it raw.
+# The sight attach node is the one length-prefixed string of the record: this format
+# has no such type, so it is a u32 length field plus a byte array counted by it, as
+# PROJ writes its particle define strings (the count includes the terminating NUL;
+# the payload is 44 fixed bytes plus the node bytes).
 signature = "AOPS"
 name = "AimOpticalSightMarker"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AOPS record (21) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9567-L9602"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9567-L9602",
+  "corpus: aops_types_full (crates/esm/tests/aops_types.rs), 2026-11-23: every official AOPS record (21) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-108): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9567-L9602): EDID typed, the ANAM struct 'Data' typed as one-byte booleans, a u32 length-prefixed attach node string, floats and FormIDs; no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
@@ -38,12 +48,80 @@ confidence = "corpus"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 21 of 21 official AOPS records (21 occurrences), 44..59 bytes"
+name = "Data"
+type = "struct"
+card = "optional"
+source = "corpus: aops_types_full (crates/esm/tests/aops_types.rs), 2026-11-23: in 21 of 21 official AOPS records (21 occurrences), 44..59 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9586-L9586",
+  "corpus: aops_types_full (crates/esm/tests/aops_types.rs), 2026-11-23: in 21 of 21 official AOPS records (21 occurrences); the pinned file does not require it",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9586-L9601",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-108 inventory); observed 44..59 bytes"
+note = "the sight attach node is a length-prefixed string written as a u32 length field plus a byte array counted by it (this format has no length-prefixed string; the count includes the terminating NUL), as PROJ writes its particle define strings; the pinned file does not require it"
+
+[[member.field]]
+name = "ActivateOnSightedMode"
+type = "ref:Bool8"
+
+[[member.field]]
+name = "AttachNodeLength"
+type = "u32"
+
+[[member.field]]
+name = "AttachNode"
+type = "array"
+element = "u8"
+count_from = "AttachNodeLength"
+note = "the string's bytes as stored, NUL included"
+
+[[member.field]]
+name = "DelayBeforeActivation"
+type = "f32"
+
+[[member.field]]
+name = "DelayBeforeDeactivation"
+type = "f32"
+
+[[member.field]]
+name = "SightLight"
+type = "formid"
+targets = ["LIGH"]
+
+[[member.field]]
+name = "FocalPointDistance"
+type = "f32"
+
+[[member.field]]
+name = "FocalPointDistanceAiming"
+type = "f32"
+
+[[member.field]]
+name = "DelayBetweenShots"
+type = "f32"
+
+[[member.field]]
+name = "LaserArt"
+type = "formid"
+targets = ["ARTO"]
+
+[[member.field]]
+name = "LaserDotArt"
+type = "formid"
+targets = ["ARTO"]
+
+[[member.field]]
+name = "MaxLaserPointerDistance"
+type = "f32"
+
+[[member.field]]
+name = "SightControlsFiringDirection"
+type = "ref:Bool8"
+
+[[member.field]]
+name = "ActivateOnNonSightedMode"
+type = "ref:Bool8"
+
+[[member.field]]
+name = "ActivateOnScopedMode"
+type = "ref:Bool8"
