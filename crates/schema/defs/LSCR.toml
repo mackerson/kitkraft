@@ -3,7 +3,7 @@
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L13910-L13932 - the member order, EDID (L13915),
 #     the required DESC (L13918), the conditions (L13919) and the load screen image
-#     string (L13920). Upstream also lists the version data (L13916), the base form
+#     string (L13920). Upstream also lists the script data (L13916), the base form
 #     component block (L13917) and, after the image, a NIF FormID (L13921), a Transform
 #     FormID (L13922), a two-i16 rotation range (L13923-L13926), a two-float zoom range
 #     (L13927-L13930) and a camera path string (L13931); no official LSCR record has
@@ -23,7 +23,7 @@ evidence = [
   "corpus: lscr_types_full (crates/esm/tests/lscr_types.rs), 2026-11-23: every official LSCR record (393) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "corpus"
-note = "typed from the pinned xEdit file (L13910-L13932): EDID, the required DESC and the load screen image typed, the conditions the shared Condition group; the version data, the base form component block and the five members after the image (NNAM, TNAM, ONAM, ZNAM, MOD2) are in no official record, so they are left out"
+note = "typed from the pinned xEdit file (L13910-L13932): EDID, the required DESC and the load screen image typed, the conditions the shared Condition group; the script data, the base form component block and the five members after the image (NNAM, TNAM, ONAM, ZNAM, MOD2) are in no official record, so they are left out"
 
 [[member]]
 sig = "EDID"
