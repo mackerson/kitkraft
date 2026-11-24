@@ -56,8 +56,9 @@ Each principle names the helper or test that checks it.
    refusal's full text is in view and starts below its button within a third of the
    window's height (`findings_7_and_9_...`); the pointer phrase is absent (`assert_absent`).
 3. **One control per action, no duplicates.** One button runs one action, and one action
-   has one button. Check: `one(label)` finds exactly one node; the audit lists every
-   label that appears twice on a tab.
+   has one button. Check: `one(label)` finds exactly one node;
+   `principle_3_no_tab_has_two_buttons_with_one_label` finds no tab with a label that
+   appears twice (the audit `audit_every_tab` lists every such label).
 4. **Forms are grouped by task**, in the order the work goes, each group outlined with its
    heading and holding only its own fields. Check: the groups' headings come in the
    task's order, and each control's top lies between its group's heading and the next

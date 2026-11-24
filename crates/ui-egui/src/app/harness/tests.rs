@@ -550,6 +550,16 @@ const AUDIT_SAFE: &[&str] = &[
     "Schema",
 ];
 
+/// The button labels of `all` with their counts (the duplicate count
+/// [`audit_every_tab`] prints, shared with the principle 3 test).
+fn label_counts(all: &[(String, egui::Rect, bool)]) -> std::collections::BTreeMap<String, usize> {
+    let mut seen = std::collections::BTreeMap::<String, usize>::new();
+    for (l, _, _) in all {
+        *seen.entry(l.clone()).or_default() += 1;
+    }
+    seen
+}
+
 /// The tab's buttons below the menu and tab bars: (label, rect, enabled).
 fn buttons(h: &Bench) -> Vec<(String, egui::Rect, bool)> {
     h.query_all_by(|n| {
@@ -567,6 +577,53 @@ fn buttons(h: &Bench) -> Vec<(String, egui::Rect, bool)> {
     .collect()
 }
 
+/// Principle 3 (UX spec): one control per action, no duplicates — no tab has two
+/// buttons with one label. The 2026-11-01 audit's one was A5's "copy" pair in every
+/// result block, distinct since KK-247; a new panel must not bring a duplicate back.
+#[test]
+fn principle_3_no_tab_has_two_buttons_with_one_label() {
+    let Some(mut h) = workbench() else { return };
+    let mut twice: Vec<(String, String, usize)> = Vec::new(); // (tab, label, count)
+    for label in tab_labels() {
+        let tab = TABS
+            .iter()
+            .find(|(_, l)| *l == label)
+            .map(|(t, _)| *t)
+            .unwrap();
+        open_tab(&mut h, tab);
+        let seen = label_counts(&buttons(&h));
+        for (l, n) in seen.iter().filter(|(_, c)| **c > 1) {
+            twice.push((label.to_string(), l.clone(), *n));
+        }
+    }
+    // A5's case: the Schema tab with its result block in view (the engine answers
+    // `schema` with nothing loaded). Collected straight after the click: scrolling
+    // first could move buttons above `buttons`' cut-off.
+    open_tab(&mut h, Tab::Schema);
+    click(&mut h, "Show");
+    let schema = buttons(&h);
+    let seen = label_counts(&schema);
+    for (l, n) in seen.iter().filter(|(_, c)| **c > 1) {
+        twice.push(("Schema (after Show)".to_string(), l.clone(), *n));
+    }
+    assert!(
+        twice.is_empty(),
+        "a tab has two buttons with one label (principle 3): {twice:?}",
+    );
+    // The check above means something: the result block drew its copy buttons.
+    assert!(
+        schema.iter().any(|(l, _, _)| l.starts_with("copy")),
+        "no copy button in the Schema tab's result block; buttons: {:?}",
+        schema
+            .iter()
+            .map(|(l, _, _)| l.as_str())
+            .collect::<Vec<_>>()
+    );
+    one(&h, "copy kit line").scroll_to_me();
+    h.run_steps(3);
+    assert_in_view(&h, "copy kit line");
+}
+
 /// Prints each tab's inventory and what each safe click showed, for the spec's findings
 /// (`cargo test -p kitkraft-ui-egui --lib audit -- --ignored --nocapture`).
 #[test]
@@ -581,10 +638,7 @@ fn audit_every_tab() {
             .unwrap();
         open_tab(&mut h, tab);
         let all = buttons(&h);
-        let mut seen = std::collections::BTreeMap::<String, usize>::new();
-        for (l, _, _) in &all {
-            *seen.entry(l.clone()).or_default() += 1;
-        }
+        let seen = label_counts(&all);
         let dups: Vec<_> = seen.iter().filter(|(_, n)| **n > 1).collect();
         let combos = h
             .query_all_by(|n| n.role() == egui::accesskit::Role::ComboBox)
