@@ -6,7 +6,7 @@
 #   xedit: the AACT definition of wbDefinitionsSF1.pas at the pinned revision
 #     (L9086-L9114): member order, EDID (L9104), the byte RGBA colour (L9107), the
 #     string named 'Notes' (L9108), the 32-bit integer named 'Type' (L9109) and the
-#     unknown four bytes (L9110). Upstream also lists the version data (L9105), the
+#     unknown four bytes (L9110). Upstream also lists the script data (L9105), the
 #     base form component block (L9106), FULL (L9111), the AORU form (L9112) and the
 #     string named 'Flash Linkage Name' (L9113); no official AACT record has any of
 #     them, so they are left out (a plugin that has one keeps it raw).
@@ -28,7 +28,7 @@ evidence = [
   "corpus: aact_types_full (crates/esm/tests/aact_types.rs), 2026-11-21: every official AACT record (222) decodes with every subrecord placed and re-encodes identically",
 ]
 confidence = "reference"
-note = "typed from the pinned xEdit file (L9086-L9114): EDID, the byte RGBA colour, the note and the keyword type typed, the unknown four bytes kept raw (no field layout in the pinned files); no official record has the version data, the base form component block, FULL, the AORU form or the flash linkage name, so they are left out"
+note = "typed from the pinned xEdit file (L9086-L9114): EDID, the byte RGBA colour, the note and the keyword type typed, the unknown four bytes kept raw (no field layout in the pinned files); no official record has the script data, the base form component block, FULL, the AORU form or the flash linkage name, so they are left out"
 
 [[member]]
 sig = "EDID"
