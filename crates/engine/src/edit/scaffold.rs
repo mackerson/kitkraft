@@ -557,8 +557,8 @@ fn parent_path(path: &str) -> &str {
 
 /// Whether the slot at `at` of `order` is a condition count: a `CITC` whose next slot is the
 /// `CTDA` of a `Condition` group that follows it in the same member list (KK-271,
-/// `docs/design/conditions.md`, "CITC"). STBH's `CITC`, followed by a `CTDA` member of its
-/// own (no condition group), is not one.
+/// `docs/design/conditions.md`, "CITC"). A `CITC` followed by a `CTDA` member of its own
+/// (no condition group) is not one.
 fn counts_conditions(order: &[Slot], at: usize) -> bool {
     let (Some(citc), Some(next)) = (order.get(at), order.get(at.saturating_add(1))) else {
         return false;
