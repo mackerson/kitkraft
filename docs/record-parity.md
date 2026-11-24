@@ -13,7 +13,7 @@ subrecord occurrences the definitions type, keep **Opaque**, or do not name
 lstring-only definitions, the inventory definitions and the types without a
 definition.
 
-Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 28: AAMD, AMBS, BMOD, CLDF, CUR3, CURV, DEBR, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, LGTM, LMSW, MAAM, MTPT, NAVI, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, STBH, TODD, VOLI.
+Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 27: AAMD, AMBS, BMOD, CLDF, CUR3, CURV, DEBR, EFSQ, FFKW, FOGV, FORC, GWED, IMAD, LGTM, LMSW, MAAM, MTPT, NAVI, OSWP, PSDC, PTST, SCCO, SDLT, SFTR, SPGD, TODD, VOLI.
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque | Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | ------: |
@@ -35,7 +35,7 @@ Inventory definitions (M4.BX2 and the KK-1xx tickets; in *container/other*), 28:
   per file). `kit coverage --matrix` (MX) has no row for `TES4`; the gap matrix
   headline (`docs/foothold/gap-matrix.md`) says so and counts 1 record type(s) and
   14 records fewer.
-- Schema: 186 record definitions, defs hash `fnv1a64:9b55cc7ff87595dc` (the hash named in
+- Schema: 186 record definitions, defs hash `fnv1a64:7952db002cefae56` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -626,7 +626,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `SPGD`    | ShaderParticleGeometry         |              3 |      1 |      2 |         0 |                   0 |      3 |       0 |        0 |
 | `STAG`    | AnimationSoundTagSet           |              4 |      4 |      0 |         0 |                   0 |      4 |       0 |        0 |
 | `STAT`    | Static                         |            145 |    136 |      9 |         2 |                   0 |    143 |       0 |        0 |
-| `STBH`    | SnapTemplateBehavior           |            131 |    118 |     13 |         0 |                   0 |    131 |       0 |        0 |
+| `STBH`    | SnapTemplateBehavior           |            133 |    126 |      7 |         0 |                   0 |    133 |       0 |        0 |
 | `STDT`    | Star                           |            136 |    127 |      9 |         4 |                   0 |    132 |       0 |        0 |
 | `STMP`    | SnapTemplateForm               |            138 |    131 |      7 |         3 |                   0 |    135 |       0 |        0 |
 | `STND`    | SnapTemplateNode               |            149 |    141 |      8 |         8 |                   0 |    141 |       0 |        0 |
@@ -649,7 +649,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WTHS`    | WeatherSettings                |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `WWED`    | WwiseEventData                 |              4 |      2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                           |            126 |    119 |      7 |         0 |                   0 |    126 |       0 |        0 |
-| **Total** |                                |         15,995 | 15,073 |    922 |       429 |                   2 | 15,564 |       0 |        0 |
+| **Total** |                                |         15,997 | 15,081 |    916 |       429 |                   2 | 15,566 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

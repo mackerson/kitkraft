@@ -204,7 +204,7 @@
 // - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - STAG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17820-L17845; reference)
 // - STAT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894; corpus)
-// - STBH (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically; corpus)
+// - STBH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17896-L17913; reference)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
 // - STMP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17941-L18006; reference)
 // - STND (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18008-L18062; corpus)
@@ -100410,28 +100410,195 @@ impl StatRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StbhBehaviorsOperation {
+    Replace,
+    Remove,
+    Add,
+    Foundation,
+    DisableNode,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl StbhBehaviorsOperation {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Replace,
+            1 => Self::Remove,
+            2 => Self::Add,
+            3 => Self::Foundation,
+            4 => Self::DisableNode,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Replace => 0,
+            Self::Remove => 1,
+            Self::Add => 2,
+            Self::Foundation => 3,
+            Self::DisableNode => 4,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for StbhBehaviorsOperation {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for StbhBehaviorsOperation {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StbhBehaviors {
+    /// `ENAM`, required.
+    pub operation: Option<Sub<StbhBehaviorsOperation>>,
+    /// `PNAM`, required.
+    pub payload: Option<Sub<FormId>>,
+    /// `CITC`, required.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `UNAM`, required.
+    pub snap_node: Option<Sub<FormId>>,
+    /// `VNAM`, required.
+    pub group_keyword: Option<Sub<FormId>>,
+}
+
+impl StbhBehaviors {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"UNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.operation,
+                    subs,
+                    *index,
+                    "STBH.Behaviors.ENAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.payload,
+                    subs,
+                    *index,
+                    "STBH.Behaviors.PNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "STBH.Behaviors.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 3, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.snap_node,
+                    subs,
+                    *index,
+                    "STBH.Behaviors.UNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.group_keyword,
+                    subs,
+                    *index,
+                    "STBH.Behaviors.VNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"ENAM", self.operation.as_ref());
+        emit(out, *b"PNAM", self.payload.as_ref());
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"UNAM", self.snap_node.as_ref());
+        emit(out, *b"VNAM", self.group_keyword.as_ref());
+    }
+}
+
+impl Visit for StbhBehaviors {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.payload, "STBH.Behaviors.PNAM", out);
+        visit_form_ids(&self.conditions, "STBH.Behaviors.Conditions", out);
+        visit_form_ids(&self.snap_node, "STBH.Behaviors.UNAM", out);
+        visit_form_ids(&self.group_keyword, "STBH.Behaviors.VNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.payload, "STBH.Behaviors.PNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "STBH.Behaviors.Conditions", out);
+        visit_form_ids_mut(&mut self.snap_node, "STBH.Behaviors.UNAM", out);
+        visit_form_ids_mut(&mut self.group_keyword, "STBH.Behaviors.VNAM", out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct StbhRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// Group `BfcbBlock`, optional.
     pub bfcb_block: Option<BfcbBlock>,
-    /// `ENAM`, repeated.
-    pub enam: Vec<Sub<Bytes>>,
-    /// `PNAM`, repeated.
-    pub pnam: Vec<Sub<Bytes>>,
-    /// `CITC`, repeated.
-    pub citc: Vec<Sub<Bytes>>,
-    /// `CTDA`, repeated.
-    pub ctda: Vec<Sub<Bytes>>,
-    /// `UNAM`, repeated.
-    pub unam: Vec<Sub<Bytes>>,
-    /// `VNAM`, repeated.
-    pub vnam: Vec<Sub<Bytes>>,
-    /// The member of each typed value in on-disk order (an unordered record):
-    /// `encode` writes the values back in this order; values added since decoding
-    /// follow, member by member.
-    pub disk_order: Vec<u16>,
+    /// Group `Behaviors`, repeated.
+    pub behaviors: Vec<StbhBehaviors>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -100450,29 +100617,9 @@ impl StbhRecord {
             card: Card::Optional,
             members: BfcbBlock::MEMBERS,
         },
-        MemberDesc::Sub {
-            sig: *b"ENAM",
+        MemberDesc::Group {
             card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"PNAM",
-            card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"CITC",
-            card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"CTDA",
-            card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"UNAM",
-            card: Card::Repeated,
-        },
-        MemberDesc::Sub {
-            sig: *b"VNAM",
-            card: Card::Repeated,
+            members: StbhBehaviors::MEMBERS,
         },
     ];
 
@@ -100484,8 +100631,6 @@ impl StbhRecord {
         extra: &mut Vec<(usize, OwnedSub)>,
     ) {
         for hit in hits {
-            let member = hit.member();
-            let before = self.occurrences(member);
             match hit {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "STBH.EDID", ctx, extra)
@@ -100495,67 +100640,23 @@ impl StbhRecord {
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block = Some(group);
                 }
-                Hit::Sub { member: 2, index } => {
-                    push(&mut self.enam, subs, *index, "STBH.ENAM", ctx, extra)
-                }
-                Hit::Sub { member: 3, index } => {
-                    push(&mut self.pnam, subs, *index, "STBH.PNAM", ctx, extra)
-                }
-                Hit::Sub { member: 4, index } => {
-                    push(&mut self.citc, subs, *index, "STBH.CITC", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    push(&mut self.ctda, subs, *index, "STBH.CTDA", ctx, extra)
-                }
-                Hit::Sub { member: 6, index } => {
-                    push(&mut self.unam, subs, *index, "STBH.UNAM", ctx, extra)
-                }
-                Hit::Sub { member: 7, index } => {
-                    push(&mut self.vnam, subs, *index, "STBH.VNAM", ctx, extra)
+                Hit::Group { member: 2, hits } => {
+                    let mut group = StbhBehaviors::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.behaviors.push(group);
                 }
                 _ => unmatched(hit, subs, extra),
-            }
-            if self.occurrences(member) > before {
-                note_order(&mut self.disk_order, member);
             }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);
-    }
-}
-
-impl Unordered for StbhRecord {
-    fn occurrences(&self, member: usize) -> usize {
-        match member {
-            0 => self.editor_id.count_values(),
-            1 => self.bfcb_block.count_values(),
-            2 => self.enam.count_values(),
-            3 => self.pnam.count_values(),
-            4 => self.citc.count_values(),
-            5 => self.ctda.count_values(),
-            6 => self.unam.count_values(),
-            7 => self.vnam.count_values(),
-            _ => 0,
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        if let Some(group) = &self.bfcb_block {
+            group.emit(out);
         }
-    }
-
-    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
-        match member {
-            0 => emit(out, *b"EDID", self.editor_id.nth_value(n)),
-            1 => {
-                if let Some(group) = self.bfcb_block.nth_value(n) {
-                    group.emit(out);
-                }
-            }
-            2 => emit(out, *b"ENAM", self.enam.nth_value(n)),
-            3 => emit(out, *b"PNAM", self.pnam.nth_value(n)),
-            4 => emit(out, *b"CITC", self.citc.nth_value(n)),
-            5 => emit(out, *b"CTDA", self.ctda.nth_value(n)),
-            6 => emit(out, *b"UNAM", self.unam.nth_value(n)),
-            7 => emit(out, *b"VNAM", self.vnam.nth_value(n)),
-            _ => {}
+        for group in &self.behaviors {
+            group.emit(out);
         }
     }
 }
@@ -100563,10 +100664,12 @@ impl Unordered for StbhRecord {
 impl Visit for StbhRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.bfcb_block, "STBH.BfcbBlock", out);
+        visit_form_ids(&self.behaviors, "STBH.Behaviors", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.bfcb_block, "STBH.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.behaviors, "STBH.Behaviors", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -100585,7 +100688,7 @@ impl StbhRecord {
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
     pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
-        let (hits, unmatched_indexes) = match_unordered(subs, Self::MEMBERS);
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
         let mut record = Self::default();
         let mut extra = Vec::new();
         for index in unmatched_indexes {
@@ -100598,7 +100701,7 @@ impl StbhRecord {
         record
     }
 
-    /// Encodes the record body: typed members in on-disk order, `extra` re-inserted at the
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
     /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
@@ -115211,7 +115314,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
 
 /// Record types whose members may occur in any order (`unordered = true`).
 pub const UNORDERED: &[Sig] = &[
-    *b"ACHR", *b"CELL", *b"LGDI", *b"PGRE", *b"PHZD", *b"REFR", *b"REGN", *b"STBH",
+    *b"ACHR", *b"CELL", *b"LGDI", *b"PGRE", *b"PHZD", *b"REFR", *b"REGN",
 ];
 
 /// Matches a body of record type `signature` against `members` (its [`RECORDS`] entry) as
