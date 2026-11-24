@@ -1,32 +1,29 @@
-# STBH: SnapTemplateBehavior, inventory definition (KK-105).
+# STBH: SnapTemplateBehavior, snap template behavior: a ship-module snap rule, each
+# an operation on a payload under conditions.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-105 scan of every official STBH record (103 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the STBH definition of wbDefinitionsSF1.pas at the pinned revision (L17896-L17913),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared BfcbBlock
-#     group keeps its own provenance.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17896-L17913 - the member order: EDID
+#     (L17897), the base form component block (L17898) and the repeated 'Behaviors'
+#     run (L17899-L17912): the u32 enum operation (L17900-L17906), the payload FormID
+#     (L17907), the condition count (L17908, helper at L2251), the conditions (L17909,
+#     helper at L4750-L4840), the snap template node FormID (L17910) and the group
+#     keyword FormID (L17911).
+#   corpus: the stbh_types scan in crates/esm/tests/stbh_types.rs checks this definition
+#     against every official STBH record (103 in the 14 ESMs): every subrecord is
+#     placed, every placed subrecord decodes, and the re-encoding reproduces every
+#     record.
 #
-# An inventory: EDID is typed and the base form components stay raw in the shared BfcbBlock
-# group; every other payload is opaque (named after its signature, a placeholder) until a
-# family lane transcribes the record from the pinned xEdit file (docs/gaps.md).
-# Inside component blocks (kept raw by BfcbBlock): FLTR INTV.
-# Order: official STBH records repeat the behavior subrecords (ENAM, PNAM, CITC, the CTDA
-# conditions, UNAM and VNAM) and show every pair of them in both orders, so the record
-# matches unordered; members are listed in the order the records use, which is also the
-# order xEdit lists them.
+# The six behavior subrecords are one group: a record repeats a run of ENAM, PNAM, CITC,
+# the CTDA conditions, UNAM and VNAM, and a flat list of repeated members would place
+# every ENAM before every PNAM.
 signature = "STBH"
 name = "SnapTemplateBehavior"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official STBH record (103) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17896-L17913"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17896-L17913",
+  "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: every official STBH record (103) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-105): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
-unordered = true
+confidence = "reference"
+note = "typed from the pinned xEdit file (L17896-L17913): EDID, the base form component frame and each behavior's operation, payload, condition count, conditions, snap node and group keyword typed; the component data stays raw in the shared BfcbBlock group"
 
 [[member]]
 sig = "EDID"
@@ -52,73 +49,96 @@ confidence = "corpus"
 note = "base form components; the component data stays raw"
 
 [[member]]
-sig = "ENAM"
-name = "Enam"
-type = "opaque"
+group = "Behaviors"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17899-L17912"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17900-L17900",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, each behavior run decodes and re-encodes identically",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+note = "a repeated run of a behavior: operation, payload, condition count, conditions, snap node and group keyword"
 
-[[member]]
+[[member.member]]
+sig = "ENAM"
+name = "Operation"
+type = "enum"
+base = "u32"
+values = [
+  ["Replace", 0],
+  ["Remove", 1],
+  ["Add", 2],
+  ["Foundation", 3],
+  ["DisableNode", 4],
+]
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17900-L17906",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes",
+]
+confidence = "corpus"
+note = "what the behavior does to the payload"
+
+[[member.member]]
 sig = "PNAM"
-name = "Pnam"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes"
+name = "Payload"
+type = "formid"
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17907-L17907",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+note = "any base object or a form list (FLST); the list is too long to transcribe"
 
-[[member]]
+[[member.member]]
 sig = "CITC"
-name = "Citc"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes"
+name = "ConditionCount"
+type = "u32"
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17908-L17908",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+note = "number of Conditions that follow; stored, not derived"
 
-[[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 50 of 103 official STBH records (814 occurrences, up to 60 per record), 32 bytes"
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 50 of 103 official STBH records, 32 bytes per condition"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17909-L17909",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 50 of 103 official STBH records (814 occurrences, up to 60 per record), 32 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
 
-[[member]]
+[[member.member]]
 sig = "UNAM"
-name = "Unam"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes"
+name = "SnapNode"
+type = "formid"
+targets = ["STND"]
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17910-L17910",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+note = "the snap template node this behavior applies to; null for none"
 
-[[member]]
+[[member.member]]
 sig = "VNAM"
-name = "Vnam"
-type = "opaque"
-card = "repeated"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes"
+name = "GroupKeyword"
+type = "formid"
+targets = ["KYWD"]
+source = "corpus: stbh_types_full (crates/esm/tests/stbh_types.rs), 2026-11-24: in 103 of 103 official STBH records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17911-L17911",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 103 of 103 official STBH records (451 occurrences, up to 20 per record), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-105 inventory)"
+note = "the group keyword; null for none"
