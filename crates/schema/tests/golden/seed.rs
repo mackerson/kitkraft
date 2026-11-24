@@ -189,7 +189,7 @@
 // - SCCO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically; corpus)
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
 // - SCOL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431; reference)
-// - SDLT (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SDLT record (2) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SDLT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17454-L17465; reference)
 // - SECH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17467-L17523; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
 // - SFPC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17593-L17605; reference)
@@ -95322,9 +95322,9 @@ impl ScolRecord {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SdltSecondaryDamages {
     /// `DAMA`, required.
-    pub dama: Option<Sub<Bytes>>,
+    pub damage_type: Option<Sub<FormId>>,
     /// `ACTV`, required.
-    pub actv: Option<Sub<Bytes>>,
+    pub actor_value: Option<Sub<FormId>>,
 }
 
 impl SdltSecondaryDamages {
@@ -95350,7 +95350,7 @@ impl SdltSecondaryDamages {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.dama,
+                    &mut self.damage_type,
                     subs,
                     *index,
                     "SDLT.SecondaryDamages.DAMA",
@@ -95358,7 +95358,7 @@ impl SdltSecondaryDamages {
                     extra,
                 ),
                 Hit::Sub { member: 1, index } => put(
-                    &mut self.actv,
+                    &mut self.actor_value,
                     subs,
                     *index,
                     "SDLT.SecondaryDamages.ACTV",
@@ -95371,19 +95371,29 @@ impl SdltSecondaryDamages {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"DAMA", self.dama.as_ref());
-        emit(out, *b"ACTV", self.actv.as_ref());
+        emit(out, *b"DAMA", self.damage_type.as_ref());
+        emit(out, *b"ACTV", self.actor_value.as_ref());
     }
 }
 
-impl Visit for SdltSecondaryDamages {}
+impl Visit for SdltSecondaryDamages {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.damage_type, "SDLT.SecondaryDamages.DAMA", out);
+        visit_form_ids(&self.actor_value, "SDLT.SecondaryDamages.ACTV", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.damage_type, "SDLT.SecondaryDamages.DAMA", out);
+        visit_form_ids_mut(&mut self.actor_value, "SDLT.SecondaryDamages.ACTV", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SdltRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `ITMC`, required.
-    pub itmc: Option<Sub<Bytes>>,
+    pub secondary_damage_count: Option<Sub<u32>>,
     /// Group `SecondaryDamages`, repeated.
     pub secondary_damages: Vec<SdltSecondaryDamages>,
     /// Subrecords that matched no member or failed to decode, each with its index
@@ -95422,9 +95432,14 @@ impl SdltRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "SDLT.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.itmc, subs, *index, "SDLT.ITMC", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.secondary_damage_count,
+                    subs,
+                    *index,
+                    "SDLT.ITMC",
+                    ctx,
+                    extra,
+                ),
                 Hit::Group { member: 2, hits } => {
                     let mut group = SdltSecondaryDamages::default();
                     group.fill(hits, subs, ctx, extra);
@@ -95437,14 +95452,22 @@ impl SdltRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"ITMC", self.itmc.as_ref());
+        emit(out, *b"ITMC", self.secondary_damage_count.as_ref());
         for group in &self.secondary_damages {
             group.emit(out);
         }
     }
 }
 
-impl Visit for SdltRecord {}
+impl Visit for SdltRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.secondary_damages, "SDLT.SecondaryDamages", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.secondary_damages, "SDLT.SecondaryDamages", out);
+    }
+}
 
 impl SdltRecord {
     /// Record signature.
