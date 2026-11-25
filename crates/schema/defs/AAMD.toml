@@ -1,27 +1,29 @@
-# AAMD: AimAssistModelData, inventory definition (M4.BX2, lane B).
+# AAMD: AimAssistModelData, the aim-assist model of a ranged weapon: the
+# steering cone and ring limits, friction, and the ADS (aim down sights)
+# multipliers that scale them.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official AAMD record (7 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the AAMD definition of wbDefinitionsSF1.pas at the pinned revision (L9153-L9196),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e L9153-L9196 -
+#     member order, EDID (L9170) and the 22-field struct named 'Data' at SNAM
+#     (L9172-L9195). Upstream also lists the base form component block (L9171);
+#     no official record has one, so it is left out (a plugin that has one
+#     keeps it raw).
+#   corpus: the aamd_types scan in crates/esm/tests/aamd_types.rs checks this
+#     definition against every official AAMD record (7 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no AAMD subrecord is an lstring (M3.B8).
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). xEdit lists wbBaseFormComponents, but no official record shows a
-# BFCB..BFCE block, so it is left out; a plugin that has one keeps it raw.
+# Names are ours (UpperCamelCase); upstream's default edit values are not part
+# of the layout and are left out.
 signature = "AAMD"
 name = "AimAssistModelData"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAMD record (7) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9153-L9196"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9153-L9196",
+  "corpus: aamd_types_full (crates/esm/tests/aamd_types.rs), 2026-11-25: every official AAMD record (7) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L9153-L9196): EDID and the SNAM data struct (21 floats and a one-byte boolean, 85 bytes); no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
@@ -38,12 +40,36 @@ confidence = "corpus"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 7 of 7 official AAMD records (7 occurrences), 85 bytes"
+name = "Data"
+type = "struct"
+card = "optional"
+source = "corpus: aamd_types_full (crates/esm/tests/aamd_types.rs), 2026-11-25: in 7 of 7 official AAMD records (7 occurrences), 85 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9172-L9172",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9172-L9195",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 85 bytes"
+note = "xEdit leaves the member optional; every official AAMD record carries it (7 of 7)"
+field = [
+  { name = "InnerConeAngleDegrees", type = "f32" },
+  { name = "OuterConeAngleDegrees", type = "f32" },
+  { name = "SteeringDegreesPerSec", type = "f32" },
+  { name = "PitchScale", type = "f32" },
+  { name = "InnerSteeringRing", type = "f32" },
+  { name = "OuterSteeringRing", type = "f32" },
+  { name = "Friction", type = "f32" },
+  { name = "MoveFollowDegreesPerSec", type = "f32" },
+  { name = "ADSSnapSteeringMult", type = "f32" },
+  { name = "ADSSnapSeconds", type = "f32" },
+  { name = "ADSSnapConeAngleDegrees", type = "f32" },
+  { name = "NoSteering", type = "f32" },
+  { name = "BulletBendingConeAngleDegrees", type = "f32" },
+  { name = "ADSSnapSteeringMultiplierInnerRing", type = "f32" },
+  { name = "ADSSnapSteeringMultiplierOuterRing", type = "f32" },
+  { name = "ADSMultiplierInnerConeAngleDegrees", type = "f32" },
+  { name = "ADSMultiplierOuterConeAngleDegrees", type = "f32" },
+  { name = "ADSMultiplierInnerSteeringRing", type = "f32" },
+  { name = "ADSMultiplierOuterSteeringRing", type = "f32" },
+  { name = "ADSMultiplierFriction", type = "f32" },
+  { name = "ADSMultiplierSteeringDegreesPerSec", type = "f32" },
+  { name = "AimAssistEnabled", type = "ref:Bool8" },
+]
