@@ -57188,7 +57188,7 @@ pub struct LgtmRecord {
     pub editor_id: Option<Sub<ZString>>,
     /// `DATA`, required.
     pub lighting: Option<Sub<LgtmLighting>>,
-    /// `DALC`, required.
+    /// `DALC`, optional.
     pub directional_lighting: Option<Sub<LgtmDirectionalLighting>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
@@ -57210,7 +57210,7 @@ impl LgtmRecord {
         },
         MemberDesc::Sub {
             sig: *b"DALC",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 

@@ -14,7 +14,7 @@
 # byte), the shared ColorRgb type: its fourth byte is an unused byte, not an alpha, so
 # ColorRgba does not match. The two 4-byte blocks upstream leaves unnamed stay opaque.
 # Upstream marks the Lighting fields from index 15 optional (L13789); every official
-# record is the full 108 bytes, so every field is present in the corpus.
+# record is the full 108 bytes, and a shorter payload stays raw.
 signature = "LGTM"
 name = "LightingTemplateForm"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13758-L13792"
@@ -49,7 +49,7 @@ evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6970-L6983",
 ]
 confidence = "corpus"
-note = "27 fields in xEdit's order, 108 bytes in every official record; the byte colours are the pinned file's byte-colour helper, the shared ColorRgb (its fourth byte is an unused byte, not an alpha, so ColorRgba does not match); upstream marks the fields from index 15 optional (L13789), and every official record has them"
+note = "27 fields in xEdit's order, 108 bytes in every official record; the byte colours are the pinned file's byte-colour helper, the shared ColorRgb (its fourth byte is an unused byte, not an alpha, so ColorRgba does not match); upstream marks the fields from index 15 optional (L13789); every official record has them, and a shorter payload stays raw"
 field = [
   { name = "AmbientColor", type = "ref:ColorRgb" },
   { name = "DirectionalColor", type = "ref:ColorRgb" },
@@ -84,16 +84,15 @@ field = [
 sig = "DALC"
 name = "DirectionalLighting"
 type = "struct"
-card = "required"
+card = "optional"
 size = 24
 source = "corpus: lgtm_types_full (crates/esm/tests/lgtm_types.rs), 2026-11-25: in 6 of 6 official LGTM records (6 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13791-L13791",
-  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9759-L9780",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6909-L6930",
 ]
 confidence = "corpus"
-note = "one block, required; Starfield's ambient colour has no specular or fresnel member"
+note = "one block; the pinned file leaves it optional, but every official record has it (6 of 6); Starfield's ambient colour has no specular or fresnel member"
 field = [
   { name = "XPlus", type = "ref:ColorRgb" },
   { name = "XMinus", type = "ref:ColorRgb" },
