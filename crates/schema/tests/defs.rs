@@ -619,7 +619,6 @@ const BX2_INVENTORY: &[&str] = &[
     "PSDC",
     "PTST",
     "SFTR",
-    "SPGD",
     "TODD",
     "VOLI",
 ];
