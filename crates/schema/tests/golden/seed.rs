@@ -186,7 +186,7 @@
 // - RFGP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16894-L16903; reference)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
-// - SCCO (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SCCO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16965-L16978; reference)
 // - SCEN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401; corpus)
 // - SCOL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17403-L17431; reference)
 // - SDLT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17454-L17465; reference)
@@ -93228,15 +93228,39 @@ impl RspjRecord {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
-pub struct SccoScene {
-    /// `SNAM`, required.
-    pub snam: Option<Sub<Bytes>>,
-    /// `XNAM`, required.
-    pub xnam: Option<Sub<Bytes>>,
+#[derive(Debug, Clone, PartialEq)]
+pub struct SccoScenesSceneData {
+    pub value1: i32,
+    pub value2: i32,
 }
 
-impl SccoScene {
+impl Field for SccoScenesSceneData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "SCCO.Scenes.XNAM.Value1", ctx)?;
+        let f1 = i32::read(r, "SCCO.Scenes.XNAM.Value2", ctx)?;
+        Ok(Self {
+            value1: f0,
+            value2: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value1.write(out);
+        self.value2.write(out);
+    }
+}
+
+impl Visit for SccoScenesSceneData {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SccoScenes {
+    /// `SNAM`, required.
+    pub scene: Option<Sub<FormId>>,
+    /// `XNAM`, required.
+    pub scene_data: Option<Sub<SccoScenesSceneData>>,
+}
+
+impl SccoScenes {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
@@ -93258,35 +93282,53 @@ impl SccoScene {
     ) {
         for hit in hits {
             match hit {
-                Hit::Sub { member: 0, index } => {
-                    put(&mut self.snam, subs, *index, "SCCO.Scene.SNAM", ctx, extra)
-                }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.xnam, subs, *index, "SCCO.Scene.XNAM", ctx, extra)
-                }
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.scene,
+                    subs,
+                    *index,
+                    "SCCO.Scenes.SNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.scene_data,
+                    subs,
+                    *index,
+                    "SCCO.Scenes.XNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"SNAM", self.snam.as_ref());
-        emit(out, *b"XNAM", self.xnam.as_ref());
+        emit(out, *b"SNAM", self.scene.as_ref());
+        emit(out, *b"XNAM", self.scene_data.as_ref());
     }
 }
 
-impl Visit for SccoScene {}
+impl Visit for SccoScenes {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.scene, "SCCO.Scenes.SNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.scene, "SCCO.Scenes.SNAM", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SccoRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `QNAM`, required.
-    pub qnam: Option<Sub<Bytes>>,
-    /// Group `Scene`, repeated.
-    pub scene: Vec<SccoScene>,
+    pub quest: Option<Sub<FormId>>,
+    /// Group `Scenes`, repeated.
+    pub scenes: Vec<SccoScenes>,
     /// `VNAM`, required.
-    pub vnam: Option<Sub<Bytes>>,
+    pub vnam: Option<Sub<[u8; 4]>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -93307,7 +93349,7 @@ impl SccoRecord {
         },
         MemberDesc::Group {
             card: Card::Repeated,
-            members: SccoScene::MEMBERS,
+            members: SccoScenes::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"VNAM",
@@ -93328,12 +93370,12 @@ impl SccoRecord {
                     put(&mut self.editor_id, subs, *index, "SCCO.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.qnam, subs, *index, "SCCO.QNAM", ctx, extra)
+                    put(&mut self.quest, subs, *index, "SCCO.QNAM", ctx, extra)
                 }
                 Hit::Group { member: 2, hits } => {
-                    let mut group = SccoScene::default();
+                    let mut group = SccoScenes::default();
                     group.fill(hits, subs, ctx, extra);
-                    self.scene.push(group);
+                    self.scenes.push(group);
                 }
                 Hit::Sub { member: 3, index } => {
                     put(&mut self.vnam, subs, *index, "SCCO.VNAM", ctx, extra)
@@ -93345,15 +93387,25 @@ impl SccoRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"QNAM", self.qnam.as_ref());
-        for group in &self.scene {
+        emit(out, *b"QNAM", self.quest.as_ref());
+        for group in &self.scenes {
             group.emit(out);
         }
         emit(out, *b"VNAM", self.vnam.as_ref());
     }
 }
 
-impl Visit for SccoRecord {}
+impl Visit for SccoRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.quest, "SCCO.QNAM", out);
+        visit_form_ids(&self.scenes, "SCCO.Scenes", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.quest, "SCCO.QNAM", out);
+        visit_form_ids_mut(&mut self.scenes, "SCCO.Scenes", out);
+    }
+}
 
 impl SccoRecord {
     /// Record signature.
