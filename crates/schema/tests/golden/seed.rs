@@ -93256,7 +93256,7 @@ impl Visit for SccoScenesSceneData {}
 pub struct SccoScenes {
     /// `SNAM`, required.
     pub scene: Option<Sub<FormId>>,
-    /// `XNAM`, required.
+    /// `XNAM`, optional.
     pub scene_data: Option<Sub<SccoScenesSceneData>>,
 }
 
@@ -93269,7 +93269,7 @@ impl SccoScenes {
         },
         MemberDesc::Sub {
             sig: *b"XNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -93323,11 +93323,11 @@ impl Visit for SccoScenes {
 pub struct SccoRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `QNAM`, required.
+    /// `QNAM`, optional.
     pub quest: Option<Sub<FormId>>,
     /// Group `Scenes`, repeated.
     pub scenes: Vec<SccoScenes>,
-    /// `VNAM`, required.
+    /// `VNAM`, optional.
     pub vnam: Option<Sub<[u8; 4]>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
@@ -93345,7 +93345,7 @@ impl SccoRecord {
         },
         MemberDesc::Sub {
             sig: *b"QNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
         MemberDesc::Group {
             card: Card::Repeated,
@@ -93353,7 +93353,7 @@ impl SccoRecord {
         },
         MemberDesc::Sub {
             sig: *b"VNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 

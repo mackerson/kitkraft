@@ -41,13 +41,14 @@ sig = "QNAM"
 name = "Quest"
 type = "formid"
 targets = ["QUST"]
-card = "required"
+card = "optional"
 source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16967-L16967",
   "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes",
 ]
 confidence = "corpus"
+note = "the quest; the pinned file leaves it optional, but the official record has it"
 
 [[member]]
 group = "Scenes"
@@ -78,14 +79,14 @@ sig = "XNAM"
 name = "SceneData"
 type = "struct"
 size = 8
-card = "required"
+card = "optional"
 source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 8 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16971-L16974",
   "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences), 8 bytes",
 ]
 confidence = "corpus"
-note = "two signed 32-bit integers; upstream names both 'Unknown'"
+note = "two signed 32-bit integers; upstream names both 'Unknown'; the pinned file leaves the member optional, but every official entry has it (10 of 10)"
 field = [
   { name = "Value1", type = "i32" },
   { name = "Value2", type = "i32" },
@@ -96,11 +97,11 @@ sig = "VNAM"
 name = "Vnam"
 type = "opaque"
 size = 4
-card = "required"
+card = "optional"
 source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16977-L16977",
   "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "xEdit lists it as unknown and gives it no layout, so it stays opaque"
+note = "xEdit lists it as unknown and gives it no layout, so it stays opaque; it leaves the member optional, but the official record has it"
