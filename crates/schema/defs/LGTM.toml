@@ -1,27 +1,28 @@
-# LGTM: LightingTemplateForm, inventory definition (M4.BX2, lane B).
+# LGTM: LightingTemplateForm, a lighting template: ambient, directional and fog
+# settings; the pinned file marks it a legacy record no longer in use.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official LGTM record (6 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the LGTM definition of wbDefinitionsSF1.pas at the pinned revision (L13758-L13792),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no LGTM subrecord is an lstring (M3.B8).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L13758-L13792 - member order, EDID (L13759),
+#     the Lighting struct (L13761-L13790) and the directional ambient colours (L13791).
+#     Upstream also lists the base form component block (L13760); no official record has
+#     one, so it is left out (a plugin that has one keeps it raw).
+#   corpus: the lgtm_types scan in crates/esm/tests/lgtm_types.rs checks this definition
+#     against every official LGTM record (6 in the 14 ESMs): every subrecord is placed,
+#     every placed subrecord decodes, and the re-encoding reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). xEdit lists wbBaseFormComponents, but no official record shows a
-# BFCB..BFCE block, so it is left out; a plugin that has one keeps it raw.
+# The byte colours are xEdit's byte-colour helper (Red, Green, Blue plus one unused
+# byte), the shared ColorRgb type: its fourth byte is an unused byte, not an alpha, so
+# ColorRgba does not match. The two 4-byte blocks upstream leaves unnamed stay opaque.
+# Upstream marks the Lighting fields from index 15 optional (L13789); every official
+# record is the full 108 bytes, so every field is present in the corpus.
 signature = "LGTM"
 name = "LightingTemplateForm"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LGTM record (6) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13758-L13792"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13758-L13792",
+  "corpus: lgtm_types_full (crates/esm/tests/lgtm_types.rs), 2026-11-25: every official LGTM record (6) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L13758-L13792): EDID, the Lighting struct and the directional ambient colours typed, the base form component block left out (no official record has one)"
 
 [[member]]
 sig = "EDID"
@@ -38,24 +39,66 @@ confidence = "corpus"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "Lighting"
+type = "struct"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 6 of 6 official LGTM records (6 occurrences), 108 bytes"
+size = 108
+source = "corpus: lgtm_types_full (crates/esm/tests/lgtm_types.rs), 2026-11-25: in 6 of 6 official LGTM records (6 occurrences), 108 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13761-L13761",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13761-L13790",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6970-L6983",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 108 bytes"
+note = "27 fields in xEdit's order, 108 bytes in every official record; the byte colours are the pinned file's byte-colour helper, the shared ColorRgb (its fourth byte is an unused byte, not an alpha, so ColorRgba does not match); upstream marks the fields from index 15 optional (L13789), and every official record has them"
+field = [
+  { name = "AmbientColor", type = "ref:ColorRgb" },
+  { name = "DirectionalColor", type = "ref:ColorRgb" },
+  { name = "FogColorNear", type = "ref:ColorRgb" },
+  { name = "FogNear", type = "f32" },
+  { name = "FogFar", type = "f32" },
+  { name = "DirectionalRotationXY", type = "i32" },
+  { name = "DirectionalRotationZ", type = "i32" },
+  { name = "DirectionalFade", type = "f32" },
+  { name = "FogClipDistance", type = "f32" },
+  { name = "FogPower", type = "f32" },
+  { name = "FogColorFar", type = "ref:ColorRgb" },
+  { name = "FogMax", type = "f32" },
+  { name = "LightFadeDistanceStart", type = "f32" },
+  { name = "LightFadeDistanceStop", type = "f32" },
+  { name = "Unused", type = "opaque", size = 4 },
+  { name = "HeightMid", type = "f32" },
+  { name = "HeightRange", type = "f32" },
+  { name = "FogColorHighNear", type = "ref:ColorRgb" },
+  { name = "FogColorHighFar", type = "ref:ColorRgb" },
+  { name = "HighDensityScale", type = "f32" },
+  { name = "FogNearScale", type = "f32" },
+  { name = "FogFarScale", type = "f32" },
+  { name = "HighNearScale", type = "f32" },
+  { name = "HighFarScale", type = "f32" },
+  { name = "FarHeightMid", type = "f32" },
+  { name = "FarHeightRange", type = "f32" },
+  { name = "Unknown", type = "opaque", size = 4 },
+]
 
 [[member]]
 sig = "DALC"
-name = "Dalc"
-type = "opaque"
+name = "DirectionalLighting"
+type = "struct"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 6 of 6 official LGTM records (6 occurrences), 24 bytes"
+size = 24
+source = "corpus: lgtm_types_full (crates/esm/tests/lgtm_types.rs), 2026-11-25: in 6 of 6 official LGTM records (6 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13791-L13791",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9759-L9780",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6909-L6930",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory); 24 bytes"
+note = "one block, required; Starfield's ambient colour has no specular or fresnel member"
+field = [
+  { name = "XPlus", type = "ref:ColorRgb" },
+  { name = "XMinus", type = "ref:ColorRgb" },
+  { name = "YPlus", type = "ref:ColorRgb" },
+  { name = "YMinus", type = "ref:ColorRgb" },
+  { name = "ZPlus", type = "ref:ColorRgb" },
+  { name = "ZMinus", type = "ref:ColorRgb" },
+]

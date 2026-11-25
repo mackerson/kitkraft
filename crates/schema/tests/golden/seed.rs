@@ -134,7 +134,7 @@
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
 // - LENS (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13590-L13636; corpus)
 // - LGDI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13639-L13754; reference)
-// - LGTM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official LGTM record (6) decodes with every subrecord placed and re-encodes identically; corpus)
+// - LGTM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13758-L13792; reference)
 // - LIGH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13795-L13899; corpus)
 // - LMSW (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LMSW record (17410) decodes with every subrecord placed and re-encodes identically; corpus)
 // - LSCR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13910-L13932; corpus)
@@ -57018,14 +57018,178 @@ impl LgdiRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct LgtmLighting {
+    pub ambient_color: ColorRgb,
+    pub directional_color: ColorRgb,
+    pub fog_color_near: ColorRgb,
+    pub fog_near: f32,
+    pub fog_far: f32,
+    pub directional_rotation_xy: i32,
+    pub directional_rotation_z: i32,
+    pub directional_fade: f32,
+    pub fog_clip_distance: f32,
+    pub fog_power: f32,
+    pub fog_color_far: ColorRgb,
+    pub fog_max: f32,
+    pub light_fade_distance_start: f32,
+    pub light_fade_distance_stop: f32,
+    pub unused: [u8; 4],
+    pub height_mid: f32,
+    pub height_range: f32,
+    pub fog_color_high_near: ColorRgb,
+    pub fog_color_high_far: ColorRgb,
+    pub high_density_scale: f32,
+    pub fog_near_scale: f32,
+    pub fog_far_scale: f32,
+    pub high_near_scale: f32,
+    pub high_far_scale: f32,
+    pub far_height_mid: f32,
+    pub far_height_range: f32,
+    pub unknown: [u8; 4],
+}
+
+impl Field for LgtmLighting {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LGTM.DATA.AmbientColor", ctx)?;
+        let f1 = Field::read(r, "LGTM.DATA.DirectionalColor", ctx)?;
+        let f2 = Field::read(r, "LGTM.DATA.FogColorNear", ctx)?;
+        let f3 = f32::read(r, "LGTM.DATA.FogNear", ctx)?;
+        let f4 = f32::read(r, "LGTM.DATA.FogFar", ctx)?;
+        let f5 = i32::read(r, "LGTM.DATA.DirectionalRotationXY", ctx)?;
+        let f6 = i32::read(r, "LGTM.DATA.DirectionalRotationZ", ctx)?;
+        let f7 = f32::read(r, "LGTM.DATA.DirectionalFade", ctx)?;
+        let f8 = f32::read(r, "LGTM.DATA.FogClipDistance", ctx)?;
+        let f9 = f32::read(r, "LGTM.DATA.FogPower", ctx)?;
+        let f10 = Field::read(r, "LGTM.DATA.FogColorFar", ctx)?;
+        let f11 = f32::read(r, "LGTM.DATA.FogMax", ctx)?;
+        let f12 = f32::read(r, "LGTM.DATA.LightFadeDistanceStart", ctx)?;
+        let f13 = f32::read(r, "LGTM.DATA.LightFadeDistanceStop", ctx)?;
+        let f14 = Field::read(r, "LGTM.DATA.Unused", ctx)?;
+        let f15 = f32::read(r, "LGTM.DATA.HeightMid", ctx)?;
+        let f16 = f32::read(r, "LGTM.DATA.HeightRange", ctx)?;
+        let f17 = Field::read(r, "LGTM.DATA.FogColorHighNear", ctx)?;
+        let f18 = Field::read(r, "LGTM.DATA.FogColorHighFar", ctx)?;
+        let f19 = f32::read(r, "LGTM.DATA.HighDensityScale", ctx)?;
+        let f20 = f32::read(r, "LGTM.DATA.FogNearScale", ctx)?;
+        let f21 = f32::read(r, "LGTM.DATA.FogFarScale", ctx)?;
+        let f22 = f32::read(r, "LGTM.DATA.HighNearScale", ctx)?;
+        let f23 = f32::read(r, "LGTM.DATA.HighFarScale", ctx)?;
+        let f24 = f32::read(r, "LGTM.DATA.FarHeightMid", ctx)?;
+        let f25 = f32::read(r, "LGTM.DATA.FarHeightRange", ctx)?;
+        let f26 = Field::read(r, "LGTM.DATA.Unknown", ctx)?;
+        Ok(Self {
+            ambient_color: f0,
+            directional_color: f1,
+            fog_color_near: f2,
+            fog_near: f3,
+            fog_far: f4,
+            directional_rotation_xy: f5,
+            directional_rotation_z: f6,
+            directional_fade: f7,
+            fog_clip_distance: f8,
+            fog_power: f9,
+            fog_color_far: f10,
+            fog_max: f11,
+            light_fade_distance_start: f12,
+            light_fade_distance_stop: f13,
+            unused: f14,
+            height_mid: f15,
+            height_range: f16,
+            fog_color_high_near: f17,
+            fog_color_high_far: f18,
+            high_density_scale: f19,
+            fog_near_scale: f20,
+            fog_far_scale: f21,
+            high_near_scale: f22,
+            high_far_scale: f23,
+            far_height_mid: f24,
+            far_height_range: f25,
+            unknown: f26,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ambient_color.write(out);
+        self.directional_color.write(out);
+        self.fog_color_near.write(out);
+        self.fog_near.write(out);
+        self.fog_far.write(out);
+        self.directional_rotation_xy.write(out);
+        self.directional_rotation_z.write(out);
+        self.directional_fade.write(out);
+        self.fog_clip_distance.write(out);
+        self.fog_power.write(out);
+        self.fog_color_far.write(out);
+        self.fog_max.write(out);
+        self.light_fade_distance_start.write(out);
+        self.light_fade_distance_stop.write(out);
+        self.unused.write(out);
+        self.height_mid.write(out);
+        self.height_range.write(out);
+        self.fog_color_high_near.write(out);
+        self.fog_color_high_far.write(out);
+        self.high_density_scale.write(out);
+        self.fog_near_scale.write(out);
+        self.fog_far_scale.write(out);
+        self.high_near_scale.write(out);
+        self.high_far_scale.write(out);
+        self.far_height_mid.write(out);
+        self.far_height_range.write(out);
+        self.unknown.write(out);
+    }
+}
+
+impl Visit for LgtmLighting {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LgtmDirectionalLighting {
+    pub x_plus: ColorRgb,
+    pub x_minus: ColorRgb,
+    pub y_plus: ColorRgb,
+    pub y_minus: ColorRgb,
+    pub z_plus: ColorRgb,
+    pub z_minus: ColorRgb,
+}
+
+impl Field for LgtmDirectionalLighting {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LGTM.DALC.XPlus", ctx)?;
+        let f1 = Field::read(r, "LGTM.DALC.XMinus", ctx)?;
+        let f2 = Field::read(r, "LGTM.DALC.YPlus", ctx)?;
+        let f3 = Field::read(r, "LGTM.DALC.YMinus", ctx)?;
+        let f4 = Field::read(r, "LGTM.DALC.ZPlus", ctx)?;
+        let f5 = Field::read(r, "LGTM.DALC.ZMinus", ctx)?;
+        Ok(Self {
+            x_plus: f0,
+            x_minus: f1,
+            y_plus: f2,
+            y_minus: f3,
+            z_plus: f4,
+            z_minus: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x_plus.write(out);
+        self.x_minus.write(out);
+        self.y_plus.write(out);
+        self.y_minus.write(out);
+        self.z_plus.write(out);
+        self.z_minus.write(out);
+    }
+}
+
+impl Visit for LgtmDirectionalLighting {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct LgtmRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub lighting: Option<Sub<LgtmLighting>>,
     /// `DALC`, required.
-    pub dalc: Option<Sub<Bytes>>,
+    pub directional_lighting: Option<Sub<LgtmDirectionalLighting>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -57063,11 +57227,16 @@ impl LgtmRecord {
                     put(&mut self.editor_id, subs, *index, "LGTM.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.data, subs, *index, "LGTM.DATA", ctx, extra)
+                    put(&mut self.lighting, subs, *index, "LGTM.DATA", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.dalc, subs, *index, "LGTM.DALC", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.directional_lighting,
+                    subs,
+                    *index,
+                    "LGTM.DALC",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -57075,8 +57244,8 @@ impl LgtmRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"DALC", self.dalc.as_ref());
+        emit(out, *b"DATA", self.lighting.as_ref());
+        emit(out, *b"DALC", self.directional_lighting.as_ref());
     }
 }
 
