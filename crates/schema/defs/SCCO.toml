@@ -1,30 +1,27 @@
-# SCCO: SceneCollection, inventory definition (M4.BX2, ticket KK-112).
+# SCCO: SceneCollection, a quest's ordered collection of scenes: a reference to the
+# quest, then, for each scene, its scene reference and its pair of values, and a
+# trailing value.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the M4.BX2 scan of every official SCCO record (1 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and the
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the SCCO definition of wbDefinitionsSF1.pas at the pinned revision (L16965-L16978),
-#     cited per member for its position where it lists the subrecord.
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16965-L16978 - member order, EDID (L16966),
+#     the FormID of a QUST named 'Quest' (L16967), the repeated 'Scenes' group of
+#     entries pairing a FormID of a SCEN named 'Scene' (L16970) with an 'Unknown'
+#     struct of two signed 32-bit integers, both named 'Unknown' (L16971-L16974), and
+#     VNAM, unknown to xEdit (L16977).
+#   corpus: the scco_types scan in crates/esm/tests/scco_types.rs checks this
+#     definition against every official SCCO record (1 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out; a plugin
-# that has one keeps it raw.
-#
-# The corpus order is EDID, QNAM, 10 repeated (SNAM, XNAM) pairs and VNAM, so the pairs are
-# grouped as xEdit nests them (an array of a scene reference and its pair of values); the
-# group name is a placeholder.
+#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
 signature = "SCCO"
 name = "SceneCollection"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16965-L16978"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16965-L16978",
+  "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: every official SCCO record (1) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L16965-L16978): the quest reference and each scene pair typed, VNAM stays opaque (xEdit gives it no layout)"
 
 [[member]]
 sig = "EDID"
@@ -41,58 +38,70 @@ confidence = "corpus"
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
+card = "optional"
+source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16967-L16967",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "the quest; the pinned file leaves it optional, but the official record has it"
 
 [[member]]
-group = "Scene"
+group = "Scenes"
 card = "repeated"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences)"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16970-L16971",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16968-L16976",
+  "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records",
 ]
 confidence = "corpus"
-note = "one scene pair: a scene reference (SNAM) and its pair of values (XNAM, 8 bytes)"
+note = "one scene: its scene reference (SNAM) and its pair of values (XNAM, 8 bytes)"
 
 [[member.member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
+name = "Scene"
+type = "formid"
+targets = ["SCEN"]
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences), 4 bytes"
+source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16970-L16970",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
 
 [[member.member]]
 sig = "XNAM"
-name = "Xnam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences), 8 bytes"
+name = "SceneData"
+type = "struct"
+size = 8
+card = "optional"
+source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 8 bytes"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16971-L16971",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16971-L16974",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (10 occurrences), 8 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "two signed 32-bit integers; upstream names both 'Unknown'; the pinned file leaves the member optional, but every official entry has it (10 of 10)"
+field = [
+  { name = "Value1", type = "i32" },
+  { name = "Value2", type = "i32" },
+]
 
 [[member]]
 sig = "VNAM"
 name = "Vnam"
 type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes"
+size = 4
+card = "optional"
+source = "corpus: scco_types_full (crates/esm/tests/scco_types.rs), 2026-11-25: in 1 of 1 official SCCO records, 4 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16977-L16977",
+  "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official SCCO records (1 occurrences), 4 bytes",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "xEdit lists it as unknown and gives it no layout, so it stays opaque; it leaves the member optional, but the official record has it"
