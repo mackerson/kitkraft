@@ -201,7 +201,7 @@
 // - SOUN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17732-L17745; reference)
 // - SPCH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17747-L17763; corpus)
 // - SPEL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780; corpus)
-// - SPGD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official SPGD record (1) decodes with every subrecord placed and re-encodes identically; corpus)
+// - SPGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17782-L17818; reference)
 // - STAG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17820-L17845; reference)
 // - STAT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894; corpus)
 // - STBH (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17896-L17913; reference)
@@ -99611,14 +99611,196 @@ impl SpelRecord {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpgdDataTailType {
+    Rain,
+    Snow,
+    Unknown2,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl SpgdDataTailType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Rain,
+            1 => Self::Snow,
+            2 => Self::Unknown2,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Rain => 0,
+            Self::Snow => 1,
+            Self::Unknown2 => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SpgdDataTailType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SpgdDataTailType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpgdDataTail {
+    pub center_offset_max: f32,
+    pub unused6: [u8; 4],
+    pub initial_rotation: f32,
+    pub unused7: [u8; 4],
+    pub subtexture_count_x: u32,
+    pub unused8: [u8; 4],
+    pub subtexture_count_y: u32,
+    pub unused9: [u8; 4],
+    pub type_: SpgdDataTailType,
+    pub unused10: [u8; 4],
+    pub box_size: u32,
+    pub unused11: [u8; 4],
+    pub particle_density: f32,
+    pub unused12: [u8; 4],
+}
+
+impl Field for SpgdDataTail {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "SPGD.DATA.Tail.CenterOffsetMax", ctx)?;
+        let f1 = Field::read(r, "SPGD.DATA.Tail.Unused6", ctx)?;
+        let f2 = f32::read(r, "SPGD.DATA.Tail.InitialRotation", ctx)?;
+        let f3 = Field::read(r, "SPGD.DATA.Tail.Unused7", ctx)?;
+        let f4 = u32::read(r, "SPGD.DATA.Tail.SubtextureCountX", ctx)?;
+        let f5 = Field::read(r, "SPGD.DATA.Tail.Unused8", ctx)?;
+        let f6 = u32::read(r, "SPGD.DATA.Tail.SubtextureCountY", ctx)?;
+        let f7 = Field::read(r, "SPGD.DATA.Tail.Unused9", ctx)?;
+        let f8 = Field::read(r, "SPGD.DATA.Tail.Type", ctx)?;
+        let f9 = Field::read(r, "SPGD.DATA.Tail.Unused10", ctx)?;
+        let f10 = u32::read(r, "SPGD.DATA.Tail.BoxSize", ctx)?;
+        let f11 = Field::read(r, "SPGD.DATA.Tail.Unused11", ctx)?;
+        let f12 = f32::read(r, "SPGD.DATA.Tail.ParticleDensity", ctx)?;
+        let f13 = Field::read(r, "SPGD.DATA.Tail.Unused12", ctx)?;
+        Ok(Self {
+            center_offset_max: f0,
+            unused6: f1,
+            initial_rotation: f2,
+            unused7: f3,
+            subtexture_count_x: f4,
+            unused8: f5,
+            subtexture_count_y: f6,
+            unused9: f7,
+            type_: f8,
+            unused10: f9,
+            box_size: f10,
+            unused11: f11,
+            particle_density: f12,
+            unused12: f13,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.center_offset_max.write(out);
+        self.unused6.write(out);
+        self.initial_rotation.write(out);
+        self.unused7.write(out);
+        self.subtexture_count_x.write(out);
+        self.unused8.write(out);
+        self.subtexture_count_y.write(out);
+        self.unused9.write(out);
+        self.type_.write(out);
+        self.unused10.write(out);
+        self.box_size.write(out);
+        self.unused11.write(out);
+        self.particle_density.write(out);
+        self.unused12.write(out);
+    }
+}
+
+impl Visit for SpgdDataTail {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SpgdData {
+    pub gravity_velocity: f32,
+    pub unused1: [u8; 4],
+    pub rotation_velocity: f32,
+    pub unused2: [u8; 4],
+    pub particle_size_x: f32,
+    pub unused3: [u8; 4],
+    pub particle_size_y: f32,
+    pub unused4: [u8; 4],
+    pub center_offset_min: f32,
+    pub unused5: [u8; 4],
+    /// Present only when bytes remain in the payload.
+    pub tail: Option<SpgdDataTail>,
+}
+
+impl Field for SpgdData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "SPGD.DATA.GravityVelocity", ctx)?;
+        let f1 = Field::read(r, "SPGD.DATA.Unused1", ctx)?;
+        let f2 = f32::read(r, "SPGD.DATA.RotationVelocity", ctx)?;
+        let f3 = Field::read(r, "SPGD.DATA.Unused2", ctx)?;
+        let f4 = f32::read(r, "SPGD.DATA.ParticleSizeX", ctx)?;
+        let f5 = Field::read(r, "SPGD.DATA.Unused3", ctx)?;
+        let f6 = f32::read(r, "SPGD.DATA.ParticleSizeY", ctx)?;
+        let f7 = Field::read(r, "SPGD.DATA.Unused4", ctx)?;
+        let f8 = f32::read(r, "SPGD.DATA.CenterOffsetMin", ctx)?;
+        let f9 = Field::read(r, "SPGD.DATA.Unused5", ctx)?;
+        let f10 = if !r.is_empty() {
+            Some(Field::read(r, "SPGD.DATA.Tail", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            gravity_velocity: f0,
+            unused1: f1,
+            rotation_velocity: f2,
+            unused2: f3,
+            particle_size_x: f4,
+            unused3: f5,
+            particle_size_y: f6,
+            unused4: f7,
+            center_offset_min: f8,
+            unused5: f9,
+            tail: f10,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.gravity_velocity.write(out);
+        self.unused1.write(out);
+        self.rotation_velocity.write(out);
+        self.unused2.write(out);
+        self.particle_size_x.write(out);
+        self.unused3.write(out);
+        self.particle_size_y.write(out);
+        self.unused4.write(out);
+        self.center_offset_min.write(out);
+        self.unused5.write(out);
+        if let Some(value) = &self.tail {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for SpgdData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SpgdRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
-    /// `MNAM`, required.
-    pub mnam: Option<Sub<Bytes>>,
+    pub data: Option<Sub<SpgdData>>,
+    /// `MNAM`, optional.
+    pub particle_texture: Option<Sub<ZString>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -99639,7 +99821,7 @@ impl SpgdRecord {
         },
         MemberDesc::Sub {
             sig: *b"MNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -99658,9 +99840,14 @@ impl SpgdRecord {
                 Hit::Sub { member: 1, index } => {
                     put(&mut self.data, subs, *index, "SPGD.DATA", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.mnam, subs, *index, "SPGD.MNAM", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.particle_texture,
+                    subs,
+                    *index,
+                    "SPGD.MNAM",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -99669,7 +99856,7 @@ impl SpgdRecord {
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
         emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
+        emit(out, *b"MNAM", self.particle_texture.as_ref());
     }
 }
 
