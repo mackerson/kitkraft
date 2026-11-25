@@ -42,7 +42,7 @@
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - AACT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9086-L9114; reference)
-// - AAMD (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official AAMD record (7) decodes with every subrecord placed and re-encodes identically; corpus)
+// - AAMD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9153-L9196; reference)
 // - AAPD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9117-L9150; reference)
 // - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
 // - ACTI (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9199-L9274; corpus)
@@ -16892,12 +16892,116 @@ impl AactRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AamdData {
+    pub inner_cone_angle_degrees: f32,
+    pub outer_cone_angle_degrees: f32,
+    pub steering_degrees_per_sec: f32,
+    pub pitch_scale: f32,
+    pub inner_steering_ring: f32,
+    pub outer_steering_ring: f32,
+    pub friction: f32,
+    pub move_follow_degrees_per_sec: f32,
+    pub ads_snap_steering_mult: f32,
+    pub ads_snap_seconds: f32,
+    pub ads_snap_cone_angle_degrees: f32,
+    pub no_steering: f32,
+    pub bullet_bending_cone_angle_degrees: f32,
+    pub ads_snap_steering_multiplier_inner_ring: f32,
+    pub ads_snap_steering_multiplier_outer_ring: f32,
+    pub ads_multiplier_inner_cone_angle_degrees: f32,
+    pub ads_multiplier_outer_cone_angle_degrees: f32,
+    pub ads_multiplier_inner_steering_ring: f32,
+    pub ads_multiplier_outer_steering_ring: f32,
+    pub ads_multiplier_friction: f32,
+    pub ads_multiplier_steering_degrees_per_sec: f32,
+    pub aim_assist_enabled: Bool8,
+}
+
+impl Field for AamdData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "AAMD.SNAM.InnerConeAngleDegrees", ctx)?;
+        let f1 = f32::read(r, "AAMD.SNAM.OuterConeAngleDegrees", ctx)?;
+        let f2 = f32::read(r, "AAMD.SNAM.SteeringDegreesPerSec", ctx)?;
+        let f3 = f32::read(r, "AAMD.SNAM.PitchScale", ctx)?;
+        let f4 = f32::read(r, "AAMD.SNAM.InnerSteeringRing", ctx)?;
+        let f5 = f32::read(r, "AAMD.SNAM.OuterSteeringRing", ctx)?;
+        let f6 = f32::read(r, "AAMD.SNAM.Friction", ctx)?;
+        let f7 = f32::read(r, "AAMD.SNAM.MoveFollowDegreesPerSec", ctx)?;
+        let f8 = f32::read(r, "AAMD.SNAM.ADSSnapSteeringMult", ctx)?;
+        let f9 = f32::read(r, "AAMD.SNAM.ADSSnapSeconds", ctx)?;
+        let f10 = f32::read(r, "AAMD.SNAM.ADSSnapConeAngleDegrees", ctx)?;
+        let f11 = f32::read(r, "AAMD.SNAM.NoSteering", ctx)?;
+        let f12 = f32::read(r, "AAMD.SNAM.BulletBendingConeAngleDegrees", ctx)?;
+        let f13 = f32::read(r, "AAMD.SNAM.ADSSnapSteeringMultiplierInnerRing", ctx)?;
+        let f14 = f32::read(r, "AAMD.SNAM.ADSSnapSteeringMultiplierOuterRing", ctx)?;
+        let f15 = f32::read(r, "AAMD.SNAM.ADSMultiplierInnerConeAngleDegrees", ctx)?;
+        let f16 = f32::read(r, "AAMD.SNAM.ADSMultiplierOuterConeAngleDegrees", ctx)?;
+        let f17 = f32::read(r, "AAMD.SNAM.ADSMultiplierInnerSteeringRing", ctx)?;
+        let f18 = f32::read(r, "AAMD.SNAM.ADSMultiplierOuterSteeringRing", ctx)?;
+        let f19 = f32::read(r, "AAMD.SNAM.ADSMultiplierFriction", ctx)?;
+        let f20 = f32::read(r, "AAMD.SNAM.ADSMultiplierSteeringDegreesPerSec", ctx)?;
+        let f21 = Field::read(r, "AAMD.SNAM.AimAssistEnabled", ctx)?;
+        Ok(Self {
+            inner_cone_angle_degrees: f0,
+            outer_cone_angle_degrees: f1,
+            steering_degrees_per_sec: f2,
+            pitch_scale: f3,
+            inner_steering_ring: f4,
+            outer_steering_ring: f5,
+            friction: f6,
+            move_follow_degrees_per_sec: f7,
+            ads_snap_steering_mult: f8,
+            ads_snap_seconds: f9,
+            ads_snap_cone_angle_degrees: f10,
+            no_steering: f11,
+            bullet_bending_cone_angle_degrees: f12,
+            ads_snap_steering_multiplier_inner_ring: f13,
+            ads_snap_steering_multiplier_outer_ring: f14,
+            ads_multiplier_inner_cone_angle_degrees: f15,
+            ads_multiplier_outer_cone_angle_degrees: f16,
+            ads_multiplier_inner_steering_ring: f17,
+            ads_multiplier_outer_steering_ring: f18,
+            ads_multiplier_friction: f19,
+            ads_multiplier_steering_degrees_per_sec: f20,
+            aim_assist_enabled: f21,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.inner_cone_angle_degrees.write(out);
+        self.outer_cone_angle_degrees.write(out);
+        self.steering_degrees_per_sec.write(out);
+        self.pitch_scale.write(out);
+        self.inner_steering_ring.write(out);
+        self.outer_steering_ring.write(out);
+        self.friction.write(out);
+        self.move_follow_degrees_per_sec.write(out);
+        self.ads_snap_steering_mult.write(out);
+        self.ads_snap_seconds.write(out);
+        self.ads_snap_cone_angle_degrees.write(out);
+        self.no_steering.write(out);
+        self.bullet_bending_cone_angle_degrees.write(out);
+        self.ads_snap_steering_multiplier_inner_ring.write(out);
+        self.ads_snap_steering_multiplier_outer_ring.write(out);
+        self.ads_multiplier_inner_cone_angle_degrees.write(out);
+        self.ads_multiplier_outer_cone_angle_degrees.write(out);
+        self.ads_multiplier_inner_steering_ring.write(out);
+        self.ads_multiplier_outer_steering_ring.write(out);
+        self.ads_multiplier_friction.write(out);
+        self.ads_multiplier_steering_degrees_per_sec.write(out);
+        self.aim_assist_enabled.write(out);
+    }
+}
+
+impl Visit for AamdData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AamdRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `SNAM`, required.
-    pub snam: Option<Sub<Bytes>>,
+    /// `SNAM`, optional.
+    pub data: Option<Sub<AamdData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -16914,7 +17018,7 @@ impl AamdRecord {
         },
         MemberDesc::Sub {
             sig: *b"SNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -16931,7 +17035,7 @@ impl AamdRecord {
                     put(&mut self.editor_id, subs, *index, "AAMD.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.snam, subs, *index, "AAMD.SNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "AAMD.SNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -16940,7 +17044,7 @@ impl AamdRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"SNAM", self.snam.as_ref());
+        emit(out, *b"SNAM", self.data.as_ref());
     }
 }
 
