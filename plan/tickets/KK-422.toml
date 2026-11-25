@@ -36,7 +36,9 @@ counters. Type them so:
   `FileNameAndCollision` (`opaque`, no size: the rest, `note`: a NUL-terminated model file
   name followed by a one-byte has-collision boolean; a `zstring` must be the last field, so
   the pair stays raw).
-- `MODT`: named `ModelInfo`, `struct`, required, fields `CounterCount` (`u32`) and
+- `MODT`: named `ModelInfo`, `struct`, `card = "optional"` (the pinned file requires `DATA`
+  but not `MODT`; every official model has one, 26 of 26: put the count in its `evidence`),
+  fields `CounterCount` (`u32`) and
   `Counters` (`array`, `element = "u32"`, `count_from = "CounterCount"`), `note`: the
   texture and material entries the counters size would follow; every official counter is 0,
   so none does (a payload with entries fails to decode and stays raw, as it should).

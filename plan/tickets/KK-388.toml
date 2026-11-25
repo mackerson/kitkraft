@@ -27,6 +27,9 @@ one-byte boolean and a float (29 bytes; the official `SNAM` is 29 bytes). Type t
 - `EDID` stays as it is.
 - `SNAM`: named `Data`, `type = "struct"`, fields in xEdit's order in our own UpperCamelCase
   names: six `f32`, `ref:Bool8` `MeleeAimAssistEnabled`, one `f32` (not padded: 24 + 1 + 4).
+  The pinned file does not require `SNAM`: `card = "optional"`, with the corpus count (1 of
+  1) in its `evidence` (owner ruling 2026-11-07, "Members" in `crates/schema/defs/README.md`;
+  the inventory has it `required` from the corpus).
 - The base form component block: not in the official record; leave it out.
 
 Change the record-level `source` to the xEdit citation (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14259-L14288`), as
