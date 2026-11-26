@@ -3,12 +3,27 @@ id = "KK-398"
 title = "Clone-sample corpus test for ARMO"
 timeout_min = 60
 budget_h = 1.5
+base = "kk/KK-398-wip"
 owns = [
   "crates/engine/tests/clone_sample_corpus.rs",
   "docs/schema/support-matrix.md",
   "docs/gaps.md",
 ]
 brief = """
+Continued from `kk/KK-398-wip` (the night of 2026-11-26). That branch already holds the test
+and a `skip_unclonable` flag on `sample_clones` (the other tests pass `false`): `clone`
+refuses a record whose lstring ID is in none of the tables (`inline_lstrings` returns an
+error; it does not inline an empty string), and with the flag such a record is printed as
+`unclonable:` and left out of the sample, while every other refusal still panics. Its
+release run printed `clone-sample ARMO: 88 cloned, 88 identical, 0 explained` in 463 s, 12
+records skipped, all for `FULL` (Starfield.esm 004E78, 029C7A, 065925, 06682A, 07B2B9,
+0EF9AC, 1C0F33, 1E2B19, 2265AF, 25780A, 2AAF43, 39810A). What is left: run the test once
+more in release to confirm it, then the two docs below (the support-matrix item and, in
+`docs/gaps.md`, the lstring row extended with a sentence that contains the words `ARMO
+clone sample` and says it skips those 12 records and why), then
+`cargo xtask ci` and commit. Do not change the test code unless the run disagrees with the
+line above.
+
 `crates/engine/tests/clone_sample_corpus.rs` (read all of it first) holds the clone-sample
 corpus tests: KK-004 wrote them for locations and terminals, KK-014 for pack-ins and
 factions, KK-261 and KK-266 for ingestibles, books, misc items and doors, and KK-342 and
@@ -61,8 +76,8 @@ Commit only when the acceptance commands below pass; never commit a tree that fa
 
 [[accept]]
 name = "armo-sample"
-cmd = '''cargo test --release -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_armor_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample ARMO: (9[0-9]|100) cloned' /tmp/o'''
+cmd = '''cargo test --release -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_armor_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^clone-sample ARMO: (8[5-9]|9[0-9]|100) cloned, \1 identical' /tmp/o'''
 
 [[accept]]
 name = "evidence-row"
-cmd = '''grep -q 'a_sample_of_official_armor_clones_identically' docs/schema/support-matrix.md && grep -q 'clone-sample ARMO: ' docs/schema/support-matrix.md'''
+cmd = '''grep -q 'a_sample_of_official_armor_clones_identically' docs/schema/support-matrix.md && grep -q 'clone-sample ARMO: ' docs/schema/support-matrix.md && grep -q 'ARMO clone sample' docs/gaps.md'''
