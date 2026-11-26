@@ -325,9 +325,37 @@ fn compare(
     Ok(())
 }
 
+/// KK-398: the refusal of a record whose lstring ID is in none of the
+/// source's string tables. `inline_lstrings` (`edit/patch.rs`) refuses the
+/// whole clone when any lstring cannot be inlined as text, and the items it
+/// lists after the `has lstrings that cannot be written as text (…) :` header
+/// name each one. Only the missing-ID items are a limit of the source; the
+/// other refusal kinds — a lstring that is not 4 bytes, a string containing
+/// a NUL, an unreadable table — must still fail the test. The missing-ID
+/// item has two forms (`edit/patch.rs` `inline_lstrings`, `Ok(None)` and the
+/// lookup's `Err`; `StringTables::lookup`, `crates/doc/src/strings.rs`):
+/// `…: string 0x… is in none of Starfield.esm's tables` and
+/// `…: string 0x…: string ID 0x… of Starfield.esm is in none of its en
+/// tables (…)`. The engine's table lookup only takes the second form.
+fn unresolvable_lstring_refusal(msg: &str) -> bool {
+    const HEADER: &str = "has lstrings that cannot be written as text (patches are non-localized; copying a string ID makes the game show garbage): ";
+    let Some(items) = msg.split_once(HEADER).map(|(_, rest)| rest) else {
+        return false;
+    };
+    items.split("; ").all(|item| {
+        item.contains("is in none of Starfield.esm's tables")
+            || item.contains("is in none of its en tables")
+    })
+}
+
 /// The sample-corpus body: query, even sample of 100, clone each into one
 /// patch, compare subrecord by subrecord, validate, print the counts.
-fn sample_clones(sig: &str, prefix: &str) {
+/// `skip_unclonable` (KK-398): a record whose lstring ID is in none of the
+/// source's string tables is refused by the writer (`edit/patch.rs`
+/// `inline_lstrings`; patches are non-localized, a bare ID shows as garbage) —
+/// a limit of the source, not of the clone. Such a record is printed and left
+/// out of the sample; every other refusal still fails the test.
+fn sample_clones(sig: &str, prefix: &str, skip_unclonable: bool) {
     let Some(dir) = data_dir() else {
         eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
@@ -348,7 +376,11 @@ fn sample_clones(sig: &str, prefix: &str) {
     );
 
     // 2. Clone each into one patch, a new EditorID per clone. A refused clone
-    // fails the test: a sample corpus must not silently shrink.
+    // fails the test: a sample corpus must not silently shrink. The one
+    // exception (`skip_unclonable`, KK-398): a record whose lstring ID is in
+    // none of the source's string tables — the writer refuses rather than
+    // copy the bare ID into the non-localized patch (`edit/patch.rs`
+    // `inline_lstrings`) — is printed and left out of the sample.
     let mut src_by_edid: HashMap<String, (String, u32)> = HashMap::new();
     for (i, (form, id)) in sample.iter().enumerate() {
         let edid = format!("{prefix}Clone_{i:03}");
@@ -365,6 +397,9 @@ fn sample_clones(sig: &str, prefix: &str) {
         match r {
             Ok(_) => {
                 src_by_edid.insert(edid, (form.clone(), *id));
+            }
+            Err(e) if skip_unclonable && unresolvable_lstring_refusal(&e.to_string()) => {
+                eprintln!("  unclonable: {form} {id:08X}: {e}");
             }
             Err(e) => panic!("clone {form} ({sig}) refused: {e}"),
         }
@@ -452,59 +487,69 @@ fn sample_clones(sig: &str, prefix: &str) {
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_locations_clones_identically() {
-    sample_clones("LCTN", "Lctn");
+    sample_clones("LCTN", "Lctn", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_terminals_clones_identically() {
-    sample_clones("TERM", "Term");
+    sample_clones("TERM", "Term", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_packins_clones_identically() {
-    sample_clones("PKIN", "Pkin");
+    sample_clones("PKIN", "Pkin", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_factions_clones_identically() {
-    sample_clones("FACT", "Fact");
+    sample_clones("FACT", "Fact", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_ingestibles_clones_identically() {
-    sample_clones("ALCH", "Alch");
+    sample_clones("ALCH", "Alch", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_books_clones_identically() {
-    sample_clones("BOOK", "Book");
+    sample_clones("BOOK", "Book", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_misc_items_clones_identically() {
-    sample_clones("MISC", "Misc");
+    sample_clones("MISC", "Misc", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_doors_clones_identically() {
-    sample_clones("DOOR", "Door");
+    sample_clones("DOOR", "Door", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_containers_clones_identically() {
-    sample_clones("CONT", "Cont");
+    sample_clones("CONT", "Cont", false);
 }
 
 #[test]
 #[ignore = "reads Starfield.esm; slow"]
 fn a_sample_of_official_keys_clones_identically() {
-    sample_clones("KEYM", "Keym");
+    sample_clones("KEYM", "Keym", false);
+}
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_armor_clones_identically() {
+    // The even sample hits records whose `FULL` ID is in none of
+    // Starfield.esm's English string tables (85 of them, `docs/gaps.md`
+    // lstring row): the writer refuses those, a limit of the source, so the
+    // sample may come back short of 100 (printed, not counted).
+    sample_clones("ARMO", "Armo", true);
 }
