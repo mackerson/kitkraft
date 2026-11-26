@@ -10,9 +10,10 @@
 //! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
 //! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15), GMST (under a `b`
 //! EditorID) and LGDI (2026-11-17), COLL, MATT and ADDN (KK-340, 2026-11-17) and SPCH,
-//! STND and MOVT (KK-341, 2026-11-17) (`docs/schema/support-matrix.md`, the
-//! typed-writable evidence of `docs/schema/evidence.toml`). The QUST and LVLI read-backs,
-//! once ignored, pass since KK-220 (scaffold.rs `record_order`).
+//! STND and MOVT (KK-341, 2026-11-17), AMMO, PROJ and ZOOM (KK-389, 2026-11-26)
+//! (`docs/schema/support-matrix.md`, the typed-writable evidence of
+//! `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored, pass since
+//! KK-220 (scaffold.rs `record_order`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
 //! from scratch with `new` on the synthetic load order of the `set` tests (`Source.esm`
@@ -2486,6 +2487,65 @@ fn stnd_dangling_link_is_reported() {
 fn movt_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "MOVT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// AMMO (Ammunition, KK-389): an ammunition item, on the ContactShadow component layout;
+// every typed member of the definition is written and read back.
+#[test]
+fn ammo_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "AMMO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn ammo_dangling_link_is_reported() {
+    // The snap template (SNTP) and the default layer (DEFL).
+    dangling(
+        "AMMO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("SNTP", json!(MISSING)), ("DEFL", json!(MISSING))],
+        &["SNTP", "DEFL"],
+    );
+}
+
+// PROJ (Projectile, KK-389): a projectile fired by a weapon, on the ContactShadow
+// component layout; every typed member of the definition is written and read back.
+#[test]
+fn proj_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "PROJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn proj_dangling_link_is_reported() {
+    // The curve table (NAM3) and the default layer (DEFL).
+    dangling(
+        "PROJ",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("NAM3", json!(MISSING)), ("DEFL", json!(MISSING))],
+        &["NAM3", "DEFL"],
+    );
+}
+
+// ZOOM (Zoom, KK-389): the aim-down-sights settings, on the ContactShadow component
+// layout; every typed member of the definition is written and read back. Its only
+// FormID member is inside the ZNAM struct, so it gets no dangling-link test, as for a
+// type whose links are all inside structs.
+#[test]
+fn zoom_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ZOOM",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );

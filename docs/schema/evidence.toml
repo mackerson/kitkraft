@@ -1580,3 +1580,32 @@ evidence = [
   "test: crates/engine/src/handlers/authoring_tests.rs::movt_new_sets_every_typed_member_and_reads_back",
 ]
 note = "KK-341: new with every typed leaf member (7 subrecords; MOVT has no component block) on the ContactShadow component layout, read back identically, validate with no finding; MOVT has no FormID member, so there is no dangling-link test"
+
+[[entry]]
+type = "AMMO"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::ammo_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::ammo_dangling_link_is_reported",
+]
+note = "KK-389: new with every typed leaf member (36 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling SNTP (the snap template) and DEFL (the default layer) reported"
+
+[[entry]]
+type = "PROJ"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::proj_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::proj_dangling_link_is_reported",
+]
+note = "KK-389: new with every typed leaf member (36 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling NAM3 (the curve table) and DEFL (the default layer) reported"
+
+[[entry]]
+type = "ZOOM"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::zoom_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-389: new with every typed leaf member (5 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; its only FormID member is inside the ZNAM struct, so it gets no dangling-link test"
