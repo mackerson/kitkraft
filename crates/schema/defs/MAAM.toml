@@ -1,35 +1,33 @@
-# MAAM: MeleeAimAssistModel, inventory definition (KK-111).
+# MAAM: MeleeAimAssistModel, the melee aim-assist model: cone angles, steering
+# rates and a switch.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: the KK-111 scan of every official MAAM record (1 in the 14 ESMs,
-#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
-#     which order and how often. Every member is listed because the corpus has it, and every
-#     official record decodes with nothing left unplaced and re-encodes byte for byte.
-#   xedit: the MAAM definition of wbDefinitionsSF1.pas at the pinned revision (L14259-L14288),
-#     cited per member for its position where it lists the subrecord.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#   lane E's corpus lstring table: no subrecord of this type is an lstring (M3.B8).
+# Sources (ADR 0004, ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14259-L14288 - member order, EDID
+#     (L14276) and the SNAM struct named 'Data' of eight fields (L14278-L14287).
+#     Upstream also lists the base form component block (L14277); no official
+#     record has one, so it is left out (a plugin that has one keeps it raw).
+#   corpus: the maam_types scan in crates/esm/tests/maam_types.rs checks this
+#     definition against every official MAAM record (1 in the 14 ESMs): every
+#     subrecord is placed, every placed subrecord decodes, and the re-encoding
+#     reproduces every record.
 #
-# An inventory: EDID is typed; every other payload is opaque (named after its signature, a
-# placeholder) until a family lane transcribes the record from the pinned xEdit file
-# (docs/gaps.md). Members xEdit lists that no official record has are left out (here: the
-# base form component frame, L14277; no official record has a BFCB..BFCE block); a plugin
-# that has one keeps it raw.
+# Names are ours (UpperCamelCase); no xEdit code, comments or labels are copied.
+# The one-byte boolean uses the shared Bool8 enum.
 signature = "MAAM"
 name = "MeleeAimAssistModel"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14259-L14288"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14259-L14288",
+  "corpus: maam_types_full (crates/esm/tests/maam_types.rs), 2026-11-26: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically",
 ]
-confidence = "corpus"
-note = "inventory definition (KK-111): corpus order and cardinality; EDID typed, every other payload opaque"
+confidence = "reference"
+note = "typed from the pinned xEdit file (L14259-L14288): EDID and the SNAM data struct (six f32, a Bool8 and an f32; 29 bytes, not padded) are typed; no official record has the base form component block, so it is left out"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official MAAM records (1 occurrences), 13 bytes"
+source = "corpus: maam_types_full (crates/esm/tests/maam_types.rs), 2026-11-26: in 1 of 1 official MAAM records (1 occurrences), 13 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14276-L14276",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
@@ -39,12 +37,22 @@ confidence = "corpus"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
-card = "required"
-source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: in 1 of 1 official MAAM records (1 occurrences), 29 bytes"
+name = "Data"
+type = "struct"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14278-L14278",
+  "corpus: maam_types_full (crates/esm/tests/maam_types.rs), 2026-11-26: in 1 of 1 official MAAM records (1 occurrences), 29 bytes",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14278-L14287",
 ]
 confidence = "corpus"
-note = "payload not decoded (KK-111 inventory); observed 29 bytes"
+note = "six f32, a Bool8 and an f32 in the pinned file's order; 24 + 1 + 4 = 29 bytes, not padded; optional in the pinned file although every official record (1 of 1) has it (owner ruling 2026-11-07)"
+field = [
+  { name = "InnerConeAngleDegrees", type = "f32" },
+  { name = "OuterConeAngleDegrees", type = "f32" },
+  { name = "SteeringDegreesPerSecond", type = "f32" },
+  { name = "AccelerationDegreesPerSecond", type = "f32" },
+  { name = "DecelerationDegreesPerSecond", type = "f32" },
+  { name = "ActorTargetFinderMaxDistance", type = "f32" },
+  { name = "MeleeAimAssistEnabled", type = "ref:Bool8" },
+  { name = "MaxCapsuleAngleForVerticalAimingCorrectionDegrees", type = "f32" },
+]

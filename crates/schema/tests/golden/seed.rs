@@ -144,7 +144,7 @@
 // - LVLN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14077-L14116; corpus)
 // - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14158; corpus)
 // - LVSC (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14161-L14204; reference)
-// - MAAM (corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-28: every official MAAM record (1) decodes with every subrecord placed and re-encodes identically; corpus)
+// - MAAM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14259-L14288; reference)
 // - MATT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14291-L14307; corpus)
 // - MESG (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14310-L14358; corpus)
 // - MGEF (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554; corpus)
@@ -62180,12 +62180,65 @@ impl LvscRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct MaamData {
+    pub inner_cone_angle_degrees: f32,
+    pub outer_cone_angle_degrees: f32,
+    pub steering_degrees_per_second: f32,
+    pub acceleration_degrees_per_second: f32,
+    pub deceleration_degrees_per_second: f32,
+    pub actor_target_finder_max_distance: f32,
+    pub melee_aim_assist_enabled: Bool8,
+    pub max_capsule_angle_for_vertical_aiming_correction_degrees: f32,
+}
+
+impl Field for MaamData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "MAAM.SNAM.InnerConeAngleDegrees", ctx)?;
+        let f1 = f32::read(r, "MAAM.SNAM.OuterConeAngleDegrees", ctx)?;
+        let f2 = f32::read(r, "MAAM.SNAM.SteeringDegreesPerSecond", ctx)?;
+        let f3 = f32::read(r, "MAAM.SNAM.AccelerationDegreesPerSecond", ctx)?;
+        let f4 = f32::read(r, "MAAM.SNAM.DecelerationDegreesPerSecond", ctx)?;
+        let f5 = f32::read(r, "MAAM.SNAM.ActorTargetFinderMaxDistance", ctx)?;
+        let f6 = Field::read(r, "MAAM.SNAM.MeleeAimAssistEnabled", ctx)?;
+        let f7 = f32::read(
+            r,
+            "MAAM.SNAM.MaxCapsuleAngleForVerticalAimingCorrectionDegrees",
+            ctx,
+        )?;
+        Ok(Self {
+            inner_cone_angle_degrees: f0,
+            outer_cone_angle_degrees: f1,
+            steering_degrees_per_second: f2,
+            acceleration_degrees_per_second: f3,
+            deceleration_degrees_per_second: f4,
+            actor_target_finder_max_distance: f5,
+            melee_aim_assist_enabled: f6,
+            max_capsule_angle_for_vertical_aiming_correction_degrees: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.inner_cone_angle_degrees.write(out);
+        self.outer_cone_angle_degrees.write(out);
+        self.steering_degrees_per_second.write(out);
+        self.acceleration_degrees_per_second.write(out);
+        self.deceleration_degrees_per_second.write(out);
+        self.actor_target_finder_max_distance.write(out);
+        self.melee_aim_assist_enabled.write(out);
+        self.max_capsule_angle_for_vertical_aiming_correction_degrees
+            .write(out);
+    }
+}
+
+impl Visit for MaamData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct MaamRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
-    /// `SNAM`, required.
-    pub snam: Option<Sub<Bytes>>,
+    /// `SNAM`, optional.
+    pub data: Option<Sub<MaamData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -62202,7 +62255,7 @@ impl MaamRecord {
         },
         MemberDesc::Sub {
             sig: *b"SNAM",
-            card: Card::Required,
+            card: Card::Optional,
         },
     ];
 
@@ -62219,7 +62272,7 @@ impl MaamRecord {
                     put(&mut self.editor_id, subs, *index, "MAAM.EDID", ctx, extra)
                 }
                 Hit::Sub { member: 1, index } => {
-                    put(&mut self.snam, subs, *index, "MAAM.SNAM", ctx, extra)
+                    put(&mut self.data, subs, *index, "MAAM.SNAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -62228,7 +62281,7 @@ impl MaamRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"SNAM", self.snam.as_ref());
+        emit(out, *b"SNAM", self.data.as_ref());
     }
 }
 
