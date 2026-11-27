@@ -3,7 +3,6 @@ id = "KK-398"
 title = "Clone-sample corpus test for ARMO"
 timeout_min = 60
 budget_h = 1.5
-base = "kk/KK-398-wip"
 owns = [
   "crates/engine/tests/clone_sample_corpus.rs",
   "docs/schema/support-matrix.md",

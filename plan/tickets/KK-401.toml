@@ -13,7 +13,7 @@ brief = """
 corpus tests: KK-004 wrote them for locations and terminals, KK-014 for pack-ins and
 factions, KK-261 and KK-266 for ingestibles, books, misc items and doors, and KK-342 and
 KK-343 (queued for the night of 2026-11-16; they may have landed) for containers and keys.
-Each test calls `sample_clones(sig, prefix)`, which lists every record of a type in
+Each test calls `sample_clones(sig, prefix, skip_unclonable)` (`skip_unclonable` is KK-398's: `false` for every type but ARMO), which lists every record of a type in
 `Starfield.esm` with paged `query`, takes 100 records spread evenly by FormID, clones each
 into one patch, compares each clone with its source subrecord by subrecord (the FormID, the
 `EDID` and the inlined lstrings may change; everything else must be byte-identical, same
@@ -25,7 +25,7 @@ Add one test in that file for `LIGH` (lights; 1723 official records in the 14 fi
 them in `Starfield.esm`), with this exact name, after the last test in the file and in the
 style of those that exist (`#[ignore = "reads Starfield.esm; slow"]`):
 
-- `a_sample_of_official_lights_clones_identically`: `sample_clones("LIGH", "Ligh")`.
+- `a_sample_of_official_lights_clones_identically`: `sample_clones("LIGH", "Ligh", false)`.
 
 Lights hold a model, the light data (`DATA`, `FLBD`), keywords, base form component blocks (the object window filter among them) and sometimes script data (`VMAD`); LIGH already has typed-write tests (KK-259). `clone` copies all of it as stored, so 100 identical and 0 explained is the expected
 result. 
