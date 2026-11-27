@@ -1609,3 +1609,32 @@ evidence = [
   "test: crates/engine/src/handlers/authoring_tests.rs::zoom_new_sets_every_typed_member_and_reads_back",
 ]
 note = "KK-389: new with every typed leaf member (5 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; its only FormID member is inside the ZNAM struct, so it gets no dangling-link test"
+
+[[entry]]
+type = "ARTO"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::arto_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::arto_dangling_link_is_reported",
+]
+note = "KK-390: new with every typed leaf member (18 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling ENAM (the effect shader) reported"
+
+[[entry]]
+type = "HDPT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::hdpt_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::hdpt_dangling_link_is_reported",
+]
+note = "KK-390: new with every typed leaf member (21 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; dangling TNAM (the texture set) and HNAM (the extra parts, a FormID array) reported"
+
+[[entry]]
+type = "BPTD"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::bptd_new_sets_every_typed_member_and_reads_back",
+]
+note = "KK-390: new with every typed leaf member (19 subrecords) on the ContactShadow component layout, read back identically, validate with no finding; it has no top-level FormID member (its links are all inside structs), so it gets no dangling-link test"
