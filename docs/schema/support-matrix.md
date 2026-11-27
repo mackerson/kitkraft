@@ -150,6 +150,16 @@ The proofs:
   KEYM, in 492.30 s (about 8 minutes, release build on a shared machine). Same claim as
   above: only the FormID, the `EDID` and the inlined lstrings change, and the patch
   validates with 0 errors.
+- `crates/engine/tests/clone_sample_corpus.rs` (KK-398, ignored, `--include-ignored`):
+  `a_sample_of_official_armor_clones_identically` samples 100 official records, spread
+  evenly by FormID over `Starfield.esm`, and clones 88 of them into one patch.
+  `clone-sample ARMO: 88 cloned, 88 identical, 0 explained` over Starfield.esm's 1017
+  ARMO, in 511.73 s (about 9 minutes, release build on a shared machine); the sample
+  misses 12 records whose `FULL` ID is in none of Starfield.esm's English string tables
+  (85 of them, `docs/gaps.md` lstring row): `clone` refuses them, the test prints them as
+  `unclonable` and leaves them out of the sample, a limit of the source, not of the
+  clone. Same claim as above: only the FormID, the `EDID` and the inlined lstrings
+  change, and the patch validates with 0 errors.
 
 Known limits: `set` paths do not address the elements of a subrecord whose whole payload is
 an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole (`hex:`).
