@@ -10,7 +10,8 @@
 //! PCMT (KK-306), PCBN (KK-307), PCCN (KK-308), PNDT (KK-309), LVLP (KK-310) and LVLN (KK-311,
 //! 2026-11-15) and NPC_ and PACK (KK-312, KK-313, 2026-11-15), GMST (under a `b`
 //! EditorID) and LGDI (2026-11-17), COLL, MATT and ADDN (KK-340, 2026-11-17) and SPCH,
-//! STND and MOVT (KK-341, 2026-11-17), AMMO, PROJ and ZOOM (KK-389, 2026-11-26)
+//! STND and MOVT (KK-341, 2026-11-17), AMMO, PROJ and ZOOM (KK-389, 2026-11-26) and
+//! ARTO, HDPT and BPTD (KK-390, 2026-11-27)
 //! (`docs/schema/support-matrix.md`, the typed-writable evidence of
 //! `docs/schema/evidence.toml`). The QUST and LVLI read-backs, once ignored, pass since
 //! KK-220 (scaffold.rs `record_order`).
@@ -2546,6 +2547,67 @@ fn proj_dangling_link_is_reported() {
 fn zoom_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "ZOOM",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// ARTO (ArtObject, KK-390): an object that carries a magic effect or is a piece of
+// misc art, on the ContactShadow component layout; every typed member of the
+// definition is written and read back.
+#[test]
+fn arto_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ARTO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn arto_dangling_link_is_reported() {
+    // The effect shader (ENAM).
+    dangling(
+        "ARTO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("ENAM", json!(MISSING))],
+        &["ENAM"],
+    );
+}
+
+// HDPT (HeadPart, KK-390): a head and face part that a race's head part list builds a
+// face from, on the ContactShadow component layout; every typed member of the
+// definition is written and read back.
+#[test]
+fn hdpt_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "HDPT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn hdpt_dangling_link_is_reported() {
+    // The texture set (TNAM) and the extra parts (HNAM, a FormID array).
+    dangling(
+        "HDPT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("TNAM", json!(MISSING)), ("HNAM", json!([MISSING]))],
+        &["TNAM", "HNAM"],
+    );
+}
+
+// BPTD (BodyPartData, KK-390): the body-part data of a creature's body, on the
+// ContactShadow component layout; every typed member of the definition is written and
+// read back. It has no top-level FormID member, so it gets no dangling-link test, as
+// for a type whose links are all inside structs.
+#[test]
+fn bptd_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "BPTD",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );

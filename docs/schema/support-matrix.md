@@ -48,7 +48,7 @@ Seeded 2026-10-15 from what `main` proves:
 
 - typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA, OTFT, ALCH, BOOK,
   KEYM, FLOR, DOOR, LIGH, FURN, MSTT,
-  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_, PACK, COLL, MATT, ADDN, SPCH, STND, MOVT, AMMO, PROJ and ZOOM (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  MESG, ENCH, IRES, HAZD, DIAL, INFO, WWED, RSPJ, AVIF, PERK, REGN, TXST, SOUN, WKMF, PCMT, PCBN, PCCN, PNDT, LVLP, LVLN, NPC_, PACK, COLL, MATT, ADDN, SPCH, STND, MOVT, AMMO, PROJ, ZOOM, ARTO, HDPT and BPTD (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
@@ -587,3 +587,26 @@ Typed-writable, in the pattern of the LCTN to FACT tests above
   `DEFL`): each link is reported by `validate`'s `formid.dangling` and listed as
   `missing` by `refs`. ZOOM's only FormID member is inside the `ZNAM` struct, so it has
   no dangling test.
+
+## ARTO, HDPT and BPTD (KK-390, 2026-11-27)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`). ARTO, HDPT and BPTD on the
+`ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ARTO | not-run | pass |
+| HDPT | not-run | pass |
+| BPTD | not-run | pass |
+
+- `arto_new_sets_every_typed_member_and_reads_back` (18 subrecords),
+  `hdpt_new_sets_every_typed_member_and_reads_back` (21) and
+  `bptd_new_sets_every_typed_member_and_reads_back` (19): `new` with every typed leaf
+  member of the definition, read back byte for byte, `validate` with no finding and no
+  unchecked subrecord.
+- `arto_dangling_link_is_reported` (the effect shader `ENAM`) and
+  `hdpt_dangling_link_is_reported` (the texture set `TNAM`, the extra parts `HNAM`, a
+  FormID array): each link is reported by `validate`'s `formid.dangling` and listed as
+  `missing` by `refs`. BPTD has no top-level FormID member (its links are all inside
+  structs), so it has no dangling test.
